@@ -5,6 +5,7 @@ from cognite.client.data_classes.capabilities import Capability, StreamsAcl
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamRequest,
     StreamResponse,
@@ -63,18 +64,17 @@ class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse]):
         retrieved: list[StreamResponse] = []
         for _id in ids:
             try:
-                _resp = self.client.streams.retrieve(_id)
+                _resp = self.client.streams.retrieve([ExternalId(external_id=_id)])
             except ToolkitAPIError:
                 continue
-            if _resp is not None:
-                retrieved.append(_resp)
+            retrieved.extend(_resp)
         return StreamResponseList(retrieved)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         count = 0
         for _id in ids:
             try:
-                self.client.streams.delete(_id)
+                self.client.streams.delete([ExternalId(external_id=_id)])
             except ToolkitAPIError:
                 continue
             count += 1

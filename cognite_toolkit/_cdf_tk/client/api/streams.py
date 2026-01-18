@@ -13,15 +13,17 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamReques
 
 
 class StreamsAPI(CDFResourceAPI[ExternalId, StreamRequest, StreamResponse]):
-    ENDPOINT = "/streams"
-
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(method="POST", path="/streams", item_limit=1000, concurrency_max_workers=1),
+                "create": Endpoint(method="POST", path="/streams", item_limit=1000),
                 # Note: list uses GET without pagination
                 "list": Endpoint(method="GET", path="/streams", item_limit=1000),
+                # Note: retrieve uses path parameter GET /streams/{externalId}
+                "retrieve": Endpoint(method="GET", path="/streams", item_limit=1),
+                # Note: delete uses path parameter POST /streams/{externalId}/delete
+                "delete": Endpoint(method="POST", path="/streams", item_limit=1),
             },
         )
 
@@ -41,50 +43,61 @@ class StreamsAPI(CDFResourceAPI[ExternalId, StreamRequest, StreamResponse]):
         """
         return self._request_item_response(items, "create")
 
-    def delete(self, external_id: str) -> None:
-        """Delete stream using its external ID.
+    def delete(self, items: Sequence[ExternalId]) -> None:
+        """Delete streams using their external IDs.
+
+        Note: The streams API only supports deleting one stream at a time via path parameter.
 
         Args:
-            external_id: External ID of the stream to delete.
+            items: Sequence of ExternalId objects to delete.
         """
-        response = self._http_client.request_single_retries(
-            RequestMessage2(
-                endpoint_url=self._make_url(f"{self.ENDPOINT}/{external_id}"),
-                method="DELETE",
+        for item in items:
+            response = self._http_client.request_single_retries(
+                RequestMessage2(
+                    endpoint_url=self._make_url(f"/streams/{item.external_id}/delete"),
+                    method="POST",
+                )
             )
-        )
-        _ = response.get_success_or_raise()
+            _ = response.get_success_or_raise()
 
     def list(self) -> list[StreamResponse]:
-        """List streams.
+        """List all streams.
+
+        Note: The streams API does not support pagination.
 
         Returns:
-            StreamResponseList containing the listed streams.
+            List of StreamResponse items.
         """
         response = self._http_client.request_single_retries(
             RequestMessage2(
-                endpoint_url=self._make_url(self.ENDPOINT),
+                endpoint_url=self._make_url("/streams"),
                 method="GET",
             )
         )
         success = response.get_success_or_raise()
         return PagedResponse[StreamResponse].model_validate(success.body_json).items
 
-    def retrieve(self, external_id: str, include_statistics: bool = True) -> StreamResponse:
-        """Retrieve a stream by its external ID.
+    def retrieve(self, items: Sequence[ExternalId], include_statistics: bool = True) -> list[StreamResponse]:
+        """Retrieve streams by their external IDs.
+
+        Note: The streams API only supports retrieving one stream at a time via path parameter.
 
         Args:
-            external_id: External ID of the stream to retrieve.
+            items: Sequence of ExternalId objects to retrieve.
             include_statistics: Whether to include usage statistics in the response.
+
         Returns:
-            StreamResponse item.
+            List of StreamResponse items.
         """
-        response = self._http_client.request_single_retries(
-            RequestMessage2(
-                endpoint_url=self._make_url(f"{self.ENDPOINT}/{external_id}"),
-                method="GET",
-                parameters={"includeStatistics": include_statistics},
+        results: list[StreamResponse] = []
+        for item in items:
+            response = self._http_client.request_single_retries(
+                RequestMessage2(
+                    endpoint_url=self._make_url(f"/streams/{item.external_id}"),
+                    method="GET",
+                    parameters={"includeStatistics": include_statistics},
+                )
             )
-        )
-        success = response.get_success_or_raise()
-        return StreamResponse.model_validate(success.body_json)
+            success = response.get_success_or_raise()
+            results.append(StreamResponse.model_validate(success.body_json))
+        return results

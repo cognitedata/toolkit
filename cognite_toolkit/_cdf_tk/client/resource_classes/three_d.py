@@ -1,9 +1,9 @@
 import sys
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import Field
 
-from .base import BaseModelObject, Identifier, RequestResource, ResponseResource
+from .base import BaseModelObject, Identifier, RequestResource, RequestUpdateable, ResponseResource
 from .identifiers import NameId
 from .instance_api import NodeReference
 
@@ -28,7 +28,8 @@ class ThreeDModelRequest(RequestResource):
         return NameId(name=self.name)
 
 
-class ThreeDModelClassicRequest(ThreeDModelRequest):
+class ThreeDModelClassicRequest(ThreeDModelRequest, RequestUpdateable):
+    container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})
     data_set_id: int | None = None
     metadata: dict[str, str] | None = None
 

@@ -52,6 +52,28 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicReques
         """
         return self._request_item_response(items, "create")
 
+    def retrieve(self, ids: Sequence[InternalId]) -> list[ThreeDModelResponse]:
+        """Retrieve 3D models by their IDs.
+
+        Args:
+            ids (Sequence[int]): The IDs of the 3D models to retrieve.
+
+        Returns:
+            list[ThreeDModelResponse]: The retrieved 3D model(s).
+        """
+        return self._request_item_response(ids, "retrieve")
+
+    def update(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelResponse]:
+        """Update 3D models in classic format.
+
+        Args:
+            items (Sequence[ThreeDModelClassicRequest]): The 3D model(s) to update.
+
+        Returns:
+            list[ThreeDModelResponse]: The updated 3D model(s).
+        """
+        return self._request_item_response(items, "update")
+
     def delete(self, ids: Sequence[InternalId]) -> None:
         """Delete 3D models by their IDs.
 
