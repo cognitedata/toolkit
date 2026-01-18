@@ -25,6 +25,8 @@ from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCateg
 from cognite_toolkit._cdf_tk.client.api.sequences import SequencesAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
 from cognite_toolkit._cdf_tk.client.api.spaces import SpacesAPI
+from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
+from cognite_toolkit._cdf_tk.client.api.three_d import ThreeDClassicModelsAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
@@ -120,6 +122,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest, StreamlitResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicRequest, ThreeDModelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest, TransformationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
@@ -553,6 +557,17 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "createdTime": 1622547800000,
             "updatedTime": 1622547800000,
         },
+        StreamResponse: {
+            "externalId": "stream_001",
+            "createdTime": 1622547800000,
+            "createdFromTemplate": "ImmutableTestStream",
+            "type": "Immutable",
+        },
+        ThreeDModelResponse: {
+            "id": 123,
+            "name": "Example 3D Model",
+            "createdTime": 1622547800000,
+        },
     }
     try:
         return responses[resource_cls]
@@ -966,4 +981,24 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             example_data=get_example_minimum_responses(RobotMapResponse),
         ),
         id="RobotMap",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=StreamResponse,
+            request_cls=StreamRequest,
+            example_data=get_example_minimum_responses(StreamResponse),
+            api_class=StreamsAPI,
+            # StreamsAPI uses path parameters for retrieve/delete, so generic API tests
+            # may not work directly without custom mocking.
+        ),
+        id="Stream",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=ThreeDModelResponse,
+            request_cls=ThreeDModelClassicRequest,
+            example_data=get_example_minimum_responses(ThreeDModelResponse),
+            api_class=ThreeDClassicModelsAPI,
+        ),
+        id="ThreeDClassicModel",
     )

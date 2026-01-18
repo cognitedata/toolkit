@@ -17,13 +17,10 @@ class StreamsAPI(CDFResourceAPI[ExternalId, StreamRequest, StreamResponse]):
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(method="POST", path="/streams", item_limit=1000),
-                # Note: list uses GET without pagination
+                "create": Endpoint(method="POST", path="/streams", item_limit=1),
+                "delete": Endpoint(method="POST", path="/streams/delete", item_limit=1),
+                "retrieve": Endpoint(method="GET", path="/streams/{streamId}", item_limit=1),
                 "list": Endpoint(method="GET", path="/streams", item_limit=1000),
-                # Note: retrieve uses path parameter GET /streams/{externalId}
-                "retrieve": Endpoint(method="GET", path="/streams", item_limit=1),
-                # Note: delete uses path parameter POST /streams/{externalId}/delete
-                "delete": Endpoint(method="POST", path="/streams", item_limit=1),
             },
         )
 
@@ -51,31 +48,7 @@ class StreamsAPI(CDFResourceAPI[ExternalId, StreamRequest, StreamResponse]):
         Args:
             items: Sequence of ExternalId objects to delete.
         """
-        for item in items:
-            response = self._http_client.request_single_retries(
-                RequestMessage2(
-                    endpoint_url=self._make_url(f"/streams/{item.external_id}/delete"),
-                    method="POST",
-                )
-            )
-            _ = response.get_success_or_raise()
-
-    def list(self) -> list[StreamResponse]:
-        """List all streams.
-
-        Note: The streams API does not support pagination.
-
-        Returns:
-            List of StreamResponse items.
-        """
-        response = self._http_client.request_single_retries(
-            RequestMessage2(
-                endpoint_url=self._make_url("/streams"),
-                method="GET",
-            )
-        )
-        success = response.get_success_or_raise()
-        return PagedResponse[StreamResponse].model_validate(success.body_json).items
+        return self._request_no_response(items, "delete")
 
     def retrieve(self, items: Sequence[ExternalId], include_statistics: bool = True) -> list[StreamResponse]:
         """Retrieve streams by their external IDs.
@@ -90,14 +63,25 @@ class StreamsAPI(CDFResourceAPI[ExternalId, StreamRequest, StreamResponse]):
             List of StreamResponse items.
         """
         results: list[StreamResponse] = []
+        endpoint = self._method_endpoint_map["retrieve"]
         for item in items:
             response = self._http_client.request_single_retries(
                 RequestMessage2(
-                    endpoint_url=self._make_url(f"/streams/{item.external_id}"),
-                    method="GET",
+                    endpoint_url=self._make_url(endpoint.path.format(streamId=item.external_id)),
+                    method=endpoint.method,
                     parameters={"includeStatistics": include_statistics},
                 )
             )
             success = response.get_success_or_raise()
             results.append(StreamResponse.model_validate(success.body_json))
         return results
+
+    def list(self) -> list[StreamResponse]:
+        """List all streams.
+
+        Note: The streams API does not support pagination.
+
+        Returns:
+            List of StreamResponse items.
+        """
+        return self._list(limit=None)
