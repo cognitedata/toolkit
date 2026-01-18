@@ -3,7 +3,6 @@ from collections.abc import Iterable, Sequence
 from typing import Any, TypeVar
 
 from pydantic import TypeAdapter
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -13,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse2,
     SuccessResponse2,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId, NameId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicRequest,
     AssetMappingDMRequest,
@@ -24,14 +23,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 
-class ThreeDModelAPI(CDFResourceAPI[NameId, ThreeDModelClassicRequest, ThreeDModelResponse]):
+class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicRequest, ThreeDModelResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(method="POST", path="/3d/models", item_limit=1000, concurrency_max_workers=1),
-                "delete": Endpoint(method="POST", path="/3d/models/delete", item_limit=1000, concurrency_max_workers=1),
-                # Note: The 3D models list endpoint uses GET, not POST
+                "create": Endpoint(method="POST", path="/3d/models", item_limit=1000),
+                "delete": Endpoint(method="POST", path="/3d/models/delete", item_limit=1000),
+                "update": Endpoint(method="POST", path="/3d/models/update", item_limit=1000),
+                "retrieve": Endpoint(method="GET", path="/3d/models/{modelId}", item_limit=1000),
                 "list": Endpoint(method="GET", path="/3d/models", item_limit=1000),
             },
         )
@@ -41,26 +41,36 @@ class ThreeDModelAPI(CDFResourceAPI[NameId, ThreeDModelClassicRequest, ThreeDMod
     ) -> PagedResponse[ThreeDModelResponse]:
         return PagedResponse[ThreeDModelResponse].model_validate_json(response.body)
 
-    def create(self, models: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelResponse]:
+    def create(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelResponse]:
         """Create 3D models in classic format.
 
         Args:
-            models (Sequence[ThreeDModelClassicRequest]): The 3D model(s) to create.
+            items (Sequence[ThreeDModelClassicRequest]): The 3D model(s) to create.
 
         Returns:
             list[ThreeDModelResponse]: The created 3D model(s).
         """
-        return self._request_item_response(models, "create")
+        return self._request_item_response(items, "create")
 
-    def delete(self, ids: Sequence[int]) -> None:
+    def delete(self, ids: Sequence[InternalId]) -> None:
         """Delete 3D models by their IDs.
 
         Args:
             ids (Sequence[int]): The IDs of the 3D models to delete.
         """
-        if not ids:
-            return None
-        self._request_no_response(InternalId.from_ids(list(ids)), "delete")
+        self._request_no_response(ids, "delete")
+
+    @staticmethod
+    def _create_list_filter(include_revision_info: bool, published: bool | None) -> dict[str, bool]:
+        params = {
+            # There is a bug in the API. The parameter includeRevisionInfo is expected to be lower case and not
+            # camel case as documented. You get error message: Unrecognized query parameter includeRevisionInfo,
+            # did you mean includerevisioninfo?
+            "includerevisioninfo": include_revision_info,
+        }
+        if published is not None:
+            params["published"] = published
+        return params
 
     def paginate(
         self,
@@ -69,15 +79,18 @@ class ThreeDModelAPI(CDFResourceAPI[NameId, ThreeDModelClassicRequest, ThreeDMod
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[ThreeDModelResponse]:
-        params = {
-            # There is a bug in the API. The parameter includeRevisionInfo is expected to be lower case and not
-            # camel case as documented. You get error message: Unrecognized query parameter includeRevisionInfo,
-            # did you mean includerevisioninfo?
-            "includerevisioninfo": include_revision_info,
-        }
-        if published is not None:
-            params["published"] = published
+        params = self._create_list_filter(include_revision_info, published)
         return self._paginate(limit=limit, cursor=cursor, params=params)
+
+    def iterate(
+        self,
+        published: bool | None = None,
+        include_revision_info: bool = False,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> Iterable[list[ThreeDModelResponse]]:
+        params = self._create_list_filter(include_revision_info, published)
+        return self._iterate(limit=limit, cursor=cursor, params=params)
 
     def list(
         self,
@@ -85,14 +98,7 @@ class ThreeDModelAPI(CDFResourceAPI[NameId, ThreeDModelClassicRequest, ThreeDMod
         include_revision_info: bool = False,
         limit: int | None = 100,
     ) -> list[ThreeDModelResponse]:
-        params = {
-            # There is a bug in the API. The parameter includeRevisionInfo is expected to be lower case and not
-            # camel case as documented. You get error message: Unrecognized query parameter includeRevisionInfo,
-            # did you mean includerevisioninfo?
-            "includerevisioninfo": include_revision_info,
-        }
-        if published is not None:
-            params["published"] = published
+        params = self._create_list_filter(include_revision_info, published)
         return self._list(limit=limit, params=params)
 
 
@@ -341,6 +347,6 @@ class ThreeDAssetMappingAPI(
 
 
 class ThreeDAPI:
-    def __init__(self, http_client: HTTPClient, console: Console) -> None:
-        self.models = ThreeDModelAPI(http_client)
+    def __init__(self, http_client: HTTPClient) -> None:
+        self.models = ThreeDClassicModelsAPI(http_client)
         self.asset_mappings = ThreeDAssetMappingAPI(http_client)
