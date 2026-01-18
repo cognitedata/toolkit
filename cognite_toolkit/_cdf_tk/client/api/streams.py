@@ -1,24 +1,34 @@
 from collections.abc import Sequence
 
-from pydantic import TypeAdapter
-from rich.console import Console
-
-from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
+from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
-    ItemsRequest2,
+    ItemsSuccessResponse2,
     RequestMessage2,
+    SuccessResponse2,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 
 
-class StreamsAPI:
+class StreamsAPI(CDFResourceAPI[ExternalId, StreamRequest, StreamResponse]):
     ENDPOINT = "/streams"
 
-    def __init__(self, http_client: HTTPClient, console: Console) -> None:
-        self._http_client = http_client
-        self._console = console
-        self._config = http_client.config
+    def __init__(self, http_client: HTTPClient) -> None:
+        super().__init__(
+            http_client=http_client,
+            method_endpoint_map={
+                "create": Endpoint(method="POST", path="/streams", item_limit=1000, concurrency_max_workers=1),
+                # Note: list uses GET without pagination
+                "list": Endpoint(method="GET", path="/streams", item_limit=1000),
+            },
+        )
+
+    def _validate_page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[StreamResponse]:
+        return PagedResponse[StreamResponse].model_validate_json(response.body)
 
     def create(self, items: Sequence[StreamRequest]) -> list[StreamResponse]:
         """Create one or more streams.
@@ -29,15 +39,7 @@ class StreamsAPI:
         Returns:
             List of created StreamResponse items.
         """
-        responses = self._http_client.request_items_retries(
-            ItemsRequest2(
-                endpoint_url=self._config.create_api_url(self.ENDPOINT),
-                method="POST",
-                items=items,
-            )
-        )
-        responses.raise_for_status()
-        return TypeAdapter(list[StreamResponse]).validate_python(responses.get_items())
+        return self._request_item_response(items, "create")
 
     def delete(self, external_id: str) -> None:
         """Delete stream using its external ID.
@@ -47,7 +49,7 @@ class StreamsAPI:
         """
         response = self._http_client.request_single_retries(
             RequestMessage2(
-                endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/{external_id}"),
+                endpoint_url=self._make_url(f"{self.ENDPOINT}/{external_id}"),
                 method="DELETE",
             )
         )
@@ -61,7 +63,7 @@ class StreamsAPI:
         """
         response = self._http_client.request_single_retries(
             RequestMessage2(
-                endpoint_url=self._config.create_api_url(self.ENDPOINT),
+                endpoint_url=self._make_url(self.ENDPOINT),
                 method="GET",
             )
         )
@@ -79,7 +81,7 @@ class StreamsAPI:
         """
         response = self._http_client.request_single_retries(
             RequestMessage2(
-                endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/{external_id}"),
+                endpoint_url=self._make_url(f"{self.ENDPOINT}/{external_id}"),
                 method="GET",
                 parameters={"includeStatistics": include_statistics},
             )
