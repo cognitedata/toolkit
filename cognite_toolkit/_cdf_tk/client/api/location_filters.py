@@ -136,25 +136,20 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
 
     def paginate(
         self,
-        limit: int = 100,
-        cursor: str | None = None,
         flat: bool = True,
     ) -> PagedResponse[LocationFilterResponse]:
         """Get a single page of location filters.
 
         Args:
-            limit: Maximum number of items to return.
-            cursor: Cursor for pagination.
             flat: Whether to return a flat list (default True).
 
         Returns:
             PagedResponse of LocationFilterResponse objects.
         """
-        return self._paginate(cursor=cursor, limit=limit, body={"flat": flat})
+        return self._paginate(cursor=None, limit=100, body={"flat": flat})
 
     def iterate(
         self,
-        limit: int | None = None,
         flat: bool = True,
     ) -> Iterable[list[LocationFilterResponse]]:
         """Iterate over all location filters.
@@ -166,9 +161,9 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
         Returns:
             Iterable of lists of LocationFilterResponse objects.
         """
-        return self._iterate(limit=limit, body={"flat": flat})
+        return self._iterate(limit=None, body={"flat": flat})
 
-    def list(self, limit: int | None = None, flat: bool = True) -> list[LocationFilterResponse]:
+    def list(self, flat: bool = True) -> list[LocationFilterResponse]:
         """List all location filters.
 
         Args:
@@ -178,4 +173,4 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
         Returns:
             List of LocationFilterResponse objects.
         """
-        return self._list(limit=limit, body={"flat": flat})
+        return self._list(limit=None, body={"flat": flat})

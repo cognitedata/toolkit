@@ -29,8 +29,6 @@ class SearchConfigurationsAPI(CDFResourceAPI[SearchConfigViewId, SearchConfigReq
             http_client=http_client,
             method_endpoint_map={
                 "upsert": Endpoint(method="POST", path=f"{self.BASE_PATH}/upsert", item_limit=1),
-                # The list endpoint takes no arguments, not even limit, but we keep it
-                # for consistency with other APIs.
                 "list": Endpoint(method="POST", path=f"{self.BASE_PATH}/list", item_limit=1000),
             },
         )
@@ -77,19 +75,15 @@ class SearchConfigurationsAPI(CDFResourceAPI[SearchConfigViewId, SearchConfigReq
         """
         return self.create(items)
 
-    def paginate(self, limit: int = 100, cursor: str | None = None) -> PagedResponse[SearchConfigResponse]:
+    def paginate(self) -> PagedResponse[SearchConfigResponse]:
         """Get a single page of search configurations.
-
-        Args:
-            limit: Maximum number of items to return.
-            cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of SearchConfigResponse objects.
         """
-        return self._paginate(cursor=cursor, limit=limit)
+        return self._paginate(cursor=None, limit=100)
 
-    def iterate(self, limit: int | None = None) -> Iterable[list[SearchConfigResponse]]:
+    def iterate(self) -> Iterable[list[SearchConfigResponse]]:
         """Iterate over all search configurations.
 
         Args:
@@ -98,15 +92,13 @@ class SearchConfigurationsAPI(CDFResourceAPI[SearchConfigViewId, SearchConfigReq
         Returns:
             Iterable of lists of SearchConfigResponse objects.
         """
-        return self._iterate(limit=limit)
+        return self._iterate(limit=None)
 
-    def list(self, limit: int | None = None) -> list[SearchConfigResponse]:
+    def list(self) -> list[SearchConfigResponse]:
         """List all search configurations.
 
-        Args:
-            limit: Maximum number of items to return.
 
         Returns:
             List of SearchConfigResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=None)
