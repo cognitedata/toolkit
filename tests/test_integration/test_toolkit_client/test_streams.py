@@ -1,6 +1,7 @@
 import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
@@ -27,14 +28,15 @@ class TestStreamsAPI:
         assert any(item.external_id == stream.external_id for item in all_streams)
 
         # retrieve stream
-        retrieved = toolkit_client.streams.retrieve(stream.external_id)
-        assert isinstance(retrieved, StreamResponse)
-        assert retrieved.external_id == stream.external_id
-        assert retrieved.created_time > 0
-        assert retrieved.created_from_template == "ImmutableTestStream"
+        retrieved = toolkit_client.streams.retrieve([ExternalId(external_id=stream.external_id)])
+        assert len(retrieved) == 1
+        assert isinstance(retrieved[0], StreamResponse)
+        assert retrieved[0].external_id == stream.external_id
+        assert retrieved[0].created_time > 0
+        assert retrieved[0].created_from_template == "ImmutableTestStream"
 
         # delete stream
-        toolkit_client.streams.delete(stream.external_id)
+        toolkit_client.streams.delete([ExternalId(external_id=stream.external_id)])
 
         # list streams after delete
         all_streams_after_delete = toolkit_client.streams.list()
