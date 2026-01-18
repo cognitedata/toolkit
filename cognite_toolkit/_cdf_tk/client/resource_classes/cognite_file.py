@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client.resource_classes.base import (
     BaseModelObject,
@@ -7,10 +7,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.base import (
     ResponseResource,
 )
 
+from .data_modeling import ViewReference
 from .instance_api import NodeReference, TypedNodeIdentifier
 
 
 class CogniteFile(BaseModelObject):
+    view_ref: ClassVar[ViewReference] = ViewReference(space="cdf_cdm", external_id="CogniteFile", version="v1")
     instance_type: Literal["node"] = "node"
     space: str
     external_id: str

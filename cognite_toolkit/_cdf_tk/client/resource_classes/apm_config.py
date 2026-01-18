@@ -101,7 +101,7 @@ class FeatureConfiguration(BaseModelObject):
 
 class APMConfig(BaseModelObject):
     space: ClassVar[str] = "APM_Config"
-    view_id: ClassVar[ViewReference] = ViewReference(space="APM_Config", external_id="APM_Config", version="1")
+    view_ref: ClassVar[ViewReference] = ViewReference(space="APM_Config", external_id="APM_Config", version="1")
     instance_type: Literal["node"] = "node"
     external_id: str
     name: str | None = None
