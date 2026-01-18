@@ -25,7 +25,6 @@ from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCateg
 from cognite_toolkit._cdf_tk.client.api.sequences import SequencesAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
 from cognite_toolkit._cdf_tk.client.api.spaces import SpacesAPI
-from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import ThreeDClassicModelsAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
@@ -987,9 +986,8 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=StreamResponse,
             request_cls=StreamRequest,
             example_data=get_example_minimum_responses(StreamResponse),
-            api_class=StreamsAPI,
             # StreamsAPI uses path parameters for retrieve/delete, so generic API tests
-            # may not work directly without custom mocking.
+            # do not work directly without custom mocking.
         ),
         id="Stream",
     )
