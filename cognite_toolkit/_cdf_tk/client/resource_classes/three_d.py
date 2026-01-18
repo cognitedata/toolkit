@@ -4,7 +4,7 @@ from typing import ClassVar, Literal
 from pydantic import Field
 
 from .base import BaseModelObject, Identifier, RequestResource, RequestUpdateable, ResponseResource
-from .identifiers import NameId
+from .identifiers import InternalId
 from .instance_api import NodeReference
 
 if sys.version_info >= (3, 11):
@@ -23,9 +23,14 @@ class RevisionStatus(BaseModelObject):
 
 class ThreeDModelRequest(RequestResource):
     name: str
+    # This field is part of the path request and not the body schema.
+    # but is needed for identifier conversion.
+    id: int | None = Field(None, exclude=True)
 
-    def as_id(self) -> NameId:
-        return NameId(name=self.name)
+    def as_id(self) -> InternalId:
+        if self.id is None:
+            raise ValueError("Cannot convert to InternalId when id is None.")
+        return InternalId(id=self.id)
 
 
 class ThreeDModelClassicRequest(ThreeDModelRequest, RequestUpdateable):
