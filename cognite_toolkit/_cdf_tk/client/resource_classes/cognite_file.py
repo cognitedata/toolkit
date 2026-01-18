@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.resource_classes.base import (
     BaseModelObject,
@@ -6,11 +7,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.base import (
     ResponseResource,
 )
 
-from .identifiers import ExternalId
-from .instance_api import NodeReference
+from .instance_api import NodeReference, TypedNodeIdentifier
 
 
 class CogniteFile(BaseModelObject):
+    instance_type: Literal["node"] = "node"
     space: str
     external_id: str
     name: str | None = None
@@ -30,8 +31,8 @@ class CogniteFile(BaseModelObject):
     category: NodeReference | None = None
     type: NodeReference | None = None
 
-    def as_id(self) -> ExternalId:
-        return ExternalId(external_id=self.external_id)
+    def as_id(self) -> TypedNodeIdentifier:
+        return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
 
 
 class CogniteFileRequest(CogniteFile, RequestResource):

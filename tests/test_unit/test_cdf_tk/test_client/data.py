@@ -31,8 +31,10 @@ from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config import APMConfigRequest, APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.base import Identifier, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerRequest,
     ContainerResponse,
@@ -91,6 +93,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
 from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
+    ResourceViewMappingRequest,
+    ResourceViewMappingResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotCapabilityRequest,
     RobotCapabilityResponse,
@@ -553,6 +559,34 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "createdTime": 1622547800000,
             "updatedTime": 1622547800000,
         },
+        CogniteFileResponse: {
+            "space": "my_space",
+            "externalId": "cognite_file_001",
+            "name": "Example File",
+            "version": 1,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        ResourceViewMappingResponse: {
+            "externalId": "mapping_001",
+            "resourceType": "asset",
+            "viewId": {
+                "space": "cdf_cdm",
+                "externalId": "CogniteAsset",
+                "version": "v1",
+            },
+            "propertyMapping": {"name": "name"},
+            "version": 1,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        APMConfigResponse: {
+            "externalId": "apm_config_001",
+            "name": "Example APM Config",
+            "version": 1,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
     }
     try:
         return responses[resource_cls]
@@ -966,4 +1000,28 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             example_data=get_example_minimum_responses(RobotMapResponse),
         ),
         id="RobotMap",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=CogniteFileResponse,
+            request_cls=CogniteFileRequest,
+            example_data=get_example_minimum_responses(CogniteFileResponse),
+        ),
+        id="CogniteFile",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=ResourceViewMappingResponse,
+            request_cls=ResourceViewMappingRequest,
+            example_data=get_example_minimum_responses(ResourceViewMappingResponse),
+        ),
+        id="ResourceViewMapping",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=APMConfigResponse,
+            request_cls=APMConfigRequest,
+            example_data=get_example_minimum_responses(APMConfigResponse),
+        ),
+        id="APMConfig",
     )
