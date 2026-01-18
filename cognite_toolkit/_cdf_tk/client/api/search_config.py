@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -28,9 +28,9 @@ class SearchConfigurationsAPI(CDFResourceAPI[SearchConfigViewId, SearchConfigReq
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "upsert": Endpoint(
-                    method="POST", path=f"{self.BASE_PATH}/upsert", item_limit=1, concurrency_max_workers=1
-                ),
+                "upsert": Endpoint(method="POST", path=f"{self.BASE_PATH}/upsert", item_limit=1),
+                # The list endpoint takes no arguments, not even limit, but we keep it
+                # for consistency with other APIs.
                 "list": Endpoint(method="POST", path=f"{self.BASE_PATH}/list", item_limit=1000),
             },
         )
@@ -44,30 +44,40 @@ class SearchConfigurationsAPI(CDFResourceAPI[SearchConfigViewId, SearchConfigReq
     ) -> PagedResponse[SearchConfigResponse]:
         return PagedResponse[SearchConfigResponse].model_validate_json(response.body)
 
-    def upsert(self, item: SearchConfigRequest) -> SearchConfigResponse:
-        """Create or update a search configuration.
+    def create(self, items: Sequence[SearchConfigRequest]) -> list[SearchConfigResponse]:
+        """Create or update a search configurations.
 
         Args:
-            item: The search configuration to create or update.
+            items: The search configuration to create or update.
 
         Returns:
-            The created or updated search configuration.
+            The created or updated search configurations.
         """
         endpoint = self._method_endpoint_map["upsert"]
-        request = RequestMessage2(
-            endpoint_url=self._make_url(endpoint.path),
-            method=endpoint.method,
-            body_content=item.model_dump(mode="json", by_alias=True),
-        )
-        result = self._http_client.request_single_retries(request)
-        response = result.get_success_or_raise()
-        return SearchConfigResponse.model_validate_json(response.body)
+        results: list[SearchConfigResponse] = []
+        for item in items:
+            request = RequestMessage2(
+                endpoint_url=self._make_url(endpoint.path),
+                method=endpoint.method,
+                body_content=item.model_dump(mode="json", by_alias=True),
+            )
+            result = self._http_client.request_single_retries(request)
+            response = result.get_success_or_raise()
+            results.append(SearchConfigResponse.model_validate_json(response.body))
+        return results
 
-    def paginate(
-        self,
-        limit: int = 100,
-        cursor: str | None = None,
-    ) -> PagedResponse[SearchConfigResponse]:
+    def update(self, items: Sequence[SearchConfigRequest]) -> list[SearchConfigResponse]:
+        """Update a search configurations.
+
+        Args:
+            items: The search configuration to update.
+
+        Returns:
+            The updated search configurations.
+        """
+        return self.create(items)
+
+    def paginate(self, limit: int = 100, cursor: str | None = None) -> PagedResponse[SearchConfigResponse]:
         """Get a single page of search configurations.
 
         Args:
@@ -79,10 +89,7 @@ class SearchConfigurationsAPI(CDFResourceAPI[SearchConfigViewId, SearchConfigReq
         """
         return self._paginate(cursor=cursor, limit=limit)
 
-    def iterate(
-        self,
-        limit: int | None = None,
-    ) -> Iterable[list[SearchConfigResponse]]:
+    def iterate(self, limit: int | None = None) -> Iterable[list[SearchConfigResponse]]:
         """Iterate over all search configurations.
 
         Args:
