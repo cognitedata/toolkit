@@ -165,8 +165,8 @@ class ThreeDClassicAssetMappingAPI(
             for item in result:
                 # We append modelId and revisionId to each item since the API does not return them
                 # this is needed to fully populate the AssetMappingResponse data class
-                object.__setattr__(item, "model_id", model_id)
-                object.__setattr__(item, "revision_id", revision_id)
+                object.__setattr__(item, "model_id", int(model_id))
+                object.__setattr__(item, "revision_id", int(revision_id))
             results.extend(result)
         return results
 
@@ -257,7 +257,7 @@ class ThreeDDMAssetMappingAPI(CDFResourceAPI[AssetMappingDMRequest, AssetMapping
             method_endpoint_map={
                 # These endpoints are parameterized, so the paths are templates
                 "create": Endpoint(method="POST", path=self.ENDPOINT, item_limit=100),
-                "delete": Endpoint(method="DELETE", path=f"{self.ENDPOINT}/delete", item_limit=100),
+                "delete": Endpoint(method="POST", path=f"{self.ENDPOINT}/delete", item_limit=100),
                 "list": Endpoint(method="POST", path=f"{self.ENDPOINT}/list", item_limit=1000),
             },
         )
@@ -301,8 +301,8 @@ class ThreeDDMAssetMappingAPI(CDFResourceAPI[AssetMappingDMRequest, AssetMapping
             for item in result:
                 # We append modelId and revisionId to each item since the API does not return them
                 # this is needed to fully populate the AssetMappingDMResponse data class
-                object.__setattr__(item, "model_id", model_id)
-                object.__setattr__(item, "revision_id", revision_id)
+                object.__setattr__(item, "model_id", int(model_id))
+                object.__setattr__(item, "revision_id", int(revision_id))
             results.extend(result)
         return results
 
@@ -317,10 +317,11 @@ class ThreeDDMAssetMappingAPI(CDFResourceAPI[AssetMappingDMRequest, AssetMapping
             cad_node_space (str):
                 The instance space where the CogniteCADNode are located.
         """
+        endpoint = self._method_endpoint_map["delete"]
         for (model_id, revision_id), group in self._group_items_by_text_field(
             mappings, "model_id", "revision_id"
         ).items():
-            path = self.ENDPOINT.format(modelId=model_id, revisionId=revision_id)
+            path = endpoint.path.format(modelId=model_id, revisionId=revision_id)
             self._request_no_response(
                 group,
                 "delete",
