@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataMo
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
+from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
@@ -32,6 +33,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import External
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTable
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     WorkflowTriggerRequest,
@@ -463,6 +465,44 @@ class TestCDFResourceAPI:
         iterated = list(api.iterate(limit=10, filter=filter))
         assert len(iterated) == 1
         assert iterated[0][0].dump() == resource
+
+    def test_stream_api_crud_list_methods(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        resource = get_example_minimum_responses(StreamResponse)
+        instance = StreamResponse.model_validate(resource)
+        config = toolkit_config
+        api = StreamsAPI(HTTPClient(config))
+        request_item = instance.as_request_resource()
+
+        # Test create
+        respx_mock.post(config.create_api_url("/streams")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        created = api.create([request_item])
+        assert len(created) == 1
+        assert created[0].dump() == resource
+
+        # Test retrieve
+        respx_mock.get(config.create_api_url(f"/streams/{instance.external_id}")).mock(
+            return_value=httpx.Response(status_code=200, json=resource)
+        )
+        retrieved = api.retrieve([request_item.as_id()])
+        assert len(retrieved) == 1
+        assert retrieved[0].dump() == resource
+
+        # Test delete
+        respx_mock.post(config.create_api_url("/streams/delete")).mock(return_value=httpx.Response(status_code=200))
+        api.delete([request_item.as_id()])
+        assert len(respx_mock.calls) >= 1  # At least one call should have been made
+
+        # Test list
+        respx_mock.get(config.create_api_url("/streams")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list()
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
 
     def test_graphql_data_models_api_custom_methods(
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter

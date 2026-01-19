@@ -186,6 +186,27 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
             response_items.extend(self._validate_page_response(response).items)
         return response_items
 
+    def _request_item_split_retries_no_response(
+        self,
+        items: Sequence[_T_BaseModel],
+        method: APIMethod,
+        params: dict[str, Any] | None = None,
+        extra_body: dict[str, Any] | None = None,
+    ) -> None:
+        """Request items with retries, splitting on failures, without returning any response.
+
+        This method handles large batches of items by chunking them according to the endpoint's item limit.
+        If a single item fails, it splits the request into individual item requests to isolate the failure.
+
+        Args:
+            items: Sequence of items to request.
+            method: API method to use for the request.
+            params: Optional query parameters for the request.
+            extra_body: Optional additional body fields for the request.
+        """
+        list(self._chunk_requests_items_split_retries(items, method, params, extra_body))
+        return None
+
     def _chunk_requests_items_split_retries(
         self,
         items: Sequence[_T_BaseModel],
@@ -237,12 +258,12 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
 
     @classmethod
     def _group_items_by_text_field(
-        cls, items: Sequence[_T_BaseModel], field_name: str
-    ) -> dict[str, list[_T_BaseModel]]:
+        cls, items: Sequence[_T_BaseModel], *field_names: str
+    ) -> dict[tuple[str, ...], list[_T_BaseModel]]:
         """Group items by a text field."""
-        grouped_items: dict[str, list[_T_BaseModel]] = defaultdict(list)
+        grouped_items: dict[tuple[str, ...], list[_T_BaseModel]] = defaultdict(list)
         for item in items:
-            key = str(getattr(item, field_name))
+            key = tuple(str(getattr(item, field_name)) for field_name in field_names)
             grouped_items[key].append(item)
         return grouped_items
 

@@ -58,7 +58,7 @@ class ToolAPI:
         self.security_categories = SecurityCategoriesAPI(http_client)
         self.sequences = SequencesAPI(http_client)
         self.simulators = SimulatorsAPI(http_client)
-        self.three_d = ThreeDAPI(http_client, console)
+        self.three_d = ThreeDAPI(http_client)
         self.timeseries = TimeSeriesAPI(http_client)
         self.transformations = TransformationsAPI(http_client)
         self.workflows = WorkflowsAPI(http_client)
@@ -96,7 +96,7 @@ class ToolkitClient(CogniteClient):
         self.charts = ChartsAPI(self._config, self._API_VERSION, self)
         self.project = ProjectAPI(config=toolkit_config, cognite_client=self)
         self.infield = InfieldAPI(http_client, self.console)
-        self.streams = StreamsAPI(http_client, self.console)
+        self.streams = StreamsAPI(http_client)
 
     @property
     def config(self) -> ToolkitClientConfig:

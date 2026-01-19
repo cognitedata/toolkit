@@ -67,7 +67,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.base import RequestResource
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import GraphQLDataModelWrite
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.project import ProjectStatus, ProjectStatusList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawDatabase
-from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse, StreamResponseList
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN, STREAM_IMMUTABLE_TEMPLATE_NAME
 from cognite_toolkit._cdf_tk.cruds import FileCRUD
@@ -428,20 +428,17 @@ class ApprovalToolkitClient:
                 # to account for Unknown ACLs.
                 return resource_list_cls(_group_write_to_read(c) for c in created)
             if resource_cls is StreamResponse:
-                return StreamResponseList.load(
-                    [
-                        {
-                            "externalId": c.external_id,
-                            "createdTime": 0,
-                            "createdFromTemplate": c.settings["template"]["name"],
-                            "type": "Immutable"
-                            if c.settings["template"]["name"] in STREAM_IMMUTABLE_TEMPLATE_NAME
-                            else "Mutable",
-                        }
-                        for c in created
-                    ],
-                    cognite_client=client,
-                )
+                return [
+                    {
+                        "externalId": c.external_id,
+                        "createdTime": 0,
+                        "createdFromTemplate": c.settings["template"]["name"],
+                        "type": "Immutable"
+                        if c.settings["template"]["name"] in STREAM_IMMUTABLE_TEMPLATE_NAME
+                        else "Mutable",
+                    }
+                    for c in created
+                ]
 
             read_list = resource_list_cls.load(
                 [

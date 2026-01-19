@@ -114,11 +114,10 @@ def tmp_3D_model_with_asset_mapping(
         data_set_id=smoke_dataset.id,
         metadata={"source": "smoke_test_migration"},
     )
-    models = client.tool.three_d.models.create([model_request])
+    models = client.tool.three_d.models_classic.create([model_request])
     if len(models) != 1:
-        raise EndpointAssertionError(
-            client.tool.three_d.models.ENDPOINT, "Failed to create 3D model for migration test."
-        )
+        create_path = client.tool.three_d.models_classic._method_endpoint_map["create"].path
+        raise EndpointAssertionError(create_path, "Failed to create 3D model for migration test.")
     model = models[0]
 
     revision = client.three_d.revisions.create(
@@ -143,12 +142,11 @@ def tmp_3D_model_with_asset_mapping(
             raise AssertionError("Timeout waiting for 3D model revision to be processed.")
     if revision.status != "Done":
         raise AssertionError(f"3D model revision processing failed with status: {revision.status}")
-    page = client.tool.three_d.models.paginate(include_revision_info=True)
+    page = client.tool.three_d.models_classic.paginate(include_revision_info=True)
     retrieved_model = next((m for m in page.items if m.id == model.id), None)
     if not retrieved_model:
-        raise EndpointAssertionError(
-            client.tool.three_d.models.ENDPOINT, "Failed to retrieve created 3D model for migration test."
-        )
+        list_path = client.tool.three_d.models_classic._method_endpoint_map["list"].path
+        raise EndpointAssertionError(list_path, "Failed to retrieve created 3D model for migration test.")
     if retrieved_model.last_revision_info is None or retrieved_model.last_revision_info.revision_id is None:
         raise AssertionError("Retrieved 3D model has incorrect revision info.")
     three_d_nodes = client.three_d.revisions.list_nodes(
@@ -162,7 +160,7 @@ def tmp_3D_model_with_asset_mapping(
     three_d_node = three_d_nodes[0]
     if not three_d_node.id:
         raise AssertionError("3D model node has no ID.")
-    created_mapping = client.tool.three_d.asset_mappings.create(
+    created_mapping = client.tool.three_d.asset_mappings_classic.create(
         [
             AssetMappingClassicRequest(
                 node_id=three_d_node.id,
@@ -174,13 +172,13 @@ def tmp_3D_model_with_asset_mapping(
     )
     if not created_mapping or len(created_mapping) != 1:
         raise EndpointAssertionError(
-            client.tool.three_d.asset_mappings.ENDPOINT,
+            client.tool.three_d.asset_mappings_classic.ENDPOINT,
             "Failed to create asset mapping for 3D model migration test.",
         )
 
     yield retrieved_model, asset_node
 
-    client.tool.three_d.models.delete([model.id])
+    client.tool.three_d.models_classic.delete([model.as_request_resource().as_id()])
     client.data_modeling.instances.delete(
         # Delete both model and revision instances
         [(smoke_space.space, f"cog_3d_model_{model.id!s}"), (smoke_space.space, f"cog_3d_revision_{revision.id!s}")]

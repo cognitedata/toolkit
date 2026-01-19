@@ -852,7 +852,9 @@ class ThreeDInteractiveSelect:
             ],
         ).ask()
 
-        models = self.client.tool.three_d.models.list(published=published, include_revision_info=True, limit=None)
+        models = self.client.tool.three_d.models_classic.list(
+            published=published, include_revision_info=True, limit=None
+        )
         if model_type == "classic":
             models = [model for model in models if model.space is None]
         else:

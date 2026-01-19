@@ -1072,7 +1072,7 @@ class TestThreeDInteractiveSelect:
             MockQuestionary(ThreeDInteractiveSelect.__module__, monkeypatch, answers),
         ):
             selector = ThreeDInteractiveSelect(client, "test_operation")
-            client.tool.three_d.models.list.return_value = [
+            client.tool.three_d.models_classic.list.return_value = [
                 ThreeDModelResponse(
                     name=f"Model {i}", id=i, createdTime=1, lastUpdatedTime=1, space="default" if i % 2 == 0 else None
                 )

@@ -1,24 +1,33 @@
 from collections.abc import Sequence
 
-from pydantic import TypeAdapter
-from rich.console import Console
-
-from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
+from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
-    ItemsRequest2,
+    ItemsSuccessResponse2,
     RequestMessage2,
+    SuccessResponse2,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 
 
-class StreamsAPI:
-    ENDPOINT = "/streams"
+class StreamsAPI(CDFResourceAPI[ExternalId, StreamRequest, StreamResponse]):
+    def __init__(self, http_client: HTTPClient) -> None:
+        super().__init__(
+            http_client=http_client,
+            method_endpoint_map={
+                "create": Endpoint(method="POST", path="/streams", item_limit=1),
+                "delete": Endpoint(method="POST", path="/streams/delete", item_limit=1),
+                "retrieve": Endpoint(method="GET", path="/streams/{streamId}", item_limit=1),
+                "list": Endpoint(method="GET", path="/streams", item_limit=1000),
+            },
+        )
 
-    def __init__(self, http_client: HTTPClient, console: Console) -> None:
-        self._http_client = http_client
-        self._console = console
-        self._config = http_client.config
+    def _validate_page_response(
+        self, response: SuccessResponse2 | ItemsSuccessResponse2
+    ) -> PagedResponse[StreamResponse]:
+        return PagedResponse[StreamResponse].model_validate_json(response.body)
 
     def create(self, items: Sequence[StreamRequest]) -> list[StreamResponse]:
         """Create one or more streams.
@@ -29,60 +38,59 @@ class StreamsAPI:
         Returns:
             List of created StreamResponse items.
         """
-        responses = self._http_client.request_items_retries(
-            ItemsRequest2(
-                endpoint_url=self._config.create_api_url(self.ENDPOINT),
-                method="POST",
-                items=items,
-            )
-        )
-        responses.raise_for_status()
-        return TypeAdapter(list[StreamResponse]).validate_python(responses.get_items())
+        return self._request_item_response(items, "create")
 
-    def delete(self, external_id: str) -> None:
-        """Delete stream using its external ID.
+    def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
+        """Delete streams using their external IDs.
 
         Args:
-            external_id: External ID of the stream to delete.
+            items: Sequence of ExternalId objects to delete.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
         """
-        response = self._http_client.request_single_retries(
-            RequestMessage2(
-                endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/{external_id}"),
-                method="DELETE",
+        if ignore_unknown_ids:
+            # The endpoint does not support ignoreUnknownIds, so we have to do it on the client side
+            return self._request_item_split_retries_no_response(items, "delete")
+        else:
+            return self._request_no_response(items, "delete")
+
+    def retrieve(
+        self, items: Sequence[ExternalId], include_statistics: bool = False, ignore_unknown_ids: bool = False
+    ) -> list[StreamResponse]:
+        """Retrieve streams by their external IDs.
+
+        Note: The streams API only supports retrieving one stream at a time via path parameter.
+
+        Args:
+            items: Sequence of ExternalId objects to retrieve.
+            include_statistics: Whether to include usage statistics in the response.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
+
+        Returns:
+            List of StreamResponse items.
+        """
+        results: list[StreamResponse] = []
+        endpoint = self._method_endpoint_map["retrieve"]
+        for item in items:
+            response = self._http_client.request_single_retries(
+                RequestMessage2(
+                    endpoint_url=self._make_url(endpoint.path.format(streamId=item.external_id)),
+                    method=endpoint.method,
+                    parameters={"includeStatistics": include_statistics},
+                )
             )
-        )
-        _ = response.get_success_or_raise()
+            if isinstance(response, SuccessResponse2):
+                results.append(StreamResponse.model_validate(response.body_json))
+            elif ignore_unknown_ids:
+                continue
+            _ = response.get_success_or_raise()
+        return results
 
     def list(self) -> list[StreamResponse]:
-        """List streams.
+        """List all streams.
+
+        Note: The streams API does not support pagination.
 
         Returns:
-            StreamResponseList containing the listed streams.
+            List of StreamResponse items.
         """
-        response = self._http_client.request_single_retries(
-            RequestMessage2(
-                endpoint_url=self._config.create_api_url(self.ENDPOINT),
-                method="GET",
-            )
-        )
-        success = response.get_success_or_raise()
-        return PagedResponse[StreamResponse].model_validate(success.body_json).items
-
-    def retrieve(self, external_id: str, include_statistics: bool = True) -> StreamResponse:
-        """Retrieve a stream by its external ID.
-
-        Args:
-            external_id: External ID of the stream to retrieve.
-            include_statistics: Whether to include usage statistics in the response.
-        Returns:
-            StreamResponse item.
-        """
-        response = self._http_client.request_single_retries(
-            RequestMessage2(
-                endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/{external_id}"),
-                method="GET",
-                parameters={"includeStatistics": include_statistics},
-            )
-        )
-        success = response.get_success_or_raise()
-        return StreamResponse.model_validate(success.body_json)
+        return self._list(limit=None)
