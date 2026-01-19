@@ -22,6 +22,12 @@ from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI
 from cognite_toolkit._cdf_tk.client.api.labels import LabelsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI
 from cognite_toolkit._cdf_tk.client.api.relationships import RelationshipsAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_capabilities import CapabilitiesAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_data_postprocessing import DataPostProcessingAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_frames import FramesAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_locations import LocationsAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.sequences import SequencesAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
@@ -927,6 +933,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RobotFrameResponse,
             request_cls=RobotFrameRequest,
             example_data=get_example_minimum_responses(RobotFrameResponse),
+            api_class=FramesAPI,
         ),
         id="RobotFrame",
     )
@@ -935,6 +942,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RobotCapabilityResponse,
             request_cls=RobotCapabilityRequest,
             example_data=get_example_minimum_responses(RobotCapabilityResponse),
+            api_class=CapabilitiesAPI,
         ),
         id="RobotCapability",
     )
@@ -943,6 +951,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RobotLocationResponse,
             request_cls=RobotLocationRequest,
             example_data=get_example_minimum_responses(RobotLocationResponse),
+            api_class=LocationsAPI,
         ),
         id="RobotLocation",
     )
@@ -951,6 +960,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RobotResponse,
             request_cls=RobotRequest,
             example_data=get_example_minimum_responses(RobotResponse),
+            api_class=RobotsAPI,
         ),
         id="Robot",
     )
@@ -959,6 +969,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RobotDataPostProcessingResponse,
             request_cls=RobotDataPostProcessingRequest,
             example_data=get_example_minimum_responses(RobotDataPostProcessingResponse),
+            api_class=DataPostProcessingAPI,
         ),
         id="RobotDataPostProcessing",
     )
@@ -967,6 +978,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RobotMapResponse,
             request_cls=RobotMapRequest,
             example_data=get_example_minimum_responses(RobotMapResponse),
+            api_class=MapsAPI,
         ),
         id="RobotMap",
     )
