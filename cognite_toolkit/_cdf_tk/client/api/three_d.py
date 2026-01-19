@@ -127,24 +127,18 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicReques
 T_RequestMapping = TypeVar("T_RequestMapping", bound=AssetMappingClassicRequest | AssetMappingDMRequest)
 
 
-class ThreeDAssetMappingAPI(
+class ThreeDClassicAssetMappingAPI(
     CDFResourceAPI[AssetMappingClassicRequest, AssetMappingClassicRequest, AssetMappingResponse]
 ):
     ENDPOINT = "/3d/models/{modelId}/revisions/{revisionId}/mappings"
-    CREATE_CLASSIC_MAX_MAPPINGS_PER_REQUEST = 1000
-    CREATE_DM_MAX_MAPPINGS_PER_REQUEST = 100
-    DELETE_CLASSIC_MAX_MAPPINGS_PER_REQUEST = 1000
-    DELETE_DM_MAX_MAPPINGS_PER_REQUEST = 100
 
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
                 # These endpoints are parameterized, so the paths are templates
-                "create": Endpoint(method="POST", path=self.ENDPOINT, item_limit=1000, concurrency_max_workers=1),
-                "delete": Endpoint(
-                    method="DELETE", path=f"{self.ENDPOINT}/delete", item_limit=1000, concurrency_max_workers=1
-                ),
+                "create": Endpoint(method="POST", path=self.ENDPOINT, item_limit=1000),
+                "delete": Endpoint(method="DELETE", path=f"{self.ENDPOINT}/delete", item_limit=1000),
                 "list": Endpoint(method="POST", path=f"{self.ENDPOINT}/list", item_limit=1000),
             },
         )
@@ -371,4 +365,4 @@ class ThreeDAssetMappingAPI(
 class ThreeDAPI:
     def __init__(self, http_client: HTTPClient) -> None:
         self.models = ThreeDClassicModelsAPI(http_client)
-        self.asset_mappings = ThreeDAssetMappingAPI(http_client)
+        self.asset_mappings = ThreeDClassicAssetMappingAPI(http_client)
