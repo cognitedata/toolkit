@@ -78,7 +78,7 @@ class TestCDFResourceAPI:
             assert len(updated) == 1
             assert updated[0].dump() == resource.example_data
         if hasattr(api, "delete"):
-            self._mock_endpoint(api, "delete", None, respx_mock)
+            self._mock_endpoint(api, "delete", {"items": [resource.resource_id.dump()]}, respx_mock)
             to_delete = resource.resource_id
 
             _ = api.delete([to_delete])
