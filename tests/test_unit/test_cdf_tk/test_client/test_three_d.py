@@ -66,7 +66,7 @@ class TestAssetsMappingsClassic:
     ) -> None:
         config = toolkit_config
         url = config.create_api_url("/3d/models/37/revisions/42/mappings/delete")
-        respx_mock.delete(url).respond(status_code=200, json={})
+        respx_mock.post(url).respond(status_code=200, json={})
 
         toolkit_client.tool.three_d.asset_mappings_classic.delete(
             [AssetMappingClassicRequest(nodeId=123, assetId=456, modelId=37, revisionId=42)]
