@@ -43,8 +43,6 @@ class StreamsAPI(CDFResourceAPI[ExternalId, StreamRequest, StreamResponse]):
     def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
         """Delete streams using their external IDs.
 
-        Note: The streams API only supports deleting one stream at a time via path parameter.
-
         Args:
             items: Sequence of ExternalId objects to delete.
             ignore_unknown_ids: Whether to ignore unknown IDs.

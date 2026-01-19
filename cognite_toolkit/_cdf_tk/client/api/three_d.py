@@ -135,7 +135,7 @@ class ThreeDClassicAssetMappingAPI(
             method_endpoint_map={
                 # These endpoints are parameterized, so the paths are templates
                 "create": Endpoint(method="POST", path=self.ENDPOINT, item_limit=1000),
-                "delete": Endpoint(method="DELETE", path=f"{self.ENDPOINT}/delete", item_limit=1000),
+                "delete": Endpoint(method="POST", path=f"{self.ENDPOINT}/delete", item_limit=1000),
                 "list": Endpoint(method="POST", path=f"{self.ENDPOINT}/list", item_limit=1000),
             },
         )
