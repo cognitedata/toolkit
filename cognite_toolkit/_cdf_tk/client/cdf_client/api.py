@@ -251,12 +251,12 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
 
     @classmethod
     def _group_items_by_text_field(
-        cls, items: Sequence[_T_BaseModel], field_name: str
-    ) -> dict[str, list[_T_BaseModel]]:
+        cls, items: Sequence[_T_BaseModel], *field_names: str
+    ) -> dict[tuple[str, ...], list[_T_BaseModel]]:
         """Group items by a text field."""
-        grouped_items: dict[str, list[_T_BaseModel]] = defaultdict(list)
+        grouped_items: dict[tuple[str, ...], list[_T_BaseModel]] = defaultdict(list)
         for item in items:
-            key = str(getattr(item, field_name))
+            key = tuple(str(getattr(item, field_name)) for field_name in field_names)
             grouped_items[key].append(item)
         return grouped_items
 

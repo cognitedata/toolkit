@@ -97,17 +97,32 @@ class AssetMappingClassicRequest(RequestResource, Identifier):
         return f"{self.model_id}_{self.revision_id}_{self.node_id}_{asset_part}"
 
 
-class AssetMappingResponse(ResponseResource[AssetMappingClassicRequest]):
+class AssetMappingClassicResponse(ResponseResource[AssetMappingClassicRequest]):
     node_id: int
     asset_id: int | None = None
     asset_instance_id: NodeReference | None = None
     tree_index: int | None = None
     subtree_size: int | None = None
     # These fields are part of the path request and response, but they are included here for convenience.
-    model_id: int = Field(exclude=True)
-    revision_id: int = Field(exclude=True)
+    model_id: int = Field(-1, exclude=True)
+    revision_id: int = Field(-1, exclude=True)
 
     def as_request_resource(self) -> AssetMappingClassicRequest:
         return AssetMappingClassicRequest.model_validate(
+            {**self.dump(), "modelId": self.model_id, "revisionId": self.revision_id}
+        )
+
+
+class AssetMappingDMResponse(ResponseResource[AssetMappingDMRequest]):
+    node_id: int
+    asset_instance_id: NodeReference
+    tree_index: int | None = None
+    subtree_size: int | None = None
+    # These fields are part of the path request and response, but they are included here for convenience.
+    model_id: int = Field(-1, exclude=True)
+    revision_id: int = Field(-1, exclude=True)
+
+    def as_request_resource(self) -> AssetMappingDMRequest:
+        return AssetMappingDMRequest.model_validate(
             {**self.dump(), "modelId": self.model_id, "revisionId": self.revision_id}
         )

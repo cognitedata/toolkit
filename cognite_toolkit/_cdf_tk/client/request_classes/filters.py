@@ -1,7 +1,10 @@
 import sys
 from typing import Literal
 
+from pydantic import Field
+
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationStatus, AnnotationType
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId
 
 from .base import BaseModelRequest
@@ -67,3 +70,22 @@ class AnnotationFilter(Filter):
     creating_app_version: str | None = None
     creating_user: str | None = None
     status: AnnotationStatus | None = None
+
+
+class ThreeDAssetMappingFilter(Filter): ...
+
+
+class ThreeDAssetMappingAssetIdFilter(ThreeDAssetMappingFilter):
+    asset_ids: list[int] = Field(max_length=100)
+
+
+class ThreeDAssetMappingAssetInstanceIdFilter(ThreeDAssetMappingFilter):
+    asset_instance_ids: list[NodeReference] = Field(max_length=100)
+
+
+class ThreeDAssetMapping3DNodeFilter(ThreeDAssetMappingFilter):
+    node_ids: list[int] = Field(max_length=100)
+
+
+class ThreeDAssetMappingTreeIndexFilter(ThreeDAssetMappingFilter):
+    tree_indexes: list[int] = Field(max_length=100)
