@@ -18,9 +18,16 @@ from cognite_toolkit._cdf_tk.client.api.hosted_extractor_destinations import Hos
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_mappings import HostedExtractorMappingsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_sources import HostedExtractorSourcesAPI
+from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI
 from cognite_toolkit._cdf_tk.client.api.labels import LabelsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI
 from cognite_toolkit._cdf_tk.client.api.relationships import RelationshipsAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_capabilities import CapabilitiesAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_data_postprocessing import DataPostProcessingAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_frames import FramesAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_locations import LocationsAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.sequences import SequencesAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
@@ -31,8 +38,10 @@ from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config import APMConfigRequest, APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.base import Identifier, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerRequest,
     ContainerResponse,
@@ -91,6 +100,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
 from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
+    ResourceViewMappingRequest,
+    ResourceViewMappingResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotCapabilityRequest,
     RobotCapabilityResponse,
@@ -553,6 +566,34 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "createdTime": 1622547800000,
             "updatedTime": 1622547800000,
         },
+        CogniteFileResponse: {
+            "space": "my_space",
+            "externalId": "cognite_file_001",
+            "name": "Example File",
+            "version": 1,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        ResourceViewMappingResponse: {
+            "externalId": "mapping_001",
+            "resourceType": "asset",
+            "viewId": {
+                "space": "cdf_cdm",
+                "externalId": "CogniteAsset",
+                "version": "v1",
+            },
+            "propertyMapping": {"name": "name"},
+            "version": 1,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        APMConfigResponse: {
+            "externalId": "apm_config_001",
+            "name": "Example APM Config",
+            "version": 1,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
     }
     try:
         return responses[resource_cls]
@@ -686,6 +727,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=NodeResponse,
             request_cls=NodeRequest,
             example_data=get_example_minimum_responses(NodeResponse),
+            api_class=InstancesAPI,
         ),
         id="Node",
     )
@@ -694,6 +736,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=EdgeResponse,
             request_cls=EdgeRequest,
             example_data=get_example_minimum_responses(EdgeResponse),
+            api_class=InstancesAPI,
         ),
         id="Edge",
     )
@@ -927,6 +970,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RobotFrameResponse,
             request_cls=RobotFrameRequest,
             example_data=get_example_minimum_responses(RobotFrameResponse),
+            api_class=FramesAPI,
         ),
         id="RobotFrame",
     )
@@ -935,6 +979,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RobotCapabilityResponse,
             request_cls=RobotCapabilityRequest,
             example_data=get_example_minimum_responses(RobotCapabilityResponse),
+            api_class=CapabilitiesAPI,
         ),
         id="RobotCapability",
     )
@@ -943,6 +988,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RobotLocationResponse,
             request_cls=RobotLocationRequest,
             example_data=get_example_minimum_responses(RobotLocationResponse),
+            api_class=LocationsAPI,
         ),
         id="RobotLocation",
     )
@@ -951,6 +997,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RobotResponse,
             request_cls=RobotRequest,
             example_data=get_example_minimum_responses(RobotResponse),
+            api_class=RobotsAPI,
         ),
         id="Robot",
     )
@@ -959,6 +1006,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RobotDataPostProcessingResponse,
             request_cls=RobotDataPostProcessingRequest,
             example_data=get_example_minimum_responses(RobotDataPostProcessingResponse),
+            api_class=DataPostProcessingAPI,
         ),
         id="RobotDataPostProcessing",
     )
@@ -967,6 +1015,31 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RobotMapResponse,
             request_cls=RobotMapRequest,
             example_data=get_example_minimum_responses(RobotMapResponse),
+            api_class=MapsAPI,
         ),
         id="RobotMap",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=CogniteFileResponse,
+            request_cls=CogniteFileRequest,
+            example_data=get_example_minimum_responses(CogniteFileResponse),
+        ),
+        id="CogniteFile",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=ResourceViewMappingResponse,
+            request_cls=ResourceViewMappingRequest,
+            example_data=get_example_minimum_responses(ResourceViewMappingResponse),
+        ),
+        id="ResourceViewMapping",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=APMConfigResponse,
+            request_cls=APMConfigRequest,
+            example_data=get_example_minimum_responses(APMConfigResponse),
+        ),
+        id="APMConfig",
     )

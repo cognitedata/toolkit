@@ -172,6 +172,7 @@ class HTTPClient:
         content_type: str = "application/json",
         accept: str = "application/json",
         content_length: int | None = None,
+        disable_gzip: bool = False,
     ) -> MutableMapping[str, str]:
         headers: MutableMapping[str, str] = {}
         headers["User-Agent"] = f"httpx/{httpx.__version__} {get_user_agent()}"
@@ -184,7 +185,7 @@ class HTTPClient:
         headers["x-cdp-sdk"] = f"CogniteToolkit:{get_current_toolkit_version()}"
         headers["x-cdp-app"] = self.config.client_name
         headers["cdf-version"] = api_version or self.config.api_subversion
-        if not global_config.disable_gzip and content_length is None:
+        if not global_config.disable_gzip and content_length is None and not disable_gzip:
             headers["Content-Encoding"] = "gzip"
         return headers
 
@@ -332,7 +333,9 @@ class HTTPClient:
                 raise TypeError(f"Unexpected result type: {type(result)}")
 
     def _make_request2(self, message: BaseRequestMessage) -> httpx.Response:
-        headers = self._create_headers(message.api_version, message.content_type, message.accept)
+        headers = self._create_headers(
+            message.api_version, message.content_type, message.accept, disable_gzip=message.disable_gzip
+        )
         return self.session.request(
             method=message.method,
             url=message.endpoint_url,
