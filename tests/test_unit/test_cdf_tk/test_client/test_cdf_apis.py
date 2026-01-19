@@ -9,7 +9,9 @@ from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
+from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI
+from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
@@ -28,7 +30,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
     GraphQLDataModelResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTable
+from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
@@ -549,5 +553,100 @@ class TestCDFResourceAPI:
         assert page.items[0].dump() == resource
 
         iterated = list(api.iterate(limit=10))
+        assert len(iterated) == 1
+        assert iterated[0][0].dump() == resource
+
+    def test_search_config_crud_list_methods(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        resource = get_example_minimum_responses(SearchConfigResponse)
+        instance = SearchConfigResponse.model_validate(resource)
+        config = toolkit_config
+        api = SearchConfigurationsAPI(HTTPClient(config))
+        request_item = instance.as_request_resource()
+
+        # Test create/update
+        respx_mock.post(config.create_app_url("/storage/config/apps/search/views/upsert")).mock(
+            return_value=httpx.Response(status_code=200, json=resource)
+        )
+        created = api.create([request_item])
+        assert len(created) == 1
+        assert created[0].dump() == resource
+
+        updated = api.update([request_item])
+        assert len(updated) == 1
+        assert updated[0].dump() == resource
+
+        # Test iterate/list/paginate
+        respx_mock.post(config.create_app_url("/storage/config/apps/search/views/list")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list()
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
+
+        page = api.paginate()
+        assert len(page.items) == 1
+        assert page.items[0].dump() == resource
+
+        iterated = list(api.iterate())
+        assert len(iterated) == 1
+        assert iterated[0][0].dump() == resource
+
+    def test_location_filter_crud_list_methods(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        resource = get_example_minimum_responses(LocationFilterResponse)
+        instance = LocationFilterResponse.model_validate(resource)
+        config = toolkit_config
+        api = LocationFiltersAPI(HTTPClient(config))
+        request_item = instance.as_request_resource()
+
+        # Test create
+        respx_mock.post(config.create_app_url("/storage/config/locationfilters")).mock(
+            return_value=httpx.Response(status_code=200, json=resource)
+        )
+        created = api.create([request_item])
+        assert len(created) == 1
+        assert created[0].dump() == resource
+
+        # Test retrieve
+        respx_mock.post(config.create_app_url("/storage/config/locationfilters/byids")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        retrieved = api.retrieve([request_item.as_id()])
+        assert len(retrieved) == 1
+        assert retrieved[0].dump() == resource
+
+        # Test update
+        respx_mock.put(config.create_app_url(f"/storage/config/locationfilters/{instance.id}")).mock(
+            return_value=httpx.Response(status_code=200, json=resource)
+        )
+        updated = api.update([request_item])
+        assert len(updated) == 1
+        assert updated[0].dump() == resource
+
+        # Test delete
+        respx_mock.delete(config.create_app_url(f"/storage/config/locationfilters/{instance.id}")).mock(
+            return_value=httpx.Response(status_code=200, json=resource)
+        )
+        deleted = api.delete([request_item.as_id()])
+        assert len(respx_mock.calls) >= 1  # At least one call should have been made
+        assert len(deleted) == 1
+        assert deleted[0].dump() == resource
+
+        # Test iterate/list/paginate
+        respx_mock.post(config.create_app_url("/storage/config/locationfilters/list")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list()
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
+
+        page = api.paginate()
+        assert len(page.items) == 1
+        assert page.items[0].dump() == resource
+
+        iterated = list(api.iterate())
         assert len(iterated) == 1
         assert iterated[0][0].dump() == resource
