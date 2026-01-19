@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.client.api.hosted_extractor_destinations import Hos
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_mappings import HostedExtractorMappingsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_sources import HostedExtractorSourcesAPI
+from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI
 from cognite_toolkit._cdf_tk.client.api.labels import LabelsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI
 from cognite_toolkit._cdf_tk.client.api.relationships import RelationshipsAPI
@@ -700,6 +701,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=NodeResponse,
             request_cls=NodeRequest,
             example_data=get_example_minimum_responses(NodeResponse),
+            api_class=InstancesAPI,
         ),
         id="Node",
     )
@@ -708,6 +710,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=EdgeResponse,
             request_cls=EdgeRequest,
             example_data=get_example_minimum_responses(EdgeResponse),
+            api_class=InstancesAPI,
         ),
         id="Edge",
     )
