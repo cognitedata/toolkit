@@ -52,7 +52,7 @@ class RobotsAPI(CDFResourceAPI[DataSetId, RobotRequest, RobotResponse]):
         """Retrieve robots from CDF.
 
         Args:
-            items: List of NameId objects to retrieve.
+            items: List of DataSetId objects to retrieve.
         Returns:
             List of retrieved RobotResponse objects.
         """
@@ -76,7 +76,7 @@ class RobotsAPI(CDFResourceAPI[DataSetId, RobotRequest, RobotResponse]):
         """Delete robots from CDF.
 
         Args:
-            items: List of NameId objects to delete.
+            items: List of DataSetId objects to delete.
         """
         self._request_no_response(items, "delete")
 
