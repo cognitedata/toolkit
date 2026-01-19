@@ -118,7 +118,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotRequest,
     RobotResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.search_config_resource import (
+from cognite_toolkit._cdf_tk.client.resource_classes.search_config import (
     SearchConfigRequest,
     SearchConfigResponse,
 )
@@ -903,6 +903,8 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=SearchConfigResponse,
             request_cls=SearchConfigRequest,
             example_data=get_example_minimum_responses(SearchConfigResponse),
+            # SearchConfig cannot be tested in generic API tests due to
+            # custom endpoint mocking.
         ),
         id="SearchConfig",
     )
@@ -950,6 +952,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=LocationFilterResponse,
             request_cls=LocationFilterRequest,
             example_data=get_example_minimum_responses(LocationFilterResponse),
+            # LocationFilter API requires custom mocking.
         ),
         id="LocationFilter",
     )
