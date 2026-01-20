@@ -69,11 +69,28 @@ class DataLogger:
             status: Final status (success, failure, unchanged).
         """
         with self._lock:
-            tracker = self._active_items.pop(item_id, None)
-            self._status_counts[status] += 1
-            if tracker is not None:
-                for subcategory in tracker.subcategories:
-                    self._subcategory_counts[status][subcategory] += 1
+            self._finalize_item_unlocked(item_id, status)
+
+    def finalize_items(self, item_ids: list[str], status: OperationStatus) -> None:
+        """Finalize multiple items with the same status.
+
+        More efficient than calling finalize_item repeatedly for batches.
+
+        Args:
+            item_ids: List of item identifiers.
+            status: Final status for all items.
+        """
+        with self._lock:
+            for item_id in item_ids:
+                self._finalize_item_unlocked(item_id, status)
+
+    def _finalize_item_unlocked(self, item_id: str, status: OperationStatus) -> None:
+        """Internal method to finalize an item without acquiring the lock."""
+        tracker = self._active_items.pop(item_id, None)
+        self._status_counts[status] += 1
+        if tracker is not None:
+            for subcategory in tracker.subcategories:
+                self._subcategory_counts[status][subcategory] += 1
 
     def get_status_counts(self) -> dict[OperationStatus, int]:
         """Get counts per final status."""
