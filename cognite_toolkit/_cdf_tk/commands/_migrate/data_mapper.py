@@ -186,7 +186,7 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
             self.client.migration.lookup.time_series(external_id=list(timeseries_external_ids))
 
     def _map_single_item(self, item: Chart) -> tuple[ChartWrite | None, ChartMigrationIssue]:
-        issue = ChartMigrationIssue(chart_external_id=item.external_id)
+        issue = ChartMigrationIssue(chart_external_id=item.external_id, id=item.external_id)
         time_series_collection = item.data.time_series_collection or []
         timeseries_core_collection = self._create_timeseries_core_collection(time_series_collection, issue)
         if issue.has_issues:
@@ -342,7 +342,9 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
 
     def _map_single_item(self, canvas: IndustrialCanvas) -> tuple[IndustrialCanvasApply | None, CanvasMigrationIssue]:
         update = canvas.as_write()
-        issue = CanvasMigrationIssue(canvas_external_id=canvas.canvas.external_id, canvas_name=canvas.canvas.name)
+        issue = CanvasMigrationIssue(
+            canvas_external_id=canvas.canvas.external_id, canvas_name=canvas.canvas.name, id=canvas.canvas.name
+        )
 
         remaining_container_references: list[ContainerReferenceApply] = []
         new_fdm_references: list[FdmInstanceContainerReferenceApply] = []
@@ -421,7 +423,7 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrati
     def _map_single_item(
         self, item: ThreeDModelResponse
     ) -> tuple[ThreeDMigrationRequest | None, ThreeDModelMigrationIssue]:
-        issue = ThreeDModelMigrationIssue(model_name=item.name, model_id=item.id)
+        issue = ThreeDModelMigrationIssue(model_name=item.name, model_id=item.id, id=item.name)
         instance_space: str | None = None
         last_revision_id: int | None = None
         model_type: Literal["CAD", "PointCloud", "Image360"] | None = None
@@ -497,7 +499,9 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, 
     def _map_single_item(
         self, item: AssetMappingClassicResponse
     ) -> tuple[AssetMappingDMRequest | None, ThreeDModelMigrationIssue]:
-        issue = ThreeDModelMigrationIssue(model_name=f"AssetMapping_{item.model_id}", model_id=item.model_id)
+        issue = ThreeDModelMigrationIssue(
+            model_name=f"AssetMapping_{item.model_id}", model_id=item.model_id, id=f"AssetMapping_{item.model_id}"
+        )
         asset_instance_id = item.asset_instance_id
         if item.asset_id and asset_instance_id is None:
             asset_node_id = self.client.migration.lookup.assets(item.asset_id)

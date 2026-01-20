@@ -1,7 +1,6 @@
-from typing import ClassVar
+from typing import Literal
 
-from cognite.client.data_classes.data_modeling import NodeId
-
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
     AssetCentricId,
 )
@@ -18,8 +17,9 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
 
 class TestMigrationIssues:
     def test_read_file_issue(self) -> None:
-        issue = ReadFileIssue(row_no=10, error="Cannot read column 'id' value is not an integer")
+        issue = ReadFileIssue(id="issue-1", row_no=10, error="Cannot read column 'id' value is not an integer")
         assert issue.dump() == {
+            "id": "issue-1",
             "type": "fileRead",
             "rowNo": 10,
             "error": "Cannot read column 'id' value is not an integer",
@@ -27,8 +27,9 @@ class TestMigrationIssues:
 
     def test_read_api_issue(self) -> None:
         asset_centric_id = AssetCentricId(resource_type="asset", id_=123)
-        issue = ReadAPIIssue(asset_centric_id=asset_centric_id, error="API error")
+        issue = ReadAPIIssue(id="issue-2", asset_centric_id=asset_centric_id, error="API error")
         assert issue.dump() == {
+            "id": "issue-2",
             "type": "apiRead",
             "assetCentricId": {"resourceType": "asset", "id": 123},
             "error": "API error",
@@ -36,25 +37,27 @@ class TestMigrationIssues:
 
     def test_read_issue_subclass(self) -> None:
         class CustomReadIssue(ReadIssue):
-            type: ClassVar[str] = "customRead"
+            type: Literal["customRead"] = "customRead"
             custom_field: str
 
-        issue = CustomReadIssue(custom_field="custom value")
+        issue = CustomReadIssue(id="issue-3", custom_field="custom value")
         assert issue.dump() == {
+            "id": "issue-3",
             "type": "customRead",
             "customField": "custom value",
         }
 
     def test_conversion_issue_minimal(self) -> None:
         asset_centric_id = AssetCentricId(resource_type="asset", id_=456)
-        instance_id = NodeId(space="test_space", external_id="test_instance")
+        instance_id = NodeReference(space="test_space", external_id="test_instance")
 
-        conversion_issue = ConversionIssue(asset_centric_id=asset_centric_id, instance_id=instance_id)
+        conversion_issue = ConversionIssue(id="issue-4", asset_centric_id=asset_centric_id, instance_id=instance_id)
 
         assert conversion_issue.dump() == {
+            "id": "issue-4",
             "type": "conversion",
             "assetCentricId": {"resourceType": "asset", "id": 456},
-            "instanceId": {"space": "test_space", "externalId": "test_instance", "type": "node"},
+            "instanceId": {"space": "test_space", "externalId": "test_instance"},
             "failedConversions": [],
             "invalidInstancePropertyTypes": [],
             "missingAssetCentricProperties": [],
@@ -65,12 +68,13 @@ class TestMigrationIssues:
 
     def test_conversion_issue_with_all_fields(self) -> None:
         asset_centric_id = AssetCentricId(resource_type="timeseries", id_=789)
-        instance_id = NodeId(space="demo_space", external_id="demo_instance")
+        instance_id = NodeReference(space="demo_space", external_id="demo_instance")
 
         failed_conversion = FailedConversion(property_id="value", value="not_a_number", error="Cannot convert to float")
         invalid_property = InvalidPropertyDataType(property_id="status", expected_type="boolean")
 
         conversion_issue = ConversionIssue(
+            id="issue-5",
             asset_centric_id=asset_centric_id,
             instance_id=instance_id,
             missing_asset_centric_properties=["missing_source_prop"],
@@ -80,9 +84,10 @@ class TestMigrationIssues:
         )
 
         assert conversion_issue.dump() == {
+            "id": "issue-5",
             "type": "conversion",
             "assetCentricId": {"resourceType": "timeseries", "id": 789},
-            "instanceId": {"space": "demo_space", "externalId": "demo_instance", "type": "node"},
+            "instanceId": {"space": "demo_space", "externalId": "demo_instance"},
             "missingAssetCentricProperties": ["missing_source_prop"],
             "missingInstanceProperties": ["missing_target_prop"],
             "invalidInstancePropertyTypes": [{"propertyId": "status", "expectedType": "boolean"}],
@@ -92,25 +97,21 @@ class TestMigrationIssues:
         }
 
     def test_write_issue_minimal(self) -> None:
-        instance_id = NodeId(space="write_space", external_id="write_instance")
-
-        write_issue = WriteIssue(instance_id=instance_id, status_code=400)
+        write_issue = WriteIssue(id="issue-6", status_code=400)
 
         assert write_issue.dump() == {
+            "id": "issue-6",
             "type": "write",
-            "instanceId": {"space": "write_space", "externalId": "write_instance", "type": "node"},
             "statusCode": 400,
             "message": None,
         }
 
     def test_write_issue_with_message(self) -> None:
-        instance_id = NodeId(space="error_space", external_id="error_instance")
-
-        write_issue = WriteIssue(instance_id=instance_id, status_code=500, message="Internal server error occurred")
+        write_issue = WriteIssue(id="issue-7", status_code=500, message="Internal server error occurred")
 
         assert write_issue.dump() == {
+            "id": "issue-7",
             "type": "write",
-            "instanceId": {"space": "error_space", "externalId": "error_instance", "type": "node"},
             "statusCode": 500,
             "message": "Internal server error occurred",
         }

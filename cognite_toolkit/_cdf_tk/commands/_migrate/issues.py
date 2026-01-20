@@ -192,3 +192,4 @@ class WriteIssue(MigrationIssue):
 
     type: Literal["write"] = "write"
     status_code: int
+    message: str | None = None
