@@ -119,6 +119,22 @@ from cognite.client.data_classes.transformations.notifications import (
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
+    HostedExtractorDestinationRequest,
+    HostedExtractorDestinationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import (
+    HostedExtractorJobRequest,
+    HostedExtractorJobResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping import (
+    HostedExtractorMappingRequest,
+    HostedExtractorMappingResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
+    HostedExtractorSourceRequestUnion,
+    HostedExtractorSourceResponseUnion,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldCDMLocationConfig,
     InfieldLocationConfig,
@@ -848,6 +864,50 @@ API_RESOURCES = [
         api_name="tool.simulators.models",
         resource_cls=SimulatorModelResponse,
         _write_cls=SimulatorModelRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.hosted_extractors.sources",
+        resource_cls=HostedExtractorSourceRequestUnion,
+        _write_cls=HostedExtractorSourceResponseUnion,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.hosted_extractors.jobs",
+        resource_cls=HostedExtractorJobRequest,
+        _write_cls=HostedExtractorJobResponse,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.hosted_extractors.destinations",
+        resource_cls=HostedExtractorDestinationRequest,
+        _write_cls=HostedExtractorDestinationResponse,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.hosted_extractors.mappings",
+        resource_cls=HostedExtractorMappingRequest,
+        _write_cls=HostedExtractorMappingResponse,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
