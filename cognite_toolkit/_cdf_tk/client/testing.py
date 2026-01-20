@@ -13,6 +13,7 @@ from cognite.client.testing import CogniteClientMock
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.api.hosted_extractors import HostedExtractorsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI, IndustrialCanvasAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.dml import DMLAPI
@@ -38,6 +39,10 @@ from .api.datasets import DataSetsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
 from .api.filemetadata import FileMetadataAPI
+from .api.hosted_extractor_destinations import HostedExtractorDestinationsAPI
+from .api.hosted_extractor_jobs import HostedExtractorJobsAPI
+from .api.hosted_extractor_mappings import HostedExtractorMappingsAPI
+from .api.hosted_extractor_sources import HostedExtractorSourcesAPI
 from .api.infield import InfieldAPI, InFieldCDMConfigAPI, InfieldConfigAPI
 from .api.labels import LabelsAPI
 from .api.lookup import (
@@ -160,6 +165,11 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.simulators.models = MagicMock(spec_set=SimulatorModelsAPI)
         self.tool.datasets = MagicMock(spec_set=DataSetsAPI)
         self.tool.extraction_pipelines = MagicMock(spec_set=ExtractionPipelinesAPI)
+        self.tool.hosted_extractors = MagicMock(spec=HostedExtractorsAPI)
+        self.tool.hosted_extractors.sources = MagicMock(spec_set=HostedExtractorSourcesAPI)
+        self.tool.hosted_extractors.jobs = MagicMock(spec_set=HostedExtractorJobsAPI)
+        self.tool.hosted_extractors.destinations = MagicMock(spec_set=HostedExtractorDestinationsAPI)
+        self.tool.hosted_extractors.mappings = MagicMock(spec_set=HostedExtractorMappingsAPI)
         self.tool.labels = MagicMock(spec_set=LabelsAPI)
         self.tool.security_categories = MagicMock(spec_set=SecurityCategoriesAPI)
         self.tool.sequences = MagicMock(spec_set=SequencesAPI)
