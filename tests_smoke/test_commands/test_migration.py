@@ -35,7 +35,6 @@ from cognite_toolkit._cdf_tk.commands import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ThreeDAssetMapper, ThreeDMapper
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATION_MODEL, SPACE_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import ASSET_ID
-from cognite_toolkit._cdf_tk.commands._migrate.issues import ThreeDModelMigrationIssue
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AssetCentricMigrationIO,
     ThreeDAssetMappingMigrationIO,
@@ -230,11 +229,7 @@ class TestMigrate3D:
         mapped = mapper.map([model])
         if len(mapped) != 1:
             raise AssertionError(f"{self.ERROR_HEADING}Failed to map classic 3D to data modeling format.")
-        migration_request, issue = mapped[0]
-        if not isinstance(issue, ThreeDModelMigrationIssue):
-            raise AssertionError(f"{self.ERROR_HEADING}Issue object not of expected type got {type(issue)}.")
-        if issue.has_issues:
-            raise AssertionError(f"{self.ERROR_HEADING}Issues: {humanize_collection(issue.error_message)}")
+        migration_request = mapped[0]
         if migration_request is None:
             raise AssertionError(f"{self.ERROR_HEADING}Mapped migration request is None.")
         io = ThreeDMigrationIO(client)
@@ -298,13 +293,7 @@ class TestMigrate3D:
         asset_mappings_dm = ThreeDAssetMapper(client).map([item for page in mappings for item in page.items])
         if len(asset_mappings_dm) != 1:
             raise AssertionError(f"{self.ERROR_HEADING}Failed to map asset mappings for migration.")
-        asset_mapping, mapping_issue = asset_mappings_dm[0]
-        if not isinstance(mapping_issue, ThreeDModelMigrationIssue):
-            raise AssertionError(f"{self.ERROR_HEADING}Issue object not of expected type got {type(mapping_issue)}.")
-        if mapping_issue.has_issues:
-            raise AssertionError(
-                f"{self.ERROR_HEADING}Mapping Issues: {humanize_collection(mapping_issue.error_message)}"
-            )
+        asset_mapping = asset_mappings_dm[0]
         if asset_mapping is None:
             raise AssertionError(f"{self.ERROR_HEADING}Mapped asset mapping is None.")
 

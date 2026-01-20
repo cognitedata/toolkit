@@ -72,7 +72,7 @@ class MigrationCommand(ToolkitCommand):
         ):
             executor = ProducerWorkerExecutor[Sequence[T_ResourceResponse], Sequence[UploadItem[T_ResourceRequest]]](
                 download_iterable=self._download_iterable(selected, data, tracker),
-                process=self._convert(mapper, data, tracker, log_file),
+                process=self._convert(mapper, data),
                 write=self._upload(selected, write_client, data, tracker, log_file, dry_run),
                 iteration_count=iteration_count,
                 max_queue_size=10,
@@ -150,26 +150,14 @@ class MigrationCommand(ToolkitCommand):
         self,
         mapper: DataMapper[T_Selector, T_ResourceResponse, T_ResourceRequest],
         data: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
-        tracker: ProgressTracker[str],
-        log_file: NDJsonWriter,
     ) -> Callable[[Sequence[T_ResourceResponse]], Sequence[UploadItem[T_ResourceRequest]]]:
         def track_mapping(source: Sequence[T_ResourceResponse]) -> list[UploadItem[T_ResourceRequest]]:
             mapped = mapper.map(source)
-            issues: list[Chunk] = []
-            targets: list[UploadItem[T_ResourceRequest]] = []
-
-            for (target, issue), item in zip(mapped, source):
-                id_ = data.as_id(item)
-                result: Status = "failed" if target is None else "success"
-                tracker.set_progress(id_, step=self.Steps.CONVERT, status=result)
-
-                if issue.has_issues:
-                    issues.append(issue.dump())
-                if target is not None:
-                    targets.append(UploadItem(source_id=id_, item=target))
-            if issues:
-                log_file.write_chunks(issues)
-            return targets
+            return [
+                UploadItem(source_id=data.as_id(item), item=target)
+                for target, item in zip(mapped, source)
+                if target is not None
+            ]
 
         return track_mapping
 
