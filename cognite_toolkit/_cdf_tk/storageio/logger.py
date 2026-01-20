@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter
 
 
 class LogEntry(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_name=True):
-    """Represents an issue encountered during migration."""
+    """Represents a log entry for tracking storage I/O operations."""
 
     id: str
     message: str
