@@ -1,7 +1,8 @@
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Sequence
 from threading import Lock
-from typing import Literal, Protocol, TypeAlias, runtime_checkable
+from typing import Literal, TypeAlias
 
 from pydantic import BaseModel
 from pydantic.alias_generators import to_camel
@@ -12,7 +13,8 @@ from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter
 class LogEntry(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_name=True):
     """Represents an issue encountered during migration."""
 
-    ...
+    id: str
+    message: str
 
 
 OperationStatus: TypeAlias = Literal["success", "failure", "unchanged", "pending"]
@@ -30,7 +32,51 @@ class ItemTracker:
         self.issues.append(issue)
 
 
-class OperationTracker:
+class OperationTracker(ABC):
+    """Abstract base class for operation trackers."""
+
+    @abstractmethod
+    def add_issue(self, item_id: str, issue: str) -> None:
+        """Add an issue to an item."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    def finalize_item(self, item_id: str | list[str], status: OperationStatus) -> None:
+        """Finalize an item with its final status."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_status_counts(self) -> dict[OperationStatus, int]:
+        """Get counts per final status."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_issue_counts(self, status: OperationStatus | None = None) -> dict[OperationStatus, dict[str, int]]:
+        """Get issue counts, optionally filtered by status."""
+        raise NotImplementedError()
+
+
+class NoOpTracker(OperationTracker):
+    """A no-op tracker that does nothing."""
+
+    def add_issue(self, item_id: str, issue: str) -> None:
+        """No-op: Discard the issue."""
+        pass
+
+    def finalize_item(self, item_id: str | list[str], status: OperationStatus) -> None:
+        """No-op: Do nothing."""
+        pass
+
+    def get_status_counts(self) -> dict[OperationStatus, int]:
+        """Return empty status counts."""
+        return {}
+
+    def get_issue_counts(self, status: OperationStatus | None = None) -> dict[OperationStatus, dict[str, int]]:
+        """Return empty issue counts."""
+        return {}
+
+
+class MemoryOperationTracker(OperationTracker):
     """Tracks the overall operation progress and issues across multiple items.
 
     Tracks counts of final statuses and issues per status.
@@ -84,33 +130,33 @@ class OperationTracker:
             return {s: dict(issues) for s, issues in self._issue_counts.items()}
 
 
-@runtime_checkable
-class DataLoggerProtocol(Protocol):
-    """Protocol for data loggers that track operations and log entries."""
+class DataLogger(ABC):
+    """Abstract base class for data loggers that track operations and log entries."""
 
     tracker: OperationTracker
 
+    @abstractmethod
     def log(self, entry: LogEntry | Sequence[LogEntry]) -> None:
         """Log a detailed entry."""
-        ...
+        raise NotImplementedError()
 
 
-class NoOpLogger:
-    """A no-op logger that discards all log entries but still tracks operations."""
+class NoOpLogger(DataLogger):
+    """A no-op logger that discards all log entries and does no tracking."""
 
     def __init__(self) -> None:
-        self.tracker = OperationTracker()
+        self.tracker = NoOpTracker()
 
     def log(self, entry: LogEntry | Sequence[LogEntry]) -> None:
         """Discard the log entry (no-op)."""
         pass
 
 
-class DataLogger:
+class FileDataLogger(DataLogger):
     """Composes aggregation tracking with detailed file logging."""
 
     def __init__(self, writer: NDJsonWriter) -> None:
-        self.tracker = OperationTracker()
+        self.tracker = MemoryOperationTracker()
         self._writer = writer
 
     def log(self, entry: LogEntry | Sequence[LogEntry]) -> None:
