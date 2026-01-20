@@ -46,7 +46,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     CanvasMigrationIssue,
     ChartMigrationIssue,
     ConversionIssue,
-    MigrationIssue,
     ThreeDModelMigrationIssue,
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
@@ -78,14 +77,14 @@ class DataMapper(Generic[T_Selector, T_ResourceResponse, T_ResourceRequest], ABC
         pass
 
     @abstractmethod
-    def map(self, source: Sequence[T_ResourceResponse]) -> Sequence[tuple[T_ResourceRequest | None, MigrationIssue]]:
+    def map(self, source: Sequence[T_ResourceResponse]) -> Sequence[T_ResourceRequest]:
         """Map a chunk of source data to the target format.
 
         Args:
             source: The source data chunk to be mapped.
 
         Returns:
-            A tuple containing the mapped data and a list of any issues encountered during mapping.
+            A sequence of mapped target data.
 
         """
         raise NotImplementedError("Subclasses must implement this method.")
@@ -121,16 +120,32 @@ class AssetCentricMapper(
                 f"The following ingestion views were not found in Data Modeling: {humanize_collection(missing_views)}"
             )
 
-    def map(
-        self, source: Sequence[AssetCentricMapping[T_AssetCentricResourceExtended]]
-    ) -> Sequence[tuple[InstanceApply | None, ConversionIssue]]:
+    def map(self, source: Sequence[AssetCentricMapping[T_AssetCentricResourceExtended]]) -> Sequence[InstanceApply]:
         """Map a chunk of asset-centric data to InstanceApplyList format."""
         # We update the direct relation cache in bulk for all resources in the chunk.
         self._direct_relation_cache.update(item.resource for item in source)
-        output: list[tuple[InstanceApply | None, ConversionIssue]] = []
+        output: list[InstanceApply] = []
         for item in source:
             instance, conversion_issue = self._map_single_item(item)
-            output.append((instance, conversion_issue))
+            identifier = str(item.mapping.as_asset_centric_id())
+
+            if conversion_issue.missing_instance_space:
+                self.logger.tracker.add_issue(identifier, "Missing instance space")
+            if conversion_issue.failed_conversions:
+                self.logger.tracker.add_issue(identifier, "Failed conversions")
+            if conversion_issue.invalid_instance_property_types:
+                self.logger.tracker.add_issue(identifier, "Invalid instance property types")
+            if conversion_issue.missing_asset_centric_properties:
+                self.logger.tracker.add_issue(identifier, "Missing asset-centric properties")
+            if conversion_issue.missing_instance_properties:
+                self.logger.tracker.add_issue(identifier, "Missing instance properties")
+            if conversion_issue.ignored_asset_centric_properties:
+                self.logger.tracker.add_issue(identifier, "Ignored asset-centric properties")
+
+            if instance is None:
+                self.logger.tracker.finalize_item(identifier, "failure")
+            else:
+                output.append(instance)
         return output
 
     def _map_single_item(
@@ -159,12 +174,24 @@ class AssetCentricMapper(
 
 
 class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
-    def map(self, source: Sequence[Chart]) -> Sequence[tuple[ChartWrite | None, MigrationIssue]]:
+    def map(self, source: Sequence[Chart]) -> Sequence[ChartWrite]:
         self._populate_cache(source)
-        output: list[tuple[ChartWrite | None, MigrationIssue]] = []
+        output: list[ChartWrite] = []
         for item in source:
             mapped_item, issue = self._map_single_item(item)
-            output.append((mapped_item, issue))
+            identifier = item.external_id
+
+            if issue.missing_timeseries_ids:
+                self.logger.tracker.add_issue(identifier, "Missing timeseries IDs")
+            if issue.missing_timeseries_external_ids:
+                self.logger.tracker.add_issue(identifier, "Missing timeseries external IDs")
+            if issue.missing_timeseries_identifier:
+                self.logger.tracker.add_issue(identifier, "Missing timeseries identifier")
+
+            if mapped_item is None:
+                self.logger.tracker.finalize_item(identifier, "failure")
+            else:
+                output.append(mapped_item)
         return output
 
     def _populate_cache(self, source: Sequence[Chart]) -> None:
@@ -286,12 +313,20 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
         self.dry_run = dry_run
         self.skip_on_missing_ref = skip_on_missing_ref
 
-    def map(self, source: Sequence[IndustrialCanvas]) -> Sequence[tuple[IndustrialCanvasApply | None, MigrationIssue]]:
+    def map(self, source: Sequence[IndustrialCanvas]) -> Sequence[IndustrialCanvasApply]:
         self._populate_cache(source)
-        output: list[tuple[IndustrialCanvasApply | None, MigrationIssue]] = []
+        output: list[IndustrialCanvasApply] = []
         for item in source:
             mapped_item, issue = self._map_single_item(item)
-            output.append((mapped_item, issue))
+            identifier = item.canvas.name
+
+            if issue.missing_reference_ids:
+                self.logger.tracker.add_issue(identifier, "Missing reference IDs")
+
+            if mapped_item is None:
+                self.logger.tracker.finalize_item(identifier, "failure")
+            else:
+                output.append(mapped_item)
         return output
 
     @property
@@ -403,14 +438,21 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
 
 
 class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrationRequest]):
-    def map(
-        self, source: Sequence[ThreeDModelResponse]
-    ) -> Sequence[tuple[ThreeDMigrationRequest | None, MigrationIssue]]:
+    def map(self, source: Sequence[ThreeDModelResponse]) -> Sequence[ThreeDMigrationRequest]:
         self._populate_cache(source)
-        output: list[tuple[ThreeDMigrationRequest | None, MigrationIssue]] = []
+        output: list[ThreeDMigrationRequest] = []
         for item in source:
             mapped_item, issue = self._map_single_item(item)
-            output.append((mapped_item, issue))
+            identifier = item.name
+
+            if issue.error_message:
+                for error in issue.error_message:
+                    self.logger.tracker.add_issue(identifier, error)
+
+            if mapped_item is None:
+                self.logger.tracker.finalize_item(identifier, "failure")
+            else:
+                output.append(mapped_item)
         return output
 
     def _populate_cache(self, source: Sequence[ThreeDModelResponse]) -> None:
@@ -479,14 +521,21 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrati
 
 
 class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequest]):
-    def map(
-        self, source: Sequence[AssetMappingClassicResponse]
-    ) -> Sequence[tuple[AssetMappingDMRequest | None, MigrationIssue]]:
-        output: list[tuple[AssetMappingDMRequest | None, MigrationIssue]] = []
+    def map(self, source: Sequence[AssetMappingClassicResponse]) -> Sequence[AssetMappingDMRequest]:
+        output: list[AssetMappingDMRequest] = []
         self._populate_cache(source)
         for item in source:
             mapped_item, issue = self._map_single_item(item)
-            output.append((mapped_item, issue))
+            identifier = f"AssetMapping_{item.model_id}"
+
+            if issue.error_message:
+                for error in issue.error_message:
+                    self.logger.tracker.add_issue(identifier, error)
+
+            if mapped_item is None:
+                self.logger.tracker.finalize_item(identifier, "failure")
+            else:
+                output.append(mapped_item)
         return output
 
     def _populate_cache(self, source: Sequence[AssetMappingClassicResponse]) -> None:
