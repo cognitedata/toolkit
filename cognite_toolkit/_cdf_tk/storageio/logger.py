@@ -1,7 +1,7 @@
 from collections import defaultdict
 from collections.abc import Sequence
 from threading import Lock
-from typing import Literal, TypeAlias
+from typing import Literal, Protocol, TypeAlias, runtime_checkable
 
 from pydantic import BaseModel
 from pydantic.alias_generators import to_camel
@@ -82,6 +82,28 @@ class OperationTracker:
             if status is not None:
                 return {status: dict(self._issue_counts[status])}
             return {s: dict(issues) for s, issues in self._issue_counts.items()}
+
+
+@runtime_checkable
+class DataLoggerProtocol(Protocol):
+    """Protocol for data loggers that track operations and log entries."""
+
+    tracker: OperationTracker
+
+    def log(self, entry: LogEntry | Sequence[LogEntry]) -> None:
+        """Log a detailed entry."""
+        ...
+
+
+class NoOpLogger:
+    """A no-op logger that discards all log entries but still tracks operations."""
+
+    def __init__(self) -> None:
+        self.tracker = OperationTracker()
+
+    def log(self, entry: LogEntry | Sequence[LogEntry]) -> None:
+        """Discard the log entry (no-op)."""
+        pass
 
 
 class DataLogger:
