@@ -1,33 +1,26 @@
-import json
-from typing import Any, ClassVar
+from typing import Any, Literal
 
-from cognite.client.data_classes.data_modeling import NodeId
-from cognite.client.utils._identifier import InstanceId
-from cognite.client.utils._text import to_camel_case
 from pydantic import BaseModel, Field, field_serializer
+from pydantic.alias_generators import to_camel
 
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+from cognite_toolkit._cdf_tk.storageio.logger import LogEntry
 
 
-class MigrationObject(BaseModel, alias_generator=to_camel_case, extra="ignore", populate_by_name=True): ...
-
-
-class MigrationIssue(MigrationObject):
+class MigrationIssue(LogEntry):
     """Represents an issue encountered during migration."""
 
-    type: ClassVar[str]
-
-    def dump(self) -> dict[str, JsonVal]:
-        # Dump json to ensure it is serializable
-        dumped = json.loads(self.model_dump_json(by_alias=True))
-        dumped["type"] = self.type
-        return dumped
+    type: str
 
     @property
     def has_issues(self) -> bool:
         """Check if there are any issues recorded in this MigrationIssue."""
         return True
+
+    def dump(self) -> dict[str, Any]:
+        """Serialize the MigrationIssue to a dictionary."""
+        return self.model_dump(by_alias=True)
 
 
 class ThreeDModelMigrationIssue(MigrationIssue):
@@ -37,7 +30,7 @@ class ThreeDModelMigrationIssue(MigrationIssue):
         model_external_id (str): The external ID of the 3D model that could not be migrated.
     """
 
-    type: ClassVar[str] = "threeDModelMigration"
+    type: Literal["threeDModelMigration"] = "threeDModelMigration"
     model_name: str
     model_id: int
     error_message: list[str] = Field(default_factory=list)
@@ -55,7 +48,7 @@ class ChartMigrationIssue(MigrationIssue):
         chart_external_id (str): The external ID of the chart that could not be migrated.
     """
 
-    type: ClassVar[str] = "chartMigration"
+    type: Literal["chartMigration"] = "chartMigration"
     chart_external_id: str
     missing_timeseries_ids: list[int] = Field(default_factory=list)
     missing_timeseries_external_ids: list[str] = Field(default_factory=list)
@@ -70,7 +63,7 @@ class ChartMigrationIssue(MigrationIssue):
 
 
 class CanvasMigrationIssue(MigrationIssue):
-    type: ClassVar[str] = "canvasMigration"
+    type: Literal["canvasMigration"] = "canvasMigration"
     canvas_external_id: str
     canvas_name: str
     missing_reference_ids: list[AssetCentricId] = Field(default_factory=list)
@@ -84,7 +77,7 @@ class CanvasMigrationIssue(MigrationIssue):
 class ReadIssue(MigrationIssue):
     """Represents a read issue encountered during migration."""
 
-    type: ClassVar[str] = "read"
+    ...
 
 
 class ReadFileIssue(ReadIssue):
@@ -95,7 +88,7 @@ class ReadFileIssue(ReadIssue):
         error (str | None): An optional error message providing additional details about the read issue.
     """
 
-    type: ClassVar[str] = "fileRead"
+    type: Literal["fileRead"] = "fileRead"
 
     row_no: int
     error: str | None = None
@@ -109,7 +102,7 @@ class ReadAPIIssue(ReadIssue):
         error (str | None): An optional error message providing additional details about the read issue.
     """
 
-    type: ClassVar[str] = "apiRead"
+    type: Literal["apiRead"] = "apiRead"
     asset_centric_id: AssetCentricId
     error: str | None = None
 
@@ -121,7 +114,7 @@ class ReadAPIIssue(ReadIssue):
         }
 
 
-class FailedConversion(MigrationObject):
+class FailedConversion(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_name=True):
     """Represents a property that failed to convert during migration.
 
     Attributes:
@@ -135,7 +128,7 @@ class FailedConversion(MigrationObject):
     error: str
 
 
-class InvalidPropertyDataType(MigrationObject):
+class InvalidPropertyDataType(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_name=True):
     """Represents a property with an invalid type during migration.
 
     Attributes:
@@ -160,9 +153,9 @@ class ConversionIssue(MigrationIssue):
         failed_conversions (list[FailedConversion]): List of properties that failed to convert with reasons.
     """
 
-    type: ClassVar[str] = "conversion"
+    type: Literal["conversion"] = "conversion"
     asset_centric_id: AssetCentricId
-    instance_id: InstanceId
+    instance_id: NodeReference
     missing_asset_centric_properties: list[str] = Field(default_factory=list)
     missing_instance_properties: list[str] = Field(default_factory=list)
     invalid_instance_property_types: list[InvalidPropertyDataType] = Field(default_factory=list)
@@ -181,10 +174,6 @@ class ConversionIssue(MigrationIssue):
             or self.missing_instance_space
         )
 
-    @field_serializer("instance_id")
-    def serialize_instance_id(self, instance_id: NodeId) -> dict[str, str]:
-        return instance_id.dump(include_instance_type=True)
-
     @field_serializer("asset_centric_id")
     def serialize_asset_centric_id(self, asset_centric_id: AssetCentricId) -> dict[str, Any]:
         return {
@@ -197,16 +186,9 @@ class WriteIssue(MigrationIssue):
     """Represents a write issue encountered during migration.
 
     Attributes:
-        instance_id (InstanceId): The InstanceId of the data model instance that could not be written.
         status_code (int): The HTTP status code returned during the write operation.
         message (str | None): An optional message providing additional details about the write issue.
     """
 
-    type: ClassVar[str] = "write"
-    instance_id: InstanceId
+    type: Literal["write"] = "write"
     status_code: int
-    message: str | None = None
-
-    @field_serializer("instance_id")
-    def serialize_instance_id(self, instance_id: NodeId) -> dict[str, str]:
-        return instance_id.dump(include_instance_type=True)

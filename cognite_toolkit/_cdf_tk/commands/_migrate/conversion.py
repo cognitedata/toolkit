@@ -17,6 +17,7 @@ from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
@@ -198,7 +199,10 @@ def asset_centric_to_dm(
     data_set_id = dumped.pop("dataSetId", None)
     external_id = dumped.pop("externalId", None)
 
-    issue = ConversionIssue(asset_centric_id=AssetCentricId(resource_type, id_=id_), instance_id=instance_id)
+    issue = ConversionIssue(
+        asset_centric_id=AssetCentricId(resource_type, id_=id_),
+        instance_id=NodeReference(space=instance_id.space, external_id=instance_id.external_id),
+    )
 
     properties = create_properties(
         dumped,

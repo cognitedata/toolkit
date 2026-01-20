@@ -164,8 +164,7 @@ class MigrationCommand(ToolkitCommand):
                 tracker.set_progress(id_, step=self.Steps.CONVERT, status=result)
 
                 if issue.has_issues:
-                    # MyPy fails to understand that dict[str, JsonVal] is a Chunk
-                    issues.append(issue.dump())  # type: ignore[arg-type]
+                    issues.append(issue.dump())
                 if target is not None:
                     targets.append(UploadItem(source_id=id_, item=target))
             if issues:
