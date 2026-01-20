@@ -17,6 +17,7 @@ from cognite.client.data_classes.data_modeling.instances import NodeList, Proper
 from cognite.client.data_classes.data_modeling.views import MappedProperty, MultiEdgeConnection, ViewProperty
 
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
@@ -78,7 +79,7 @@ def direct_relation_cache() -> DirectRelationCache:
 
 
 class TestCreateProperties:
-    INSTANCE_ID = NodeId(space="test_space", external_id="test_instance")
+    INSTANCE_ID = NodeReference(space="test_space", external_id="test_instance")
     CONTAINER_ID = ContainerId("test_space", "test_container")
     DEFAULT_CONTAINER_ARGS: ClassVar = dict(nullable=True, immutable=False, auto_increment=False)
     ASSET_CENTRIC_ID = AssetCentricId(resource_type="asset", id_=123)
@@ -96,7 +97,7 @@ class TestCreateProperties:
                 },
                 {"name": "nameId", "description": "descriptionId", "metadata.categoryNo": "categoryNoId"},
                 {"nameId": "MyAsset", "descriptionId": "An asset,", "categoryNoId": 1},
-                ConversionIssue(asset_centric_id=ASSET_CENTRIC_ID, instance_id=INSTANCE_ID),
+                ConversionIssue(id=str(ASSET_CENTRIC_ID), instance_id=INSTANCE_ID, asset_centric_id=ASSET_CENTRIC_ID),
                 id="Basic property mapping with integer conversion and no issues",
             ),
             pytest.param(
@@ -112,7 +113,7 @@ class TestCreateProperties:
                     "createdId": datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
                     "activeId": True,
                 },
-                ConversionIssue(asset_centric_id=ASSET_CENTRIC_ID, instance_id=INSTANCE_ID),
+                ConversionIssue(id=str(ASSET_CENTRIC_ID), asset_centric_id=ASSET_CENTRIC_ID, instance_id=INSTANCE_ID),
                 id="Multiple data types conversion",
             ),
             pytest.param(
@@ -124,6 +125,7 @@ class TestCreateProperties:
                 {"name": "nameId", "description": "descriptionId"},
                 {"nameId": "MyAsset"},
                 ConversionIssue(
+                    id=str(ASSET_CENTRIC_ID),
                     asset_centric_id=ASSET_CENTRIC_ID,
                     instance_id=INSTANCE_ID,
                     missing_asset_centric_properties=["description"],
@@ -138,6 +140,7 @@ class TestCreateProperties:
                 {"name": "nameId", "description": "descriptionId"},
                 {"nameId": "MyAsset"},
                 ConversionIssue(
+                    id=str(ASSET_CENTRIC_ID),
                     asset_centric_id=ASSET_CENTRIC_ID,
                     instance_id=INSTANCE_ID,
                     missing_instance_properties=["descriptionId"],
@@ -159,6 +162,7 @@ class TestCreateProperties:
                 {"name": "nameId"},
                 {},
                 ConversionIssue(
+                    id=str(ASSET_CENTRIC_ID),
                     asset_centric_id=ASSET_CENTRIC_ID,
                     instance_id=INSTANCE_ID,
                     invalid_instance_property_types=[
@@ -175,6 +179,7 @@ class TestCreateProperties:
                 {"number": "numberId"},
                 {},
                 ConversionIssue(
+                    id=str(ASSET_CENTRIC_ID),
                     asset_centric_id=ASSET_CENTRIC_ID,
                     instance_id=INSTANCE_ID,
                     failed_conversions=[
@@ -193,6 +198,7 @@ class TestCreateProperties:
                 {"name": "nameId"},
                 {},
                 ConversionIssue(
+                    id=str(ASSET_CENTRIC_ID),
                     asset_centric_id=ASSET_CENTRIC_ID,
                     instance_id=INSTANCE_ID,
                     missing_asset_centric_properties=["name"],
@@ -213,6 +219,7 @@ class TestCreateProperties:
                 {"name": "nameId", "labels": "tags"},
                 {"nameId": "MyAsset", "tags": ["tag1", "tag2"]},
                 ConversionIssue(
+                    id=str(ASSET_CENTRIC_ID),
                     asset_centric_id=ASSET_CENTRIC_ID,
                     instance_id=INSTANCE_ID,
                 ),
@@ -232,6 +239,7 @@ class TestCreateProperties:
                 {"name": "nameId", "labels[0].externalId": "tag", "metadata": "metadata"},
                 {"nameId": "MyAsset", "tag": "tag1", "metadata": {"key": "value"}},
                 ConversionIssue(
+                    id=str(ASSET_CENTRIC_ID),
                     asset_centric_id=ASSET_CENTRIC_ID,
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=["labels[1].externalId"],
@@ -251,6 +259,7 @@ class TestCreateProperties:
                 {"name": "nameId", "type": "tag", "metadata.category": "tag"},
                 {"nameId": "MyAsset", "tag": "TypeA"},
                 ConversionIssue(
+                    id=str(ASSET_CENTRIC_ID),
                     asset_centric_id=ASSET_CENTRIC_ID,
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=["metadata.category"],
@@ -269,6 +278,7 @@ class TestCreateProperties:
                 {"name": "name", "metadata.雪ヘ罪約べげド. [10] SNL": "property10"},
                 {"name": "MyAsset", "property10": "値テスト"},
                 ConversionIssue(
+                    id=str(ASSET_CENTRIC_ID),
                     asset_centric_id=ASSET_CENTRIC_ID,
                     instance_id=INSTANCE_ID,
                 ),
@@ -328,7 +338,7 @@ class TestCreateProperties:
                     "source": DirectRelationReference("instance_space", "TheSourceA"),
                     "assets": [DirectRelationReference("instance_space", "MyFirstAsset")],
                 },
-                ConversionIssue(asset_centric_id=EVENT_CENTRIC_ID, instance_id=INSTANCE_ID),
+                ConversionIssue(id=str(EVENT_CENTRIC_ID), asset_centric_id=EVENT_CENTRIC_ID, instance_id=INSTANCE_ID),
                 id="Basic event property mapping with direct relations",
             ),
         ],
@@ -351,7 +361,7 @@ class TestCreateProperties:
 
 
 class TestAssetCentricConversion:
-    INSTANCE_ID = NodeId(space="test_space", external_id="test_instance")
+    INSTANCE_ID = NodeReference(space="test_space", external_id="test_instance")
     CONTAINER_ID = ContainerId("test_space", "test_container")
     VIEW_ID = ViewId("test_space", "test_view", "v1")
     INSTANCE_SOURCE_VIEW_ID = ViewId("cognite_migration", "InstanceSource", "v1")
@@ -405,6 +415,7 @@ class TestAssetCentricConversion:
                 },
                 {"assetName": "Test Asset", "assetDescription": "A test asset"},
                 ConversionIssue(
+                    id=str(AssetCentricId("asset", 123)),
                     asset_centric_id=AssetCentricId("asset", 123),
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=["createdTime", "lastUpdatedTime", "rootId"],
@@ -480,6 +491,7 @@ class TestAssetCentricConversion:
                     "deviceLocation": "room_1",
                 },
                 ConversionIssue(
+                    id=str(AssetCentricId("timeseries", 456)),
                     asset_centric_id=AssetCentricId("timeseries", id_=456),
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=[
@@ -599,6 +611,7 @@ class TestAssetCentricConversion:
                     "assets": [DirectRelationReference("test_space", "asset_123_instance")],
                 },
                 ConversionIssue(
+                    id=str(AssetCentricId("event", 789)),
                     asset_centric_id=AssetCentricId("event", id_=789),
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=["createdTime", "description", "lastUpdatedTime"],
@@ -673,6 +686,7 @@ class TestAssetCentricConversion:
                 },
                 {},
                 ConversionIssue(
+                    id=str(AssetCentricId("file", 321)),
                     asset_centric_id=AssetCentricId("file", id_=321),
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=[
@@ -730,6 +744,7 @@ class TestAssetCentricConversion:
                 },
                 {"timeSeriesName": "Test TimeSeries"},
                 ConversionIssue(
+                    id=str(AssetCentricId("timeseries", 654)),
                     asset_centric_id=AssetCentricId("timeseries", id_=654),
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=[
@@ -779,6 +794,7 @@ class TestAssetCentricConversion:
                 },
                 {"assetName": "The name"},
                 ConversionIssue(
+                    id=str(AssetCentricId("asset", 999)),
                     asset_centric_id=AssetCentricId("asset", id_=999),
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=["createdTime", "lastUpdatedTime", "rootId"],
@@ -828,6 +844,7 @@ class TestAssetCentricConversion:
                     "category": "MyType",
                 },
                 ConversionIssue(
+                    id=str(AssetCentricId("event", 999)),
                     asset_centric_id=AssetCentricId("event", id_=999),
                     instance_id=INSTANCE_ID,
                     ignored_asset_centric_properties=["createdTime", "lastUpdatedTime", "metadata.category"],
@@ -948,8 +965,9 @@ class TestAssetCentricConversion:
                     ],
                 ),
                 ConversionIssue(
+                    id=str(AssetCentricId("annotation", 37)),
                     asset_centric_id=AssetCentricId("annotation", id_=37),
-                    instance_id=EdgeId(space="test_space", external_id="annotation_37"),
+                    instance_id=NodeReference(space="test_space", external_id="annotation_37"),
                     ignored_asset_centric_properties=[
                         "annotatedResourceType",
                         "creatingApp",

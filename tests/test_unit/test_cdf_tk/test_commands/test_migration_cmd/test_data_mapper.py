@@ -246,6 +246,7 @@ class TestThreeDAssetMapper:
                 ),
                 None,
                 ThreeDModelMigrationIssue(
+                    id="AssetMapping_1",
                     model_name="AssetMapping_1",
                     model_id=1,
                     error_message=["Missing asset instance for asset ID 42"],
@@ -259,6 +260,7 @@ class TestThreeDAssetMapper:
                 ),
                 None,
                 ThreeDModelMigrationIssue(
+                    id="AssetMapping_1",
                     model_name="AssetMapping_1",
                     model_id=1,
                     error_message=["Neither assetInstanceId nor assetId provided for mapping."],
