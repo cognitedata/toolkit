@@ -1,4 +1,4 @@
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
 from enum import Enum
 from pathlib import Path
 
@@ -71,7 +71,7 @@ class MigrationCommand(ToolkitCommand):
             HTTPClient(config=data.client.config) as write_client,
         ):
             executor = ProducerWorkerExecutor[Sequence[T_ResourceResponse], Sequence[UploadItem[T_ResourceRequest]]](
-                download_iterable=self._download_iterable(selected, data, tracker),
+                download_iterable=(page.items for page in data.stream_data(selected)),
                 process=self._convert(mapper, data),
                 write=self._upload(selected, write_client, data, tracker, log_file, dry_run),
                 iteration_count=iteration_count,
@@ -135,19 +135,8 @@ class MigrationCommand(ToolkitCommand):
             *(SchemaColumn(name=step, type="string") for step in cls.Steps.list()),
         ]
 
-    def _download_iterable(
-        self,
-        selected: T_Selector,
-        data: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
-        tracker: ProgressTracker[str],
-    ) -> Iterable[Sequence[T_ResourceResponse]]:
-        for page in data.stream_data(selected):
-            for item in page.items:
-                tracker.set_progress(data.as_id(item), self.Steps.DOWNLOAD, "success")
-            yield page.items
-
+    @staticmethod
     def _convert(
-        self,
         mapper: DataMapper[T_Selector, T_ResourceResponse, T_ResourceRequest],
         data: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
     ) -> Callable[[Sequence[T_ResourceResponse]], Sequence[UploadItem[T_ResourceRequest]]]:
