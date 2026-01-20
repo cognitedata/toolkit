@@ -1,10 +1,10 @@
-import collections.abc
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
 from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes.capabilities import Capability, HostedExtractorsAcl
+from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -27,9 +27,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
     HostedExtractorSourceRequest,
     HostedExtractorSourceRequestUnion,
     HostedExtractorSourceResponseUnion,
+    HTTPBasicAuthenticationRequest,
     KafkaSourceRequest,
     MQTTSourceRequest,
     RESTSourceRequest,
+    ScramShaAuthenticationRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
@@ -73,7 +75,7 @@ class HostedExtractorSourceCRUD(
 
     @classmethod
     def get_required_capability(
-        cls, items: collections.abc.Sequence[HostedExtractorSourceRequestUnion] | None, read_only: bool
+        cls, items: Sequence[HostedExtractorSourceRequestUnion] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -89,20 +91,16 @@ class HostedExtractorSourceCRUD(
             HostedExtractorsAcl.Scope.All(),
         )
 
-    def create(
-        self, items: collections.abc.Sequence[HostedExtractorSourceRequestUnion]
-    ) -> list[HostedExtractorSourceResponseUnion]:
+    def create(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:
         return self.client.tool.hosted_extractors.sources.create(list(items))
 
-    def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorSourceResponseUnion]:
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[HostedExtractorSourceResponseUnion]:
         return self.client.tool.hosted_extractors.sources.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(
-        self, items: collections.abc.Sequence[HostedExtractorSourceRequestUnion]
-    ) -> list[HostedExtractorSourceResponseUnion]:
+    def update(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:
         return self.client.tool.hosted_extractors.sources.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.hosted_extractors.sources.delete(list(ids), ignore_unknown_ids=True)
@@ -150,12 +148,17 @@ class HostedExtractorSourceCRUD(
 
     @staticmethod
     def _sensitive_auth_strings(
-        auth: BasicAuthenticationRequest | ClientCredentialAuthenticationRequest,
+        auth: BasicAuthenticationRequest
+        | ClientCredentialAuthenticationRequest
+        | ScramShaAuthenticationRequest
+        | HTTPBasicAuthenticationRequest,
     ) -> Iterable[str]:
-        if isinstance(auth, BasicAuthenticationRequest) and auth.password:
+        if isinstance(auth, BasicAuthenticationRequest | ScramShaAuthenticationRequest) and auth.password:
             yield auth.password
         elif isinstance(auth, ClientCredentialAuthenticationRequest):
             yield auth.client_secret
+        elif isinstance(auth, HTTPBasicAuthenticationRequest):
+            yield auth.value
 
 
 class HostedExtractorDestinationCRUD(
@@ -190,7 +193,7 @@ class HostedExtractorDestinationCRUD(
 
     @classmethod
     def get_required_capability(
-        cls, items: collections.abc.Sequence[HostedExtractorDestinationRequest] | None, read_only: bool
+        cls, items: Sequence[HostedExtractorDestinationRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -206,20 +209,16 @@ class HostedExtractorDestinationCRUD(
             HostedExtractorsAcl.Scope.All(),
         )
 
-    def create(
-        self, items: collections.abc.Sequence[HostedExtractorDestinationRequest]
-    ) -> list[HostedExtractorDestinationResponse]:
+    def create(self, items: Sequence[HostedExtractorDestinationRequest]) -> list[HostedExtractorDestinationResponse]:
         return self.client.tool.hosted_extractors.destinations.create(list(items))
 
-    def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorDestinationResponse]:
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[HostedExtractorDestinationResponse]:
         return self.client.tool.hosted_extractors.destinations.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(
-        self, items: collections.abc.Sequence[HostedExtractorDestinationRequest]
-    ) -> list[HostedExtractorDestinationResponse]:
+    def update(self, items: Sequence[HostedExtractorDestinationRequest]) -> list[HostedExtractorDestinationResponse]:
         return self.client.tool.hosted_extractors.destinations.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.hosted_extractors.destinations.delete(list(ids), ignore_unknown_ids=True)
@@ -294,7 +293,7 @@ class HostedExtractorJobCRUD(ResourceCRUD[ExternalId, HostedExtractorJobRequest,
 
     @classmethod
     def get_required_capability(
-        cls, items: collections.abc.Sequence[HostedExtractorJobRequest] | None, read_only: bool
+        cls, items: Sequence[HostedExtractorJobRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -319,16 +318,16 @@ class HostedExtractorJobCRUD(ResourceCRUD[ExternalId, HostedExtractorJobRequest,
             dumped.pop("config", None)
         return dumped
 
-    def create(self, items: collections.abc.Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
+    def create(self, items: Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
         return self.client.tool.hosted_extractors.jobs.create(list(items))
 
-    def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorJobResponse]:
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[HostedExtractorJobResponse]:
         return self.client.tool.hosted_extractors.jobs.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: collections.abc.Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
+    def update(self, items: Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
         return self.client.tool.hosted_extractors.jobs.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.hosted_extractors.jobs.delete(list(ids), ignore_unknown_ids=True)
@@ -380,7 +379,7 @@ class HostedExtractorMappingCRUD(
 
     @classmethod
     def get_required_capability(
-        cls, items: collections.abc.Sequence[HostedExtractorMappingRequest] | None, read_only: bool
+        cls, items: Sequence[HostedExtractorMappingRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -396,20 +395,16 @@ class HostedExtractorMappingCRUD(
             HostedExtractorsAcl.Scope.All(),
         )
 
-    def create(
-        self, items: collections.abc.Sequence[HostedExtractorMappingRequest]
-    ) -> list[HostedExtractorMappingResponse]:
+    def create(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:
         return self.client.tool.hosted_extractors.mappings.create(list(items))
 
-    def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorMappingResponse]:
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[HostedExtractorMappingResponse]:
         return self.client.tool.hosted_extractors.mappings.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(
-        self, items: collections.abc.Sequence[HostedExtractorMappingRequest]
-    ) -> list[HostedExtractorMappingResponse]:
+    def update(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:
         return self.client.tool.hosted_extractors.mappings.update(list(items), mode="replace")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.hosted_extractors.mappings.delete(list(ids), ignore_unknown_ids=True)
