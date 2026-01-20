@@ -53,6 +53,7 @@ from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector
+from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, NoOpLogger
 from cognite_toolkit._cdf_tk.storageio.selectors import CanvasSelector, ChartSelector, ThreeDSelector
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
@@ -62,6 +63,10 @@ from .selectors import AssetCentricMigrationSelector
 
 
 class DataMapper(Generic[T_Selector, T_ResourceResponse, T_ResourceRequest], ABC):
+    def __init__(self, client: ToolkitClient) -> None:
+        self.client = client
+        self.logger: DataLogger = NoOpLogger()
+
     def prepare(self, source_selector: T_Selector) -> None:
         """Prepare the data mapper with the given source selector.
 
@@ -90,7 +95,7 @@ class AssetCentricMapper(
     DataMapper[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResourceExtended], InstanceApply]
 ):
     def __init__(self, client: ToolkitClient) -> None:
-        self.client = client
+        super().__init__(client)
         self._ingestion_view_by_id: dict[ViewId, View] = {}
         self._view_mapping_by_id: dict[str, ResourceViewMappingApply] = {}
         self._direct_relation_cache = DirectRelationCache(client)
@@ -154,9 +159,6 @@ class AssetCentricMapper(
 
 
 class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
-    def __init__(self, client: ToolkitClient) -> None:
-        self.client = client
-
     def map(self, source: Sequence[Chart]) -> Sequence[tuple[ChartWrite | None, MigrationIssue]]:
         self._populate_cache(source)
         output: list[tuple[ChartWrite | None, MigrationIssue]] = []
@@ -280,7 +282,7 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
     DEFAULT_TIMESERIES_VIEW = ViewId("cdf_cdm", "CogniteTimeSeries", "v1")
 
     def __init__(self, client: ToolkitClient, dry_run: bool, skip_on_missing_ref: bool = False) -> None:
-        self.client = client
+        super().__init__(client)
         self.dry_run = dry_run
         self.skip_on_missing_ref = skip_on_missing_ref
 
@@ -399,9 +401,6 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
 
 
 class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrationRequest]):
-    def __init__(self, client: ToolkitClient) -> None:
-        self.client = client
-
     def map(
         self, source: Sequence[ThreeDModelResponse]
     ) -> Sequence[tuple[ThreeDMigrationRequest | None, MigrationIssue]]:
@@ -478,9 +477,6 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrati
 
 
 class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequest]):
-    def __init__(self, client: ToolkitClient) -> None:
-        self.client = client
-
     def map(
         self, source: Sequence[AssetMappingClassicResponse]
     ) -> Sequence[tuple[AssetMappingDMRequest | None, MigrationIssue]]:
