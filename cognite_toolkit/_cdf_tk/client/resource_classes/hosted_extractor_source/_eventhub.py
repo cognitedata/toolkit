@@ -10,7 +10,7 @@ from ._base import SourceRequestDefinition, SourceResponseDefinition
 
 
 class EventHubSource(BaseModelObject):
-    type: Literal["eventHub"] = "eventHub"
+    type: Literal["eventhub"] = "eventhub"
     host: str
     event_hub_name: str
     consumer_group: str | None = None
