@@ -16,29 +16,29 @@ OperationStatus: TypeAlias = Literal["success", "failure", "unchanged", "pending
 
 
 class ItemTracker:
-    """Tracks subcategories accumulated for a single item during pipeline processing."""
+    """Tracks issues accumulated for a single item during pipeline processing."""
 
     def __init__(self, item_id: str) -> None:
         self.item_id = item_id
-        self.subcategories: list[str] = []
+        self.issues: list[str] = []
 
-    def add_subcategory(self, subcategory: str) -> None:
-        """Add a subcategory/flag encountered during processing."""
-        self.subcategories.append(subcategory)
+    def add_issue(self, issue: str) -> None:
+        """Add an issue encountered during processing."""
+        self.issues.append(issue)
 
 
 class DataLogger:
     """Logger used for logging data operations such as the data plugin and migration commands.
 
     Thread-safe aggregation logger that tracks items through a pipeline,
-    accumulating subcategories and finalizing with a status.
+    accumulating issues and finalizing with a status.
     """
 
     def __init__(self) -> None:
         self._lock = Lock()
         self._active_items: dict[str, ItemTracker] = {}
         self._status_counts: dict[OperationStatus, int] = defaultdict(int)
-        self._subcategory_counts: dict[OperationStatus, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        self._issue_counts: dict[OperationStatus, dict[str, int]] = defaultdict(lambda: defaultdict(int))
 
     def start_item(self, item_id: str) -> ItemTracker:
         """Start tracking an item entering the pipeline.
@@ -54,14 +54,14 @@ class DataLogger:
             self._active_items[item_id] = tracker
             return tracker
 
-    def add_subcategory(self, item_id: str, subcategory: str) -> None:
-        """Add a subcategory/flag to an item, creating tracker if needed."""
+    def add_issue(self, item_id: str, issue: str) -> None:
+        """Add an issue to an item, creating tracker if needed."""
         with self._lock:
             if item_id not in self._active_items:
                 self._active_items[item_id] = ItemTracker(item_id)
-            self._active_items[item_id].add_subcategory(subcategory)
+            self._active_items[item_id].add_issue(issue)
 
-    def finalize_item(self, item_id: str, status: OperationStatus) -> None:
+    def finalize_item(self, item_id: str | list[str], status: OperationStatus) -> None:
         """Finalize an item with its final status.
 
         Args:
@@ -69,19 +69,10 @@ class DataLogger:
             status: Final status (success, failure, unchanged).
         """
         with self._lock:
-            self._finalize_item_unlocked(item_id, status)
-
-    def finalize_items(self, item_ids: list[str], status: OperationStatus) -> None:
-        """Finalize multiple items with the same status.
-
-        More efficient than calling finalize_item repeatedly for batches.
-
-        Args:
-            item_ids: List of item identifiers.
-            status: Final status for all items.
-        """
-        with self._lock:
-            for item_id in item_ids:
+            if isinstance(item_id, list):
+                for iid in item_id:
+                    self._finalize_item_unlocked(iid, status)
+            else:
                 self._finalize_item_unlocked(item_id, status)
 
     def _finalize_item_unlocked(self, item_id: str, status: OperationStatus) -> None:
@@ -89,27 +80,20 @@ class DataLogger:
         tracker = self._active_items.pop(item_id, None)
         self._status_counts[status] += 1
         if tracker is not None:
-            for subcategory in tracker.subcategories:
-                self._subcategory_counts[status][subcategory] += 1
+            for issue in tracker.issues:
+                self._issue_counts[status][issue] += 1
 
     def get_status_counts(self) -> dict[OperationStatus, int]:
         """Get counts per final status."""
         with self._lock:
             return dict(self._status_counts)
 
-    def get_subcategory_counts(self, status: OperationStatus | None = None) -> dict[OperationStatus, dict[str, int]]:
-        """Get subcategory counts, optionally filtered by status."""
+    def get_issue_counts(self, status: OperationStatus | None = None) -> dict[OperationStatus, dict[str, int]]:
+        """Get issue counts, optionally filtered by status."""
         with self._lock:
             if status is not None:
-                return {status: dict(self._subcategory_counts[status])}
-            return {s: dict(subs) for s, subs in self._subcategory_counts.items()}
-
-    def reset(self) -> None:
-        """Reset all counts and active items."""
-        with self._lock:
-            self._active_items.clear()
-            self._status_counts.clear()
-            self._subcategory_counts.clear()
+                return {status: dict(self._issue_counts[status])}
+            return {s: dict(issues) for s, issues in self._issue_counts.items()}
 
     def log(self, issue: DataIssue) -> None:
         """Logs a data issue."""
