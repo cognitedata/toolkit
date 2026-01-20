@@ -55,15 +55,11 @@ class DataLogger:
             return tracker
 
     def add_subcategory(self, item_id: str, subcategory: str) -> None:
-        """Add a subcategory/flag to an item mid-pipeline.
-
-        Args:
-            item_id: The item's identifier.
-            subcategory: The subcategory to add (e.g., "missing_metadata", "conversion_warning").
-        """
+        """Add a subcategory/flag to an item, creating tracker if needed."""
         with self._lock:
-            if item_id in self._active_items:
-                self._active_items[item_id].add_subcategory(subcategory)
+            if item_id not in self._active_items:
+                self._active_items[item_id] = ItemTracker(item_id)
+            self._active_items[item_id].add_subcategory(subcategory)
 
     def finalize_item(self, item_id: str, status: OperationStatus) -> None:
         """Finalize an item with its final status.
