@@ -34,13 +34,13 @@ class TestMemoryOperationTracker:
         tracker_with_issues.finalize_item("item1", "failure")
         tracker_with_issues.finalize_item("item2", "failure")
 
-        assert tracker_with_issues.get_issue_counts() == {"failure": {"issue A": 2, "issue B": 1}}
+        assert tracker_with_issues.get_issue_counts("failure") == {"issue A": 2, "issue B": 1}
 
     def test_get_issue_counts_filtered_by_status(self, tracker_with_issues: MemoryOperationTracker) -> None:
         tracker_with_issues.finalize_item("item1", "failure")
         tracker_with_issues.finalize_item("item2", "success")
 
-        assert tracker_with_issues.get_issue_counts(status="success") == {"success": {}}
+        assert tracker_with_issues.get_issue_counts(status="success") == {"issue A": 1}
 
     def test_finalize_item_with_list(self) -> None:
         tracker = MemoryOperationTracker()
@@ -59,7 +59,6 @@ class TestNoOpTracker:
         tracker.finalize_item(["a", "b"], "failure")
 
         assert tracker.get_status_counts() == {}
-        assert tracker.get_issue_counts() == {}
         assert tracker.get_issue_counts(status="success") == {}
 
 

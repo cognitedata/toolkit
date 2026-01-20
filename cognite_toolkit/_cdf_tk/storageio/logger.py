@@ -51,7 +51,7 @@ class OperationTracker(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def get_issue_counts(self, status: OperationStatus | None = None) -> dict[OperationStatus, dict[str, int]]:
+    def get_issue_counts(self, status: OperationStatus) -> dict[str, int]:
         """Get issue counts, optionally filtered by status."""
         raise NotImplementedError()
 
@@ -71,7 +71,7 @@ class NoOpTracker(OperationTracker):
         """Return empty status counts."""
         return {}
 
-    def get_issue_counts(self, status: OperationStatus | None = None) -> dict[OperationStatus, dict[str, int]]:
+    def get_issue_counts(self, status: OperationStatus) -> dict[str, int]:
         """Return empty issue counts."""
         return {}
 
@@ -122,12 +122,10 @@ class MemoryOperationTracker(OperationTracker):
         with self._lock:
             return dict(self._status_counts)
 
-    def get_issue_counts(self, status: OperationStatus | None = None) -> dict[OperationStatus, dict[str, int]]:
+    def get_issue_counts(self, status: OperationStatus) -> dict[str, int]:
         """Get issue counts, optionally filtered by status."""
         with self._lock:
-            if status is not None:
-                return {status: dict(self._issue_counts[status])}
-            return {s: dict(issues) for s, issues in self._issue_counts.items()}
+            return dict(self._issue_counts.get(status, {}))
 
 
 class DataLogger(ABC):
