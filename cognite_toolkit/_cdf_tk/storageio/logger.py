@@ -12,7 +12,7 @@ class DataIssue(BaseModel, alias_generator=to_camel, extra="ignore", populate_by
     ...
 
 
-OperationStatus: TypeAlias = Literal["success", "failure", "unchanged"]
+OperationStatus: TypeAlias = Literal["success", "failure", "unchanged", "pending"]
 
 
 class ItemTracker:
@@ -78,18 +78,6 @@ class DataLogger:
             if tracker is not None:
                 for subcategory in tracker.subcategories:
                     self._subcategory_counts[status][subcategory] += 1
-
-    def log_success(self, item_id: str) -> None:
-        """Finalize item as successful."""
-        self.finalize_item(item_id, "success")
-
-    def log_failure(self, item_id: str) -> None:
-        """Finalize item as failed."""
-        self.finalize_item(item_id, "failure")
-
-    def log_unchanged(self, item_id: str) -> None:
-        """Finalize item as unchanged."""
-        self.finalize_item(item_id, "unchanged")
 
     def get_status_counts(self) -> dict[OperationStatus, int]:
         """Get counts per final status."""
