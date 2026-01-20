@@ -1,4 +1,5 @@
 from collections import defaultdict
+from collections.abc import Sequence
 from threading import Lock
 from typing import Literal, TypeAlias
 
@@ -90,6 +91,7 @@ class DataLogger:
         self.tracker = OperationTracker()
         self._writer = writer
 
-    def log(self, entry: LogEntry) -> None:
+    def log(self, entry: LogEntry | Sequence[LogEntry]) -> None:
         """Log a detailed entry to the file."""
-        self._writer.write_chunks([entry.model_dump(by_alias=True)])
+        entries = entry if isinstance(entry, Sequence) else [entry]
+        self._writer.write_chunks([e.model_dump(by_alias=True) for e in entries])
