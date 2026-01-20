@@ -5,8 +5,10 @@ from typing import Literal, TypeAlias
 from pydantic import BaseModel
 from pydantic.alias_generators import to_camel
 
+from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter
 
-class DataIssue(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_name=True):
+
+class LogEntry(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_name=True):
     """Represents an issue encountered during migration."""
 
     ...
@@ -27,11 +29,10 @@ class ItemTracker:
         self.issues.append(issue)
 
 
-class DataLogger:
-    """Logger used for logging data operations such as the data plugin and migration commands.
+class OperationTracker:
+    """Tracks the overall operation progress and issues across multiple items.
 
-    Thread-safe aggregation logger that tracks items through a pipeline,
-    accumulating issues and finalizing with a status.
+    Tracks counts of final statuses and issues per status.
     """
 
     def __init__(self) -> None:
@@ -39,20 +40,6 @@ class DataLogger:
         self._active_items: dict[str, ItemTracker] = {}
         self._status_counts: dict[OperationStatus, int] = defaultdict(int)
         self._issue_counts: dict[OperationStatus, dict[str, int]] = defaultdict(lambda: defaultdict(int))
-
-    def start_item(self, item_id: str) -> ItemTracker:
-        """Start tracking an item entering the pipeline.
-
-        Args:
-            item_id: Unique identifier for the item.
-
-        Returns:
-            ItemTracker to accumulate subcategories during processing.
-        """
-        with self._lock:
-            tracker = ItemTracker(item_id)
-            self._active_items[item_id] = tracker
-            return tracker
 
     def add_issue(self, item_id: str, issue: str) -> None:
         """Add an issue to an item, creating tracker if needed."""
@@ -95,6 +82,14 @@ class DataLogger:
                 return {status: dict(self._issue_counts[status])}
             return {s: dict(issues) for s, issues in self._issue_counts.items()}
 
-    def log(self, issue: DataIssue) -> None:
-        """Logs a data issue."""
-        raise NotImplementedError()
+
+class DataLogger:
+    """Composes aggregation tracking with detailed file logging."""
+
+    def __init__(self, writer: NDJsonWriter) -> None:
+        self.tracker = OperationTracker()
+        self._writer = writer
+
+    def log(self, entry: LogEntry) -> None:
+        """Log a detailed entry to the file."""
+        self._writer.write_chunks([entry.model_dump(by_alias=True)])
