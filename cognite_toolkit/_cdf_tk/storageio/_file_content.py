@@ -12,12 +12,16 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
     DataBodyRequest,
     ErrorDetails,
+    FailedRequest2,
     FailedResponse,
+    FailedResponse2,
     FailedResponseItems,
     HTTPClient,
     HTTPMessage,
+    RequestMessage2,
     ResponseList,
-    SimpleBodyRequest, RequestMessage2, SuccessResponse2, FailedRequest2, FailedResponse2,
+    SimpleBodyRequest,
+    SuccessResponse2,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
@@ -29,6 +33,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker, chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
+from ..client.cdf_client import ResponseItems
 from ._base import Page, UploadableStorageIO, UploadItem
 from .selectors import FileContentSelector, FileIdentifierSelector, FileMetadataTemplateSelector
 from .selectors._file_content import (
@@ -41,7 +46,6 @@ from .selectors._file_content import (
     FileTemplateSelector,
 )
 from .selectors._file_content import NodeId as SelectorNodeId
-from ..client.cdf_client import ResponseItems
 
 COGNITE_FILE_VIEW = ViewId("cdf_cdm", "CogniteFile", "v1")
 
@@ -363,7 +367,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                             "sources": [{"source": COGNITE_FILE_VIEW.dump(include_type=True), "properties": {}}],  # type: ignore[dict-item]
                         }
                     ]
-                }
+                },
             )
         )
         if isinstance(node_creation_result, SuccessResponse2):

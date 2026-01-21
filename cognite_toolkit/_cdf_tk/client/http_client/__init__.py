@@ -32,6 +32,7 @@ from ._item_classes import (
     ItemsFailedRequest2,
     ItemsFailedResponse2,
     ItemsRequest2,
+    ItemsResultList,
     ItemsResultMessage2,
     ItemsSuccessResponse2,
 )
@@ -55,6 +56,7 @@ __all__ = [
     "ItemsFailedResponse2",
     "ItemsRequest",
     "ItemsRequest2",
+    "ItemsResultList",
     "ItemsResultMessage2",
     "ItemsSuccessResponse2",
     "ParamRequest",

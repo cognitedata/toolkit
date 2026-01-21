@@ -9,11 +9,11 @@ from cognite.client.data_classes.data_modeling import (
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemMessage, SuccessResponseItems
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.cruds import ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio import (
     T_Selector,
     UploadableStorageIO,
@@ -265,9 +265,9 @@ class UploadCommand(ToolkitCommand):
     @classmethod
     def _upload_items(
         cls,
-        data_chunk: Sequence[UploadItem[T_ResourceRequest]],
+        data_chunk: Sequence[UploadItem[T_RequestResource]],
         upload_client: HTTPClient,
-        io: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
+        io: UploadableStorageIO[T_Selector, T_ResponseResource, T_RequestResource],
         selector: T_Selector,
         dry_run: bool,
         tracker: ProgressTracker[str],
