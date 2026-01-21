@@ -14,10 +14,10 @@ from typing import Any, Generic, Literal, TypeAlias, TypeVar
 from pydantic import BaseModel, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
-    RequestUpdateable,
     T_Identifier,
     T_RequestResource,
     T_ResponseResource,
+    UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
@@ -73,7 +73,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
 
     @classmethod
     def _serialize_updates(
-        cls, items: Sequence[RequestUpdateable], mode: Literal["patch", "replace"]
+        cls, items: Sequence[UpdatableRequestResource], mode: Literal["patch", "replace"]
     ) -> list[dict[str, JsonValue]]:
         """Serialize updateable objects to JSON-compatible dicts."""
         return [item.as_update(mode=mode) for item in items]
@@ -90,7 +90,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         return self._http_client.config.create_api_url(path)
 
     def _update(
-        self, items: Sequence[RequestUpdateable], mode: Literal["patch", "replace"]
+        self, items: Sequence[UpdatableRequestResource], mode: Literal["patch", "replace"]
     ) -> list[T_ResponseResource]:
         """Update resources in chunks."""
         response_items: list[T_ResponseResource] = []

@@ -4,8 +4,8 @@ from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
-    RequestUpdateable,
     ResponseResource,
+    UpdatableRequestResource,
 )
 
 from .identifiers import ExternalId
@@ -122,7 +122,7 @@ class HostedExtractorJob(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class HostedExtractorJobRequest(HostedExtractorJob, RequestUpdateable): ...
+class HostedExtractorJobRequest(HostedExtractorJob, UpdatableRequestResource): ...
 
 
 class HostedExtractorJobResponse(HostedExtractorJob, ResponseResource[HostedExtractorJobRequest]):

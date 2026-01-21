@@ -4,8 +4,8 @@ from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
-    RequestUpdateable,
     ResponseResource,
+    UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
@@ -32,7 +32,7 @@ class RobotDataPostProcessing(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class RobotDataPostProcessingRequest(RobotDataPostProcessing, RequestUpdateable):
+class RobotDataPostProcessingRequest(RobotDataPostProcessing, UpdatableRequestResource):
     """Request resource for creating or updating a DataPostProcessing."""
 
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"input_schema"})

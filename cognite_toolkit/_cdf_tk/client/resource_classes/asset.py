@@ -2,7 +2,7 @@ from typing import ClassVar, Literal
 
 from pydantic import JsonValue
 
-from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestUpdateable, ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, ResponseResource, UpdatableRequestResource
 
 from .identifiers import ExternalId
 
@@ -25,7 +25,7 @@ class Asset(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class AssetRequest(Asset, RequestUpdateable):
+class AssetRequest(Asset, UpdatableRequestResource):
     container_fields: ClassVar[frozenset[str]] = frozenset({"metadata", "labels"})
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"parent_id", "parent_external_id"})
 

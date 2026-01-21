@@ -2,12 +2,12 @@ from typing import Any, Literal
 
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client._resource_base import RequestUpdateable, ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource, UpdatableRequestResource
 
 from .identifiers import ExternalId
 
 
-class SimulatorModelRequest(RequestUpdateable):
+class SimulatorModelRequest(UpdatableRequestResource):
     # The 'id' field is not part of the request when creating a new resource,
     # but is needed when updating an existing resource.
     id: int | None = Field(default=None, exclude=True)

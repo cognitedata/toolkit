@@ -77,7 +77,7 @@ class RequestResource(BaseModelObject, ABC):
 T_RequestResource = TypeVar("T_RequestResource", bound=RequestResource)
 
 
-class RequestUpdateable(RequestResource, ABC):
+class UpdatableRequestResource(RequestResource, ABC):
     container_fields: ClassVar[frozenset[str]] = frozenset()
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset()
 

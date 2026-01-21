@@ -2,12 +2,12 @@ from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
-    RequestUpdateable,
+    UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
 
-class SourceRequestDefinition(RequestUpdateable):
+class SourceRequestDefinition(UpdatableRequestResource):
     type: str
     external_id: str
 

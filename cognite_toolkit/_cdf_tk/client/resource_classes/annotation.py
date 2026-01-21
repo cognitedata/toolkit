@@ -2,7 +2,7 @@ from typing import Any, Literal, TypeAlias
 
 from pydantic import Field, JsonValue
 
-from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestUpdateable, ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, ResponseResource, UpdatableRequestResource
 
 from .identifiers import InternalId
 
@@ -39,7 +39,7 @@ class Annotation(BaseModelObject):
     status: AnnotationStatus
 
 
-class AnnotationRequest(Annotation, RequestUpdateable):
+class AnnotationRequest(Annotation, UpdatableRequestResource):
     """Request data class for annotations."""
 
     # The 'id' field is not part of the request when creating a new resource,

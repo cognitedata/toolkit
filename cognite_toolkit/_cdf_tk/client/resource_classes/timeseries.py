@@ -2,8 +2,8 @@ from typing import Any, ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
-    RequestUpdateable,
     ResponseResource,
+    UpdatableRequestResource,
 )
 
 from .identifiers import ExternalId, InternalOrExternalId
@@ -29,7 +29,7 @@ class TimeSeries(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class TimeSeriesRequest(TimeSeries, RequestUpdateable):
+class TimeSeriesRequest(TimeSeries, UpdatableRequestResource):
     container_fields: ClassVar[frozenset[str]] = frozenset({"metadata", "security_categories"})
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"is_step"})
 

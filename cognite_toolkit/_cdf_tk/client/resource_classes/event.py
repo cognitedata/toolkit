@@ -2,8 +2,8 @@ from typing import ClassVar
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
-    RequestUpdateable,
     ResponseResource,
+    UpdatableRequestResource,
 )
 
 from .identifiers import ExternalId, InternalOrExternalId
@@ -27,7 +27,7 @@ class Event(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class EventRequest(Event, RequestUpdateable):
+class EventRequest(Event, UpdatableRequestResource):
     container_fields: ClassVar[frozenset[str]] = frozenset({"metadata", "asset_ids"})
 
 
