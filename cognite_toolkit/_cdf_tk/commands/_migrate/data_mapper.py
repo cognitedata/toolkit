@@ -127,6 +127,7 @@ class AssetCentricMapper(
         # We update the direct relation cache in bulk for all resources in the chunk.
         self._direct_relation_cache.update(item.resource for item in source)
         output: list[InstanceApply | None] = []
+        issues: list[ConversionIssue] = []
         for item in source:
             instance, conversion_issue = self._map_single_item(item)
             identifier = str(item.mapping.as_asset_centric_id())
@@ -144,9 +145,14 @@ class AssetCentricMapper(
             if conversion_issue.ignored_asset_centric_properties:
                 self.logger.tracker.add_issue(identifier, "Ignored asset-centric properties")
 
+            if conversion_issue.has_issues:
+                issues.append(conversion_issue)
+
             if instance is None:
                 self.logger.tracker.finalize_item(identifier, "failure")
             output.append(instance)
+        if issues:
+            self.logger.log(issues)
         return output
 
     def _map_single_item(

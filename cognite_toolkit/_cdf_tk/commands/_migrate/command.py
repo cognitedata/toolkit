@@ -132,7 +132,7 @@ class MigrationCommand(ToolkitCommand):
         table.add_column("Count", justify="right", style="bold")
         table.add_column("Issues", style="bold")
         for result in results:
-            issues_str = "\n".join(f"{issue.message}: {issue.count}" for issue in result.issues) or "None"
+            issues_str = "\n".join(f"{issue.message}: {issue.count}" for issue in result.issues) or ""
             table.add_row(result.status, str(result.count), issues_str)
         console.print(table)
 

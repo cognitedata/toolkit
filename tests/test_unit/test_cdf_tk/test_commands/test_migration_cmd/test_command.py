@@ -227,11 +227,11 @@ class TestMigrationCommand:
 
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)
-
+        mapper = AssetCentricMapper(client)
         result = command.migrate(
             selected=MigrationCSVFileSelector(datafile=csv_file, kind="Assets"),
             data=AssetCentricMigrationIO(client),
-            mapper=AssetCentricMapper(client),
+            mapper=mapper,
             log_dir=tmp_path / "logs",
             dry_run=False,
             verbose=False,

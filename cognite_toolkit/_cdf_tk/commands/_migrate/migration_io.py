@@ -78,7 +78,7 @@ class AssetCentricMigrationIO(
         self.skip_linking = skip_linking
 
     def as_id(self, item: AssetCentricMapping) -> str:
-        return f"{item.mapping.resource_type}_{item.mapping.id}"
+        return str(item.mapping.as_asset_centric_id())
 
     def stream_data(self, selector: AssetCentricMigrationSelector, limit: int | None = None) -> Iterator[Page]:
         if isinstance(selector, MigrationCSVFileSelector):
