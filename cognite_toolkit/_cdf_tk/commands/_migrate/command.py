@@ -1,5 +1,7 @@
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
+from typing import get_args
 
 from rich import print
 from rich.console import Console
@@ -26,15 +28,27 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio import T_Selector, UploadableStorageIO, UploadItem
-from cognite_toolkit._cdf_tk.storageio.logger import FileDataLogger
+from cognite_toolkit._cdf_tk.storageio.logger import FileDataLogger, OperationStatus
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
-from cognite_toolkit._cdf_tk.utils.fileio import Chunk, CSVWriter, NDJsonWriter, SchemaColumn, Uncompressed
+from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
-from cognite_toolkit._cdf_tk.utils.progress_tracker import ProgressTracker
 
 from .data_model import INSTANCE_SOURCE_VIEW_ID, MODEL_ID, RESOURCE_VIEW_MAPPING_VIEW_ID
 from .issues import WriteIssue
+
+
+@dataclass
+class OperationIssue:
+    message: str
+    count: int
+
+
+@dataclass
+class MigrationStatusResult:
+    status: OperationStatus
+    issues: list[OperationIssue]
+    count: int
 
 
 class MigrationCommand(ToolkitCommand):
@@ -46,7 +60,7 @@ class MigrationCommand(ToolkitCommand):
         log_dir: Path,
         dry_run: bool = False,
         verbose: bool = False,
-    ) -> ProgressTracker[str]:
+    ) -> list[MigrationStatusResult]:
         if log_dir.exists() and any(log_dir.iterdir()):
             raise ToolkitFileExistsError(
                 f"Log directory {log_dir} already exists. Please remove it or choose another directory."
@@ -86,55 +100,58 @@ class MigrationCommand(ToolkitCommand):
             executor.run()
             total = executor.total_items
 
-        self._print_table(logger, console)
-        self._print_csv(logger, log_dir, f"{selected.kind}Items", console)
+        results = self._create_status_summary(logger)
+
+        self._print_rich_tables(results, console)
+        self._print_txt(results, log_dir, f"{selected.kind}Items", console)
         executor.raise_on_error()
         action = "Would migrate" if dry_run else "Migrating"
         console.print(f"{action} {total:,} {selected.display_name} to instances.")
 
-        return tracker
+        return results
 
-    def _print_table(self, results: dict[tuple[str, Status], int], console: Console) -> None:
-        for step in self.Steps:
-            # We treat pending as failed for summary purposes
-            results[(step.value, "failed")] = results.get((step.value, "failed"), 0) + results.get(
-                (step.value, "pending"), 0
+    # Todo: Move to the logger module
+    @classmethod
+    def _create_status_summary(cls, logger: FileDataLogger) -> list[MigrationStatusResult]:
+        results: list[MigrationStatusResult] = []
+        status_counts = logger.tracker.get_status_counts()
+        for status in get_args(OperationStatus):
+            issue_counts = logger.tracker.get_issue_counts(status)
+            issues = [OperationIssue(message=issue, count=count) for issue, count in issue_counts.items()]
+            result = MigrationStatusResult(
+                status=status,
+                issues=issues,
+                count=status_counts.get(status, 0),
             )
+            results.append(result)
+        return results
 
+    def _print_rich_tables(self, results: list[MigrationStatusResult], console: Console) -> None:
         table = Table(title="Migration Summary", show_lines=True)
-        table.add_column("Status", style="cyan", no_wrap=True)
-        for step in self.Steps:
-            table.add_column(step.value.capitalize(), style="magenta")
-        for status in AVAILABLE_STATUS:
-            if status == "pending":
-                # Skip pending as we treat it as failed
-                continue
-            row = [status]
-            for step in self.Steps:
-                row.append(str(results.get((step.value, status), 0)))
-            table.add_row(*row)
-
+        table.add_column("Status", style="bold")
+        table.add_column("Count", justify="right", style="bold")
+        table.add_column("Issues", style="bold")
+        for result in results:
+            issues_str = "\n".join(f"{issue.message}: {issue.count}" for issue in result.issues) or "None"
+            table.add_row(result.status, str(result.count), issues_str)
         console.print(table)
 
-    def _print_csv(self, tracker: ProgressTracker[str], log_dir: Path, kind: str, console: Console) -> None:
-        with CSVWriter(log_dir, kind=kind, compression=Uncompressed, columns=self._csv_columns()) as csv_file:
-            batch: list[Chunk] = []
-            steps = self.Steps.list()
-            for item_id, progress in tracker.result().items():
-                batch.append({"ID": str(item_id), **{step: progress[step] for step in steps}})
-                if len(batch) >= 1000:
-                    csv_file.write_chunks(batch)
-                    batch = []
-            if batch:
-                csv_file.write_chunks(batch)
-        console.print(f"Migration items written to {log_dir}")
-
-    @classmethod
-    def _csv_columns(cls) -> list[SchemaColumn]:
-        return [
-            SchemaColumn(name="ID", type="string"),
-            *(SchemaColumn(name=step, type="string") for step in cls.Steps.list()),
-        ]
+    def _print_txt(self, results: list[MigrationStatusResult], log_dir: Path, kind: str, console: Console) -> None:
+        summary_file = log_dir / f"{kind}_migration_summary.txt"
+        with summary_file.open("w", encoding="utf-8") as f:
+            f.write("Migration Summary\n")
+            f.write("=================\n\n")
+            for result in results:
+                f.write(f"Status: {result.status}\n")
+                f.write(f"Count: {result.count}\n")
+                f.write("Issues:\n")
+                if result.issues:
+                    for issue in result.issues:
+                        f.write(f"  - {issue.message}: {issue.count}\n")
+                else:
+                    f.write("  None\n")
+                f.write("\n")
+        console.print(f"Summary written to {log_dir}")
 
     @staticmethod
     def _convert(
@@ -179,9 +196,8 @@ class MigrationCommand(ToolkitCommand):
                         issue = WriteIssue(id=str(id_), status_code=error.code, message=error.message)
                         issues.append(issue)
                 elif isinstance(item, FailedRequestItems):
-                    error = item.error
                     for id_ in item.ids:
-                        issue = WriteIssue(id=str(id_), status_code=0, message=error)
+                        issue = WriteIssue(id=str(id_), status_code=0, message=item.error)
                         issues.append(issue)
 
                 if isinstance(item, FailedResponseItems | FailedRequestItems):
