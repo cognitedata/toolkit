@@ -181,7 +181,7 @@ class AssetCentricMigrationIO(
 
         pending_instance_id_endpoint = self.PENDING_INSTANCE_ID_ENDPOINT_BY_KIND[selector.kind]
         results: list[HTTPMessage] = []
-        to_upload = self.link_asset_centric(data_chunk, http_client, results, pending_instance_id_endpoint)
+        to_upload = self.link_asset_centric(data_chunk, http_client, pending_instance_id_endpoint)
         if to_upload:
             results.extend(list(super().upload_items(to_upload, http_client, None)))
         return results
@@ -191,7 +191,6 @@ class AssetCentricMigrationIO(
         cls,
         data_chunk: Sequence[UploadItem[InstanceApply]],
         http_client: HTTPClient,
-        results: list[HTTPMessage],
         pending_instance_id_endpoint: str,
     ) -> Sequence[UploadItem[InstanceApply]]:
         """Links asset-centric resources to their (uncreated) instances using the pending-instance-ids endpoint."""
@@ -212,7 +211,6 @@ class AssetCentricMigrationIO(
             for res in batch_results:
                 if isinstance(res, SuccessResponseItems):
                     successful_linked.update(res.ids)
-            results.extend(batch_results)
         to_upload = [item for item in data_chunk if item.source_id in successful_linked]
         return to_upload
 

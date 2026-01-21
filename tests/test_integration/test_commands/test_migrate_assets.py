@@ -96,7 +96,7 @@ class TestMigrateAssetsCommand:
         client = toolkit_client
         hierarchy = migration_hierarchy_minimal
         cmd = MigrationCommand(skip_tracking=True, silent=True)
-        progress = cmd.migrate(
+        result = cmd.migrate(
             selected=MigrateDataSetSelector(
                 kind="Assets",
                 data_set_external_id=hierarchy.dataset.external_id,
@@ -108,9 +108,8 @@ class TestMigrateAssetsCommand:
             log_dir=tmp_path,
             dry_run=True,
         )
-        results = progress.aggregate()
-        expected_results = {(step, "success"): 2 for step in cmd.Steps.list()}
-        assert results == expected_results
+        results = {item.status: item.count for item in result}
+        assert results == {"failure": 0, "pending": 2, "success": 0, "unchanged": 0}
 
 
 class TestMigrateEventsCommand:
@@ -120,7 +119,7 @@ class TestMigrateEventsCommand:
         client = toolkit_client
         hierarchy = migration_hierarchy_minimal
         cmd = MigrationCommand(skip_tracking=True, silent=True)
-        progress = cmd.migrate(
+        result = cmd.migrate(
             selected=MigrateDataSetSelector(
                 kind="Events",
                 data_set_external_id=hierarchy.dataset.external_id,
@@ -132,9 +131,8 @@ class TestMigrateEventsCommand:
             log_dir=tmp_path,
             dry_run=True,
         )
-        results = progress.aggregate()
-        expected_results = {(step, "success"): 1 for step in cmd.Steps.list()}
-        assert results == expected_results
+        results = {item.status: item.count for item in result}
+        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0}
 
 
 class TestMigrateTimeSeriesCommand:
@@ -144,7 +142,7 @@ class TestMigrateTimeSeriesCommand:
         client = toolkit_client
         hierarchy = migration_hierarchy_minimal
         cmd = MigrationCommand(skip_tracking=True, silent=True)
-        progress = cmd.migrate(
+        result = cmd.migrate(
             selected=MigrateDataSetSelector(
                 kind="TimeSeries",
                 data_set_external_id=hierarchy.dataset.external_id,
@@ -156,9 +154,8 @@ class TestMigrateTimeSeriesCommand:
             log_dir=tmp_path,
             dry_run=True,
         )
-        results = progress.aggregate()
-        expected_results = {(step, "success"): 1 for step in cmd.Steps.list()}
-        assert results == expected_results
+        results = {item.status: item.count for item in result}
+        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0}
 
 
 class TestMigrateFileMetadataCommand:
@@ -168,7 +165,7 @@ class TestMigrateFileMetadataCommand:
         client = toolkit_client
         hierarchy = migration_hierarchy_minimal
         cmd = MigrationCommand(skip_tracking=True, silent=True)
-        progress = cmd.migrate(
+        result = cmd.migrate(
             selected=MigrateDataSetSelector(
                 kind="FileMetadata",
                 data_set_external_id=hierarchy.dataset.external_id,
@@ -180,9 +177,8 @@ class TestMigrateFileMetadataCommand:
             log_dir=tmp_path,
             dry_run=True,
         )
-        results = progress.aggregate()
-        expected_results = {(step, "success"): 1 for step in cmd.Steps.list()}
-        assert results == expected_results
+        results = {item.status: item.count for item in result}
+        assert results == {"failure": 0, "pending": 2, "success": 0, "unchanged": 0}
 
 
 class TestMigrateAnnotations:
@@ -192,7 +188,7 @@ class TestMigrateAnnotations:
         client = toolkit_client
         hierarchy = migration_hierarchy_minimal
         cmd = MigrationCommand(skip_tracking=True, silent=True)
-        progress = cmd.migrate(
+        result = cmd.migrate(
             selected=MigrateDataSetSelector(
                 kind="Annotations",
                 data_set_external_id=hierarchy.dataset.external_id,
@@ -203,6 +199,5 @@ class TestMigrateAnnotations:
             dry_run=True,
             verbose=True,
         )
-        results = progress.aggregate()
-        expected_results = {(step, "success"): 2 for step in cmd.Steps.list()}
-        assert results == expected_results
+        results = {item.status: item.count for item in result}
+        assert results == {"failure": 0, "pending": 2, "success": 0, "unchanged": 0}
