@@ -926,7 +926,7 @@ class MigrateApp(typer.Typer):
             lambda: cmd.migrate(
                 selected=selector,
                 data=CanvasIO(client, exclude_existing_version=True),
-                mapper=CanvasMapper(client, dry_run=dry_run, skip_on_missing_ref=allow_missing_ref),
+                mapper=CanvasMapper(client, dry_run=dry_run, skip_on_missing_ref=not allow_missing_ref),
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
