@@ -11,7 +11,7 @@ from rich import print
 from rich.panel import Panel
 from rich.progress import track
 
-from cognite_toolkit._cdf_tk.builders import Builder, create_builder
+from cognite_toolkit._cdf_tk.builders import Builder, FunctionBuilder, create_builder
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawDatabase
@@ -417,7 +417,7 @@ class BuildCommand(ToolkitCommand):
             build_resources_by_folder[resource_name].extend(built_resources)
 
             # Collect validation metrics from FunctionBuilder
-            if resource_name == FunctionCRUD.folder_name and hasattr(builder, "validation_count"):
+            if resource_name == FunctionCRUD.folder_name and isinstance(builder, FunctionBuilder):
                 self._additional_tracking_info.function_validation_count += builder.validation_count
                 self._additional_tracking_info.function_validation_failures += builder.validation_failures
                 self._additional_tracking_info.function_validation_credential_errors += (
