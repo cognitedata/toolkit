@@ -868,13 +868,13 @@ class MigrateApp(typer.Typer):
                 "performed to select the Canvas to migrate."
             ),
         ] = None,
-        skip_on_missing_ref: Annotated[
+        allow_missing_ref: Annotated[
             bool,
             typer.Option(
-                "--skip-on-missing-ref",
-                "-s",
-                help="If set, the migration will skip Canvases that reference resources that have not been migrated to data modeling. "
-                "If not set, the migration will continue but the result will exclude the missing references.",
+                "--allow-missing-ref",
+                "-a",
+                help="If set, the command will migrate Canvases that reference resources that have not been migrated to data modeling. "
+                "If not set, the migration will fail if any referenced resource are missing.",
             ),
         ] = False,
         log_dir: Annotated[
@@ -926,7 +926,7 @@ class MigrateApp(typer.Typer):
             lambda: cmd.migrate(
                 selected=selector,
                 data=CanvasIO(client, exclude_existing_version=True),
-                mapper=CanvasMapper(client, dry_run=dry_run, skip_on_missing_ref=skip_on_missing_ref),
+                mapper=CanvasMapper(client, dry_run=dry_run, skip_on_missing_ref=not allow_missing_ref),
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
