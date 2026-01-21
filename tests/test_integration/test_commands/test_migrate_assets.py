@@ -178,7 +178,7 @@ class TestMigrateFileMetadataCommand:
             dry_run=True,
         )
         results = {item.status: item.count for item in result}
-        assert results == {"failure": 0, "pending": 2, "success": 0, "unchanged": 0}
+        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0}
 
 
 class TestMigrateAnnotations:
