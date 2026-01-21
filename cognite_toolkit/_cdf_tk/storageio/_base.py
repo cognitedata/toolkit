@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
+from .logger import DataLogger, NoOpLogger
 from .selectors import DataSelector
 
 
@@ -76,6 +77,7 @@ class StorageIO(ABC, Generic[T_Selector, T_ResourceResponse]):
 
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
+        self.logger: DataLogger = NoOpLogger()
 
     @abstractmethod
     def as_id(self, item: T_ResourceResponse) -> str:

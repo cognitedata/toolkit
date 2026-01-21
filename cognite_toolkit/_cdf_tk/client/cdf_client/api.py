@@ -51,15 +51,20 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
     including creating, retrieving, deleting, and listing resources.
     """
 
-    def __init__(self, http_client: HTTPClient, method_endpoint_map: dict[APIMethod, Endpoint]) -> None:
+    def __init__(
+        self, http_client: HTTPClient, method_endpoint_map: dict[APIMethod, Endpoint], disable_gzip: bool = False
+    ) -> None:
         """Initialize the resource API.
 
         Args:
             http_client: The HTTP client to use for API requests.
             method_endpoint_map: A mapping of endpoint suffixes to their properties.
+            disable_gzip: Whether to disable gzip compression for requests. Defaults to False.
+                This is only used by the robotics API. If that API is dropped, this parameter can be removed.
         """
         self._http_client = http_client
         self._method_endpoint_map = method_endpoint_map
+        self._disable_gzip = disable_gzip
 
     @classmethod
     def _serialize_items(cls, items: Sequence[BaseModel]) -> list[dict[str, JsonValue]]:
@@ -151,6 +156,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
                 method=endpoint.method,
                 body_content={"items": serialization(chunk), **(extra_body or {})},  # type: ignore[dict-item]
                 parameters=request_params,
+                disable_gzip=self._disable_gzip,
             )
             response = self._http_client.request_single_retries(request)
             yield response.get_success_or_raise()
@@ -179,6 +185,27 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         for response in self._chunk_requests_items_split_retries(items, method, params, extra_body):
             response_items.extend(self._validate_page_response(response).items)
         return response_items
+
+    def _request_item_split_retries_no_response(
+        self,
+        items: Sequence[_T_BaseModel],
+        method: APIMethod,
+        params: dict[str, Any] | None = None,
+        extra_body: dict[str, Any] | None = None,
+    ) -> None:
+        """Request items with retries, splitting on failures, without returning any response.
+
+        This method handles large batches of items by chunking them according to the endpoint's item limit.
+        If a single item fails, it splits the request into individual item requests to isolate the failure.
+
+        Args:
+            items: Sequence of items to request.
+            method: API method to use for the request.
+            params: Optional query parameters for the request.
+            extra_body: Optional additional body fields for the request.
+        """
+        list(self._chunk_requests_items_split_retries(items, method, params, extra_body))
+        return None
 
     def _chunk_requests_items_split_retries(
         self,
@@ -215,6 +242,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
                 parameters=request_params,
                 items=chunk,
                 extra_body_fields=extra_body,
+                disable_gzip=self._disable_gzip,
             )
             responses = self._http_client.request_items_retries(request)
             for response in responses:
@@ -230,12 +258,12 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
 
     @classmethod
     def _group_items_by_text_field(
-        cls, items: Sequence[_T_BaseModel], field_name: str
-    ) -> dict[str, list[_T_BaseModel]]:
+        cls, items: Sequence[_T_BaseModel], *field_names: str
+    ) -> dict[tuple[str, ...], list[_T_BaseModel]]:
         """Group items by a text field."""
-        grouped_items: dict[str, list[_T_BaseModel]] = defaultdict(list)
+        grouped_items: dict[tuple[str, ...], list[_T_BaseModel]] = defaultdict(list)
         for item in items:
-            key = str(getattr(item, field_name))
+            key = tuple(str(getattr(item, field_name)) for field_name in field_names)
             grouped_items[key].append(item)
         return grouped_items
 
@@ -287,6 +315,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
             method=endpoint.method,
             parameters=request_params,
             body_content=body,
+            disable_gzip=self._disable_gzip,
         )
         result = self._http_client.request_single_retries(request)
         response = result.get_success_or_raise()
@@ -316,9 +345,15 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
             next_cursor = page.next_cursor
 
     def _list(
-        self, limit: int | None = None, params: dict[str, Any] | None = None, endpoint_path: str | None = None
+        self,
+        limit: int | None = None,
+        params: dict[str, Any] | None = None,
+        endpoint_path: str | None = None,
+        body: dict[str, Any] | None = None,
     ) -> list[T_ResponseResource]:
         """List all resources, handling pagination automatically."""
         return [
-            item for batch in self._iterate(limit=limit, params=params, endpoint_path=endpoint_path) for item in batch
+            item
+            for batch in self._iterate(limit=limit, params=params, endpoint_path=endpoint_path, body=body)
+            for item in batch
         ]

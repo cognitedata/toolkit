@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.constants import (
 def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
     """Iterate over all modules in the project and yield the module directory and all files in the module.
 
+
     Args:
         root_dir (Path): The root directory of the project
 
@@ -108,6 +109,12 @@ def is_module_path(path: Path) -> bool:
         return False
 
     return any(sub_folder.name in CRUDS_BY_FOLDER_NAME for sub_folder in path.iterdir() if sub_folder.is_dir())
+
+
+def module_path_display_name(org_path: Path, module_path: Path) -> str:
+    """Returns the module directory path relative to the organization path as a posix string."""
+    rel = module_path.relative_to(org_path)
+    return rel.as_posix()
 
 
 def find_directory_with_subdirectories(

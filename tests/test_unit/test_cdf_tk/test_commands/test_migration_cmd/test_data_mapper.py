@@ -17,8 +17,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import CreatedSourceSystem, ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
+    AssetMappingClassicResponse,
     AssetMappingDMRequest,
-    AssetMappingResponse,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
@@ -211,7 +211,7 @@ class TestThreeDAssetMapper:
         "response,lookup_asset,expected",
         [
             pytest.param(
-                AssetMappingResponse(
+                AssetMappingClassicResponse(
                     nodeId=1234,
                     assetInstanceId=NodeReference(space="my_space", externalId="asset_1"),
                     **DEFAULTS,
@@ -225,7 +225,7 @@ class TestThreeDAssetMapper:
                 id="Return existing assetInstanceId",
             ),
             pytest.param(
-                AssetMappingResponse(
+                AssetMappingClassicResponse(
                     nodeId=5678,
                     assetId=37,
                     **DEFAULTS,
@@ -239,7 +239,7 @@ class TestThreeDAssetMapper:
                 id="Lookup and return found assetInstanceId",
             ),
             pytest.param(
-                AssetMappingResponse(
+                AssetMappingClassicResponse(
                     nodeId=91011,
                     assetId=42,
                     **DEFAULTS,
@@ -253,7 +253,7 @@ class TestThreeDAssetMapper:
                 id="Lookup and return not found issue",
             ),
             pytest.param(
-                AssetMappingResponse(
+                AssetMappingClassicResponse(
                     nodeId=1213,
                     **DEFAULTS,
                 ),
@@ -269,7 +269,7 @@ class TestThreeDAssetMapper:
     )
     def test_map_chunk(
         self,
-        response: AssetMappingResponse,
+        response: AssetMappingClassicResponse,
         lookup_asset: NodeId | None,
         expected: AssetMappingDMRequest | ThreeDModelMigrationIssue,
     ) -> None:

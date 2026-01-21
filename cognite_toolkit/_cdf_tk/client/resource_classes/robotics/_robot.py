@@ -1,11 +1,11 @@
-from typing import ClassVar
+from typing import Any, ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client.resource_classes.base import (
     BaseModelObject,
     RequestUpdateable,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import DataSetId
 
 from ._common import RobotType
 
@@ -32,15 +32,20 @@ class Robot(BaseModelObject):
     metadata: dict[str, str] | None = None
     location_external_id: str | None = None
 
-    def as_id(self) -> NameId:
-        return NameId(name=self.name)
+    def as_id(self) -> DataSetId:
+        return DataSetId(data_set_id=self.data_set_id)
 
 
 class RobotRequest(Robot, RequestUpdateable):
     """Request resource for creating or updating a Robot."""
 
     container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})
-    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"location_external_id"})
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"location_external_id", "description"})
+
+    def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
+        update = super().as_update(mode)
+        update["update"].pop("capabilities", None)
+        return update
 
 
 class RobotResponse(Robot, ResponseResource[RobotRequest]):

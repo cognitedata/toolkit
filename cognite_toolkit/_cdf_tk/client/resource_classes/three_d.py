@@ -1,10 +1,10 @@
 import sys
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import Field
 
-from .base import BaseModelObject, Identifier, RequestResource, ResponseResource
-from .identifiers import NameId
+from .base import BaseModelObject, Identifier, RequestResource, RequestUpdateable, ResponseResource
+from .identifiers import InternalId
 from .instance_api import NodeReference
 
 if sys.version_info >= (3, 11):
@@ -23,12 +23,18 @@ class RevisionStatus(BaseModelObject):
 
 class ThreeDModelRequest(RequestResource):
     name: str
+    # This field is part of the path request and not the body schema.
+    # but is needed for identifier conversion.
+    id: int | None = Field(None, exclude=True)
 
-    def as_id(self) -> NameId:
-        return NameId(name=self.name)
+    def as_id(self) -> InternalId:
+        if self.id is None:
+            raise ValueError("Cannot convert to InternalId when id is None.")
+        return InternalId(id=self.id)
 
 
-class ThreeDModelClassicRequest(ThreeDModelRequest):
+class ThreeDModelClassicRequest(ThreeDModelRequest, RequestUpdateable):
+    container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})
     data_set_id: int | None = None
     metadata: dict[str, str] | None = None
 
@@ -91,17 +97,32 @@ class AssetMappingClassicRequest(RequestResource, Identifier):
         return f"{self.model_id}_{self.revision_id}_{self.node_id}_{asset_part}"
 
 
-class AssetMappingResponse(ResponseResource[AssetMappingClassicRequest]):
+class AssetMappingClassicResponse(ResponseResource[AssetMappingClassicRequest]):
     node_id: int
     asset_id: int | None = None
     asset_instance_id: NodeReference | None = None
     tree_index: int | None = None
     subtree_size: int | None = None
     # These fields are part of the path request and response, but they are included here for convenience.
-    model_id: int = Field(exclude=True)
-    revision_id: int = Field(exclude=True)
+    model_id: int = Field(-1, exclude=True)
+    revision_id: int = Field(-1, exclude=True)
 
     def as_request_resource(self) -> AssetMappingClassicRequest:
         return AssetMappingClassicRequest.model_validate(
+            {**self.dump(), "modelId": self.model_id, "revisionId": self.revision_id}
+        )
+
+
+class AssetMappingDMResponse(ResponseResource[AssetMappingDMRequest]):
+    node_id: int
+    asset_instance_id: NodeReference
+    tree_index: int | None = None
+    subtree_size: int | None = None
+    # These fields are part of the path request and response, but they are included here for convenience.
+    model_id: int = Field(-1, exclude=True)
+    revision_id: int = Field(-1, exclude=True)
+
+    def as_request_resource(self) -> AssetMappingDMRequest:
+        return AssetMappingDMRequest.model_validate(
             {**self.dump(), "modelId": self.model_id, "revisionId": self.revision_id}
         )

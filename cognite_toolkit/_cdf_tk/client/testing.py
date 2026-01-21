@@ -65,7 +65,7 @@ from .api.search import SearchAPI
 from .api.security_categories import SecurityCategoriesAPI
 from .api.sequences import SequencesAPI
 from .api.streams import StreamsAPI
-from .api.three_d import ThreeDAPI, ThreeDModelAPI
+from .api.three_d import ThreeDAPI, ThreeDClassicModelsAPI
 from .api.timeseries import TimeSeriesAPI
 from .api.token import TokenAPI
 from .api.transformations import TransformationsAPI
@@ -151,7 +151,7 @@ class ToolkitClientMock(CogniteClientMock):
 
         self.tool = MagicMock(spec=ToolAPI)
         self.tool.three_d = MagicMock(spec=ThreeDAPI)
-        self.tool.three_d.models = MagicMock(spec_set=ThreeDModelAPI)
+        self.tool.three_d.models_classic = MagicMock(spec_set=ThreeDClassicModelsAPI)
         self.tool.assets = MagicMock(spec_set=AssetsAPI)
         self.tool.timeseries = MagicMock(spec_set=TimeSeriesAPI)
         self.tool.filemetadata = MagicMock(spec_set=FileMetadataAPI)

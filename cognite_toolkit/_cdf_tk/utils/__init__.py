@@ -19,7 +19,13 @@ from .hashing import (
     calculate_hash,
     calculate_secure_hash,
 )
-from .modules import find_directory_with_subdirectories, iterate_modules, module_from_path, resource_folder_from_path
+from .modules import (
+    find_directory_with_subdirectories,
+    iterate_modules,
+    module_from_path,
+    module_path_display_name,
+    resource_folder_from_path,
+)
 from .pip_validator import PipValidationResult, validate_requirements_with_pip
 from .sentry_utils import sentry_exception_filter
 
@@ -39,6 +45,7 @@ __all__ = [
     "iterate_modules",
     "load_yaml_inject_variables",
     "module_from_path",
+    "module_path_display_name",
     "quote_int_value_by_key_in_yaml",
     "read_yaml_content",
     "read_yaml_file",

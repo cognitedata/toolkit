@@ -30,8 +30,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartWrite
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMappingApply
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
+    AssetMappingClassicResponse,
     AssetMappingDMRequest,
-    AssetMappingResponse,
     RevisionStatus,
     ThreeDModelResponse,
 )
@@ -477,12 +477,12 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrati
             return None
 
 
-class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingResponse, AssetMappingDMRequest]):
+class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequest]):
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
 
     def map(
-        self, source: Sequence[AssetMappingResponse]
+        self, source: Sequence[AssetMappingClassicResponse]
     ) -> Sequence[tuple[AssetMappingDMRequest | None, MigrationIssue]]:
         output: list[tuple[AssetMappingDMRequest | None, MigrationIssue]] = []
         self._populate_cache(source)
@@ -491,7 +491,7 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingResponse, AssetMa
             output.append((mapped_item, issue))
         return output
 
-    def _populate_cache(self, source: Sequence[AssetMappingResponse]) -> None:
+    def _populate_cache(self, source: Sequence[AssetMappingClassicResponse]) -> None:
         asset_ids: set[int] = set()
         for mapping in source:
             if mapping.asset_id is not None:
@@ -499,7 +499,7 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingResponse, AssetMa
         self.client.migration.lookup.assets(list(asset_ids))
 
     def _map_single_item(
-        self, item: AssetMappingResponse
+        self, item: AssetMappingClassicResponse
     ) -> tuple[AssetMappingDMRequest | None, ThreeDModelMigrationIssue]:
         issue = ThreeDModelMigrationIssue(model_name=f"AssetMapping_{item.model_id}", model_id=item.model_id)
         asset_instance_id = item.asset_instance_id

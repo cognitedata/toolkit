@@ -16,8 +16,8 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
+    AssetMappingClassicResponse,
     AssetMappingDMRequest,
-    AssetMappingResponse,
     ThreeDModelResponse,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import ThreeDMigrationRequest
@@ -415,7 +415,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
         total = 0
         while True:
             request_limit = min(self.DOWNLOAD_LIMIT, limit - total) if limit is not None else self.DOWNLOAD_LIMIT
-            response = self.client.tool.three_d.models.paginate(
+            response = self.client.tool.three_d.models_classic.paginate(
                 published=published, include_revision_info=True, limit=request_limit, cursor=cursor
             )
             items = [item for item in response.items if self._is_selected(item, included_models)]
@@ -477,7 +477,9 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
         return results
 
 
-class ThreeDAssetMappingMigrationIO(UploadableStorageIO[ThreeDSelector, AssetMappingResponse, AssetMappingDMRequest]):
+class ThreeDAssetMappingMigrationIO(
+    UploadableStorageIO[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequest]
+):
     KIND = "3DMigrationAssetMapping"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
@@ -493,10 +495,12 @@ class ThreeDAssetMappingMigrationIO(UploadableStorageIO[ThreeDSelector, AssetMap
         # We can only migrate asset mappings for 3D models that are already migrated to data modeling.
         self._3D_io = ThreeDMigrationIO(client, data_model_type="data modeling")
 
-    def as_id(self, item: AssetMappingResponse) -> str:
+    def as_id(self, item: AssetMappingClassicResponse) -> str:
         return f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.asset_id!s}"
 
-    def stream_data(self, selector: ThreeDSelector, limit: int | None = None) -> Iterable[Page[AssetMappingResponse]]:
+    def stream_data(
+        self, selector: ThreeDSelector, limit: int | None = None
+    ) -> Iterable[Page[AssetMappingClassicResponse]]:
         total = 0
         for three_d_page in self._3D_io.stream_data(selector, None):
             for model in three_d_page.items:
@@ -510,7 +514,7 @@ class ThreeDAssetMappingMigrationIO(UploadableStorageIO[ThreeDSelector, AssetMap
                     )
                     if limit is not None and total >= limit:
                         return
-                    response = self.client.tool.three_d.asset_mappings.paginate(
+                    response = self.client.tool.three_d.asset_mappings_classic.paginate(
                         model_id=model.id,
                         revision_id=model.last_revision_info.revision_id,
                         cursor=cursor,
@@ -562,6 +566,6 @@ class ThreeDAssetMappingMigrationIO(UploadableStorageIO[ThreeDSelector, AssetMap
         raise NotImplementedError("Deserializing 3D Asset Mappings from JSON is not supported.")
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[AssetMappingResponse], selector: ThreeDSelector | None = None
+        self, data_chunk: Sequence[AssetMappingClassicResponse], selector: ThreeDSelector | None = None
     ) -> list[dict[str, JsonVal]]:
         raise NotImplementedError("Serializing 3D Asset Mappings to JSON is not supported.")

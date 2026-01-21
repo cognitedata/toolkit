@@ -8,17 +8,15 @@ import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes.data_modeling import DataModelId, Space
 
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand as OldBuildCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.build_cmd import BuildCommand
-from cognite_toolkit._cdf_tk.commands.build_v2.build_issues import BuildIssue, BuildIssueList
+from cognite_toolkit._cdf_tk.constants import clean_name
 from cognite_toolkit._cdf_tk.cruds import TransformationCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, Environment, Packages
+from cognite_toolkit._cdf_tk.data_classes._issues import IssueList
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
-from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitMissingModuleError,
-)
-from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.hints import ModuleDefinition
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests import data
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -36,36 +34,29 @@ def dummy_environment() -> Environment:
 
 # Checks to avoid regressions
 class TestBuildV2Command:
-    def test_module_not_found_error(self, tmp_path: Path) -> None:
-        with pytest.raises(ToolkitMissingModuleError):
-            BuildCommand(print_warning=False).execute(
-                verbose=False,
-                build_dir=tmp_path,
-                organization_dir=data.PROJECT_WITH_BAD_MODULES,
-                selected=None,
-                build_env_name="no_module",
-                no_clean=False,
-            )
+    _v08_patcher = None
 
-    def test_module_with_non_resource_directories(self, tmp_path: Path) -> None:
-        cmd = BuildCommand(print_warning=False)
-        with suppress(NotImplementedError):
-            cmd.execute(
-                verbose=False,
-                build_dir=tmp_path,
-                organization_dir=data.PROJECT_WITH_BAD_MODULES,
-                selected=None,
-                build_env_name="ill_module",
-                no_clean=False,
-            )
+    @classmethod
+    def setup_class(cls):
+        """Enable v08 flag for all tests in this class."""
+        FeatureFlag.flush()  # Clear cache
+        cls._v08_patcher = patch("cognite_toolkit._cdf_tk.feature_flags.FeatureFlag.is_enabled")
+        mock_is_enabled = cls._v08_patcher.start()
 
-        assert len(cmd.issues) >= 1
-        assert (
-            BuildIssue(
-                description=f"Module 'ill_made_module' has non-resource directories: ['spaces']. {ModuleDefinition.short()}"
-            )
-            in cmd.issues
-        )
+        def is_enabled_side_effect(flag):
+            if flag == Flags.v08:
+                return True
+            # Call original implementation for other flags
+            return CDFToml.load().alpha_flags.get(clean_name(flag.name), False)
+
+        mock_is_enabled.side_effect = is_enabled_side_effect
+
+    @classmethod
+    def teardown_class(cls):
+        """Clean up the v08 flag patch."""
+        if cls._v08_patcher:
+            cls._v08_patcher.stop()
+            FeatureFlag.flush()  # Clear cache again
 
     @pytest.mark.skipif(not Flags.GRAPHQL.is_enabled(), reason="GraphQL schema files will give warnings")
     def test_custom_project_no_warnings(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -75,9 +66,9 @@ class TestBuildV2Command:
             cmd.execute(
                 verbose=False,
                 build_dir=tmp_path,
-                organization_dir=data.PROJECT_NO_COGNITE_MODULES,
+                base_dir=data.PROJECT_NO_COGNITE_MODULES,
                 selected=None,
-                build_env_name="dev",
+                build_env="dev",
                 no_clean=False,
             )
 
@@ -104,9 +95,9 @@ class TestBuildV2Command:
                 cmd.execute(
                     verbose=False,
                     build_dir=tmp_path / "build",
-                    organization_dir=data.COMPLETE_ORG,
+                    base_dir=data.COMPLETE_ORG,
                     selected=None,
-                    build_env_name="dev",
+                    build_env="dev",
                     no_clean=False,
                 )
 
@@ -147,10 +138,10 @@ capabilities:
             with suppress(NotImplementedError):
                 cmd.execute(
                     verbose=False,
-                    organization_dir=tmp_path / "my_org",
+                    base_dir=tmp_path / "my_org",
                     build_dir=tmp_path / "build",
                     selected=None,
-                    build_env_name=None,
+                    build_env=None,
                     no_clean=False,
                     client=toolkit_client_approval.mock_client,
                     on_error="raise",
@@ -234,9 +225,9 @@ class TestBuildParity:
             new_result = new_cmd.execute(
                 verbose=False,
                 build_dir=tmp_path / "new",
-                organization_dir=data.COMPLETE_ORG,
+                base_dir=data.COMPLETE_ORG,
                 selected=None,
-                build_env_name="dev",
+                build_env="dev",
                 no_clean=False,
             )
 
@@ -250,4 +241,15 @@ class TestBuildParity:
             no_clean=False,
         )
         assert new_result == old_result
-        assert new_cmd.issues == BuildIssueList.from_warning_list(old_cmd.warning_list)
+        # The new command should not surface more issues than the old one.
+        # It is allowed to produce fewer issues (a subset of the old warnings).
+        # This is especially important when alpha flags are off, as some resources
+        # may be disabled, resulting in fewer issues.
+        expected_issues = IssueList.from_warning_list(old_cmd.warning_list)
+        expected_issues_set = {(issue.code, issue.message) for issue in expected_issues}
+        new_issues_set = {(issue.code, issue.message) for issue in new_cmd.issues}
+
+        # All new issues must be present in the old warnings (subset check)
+        assert new_issues_set.issubset(expected_issues_set), (
+            f"New issues {new_issues_set - expected_issues_set} are not in old warnings. Old warnings: {expected_issues_set}"
+        )

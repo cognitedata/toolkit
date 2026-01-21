@@ -307,6 +307,11 @@ class ItemsRequest(Generic[T_COVARIANT_ID], BodyRequest):
             connect_attempt=self.connect_attempt,
             read_attempt=self.read_attempt,
             status_attempt=status_attempts,
+            api_version=self.api_version,
+            content_type=self.content_type,
+            accept=self.accept,
+            content_length=self.content_length,
+            max_failures_before_abort=self.max_failures_before_abort,
         )
         first_half.tracker = tracker
         second_half = ItemsRequest[T_COVARIANT_ID](
@@ -317,6 +322,11 @@ class ItemsRequest(Generic[T_COVARIANT_ID], BodyRequest):
             connect_attempt=self.connect_attempt,
             read_attempt=self.read_attempt,
             status_attempt=status_attempts,
+            api_version=self.api_version,
+            content_type=self.content_type,
+            accept=self.accept,
+            content_length=self.content_length,
+            max_failures_before_abort=self.max_failures_before_abort,
         )
         second_half.tracker = tracker
         return [first_half, second_half]

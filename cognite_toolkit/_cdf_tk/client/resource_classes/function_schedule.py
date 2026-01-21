@@ -6,6 +6,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.base import (
     RequestResource,
     ResponseResource,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
 
 
 class FunctionScheduleId(Identifier):
@@ -37,14 +38,17 @@ class FunctionSchedule(BaseModelObject):
 class FunctionScheduleRequest(FunctionSchedule, RequestResource):
     """Request resource for creating/updating function schedules."""
 
+    # The 'id' field is not part of the request when creating a new resource,
+    # but is needed when deleting an existing resource.
+    id: int | None = Field(default=None, exclude=True)
     function_id: int
     function_external_id: str | None = Field(None, exclude=True)
     nonce: str
 
-    def as_id(self) -> FunctionScheduleId:
-        if self.function_external_id is None:
-            raise ValueError("function_external_id must be set to create FunctionScheduleId")
-        return FunctionScheduleId(function_external_id=self.function_external_id, name=self.name)
+    def as_id(self) -> InternalId:
+        if self.id is None:
+            raise ValueError("Cannot convert FunctionScheduleRequest to InternalId when id is None")
+        return InternalId(id=self.id)
 
 
 class FunctionScheduleResponse(FunctionSchedule, ResponseResource[FunctionScheduleRequest]):

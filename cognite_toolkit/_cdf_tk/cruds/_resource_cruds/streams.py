@@ -4,11 +4,10 @@ from typing import Any, final
 from cognite.client.data_classes.capabilities import Capability, StreamsAcl
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamRequest,
     StreamResponse,
-    StreamResponseList,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import StreamYAML
@@ -17,7 +16,7 @@ from .datamodel import ContainerCRUD
 
 
 @final
-class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse]):
+class StreamCRUD(ResourceCRUD[ExternalId, StreamRequest, StreamResponse]):
     folder_name = "streams"
     resource_cls = StreamResponse
     resource_write_cls = StreamRequest
@@ -32,14 +31,14 @@ class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse]):
         return "streams"
 
     @classmethod
-    def get_id(cls, item: StreamRequest | StreamResponse | dict) -> str:
+    def get_id(cls, item: StreamRequest | StreamResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
-        return item.external_id
+            return ExternalId(external_id=item["externalId"])
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_required_capability(
@@ -55,30 +54,15 @@ class StreamCRUD(ResourceCRUD[str, StreamRequest, StreamResponse]):
         )
         return StreamsAcl(actions, StreamsAcl.Scope.All())
 
-    def create(self, items: Sequence[StreamRequest]) -> StreamResponseList:
-        created = self.client.streams.create(list(items))
-        return StreamResponseList(created)
+    def create(self, items: Sequence[StreamRequest]) -> list[StreamResponse]:
+        return self.client.streams.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> StreamResponseList:
-        retrieved: list[StreamResponse] = []
-        for _id in ids:
-            try:
-                _resp = self.client.streams.retrieve(_id)
-            except ToolkitAPIError:
-                continue
-            if _resp is not None:
-                retrieved.append(_resp)
-        return StreamResponseList(retrieved)
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[StreamResponse]:
+        return self.client.streams.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        count = 0
-        for _id in ids:
-            try:
-                self.client.streams.delete(_id)
-            except ToolkitAPIError:
-                continue
-            count += 1
-        return count
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+        self.client.streams.delete(list(ids), ignore_unknown_ids=True)
+        return len(ids)
 
     def _iterate(
         self,

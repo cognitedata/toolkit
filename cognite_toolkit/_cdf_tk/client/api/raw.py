@@ -128,7 +128,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
             List of created RAWTable objects.
         """
         result: list[RAWTable] = []
-        for db_name, group in self._group_items_by_text_field(items, "db_name").items():
+        for (db_name,), group in self._group_items_by_text_field(items, "db_name").items():
             if not db_name:
                 raise ValueError("db_name must be set on all RAWTable items for creation.")
             endpoint = f"/raw/dbs/{db_name}/tables"
@@ -145,7 +145,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
         Args:
             items: List of RAWTable objects to delete.
         """
-        for db_name, group in self._group_items_by_text_field(items, "db_name").items():
+        for (db_name,), group in self._group_items_by_text_field(items, "db_name").items():
             if not db_name:
                 raise ValueError("db_name must be set on all RAWTable items for deletion.")
             endpoint = f"/raw/dbs/{db_name}/tables/delete"

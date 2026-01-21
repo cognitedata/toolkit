@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFil
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_functions import ExtendedFunctionsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.robotics import RoboticsAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.robotics import RoboticsAPI as RoboticsLegacyAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 
 from .api.assets import AssetsAPI
@@ -26,6 +26,7 @@ from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
 from .api.project import ProjectAPI
 from .api.raw import RawAPI
+from .api.robotics import RoboticsAPI
 from .api.search import SearchAPI
 from .api.security_categories import SecurityCategoriesAPI
 from .api.sequences import SequencesAPI
@@ -53,10 +54,11 @@ class ToolAPI:
         self.labels = LabelsAPI(http_client)
         self.filemetadata = FileMetadataAPI(http_client)
         self.raw = RawAPI(http_client)
+        self.robotics = RoboticsAPI(http_client)
         self.security_categories = SecurityCategoriesAPI(http_client)
         self.sequences = SequencesAPI(http_client)
         self.simulators = SimulatorsAPI(http_client)
-        self.three_d = ThreeDAPI(http_client, console)
+        self.three_d = ThreeDAPI(http_client)
         self.timeseries = TimeSeriesAPI(http_client)
         self.transformations = TransformationsAPI(http_client)
         self.workflows = WorkflowsAPI(http_client)
@@ -76,7 +78,7 @@ class ToolkitClient(CogniteClient):
         self.console = console or Console()
         self.tool = ToolAPI(http_client, self.console)
         self.search = SearchAPI(self._config, self._API_VERSION, self)
-        self.robotics = RoboticsAPI(self._config, self._API_VERSION, self)
+        self.robotics = RoboticsLegacyAPI(self._config, self._API_VERSION, self)
         self.dml = DMLAPI(self._config, self._API_VERSION, self)
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self, self.console)
@@ -94,7 +96,7 @@ class ToolkitClient(CogniteClient):
         self.charts = ChartsAPI(self._config, self._API_VERSION, self)
         self.project = ProjectAPI(config=toolkit_config, cognite_client=self)
         self.infield = InfieldAPI(http_client, self.console)
-        self.streams = StreamsAPI(http_client, self.console)
+        self.streams = StreamsAPI(http_client)
 
     @property
     def config(self) -> ToolkitClientConfig:

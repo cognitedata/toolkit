@@ -1,5 +1,7 @@
 from typing import Literal
 
+from pydantic import Field
+
 from cognite_toolkit._cdf_tk.client.resource_classes.base import BaseModelObject, RequestResource, ResponseResource
 
 from .data_modeling import DataModelReference
@@ -61,8 +63,13 @@ class LocationFilter(BaseModelObject):
 class LocationFilterRequest(LocationFilter, RequestResource):
     """Request resource for creating/updating location filters."""
 
-    def as_id(self) -> ExternalId:
-        return ExternalId(external_id=self.external_id)
+    # This is not part of the request payload, but we need it to identify existing resources for updates.
+    id: int | None = Field(default=None, exclude=True)
+
+    def as_id(self) -> InternalId:
+        if self.id is None:
+            raise ValueError("Cannot get ID for LocationFilterRequest without 'id' set.")
+        return InternalId(id=self.id)
 
 
 class LocationFilterResponse(LocationFilter, ResponseResource[LocationFilterRequest]):

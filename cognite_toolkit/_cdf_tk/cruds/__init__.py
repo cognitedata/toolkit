@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import itertools
+from collections import defaultdict
 from typing import Literal, TypeAlias
 
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
@@ -90,24 +91,28 @@ if not FeatureFlag.is_enabled(Flags.STREAMS):
 if not FeatureFlag.is_enabled(Flags.SIMULATORS):
     _EXCLUDED_CRUDS.add(SimulatorModelCRUD)
 
-CRUDS_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
+CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[Loader]]] = defaultdict(list)
+CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)
 for _loader in itertools.chain(
     ResourceCRUD.__subclasses__(),
     ResourceContainerCRUD.__subclasses__(),
     DataCRUD.__subclasses__(),
     GroupCRUD.__subclasses__(),
 ):
-    if _loader in [ResourceCRUD, ResourceContainerCRUD, DataCRUD, GroupCRUD] or _loader in _EXCLUDED_CRUDS:
+    if _loader in [ResourceCRUD, ResourceContainerCRUD, DataCRUD, GroupCRUD]:
         # Skipping base classes
         continue
-    if _loader.folder_name not in CRUDS_BY_FOLDER_NAME:  # type: ignore[attr-defined]
-        CRUDS_BY_FOLDER_NAME[_loader.folder_name] = []  # type: ignore[attr-defined]
     # MyPy bug: https://github.com/python/mypy/issues/4717
-    CRUDS_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[arg-type, attr-defined]
+    CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA[_loader.folder_name].append(_loader)  # type: ignore[arg-type, attr-defined]
+
+    if _loader not in _EXCLUDED_CRUDS:
+        CRUDS_BY_FOLDER_NAME[_loader.folder_name].append(_loader)  # type: ignore[arg-type, attr-defined]
 del _loader  # cleanup module namespace
+
 
 # For backwards compatibility
 CRUDS_BY_FOLDER_NAME["data_models"] = CRUDS_BY_FOLDER_NAME["data_modeling"]  # Todo: Remove in v1.0
+CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA["data_models"] = CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA["data_modeling"]
 RESOURCE_CRUD_BY_FOLDER_NAME = {
     folder_name: cruds
     for folder_name, loaders in CRUDS_BY_FOLDER_NAME.items()
@@ -166,6 +171,7 @@ __all__ = [
     "RESOURCE_CRUD_CONTAINER_LIST",
     "RESOURCE_CRUD_LIST",
     "RESOURCE_DATA_CRUD_LIST",
+    "_EXCLUDED_CRUDS",
     "AgentCRUD",
     "AssetCRUD",
     "CogniteFileCRUD",

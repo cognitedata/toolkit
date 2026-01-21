@@ -5,27 +5,44 @@ from typing import Any
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client.api.agents import AgentsAPI
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
+from cognite_toolkit._cdf_tk.client.api.containers import ContainersAPI
+from cognite_toolkit._cdf_tk.client.api.data_models import DataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipelines import ExtractionPipelinesAPI
-from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
+from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
+from cognite_toolkit._cdf_tk.client.api.groups import GroupsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_destinations import HostedExtractorDestinationsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_mappings import HostedExtractorMappingsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_sources import HostedExtractorSourcesAPI
+from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI
 from cognite_toolkit._cdf_tk.client.api.labels import LabelsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI
+from cognite_toolkit._cdf_tk.client.api.relationships import RelationshipsAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_capabilities import CapabilitiesAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_data_postprocessing import DataPostProcessingAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_frames import FramesAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_locations import LocationsAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.sequences import SequencesAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
+from cognite_toolkit._cdf_tk.client.api.spaces import SpacesAPI
+from cognite_toolkit._cdf_tk.client.api.three_d import ThreeDClassicModelsAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
+from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config import APMConfigRequest, APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.base import Identifier, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerRequest,
     ContainerResponse,
@@ -84,6 +101,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
 from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
+    ResourceViewMappingRequest,
+    ResourceViewMappingResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotCapabilityRequest,
     RobotCapabilityResponse,
@@ -98,7 +119,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotRequest,
     RobotResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.search_config_resource import (
+from cognite_toolkit._cdf_tk.client.resource_classes.search_config import (
     SearchConfigRequest,
     SearchConfigResponse,
 )
@@ -113,6 +134,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest, StreamlitResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicRequest, ThreeDModelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest, TransformationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
@@ -546,6 +569,45 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "createdTime": 1622547800000,
             "updatedTime": 1622547800000,
         },
+        CogniteFileResponse: {
+            "space": "my_space",
+            "externalId": "cognite_file_001",
+            "name": "Example File",
+            "version": 1,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        ResourceViewMappingResponse: {
+            "externalId": "mapping_001",
+            "resourceType": "asset",
+            "viewId": {
+                "space": "cdf_cdm",
+                "externalId": "CogniteAsset",
+                "version": "v1",
+            },
+            "propertyMapping": {"name": "name"},
+            "version": 1,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        APMConfigResponse: {
+            "externalId": "apm_config_001",
+            "name": "Example APM Config",
+            "version": 1,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        StreamResponse: {
+            "externalId": "stream_001",
+            "createdTime": 1622547800000,
+            "createdFromTemplate": "ImmutableTestStream",
+            "type": "Immutable",
+        },
+        ThreeDModelResponse: {
+            "id": 123,
+            "name": "Example 3D Model",
+            "createdTime": 1622547800000,
+        },
     }
     try:
         return responses[resource_cls]
@@ -586,7 +648,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=FileMetadataResponse,
             request_cls=FileMetadataRequest,
             example_data=get_example_minimum_responses(FileMetadataResponse),
-            api_class=FileMetadataAPI,
+            # FileMetadata API requires custom mocking.
         ),
         id="FileMetadata",
     )
@@ -595,6 +657,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=AgentResponse,
             request_cls=AgentRequest,
             example_data=get_example_minimum_responses(AgentResponse),
+            api_class=AgentsAPI,
         ),
         id="Agent",
     )
@@ -603,6 +666,8 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=AnnotationResponse,
             request_cls=AnnotationRequest,
             example_data=get_example_minimum_responses(AnnotationResponse),
+            # We cannot use the generic tests AnnotationsAPI for the Annotation resource, as it
+            # requires an Annotation filter in the list/iterate/paginate methods.
         ),
         id="Annotation",
     )
@@ -640,6 +705,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=SpaceResponse,
             request_cls=SpaceRequest,
             example_data=get_example_minimum_responses(SpaceResponse),
+            api_class=SpacesAPI,
         ),
         id="Space",
     )
@@ -648,6 +714,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=ContainerResponse,
             request_cls=ContainerRequest,
             example_data=get_example_minimum_responses(ContainerResponse),
+            api_class=ContainersAPI,
         ),
         id="Container",
     )
@@ -656,6 +723,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=DataModelResponse,
             request_cls=DataModelRequest,
             example_data=get_example_minimum_responses(DataModelResponse),
+            api_class=DataModelsAPI,
         ),
         id="DataModel",
     )
@@ -664,6 +732,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=ViewResponse,
             request_cls=ViewRequest,
             example_data=get_example_minimum_responses(ViewResponse),
+            api_class=ViewsAPI,
         ),
         id="View",
     )
@@ -672,6 +741,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=NodeResponse,
             request_cls=NodeRequest,
             example_data=get_example_minimum_responses(NodeResponse),
+            api_class=InstancesAPI,
         ),
         id="Node",
     )
@@ -680,6 +750,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=EdgeResponse,
             request_cls=EdgeRequest,
             example_data=get_example_minimum_responses(EdgeResponse),
+            api_class=InstancesAPI,
         ),
         id="Edge",
     )
@@ -829,7 +900,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=GroupResponse,
             request_cls=GroupRequest,
             example_data=get_example_minimum_responses(GroupResponse),
-            api_class=None,
+            api_class=GroupsAPI,
         ),
         id="Group",
     )
@@ -846,6 +917,8 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=SearchConfigResponse,
             request_cls=SearchConfigRequest,
             example_data=get_example_minimum_responses(SearchConfigResponse),
+            # SearchConfig cannot be tested in generic API tests due to
+            # custom endpoint mocking.
         ),
         id="SearchConfig",
     )
@@ -854,6 +927,8 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=GraphQLDataModelResponse,
             request_cls=GraphQLDataModelRequest,
             example_data=get_example_minimum_responses(GraphQLDataModelResponse),
+            # GraphQLDataModel cannot be tested in generic API tests due to
+            # custom endpoint mocking.
         ),
         id="GraphQLDataModel",
     )
@@ -862,6 +937,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=FunctionResponse,
             request_cls=FunctionRequest,
             example_data=get_example_minimum_responses(FunctionResponse),
+            api_class=FunctionsAPI,
         ),
         id="Function",
     )
@@ -872,6 +948,8 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             example_data=get_example_minimum_responses(FunctionScheduleResponse),
             is_dump_equal_to_example=False,
             is_as_request_possible=False,
+            # FunctionSchedule cannot be tested in generic API due to
+            # it cannot create as_request from response.
         ),
         id="FunctionSchedule",
     )
@@ -888,6 +966,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=LocationFilterResponse,
             request_cls=LocationFilterRequest,
             example_data=get_example_minimum_responses(LocationFilterResponse),
+            # LocationFilter API requires custom mocking.
         ),
         id="LocationFilter",
     )
@@ -896,6 +975,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RelationshipResponse,
             request_cls=RelationshipRequest,
             example_data=get_example_minimum_responses(RelationshipResponse),
+            api_class=RelationshipsAPI,
         ),
         id="Relationship",
     )
@@ -904,6 +984,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RobotFrameResponse,
             request_cls=RobotFrameRequest,
             example_data=get_example_minimum_responses(RobotFrameResponse),
+            api_class=FramesAPI,
         ),
         id="RobotFrame",
     )
@@ -912,6 +993,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RobotCapabilityResponse,
             request_cls=RobotCapabilityRequest,
             example_data=get_example_minimum_responses(RobotCapabilityResponse),
+            api_class=CapabilitiesAPI,
         ),
         id="RobotCapability",
     )
@@ -920,6 +1002,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RobotLocationResponse,
             request_cls=RobotLocationRequest,
             example_data=get_example_minimum_responses(RobotLocationResponse),
+            api_class=LocationsAPI,
         ),
         id="RobotLocation",
     )
@@ -928,6 +1011,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RobotResponse,
             request_cls=RobotRequest,
             example_data=get_example_minimum_responses(RobotResponse),
+            api_class=RobotsAPI,
         ),
         id="Robot",
     )
@@ -936,6 +1020,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RobotDataPostProcessingResponse,
             request_cls=RobotDataPostProcessingRequest,
             example_data=get_example_minimum_responses(RobotDataPostProcessingResponse),
+            api_class=DataPostProcessingAPI,
         ),
         id="RobotDataPostProcessing",
     )
@@ -944,6 +1029,50 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=RobotMapResponse,
             request_cls=RobotMapRequest,
             example_data=get_example_minimum_responses(RobotMapResponse),
+            api_class=MapsAPI,
         ),
         id="RobotMap",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=CogniteFileResponse,
+            request_cls=CogniteFileRequest,
+            example_data=get_example_minimum_responses(CogniteFileResponse),
+        ),
+        id="CogniteFile",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=ResourceViewMappingResponse,
+            request_cls=ResourceViewMappingRequest,
+            example_data=get_example_minimum_responses(ResourceViewMappingResponse),
+        ),
+        id="ResourceViewMapping",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=APMConfigResponse,
+            request_cls=APMConfigRequest,
+            example_data=get_example_minimum_responses(APMConfigResponse),
+        ),
+        id="APMConfig",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=StreamResponse,
+            request_cls=StreamRequest,
+            example_data=get_example_minimum_responses(StreamResponse),
+            # StreamsAPI uses path parameters for retrieve/delete, so generic API tests
+            # do not work directly without custom mocking.
+        ),
+        id="Stream",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=ThreeDModelResponse,
+            request_cls=ThreeDModelClassicRequest,
+            example_data=get_example_minimum_responses(ThreeDModelResponse),
+            api_class=ThreeDClassicModelsAPI,
+        ),
+        id="ThreeDClassicModel",
     )
