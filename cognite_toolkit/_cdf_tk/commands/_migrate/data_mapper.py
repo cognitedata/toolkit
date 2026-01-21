@@ -184,6 +184,7 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
     def map(self, source: Sequence[Chart]) -> Sequence[ChartWrite | None]:
         self._populate_cache(source)
         output: list[ChartWrite | None] = []
+        issues: list[ChartMigrationIssue] = []
         for item in source:
             mapped_item, issue = self._map_single_item(item)
             identifier = item.external_id
@@ -195,9 +196,14 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
             if issue.missing_timeseries_identifier:
                 self.logger.tracker.add_issue(identifier, "Missing timeseries identifier")
 
+            if issue.has_issues:
+                issues.append(issue)
+
             if mapped_item is None:
                 self.logger.tracker.finalize_item(identifier, "failure")
             output.append(mapped_item)
+        if issues:
+            self.logger.log(issues)
         return output
 
     def _populate_cache(self, source: Sequence[Chart]) -> None:
@@ -322,6 +328,7 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
     def map(self, source: Sequence[IndustrialCanvas]) -> Sequence[IndustrialCanvasApply | None]:
         self._populate_cache(source)
         output: list[IndustrialCanvasApply | None] = []
+        issues: list[CanvasMigrationIssue] = []
         for item in source:
             mapped_item, issue = self._map_single_item(item)
             identifier = item.as_id()
@@ -329,10 +336,15 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
             if issue.missing_reference_ids:
                 self.logger.tracker.add_issue(identifier, "Missing reference IDs")
 
+            if issue.has_issues:
+                issues.append(issue)
+
             if mapped_item is None:
                 self.logger.tracker.finalize_item(identifier, "failure")
 
             output.append(mapped_item)
+        if issues:
+            self.logger.log(issues)
         return output
 
     @property
@@ -447,6 +459,7 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrati
     def map(self, source: Sequence[ThreeDModelResponse]) -> Sequence[ThreeDMigrationRequest | None]:
         self._populate_cache(source)
         output: list[ThreeDMigrationRequest | None] = []
+        issues: list[ThreeDModelMigrationIssue] = []
         for item in source:
             mapped_item, issue = self._map_single_item(item)
             identifier = item.name
@@ -455,9 +468,14 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrati
                 for error in issue.error_message:
                     self.logger.tracker.add_issue(identifier, error)
 
+            if issue.has_issues:
+                issues.append(issue)
+
             if mapped_item is None:
                 self.logger.tracker.finalize_item(identifier, "failure")
             output.append(mapped_item)
+        if issues:
+            self.logger.log(issues)
         return output
 
     def _populate_cache(self, source: Sequence[ThreeDModelResponse]) -> None:
@@ -528,6 +546,7 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrati
 class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequest]):
     def map(self, source: Sequence[AssetMappingClassicResponse]) -> Sequence[AssetMappingDMRequest | None]:
         output: list[AssetMappingDMRequest | None] = []
+        issues: list[ThreeDModelMigrationIssue] = []
         self._populate_cache(source)
         for item in source:
             mapped_item, issue = self._map_single_item(item)
@@ -537,10 +556,15 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, 
                 for error in issue.error_message:
                     self.logger.tracker.add_issue(identifier, error)
 
+            if issue.has_issues:
+                issues.append(issue)
+
             if mapped_item is None:
                 self.logger.tracker.finalize_item(identifier, "failure")
 
             output.append(mapped_item)
+        if issues:
+            self.logger.log(issues)
         return output
 
     def _populate_cache(self, source: Sequence[AssetMappingClassicResponse]) -> None:
