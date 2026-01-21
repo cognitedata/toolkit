@@ -324,7 +324,7 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
         output: list[IndustrialCanvasApply | None] = []
         for item in source:
             mapped_item, issue = self._map_single_item(item)
-            identifier = item.canvas.name
+            identifier = item.as_id()
 
             if issue.missing_reference_ids:
                 self.logger.tracker.add_issue(identifier, "Missing reference IDs")
