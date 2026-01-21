@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     HTTPMessage,
     ResponseList,
-    SimpleBodyRequest,
+    SimpleBodyRequest, RequestMessage2, SuccessResponse2, FailedRequest2, FailedResponse2,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
@@ -41,6 +41,7 @@ from .selectors._file_content import (
     FileTemplateSelector,
 )
 from .selectors._file_content import NodeId as SelectorNodeId
+from ..client.cdf_client import ResponseItems
 
 COGNITE_FILE_VIEW = ViewId("cdf_cdm", "CogniteFile", "v1")
 
@@ -122,8 +123,8 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
 
     def _retrieve_metadata(self, identifiers: Sequence[FileIdentifier]) -> Sequence[FileMetadataResponse] | None:
         config = self.client.config
-        responses = self.client.http_client.request_with_retries(
-            message=SimpleBodyRequest(
+        response = self.client.http_client.request_single_retries(
+            message=RequestMessage2(
                 endpoint_url=config.create_api_url("/files/byids"),
                 method="POST",
                 body_content={
@@ -135,13 +136,12 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                 },
             )
         )
-        if responses.has_failed:
+        if not isinstance(response, SuccessResponse2):
             return None
-        body = responses.get_first_body()
-        items_data = body.get("items", [])
-        if not isinstance(items_data, list):
+        try:
+            return ResponseItems[FileMetadataResponse].model_validate_json(response.body).items
+        except ValueError:
             return None
-        return [FileMetadataResponse.model_validate(item) for item in items_data]
 
     @staticmethod
     def _as_metadata_map(metadata: Sequence[FileMetadataResponse]) -> dict[FileIdentifier, FileMetadataResponse]:
@@ -345,8 +345,8 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
     def _create_cognite_file_node(
         cls, instance_id: NodeReference, http_client: HTTPClient, upload_id: str, results: MutableSequence[HTTPMessage]
     ) -> bool:
-        node_creation = http_client.request_with_retries(
-            message=SimpleBodyRequest(
+        node_creation_result = http_client.request_single_retries(
+            message=RequestMessage2(
                 endpoint_url=http_client.config.create_api_url("/models/instances"),
                 method="POST",
                 body_content={
@@ -363,9 +363,19 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                             "sources": [{"source": COGNITE_FILE_VIEW.dump(include_type=True), "properties": {}}],  # type: ignore[dict-item]
                         }
                     ]
-                },
+                }
             )
         )
+        if isinstance(node_creation_result, SuccessResponse2):
+            return True
+        elif isinstance(node_creation_result, FailedRequest2):
+            results.append()
+        elif isinstance(node_creation_result, FailedResponse2):
+            results.append()
+        else:
+            raise NotImplementedError(f"Unhandled response type: {type(node_creation_result).__name__}")
+        results.extend()
+
         try:
             _ = node_creation.get_first_body()
         except ValueError:

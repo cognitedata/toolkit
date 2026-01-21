@@ -4,15 +4,18 @@ from dataclasses import dataclass
 from typing import ClassVar, Generic, Literal, TypeVar
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, HTTPMessage, ItemsRequest
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, HTTPResult2, ItemsRequest2
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.base import T_RequestResource, T_ResponseResource, T_Identifier, \
+    RequestResource
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
+
 from .logger import DataLogger, NoOpLogger
 from .selectors import DataSelector
+from ..client.http_client._data_classes2 import ItemsResultList
 
 
 @dataclass
@@ -27,17 +30,16 @@ T_Selector = TypeVar("T_Selector", bound=DataSelector)
 
 
 @dataclass
-class Page(Generic[T_ResourceResponse], Sized):
+class Page(Generic[T_ResponseResource], Sized):
     worker_id: str
-    items: Sequence[T_ResourceResponse]
+    items: Sequence[T_ResponseResource]
     next_cursor: str | None = None
 
     def __len__(self) -> int:
         return len(self.items)
 
 
-@dataclass
-class UploadItem(Generic[T_ResourceRequest]):
+class UploadItem(RequestResource, Generic[T_RequestResource]):
     """An item to be uploaded to CDF, consisting of a source ID and the writable Cognite resource.
 
     Attributes:
@@ -46,16 +48,16 @@ class UploadItem(Generic[T_ResourceRequest]):
     """
 
     source_id: str
-    item: T_ResourceRequest
+    item: T_RequestResource
 
     def as_id(self) -> str:
         return self.source_id
 
-    def dump(self) -> JsonVal:
+    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> JsonVal:
         return self.item.dump(camel_case=True)
 
 
-class StorageIO(ABC, Generic[T_Selector, T_ResourceResponse]):
+class StorageIO(ABC, Generic[T_Selector, T_ResponseResource]):
     """This is a base class for all storage classes in Cognite Toolkit
 
     It defines the interface for downloading data from CDF. Note this can also be used for multiple
@@ -80,7 +82,7 @@ class StorageIO(ABC, Generic[T_Selector, T_ResourceResponse]):
         self.logger: DataLogger = NoOpLogger()
 
     @abstractmethod
-    def as_id(self, item: T_ResourceResponse) -> str:
+    def as_id(self, item: T_ResponseResource) -> str:
         """Convert an item to its corresponding ID.
         Args:
             item: The item to convert.
@@ -116,7 +118,7 @@ class StorageIO(ABC, Generic[T_Selector, T_ResourceResponse]):
 
     @abstractmethod
     def data_to_json_chunk(
-        self, data_chunk: Sequence[T_ResourceResponse], selector: T_Selector | None = None
+        self, data_chunk: Sequence[T_ResponseResource], selector: T_Selector | None = None
     ) -> list[dict[str, JsonVal]]:
         """Convert a chunk of data to a JSON-compatible format.
 
@@ -132,7 +134,7 @@ class StorageIO(ABC, Generic[T_Selector, T_ResourceResponse]):
 
 
 class UploadableStorageIO(
-    Generic[T_Selector, T_ResourceResponse, T_ResourceRequest], StorageIO[T_Selector, T_ResourceResponse], ABC
+    Generic[T_Selector, T_ResponseResource, T_RequestResource], StorageIO[T_Selector, T_ResponseResource], ABC
 ):
     """A base class for storage items that support uploading data to CDF.
 
@@ -152,10 +154,10 @@ class UploadableStorageIO(
 
     def upload_items(
         self,
-        data_chunk: Sequence[UploadItem[T_ResourceRequest]],
+        data_chunk: Sequence[UploadItem[T_RequestResource]],
         http_client: HTTPClient,
         selector: T_Selector | None = None,
-    ) -> Sequence[HTTPMessage]:
+    ) -> ItemsResultList:
         """Upload a chunk of data to the storage using a custom HTTP client.
         This ensures that even if one item in the chunk fails, the rest will still be uploaded.
 
@@ -179,11 +181,11 @@ class UploadableStorageIO(
         else:
             raise ToolkitNotImplementedError(f"Unsupported UPLOAD_ENDPOINT_TYPE {self.UPLOAD_ENDPOINT_TYPE!r}.")
 
-        return http_client.request_with_retries(
-            message=ItemsRequest(
+        return http_client.request_items_retries(
+            message=ItemsRequest2(
                 endpoint_url=url,
                 method=self.UPLOAD_ENDPOINT_METHOD,
-                items=list(data_chunk),
+                items=,
                 extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
             )
         )
