@@ -1,3 +1,5 @@
+"""Base classes for Cognite Client resources and identifiers."""
+
 import sys
 import types
 from abc import ABC, abstractmethod

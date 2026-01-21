@@ -3,7 +3,7 @@ from typing import Annotated, Any, Generic, Literal, TypeAlias
 
 from pydantic import Field, JsonValue, field_serializer, field_validator
 
-from cognite_toolkit._cdf_tk.client.resource_classes.base import (
+from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
     RequestResource,
     ResponseResource,

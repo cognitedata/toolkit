@@ -3,7 +3,14 @@ from typing import ClassVar, Literal
 
 from pydantic import Field
 
-from .base import BaseModelObject, Identifier, RequestResource, RequestUpdateable, ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import (
+    BaseModelObject,
+    Identifier,
+    RequestResource,
+    RequestUpdateable,
+    ResponseResource,
+)
+
 from .identifiers import InternalId
 from .instance_api import NodeReference
 

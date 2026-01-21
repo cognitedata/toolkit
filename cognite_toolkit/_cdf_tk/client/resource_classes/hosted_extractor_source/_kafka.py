@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client.resource_classes.base import (
+from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
     ResponseResource,
 )

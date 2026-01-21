@@ -13,18 +13,18 @@ from typing import Any, Generic, Literal, TypeAlias, TypeVar
 
 from pydantic import BaseModel, JsonValue
 
+from cognite_toolkit._cdf_tk.client._resource_base import (
+    RequestUpdateable,
+    T_Identifier,
+    T_RequestResource,
+    T_ResponseResource,
+)
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsRequest2,
     ItemsSuccessResponse2,
     RequestMessage2,
     SuccessResponse2,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.base import (
-    RequestUpdateable,
-    T_Identifier,
-    T_RequestResource,
-    T_ResponseResource,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 

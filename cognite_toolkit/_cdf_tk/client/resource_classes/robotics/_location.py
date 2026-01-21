@@ -1,4 +1,4 @@
-from cognite_toolkit._cdf_tk.client.resource_classes.base import BaseModelObject, RequestUpdateable, ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestUpdateable, ResponseResource
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
 

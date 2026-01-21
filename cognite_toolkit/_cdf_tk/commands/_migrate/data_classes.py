@@ -11,7 +11,7 @@ from cognite.client.utils._identifier import InstanceId
 from cognite.client.utils._text import to_camel_case
 from pydantic import BaseModel, BeforeValidator, Field, field_validator, model_validator
 
-from cognite_toolkit._cdf_tk.client.resource_classes.base import BaseModelObject, RequestResource
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceApplyList

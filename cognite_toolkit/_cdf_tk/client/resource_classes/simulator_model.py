@@ -2,7 +2,7 @@ from typing import Any, Literal
 
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client.resource_classes.base import RequestUpdateable, ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import RequestUpdateable, ResponseResource
 
 from .identifiers import ExternalId
 
