@@ -10,13 +10,6 @@ import httpx
 from cognite.client import global_config
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.http_client import (
-    ItemsFailedRequest2,
-    ItemsFailedResponse2,
-    ItemsRequest2,
-    ItemsResultMessage2,
-    ItemsSuccessResponse2,
-)
 from cognite_toolkit._cdf_tk.client.http_client._data_classes import (
     BodyRequest,
     DataBodyRequest,
@@ -37,7 +30,14 @@ from cognite_toolkit._cdf_tk.client.http_client._data_classes2 import (
     RequestMessage2,
     SuccessResponse2,
 )
-from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultList
+from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
+    ItemsFailedRequest2,
+    ItemsFailedResponse2,
+    ItemsRequest2,
+    ItemsResultList,
+    ItemsResultMessage2,
+    ItemsSuccessResponse2,
+)
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
