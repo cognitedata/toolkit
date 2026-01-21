@@ -2,7 +2,7 @@ from typing import Any, ClassVar, Literal, TypeAlias
 
 from pydantic import ConfigDict, JsonValue, model_serializer
 
-from .base import BaseModelObject, Identifier, RequestResource
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Identifier, RequestResource
 
 InstanceType: TypeAlias = Literal["node", "edge"]
 

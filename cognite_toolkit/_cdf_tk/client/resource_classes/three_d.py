@@ -3,7 +3,14 @@ from typing import ClassVar, Literal
 
 from pydantic import Field
 
-from .base import BaseModelObject, Identifier, RequestResource, RequestUpdateable, ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import (
+    BaseModelObject,
+    Identifier,
+    RequestResource,
+    ResponseResource,
+    UpdatableRequestResource,
+)
+
 from .identifiers import InternalId
 from .instance_api import NodeReference
 
@@ -33,7 +40,7 @@ class ThreeDModelRequest(RequestResource):
         return InternalId(id=self.id)
 
 
-class ThreeDModelClassicRequest(ThreeDModelRequest, RequestUpdateable):
+class ThreeDModelClassicRequest(ThreeDModelRequest, UpdatableRequestResource):
     container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})
     data_set_id: int | None = None
     metadata: dict[str, str] | None = None

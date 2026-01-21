@@ -9,10 +9,17 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Generic, Literal, TypeAlias, TypeVar
+from typing import Any, Generic, Literal, TypeAlias
 
-from pydantic import BaseModel, JsonValue
+from pydantic import JsonValue
 
+from cognite_toolkit._cdf_tk.client._resource_base import (
+    RequestItem,
+    T_Identifier,
+    T_RequestResource,
+    T_ResponseResource,
+    UpdatableRequestResource,
+)
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsRequest2,
@@ -20,17 +27,9 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage2,
     SuccessResponse2,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.base import (
-    RequestUpdateable,
-    T_Identifier,
-    T_RequestResource,
-    T_ResponseResource,
-)
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 from .responses import PagedResponse
-
-_T_BaseModel = TypeVar("_T_BaseModel", bound=BaseModel)
 
 
 @dataclass(frozen=True)
@@ -67,13 +66,13 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         self._disable_gzip = disable_gzip
 
     @classmethod
-    def _serialize_items(cls, items: Sequence[BaseModel]) -> list[dict[str, JsonValue]]:
+    def _serialize_items(cls, items: Sequence[RequestItem]) -> list[dict[str, JsonValue]]:
         """Serialize reference objects to JSON-compatible dicts."""
-        return [item.model_dump(mode="json", by_alias=True) for item in items]
+        return [item.dump() for item in items]
 
     @classmethod
     def _serialize_updates(
-        cls, items: Sequence[RequestUpdateable], mode: Literal["patch", "replace"]
+        cls, items: Sequence[UpdatableRequestResource], mode: Literal["patch", "replace"]
     ) -> list[dict[str, JsonValue]]:
         """Serialize updateable objects to JSON-compatible dicts."""
         return [item.as_update(mode=mode) for item in items]
@@ -90,7 +89,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         return self._http_client.config.create_api_url(path)
 
     def _update(
-        self, items: Sequence[RequestUpdateable], mode: Literal["patch", "replace"]
+        self, items: Sequence[UpdatableRequestResource], mode: Literal["patch", "replace"]
     ) -> list[T_ResponseResource]:
         """Update resources in chunks."""
         response_items: list[T_ResponseResource] = []
@@ -102,7 +101,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
 
     def _request_item_response(
         self,
-        items: Sequence[BaseModel],
+        items: Sequence[RequestItem],
         method: APIMethod,
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
@@ -115,7 +114,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
 
     def _request_no_response(
         self,
-        items: Sequence[BaseModel],
+        items: Sequence[RequestItem],
         method: APIMethod,
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
@@ -126,9 +125,9 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
 
     def _chunk_requests(
         self,
-        items: Sequence[_T_BaseModel],
+        items: Sequence[RequestItem],
         method: APIMethod,
-        serialization: Callable[[Sequence[_T_BaseModel]], list[dict[str, JsonValue]]],
+        serialization: Callable[[Sequence[RequestItem]], list[dict[str, JsonValue]]],
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
         endpoint_path: str | None = None,
@@ -163,7 +162,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
 
     def _request_item_split_retries(
         self,
-        items: Sequence[_T_BaseModel],
+        items: Sequence[RequestItem],
         method: APIMethod,
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
@@ -188,7 +187,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
 
     def _request_item_split_retries_no_response(
         self,
-        items: Sequence[_T_BaseModel],
+        items: Sequence[RequestItem],
         method: APIMethod,
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
@@ -209,7 +208,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
 
     def _chunk_requests_items_split_retries(
         self,
-        items: Sequence[_T_BaseModel],
+        items: Sequence[RequestItem],
         method: APIMethod,
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
@@ -258,10 +257,10 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
 
     @classmethod
     def _group_items_by_text_field(
-        cls, items: Sequence[_T_BaseModel], *field_names: str
-    ) -> dict[tuple[str, ...], list[_T_BaseModel]]:
+        cls, items: Sequence[RequestItem], *field_names: str
+    ) -> dict[tuple[str, ...], list[RequestItem]]:
         """Group items by a text field."""
-        grouped_items: dict[tuple[str, ...], list[_T_BaseModel]] = defaultdict(list)
+        grouped_items: dict[tuple[str, ...], list[RequestItem]] = defaultdict(list)
         for item in items:
             key = tuple(str(getattr(item, field_name)) for field_name in field_names)
             grouped_items[key].append(item)

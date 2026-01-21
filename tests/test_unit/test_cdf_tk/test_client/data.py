@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.api.agents import AgentsAPI
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.containers import ContainersAPI
@@ -41,7 +42,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, 
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config import APMConfigRequest, APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.base import Identifier, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerRequest,

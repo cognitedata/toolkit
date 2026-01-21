@@ -2,7 +2,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BeforeValidator, Field
 
-from cognite_toolkit._cdf_tk.client.resource_classes.base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 
 from .identifiers import ExternalId
 

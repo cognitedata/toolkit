@@ -1,9 +1,9 @@
 from typing import ClassVar
 
-from cognite_toolkit._cdf_tk.client.resource_classes.base import (
+from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
-    RequestUpdateable,
     ResponseResource,
+    UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
@@ -30,7 +30,7 @@ class RobotFrame(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class RobotFrameRequest(RobotFrame, RequestUpdateable):
+class RobotFrameRequest(RobotFrame, UpdatableRequestResource):
     """Request resource for creating or updating a Frame."""
 
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"transform"})

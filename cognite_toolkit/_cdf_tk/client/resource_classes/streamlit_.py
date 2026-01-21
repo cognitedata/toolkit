@@ -1,9 +1,9 @@
 from typing import Any, Literal
 
-from cognite_toolkit._cdf_tk.client.resource_classes.base import (
+from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
-    RequestUpdateable,
     ResponseResource,
+    UpdatableRequestResource,
 )
 
 from .filemetadata import FileMetadataRequest
@@ -25,7 +25,7 @@ class StreamlitFile(BaseModelObject):
     cognite_toolkit_app_hash: str | None = None
 
 
-class StreamlitRequest(StreamlitFile, RequestUpdateable):
+class StreamlitRequest(StreamlitFile, UpdatableRequestResource):
     """Request resource for creating/updating Streamlit apps."""
 
     def as_id(self) -> ExternalId:
