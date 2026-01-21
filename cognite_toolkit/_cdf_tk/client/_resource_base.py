@@ -146,6 +146,8 @@ class ResponseResource(BaseModelObject, Generic[T_RequestResource], ABC):
         """Convert the response resource to a request resource."""
         raise NotImplementedError()
 
+    # Todo remove when CogniteClient data classes are completely removed from the codebase
+    # and we only use the pydantic resource classes instead.from
     def as_write(self) -> T_RequestResource:
         """Alias for as_request_resource to match protocol signature."""
         return self.as_request_resource()
@@ -153,10 +155,10 @@ class ResponseResource(BaseModelObject, Generic[T_RequestResource], ABC):
 
 T_ResponseResource = TypeVar("T_ResponseResource", bound=ResponseResource)
 
+# Todo: Delete this class and use list[T_Resource] directly
 T_Resource = TypeVar("T_Resource", bound=RequestResource | ResponseResource)
 
 
-# Todo: Delete this class and use list[T_Resource] directly
 class BaseResourceList(UserList[T_Resource]):
     """Base class for resource lists."""
 
