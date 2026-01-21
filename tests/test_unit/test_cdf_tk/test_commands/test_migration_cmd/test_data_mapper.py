@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Any, ClassVar
+from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.data_classes import Asset
@@ -27,9 +28,9 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     MigrationMapping,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ThreeDAssetMapper
-from cognite_toolkit._cdf_tk.commands._migrate.issues import ThreeDModelMigrationIssue
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, OperationTracker
 
 
 class TestAssetCentricMapper:
@@ -203,6 +204,7 @@ class TestThreeDAssetMapper:
         "modelId": 1,
         "revisionId": 1,
     }
+    ASSET_ID = "AssetMapping_1"
 
     @pytest.mark.parametrize(
         "response,lookup_asset,expected",
@@ -242,12 +244,7 @@ class TestThreeDAssetMapper:
                     **DEFAULTS,
                 ),
                 None,
-                ThreeDModelMigrationIssue(
-                    id="AssetMapping_1",
-                    model_name="AssetMapping_1",
-                    model_id=1,
-                    error_message=["Missing asset instance for asset ID 42"],
-                ),
+                "Missing asset instance for asset ID 42",
                 id="Lookup and return not found issue",
             ),
             pytest.param(
@@ -256,12 +253,7 @@ class TestThreeDAssetMapper:
                     **DEFAULTS,
                 ),
                 None,
-                ThreeDModelMigrationIssue(
-                    id="AssetMapping_1",
-                    model_name="AssetMapping_1",
-                    model_id=1,
-                    error_message=["Neither assetInstanceId nor assetId provided for mapping."],
-                ),
+                "Neither assetInstanceId nor assetId provided for mapping.",
                 id="Missing both assetInstanceId and assetId issue",
             ),
         ],
@@ -270,14 +262,16 @@ class TestThreeDAssetMapper:
         self,
         response: AssetMappingClassicResponse,
         lookup_asset: NodeId | None,
-        expected: AssetMappingDMRequest | ThreeDModelMigrationIssue,
+        expected: AssetMappingDMRequest | str,
     ) -> None:
         with monkeypatch_toolkit_client() as client:
             client.migration.lookup.assets.return_value = lookup_asset
 
             mapper = ThreeDAssetMapper(client)
-
-            mapped, issue = mapper.map([response])[0]
+            logger = MagicMock(spec=DataLogger)
+            logger.tracker = MagicMock(spec_set=OperationTracker)
+            mapper.logger = logger
+            mapped = mapper.map([response])[0]
 
             if lookup_asset is not None:
                 # One for cache population, one for actual call
@@ -286,9 +280,11 @@ class TestThreeDAssetMapper:
                 assert last_call.args == (response.asset_id,)
 
             if isinstance(expected, AssetMappingDMRequest):
-                assert issue.has_issues is False, "Expected no issues"
+                logger.log.assert_not_called()
+                logger.tracker.add_issue.assert_not_called()
+                assert mapped is not None
                 assert mapped.model_dump() == expected.model_dump()
             else:
+                _, message = logger.tracker.add_issue.call_args.args
                 assert mapped is None, "Expected no mapped result"
-                assert isinstance(issue, ThreeDModelMigrationIssue)
-                assert issue.model_dump() == expected.model_dump()
+                assert message == expected
