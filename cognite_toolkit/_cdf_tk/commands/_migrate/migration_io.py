@@ -393,7 +393,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
         self.data_model_type = data_model_type
 
     def as_id(self, item: ThreeDModelResponse) -> str:
-        return f"{item.name}_{item.id!s}"
+        return item.name
 
     def _is_selected(self, item: ThreeDModelResponse, included_models: set[int] | None) -> bool:
         return self._is_correct_type(item) and (included_models is None or item.id in included_models)

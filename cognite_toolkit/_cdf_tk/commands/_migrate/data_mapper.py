@@ -550,7 +550,7 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, 
         self._populate_cache(source)
         for item in source:
             mapped_item, issue = self._map_single_item(item)
-            identifier = f"AssetMapping_{item.model_id}"
+            identifier = f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.asset_id!s}"
 
             if issue.error_message:
                 for error in issue.error_message:
