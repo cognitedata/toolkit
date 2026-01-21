@@ -45,11 +45,25 @@ class BaseModelObject(BaseModel):
         return cls.model_validate(resource, by_alias=True)
 
 
-class Identifier(BaseModelObject):
-    """Base class for all identifier objects typically
-    {"externalId": "..."}, {"id": ...}, {"space": "...", "externalId: }."""
+class RequestItem(BaseModelObject, ABC):
+    """A request item is any object that can be sent to the CDF API as part of a request."""
 
-    model_config = ConfigDict(alias_generator=to_camel, extra="ignore", populate_by_name=True, frozen=True)
+    def __str__(self) -> str:
+        """All request items must implement a string representation.
+
+        This is used to identify the item in error messages and logs.
+        """
+        raise NotImplementedError()
+
+
+T_RequestItem = TypeVar("T_RequestItem", bound=RequestItem)
+
+
+class Identifier(RequestItem):
+    """Base class for all identifier objects typically
+    {"externalId": "..."}, {"id": ...}, {"space": "...", "externalId: "..."}."""
+
+    model_config = ConfigDict(alias_generator=to_camel, extra="ignore", frozen=True)
 
     def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
         """Dump the resource to a dictionary.
@@ -58,14 +72,11 @@ class Identifier(BaseModelObject):
         """
         return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True)
 
-    def __str__(self) -> str:
-        raise NotImplementedError()
-
 
 T_Identifier = TypeVar("T_Identifier", bound=Identifier)
 
 
-class RequestResource(BaseModelObject, ABC):
+class RequestResource(RequestItem, ABC):
     @abstractmethod
     def as_id(self) -> Identifier:
         raise NotImplementedError()

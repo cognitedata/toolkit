@@ -8,6 +8,7 @@ from typing import Any
 from cognite.client import global_config
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.http_client import ErrorDetails2, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.http_client._data_classes2 import _BODY_SERIALIZER, BaseRequestMessage
 from cognite_toolkit._cdf_tk.client.http_client._tracker import ItemsRequestTracker
@@ -41,16 +42,14 @@ def _set_default_tracker(data: dict[str, Any]) -> ItemsRequestTracker:
 
 class ItemsRequest2(BaseRequestMessage):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    items: Sequence[BaseModel]
+    items: Sequence[RequestItem]
     extra_body_fields: dict[str, JsonValue] | None = None
     max_failures_before_abort: int = 50
     tracker: ItemsRequestTracker = Field(init=False, default_factory=_set_default_tracker, exclude=True)
 
     @property
     def content(self) -> str | bytes | None:
-        body: dict[str, JsonValue] = {
-            "items": [item.model_dump(mode="json", by_alias=True, exclude_unset=True) for item in self.items]
-        }
+        body: dict[str, JsonValue] = {"items": [item.dump(camel_case=True) for item in self.items]}
         if self.extra_body_fields:
             body.update(self.extra_body_fields)
         res = _BODY_SERIALIZER.dump_json(body)
