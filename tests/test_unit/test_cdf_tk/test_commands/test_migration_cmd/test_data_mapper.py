@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     MigrationMapping,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ThreeDAssetMapper
-from cognite_toolkit._cdf_tk.commands._migrate.issues import ConversionIssue, MigrationIssue, ThreeDModelMigrationIssue
+from cognite_toolkit._cdf_tk.commands._migrate.issues import ThreeDModelMigrationIssue
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
@@ -104,11 +104,8 @@ class TestAssetCentricMapper:
             mapper.prepare(selected)
 
             mapped: list[InstanceApply] = []
-            issues: list[MigrationIssue] = []
-            for (target, item_issue), item in zip(mapper.map(source), source):
+            for target, item in zip(mapper.map(source), source):
                 mapped.append(target)
-                if not isinstance(item_issue, ConversionIssue) or item_issue.has_issues:
-                    issues.append(item_issue)
 
             # We do not assert the exact content of mapped, as that is tested in the
             # tests for the asset_centric_to_dm function.
