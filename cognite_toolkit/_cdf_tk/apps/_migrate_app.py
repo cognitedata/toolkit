@@ -874,7 +874,7 @@ class MigrateApp(typer.Typer):
                 "--allow-missing-ref",
                 "-a",
                 help="If set, the command will migrate Canvases that reference resources that have not been migrated to data modeling. "
-                "If not set, the migration will fail if any referenced resource are missing.",
+                "If not set, the migration will fail if any referenced resources are missing.",
             ),
         ] = False,
         log_dir: Annotated[
