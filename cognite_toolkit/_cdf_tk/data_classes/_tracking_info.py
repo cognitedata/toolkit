@@ -32,6 +32,10 @@ class CommandTrackingInfo(BaseModel):
     downloaded_library_ids: set[str] = Field(default_factory=set, alias="downloadedLibraryIds")
     downloaded_package_ids: set[str] = Field(default_factory=set, alias="downloadedPackageIds")
     downloaded_module_ids: set[str] = Field(default_factory=set, alias="downloadedModuleIds")
+    function_validation_count: int = Field(default=0, alias="functionValidationCount")
+    function_validation_failures: int = Field(default=0, alias="functionValidationFailures")
+    function_validation_credential_errors: int = Field(default=0, alias="functionValidationCredentialErrors")
+    function_validation_time_ms: int = Field(default=0, alias="functionValidationTimeMs")
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the tracking info to a dictionary for Mixpanel.

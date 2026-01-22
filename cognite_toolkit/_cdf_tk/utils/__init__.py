@@ -26,10 +26,12 @@ from .modules import (
     module_path_display_name,
     resource_folder_from_path,
 )
+from .pip_validator import PipValidationResult, validate_requirements_with_pip
 from .sentry_utils import sentry_exception_filter
 
 __all__ = [
     "GraphQLParser",
+    "PipValidationResult",
     "YAMLComment",
     "YAMLWithComments",
     "calculate_directory_hash",
@@ -57,4 +59,5 @@ __all__ = [
     "stringify_value_by_key_in_yaml",
     "tmp_build_directory",
     "to_diff",
+    "validate_requirements_with_pip",
 ]
