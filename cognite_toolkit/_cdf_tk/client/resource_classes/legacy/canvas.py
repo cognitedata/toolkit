@@ -937,18 +937,18 @@ class IndustrialCanvasApply(CogniteResource):
         new_canvas.source_canvas_id = self.canvas.external_id
         new_canvas.updated_at = datetime.now(tz=timezone.utc)
         # Solution tags are not duplicated, they are reused
-        canvas_copy = IndustrialCanvasApply(new_canvas, [], [], [], solution_tags=self.solution_tags)
+        canvas_backup = IndustrialCanvasApply(new_canvas, [], [], [], solution_tags=self.solution_tags)
         items: list[ContainerReferenceApply] | list[CanvasAnnotationApply] | list[FdmInstanceContainerReferenceApply]
         item_cls: type[CanvasAnnotationApply] | type[ContainerReferenceApply] | type[FdmInstanceContainerReferenceApply]
         new_item_list: list[NodeApply]
         generator: dict[str, str] = defaultdict(lambda: str(uuid4()))
         for items, item_cls, new_item_list in [  # type: ignore[assignment]
-            (self.annotations, CanvasAnnotationApply, canvas_copy.annotations),
-            (self.container_references, ContainerReferenceApply, canvas_copy.container_references),
+            (self.annotations, CanvasAnnotationApply, canvas_backup.annotations),
+            (self.container_references, ContainerReferenceApply, canvas_backup.container_references),
             (
                 self.fdm_instance_container_references,
                 FdmInstanceContainerReferenceApply,
-                canvas_copy.fdm_instance_container_references,
+                canvas_backup.fdm_instance_container_references,
             ),
         ]:
             for item in items:
@@ -958,7 +958,7 @@ class IndustrialCanvasApply(CogniteResource):
                 new_item.external_id = f"{new_canvas_id}_{new_item.id_}"
                 new_item_list.append(new_item)
 
-        return canvas_copy.replace_ids(generator)
+        return canvas_backup.replace_ids(generator)
 
     def replace_ids(self, id_mapping_old_by_new: dict[str, str]) -> "IndustrialCanvasApply":
         """Replace IDs in the IndustrialCanvasApply instance based on the provided ID mapping.
