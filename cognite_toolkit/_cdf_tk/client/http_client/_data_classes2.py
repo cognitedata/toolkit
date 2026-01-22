@@ -7,7 +7,7 @@ import httpx
 from cognite.client import global_config
 from pydantic import BaseModel, JsonValue, TypeAdapter, model_validator
 
-from cognite_toolkit._cdf_tk.client.http_client import (
+from cognite_toolkit._cdf_tk.client.http_client._data_classes import (
     ErrorDetails,
     FailedRequestItems,
     FailedRequestMessage,
