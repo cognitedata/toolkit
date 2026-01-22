@@ -336,7 +336,11 @@ class HTTPClient:
 
     def _make_request2(self, message: BaseRequestMessage) -> httpx.Response:
         headers = self._create_headers(
-            message.api_version, message.content_type, message.accept, disable_gzip=message.disable_gzip
+            message.api_version,
+            message.content_type,
+            message.accept,
+            content_length=message.content_length,
+            disable_gzip=message.disable_gzip,
         )
         return self.session.request(
             method=message.method,

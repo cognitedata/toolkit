@@ -10,12 +10,12 @@ from cognite.client.data_classes.data_modeling import ViewId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
-    DataBodyRequest,
     ErrorDetails,
     FailedResponse,
     FailedResponseItems,
     HTTPClient,
     HTTPMessage,
+    RequestMessage2,
     ResponseList,
     SimpleBodyRequest,
 )
@@ -274,8 +274,8 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                 continue
 
             content_bytes = item.file_path.read_bytes()
-            upload_response = http_client.request_with_retries(
-                message=DataBodyRequest(
+            upload_response = http_client.request_single_retries(
+                RequestMessage2(
                     endpoint_url=upload_url,
                     method="PUT",
                     content_type=item.mime_type,
@@ -283,7 +283,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                     content_length=len(content_bytes),
                 )
             )
-            results.extend(upload_response.as_item_responses(item.as_id()))
+            results.append(upload_response.as_item_response(item.as_id()))
         return results
 
     def _upload_url_asset_centric(

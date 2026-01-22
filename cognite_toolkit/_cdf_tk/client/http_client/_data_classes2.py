@@ -107,6 +107,7 @@ class BaseRequestMessage(BaseModel, ABC):
     status_attempt: int = 0
     api_version: str | None = None
     disable_gzip: bool = False
+    content_length: int | None = None
     content_type: str = "application/json"
     accept: str = "application/json"
 
