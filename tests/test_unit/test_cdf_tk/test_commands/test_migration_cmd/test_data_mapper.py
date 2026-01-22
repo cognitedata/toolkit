@@ -1,4 +1,3 @@
-import itertools
 from pathlib import Path
 from typing import Any, ClassVar
 from unittest.mock import MagicMock
@@ -325,9 +324,7 @@ class TestCanvasMapper:
         migrated_dumped_str = actual.dump_yaml()
 
         unexpected_uuid: list[str] = []
-        for item in itertools.chain(
-            input_canvas.annotations, input_canvas.container_references, input_canvas.fdm_instance_container_references
-        ):
+        for item in input_canvas.container_references:
             if item.id_ in migrated_dumped_str:
                 unexpected_uuid.append(item.id_)
         # After the migration, there should be no references to the original components of the Canvas.

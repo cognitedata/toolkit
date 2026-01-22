@@ -928,7 +928,7 @@ class IndustrialCanvasApply(CogniteResource):
             ],
         }
 
-    def create_copy(self, is_backup: bool = True) -> "IndustrialCanvasApply":
+    def create_backup(self) -> "IndustrialCanvasApply":
         """Create a duplicate of the IndustrialCanvasApply instance.
 
         Args:
@@ -940,15 +940,11 @@ class IndustrialCanvasApply(CogniteResource):
             A new IndustrialCanvasApply instance that is a duplicate of the original, with new IDs.
 
         """
-        if is_backup:
-            canvas_id = str(uuid4())
-        else:
-            canvas_id = self.canvas.external_id
+        canvas_id = str(uuid4())
 
         new_canvas = CanvasApply._load(self.canvas.dump(keep_existing_version=False))
         new_canvas.external_id = canvas_id
-        if is_backup:
-            new_canvas.source_canvas_id = self.canvas.external_id
+        new_canvas.source_canvas_id = self.canvas.external_id
         new_canvas.updated_at = datetime.now(tz=timezone.utc)
         # Solution tags are not duplicated, they are reused
         canvas_copy = IndustrialCanvasApply(new_canvas, [], [], [], solution_tags=self.solution_tags)
@@ -972,11 +968,21 @@ class IndustrialCanvasApply(CogniteResource):
                 new_item.external_id = f"{canvas_id}_{new_item.id_}"
                 new_item_list.append(new_item)
 
+        return canvas_copy.replace_ids(generator)
+
+    def replace_ids(self, id_mapping_old_by_new: dict[str, str]) -> "IndustrialCanvasApply":
+        """Replace IDs in the IndustrialCanvasApply instance based on the provided ID mapping.
+
+        Args:
+            id_mapping_old_by_new: A dictionary mapping old IDs to new IDs.
+        Returns:
+            A new IndustrialCanvasApply instance with IDs replaced according to the mapping.
+        """
         # There can be references to the old IDs in properties, for example, in annotations
         # the properties field there can be fromId and toId set.
         # We don't know all the places the Canvas application will have undocumented references,
         # so we do a recursive search and replace based on the id mapping we have created.
-        dumped_data = canvas_copy.dump(camel_case=True)
+        dumped_data = self.dump(camel_case=True)
 
         def _replace_ids_recursively(data: Any, id_map: dict[str, str]) -> Any:
             if isinstance(data, dict):
@@ -987,7 +993,7 @@ class IndustrialCanvasApply(CogniteResource):
                 return id_map[data]
             return data
 
-        updated_data = _replace_ids_recursively(dumped_data, generator)
+        updated_data = _replace_ids_recursively(dumped_data, id_mapping_old_by_new)
 
         return IndustrialCanvasApply._load(updated_data)
 
