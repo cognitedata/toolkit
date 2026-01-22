@@ -1,0 +1,224 @@
+canvas:
+- space: IndustrialCanvasInstanceSpace
+  externalId: 4b2c06fe-85c1-4146-bbd1-50f8b52647de
+  version: 19
+  lastUpdatedTime: 1769082756068
+  createdTime: 1769082583119
+  instanceType: node
+  properties:
+    cdf_industrial_canvas:
+      Canvas/v7:
+        name: Classic Canvas
+        createdBy: aGQ-cBXUBY6bmmxqIdkFoA
+        updatedAt: '2026-01-22T11:52:35.559+00:00'
+        updatedBy: aGQ-cBXUBY6bmmxqIdkFoA
+        isLocked: null
+        visibility: public
+        sourceCanvasId: null
+        isArchived: null
+        context:
+        - type: FILTERS
+          payload:
+            filters: []
+        solutionTags: null
+annotations:
+- space: IndustrialCanvasInstanceSpace
+  externalId: 4b2c06fe-85c1-4146-bbd1-50f8b52647de_7b91e92f-a837-4e42-a9ba-0aca37fca2f2
+  version: 1
+  lastUpdatedTime: 1769082736613
+  createdTime: 1769082736613
+  instanceType: node
+  properties:
+    cdf_industrial_canvas:
+      CanvasAnnotation/v1:
+        id: 7b91e92f-a837-4e42-a9ba-0aca37fca2f2
+        annotationType: polylineAnnotation
+        containerId: null
+        isSelectable: true
+        isDraggable: true
+        isResizable: true
+        properties:
+          toId: 321fa42e-0ad3-4b4e-9df4-7e0989cd538b
+          style:
+            fill: rgba(164,178,252,0.9)
+            stroke: rgb(66, 85, 187)
+            opacity: 1
+            lineType: straight
+            strokeWidth: 12
+            shouldEnableStrokeScale: true
+          fromId: 04a22f67-8810-4d39-9267-007fd7d2b6ea
+          zIndex: 4
+          vertices:
+          - x: 817.1003717472121
+            y: 508.06840148698893
+          endEndType: none
+          startEndType: none
+- space: IndustrialCanvasInstanceSpace
+  externalId: 4b2c06fe-85c1-4146-bbd1-50f8b52647de_41d4b39d-e491-4a61-8945-37ff6d6fba3f
+  version: 1
+  lastUpdatedTime: 1769082742601
+  createdTime: 1769082742601
+  instanceType: node
+  properties:
+    cdf_industrial_canvas:
+      CanvasAnnotation/v1:
+        id: 41d4b39d-e491-4a61-8945-37ff6d6fba3f
+        annotationType: polylineAnnotation
+        containerId: null
+        isSelectable: true
+        isDraggable: true
+        isResizable: true
+        properties:
+          toId: 04a22f67-8810-4d39-9267-007fd7d2b6ea
+          style:
+            fill: rgba(164,178,252,0.9)
+            stroke: rgb(66, 85, 187)
+            opacity: 1
+            lineType: straight
+            strokeWidth: 12
+            shouldEnableStrokeScale: true
+          fromId: 0f64fef0-6a35-46e0-9ee1-cbe971d660bb
+          zIndex: 5
+          vertices:
+          - x: -71.82156133828983
+            y: 345.68921933085517
+          endEndType: none
+          startEndType: none
+- space: IndustrialCanvasInstanceSpace
+  externalId: 4b2c06fe-85c1-4146-bbd1-50f8b52647de_60f80d19-9db2-41d8-b6a4-0de60eeec220
+  version: 1
+  lastUpdatedTime: 1769082744953
+  createdTime: 1769082744953
+  instanceType: node
+  properties:
+    cdf_industrial_canvas:
+      CanvasAnnotation/v1:
+        id: 60f80d19-9db2-41d8-b6a4-0de60eeec220
+        annotationType: polylineAnnotation
+        containerId: null
+        isSelectable: true
+        isDraggable: true
+        isResizable: true
+        properties:
+          toId: df0e9d11-e871-4bc9-ba62-2ef73809dd65
+          style:
+            fill: rgba(164,178,252,0.9)
+            stroke: rgb(66, 85, 187)
+            opacity: 1
+            lineType: straight
+            strokeWidth: 12
+            shouldEnableStrokeScale: true
+          fromId: 0f64fef0-6a35-46e0-9ee1-cbe971d660bb
+          zIndex: 6
+          vertices:
+          - x: 1183.4944237918216
+            y: -403.753159851301
+          endEndType: none
+          startEndType: none
+containerReferences:
+- space: IndustrialCanvasInstanceSpace
+  externalId: 4b2c06fe-85c1-4146-bbd1-50f8b52647de_0f64fef0-6a35-46e0-9ee1-cbe971d660bb
+  version: 2
+  lastUpdatedTime: 1769082638787
+  createdTime: 1769082635848
+  instanceType: node
+  properties:
+    cdf_industrial_canvas:
+      ContainerReference/v2:
+        containerReferenceType: asset
+        resourceId: 6337175473438622
+        id: 0f64fef0-6a35-46e0-9ee1-cbe971d660bb
+        resourceSubId: null
+        chartsId: null
+        label: Kelmarsh 3
+        properties:
+          zIndex: 0
+          unscaledWidth: 600
+          unscaledHeight: 356.8
+        x: -266
+        y: -508
+        width: 600
+        height: 357
+        maxWidth: null
+        maxHeight: null
+- space: IndustrialCanvasInstanceSpace
+  externalId: 4b2c06fe-85c1-4146-bbd1-50f8b52647de_04a22f67-8810-4d39-9267-007fd7d2b6ea
+  version: 4
+  lastUpdatedTime: 1769082691725
+  createdTime: 1769082635848
+  instanceType: node
+  properties:
+    cdf_industrial_canvas:
+      ContainerReference/v2:
+        containerReferenceType: event
+        resourceId: 9006116633055706
+        id: 04a22f67-8810-4d39-9267-007fd7d2b6ea
+        resourceSubId: null
+        chartsId: null
+        label: 2bdd1811-f1cd-4109-b3e9-943674b7d495
+        properties:
+          zIndex: 1
+          unscaledWidth: 600
+          unscaledHeight: 500
+        x: -353
+        y: 206
+        width: 600
+        height: 500
+        maxWidth: null
+        maxHeight: null
+- space: IndustrialCanvasInstanceSpace
+  externalId: 4b2c06fe-85c1-4146-bbd1-50f8b52647de_321fa42e-0ad3-4b4e-9df4-7e0989cd538b
+  version: 2
+  lastUpdatedTime: 1769082641301
+  createdTime: 1769082635848
+  instanceType: node
+  properties:
+    cdf_industrial_canvas:
+      ContainerReference/v2:
+        containerReferenceType: event
+        resourceId: 9005977951852492
+        id: 321fa42e-0ad3-4b4e-9df4-7e0989cd538b
+        resourceSubId: null
+        chartsId: null
+        label: d81c9b05-5a0b-4199-ab18-e1718fa90e8f
+        properties:
+          zIndex: 2
+          unscaledWidth: 600
+          unscaledHeight: 500
+        x: 809
+        y: 264
+        width: 600
+        height: 500
+        maxWidth: null
+        maxHeight: null
+- space: IndustrialCanvasInstanceSpace
+  externalId: 4b2c06fe-85c1-4146-bbd1-50f8b52647de_df0e9d11-e871-4bc9-ba62-2ef73809dd65
+  version: 5
+  lastUpdatedTime: 1769082749006
+  createdTime: 1769082635848
+  instanceType: node
+  properties:
+    cdf_industrial_canvas:
+      ContainerReference/v2:
+        containerReferenceType: timeseries
+        resourceId: 23084745310536
+        id: df0e9d11-e871-4bc9-ba62-2ef73809dd65
+        resourceSubId: null
+        chartsId: null
+        label: "Generator bearing front temperature, Std (\xC2\xB0C)"
+        properties:
+          zIndex: 3
+          endDate: '2024-07-21T07:54:20.403Z'
+          startDate: '2024-01-21T23:00:00.000Z'
+          displayMode: graph
+          unscaledWidth: 700
+          unscaledHeight: 400
+          numberOfFractionalDigits: 1
+        x: 726
+        y: -558
+        width: 700
+        height: 400
+        maxWidth: null
+        maxHeight: null
+fdmInstanceContainerReferences: []
+solutionTags: []

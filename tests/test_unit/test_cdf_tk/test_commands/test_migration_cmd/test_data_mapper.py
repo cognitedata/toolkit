@@ -288,3 +288,8 @@ class TestThreeDAssetMapper:
                 _, message = logger.tracker.add_issue.call_args.args
                 assert mapped is None, "Expected no mapped result"
                 assert message == expected
+
+
+class TestCanvasMapper:
+    def test_map_canvas(self):
+        pass
