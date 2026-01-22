@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, TypeAdapter
 
-from cognite_toolkit._cdf_tk.client.resource_classes.base import BaseModelObject
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 
 from ._references import ContainerReference, ViewReference
 

@@ -27,14 +27,16 @@ from cognite_toolkit._cdf_tk.client.http_client._data_classes2 import (
     FailedRequest2,
     FailedResponse2,
     HTTPResult2,
+    RequestMessage2,
+    SuccessResponse2,
+)
+from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsFailedRequest2,
     ItemsFailedResponse2,
     ItemsRequest2,
     ItemsResultList,
     ItemsResultMessage2,
     ItemsSuccessResponse2,
-    RequestMessage2,
-    SuccessResponse2,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent

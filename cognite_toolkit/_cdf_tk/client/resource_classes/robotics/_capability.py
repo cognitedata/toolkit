@@ -2,10 +2,10 @@ from typing import ClassVar
 
 from pydantic import JsonValue
 
-from cognite_toolkit._cdf_tk.client.resource_classes.base import (
+from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
-    RequestUpdateable,
     ResponseResource,
+    UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
@@ -34,7 +34,7 @@ class RobotCapability(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class RobotCapabilityRequest(RobotCapability, RequestUpdateable):
+class RobotCapabilityRequest(RobotCapability, UpdatableRequestResource):
     """Request resource for creating or updating a RobotCapability."""
 
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"input_schema", "data_handling_schema"})

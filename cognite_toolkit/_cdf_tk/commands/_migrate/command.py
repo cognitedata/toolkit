@@ -1,13 +1,19 @@
-from collections.abc import Callable, Iterable, Sequence
-from enum import Enum
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
+from typing import get_args
 
 from rich import print
 from rich.console import Console
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, HTTPMessage, ItemMessage, SuccessResponseItems
+from cognite_toolkit._cdf_tk.client.http_client import (
+    FailedRequestItems,
+    FailedResponseItems,
+    HTTPClient,
+    SuccessResponseItems,
+)
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._migrate.creators import MigrationCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import DataMapper
@@ -22,25 +28,30 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio import T_Selector, UploadableStorageIO, UploadItem
+from cognite_toolkit._cdf_tk.storageio.logger import FileDataLogger, OperationStatus
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
-from cognite_toolkit._cdf_tk.utils.fileio import Chunk, CSVWriter, NDJsonWriter, SchemaColumn, Uncompressed
+from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
-from cognite_toolkit._cdf_tk.utils.progress_tracker import AVAILABLE_STATUS, ProgressTracker, Status
 
 from .data_model import INSTANCE_SOURCE_VIEW_ID, MODEL_ID, RESOURCE_VIEW_MAPPING_VIEW_ID
+from .issues import WriteIssue
+
+
+@dataclass
+class OperationIssue:
+    message: str
+    count: int
+
+
+@dataclass
+class MigrationStatusResult:
+    status: OperationStatus
+    issues: list[OperationIssue]
+    count: int
 
 
 class MigrationCommand(ToolkitCommand):
-    class Steps(str, Enum):
-        DOWNLOAD = "download"
-        CONVERT = "convert"
-        UPLOAD = "upload"
-
-        @classmethod
-        def list(cls) -> list[str]:
-            return [step.value for step in cls.__members__.values()]
-
     def migrate(
         self,
         selected: T_Selector,
@@ -49,7 +60,7 @@ class MigrationCommand(ToolkitCommand):
         log_dir: Path,
         dry_run: bool = False,
         verbose: bool = False,
-    ) -> ProgressTracker[str]:
+    ) -> list[MigrationStatusResult]:
         if log_dir.exists() and any(log_dir.iterdir()):
             raise ToolkitFileExistsError(
                 f"Log directory {log_dir} already exists. Please remove it or choose another directory."
@@ -65,15 +76,18 @@ class MigrationCommand(ToolkitCommand):
             self.validate_available_capacity(data.client, total_items)
 
         console = Console()
-        tracker = ProgressTracker[str](self.Steps.list())
         with (
             NDJsonWriter(log_dir, kind=f"{selected.kind}MigrationIssues", compression=Uncompressed) as log_file,
             HTTPClient(config=data.client.config) as write_client,
         ):
+            logger = FileDataLogger(log_file)
+            data.logger = logger
+            mapper.logger = logger
+
             executor = ProducerWorkerExecutor[Sequence[T_ResourceResponse], Sequence[UploadItem[T_ResourceRequest]]](
-                download_iterable=self._download_iterable(selected, data, tracker),
-                process=self._convert(mapper, data, tracker, log_file),
-                write=self._upload(selected, write_client, data, tracker, log_file, dry_run),
+                download_iterable=(page.items for page in data.stream_data(selected)),
+                process=self._convert(mapper, data),
+                write=self._upload(selected, write_client, data, dry_run),
                 iteration_count=iteration_count,
                 max_queue_size=10,
                 download_description=f"Downloading {selected.display_name}",
@@ -86,91 +100,71 @@ class MigrationCommand(ToolkitCommand):
             executor.run()
             total = executor.total_items
 
-        self._print_table(tracker.aggregate(), console)
-        self._print_csv(tracker, log_dir, f"{selected.kind}Items", console)
+        results = self._create_status_summary(logger)
+
+        self._print_rich_tables(results, console)
+        self._print_txt(results, log_dir, f"{selected.kind}Items", console)
         executor.raise_on_error()
         action = "Would migrate" if dry_run else "Migrating"
         console.print(f"{action} {total:,} {selected.display_name} to instances.")
-        return tracker
 
-    def _print_table(self, results: dict[tuple[str, Status], int], console: Console) -> None:
-        for step in self.Steps:
-            # We treat pending as failed for summary purposes
-            results[(step.value, "failed")] = results.get((step.value, "failed"), 0) + results.get(
-                (step.value, "pending"), 0
+        return results
+
+    # Todo: Move to the logger module
+    @classmethod
+    def _create_status_summary(cls, logger: FileDataLogger) -> list[MigrationStatusResult]:
+        results: list[MigrationStatusResult] = []
+        status_counts = logger.tracker.get_status_counts()
+        for status in get_args(OperationStatus):
+            issue_counts = logger.tracker.get_issue_counts(status)
+            issues = [OperationIssue(message=issue, count=count) for issue, count in issue_counts.items()]
+            result = MigrationStatusResult(
+                status=status,
+                issues=issues,
+                count=status_counts.get(status, 0),
             )
+            results.append(result)
+        return results
 
+    def _print_rich_tables(self, results: list[MigrationStatusResult], console: Console) -> None:
         table = Table(title="Migration Summary", show_lines=True)
-        table.add_column("Status", style="cyan", no_wrap=True)
-        for step in self.Steps:
-            table.add_column(step.value.capitalize(), style="magenta")
-        for status in AVAILABLE_STATUS:
-            if status == "pending":
-                # Skip pending as we treat it as failed
-                continue
-            row = [status]
-            for step in self.Steps:
-                row.append(str(results.get((step.value, status), 0)))
-            table.add_row(*row)
-
+        table.add_column("Status", style="bold")
+        table.add_column("Count", justify="right", style="bold")
+        table.add_column("Issues", style="bold")
+        for result in results:
+            issues_str = "\n".join(f"{issue.message}: {issue.count}" for issue in result.issues) or ""
+            table.add_row(result.status, str(result.count), issues_str)
         console.print(table)
 
-    def _print_csv(self, tracker: ProgressTracker[str], log_dir: Path, kind: str, console: Console) -> None:
-        with CSVWriter(log_dir, kind=kind, compression=Uncompressed, columns=self._csv_columns()) as csv_file:
-            batch: list[Chunk] = []
-            steps = self.Steps.list()
-            for item_id, progress in tracker.result().items():
-                batch.append({"ID": str(item_id), **{step: progress[step] for step in steps}})
-                if len(batch) >= 1000:
-                    csv_file.write_chunks(batch)
-                    batch = []
-            if batch:
-                csv_file.write_chunks(batch)
-        console.print(f"Migration items written to {log_dir}")
+    def _print_txt(self, results: list[MigrationStatusResult], log_dir: Path, kind: str, console: Console) -> None:
+        summary_file = log_dir / f"{kind}_migration_summary.txt"
+        with summary_file.open("w", encoding="utf-8") as f:
+            f.write("Migration Summary\n")
+            f.write("=================\n\n")
+            for result in results:
+                f.write(f"Status: {result.status}\n")
+                f.write(f"Count: {result.count}\n")
+                f.write("Issues:\n")
+                if result.issues:
+                    for issue in result.issues:
+                        f.write(f"  - {issue.message}: {issue.count}\n")
+                else:
+                    f.write("  None\n")
+                f.write("\n")
+        console.print(f"Summary written to {log_dir}")
 
-    @classmethod
-    def _csv_columns(cls) -> list[SchemaColumn]:
-        return [
-            SchemaColumn(name="ID", type="string"),
-            *(SchemaColumn(name=step, type="string") for step in cls.Steps.list()),
-        ]
-
-    def _download_iterable(
-        self,
-        selected: T_Selector,
-        data: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
-        tracker: ProgressTracker[str],
-    ) -> Iterable[Sequence[T_ResourceResponse]]:
-        for page in data.stream_data(selected):
-            for item in page.items:
-                tracker.set_progress(data.as_id(item), self.Steps.DOWNLOAD, "success")
-            yield page.items
-
+    @staticmethod
     def _convert(
-        self,
         mapper: DataMapper[T_Selector, T_ResourceResponse, T_ResourceRequest],
         data: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
-        tracker: ProgressTracker[str],
-        log_file: NDJsonWriter,
     ) -> Callable[[Sequence[T_ResourceResponse]], Sequence[UploadItem[T_ResourceRequest]]]:
         def track_mapping(source: Sequence[T_ResourceResponse]) -> list[UploadItem[T_ResourceRequest]]:
             mapped = mapper.map(source)
-            issues: list[Chunk] = []
-            targets: list[UploadItem[T_ResourceRequest]] = []
-
-            for (target, issue), item in zip(mapped, source):
-                id_ = data.as_id(item)
-                result: Status = "failed" if target is None else "success"
-                tracker.set_progress(id_, step=self.Steps.CONVERT, status=result)
-
-                if issue.has_issues:
-                    # MyPy fails to understand that dict[str, JsonVal] is a Chunk
-                    issues.append(issue.dump())  # type: ignore[arg-type]
-                if target is not None:
-                    targets.append(UploadItem(source_id=id_, item=target))
-            if issues:
-                log_file.write_chunks(issues)
-            return targets
+            return [
+                UploadItem(source_id=data.as_id(item), item=target)
+                for target, item in zip(mapped, source)
+                if target is not None
+            ]
 
         return track_mapping
 
@@ -179,36 +173,37 @@ class MigrationCommand(ToolkitCommand):
         selected: T_Selector,
         write_client: HTTPClient,
         target: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
-        tracker: ProgressTracker[str],
-        log_file: NDJsonWriter,
         dry_run: bool,
     ) -> Callable[[Sequence[UploadItem[T_ResourceRequest]]], None]:
         def upload_items(data_item: Sequence[UploadItem[T_ResourceRequest]]) -> None:
             if not data_item:
                 return None
-            responses: Sequence[HTTPMessage]
             if dry_run:
-                responses = [
-                    SuccessResponseItems(
-                        status_code=200, body="", content=b"", ids=[item.source_id for item in data_item]
-                    )
-                ]
-            else:
-                responses = target.upload_items(data_chunk=data_item, http_client=write_client, selector=selected)
+                target.logger.tracker.finalize_item([item.source_id for item in data_item], "pending")
+                return None
 
-            issues: list[Chunk] = []
+            responses = target.upload_items(data_chunk=data_item, http_client=write_client, selector=selected)
+
+            # Todo: Move logging into the UploadableStorageIO class
+            issues: list[WriteIssue] = []
             for item in responses:
                 if isinstance(item, SuccessResponseItems):
-                    for success_id in item.ids:
-                        tracker.set_progress(success_id, step=self.Steps.UPLOAD, status="success")
-                elif isinstance(item, ItemMessage):
-                    for failed_id in item.ids:
-                        tracker.set_progress(failed_id, step=self.Steps.UPLOAD, status="failed")
+                    target.logger.tracker.finalize_item(item.ids, "success")
+                    continue
+                if isinstance(item, FailedResponseItems):
+                    error = item.error
+                    for id_ in item.ids:
+                        issue = WriteIssue(id=str(id_), status_code=error.code, message=error.message)
+                        issues.append(issue)
+                elif isinstance(item, FailedRequestItems):
+                    for id_ in item.ids:
+                        issue = WriteIssue(id=str(id_), status_code=0, message=item.error)
+                        issues.append(issue)
 
-                if not isinstance(item, SuccessResponseItems):
-                    issues.append(item.dump())  # type: ignore[arg-type]
+                if isinstance(item, FailedResponseItems | FailedRequestItems):
+                    target.logger.tracker.finalize_item(item.ids, "failure")
             if issues:
-                log_file.write_chunks(issues)
+                target.logger.log(issues)
             return None
 
         return upload_items
