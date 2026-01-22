@@ -929,17 +929,7 @@ class IndustrialCanvasApply(CogniteResource):
         }
 
     def create_backup(self) -> "IndustrialCanvasApply":
-        """Create a duplicate of the IndustrialCanvasApply instance.
-
-        Args:
-            is_backup: If True, the new canvas will have source_canvas_id set to the original canvas's external_id,
-                and a new external_id will be generated. If False, the new canvas will be a fresh copy without
-                any source reference.
-
-        Returns:
-            A new IndustrialCanvasApply instance that is a duplicate of the original, with new IDs.
-
-        """
+        """Create a backup copy of the IndustrialCanvasApply instance with new IDs."""
         canvas_id = str(uuid4())
 
         new_canvas = CanvasApply._load(self.canvas.dump(keep_existing_version=False))
