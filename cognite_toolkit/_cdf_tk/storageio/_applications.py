@@ -188,6 +188,14 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         config = http_client.config
         results: list[HTTPMessage] = []
         for item in data_chunk:
+            instances = item.item.as_instances()
+            upsert_items: list[dict[str, JsonVal]] = []
+            for instance in instances:
+                dumped = instance.dump()
+                if self.exclude_existing_version:
+                    dumped.pop("existingVersion", None)
+                upsert_items.append(dumped)
+
             canvas = item.item.canvas
             existing = self.client.canvas.industrial.retrieve(canvas.external_id)
             if existing is not None:
@@ -199,10 +207,11 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
 
             response = http_client.request_single_retries(
                 message=RequestMessage2(
-                    endpoint_url=config.create_api_url(self.UPLOAD_ENDPOINT),
-                    method=self.UPLOAD_ENDPOINT_METHOD,
+                    endpoint_url=config.create_api_url("/models/instances"),
+                    method="POST",
                     body_content={
-                        "items": [instance.dump() for instance in item.item.as_instances()],
+                        # MyPy does not understand that .dump is valid json
+                        "items": upsert_items,  # type: ignore[dict-item]
                         "delete": to_delete,
                     },
                 )
