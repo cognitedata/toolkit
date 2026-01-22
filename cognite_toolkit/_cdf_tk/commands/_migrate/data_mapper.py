@@ -394,7 +394,7 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
         raise ToolkitValueError(f"Unsupported resource type '{resource_type}' for container reference migration.")
 
     def _map_single_item(self, canvas: IndustrialCanvas) -> tuple[IndustrialCanvasApply | None, CanvasMigrationIssue]:
-        update = canvas.as_write().create_copy()
+        update = canvas.as_write().create_copy(is_backup=False)
         issue = CanvasMigrationIssue(
             canvas_external_id=canvas.canvas.external_id, canvas_name=canvas.canvas.name, id=canvas.canvas.name
         )

@@ -968,19 +968,28 @@ class IndustrialCanvasApply(CogniteResource):
             for item in items:
                 # Serialize the item to create a new instance
                 new_item = item_cls._load(item.dump(keep_existing_version=False))
-                new_item.id_ = generator[item.id_]
-                new_item.external_id = f"{canvas_id}_{new_item.external_id}"
+                new_item.id_ = generator[new_item.id_]
+                new_item.external_id = f"{canvas_id}_{new_item.id_}"
                 new_item_list.append(new_item)
 
         # There can be references to the old IDs in properties, for example, in annotations
         # the properties field there can be fromId and toId set.
         # We don't know all the places the Canvas application will have undocumented references,
-        # so we do a string replace on the entire YAML representation of the canvas.
-        copy_yaml_str = canvas_copy.dump_yaml()
-        for old_id, new_id in generator.items():
-            copy_yaml_str = copy_yaml_str.replace(old_id, new_id)
+        # so we do a recursive search and replace based on the id mapping we have created.
+        dumped_data = canvas_copy.dump(camel_case=False)
 
-        return IndustrialCanvasApply.load(copy_yaml_str)
+        def _replace_ids_recursively(data: Any, id_map: dict[str, str]) -> Any:
+            if isinstance(data, dict):
+                return {key: _replace_ids_recursively(value, id_map) for key, value in data.items()}
+            if isinstance(data, list):
+                return [_replace_ids_recursively(item, id_map) for item in data]
+            if isinstance(data, str) and data in id_map:
+                return id_map[data]
+            return data
+
+        updated_data = _replace_ids_recursively(dumped_data, generator)
+
+        return IndustrialCanvasApply._load(updated_data)
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
