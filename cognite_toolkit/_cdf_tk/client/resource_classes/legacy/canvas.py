@@ -930,10 +930,10 @@ class IndustrialCanvasApply(CogniteResource):
 
     def create_backup(self) -> "IndustrialCanvasApply":
         """Create a backup copy of the IndustrialCanvasApply instance with new IDs."""
-        canvas_id = str(uuid4())
+        new_canvas_id = str(uuid4())
 
         new_canvas = CanvasApply._load(self.canvas.dump(keep_existing_version=False))
-        new_canvas.external_id = canvas_id
+        new_canvas.external_id = new_canvas_id
         new_canvas.source_canvas_id = self.canvas.external_id
         new_canvas.updated_at = datetime.now(tz=timezone.utc)
         # Solution tags are not duplicated, they are reused
@@ -955,7 +955,7 @@ class IndustrialCanvasApply(CogniteResource):
                 # Serialize the item to create a new instance
                 new_item = item_cls._load(item.dump(keep_existing_version=False))
                 new_item.id_ = generator[new_item.id_]
-                new_item.external_id = f"{canvas_id}_{new_item.id_}"
+                new_item.external_id = f"{new_canvas_id}_{new_item.id_}"
                 new_item_list.append(new_item)
 
         return canvas_copy.replace_ids(generator)
