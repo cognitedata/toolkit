@@ -79,7 +79,6 @@ class DeleteResults:
     failed: int = 0
 
 
-@dataclass
 class DeleteItem(RequestItem):
     item: JsonValue
     as_id_fun: Callable[[JsonValue], str]
