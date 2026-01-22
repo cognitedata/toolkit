@@ -13,7 +13,7 @@ from collections.abc import Callable, Hashable
 from datetime import date, datetime
 from pathlib import Path
 from types import UnionType
-from typing import IO, Any, Literal, TypeVar, get_args, get_origin
+from typing import IO, Annotated, Any, Literal, TypeVar, get_args, get_origin
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -201,6 +201,14 @@ class FakeCogniteResourceGenerator:
         )
 
     def create_instance(self, resource_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
+        if get_origin(resource_cls) is typing.Annotated:
+            resource_cls = get_args(resource_cls)[0]
+
+        if get_origin(resource_cls) in UNION_TYPES:
+            args = get_args(resource_cls)
+            first_not_none = next(arg for arg in args if arg is not type(None))
+            return self.create_instance(first_not_none, skip_defaulted_args)
+
         if issubclass(resource_cls, BaseModel):
             return self.create_pydantic_instance(resource_cls, skip_defaulted_args)
 
@@ -387,7 +395,9 @@ class FakeCogniteResourceGenerator:
             # If the type is Optional[Callable], we cannot generate a value, so we return None
             return None
 
-        if container_type in UNION_TYPES:
+        if container_type is Annotated:
+            return self.create_value(get_args(type_)[0], var_name=var_name)
+        elif container_type in UNION_TYPES:
             return self.create_value(first_not_none)
         elif container_type is typing.Literal:
             return self._random.choice(args)
