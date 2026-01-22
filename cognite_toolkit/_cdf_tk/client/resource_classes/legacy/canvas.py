@@ -905,23 +905,25 @@ class IndustrialCanvasApply(CogniteResource):
                 raise TypeError(f"Unexpected instance type: {type(instance)}")
         return ids
 
-    def dump(self, keep_existing_version: bool = True) -> dict[str, JsonVal]:
+    def dump(self, camel_case: bool = True, keep_existing_version: bool = True) -> dict[str, JsonVal]:
         """Dump the IndustrialCanvasApply to a dictionary."""
         return {
-            "canvas": self.canvas.dump(keep_existing_version=keep_existing_version),
+            "canvas": self.canvas.dump(camel_case=camel_case, keep_existing_version=keep_existing_version),
             "annotations": [
-                annotation.dump(keep_existing_version=keep_existing_version) for annotation in self.annotations
+                annotation.dump(camel_case=camel_case, keep_existing_version=keep_existing_version)
+                for annotation in self.annotations
             ],
             "containerReferences": [
-                container_ref.dump(keep_existing_version=keep_existing_version)
+                container_ref.dump(camel_case=camel_case, keep_existing_version=keep_existing_version)
                 for container_ref in self.container_references
             ],
             "fdmInstanceContainerReferences": [
-                fdm_instance_container_ref.dump(keep_existing_version=keep_existing_version)
+                fdm_instance_container_ref.dump(camel_case=camel_case, keep_existing_version=keep_existing_version)
                 for fdm_instance_container_ref in self.fdm_instance_container_references
             ],
             "solutionTags": [
-                solution_tag.dump(keep_existing_version=keep_existing_version) for solution_tag in self.solution_tags
+                solution_tag.dump(camel_case=camel_case, keep_existing_version=keep_existing_version)
+                for solution_tag in self.solution_tags
             ],
         }
 
