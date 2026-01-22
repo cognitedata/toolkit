@@ -1,14 +1,22 @@
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from cognite.client.exceptions import CogniteAPIError
+
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, HTTPMessage, RequestMessage2
+from cognite_toolkit._cdf_tk.client.http_client import (
+    ErrorDetails,
+    FailedResponseItems,
+    HTTPClient,
+    HTTPMessage,
+    SuccessResponseItems,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     IndustrialCanvas,
     IndustrialCanvasApply,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList, ChartWrite
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -181,26 +189,26 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         http_client: HTTPClient,
         selector: CanvasSelector | None = None,
     ) -> Sequence[HTTPMessage]:
-        config = http_client.config
         results: list[HTTPMessage] = []
         for item in data_chunk:
-            instances = item.item.as_instances()
-            items: list[dict[str, JsonVal]] = []
-            for instance in instances:
-                dumped = instance.dump()
-                if self.exclude_existing_version:
-                    dumped.pop("existingVersion", None)
-                items.append(dumped)
-
-            responses = http_client.request_single_retries(
-                message=RequestMessage2(
-                    endpoint_url=config.create_api_url("/models/instances"),
-                    method="POST",
-                    # MyPy does not understand that .dump is valid json
-                    body_content={"items": items},  # type: ignore[dict-item]
+            response: HTTPMessage
+            try:
+                # We need to use the update method as that takes care of deleting nodes and edges that are
+                # obsolete. Directly using the HTTPClient as all other UpdatableStorageIO does not handle that.
+                _ = self.client.canvas.industrial.update(item.item)
+            except ToolkitValueError:
+                _ = self.client.canvas.industrial.create(item.item)
+            except CogniteAPIError as e:
+                # Adapt to our HTTPMessage response format
+                response = FailedResponseItems(
+                    status_code=e.code,
+                    body="",
+                    error=ErrorDetails(code=e.code, message=e.message),
+                    ids=[item.source_id],
                 )
-            )
-            results.append(responses.as_item_response(item.source_id))
+            else:
+                response = SuccessResponseItems(status_code=200, body="", ids=[item.source_id], content=b"")
+            results.append(response)
 
         return results
 
