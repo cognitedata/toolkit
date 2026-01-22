@@ -124,7 +124,7 @@ class TestIndustrialCanvasDataClass:
     def test_create_backup(self) -> None:
         instance = FakeCogniteResourceGenerator().create_instance(IndustrialCanvasApply)
 
-        backup = instance.create_backup()
+        backup = instance.create_copy()
 
         original_ids = set(instance.as_instance_ids(include_solution_tags=False))
         backup_ids = set(backup.as_instance_ids(include_solution_tags=False))

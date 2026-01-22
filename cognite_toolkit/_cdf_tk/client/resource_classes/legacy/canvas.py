@@ -1,5 +1,6 @@
 import sys
 from abc import ABC
+from collections import defaultdict
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Any, TypeVar
@@ -927,34 +928,59 @@ class IndustrialCanvasApply(CogniteResource):
             ],
         }
 
-    def create_backup(self) -> "IndustrialCanvasApply":
-        """Create a duplicate of the IndustrialCanvasApply instance."""
-        new_canvas_id = str(uuid4())
+    def create_copy(self, is_backup: bool = True) -> "IndustrialCanvasApply":
+        """Create a duplicate of the IndustrialCanvasApply instance.
+
+        Args:
+            is_backup: If True, the new canvas will have source_canvas_id set to the original canvas's external_id,
+                and a new external_id will be generated. If False, the new canvas will be a fresh copy without
+                any source reference.
+
+        Returns:
+            A new IndustrialCanvasApply instance that is a duplicate of the original, with new IDs.
+
+        """
+        if is_backup:
+            canvas_id = str(uuid4())
+        else:
+            canvas_id = self.canvas.external_id
+
         new_canvas = CanvasApply._load(self.canvas.dump(keep_existing_version=False))
-        new_canvas.external_id = new_canvas_id
-        new_canvas.source_canvas_id = self.canvas.external_id
+        new_canvas.external_id = canvas_id
+        if is_backup:
+            new_canvas.source_canvas_id = self.canvas.external_id
         new_canvas.updated_at = datetime.now(tz=timezone.utc)
         # Solution tags are not duplicated, they are reused
-        new_container = IndustrialCanvasApply(new_canvas, [], [], [], solution_tags=self.solution_tags)
+        canvas_copy = IndustrialCanvasApply(new_canvas, [], [], [], solution_tags=self.solution_tags)
         items: list[ContainerReferenceApply] | list[CanvasAnnotationApply] | list[FdmInstanceContainerReferenceApply]
         item_cls: type[CanvasAnnotationApply] | type[ContainerReferenceApply] | type[FdmInstanceContainerReferenceApply]
         new_item_list: list[NodeApply]
+        generator: dict[str, str] = defaultdict(lambda: str(uuid4()))
         for items, item_cls, new_item_list in [  # type: ignore[assignment]
-            (self.annotations, CanvasAnnotationApply, new_container.annotations),
-            (self.container_references, ContainerReferenceApply, new_container.container_references),
+            (self.annotations, CanvasAnnotationApply, canvas_copy.annotations),
+            (self.container_references, ContainerReferenceApply, canvas_copy.container_references),
             (
                 self.fdm_instance_container_references,
                 FdmInstanceContainerReferenceApply,
-                new_container.fdm_instance_container_references,
+                canvas_copy.fdm_instance_container_references,
             ),
         ]:
             for item in items:
                 # Serialize the item to create a new instance
                 new_item = item_cls._load(item.dump(keep_existing_version=False))
-                new_item.id_ = str(uuid4())
-                new_item.external_id = f"{new_canvas_id}_{new_item.external_id}"
+                new_item.id_ = generator[item.id_]
+                new_item.external_id = f"{canvas_id}_{new_item.external_id}"
                 new_item_list.append(new_item)
-        return new_container
+
+        # There can be references to the old IDs in properties, for example, in annotations
+        # the properties field there can be fromId and toId set.
+        # We don't know all the places the Canvas application will have undocumented references,
+        # so we do a string replace on the entire YAML representation of the canvas.
+        copy_yaml_str = canvas_copy.dump_yaml()
+        for old_id, new_id in generator.items():
+            copy_yaml_str = copy_yaml_str.replace(old_id, new_id)
+
+        return IndustrialCanvasApply.load(copy_yaml_str)
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:

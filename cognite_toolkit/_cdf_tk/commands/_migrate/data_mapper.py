@@ -394,7 +394,7 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
         raise ToolkitValueError(f"Unsupported resource type '{resource_type}' for container reference migration.")
 
     def _map_single_item(self, canvas: IndustrialCanvas) -> tuple[IndustrialCanvasApply | None, CanvasMigrationIssue]:
-        update = canvas.as_write()
+        update = canvas.as_write().create_copy()
         issue = CanvasMigrationIssue(
             canvas_external_id=canvas.canvas.external_id, canvas_name=canvas.canvas.name, id=canvas.canvas.name
         )
@@ -418,7 +418,7 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
         update.container_references = remaining_container_references
         update.fdm_instance_container_references.extend(new_fdm_references)
         if not self.dry_run:
-            backup = canvas.as_write().create_backup()
+            backup = canvas.as_write().create_copy(is_backup=True)
             try:
                 self.client.canvas.industrial.create(backup)
             except CogniteException as e:
