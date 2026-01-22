@@ -11,13 +11,14 @@ from cognite.client.data_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
     ErrorDetails,
-    FailedResponse,
+    FailedResponse2,
     FailedResponseItems,
     HTTPClient,
     HTTPMessage,
+    HTTPResult2,
     RequestMessage2,
-    ResponseList,
     SimpleBodyRequest,
+    SuccessResponse2,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
@@ -289,15 +290,15 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
     def _upload_url_asset_centric(
         self, item: UploadFileContentItem, http_client: HTTPClient, results: MutableSequence[HTTPMessage]
     ) -> str | None:
-        responses = http_client.request_with_retries(
-            message=SimpleBodyRequest(
+        response = http_client.request_single_retries(
+            message=RequestMessage2(
                 endpoint_url=http_client.config.create_api_url(self.UPLOAD_ENDPOINT),
                 method="POST",
                 # MyPy does not understand that .dump is valid json
                 body_content=item.dump(),  # type: ignore[arg-type]
             )
         )
-        return self._parse_upload_link_response(responses, item, results)
+        return self._parse_upload_link_response(response, item, results)
 
     def _upload_url_data_modeling(
         self,
@@ -324,29 +325,27 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         """
         # We know that instance_id is always set for data modeling uploads
         instance_id = cast(NodeReference, item.item.instance_id)
-        responses = http_client.request_with_retries(
-            message=SimpleBodyRequest(
+        response = http_client.request_single_retries(
+            message=RequestMessage2(
                 endpoint_url=http_client.config.create_api_url("/files/uploadlink"),
                 method="POST",
                 body_content={"items": [{"instanceId": instance_id.dump()}]},
             )
         )
-        # We know there is only one response since we only requested one upload link
-        response = responses[0]
-        if isinstance(response, FailedResponse) and response.error.missing and not created_node:
+        if isinstance(response, FailedResponse2) and response.error.missing and not created_node:
             if self._create_cognite_file_node(instance_id, http_client, item.as_id(), results):
                 return self._upload_url_data_modeling(item, http_client, results, created_node=True)
             else:
                 return None
 
-        return self._parse_upload_link_response(responses, item, results)
+        return self._parse_upload_link_response(response, item, results)
 
     @classmethod
     def _create_cognite_file_node(
         cls, instance_id: NodeReference, http_client: HTTPClient, upload_id: str, results: MutableSequence[HTTPMessage]
     ) -> bool:
-        node_creation = http_client.request_with_retries(
-            message=SimpleBodyRequest(
+        node_creation = http_client.request_single_retries(
+            message=RequestMessage2(
                 endpoint_url=http_client.config.create_api_url("/models/instances"),
                 method="POST",
                 body_content={
@@ -366,25 +365,33 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                 },
             )
         )
-        try:
-            _ = node_creation.get_first_body()
-        except ValueError:
-            results.extend(node_creation.as_item_responses(upload_id))
-            return False
-        return True
+        if isinstance(node_creation, SuccessResponse2):
+            # Node created successfully
+            return True
+        results.append(node_creation.as_item_response(instance_id))
+        return False
 
     @classmethod
     def _parse_upload_link_response(
-        cls, responses: ResponseList, item: UploadFileContentItem, results: MutableSequence[HTTPMessage]
+        cls, response: HTTPResult2, item: UploadFileContentItem, results: MutableSequence[HTTPMessage]
     ) -> str | None:
-        try:
-            body = responses.get_first_body()
-        except ValueError:
-            results.extend(responses.as_item_responses(item.as_id()))
+        if not isinstance(response, SuccessResponse2):
+            results.append(response.as_item_response(item.as_id()))
             return None
-
+        try:
+            body = response.body_json
+        except ValueError:
+            results.append(
+                FailedResponseItems(
+                    status_code=response.status_code,
+                    body=response.body,
+                    error=ErrorDetails(code=response.status_code, message="Invalid JSON response"),
+                    ids=[item.as_id()],
+                )
+            )
+            return None
         if "items" in body and isinstance(body["items"], list) and len(body["items"]) > 0:
-            body = body["items"][0]  # type: ignore[assignment]
+            body = body["items"][0]
         try:
             upload_url = cast(str, body["uploadUrl"])
         except (KeyError, IndexError):
