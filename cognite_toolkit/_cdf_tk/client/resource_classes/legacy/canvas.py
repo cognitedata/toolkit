@@ -976,7 +976,7 @@ class IndustrialCanvasApply(CogniteResource):
         # the properties field there can be fromId and toId set.
         # We don't know all the places the Canvas application will have undocumented references,
         # so we do a recursive search and replace based on the id mapping we have created.
-        dumped_data = canvas_copy.dump(camel_case=False)
+        dumped_data = canvas_copy.dump(camel_case=True)
 
         def _replace_ids_recursively(data: Any, id_map: dict[str, str]) -> Any:
             if isinstance(data, dict):
