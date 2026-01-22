@@ -206,7 +206,14 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
             if existing is not None:
                 existing_instance_ids = existing.as_write().as_instance_ids(include_solution_tags=False)
                 delete_set = set(existing_instance_ids) - set(item.item.as_instance_ids())
-                to_delete: list[Any] = [instance_id.dump(include_instance_type=True) for instance_id in delete_set]
+                to_delete: list[Any] = [
+                    {
+                        "space": instance_id.space,
+                        "externalId": instance_id.external_id,
+                        "instanceType": instance_id.instance_type,
+                    }
+                    for instance_id in delete_set
+                ]
             else:
                 to_delete = []
 
