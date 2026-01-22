@@ -18,7 +18,7 @@ class MQTTSource(BaseModelObject):
 
 
 class MQTTSourceRequest(MQTTSource, SourceRequestDefinition):
-    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"use_tls"})
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"use_tls", "type"})
     authentication: BasicAuthenticationRequest | None = None
     ca_certificate: CACertificateRequest | None = None
     auth_certificate: AuthCertificateRequest | None = None

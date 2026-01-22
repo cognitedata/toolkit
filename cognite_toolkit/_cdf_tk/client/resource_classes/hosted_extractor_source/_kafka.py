@@ -31,7 +31,7 @@ class KafkaSource(BaseModelObject):
 
 
 class KafkaSourceRequest(KafkaSource, SourceRequestDefinition):
-    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"use_tls"})
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"use_tls", "type"})
     authentication: (
         BasicAuthenticationRequest | ClientCredentialAuthenticationRequest | ScramShaAuthenticationRequest | None
     ) = Field(None, discriminator="type")

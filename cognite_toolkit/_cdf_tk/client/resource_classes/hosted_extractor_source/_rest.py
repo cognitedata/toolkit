@@ -26,7 +26,7 @@ class RESTSource(BaseModelObject):
 
 
 class RESTSourceRequest(RESTSource, SourceRequestDefinition):
-    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"scheme", "port", ""})
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"scheme", "port", "type"})
     scheme: Literal["https", "http"] | None = None
     authentication: (
         BasicAuthenticationRequest | HTTPBasicAuthenticationRequest | ClientCredentialAuthenticationRequest | None
