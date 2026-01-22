@@ -32,7 +32,11 @@ class TestPipValidator:
         ],
     )
     def test_validation_result(
-        self, requirements_file: Path, returncode: int, stderr: str, should_succeed: bool,
+        self,
+        requirements_file: Path,
+        returncode: int,
+        stderr: str,
+        should_succeed: bool,
     ) -> None:
         """Test validation success and failure cases."""
         with patch("subprocess.run", return_value=MagicMock(returncode=returncode, stderr=stderr, stdout="")):
@@ -65,7 +69,9 @@ class TestPipValidator:
         """Test that custom index URLs are passed to pip correctly."""
         with patch("subprocess.run", return_value=MagicMock(returncode=0, stderr="", stdout="")) as mock:
             result = validate_requirements_with_pip(
-                requirements_file, index_url=index_url, extra_index_urls=extra_index_urls,
+                requirements_file,
+                index_url=index_url,
+                extra_index_urls=extra_index_urls,
             )
             for arg in expected_args:
                 assert arg in mock.call_args[0][0], f"Expected {arg} in pip command"

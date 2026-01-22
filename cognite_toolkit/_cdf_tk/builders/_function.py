@@ -41,7 +41,11 @@ class FunctionBuilder(Builder):
         self.validation_time_ms = 0
 
     def _validate_function_requirements(
-        self, requirements_txt: Path, raw_function: dict[str, Any], filepath: Path, external_id: str,
+        self,
+        requirements_txt: Path,
+        raw_function: dict[str, Any],
+        filepath: Path,
+        external_id: str,
     ) -> FunctionRequirementsValidationWarning | None:
         """Validate function requirements.txt using pip dry-run."""
         start_time = time.time()
@@ -73,7 +77,10 @@ class FunctionBuilder(Builder):
         )
 
     def build(
-        self, source_files: list[BuildSourceFile], module: ModuleLocation, console: Callable[[str], None] | None = None,
+        self,
+        source_files: list[BuildSourceFile],
+        module: ModuleLocation,
+        console: Callable[[str], None] | None = None,
     ) -> Iterable[BuildDestinationFile | Sequence[ToolkitWarning]]:
         for source_file in source_files:
             if source_file.loaded is None:
@@ -104,7 +111,9 @@ class FunctionBuilder(Builder):
             )
 
     def validate_directory(
-        self, built_resources: BuiltResourceList, module: ModuleLocation,
+        self,
+        built_resources: BuiltResourceList,
+        module: ModuleLocation,
     ) -> WarningList[ToolkitWarning]:
         warnings = WarningList[ToolkitWarning]()
         has_config_files = any(resource.kind == FunctionCRUD.kind for resource in built_resources)
@@ -166,7 +175,10 @@ class FunctionBuilder(Builder):
                 and (requirements_txt := function_directory / "requirements.txt").exists()
             ):
                 warning = self._validate_function_requirements(
-                    requirements_txt, raw_function, source_file.source.path, external_id,
+                    requirements_txt,
+                    raw_function,
+                    source_file.source.path,
+                    external_id,
                 )
                 if warning:
                     warnings.append(warning)
