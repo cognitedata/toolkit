@@ -3,7 +3,7 @@ from typing import Any
 from cognite.client.data_classes.data_modeling import NodeId, ViewId
 from pydantic import JsonValue, field_serializer, field_validator
 
-from .base import BaseModelObject
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 
 
 class UserInfo(BaseModelObject):

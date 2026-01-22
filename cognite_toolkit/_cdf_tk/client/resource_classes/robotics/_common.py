@@ -1,6 +1,6 @@
 from typing import Literal
 
-from cognite_toolkit._cdf_tk.client.resource_classes.base import BaseModelObject
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 
 RobotType = Literal["SPOT", "ANYMAL", "DJI_DRONE", "TAUROB", "UNKNOWN"]
 MapType = Literal["WAYPOINTMAP", "THREEDMODEL", "TWODMAP", "POINTCLOUD"]

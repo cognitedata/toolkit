@@ -1,9 +1,9 @@
 from typing import Any, ClassVar, Literal
 
-from cognite_toolkit._cdf_tk.client.resource_classes.base import (
+from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
-    RequestUpdateable,
     ResponseResource,
+    UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import DataSetId
 
@@ -36,7 +36,7 @@ class Robot(BaseModelObject):
         return DataSetId(data_set_id=self.data_set_id)
 
 
-class RobotRequest(Robot, RequestUpdateable):
+class RobotRequest(Robot, UpdatableRequestResource):
     """Request resource for creating or updating a Robot."""
 
     container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})

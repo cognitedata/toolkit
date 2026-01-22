@@ -4,13 +4,13 @@ from typing import Any, ClassVar, Literal
 from pydantic import JsonValue, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
+from cognite_toolkit._cdf_tk.client._resource_base import BaseResourceList, ResponseResource
 from cognite_toolkit._cdf_tk.protocols import (
     ResourceRequestListProtocol,
     ResourceResponseListProtocol,
 )
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 
-from .base import BaseResourceList, ResponseResource
 from .instance_api import InstanceRequestResource, ViewReference
 
 if sys.version_info >= (3, 11):

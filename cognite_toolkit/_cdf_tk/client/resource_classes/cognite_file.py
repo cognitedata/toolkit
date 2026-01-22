@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import ClassVar, Literal
 
-from cognite_toolkit._cdf_tk.client.resource_classes.base import (
+from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
     RequestResource,
     ResponseResource,

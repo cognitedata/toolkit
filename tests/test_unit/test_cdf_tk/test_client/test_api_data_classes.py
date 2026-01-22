@@ -2,9 +2,9 @@ from typing import Any, Literal
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client._resource_base import UpdatableRequestResource
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.base import RequestUpdateable
 from tests.test_unit.test_cdf_tk.test_client.data import CDFResource, iterate_cdf_resources
 
 
@@ -33,7 +33,7 @@ class TestAPIDataClasses:
         if not resource.is_as_request_possible:
             return
         request_instance = resource.request_instance
-        if not isinstance(request_instance, RequestUpdateable):
+        if not isinstance(request_instance, UpdatableRequestResource):
             return
         update_data = request_instance.as_update(mode="patch")
         assert isinstance(update_data, dict)
@@ -129,7 +129,10 @@ class TestRequestUpdateable:
         ],
     )
     def test_as_update(
-        self, request_instance: RequestUpdateable, mode: Literal["patch", "replace"], expected_update: dict[str, Any]
+        self,
+        request_instance: UpdatableRequestResource,
+        mode: Literal["patch", "replace"],
+        expected_update: dict[str, Any],
     ) -> None:
         assert request_instance.as_update(mode=mode) == expected_update
 

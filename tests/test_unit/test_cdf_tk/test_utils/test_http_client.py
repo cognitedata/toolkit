@@ -7,9 +7,9 @@ from unittest.mock import patch
 import httpx
 import pytest
 import respx
-from pydantic import BaseModel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.http_client import (
     ErrorDetails,
     ErrorDetails2,
@@ -674,7 +674,7 @@ class TestHTTPMessage:
         assert part1.max_failures_before_abort == 30
 
 
-class MyRequestItem(BaseModel):
+class MyRequestItem(RequestItem):
     name: str
     id: int
 

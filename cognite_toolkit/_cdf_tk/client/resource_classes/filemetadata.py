@@ -2,7 +2,7 @@ from typing import ClassVar, Literal
 
 from pydantic import Field, JsonValue
 
-from cognite_toolkit._cdf_tk.client.resource_classes.base import BaseModelObject, RequestUpdateable, ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, ResponseResource, UpdatableRequestResource
 
 from .identifiers import ExternalId
 from .instance_api import NodeReference
@@ -29,7 +29,7 @@ class FileMetadata(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class FileMetadataRequest(FileMetadata, RequestUpdateable):
+class FileMetadataRequest(FileMetadata, UpdatableRequestResource):
     container_fields: ClassVar[frozenset[str]] = frozenset({"metadata", "labels", "asset_ids", "security_categories"})
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"asset_ids", "security_categories"})
     # This field is not part of the request when creating or updating a resource

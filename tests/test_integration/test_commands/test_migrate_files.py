@@ -77,16 +77,8 @@ class TestMigrateFilesCommand:
             dry_run=False,
             verbose=False,
         )
-        actual_results = [results.get_progress(f"file_{item.id}") for item in three_files_with_content]
-        expected_results = [
-            {
-                cmd.Steps.DOWNLOAD: "success",
-                cmd.Steps.CONVERT: "success",
-                cmd.Steps.UPLOAD: "success",
-            }
-            for _ in three_files_with_content
-        ]
-        assert actual_results == expected_results
+        actual_results = {item.status: item.count for item in results}
+        assert actual_results == {"failure": 0, "pending": 0, "success": 3, "unchanged": 0}
 
         # Wait for syncer by polling
         for _ in range(12):  # Poll for up to 60 seconds

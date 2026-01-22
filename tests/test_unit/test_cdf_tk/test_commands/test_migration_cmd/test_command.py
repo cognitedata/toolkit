@@ -52,7 +52,6 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
 )
-from cognite_toolkit._cdf_tk.utils.fileio import CSVReader
 
 
 @pytest.fixture
@@ -228,11 +227,11 @@ class TestMigrationCommand:
 
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)
-
+        mapper = AssetCentricMapper(client)
         result = command.migrate(
             selected=MigrationCSVFileSelector(datafile=csv_file, kind="Assets"),
             data=AssetCentricMigrationIO(client),
-            mapper=AssetCentricMapper(client),
+            mapper=mapper,
             log_dir=tmp_path / "logs",
             dry_run=False,
             verbose=False,
@@ -276,16 +275,8 @@ class TestMigrationCommand:
             for asset in assets
         ]
         assert actual_instances == expected_instance
-        actual_results = [result.get_progress(f"asset_{asset.id}") for asset in assets]
-        expected_results = [{"download": "success", "convert": "success", "upload": "success"} for _ in assets]
-        assert actual_results == expected_results
-        csv_file = next((tmp_path / "logs").glob("*.csv"), None)
-        assert csv_file is not None, "Expected a CSV log file to be created"
-        csv_results = list(CSVReader(csv_file).read_chunks_unprocessed())
-        assert csv_results == [
-            {"ID": f"asset_{asset.id}", "download": "success", "convert": "success", "upload": "success"}
-            for asset in assets
-        ]
+        actual_results = {status.status: status.count for status in result}
+        assert actual_results == {"failure": 0, "pending": 0, "success": len(assets), "unchanged": 0}
 
     @pytest.mark.usefixtures("mock_statistics")
     def test_migrate_annotations(
@@ -409,9 +400,8 @@ class TestMigrationCommand:
             dry_run=False,
             verbose=True,
         )
-        actual_results = [result.get_progress(f"Annotation_{annotation.id}") for annotation in annotations]
-        expected_results = [{"download": "success", "convert": "success", "upload": "success"} for _ in annotations]
-        assert actual_results == expected_results
+        actual_results = {status.status: status.count for status in result}
+        assert actual_results == {"failure": 0, "pending": 0, "success": len(annotations), "unchanged": 0}
 
         # Check that the annotations were uploaded
         last_call = respx_mock.calls[-1]
@@ -562,9 +552,8 @@ class TestMigrationCommand:
                 dry_run=False,
                 verbose=True,
             )
-        actual = result.get_progress("my_chart")
-        expected = {"download": "success", "convert": "success", "upload": "success"}
-        assert actual == expected
+        actual_results = {status.status: status.count for status in result}
+        assert actual_results == {"failure": 0, "pending": 0, "success": len(charts), "unchanged": 0}
 
         calls = respx_mock.calls
         assert len(calls) == 1
@@ -717,9 +706,8 @@ class TestMigrationCommand:
             verbose=False,
         )
 
-        actual = result.get_progress(canvas.canvas.external_id)
-        expected = {"download": "success", "convert": "success", "upload": "success"}
-        assert actual == expected
+        actual_results = {status.status: status.count for status in result}
+        assert actual_results == {"failure": 0, "pending": 0, "success": 1, "unchanged": 0}
 
         assert len(respx_mock.calls) == 1
         call = respx_mock.calls[0]

@@ -14,7 +14,6 @@ class LogEntry(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_
     """Represents a log entry for tracking storage I/O operations."""
 
     id: str
-    message: str
 
 
 OperationStatus: TypeAlias = Literal["success", "failure", "unchanged", "pending"]

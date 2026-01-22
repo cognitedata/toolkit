@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     HTTPMessage,
     ItemsRequest,
-    SimpleBodyRequest,
+    RequestMessage2,
     SuccessResponseItems,
     ToolkitAPIError,
 )
@@ -78,7 +78,7 @@ class AssetCentricMigrationIO(
         self.skip_linking = skip_linking
 
     def as_id(self, item: AssetCentricMapping) -> str:
-        return f"{item.mapping.resource_type}_{item.mapping.id}"
+        return str(item.mapping.as_asset_centric_id())
 
     def stream_data(self, selector: AssetCentricMigrationSelector, limit: int | None = None) -> Iterator[Page]:
         if isinstance(selector, MigrationCSVFileSelector):
@@ -181,7 +181,7 @@ class AssetCentricMigrationIO(
 
         pending_instance_id_endpoint = self.PENDING_INSTANCE_ID_ENDPOINT_BY_KIND[selector.kind]
         results: list[HTTPMessage] = []
-        to_upload = self.link_asset_centric(data_chunk, http_client, results, pending_instance_id_endpoint)
+        to_upload = self.link_asset_centric(data_chunk, http_client, pending_instance_id_endpoint)
         if to_upload:
             results.extend(list(super().upload_items(to_upload, http_client, None)))
         return results
@@ -191,7 +191,6 @@ class AssetCentricMigrationIO(
         cls,
         data_chunk: Sequence[UploadItem[InstanceApply]],
         http_client: HTTPClient,
-        results: list[HTTPMessage],
         pending_instance_id_endpoint: str,
     ) -> Sequence[UploadItem[InstanceApply]]:
         """Links asset-centric resources to their (uncreated) instances using the pending-instance-ids endpoint."""
@@ -212,7 +211,6 @@ class AssetCentricMigrationIO(
             for res in batch_results:
                 if isinstance(res, SuccessResponseItems):
                     successful_linked.update(res.ids)
-            results.extend(batch_results)
         to_upload = [item for item in data_chunk if item.source_id in successful_linked]
         return to_upload
 
@@ -393,7 +391,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
         self.data_model_type = data_model_type
 
     def as_id(self, item: ThreeDModelResponse) -> str:
-        return f"{item.name}_{item.id!s}"
+        return item.name
 
     def _is_selected(self, item: ThreeDModelResponse, included_models: set[int] | None) -> bool:
         return self._is_correct_type(item) and (included_models is None or item.id in included_models)
@@ -466,14 +464,14 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
         for data in data_chunk:
             if data.source_id not in success_ids:
                 continue
-            revision = http_client.request_with_retries(
-                message=SimpleBodyRequest(
+            revision = http_client.request_single_retries(
+                message=RequestMessage2(
                     endpoint_url=self.client.config.create_api_url(self.REVISION_ENDPOINT),
                     method="POST",
                     body_content={"items": [data.item.revision.dump(camel_case=True)]},
                 )
             )
-            results.extend(revision.as_item_responses(data.source_id))
+            results.append(revision.as_item_response(data.source_id))
         return results
 
 

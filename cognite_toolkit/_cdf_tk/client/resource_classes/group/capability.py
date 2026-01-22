@@ -9,7 +9,7 @@ from typing import Any
 from pydantic import model_serializer, model_validator
 from pydantic_core.core_schema import FieldSerializationInfo
 
-from cognite_toolkit._cdf_tk.client.resource_classes.base import BaseModelObject
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import ACL_NAME
 
 from .acls import AclType
