@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import Field
 
@@ -31,6 +31,7 @@ class KafkaSource(BaseModelObject):
 
 
 class KafkaSourceRequest(KafkaSource, SourceRequestDefinition):
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"use_tls"})
     authentication: (
         BasicAuthenticationRequest | ClientCredentialAuthenticationRequest | ScramShaAuthenticationRequest | None
     ) = Field(None, discriminator="type")

@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -17,6 +17,7 @@ class EventHubSource(BaseModelObject):
 
 
 class EventHubSourceRequest(EventHubSource, SourceRequestDefinition):
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"authentication"})
     authentication: BasicAuthenticationRequest | None = None
 
 
