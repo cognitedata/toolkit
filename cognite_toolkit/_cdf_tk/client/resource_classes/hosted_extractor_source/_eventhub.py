@@ -17,7 +17,7 @@ class EventHubSource(BaseModelObject):
 
 
 class EventHubSourceRequest(EventHubSource, SourceRequestDefinition):
-    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"authentication", "type"})
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"authentication"})
     authentication: BasicAuthenticationRequest | None = None
 
 

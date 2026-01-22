@@ -16,6 +16,8 @@ class SourceRequestDefinition(UpdatableRequestResource):
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         output = super().as_update(mode)
+        # Move type from update to top-level, as the API expects it there
+        output["update"].pop("type")
         output["type"] = self.type
         return output
 
