@@ -64,6 +64,7 @@ from requests import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source._base import SourceRequestDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import GraphQLDataModelWrite
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.project import ProjectStatus, ProjectStatusList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawDatabase
@@ -766,6 +767,10 @@ class ApprovalToolkitClient:
             created_resources[resource_cls.__name__].extend(items)
             return []
 
+        def create_hosted_extractor_source(items: Sequence, *_, **__) -> list:
+            created_resources[SourceRequestDefinition.__name__].extend(items)
+            return []
+
         available_create_methods = {
             fn.__name__: fn
             for fn in [
@@ -785,6 +790,7 @@ class ApprovalToolkitClient:
                 create_raw_table,
                 create_nodes,
                 create,
+                create_hosted_extractor_source,
             ]
         }
         if mock_method not in available_create_methods:
@@ -909,6 +915,9 @@ class ApprovalToolkitClient:
         def retrieve(ids: Sequence, *_, **__) -> list:
             return existing_resources[resource_cls.__name__]
 
+        def retrieve_hosted_extractor_source(items: Sequence, *_, **__) -> list:
+            return existing_resources[SourceRequestDefinition.__name__]
+
         available_retrieve_methods = {
             fn.__name__: fn
             for fn in [
@@ -920,6 +929,7 @@ class ApprovalToolkitClient:
                 iterate_values,
                 return_data_models,
                 retrieve,
+                retrieve_hosted_extractor_source,
             ]
         }
         if mock_method not in available_retrieve_methods:

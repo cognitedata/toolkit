@@ -876,9 +876,9 @@ API_RESOURCES = [
         resource_cls=HostedExtractorSourceRequestUnion,
         _write_cls=HostedExtractorSourceResponseUnion,
         methods={
-            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "create": [Method(api_class_method="create", mock_class_method="create_hosted_extractor_source")],
             "retrieve": [
-                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+                Method(api_class_method="retrieve", mock_class_method="retrieve_hosted_extractor_source"),
             ],
         },
     ),
