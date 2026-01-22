@@ -2,7 +2,7 @@ from collections.abc import Iterable, Sequence
 from typing import Any
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, HTTPMessage, SimpleBodyRequest
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, HTTPMessage, RequestMessage2
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     IndustrialCanvas,
     IndustrialCanvasApply,
@@ -192,15 +192,15 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
                     dumped.pop("existingVersion", None)
                 items.append(dumped)
 
-            responses = http_client.request_with_retries(
-                message=SimpleBodyRequest(
+            responses = http_client.request_single_retries(
+                message=RequestMessage2(
                     endpoint_url=config.create_api_url("/models/instances"),
                     method="POST",
                     # MyPy does not understand that .dump is valid json
                     body_content={"items": items},  # type: ignore[dict-item]
                 )
             )
-            results.extend(responses.as_item_responses(item.source_id))
+            results.append(responses.as_item_response(item.source_id))
 
         return results
 
