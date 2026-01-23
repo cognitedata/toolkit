@@ -200,7 +200,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
 
         if "items" in body and isinstance(body["items"], list) and len(body["items"]) > 0:
             # The API responses is not following the API docs, this is a workaround
-            body = body["items"][0]  # type: ignore[assignment]
+            body = body["items"][0]
         try:
             return cast(str, body["downloadUrl"])
         except (KeyError, IndexError):

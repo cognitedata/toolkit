@@ -8,7 +8,6 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     RequestMessage2,
-    SuccessResponseItems,
     ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
@@ -212,7 +211,7 @@ class AssetCentricMigrationIO(
                 )
             )
             for res in batch_results:
-                if isinstance(res, SuccessResponseItems):
+                if isinstance(res, ItemsSuccessResponse2):
                     successful_linked.update(res.ids)
         to_upload = [item for item in data_chunk if item.source_id in successful_linked]
         return to_upload
