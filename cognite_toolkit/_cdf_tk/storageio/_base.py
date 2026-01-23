@@ -3,6 +3,8 @@ from collections.abc import Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass
 from typing import Any, ClassVar, Generic, Literal, TypeVar
 
+from pydantic import ConfigDict
+
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
@@ -45,6 +47,8 @@ class UploadItem(RequestItem, Generic[T_ResourceRequest]):
         source_id: The source identifier for the item. For example, the line number in a CSV file.
         item: The writable Cognite resource to be uploaded.
     """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     source_id: str
     item: T_ResourceRequest
