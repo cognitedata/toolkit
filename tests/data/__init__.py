@@ -28,6 +28,7 @@ INFIELD_CDM_LOCATION_CONFIG_VIEW_YAML = DATA_FOLDER / "cdf" / "infield_cdm_locat
 INFIELD_CDM_LOCATION_CONFIG_CONTAINER_YAML = DATA_FOLDER / "cdf" / "infield_cdm_location_config_container.yaml"
 THREE_D_MODEL = DATA_FOLDER / "3d_model"
 THREE_D_He2_FBX_ZIP = THREE_D_MODEL / "he2.zip"
+MIGRATION_DIR = DATA_FOLDER / "migration"
 
 __all__ = [
     "AUTH_DATA",

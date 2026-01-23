@@ -685,6 +685,12 @@ class TestMigrationCommand:
             status=200,
         )
         # Upsert of migrated canvas
+        rsps.add(
+            responses.POST,
+            config.create_api_url("/models/instances/query"),
+            json={"items": {"canvas": []}, "nextCursor": {}},
+            status=200,
+        )
         respx.post(
             config.create_api_url("/models/instances"),
         ).mock(
