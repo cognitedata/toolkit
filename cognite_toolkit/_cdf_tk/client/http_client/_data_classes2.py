@@ -29,7 +29,7 @@ class HTTPResult2(BaseModel):
         else:
             raise ToolkitAPIError("Unknown HTTPResult2 type")
 
-    def as_item_response(self, item_id: str) -> ItemsResultMessage2:
+    def as_item_response(self, item_id: str) -> "ItemsResultMessage2":
         # Avoid circular import
         from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
             ItemsFailedRequest2,
