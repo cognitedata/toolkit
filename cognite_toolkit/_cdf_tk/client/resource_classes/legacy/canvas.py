@@ -1,5 +1,6 @@
 import sys
 from abc import ABC
+from collections import defaultdict
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Any, TypeVar
@@ -905,54 +906,86 @@ class IndustrialCanvasApply(CogniteResource):
                 raise TypeError(f"Unexpected instance type: {type(instance)}")
         return ids
 
-    def dump(self, keep_existing_version: bool = True) -> dict[str, JsonVal]:
+    def dump(self, camel_case: bool = True, keep_existing_version: bool = True) -> dict[str, JsonVal]:
         """Dump the IndustrialCanvasApply to a dictionary."""
         return {
-            "canvas": self.canvas.dump(keep_existing_version=keep_existing_version),
+            "canvas": self.canvas.dump(camel_case=camel_case, keep_existing_version=keep_existing_version),
             "annotations": [
-                annotation.dump(keep_existing_version=keep_existing_version) for annotation in self.annotations
+                annotation.dump(camel_case=camel_case, keep_existing_version=keep_existing_version)
+                for annotation in self.annotations
             ],
             "containerReferences": [
-                container_ref.dump(keep_existing_version=keep_existing_version)
+                container_ref.dump(camel_case=camel_case, keep_existing_version=keep_existing_version)
                 for container_ref in self.container_references
             ],
             "fdmInstanceContainerReferences": [
-                fdm_instance_container_ref.dump(keep_existing_version=keep_existing_version)
+                fdm_instance_container_ref.dump(camel_case=camel_case, keep_existing_version=keep_existing_version)
                 for fdm_instance_container_ref in self.fdm_instance_container_references
             ],
             "solutionTags": [
-                solution_tag.dump(keep_existing_version=keep_existing_version) for solution_tag in self.solution_tags
+                solution_tag.dump(camel_case=camel_case, keep_existing_version=keep_existing_version)
+                for solution_tag in self.solution_tags
             ],
         }
 
     def create_backup(self) -> "IndustrialCanvasApply":
-        """Create a duplicate of the IndustrialCanvasApply instance."""
+        """Create a backup copy of the IndustrialCanvasApply instance with new IDs."""
         new_canvas_id = str(uuid4())
+
         new_canvas = CanvasApply._load(self.canvas.dump(keep_existing_version=False))
         new_canvas.external_id = new_canvas_id
         new_canvas.source_canvas_id = self.canvas.external_id
         new_canvas.updated_at = datetime.now(tz=timezone.utc)
         # Solution tags are not duplicated, they are reused
-        new_container = IndustrialCanvasApply(new_canvas, [], [], [], solution_tags=self.solution_tags)
+        canvas_backup = IndustrialCanvasApply(new_canvas, [], [], [], solution_tags=self.solution_tags)
         items: list[ContainerReferenceApply] | list[CanvasAnnotationApply] | list[FdmInstanceContainerReferenceApply]
         item_cls: type[CanvasAnnotationApply] | type[ContainerReferenceApply] | type[FdmInstanceContainerReferenceApply]
         new_item_list: list[NodeApply]
+        generator: dict[str, str] = defaultdict(lambda: str(uuid4()))
         for items, item_cls, new_item_list in [  # type: ignore[assignment]
-            (self.annotations, CanvasAnnotationApply, new_container.annotations),
-            (self.container_references, ContainerReferenceApply, new_container.container_references),
+            (self.annotations, CanvasAnnotationApply, canvas_backup.annotations),
+            (self.container_references, ContainerReferenceApply, canvas_backup.container_references),
             (
                 self.fdm_instance_container_references,
                 FdmInstanceContainerReferenceApply,
-                new_container.fdm_instance_container_references,
+                canvas_backup.fdm_instance_container_references,
             ),
         ]:
             for item in items:
                 # Serialize the item to create a new instance
                 new_item = item_cls._load(item.dump(keep_existing_version=False))
-                new_item.id_ = str(uuid4())
-                new_item.external_id = f"{new_canvas_id}_{new_item.external_id}"
+                new_item.id_ = generator[new_item.id_]
+                new_item.external_id = f"{new_canvas_id}_{new_item.id_}"
                 new_item_list.append(new_item)
-        return new_container
+
+        return canvas_backup.replace_ids(generator)
+
+    def replace_ids(self, id_mapping_old_by_new: dict[str, str]) -> "IndustrialCanvasApply":
+        """Replace IDs in the IndustrialCanvasApply instance based on the provided ID mapping.
+
+        Args:
+            id_mapping_old_by_new: A dictionary mapping old IDs to new IDs.
+        Returns:
+            A new IndustrialCanvasApply instance with IDs replaced according to the mapping.
+        """
+        # There can be references to the old IDs in properties, for example, in annotations
+        # the properties field there can be fromId and toId set.
+        # We don't know all the places the Canvas application will have undocumented references,
+        # so we do a recursive search and replace based on the id mapping we have created.
+        dumped_data = self.dump(camel_case=True)
+
+        def _replace_ids_recursively(data: Any, id_map: dict[str, str]) -> Any:
+            if isinstance(data, dict):
+                return {key: _replace_ids_recursively(value, id_map) for key, value in data.items()}
+            if isinstance(data, list):
+                return [_replace_ids_recursively(item, id_map) for item in data]
+            if isinstance(data, str) and data in id_map:
+                return id_map[data]
+            return data
+
+        updated_data = _replace_ids_recursively(dumped_data, id_mapping_old_by_new)
+
+        return IndustrialCanvasApply._load(updated_data)
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:

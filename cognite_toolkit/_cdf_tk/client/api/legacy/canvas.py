@@ -83,7 +83,7 @@ class IndustrialCanvasAPI:
     def create(self, canvas: IndustrialCanvasApply) -> InstancesApplyResultList:
         instance_ids = canvas.as_instance_ids()
         existing = self._instance_api.retrieve(
-            [node for node in instance_ids if isinstance(node, NodeId)],
+            nodes=[node for node in instance_ids if isinstance(node, NodeId)],
             edges=[edge for edge in instance_ids if isinstance(edge, EdgeId)],
         )
         if existing.nodes or existing.edges:

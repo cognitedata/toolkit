@@ -401,6 +401,7 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
 
         remaining_container_references: list[ContainerReferenceApply] = []
         new_fdm_references: list[FdmInstanceContainerReferenceApply] = []
+        uuid_generator: dict[str, str] = defaultdict(lambda: str(uuid4()))
         for ref in update.container_references or []:
             if ref.container_reference_type not in self.asset_centric_resource_types:
                 remaining_container_references.append(ref)
@@ -410,7 +411,9 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
                 issue.missing_reference_ids.append(ref.as_asset_centric_id())
             else:
                 consumer_view = self._get_consumer_view_id(ref.resource_id, ref.container_reference_type)
-                fdm_ref = self.migrate_container_reference(ref, canvas.canvas.external_id, node_id, consumer_view)
+                fdm_ref = self.migrate_container_reference(
+                    ref, canvas.canvas.external_id, node_id, consumer_view, uuid_generator
+                )
                 new_fdm_references.append(fdm_ref)
         if issue.missing_reference_ids and self.skip_on_missing_ref:
             return None, issue
@@ -426,14 +429,22 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
                     f"Failed to create backup for canvas '{canvas.canvas.name}': {e!s}. "
                 ) from e
 
+        # There might annotations or other components that reference the old IDs, so we need to update those as well.
+        update = update.replace_ids(uuid_generator)
+
         return update, issue
 
     @classmethod
     def migrate_container_reference(
-        cls, reference: ContainerReferenceApply, canvas_external_id: str, instance_id: NodeId, consumer_view: ViewId
+        cls,
+        reference: ContainerReferenceApply,
+        canvas_external_id: str,
+        instance_id: NodeId,
+        consumer_view: ViewId,
+        uuid_generator: dict[str, str],
     ) -> FdmInstanceContainerReferenceApply:
         """Migrate a single container reference by replacing the asset-centric ID with the data model instance ID."""
-        new_id = str(uuid4())
+        new_id = uuid_generator[reference.id_]
         new_external_id = f"{canvas_external_id}_{new_id}"
         return FdmInstanceContainerReferenceApply(
             external_id=new_external_id,
