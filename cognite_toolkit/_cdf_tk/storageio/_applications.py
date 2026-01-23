@@ -22,6 +22,7 @@ from .selectors import (
     ChartOwnerSelector,
     ChartSelector,
 )
+from ..client.http_client._item_classes import ItemsResultList
 
 
 class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
@@ -180,7 +181,7 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         data_chunk: Sequence[UploadItem[IndustrialCanvasApply]],
         http_client: HTTPClient,
         selector: CanvasSelector | None = None,
-    ) -> Sequence[HTTPMessage]:
+    ) -> ItemsResultList:
         config = http_client.config
         results: list[HTTPMessage] = []
         for item in data_chunk:

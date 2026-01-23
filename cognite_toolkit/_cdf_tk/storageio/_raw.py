@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from cognite.client.data_classes import Row, RowWrite
 
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, HTTPMessage, ItemsRequest
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
+from ..client.http_client._item_classes import ItemsRequest2, ItemsResultList
 from ._base import (
     ConfigurableStorageIO,
     Page,
@@ -60,16 +61,16 @@ class RawIO(
         data_chunk: Sequence[UploadItem[RowWrite]],
         http_client: HTTPClient,
         selector: RawTableSelector | None = None,
-    ) -> Sequence[HTTPMessage]:
+    ) -> ItemsResultList:
         if selector is None:
             raise ToolkitValueError("Selector must be provided for RawIO upload_items")
         url = self.UPLOAD_ENDPOINT.format(dbName=selector.table.db_name, tableName=selector.table.table_name)
         config = http_client.config
-        return http_client.request_with_retries(
-            message=ItemsRequest(
+        return http_client.request_items_retries(
+            message=ItemsRequest2(
                 endpoint_url=config.create_api_url(url),
                 method="POST",
-                items=list(data_chunk),
+                items=data_chunk,
             )
         )
 

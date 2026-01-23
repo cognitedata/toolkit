@@ -3,7 +3,7 @@ import mimetypes
 from collections.abc import Iterable, MutableSequence, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import httpx
 from cognite.client.data_classes.data_modeling import ViewId
@@ -42,17 +42,17 @@ from .selectors._file_content import (
     FileTemplateSelector,
 )
 from .selectors._file_content import NodeId as SelectorNodeId
+from ..client.http_client._item_classes import ItemsResultList
 
 COGNITE_FILE_VIEW = ViewId("cdf_cdm", "CogniteFile", "v1")
 
 
-@dataclass
 class UploadFileContentItem(UploadItem[FileMetadataRequest]):
     file_path: Path
     mime_type: str
 
-    def dump(self) -> JsonVal:
-        return self.item.dump(camel_case=True, exclude_extra=True)
+    def dump(self, camel_case: bool = True, exclude_extra: bool = True) -> dict[str, Any]:
+        return self.item.dump(camel_case=camel_case, exclude_extra=exclude_extra)
 
 
 @dataclass
@@ -257,8 +257,8 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         data_chunk: Sequence[UploadItem[FileMetadataRequest]],
         http_client: HTTPClient,
         selector: FileContentSelector | None = None,
-    ) -> Sequence[HTTPMessage]:
-        results: MutableSequence[HTTPMessage] = []
+    ) -> ItemsResultList:
+        results = ItemsResultList()
         if isinstance(selector, FileMetadataTemplateSelector | FileIdentifierSelector):
             upload_url_getter = self._upload_url_asset_centric
         elif isinstance(selector, FileDataModelingTemplateSelector):
@@ -284,7 +284,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                     content_length=len(content_bytes),
                 )
             )
-            results.append(upload_response.as_item_response(item.as_id()))
+            results.append(upload_response.as_item_response(str(item)))
         return results
 
     def _upload_url_asset_centric(

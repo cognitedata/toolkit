@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass
-from typing import ClassVar, Generic, Literal, TypeVar
+from typing import Any, ClassVar, Generic, Literal, TypeVar
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
@@ -52,7 +52,7 @@ class UploadItem(RequestItem, Generic[T_ResourceRequest]):
     def __str__(self) -> str:
         return self.source_id
 
-    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> JsonVal:
+    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
         return self.item.dump(camel_case=camel_case)
 
 

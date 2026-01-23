@@ -1,22 +1,16 @@
 import gzip
 from abc import ABC, abstractmethod
-from collections.abc import Hashable
 from typing import Any, Literal
 
 import httpx
 from cognite.client import global_config
-from pydantic import BaseModel, JsonValue, TypeAdapter, model_validator
+from pydantic import TYPE_CHECKING, BaseModel, JsonValue, TypeAdapter, model_validator
 
-from cognite_toolkit._cdf_tk.client.http_client._data_classes import (
-    ErrorDetails,
-    FailedRequestItems,
-    FailedRequestMessage,
-    FailedResponseItems,
-    ResponseMessage,
-    SuccessResponseItems,
-)
 from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIError
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
+
+if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultMessage2
 
 
 class HTTPResult2(BaseModel):
@@ -35,28 +29,34 @@ class HTTPResult2(BaseModel):
         else:
             raise ToolkitAPIError("Unknown HTTPResult2 type")
 
-    # Todo: Remove when HTTPResult2 is renamed to HTTPResponse and the old HTTPResponse is deleted
-    def as_item_response(self, item_id: Hashable) -> ResponseMessage | FailedRequestMessage:
+    def as_item_response(self, item_id: str) -> ItemsResultMessage2:
+        # Avoid circular import
+        from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
+            ItemsFailedRequest2,
+            ItemsFailedResponse2,
+            ItemsSuccessResponse2,
+        )
+
         if isinstance(self, SuccessResponse2):
-            return SuccessResponseItems(
+            return ItemsSuccessResponse2(
                 status_code=self.status_code, content=self.content, ids=[item_id], body=self.body
             )
         elif isinstance(self, FailedResponse2):
-            return FailedResponseItems(
+            return ItemsFailedResponse2(
                 status_code=self.status_code,
                 ids=[item_id],
                 body=self.body,
-                error=ErrorDetails(
+                error=ErrorDetails2(
                     code=self.error.code,
                     message=self.error.message,
                     missing=self.error.missing,
                     duplicated=self.error.duplicated,
                 ),
             )
-        elif isinstance(self, FailedRequest2):
-            return FailedRequestItems(ids=[item_id], error=self.error)
+        elif isinstance(self, ItemsFailedRequest2):
+            return ItemsFailedRequest2(ids=[item_id], error_message=self.error_message)
         else:
-            raise ToolkitAPIError("Unknown HTTPResult2 type")
+            raise ToolkitAPIError(f"Unknown {type(self).__name__} type")
 
 
 class FailedRequest2(HTTPResult2):

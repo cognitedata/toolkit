@@ -16,12 +16,12 @@ from cognite.client.data_classes.time_series import TimeSeriesProperty
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
-    DataBodyRequest,
     HTTPClient,
-    HTTPMessage,
+    RequestMessage2,
     SimpleBodyRequest,
     SuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -241,18 +241,18 @@ class DatapointsIO(
         data_chunk: Sequence[UploadItem[DataPointInsertionRequest]],
         http_client: HTTPClient,
         selector: DataPointsSelector | None = None,
-    ) -> Sequence[HTTPMessage]:
-        results: list[HTTPMessage] = []
+    ) -> ItemsResultList:
+        results = ItemsResultList()
         for item in data_chunk:
-            response = http_client.request_with_retries(
-                DataBodyRequest(
+            response = http_client.request_single_retries(
+                RequestMessage2(
                     endpoint_url=http_client.config.create_api_url(self.UPLOAD_ENDPOINT),
                     method="POST",
                     content_type="application/protobuf",
                     data_content=item.item.SerializeToString(),
                 )
             )
-            results.extend(response)
+            results.append(response.as_item_response(item.source_id))
         return results
 
     def row_to_resource(
