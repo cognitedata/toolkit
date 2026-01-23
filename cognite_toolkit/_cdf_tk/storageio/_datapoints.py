@@ -18,8 +18,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     RequestMessage2,
-    SimpleBodyRequest,
-    SuccessResponse,
+    SuccessResponse2,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
@@ -117,8 +116,8 @@ class DatapointsIO(
                 }
                 for ts in timeseries
             ]
-            responses = self.client.http_client.request_with_retries(
-                SimpleBodyRequest(
+            response = self.client.http_client.request_single_retries(
+                RequestMessage2(
                     endpoint_url=config.create_api_url("/timeseries/data/list"),
                     method="POST",
                     accept="application/protobuf",
@@ -126,10 +125,9 @@ class DatapointsIO(
                     body_content={"items": items},  # type: ignore[dict-item]
                 )
             )
-            first_success = next((resp for resp in responses if isinstance(resp, SuccessResponse)), None)
-            if first_success is None:
+            if not isinstance(response, SuccessResponse2):
                 continue
-            aggregate_response: DataPointListResponse = DataPointListResponse.FromString(first_success.content)
+            aggregate_response: DataPointListResponse = DataPointListResponse.FromString(response.content)
             timeseries_ids_with_data: dict[int, int] = {}
             for dp in aggregate_response.items:
                 if dp.aggregateDatapoints.datapoints:
@@ -176,8 +174,8 @@ class DatapointsIO(
                 yield page
 
     def _fetch_datapoints_batch(self, batch: list[dict[str, Any]], config: Any) -> Page[DataPointListResponse] | None:
-        responses = self.client.http_client.request_with_retries(
-            SimpleBodyRequest(
+        response = self.client.http_client.request_single_retries(
+            RequestMessage2(
                 endpoint_url=config.create_api_url("/timeseries/data/list"),
                 method="POST",
                 accept="application/protobuf",
@@ -185,10 +183,9 @@ class DatapointsIO(
                 body_content={"items": batch},  # type: ignore[dict-item]
             )
         )
-        first_success = next((resp for resp in responses if isinstance(resp, SuccessResponse)), None)
-        if first_success is None:
+        if not isinstance(response, SuccessResponse2):
             return None
-        data_response: DataPointListResponse = DataPointListResponse.FromString(first_success.content)
+        data_response: DataPointListResponse = DataPointListResponse.FromString(response.content)
         return Page("Main", [data_response])
 
     def count(self, selector: DataPointsSelector) -> int | None:

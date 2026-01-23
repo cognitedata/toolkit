@@ -15,7 +15,6 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     HTTPResult2,
     RequestMessage2,
-    SimpleBodyRequest,
     SuccessResponse2,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsFailedResponse2, ItemsResultList
@@ -121,8 +120,8 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
 
     def _retrieve_metadata(self, identifiers: Sequence[FileIdentifier]) -> Sequence[FileMetadataResponse] | None:
         config = self.client.config
-        responses = self.client.http_client.request_with_retries(
-            message=SimpleBodyRequest(
+        response = self.client.http_client.request_single_retries(
+            message=RequestMessage2(
                 endpoint_url=config.create_api_url("/files/byids"),
                 method="POST",
                 body_content={
@@ -134,9 +133,13 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                 },
             )
         )
-        if responses.has_failed:
+        if not isinstance(response, SuccessResponse2):
             return None
-        body = responses.get_first_body()
+        try:
+            body = response.body_json
+        except ValueError:
+            return None
+
         items_data = body.get("items", [])
         if not isinstance(items_data, list):
             return None
@@ -180,17 +183,21 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
 
     def _retrieve_download_url(self, identifier: FileIdentifier) -> str | None:
         config = self.client.config
-        responses = self.client.http_client.request_with_retries(
-            message=SimpleBodyRequest(
+        response = self.client.http_client.request_single_retries(
+            message=RequestMessage2(
                 endpoint_url=config.create_api_url("/files/downloadlink"),
                 method="POST",
                 body_content={"items": [identifier.model_dump(mode="json", by_alias=True, exclude={"id_type"})]},
             )
         )
+        if not isinstance(response, SuccessResponse2):
+            return None
+
         try:
-            body = responses.get_first_body()
+            body = response.body_json
         except ValueError:
             return None
+
         if "items" in body and isinstance(body["items"], list) and len(body["items"]) > 0:
             # The API responses is not following the API docs, this is a workaround
             body = body["items"][0]  # type: ignore[assignment]
