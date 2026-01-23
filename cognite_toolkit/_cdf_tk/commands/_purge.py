@@ -735,7 +735,11 @@ class PurgeCommand(ToolkitCommand):
         node_ids = [instance for instance in instances if isinstance(instance, NodeId)]
         if node_ids:
             timeseries = client.time_series.retrieve_multiple(instance_ids=node_ids, ignore_unknown_ids=True)
-            migrated_timeseries_ids = [ts.id for ts in timeseries if ts.instance_id and ts.pending_instance_id]  # type: ignore[attr-defined]
+            migrated_timeseries_ids = [
+                ts.id
+                for ts in timeseries
+                if ts.instance_id and ts.pending_instance_id  # type: ignore[attr-defined]
+            ]
             if not dry_run and timeseries:
                 client.time_series.unlink_instance_ids(id=migrated_timeseries_ids)
                 if verbose:
