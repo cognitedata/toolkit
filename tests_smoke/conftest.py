@@ -6,11 +6,13 @@ from typing import cast
 import pytest
 from cognite.client import global_config
 from cognite.client.credentials import OAuthClientCredentials
-from cognite.client.data_classes import DataSet, DataSetWrite, FileMetadata, FileMetadataWrite
+from cognite.client.data_classes import FileMetadata, FileMetadataWrite
 from cognite.client.data_classes.data_modeling import Space, SpaceApply
 from dotenv import load_dotenv
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from tests.data import THREE_D_He2_FBX_ZIP
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -43,21 +45,23 @@ def toolkit_client(toolkit_client_config: ToolkitClientConfig) -> ToolkitClient:
 
 
 @pytest.fixture(scope="session")
-def smoke_dataset(toolkit_client: ToolkitClient) -> DataSet:
+def smoke_dataset(toolkit_client: ToolkitClient) -> DataSetResponse:
     client = toolkit_client
-    dataset_external_id = "toolkit_smoke_test_dataset"
-    if dataset := client.data_sets.retrieve(external_id=dataset_external_id):
-        return dataset
-    return client.data_sets.create(
-        DataSetWrite(
-            name="Toolkit Smoke Test Dataset",
-            external_id=dataset_external_id,
-            description="Dataset for Cognite Toolkit migration integration tests",
-            metadata={
-                "source": "ToolkitSmokeTests",
-            },
-        )
-    )
+    dataset_external_id = ExternalId(external_id="toolkit_smoke_test_dataset")
+    if dataset := client.tool.datasets.retrieve([dataset_external_id]):
+        return dataset[0]
+    return client.tool.datasets.create(
+        [
+            DataSetRequest(
+                name="Toolkit Smoke Test Dataset",
+                external_id=dataset_external_id.external_id,
+                description="Dataset for Cognite Toolkit migration integration tests",
+                metadata={
+                    "source": "ToolkitSmokeTests",
+                },
+            )
+        ]
+    )[0]
 
 
 @pytest.fixture(scope="session")
@@ -77,7 +81,7 @@ def smoke_space(toolkit_client: ToolkitClient) -> "Space":
 
 
 @pytest.fixture(scope="session")
-def three_d_file(toolkit_client: ToolkitClient, smoke_dataset: DataSet) -> FileMetadata:
+def three_d_file(toolkit_client: ToolkitClient, smoke_dataset: DataSetResponse) -> FileMetadata:
     client = toolkit_client
     meta = FileMetadataWrite(
         name="he2.fbx",
