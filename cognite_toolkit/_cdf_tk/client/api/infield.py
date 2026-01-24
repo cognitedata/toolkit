@@ -7,7 +7,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client.cdf_client.responses import QueryResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
-    ItemsRequest2,
+    ItemsRequest,
     RequestMessage,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
@@ -46,7 +46,7 @@ class InfieldConfigAPI:
             for item in items
         )
         responses = self._http_client.request_items_retries(
-            ItemsRequest2(
+            ItemsRequest(
                 endpoint_url=self._config.create_api_url(self.ENDPOINT),
                 method="POST",
                 items=[item for sublist in request_items for item in sublist],
@@ -83,7 +83,7 @@ class InfieldConfigAPI:
             for item in items
         )
         responses = self._http_client.request_items_retries(
-            ItemsRequest2(
+            ItemsRequest(
                 endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/delete"),
                 method="POST",
                 items=[identifier for sublist in identifiers for identifier in sublist],
@@ -174,7 +174,7 @@ class InFieldCDMConfigAPI:
 
         request_items = [item.as_request_item() for item in items]
         results = self._http_client.request_items_retries(
-            ItemsRequest2(
+            ItemsRequest(
                 endpoint_url=self._config.create_api_url(self.ENDPOINT),
                 method="POST",
                 items=request_items,
@@ -205,7 +205,7 @@ class InFieldCDMConfigAPI:
 
         identifiers = [item.as_id() for item in items]
         responses = self._http_client.request_items_retries(
-            ItemsRequest2(
+            ItemsRequest(
                 endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/delete"),
                 method="POST",
                 items=identifiers,

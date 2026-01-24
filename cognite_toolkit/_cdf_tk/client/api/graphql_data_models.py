@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, 
 from cognite_toolkit._cdf_tk.client.cdf_client.responses import GraphQLUpsertResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
-    ItemsSuccessResponse2,
+    ItemsSuccessResponse,
     RequestMessage,
     SuccessResponse,
     ToolkitAPIError,
@@ -41,7 +41,7 @@ class GraphQLDataModelsAPI(CDFResourceAPI[DataModelReference, GraphQLDataModelRe
         )
 
     def _validate_page_response(
-        self, response: SuccessResponse | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse
     ) -> PagedResponse[GraphQLDataModelResponse]:
         return PagedResponse[GraphQLDataModelResponse].model_validate_json(response.body)
 

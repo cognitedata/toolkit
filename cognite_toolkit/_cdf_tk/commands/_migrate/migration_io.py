@@ -11,10 +11,10 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
-    ItemsFailedResponse2,
-    ItemsRequest2,
+    ItemsFailedResponse,
+    ItemsRequest,
     ItemsResultList,
-    ItemsSuccessResponse2,
+    ItemsSuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -200,7 +200,7 @@ class AssetCentricMigrationIO(
         successful_linked: set[str] = set()
         for batch in chunker_sequence(data_chunk, cls.CHUNK_SIZE):
             batch_results = http_client.request_items_retries(
-                message=ItemsRequest2(
+                message=ItemsRequest(
                     endpoint_url=config.create_api_url(pending_instance_id_endpoint),
                     method="POST",
                     api_version="alpha",
@@ -211,7 +211,7 @@ class AssetCentricMigrationIO(
                 )
             )
             for res in batch_results:
-                if isinstance(res, ItemsSuccessResponse2):
+                if isinstance(res, ItemsSuccessResponse):
                     successful_linked.update(res.ids)
         to_upload = [item for item in data_chunk if item.source_id in successful_linked]
         return to_upload
@@ -450,19 +450,19 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
 
         results = ItemsResultList()
         responses = http_client.request_items_retries(
-            message=ItemsRequest2(
+            message=ItemsRequest(
                 endpoint_url=self.client.config.create_api_url(self.UPLOAD_ENDPOINT),
                 method="POST",
                 items=data_chunk,
             )
         )
         if (
-            failed_response := next((res for res in responses if isinstance(res, ItemsFailedResponse2)), None)
+            failed_response := next((res for res in responses if isinstance(res, ItemsFailedResponse)), None)
         ) and failed_response.status_code == 400:
             raise ToolkitAPIError("3D model migration failed. You need to enable the 3D migration alpha feature flag.")
 
         results.extend(responses)
-        success_ids = {id for res in responses if isinstance(res, ItemsSuccessResponse2) for id in res.ids}
+        success_ids = {id for res in responses if isinstance(res, ItemsSuccessResponse) for id in res.ids}
         for data in data_chunk:
             if data.source_id not in success_ids:
                 continue
@@ -548,7 +548,7 @@ class ThreeDAssetMappingMigrationIO(
         revision_id = first.item.revision_id
         endpoint = self.UPLOAD_ENDPOINT.format(modelId=model_id, revisionId=revision_id)
         return http_client.request_items_retries(
-            ItemsRequest2(
+            ItemsRequest(
                 endpoint_url=self.client.config.create_api_url(endpoint),
                 method="POST",
                 items=data_chunk,

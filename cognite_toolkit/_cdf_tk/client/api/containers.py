@@ -7,7 +7,7 @@ https://api-docs.cognite.com/20230101/tag/Containers/operation/ApplyContainers
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerReference,
@@ -34,7 +34,7 @@ class ContainersAPI(CDFResourceAPI[ContainerReference, ContainerRequest, Contain
         )
 
     def _validate_page_response(
-        self, response: SuccessResponse | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse
     ) -> PagedResponse[ContainerResponse]:
         return PagedResponse[ContainerResponse].model_validate_json(response.body)
 

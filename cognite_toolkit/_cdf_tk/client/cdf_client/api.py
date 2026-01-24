@@ -22,8 +22,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 )
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
-    ItemsRequest2,
-    ItemsSuccessResponse2,
+    ItemsRequest,
+    ItemsSuccessResponse,
     RequestMessage,
     SuccessResponse,
 )
@@ -79,7 +79,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
 
     @abstractmethod
     def _validate_page_response(
-        self, response: SuccessResponse | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse
     ) -> PagedResponse[T_ResponseResource]:
         """Parse a single item response."""
         raise NotImplementedError()
@@ -212,7 +212,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         method: APIMethod,
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
-    ) -> Iterable[ItemsSuccessResponse2]:
+    ) -> Iterable[ItemsSuccessResponse]:
         """Request items with retries and splitting on failures.
 
         This method handles large batches of items by chunking them according to the endpoint's item limit.
@@ -235,7 +235,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         endpoint = self._method_endpoint_map[method]
 
         for chunk in chunker_sequence(items, endpoint.item_limit):
-            request = ItemsRequest2(
+            request = ItemsRequest(
                 endpoint_url=f"{self._make_url(endpoint.path)}",
                 method=endpoint.method,
                 parameters=request_params,
@@ -245,7 +245,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
             )
             responses = self._http_client.request_items_retries(request)
             for response in responses:
-                if isinstance(response, ItemsSuccessResponse2):
+                if isinstance(response, ItemsSuccessResponse):
                     yield response
 
     @classmethod

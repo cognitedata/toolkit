@@ -19,12 +19,12 @@ from cognite_toolkit._cdf_tk.client.http_client._data_classes import (
     SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
-    ItemsFailedRequest2,
-    ItemsFailedResponse2,
-    ItemsRequest2,
+    ItemsFailedRequest,
+    ItemsFailedResponse,
+    ItemsRequest,
     ItemsResultList,
-    ItemsResultMessage2,
-    ItemsSuccessResponse2,
+    ItemsResultMessage,
+    ItemsSuccessResponse,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.auxiliary import get_current_toolkit_version, get_user_agent
@@ -252,18 +252,18 @@ class HTTPClient:
 
             return FailedRequest(error=error_msg)
 
-    def request_items(self, message: ItemsRequest2) -> Sequence[ItemsRequest2 | ItemsResultMessage2]:
+    def request_items(self, message: ItemsRequest) -> Sequence[ItemsRequest | ItemsResultMessage]:
         """Send an HTTP request with multiple items and return the response.
 
         Args:
-            message (ItemsRequest2): The request message to send.
+            message (ItemsRequest): The request message to send.
         Returns:
-            Sequence[ItemsRequest2 | ItemsResultMessage2]: The response message(s). This can also
+            Sequence[ItemsRequest2 | ItemsResultMessage]: The response message(s). This can also
                 include ItemsRequest2(s) to be retried or split.
         """
         if message.tracker and message.tracker.limit_reached():
             return [
-                ItemsFailedRequest2(
+                ItemsFailedRequest(
                     ids=[str(item) for item in message.items],
                     error_message=f"Aborting further splitting of requests after {message.tracker.failed_split_count} failed attempts.",
                 )
@@ -275,7 +275,7 @@ class HTTPClient:
             results = self._handle_items_error(e, message)
         return results
 
-    def request_items_retries(self, message: ItemsRequest2) -> ItemsResultList:
+    def request_items_retries(self, message: ItemsRequest) -> ItemsResultList:
         """Send an HTTP request with multiple items and handle retries.
 
         This method will keep retrying the request until it either succeeds or
@@ -285,13 +285,13 @@ class HTTPClient:
         it is blocking.
 
         Args:
-            message (ItemsRequest2): The request message to send.
+            message (ItemsRequest): The request message to send.
         Returns:
-            Sequence[ItemsResultMessage2]: The final response message, which can be either successful response or failed request.
+            Sequence[ItemsResultMessage]: The final response message, which can be either successful response or failed request.
         """
         if message.total_attempts > 0:
             raise RuntimeError(f"ItemsRequest2 has already been attempted {message.total_attempts} times.")
-        pending_requests: deque[ItemsRequest2] = deque()
+        pending_requests: deque[ItemsRequest] = deque()
         pending_requests.append(message)
         final_responses = ItemsResultList([])
         while pending_requests:
@@ -299,9 +299,9 @@ class HTTPClient:
             results = self.request_items(current_request)
 
             for result in results:
-                if isinstance(result, ItemsRequest2):
+                if isinstance(result, ItemsRequest):
                     pending_requests.append(result)
-                elif isinstance(result, ItemsResultMessage2):
+                elif isinstance(result, ItemsResultMessage):
                     final_responses.append(result)
                 else:
                     raise TypeError(f"Unexpected result type: {type(result)}")
@@ -309,11 +309,11 @@ class HTTPClient:
         return final_responses
 
     def _handle_items_response(
-        self, response: httpx.Response, request: ItemsRequest2
-    ) -> Sequence[ItemsRequest2 | ItemsResultMessage2]:
+        self, response: httpx.Response, request: ItemsRequest
+    ) -> Sequence[ItemsRequest | ItemsResultMessage]:
         if 200 <= response.status_code < 300:
             return [
-                ItemsSuccessResponse2(
+                ItemsSuccessResponse(
                     ids=[str(item) for item in request.items],
                     status_code=response.status_code,
                     body=response.text,
@@ -329,7 +329,7 @@ class HTTPClient:
             splits = request.split(status_attempts=status_attempts)
             if splits[0].tracker and splits[0].tracker.limit_reached():
                 return [
-                    ItemsFailedResponse2(
+                    ItemsFailedResponse(
                         ids=[str(item) for item in request.items],
                         status_code=response.status_code,
                         body=response.text,
@@ -343,7 +343,7 @@ class HTTPClient:
         else:
             # Permanent failure
             return [
-                ItemsFailedResponse2(
+                ItemsFailedResponse(
                     ids=[str(item) for item in request.items],
                     status_code=response.status_code,
                     body=response.text,
@@ -351,9 +351,7 @@ class HTTPClient:
                 )
             ]
 
-    def _handle_items_error(
-        self, e: Exception, request: ItemsRequest2
-    ) -> Sequence[ItemsRequest2 | ItemsResultMessage2]:
+    def _handle_items_error(self, e: Exception, request: ItemsRequest) -> Sequence[ItemsRequest | ItemsResultMessage]:
         if isinstance(e, httpx.ReadTimeout | httpx.TimeoutException):
             error_type = "read"
             request.read_attempt += 1
@@ -365,7 +363,7 @@ class HTTPClient:
         else:
             error_msg = f"Unexpected exception: {e!s}"
             return [
-                ItemsFailedRequest2(
+                ItemsFailedRequest(
                     ids=[str(item) for item in request.items],
                     error_message=error_msg,
                 )
@@ -379,7 +377,7 @@ class HTTPClient:
             error_msg = f"RequestException after {request.total_attempts - 1} attempts ({error_type} error): {e!s}"
 
             return [
-                ItemsFailedRequest2(
+                ItemsFailedRequest(
                     ids=[str(item) for item in request.items],
                     error_message=error_msg,
                 )

@@ -3,7 +3,7 @@ from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest, TransformationResponse
@@ -23,7 +23,7 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
         )
 
     def _validate_page_response(
-        self, response: SuccessResponse | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse
     ) -> PagedResponse[TransformationResponse]:
         return PagedResponse[TransformationResponse].model_validate_json(response.body)
 

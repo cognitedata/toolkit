@@ -4,7 +4,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedRespo
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
-    ItemsSuccessResponse2,
+    ItemsSuccessResponse,
     RequestMessage,
     SuccessResponse,
 )
@@ -25,7 +25,7 @@ class StreamsAPI(CDFResourceAPI[ExternalId, StreamRequest, StreamResponse]):
         )
 
     def _validate_page_response(
-        self, response: SuccessResponse | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse
     ) -> PagedResponse[StreamResponse]:
         return PagedResponse[StreamResponse].model_validate_json(response.body)
 

@@ -11,8 +11,8 @@ from cognite.client.data_classes.data_modeling import DataModel, EdgeApply, Node
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
-    ItemsFailedResponse2,
-    ItemsSuccessResponse2,
+    ItemsFailedResponse,
+    ItemsSuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceList
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
@@ -125,9 +125,9 @@ class TestInstanceIO:
                 results = io.upload_items(upload_items, http_client)
 
             assert len(results) == instance_count
-            failed_items = [id for res in results if isinstance(res, ItemsFailedResponse2) for id in res.ids]
+            failed_items = [id for res in results if isinstance(res, ItemsFailedResponse) for id in res.ids]
             assert len(failed_items) == instance_count // 2
-            success_items = [id for res in results if isinstance(res, ItemsSuccessResponse2) for id in res.ids]
+            success_items = [id for res in results if isinstance(res, ItemsSuccessResponse) for id in res.ids]
             assert len(success_items) == instance_count // 2
 
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")

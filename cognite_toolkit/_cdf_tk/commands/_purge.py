@@ -20,8 +20,8 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
-    ItemsRequest2,
-    ItemsSuccessResponse2,
+    ItemsRequest,
+    ItemsSuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedInstanceIdentifier
 from cognite_toolkit._cdf_tk.cruds import (
@@ -372,7 +372,7 @@ class PurgeCommand(ToolkitCommand):
 
         def process(items: list[JsonVal]) -> None:
             responses = delete_client.request_items_retries(
-                ItemsRequest2(
+                ItemsRequest(
                     endpoint_url=delete_url,
                     method="POST",
                     items=[DeleteItem(item=item, as_id_fun=as_id) for item in items],
@@ -380,7 +380,7 @@ class PurgeCommand(ToolkitCommand):
                 )
             )
             for response in responses:
-                if isinstance(response, ItemsSuccessResponse2):
+                if isinstance(response, ItemsSuccessResponse):
                     result.deleted += len(response.ids)
                 else:
                     result.unchanged += len(response.ids)
@@ -715,14 +715,14 @@ class PurgeCommand(ToolkitCommand):
             return
 
         responses = delete_client.request_items_retries(
-            ItemsRequest2(
+            ItemsRequest(
                 endpoint_url=delete_client.config.create_api_url("/models/instances/delete"),
                 method="POST",
                 items=[TypedInstanceIdentifier._load(item) for item in items],
             )
         )
         for response in responses:
-            if isinstance(response, ItemsSuccessResponse2):
+            if isinstance(response, ItemsSuccessResponse):
                 results.deleted += len(response.ids)
             else:
                 results.failed += len(response.ids)

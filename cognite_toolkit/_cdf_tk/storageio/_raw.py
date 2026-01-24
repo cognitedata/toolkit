@@ -5,7 +5,7 @@ from uuid import uuid4
 from cognite.client.data_classes import Row, RowWrite
 
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
-from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest2, ItemsResultList
+from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
 from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
@@ -67,7 +67,7 @@ class RawIO(
         url = self.UPLOAD_ENDPOINT.format(dbName=selector.table.db_name, tableName=selector.table.table_name)
         config = http_client.config
         return http_client.request_items_retries(
-            message=ItemsRequest2(
+            message=ItemsRequest(
                 endpoint_url=config.create_api_url(url),
                 method="POST",
                 items=data_chunk,

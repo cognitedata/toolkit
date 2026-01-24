@@ -1,7 +1,7 @@
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse, ResponseItems
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
 
 
@@ -21,7 +21,7 @@ class RawDatabasesAPI(CDFResourceAPI[RAWDatabase, RAWDatabase, RAWDatabase]):
             },
         )
 
-    def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse2) -> PagedResponse[RAWDatabase]:
+    def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[RAWDatabase]:
         return PagedResponse[RAWDatabase].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[RAWDatabase]:
@@ -109,7 +109,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
             },
         )
 
-    def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse2) -> PagedResponse[RAWTable]:
+    def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[RAWTable]:
         """Parse a page response. Note: db_name must be injected separately."""
         return PagedResponse[RAWTable].model_validate_json(response.body)
 

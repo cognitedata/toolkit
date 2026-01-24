@@ -8,7 +8,7 @@ from pydantic import ConfigDict
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
-from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest2, ItemsResultList
+from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.utils.collection import chunker
@@ -185,7 +185,7 @@ class UploadableStorageIO(
             raise ToolkitNotImplementedError(f"Unsupported UPLOAD_ENDPOINT_TYPE {self.UPLOAD_ENDPOINT_TYPE!r}.")
 
         return http_client.request_items_retries(
-            message=ItemsRequest2(
+            message=ItemsRequest(
                 endpoint_url=url,
                 method=self.UPLOAD_ENDPOINT_METHOD,
                 items=data_chunk,

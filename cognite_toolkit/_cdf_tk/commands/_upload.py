@@ -7,7 +7,7 @@ from cognite.client.data_classes.data_modeling import ViewId
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsResultMessage2, ItemsSuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsResultMessage, ItemsSuccessResponse
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.cruds import ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
@@ -277,10 +277,10 @@ class UploadCommand(ToolkitCommand):
             return
         results = io.upload_items(data_chunk, upload_client, selector)
         for message in results:
-            if isinstance(message, ItemsSuccessResponse2):
+            if isinstance(message, ItemsSuccessResponse):
                 for id_ in message.ids:
                     tracker.set_progress(id_, step=cls._UPLOAD, status="success")
-            elif isinstance(message, ItemsResultMessage2):
+            elif isinstance(message, ItemsResultMessage):
                 for id_ in message.ids:
                     tracker.set_progress(id_, step=cls._UPLOAD, status="failed")
             else:

@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIErro
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultMessage2
+    from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultMessage
 
 
 class HTTPResult(BaseModel):
@@ -29,20 +29,20 @@ class HTTPResult(BaseModel):
         else:
             raise ToolkitAPIError("Unknown HTTPResult2 type")
 
-    def as_item_response(self, item_id: str) -> "ItemsResultMessage2":
+    def as_item_response(self, item_id: str) -> "ItemsResultMessage":
         # Avoid circular import
         from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
-            ItemsFailedRequest2,
-            ItemsFailedResponse2,
-            ItemsSuccessResponse2,
+            ItemsFailedRequest,
+            ItemsFailedResponse,
+            ItemsSuccessResponse,
         )
 
         if isinstance(self, SuccessResponse):
-            return ItemsSuccessResponse2(
+            return ItemsSuccessResponse(
                 status_code=self.status_code, content=self.content, ids=[item_id], body=self.body
             )
         elif isinstance(self, FailedResponse):
-            return ItemsFailedResponse2(
+            return ItemsFailedResponse(
                 status_code=self.status_code,
                 ids=[item_id],
                 body=self.body,
@@ -54,7 +54,7 @@ class HTTPResult(BaseModel):
                 ),
             )
         elif isinstance(self, FailedRequest):
-            return ItemsFailedRequest2(ids=[item_id], error_message=self.error)
+            return ItemsFailedRequest(ids=[item_id], error_message=self.error)
         else:
             raise ToolkitAPIError(f"Unknown {type(self).__name__} type")
 

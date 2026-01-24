@@ -3,7 +3,7 @@ from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     WorkflowTriggerRequest,
@@ -23,7 +23,7 @@ class WorkflowTriggersAPI(CDFResourceAPI[ExternalId, WorkflowTriggerRequest, Wor
         )
 
     def _validate_page_response(
-        self, response: SuccessResponse | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse
     ) -> PagedResponse[WorkflowTriggerResponse]:
         return PagedResponse[WorkflowTriggerResponse].model_validate_json(response.body)
 

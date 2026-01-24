@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage,
     SuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsFailedResponse2, ItemsResultList
+from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsFailedResponse, ItemsResultList
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
@@ -386,7 +386,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
             body = response.body_json
         except ValueError:
             results.append(
-                ItemsFailedResponse2(
+                ItemsFailedResponse(
                     status_code=response.status_code,
                     body=response.body,
                     error=ErrorDetails(code=response.status_code, message="Invalid JSON response"),
@@ -400,7 +400,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
             upload_url = cast(str, body["uploadUrl"])
         except (KeyError, IndexError):
             results.append(
-                ItemsFailedResponse2(
+                ItemsFailedResponse(
                     status_code=200,
                     body=json.dumps(body),
                     error=ErrorDetails(code=200, message="Malformed response"),

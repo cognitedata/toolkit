@@ -9,7 +9,7 @@ from collections.abc import Iterable, Sequence
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
-    ItemsSuccessResponse2,
+    ItemsSuccessResponse,
     RequestMessage,
     SuccessResponse,
 )
@@ -34,9 +34,7 @@ class GroupsAPI(CDFResourceAPI[InternalId, GroupRequest, GroupResponse]):
             },
         )
 
-    def _validate_page_response(
-        self, response: SuccessResponse | ItemsSuccessResponse2
-    ) -> PagedResponse[GroupResponse]:
+    def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[GroupResponse]:
         return PagedResponse[GroupResponse].model_validate_json(response.body)
 
     def create(self, items: Sequence[GroupRequest]) -> list[GroupResponse]:

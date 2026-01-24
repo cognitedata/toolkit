@@ -9,11 +9,11 @@ from ._data_classes import (
 )
 from ._exception import ToolkitAPIError
 from ._item_classes import (
-    ItemsFailedRequest2,
-    ItemsFailedResponse2,
-    ItemsRequest2,
-    ItemsResultMessage2,
-    ItemsSuccessResponse2,
+    ItemsFailedRequest,
+    ItemsFailedResponse,
+    ItemsRequest,
+    ItemsResultMessage,
+    ItemsSuccessResponse,
 )
 
 __all__ = [
@@ -22,11 +22,11 @@ __all__ = [
     "FailedResponse",
     "HTTPClient",
     "HTTPResult",
-    "ItemsFailedRequest2",
-    "ItemsFailedResponse2",
-    "ItemsRequest2",
-    "ItemsResultMessage2",
-    "ItemsSuccessResponse2",
+    "ItemsFailedRequest",
+    "ItemsFailedResponse",
+    "ItemsRequest",
+    "ItemsResultMessage",
+    "ItemsSuccessResponse",
     "RequestMessage",
     "SuccessResponse",
     "ToolkitAPIError",
