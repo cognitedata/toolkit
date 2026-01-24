@@ -7,7 +7,7 @@ https://api-docs.cognite.com/20230101/tag/Views/operation/ApplyViews
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReference,
@@ -33,9 +33,7 @@ class ViewsAPI(CDFResourceAPI[ViewReference, ViewRequest, ViewResponse]):
             },
         )
 
-    def _validate_page_response(
-        self, response: SuccessResponse2 | ItemsSuccessResponse2
-    ) -> PagedResponse[ViewResponse]:
+    def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse2) -> PagedResponse[ViewResponse]:
         return PagedResponse[ViewResponse].model_validate_json(response.body)
 
     def create(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:

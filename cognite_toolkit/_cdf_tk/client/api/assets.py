@@ -3,7 +3,7 @@ from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
@@ -23,11 +23,11 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
         )
 
     def _validate_page_response(
-        self, response: SuccessResponse2 | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse2
     ) -> PagedResponse[AssetResponse]:
         return PagedResponse[AssetResponse].model_validate_json(response.body)
 
-    def _reference_response(self, response: SuccessResponse2) -> ResponseItems[InternalOrExternalId]:
+    def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalOrExternalId]:
         return ResponseItems[InternalOrExternalId].model_validate_json(response.body)
 
     def create(self, items: Sequence[AssetRequest]) -> list[AssetResponse]:

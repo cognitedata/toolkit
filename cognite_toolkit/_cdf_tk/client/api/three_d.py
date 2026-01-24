@@ -6,7 +6,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsSuccessResponse2,
-    SuccessResponse2,
+    SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ThreeDAssetMappingFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
@@ -34,7 +34,7 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicReques
         )
 
     def _validate_page_response(
-        self, response: SuccessResponse2 | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse2
     ) -> PagedResponse[ThreeDModelResponse]:
         return PagedResponse[ThreeDModelResponse].model_validate_json(response.body)
 
@@ -141,7 +141,7 @@ class ThreeDClassicAssetMappingAPI(
         )
 
     def _validate_page_response(
-        self, response: SuccessResponse2 | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse2
     ) -> PagedResponse[AssetMappingClassicResponse]:
         return PagedResponse[AssetMappingClassicResponse].model_validate_json(response.body)
 
@@ -263,7 +263,7 @@ class ThreeDDMAssetMappingAPI(CDFResourceAPI[AssetMappingDMRequest, AssetMapping
         )
 
     def _validate_page_response(
-        self, response: SuccessResponse2 | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse2
     ) -> PagedResponse[AssetMappingDMResponse]:
         return PagedResponse[AssetMappingDMResponse].model_validate_json(response.body)
 

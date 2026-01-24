@@ -5,8 +5,8 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsSuccessResponse2,
-    RequestMessage2,
-    SuccessResponse2,
+    RequestMessage,
+    SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
@@ -25,7 +25,7 @@ class StreamsAPI(CDFResourceAPI[ExternalId, StreamRequest, StreamResponse]):
         )
 
     def _validate_page_response(
-        self, response: SuccessResponse2 | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse2
     ) -> PagedResponse[StreamResponse]:
         return PagedResponse[StreamResponse].model_validate_json(response.body)
 
@@ -72,13 +72,13 @@ class StreamsAPI(CDFResourceAPI[ExternalId, StreamRequest, StreamResponse]):
         endpoint = self._method_endpoint_map["retrieve"]
         for item in items:
             response = self._http_client.request_single_retries(
-                RequestMessage2(
+                RequestMessage(
                     endpoint_url=self._make_url(endpoint.path.format(streamId=item.external_id)),
                     method=endpoint.method,
                     parameters={"includeStatistics": include_statistics},
                 )
             )
-            if isinstance(response, SuccessResponse2):
+            if isinstance(response, SuccessResponse):
                 results.append(StreamResponse.model_validate(response.body_json))
             elif ignore_unknown_ids:
                 continue

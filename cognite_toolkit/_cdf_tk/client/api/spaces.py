@@ -7,7 +7,7 @@ https://api-docs.cognite.com/20230101/tag/Spaces/operation/ApplySpaces
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference, SpaceRequest, SpaceResponse
 
 
@@ -29,7 +29,7 @@ class SpacesAPI(CDFResourceAPI[SpaceReference, SpaceRequest, SpaceResponse]):
         )
 
     def _validate_page_response(
-        self, response: SuccessResponse2 | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse2
     ) -> PagedResponse[SpaceResponse]:
         return PagedResponse[SpaceResponse].model_validate_json(response.body)
 

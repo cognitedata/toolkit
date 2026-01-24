@@ -7,7 +7,7 @@ https://api-docs.cognite.com/20230101/tag/Data-models/operation/createDataModels
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelReference,
@@ -34,7 +34,7 @@ class DataModelsAPI(CDFResourceAPI[DataModelReference, DataModelRequest, DataMod
         )
 
     def _validate_page_response(
-        self, response: SuccessResponse2 | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse2
     ) -> PagedResponse[DataModelResponse]:
         return PagedResponse[DataModelResponse].model_validate_json(response.body)
 

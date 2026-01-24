@@ -3,7 +3,7 @@ from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping import (
     HostedExtractorMappingRequest,
     HostedExtractorMappingResponse,
@@ -27,11 +27,11 @@ class HostedExtractorMappingsAPI(
         )
 
     def _validate_page_response(
-        self, response: SuccessResponse2 | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse2
     ) -> PagedResponse[HostedExtractorMappingResponse]:
         return PagedResponse[HostedExtractorMappingResponse].model_validate_json(response.body)
 
-    def _reference_response(self, response: SuccessResponse2) -> ResponseItems[ExternalId]:
+    def _reference_response(self, response: SuccessResponse) -> ResponseItems[ExternalId]:
         return ResponseItems[ExternalId].model_validate_json(response.body)
 
     def create(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:

@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.http_client._data_classes2 import (
     _BODY_SERIALIZER,
     BaseRequestMessage,
-    ErrorDetails2,
+    ErrorDetails,
 )
 from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.http_client._tracker import ItemsRequestTracker
@@ -34,7 +34,7 @@ class ItemsSuccessResponse2(ItemsResultMessage2):
 
 class ItemsFailedResponse2(ItemsResultMessage2):
     status_code: int
-    error: ErrorDetails2
+    error: ErrorDetails
     body: str
 
 

@@ -24,8 +24,8 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsRequest2,
     ItemsSuccessResponse2,
-    RequestMessage2,
-    SuccessResponse2,
+    RequestMessage,
+    SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
@@ -79,7 +79,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
 
     @abstractmethod
     def _validate_page_response(
-        self, response: SuccessResponse2 | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse2
     ) -> PagedResponse[T_ResponseResource]:
         """Parse a single item response."""
         raise NotImplementedError()
@@ -131,7 +131,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
         endpoint_path: str | None = None,
-    ) -> Iterable[SuccessResponse2]:
+    ) -> Iterable[SuccessResponse]:
         """Send requests in chunks and yield responses.
 
         Args:
@@ -150,7 +150,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         endpoint = self._method_endpoint_map[method]
 
         for chunk in chunker_sequence(items, endpoint.item_limit):
-            request = RequestMessage2(
+            request = RequestMessage(
                 endpoint_url=f"{self._make_url(endpoint_path or endpoint.path)}",
                 method=endpoint.method,
                 body_content={"items": serialization(chunk), **(extra_body or {})},  # type: ignore[dict-item]
@@ -309,7 +309,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         else:
             raise NotImplementedError(f"Unsupported method {endpoint.method} for pagination.")
 
-        request = RequestMessage2(
+        request = RequestMessage(
             endpoint_url=self._make_url(endpoint_path or endpoint.path),
             method=endpoint.method,
             parameters=request_params,

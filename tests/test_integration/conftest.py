@@ -40,7 +40,7 @@ from pydantic import JsonValue
 from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.http_client import HTTPResult2, RequestMessage2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPResult, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
     RawDatabase,
     RawDatabaseList,
@@ -758,7 +758,7 @@ def simulator(toolkit_client: ToolkitClient) -> str:
     config = toolkit_client.config
     # Check if simulator already exists
     list_response = http_client.request_single_retries(
-        RequestMessage2(
+        RequestMessage(
             endpoint_url=config.create_api_url("/simulators/list"),
             method="POST",
             body_content={"limit": 1000},
@@ -768,7 +768,7 @@ def simulator(toolkit_client: ToolkitClient) -> str:
         return simulator_external_id
 
     creation_response = http_client.request_single_retries(
-        RequestMessage2(
+        RequestMessage(
             endpoint_url=config.create_api_url("/simulators"),
             method="POST",
             body_content={"items": [SIMULATOR]},
@@ -779,8 +779,8 @@ def simulator(toolkit_client: ToolkitClient) -> str:
     return simulator_external_id
 
 
-def _parse_simulator_response(response: HTTPResult2) -> str | None:
-    assert isinstance(response, SuccessResponse2)
+def _parse_simulator_response(response: HTTPResult) -> str | None:
+    assert isinstance(response, SuccessResponse)
     assert "items" in response.body_json
     items = response.body_json["items"]
     return next((item["externalId"] for item in items if item["externalId"] == SIMULATOR_EXTERNAL_ID), None)

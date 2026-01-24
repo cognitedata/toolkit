@@ -3,7 +3,7 @@ from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     WorkflowVersionRequest,
@@ -26,11 +26,11 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
         )
 
     def _validate_page_response(
-        self, response: SuccessResponse2 | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse2
     ) -> PagedResponse[WorkflowVersionResponse]:
         return PagedResponse[WorkflowVersionResponse].model_validate_json(response.body)
 
-    def _reference_response(self, response: SuccessResponse2) -> ResponseItems[WorkflowVersionId]:
+    def _reference_response(self, response: SuccessResponse) -> ResponseItems[WorkflowVersionId]:
         return ResponseItems[WorkflowVersionId].model_validate_json(response.body)
 
     def create(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:

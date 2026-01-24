@@ -7,7 +7,7 @@ from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, Nod
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
-    RequestMessage2,
+    RequestMessage,
     ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
@@ -467,7 +467,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
             if data.source_id not in success_ids:
                 continue
             revision = http_client.request_single_retries(
-                message=RequestMessage2(
+                message=RequestMessage(
                     endpoint_url=self.client.config.create_api_url(self.REVISION_ENDPOINT),
                     method="POST",
                     body_content={"items": [data.item.revision.dump(camel_case=True)]},

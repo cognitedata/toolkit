@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client.responses import QueryResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsRequest2,
-    RequestMessage2,
+    RequestMessage,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     DataExplorationConfig,
@@ -61,7 +61,7 @@ class InfieldConfigAPI:
         if not items:
             return []
         response = self._http_client.request_single_retries(
-            RequestMessage2(
+            RequestMessage(
                 # We use the query endpoint to be able to retrieve linked DataExplorationConfig items
                 endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/query"),
                 method="POST",
@@ -189,7 +189,7 @@ class InFieldCDMConfigAPI:
         if not items:
             return []
         result = self._http_client.request_single_retries(
-            RequestMessage2(
+            RequestMessage(
                 endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/query"),
                 method="POST",
                 body_content=self._retrieve_query(items),

@@ -13,18 +13,18 @@ if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultMessage2
 
 
-class HTTPResult2(BaseModel):
-    def get_success_or_raise(self) -> "SuccessResponse2":
+class HTTPResult(BaseModel):
+    def get_success_or_raise(self) -> "SuccessResponse":
         """Raises an exception if any response in the list indicates a failure."""
-        if isinstance(self, SuccessResponse2):
+        if isinstance(self, SuccessResponse):
             return self
-        elif isinstance(self, FailedResponse2):
+        elif isinstance(self, FailedResponse):
             raise ToolkitAPIError(
                 f"Request failed with status code {self.status_code}: {self.error.message}",
                 missing=self.error.missing,  # type: ignore[arg-type]
                 duplicated=self.error.duplicated,  # type: ignore[arg-type]
             )
-        elif isinstance(self, FailedRequest2):
+        elif isinstance(self, FailedRequest):
             raise ToolkitAPIError(f"Request failed with error: {self.error}")
         else:
             raise ToolkitAPIError("Unknown HTTPResult2 type")
@@ -37,33 +37,33 @@ class HTTPResult2(BaseModel):
             ItemsSuccessResponse2,
         )
 
-        if isinstance(self, SuccessResponse2):
+        if isinstance(self, SuccessResponse):
             return ItemsSuccessResponse2(
                 status_code=self.status_code, content=self.content, ids=[item_id], body=self.body
             )
-        elif isinstance(self, FailedResponse2):
+        elif isinstance(self, FailedResponse):
             return ItemsFailedResponse2(
                 status_code=self.status_code,
                 ids=[item_id],
                 body=self.body,
-                error=ErrorDetails2(
+                error=ErrorDetails(
                     code=self.error.code,
                     message=self.error.message,
                     missing=self.error.missing,
                     duplicated=self.error.duplicated,
                 ),
             )
-        elif isinstance(self, FailedRequest2):
+        elif isinstance(self, FailedRequest):
             return ItemsFailedRequest2(ids=[item_id], error_message=self.error)
         else:
             raise ToolkitAPIError(f"Unknown {type(self).__name__} type")
 
 
-class FailedRequest2(HTTPResult2):
+class FailedRequest(HTTPResult):
     error: str
 
 
-class SuccessResponse2(HTTPResult2):
+class SuccessResponse(HTTPResult):
     status_code: int
     body: str
     content: bytes
@@ -74,7 +74,7 @@ class SuccessResponse2(HTTPResult2):
         return TypeAdapter(dict[str, JsonValue]).validate_json(self.body)
 
 
-class ErrorDetails2(BaseModel):
+class ErrorDetails(BaseModel):
     """This is the expected structure of error details in the CDF API"""
 
     code: int
@@ -84,19 +84,19 @@ class ErrorDetails2(BaseModel):
     is_auto_retryable: bool | None = None
 
     @classmethod
-    def from_response(cls, response: httpx.Response) -> "ErrorDetails2":
+    def from_response(cls, response: httpx.Response) -> "ErrorDetails":
         """Populate the error details from a httpx response."""
         try:
-            res = TypeAdapter(dict[Literal["error"], ErrorDetails2]).validate_json(response.text)
+            res = TypeAdapter(dict[Literal["error"], ErrorDetails]).validate_json(response.text)
         except ValueError:
             return cls(code=response.status_code, message=response.text)
         return res["error"]
 
 
-class FailedResponse2(HTTPResult2):
+class FailedResponse(HTTPResult):
     status_code: int
     body: str
-    error: ErrorDetails2
+    error: ErrorDetails
 
 
 class BaseRequestMessage(BaseModel, ABC):
@@ -122,7 +122,7 @@ class BaseRequestMessage(BaseModel, ABC):
     def content(self) -> str | bytes | None: ...
 
 
-class RequestMessage2(BaseRequestMessage):
+class RequestMessage(BaseRequestMessage):
     data_content: bytes | None = None
     body_content: dict[str, JsonValue] | None = None
 

@@ -11,8 +11,8 @@ from cognite_toolkit._cdf_tk.client.cdf_client.responses import GraphQLUpsertRes
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsSuccessResponse2,
-    RequestMessage2,
-    SuccessResponse2,
+    RequestMessage,
+    SuccessResponse,
     ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter
@@ -41,13 +41,13 @@ class GraphQLDataModelsAPI(CDFResourceAPI[DataModelReference, GraphQLDataModelRe
         )
 
     def _validate_page_response(
-        self, response: SuccessResponse2 | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse2
     ) -> PagedResponse[GraphQLDataModelResponse]:
         return PagedResponse[GraphQLDataModelResponse].model_validate_json(response.body)
 
     def _post_graphql(self, payload: dict[str, Any]) -> GraphQLUpsertResponse:
         """Execute a GraphQL query against the DML endpoint."""
-        request = RequestMessage2(
+        request = RequestMessage(
             endpoint_url=self._make_url("/dml/graphql"),
             method="POST",
             body_content=payload,
