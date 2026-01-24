@@ -18,8 +18,8 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
-    FailedRequestMessage,
-    FailedResponse,
+    FailedRequest2,
+    FailedResponse2,
     HTTPClient,
     RequestMessage2,
     SuccessResponse2,
@@ -240,7 +240,7 @@ class TestMigrate3D:
                 [UploadItem(source_id=str(model.id), item=migration_request)], http_client=http_client
             )
 
-        errors = [str(res) for res in result if isinstance(res, FailedResponse | FailedRequestMessage)]
+        errors = [str(res) for res in result if isinstance(res, FailedRequest2 | FailedResponse2)]
         if len(errors) > 0:
             raise EndpointAssertionError(
                 io.UPLOAD_ENDPOINT, f"{self.ERROR_HEADING}Errors: {humanize_collection(errors)}"
@@ -301,7 +301,7 @@ class TestMigrate3D:
             mapping_results = mapping_io.upload_items(
                 [UploadItem(source_id=f"{model.id}", item=asset_mapping)], http_client=http_client
             )
-        mapping_errors = [str(res) for res in mapping_results if isinstance(res, FailedResponse | FailedRequestMessage)]
+        mapping_errors = [str(res) for res in mapping_results if isinstance(res, FailedRequest2 | FailedResponse2)]
         if len(mapping_errors) > 0:
             raise EndpointAssertionError(
                 mapping_io.UPLOAD_ENDPOINT, f"{self.ERROR_HEADING}Mapping Errors: {humanize_collection(mapping_errors)}"
