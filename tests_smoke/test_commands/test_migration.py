@@ -349,7 +349,17 @@ def classic_file_with_content(
     )
     # Ensure clean state
     client.data_modeling.instances.delete((smoke_space.space, external_id))
-    client.tool.filemetadata.delete([metadata.as_id()], ignore_unknown_ids=True)
+    try:
+        client.tool.filemetadata.delete([metadata.as_id()], ignore_unknown_ids=True)
+    except ToolkitAPIError as e:
+        if (
+            "Files scheduled for migration to data modeling with pending instance ids set cannot be deleted"
+            in e.message
+        ):
+            # If the file is already scheduled for migration, retrieve and yield it. This means this test
+            # was aborted previously after file creation but before cleanup.
+            yield client.tool.filemetadata.retrieve([metadata.as_id()])[0]
+            return
 
     created = client.tool.filemetadata.create([metadata])
     if len(created) != 1:
