@@ -21,6 +21,7 @@ from .api.extraction_pipelines import ExtractionPipelinesAPI
 from .api.filemetadata import FileMetadataAPI
 from .api.hosted_extractors import HostedExtractorsAPI
 from .api.infield import InfieldAPI
+from .api.instances import InstancesAPI
 from .api.labels import LabelsAPI
 from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
@@ -51,6 +52,7 @@ class ToolAPI:
         self.events = EventsAPI(http_client)
         self.extraction_pipelines = ExtractionPipelinesAPI(http_client)
         self.hosted_extractors = HostedExtractorsAPI(http_client)
+        self.instances = InstancesAPI(http_client)
         self.labels = LabelsAPI(http_client)
         self.filemetadata = FileMetadataAPI(http_client)
         self.raw = RawAPI(http_client)

@@ -1,11 +1,20 @@
 import gzip
 from abc import ABC, abstractmethod
+from collections.abc import Hashable
 from typing import Any, Literal
 
 import httpx
 from cognite.client import global_config
 from pydantic import BaseModel, JsonValue, TypeAdapter, model_validator
 
+from cognite_toolkit._cdf_tk.client.http_client._data_classes import (
+    ErrorDetails,
+    FailedRequestItems,
+    FailedRequestMessage,
+    FailedResponseItems,
+    ResponseMessage,
+    SuccessResponseItems,
+)
 from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIError
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
@@ -23,6 +32,29 @@ class HTTPResult2(BaseModel):
             )
         elif isinstance(self, FailedRequest2):
             raise ToolkitAPIError(f"Request failed with error: {self.error}")
+        else:
+            raise ToolkitAPIError("Unknown HTTPResult2 type")
+
+    # Todo: Remove when HTTPResult2 is renamed to HTTPResponse and the old HTTPResponse is deleted
+    def as_item_response(self, item_id: Hashable) -> ResponseMessage | FailedRequestMessage:
+        if isinstance(self, SuccessResponse2):
+            return SuccessResponseItems(
+                status_code=self.status_code, content=self.content, ids=[item_id], body=self.body
+            )
+        elif isinstance(self, FailedResponse2):
+            return FailedResponseItems(
+                status_code=self.status_code,
+                ids=[item_id],
+                body=self.body,
+                error=ErrorDetails(
+                    code=self.error.code,
+                    message=self.error.message,
+                    missing=self.error.missing,
+                    duplicated=self.error.duplicated,
+                ),
+            )
+        elif isinstance(self, FailedRequest2):
+            return FailedRequestItems(ids=[item_id], error=self.error)
         else:
             raise ToolkitAPIError("Unknown HTTPResult2 type")
 
@@ -75,6 +107,7 @@ class BaseRequestMessage(BaseModel, ABC):
     status_attempt: int = 0
     api_version: str | None = None
     disable_gzip: bool = False
+    content_length: int | None = None
     content_type: str = "application/json"
     accept: str = "application/json"
 
