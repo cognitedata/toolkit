@@ -53,8 +53,8 @@ class HTTPResult2(BaseModel):
                     duplicated=self.error.duplicated,
                 ),
             )
-        elif isinstance(self, ItemsFailedRequest2):
-            return ItemsFailedRequest2(ids=[item_id], error_message=self.error_message)
+        elif isinstance(self, FailedRequest2):
+            return ItemsFailedRequest2(ids=[item_id], error_message=self.error)
         else:
             raise ToolkitAPIError(f"Unknown {type(self).__name__} type")
 
