@@ -13,8 +13,10 @@ from cognite.client._proto.data_points_pb2 import (
 from cognite.client.data_classes import TimeSeriesFilter
 from cognite.client.data_classes.filters import Exists
 from cognite.client.data_classes.time_series import TimeSeriesProperty
+from pydantic import ConfigDict
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier, RequestResource
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     RequestMessage2,
@@ -38,9 +40,22 @@ from ._base import Page, TableStorageIO, TableUploadableStorageIO, UploadItem
 from .selectors import DataPointsDataSetSelector, DataPointsFileSelector, DataPointsSelector
 
 
+class DatapointsRequestAdapter(RequestResource):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    datapoints: DataPointInsertionRequest
+
+    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+        return {"datapoints": self.datapoints.SerializeToString()}
+
+    def as_id(self) -> Identifier:
+        raise NotImplementedError(
+            "DatapointsRequestAdapter does not have an identifier. - it wraps multiple timeseries"
+        )
+
+
 class DatapointsIO(
     TableStorageIO[DataPointsSelector, DataPointListResponse],
-    TableUploadableStorageIO[DataPointsSelector, DataPointListResponse, DataPointInsertionRequest],
+    TableUploadableStorageIO[DataPointsSelector, DataPointListResponse, DatapointsRequestAdapter],
 ):
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".csv"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
@@ -235,7 +250,7 @@ class DatapointsIO(
 
     def upload_items(
         self,
-        data_chunk: Sequence[UploadItem[DataPointInsertionRequest]],
+        data_chunk: Sequence[UploadItem[DatapointsRequestAdapter]],
         http_client: HTTPClient,
         selector: DataPointsSelector | None = None,
     ) -> ItemsResultList:
@@ -246,7 +261,7 @@ class DatapointsIO(
                     endpoint_url=http_client.config.create_api_url(self.UPLOAD_ENDPOINT),
                     method="POST",
                     content_type="application/protobuf",
-                    data_content=item.item.SerializeToString(),
+                    data_content=item.item.datapoints.SerializeToString(),
                 )
             )
             results.append(response.as_item_response(item.source_id))
@@ -254,7 +269,7 @@ class DatapointsIO(
 
     def row_to_resource(
         self, source_id: str, row: dict[str, JsonVal], selector: DataPointsSelector | None = None
-    ) -> DataPointInsertionRequest:
+    ) -> DatapointsRequestAdapter:
         if selector is None:
             raise ValueError("Selector must be provided to convert row to DataPointInsertionItem.")
         # We assume that the row was read using the read_chunks method.
@@ -267,7 +282,7 @@ class DatapointsIO(
             raise RuntimeError(
                 f"Unsupported selector type {type(selector).__name__} for {type(self).__name__}. Trying to transform {source_id!r} from rows to DataPointInsertionRequest."
             )
-        return DataPointInsertionRequest(items=datapoints_items)
+        return DatapointsRequestAdapter(datapoints=DataPointInsertionRequest(items=datapoints_items))
 
     def _rows_to_datapoint_items_file_selector(
         self, rows: dict[str, list[Any]], selector: DataPointsFileSelector, source_id: str
@@ -403,7 +418,7 @@ class DatapointsIO(
             ).print_warning(console=self.client.console)
             self._warned_columns.add(column)
 
-    def json_to_resource(self, item_json: dict[str, JsonVal]) -> DataPointInsertionRequest:
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> DatapointsRequestAdapter:
         raise ToolkitNotImplementedError(
             f"Upload of {type(DatapointsIO).__name__.removesuffix('IO')} does not support json format."
         )
