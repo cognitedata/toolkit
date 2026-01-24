@@ -9,7 +9,7 @@ from cognite.client import global_config
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
-from cognite_toolkit._cdf_tk.client.http_client._data_classes2 import (
+from cognite_toolkit._cdf_tk.client.http_client._data_classes import (
     _BODY_SERIALIZER,
     BaseRequestMessage,
     ErrorDetails,

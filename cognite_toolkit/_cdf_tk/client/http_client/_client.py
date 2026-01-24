@@ -9,7 +9,7 @@ import httpx
 from cognite.client import global_config
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.http_client._data_classes2 import (
+from cognite_toolkit._cdf_tk.client.http_client._data_classes import (
     BaseRequestMessage,
     ErrorDetails,
     FailedRequest,

@@ -1,5 +1,5 @@
 from ._client import HTTPClient
-from ._data_classes2 import (
+from ._data_classes import (
     ErrorDetails,
     FailedRequest,
     FailedResponse,
