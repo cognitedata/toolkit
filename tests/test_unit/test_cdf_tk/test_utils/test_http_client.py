@@ -1,7 +1,6 @@
 import json
 from collections import Counter
 from collections.abc import Iterator
-from dataclasses import dataclass
 from unittest.mock import patch
 
 import httpx
@@ -15,18 +14,13 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     FailedRequest2,
     FailedResponse2,
     HTTPClient,
-    HTTPMessage,
     ItemsFailedRequest2,
     ItemsFailedResponse2,
-    ItemsRequest,
     ItemsRequest2,
     ItemsSuccessResponse2,
     RequestMessage2,
     SuccessResponse2,
 )
-from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
-from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 
 @pytest.fixture
@@ -176,61 +170,6 @@ class TestHTTPClient2:
         assert isinstance(response, SuccessResponse2)
         assert response.status_code == 200
         assert rsps.calls[-1].request.headers["cdf-version"] == "alpha"
-
-
-@dataclass
-class MyRequestItemID:
-    item: dict[str, JsonVal]
-
-    def dump(self) -> JsonVal:
-        return self.item
-
-    def as_id(self) -> int:
-        return self.item["id"]
-
-
-class TestHTTPMessage:
-    @pytest.mark.parametrize("message_cls", get_concrete_subclasses(HTTPMessage))
-    def test_dump_http_message(self, message_cls: type[HTTPMessage]) -> None:
-        message = FakeCogniteResourceGenerator(seed=42).create_instance(message_cls)
-
-        dumped = message.dump()
-        assert isinstance(dumped, dict)
-        assert dumped["type"] == message_cls.__name__
-        try:
-            json.dumps(dumped)
-        except (TypeError, ValueError) as e:
-            pytest.fail(f"Dumped data is not valid JSON: {e}")
-
-    def test_splitting_items(self) -> None:
-        message = ItemsRequest(
-            endpoint_url="https://example.com/api/resource",
-            method="POST",
-            connect_attempt=7,
-            read_attempt=3,
-            status_attempt=1,
-            api_version="alpha",
-            content_type="text/plain",
-            accept="text/plain",
-            content_length=42,
-            items=[MyRequestItemID({"id": i}) for i in range(10)],
-            extra_body_fields={"key": "value"},
-            max_failures_before_abort=30,
-        )
-
-        part1, _ = message.split(status_attempts=4)
-        assert part1.endpoint_url == "https://example.com/api/resource"
-        assert part1.method == "POST"
-        assert part1.connect_attempt == 7
-        assert part1.read_attempt == 3
-        assert part1.status_attempt == 4  # Updated
-        assert part1.api_version == "alpha"
-        assert part1.content_type == "text/plain"
-        assert part1.accept == "text/plain"
-        assert part1.content_length == 42
-        assert part1.items == [MyRequestItemID({"id": i}) for i in range(5)]
-        assert part1.extra_body_fields == {"key": "value"}
-        assert part1.max_failures_before_abort == 30
 
 
 class MyRequestItem(RequestItem):
