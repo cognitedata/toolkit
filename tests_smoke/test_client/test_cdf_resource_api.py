@@ -13,10 +13,11 @@ from cognite_toolkit._cdf_tk.client.api.robotics_locations import LocationsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
+from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI, RawDatabasesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse, DataSetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest
@@ -65,8 +66,10 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # Needs special handling as it needs an existing simulator to create models.
         SimulatorModelsAPI,
         # Do not support delete.
-        # Todo: create manual tests for datasets.
         DataSetsAPI,
+        # RAW tables depend on existing RAW databases, so they are tested together.
+        RawDatabasesAPI,
+        RawTablesAPI,
     }
 )
 
@@ -74,9 +77,6 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
 def crud_cdf_resource_apis() -> Iterable[tuple]:
     subclasses = get_concrete_subclasses(CDFResourceAPI)  # type: ignore[type-abstract]
     for api_cls in subclasses:
-        if not (hasattr(api_cls, "create") and hasattr(api_cls, "delete")):
-            # Need to be manually tested.
-            continue
         if api_cls in NOT_GENERIC_TESTED:
             continue
         cdf_resource_base = next((base for base in api_cls.__orig_bases__ if get_origin(base) is CDFResourceAPI), None)  # type: ignore[attr-defined]
@@ -102,6 +102,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
     """Return an example with the only required and identifier fields for the given resource class."""
     requests: dict[type[RequestResource], list[dict[str, Any]]] = {
         AssetRequest: [{"name": "smoke-test-asset", "externalId": "smoke-test-asset"}],
+        DataSetRequest: [{"externalId": "smoke-tests-crudl-dataset"}],
         EventRequest: [{"externalId": "smoke-test-event"}],
         FileMetadataRequest: [{"name": "smoke-test-file", "externalId": "smoke-test-file"}],
         ExtractionPipelineRequest: [
@@ -168,7 +169,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         NodeRequest: [{"externalId": "smoke-test-node", "name": "smoke-test-node"}],
         LabelRequest: [{"name": "smoke-test-label", "externalId": "smoke-test-label"}],
         RAWDatabase: [{"name": "smoke-test-raw-database"}],
-        RAWTable: [{"name": "smoke-test-raw-table"}],
+        RAWTable: [{"name": "smoke-test-raw-table", "dbName": "smoke-test-raw-database"}],
         SecurityCategoryRequest: [
             {"name": "smoke-test-security-category", "externalId": "smoke-test-security-category"}
         ],
@@ -294,3 +295,92 @@ class TestCDFResourceAPI:
             raise AssertionError(
                 f"CDFResourceAPI subclasses missing {humanize_collection(missing_names)} tests in TestCDFResourceAPI.test_crud_list"
             )
+
+    def test_raw_tables_and_databases_crudl(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        database_example = get_examples_minimum_requests(RAWDatabase)[0]
+        table_example = get_examples_minimum_requests(RAWTable)[0]
+        db = RAWDatabase.model_validate(database_example)
+        table = RAWTable.model_validate(table_example)
+
+        try:
+            # Create database
+            db_endpoints = client.tool.raw.databases._method_endpoint_map
+            db_create = db_endpoints["create"]
+            created_db = client.tool.raw.databases.create([db])
+            if len(created_db) != 1:
+                raise EndpointAssertionError(db_create.path, f"Expected 1 created database, got {len(created_db)}")
+            if created_db[0].name != db.name:
+                raise EndpointAssertionError(db_create.path, "Created database name does not match requested name.")
+
+            # List databases
+            db_list = db_endpoints["list"]
+            listed_dbs = list(client.tool.raw.databases.list(limit=1))
+            if len(listed_dbs) == 0:
+                raise EndpointAssertionError(db_list.path, "Expected at least 1 listed database, got 0")
+
+            # Create table
+            table_endpoints = client.tool.raw.tables._method_endpoint_map
+            table_create = table_endpoints["create"]
+            created_table = client.tool.raw.tables.create([table])
+            if len(created_table) != 1:
+                raise EndpointAssertionError(table_create.path, f"Expected 1 created table, got {len(created_table)}")
+            if created_table[0].name != table.name:
+                raise EndpointAssertionError(table_create.path, "Created table name does not match requested name.")
+
+            # List tables
+            table_list = table_endpoints["list"]
+            listed_tables = list(client.tool.raw.tables.list(limit=1, db_name=db.name))
+            if len(listed_tables) == 0:
+                raise EndpointAssertionError(table_list.path, "Expected at least 1 listed table, got 0")
+        finally:
+            # Clean up
+            client.tool.raw.tables.delete([table.as_id()])
+            client.tool.raw.databases.delete([db.as_id()])
+
+    def test_datasets_crudl(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+        dataset_example = get_examples_minimum_requests(DataSetRequest)[0]
+        dataset_request = DataSetRequest.model_validate(dataset_example)
+        identifier = dataset_request.as_id()
+        # Retrieve
+        retrieved = client.tool.datasets.retrieve([identifier], ignore_unknown_ids=True)
+        if len(retrieved) == 0:
+            create_endpoint = client.tool.datasets._method_endpoint_map["create"]
+            created = client.tool.datasets.create([dataset_request])
+            if len(created) != 1:
+                raise EndpointAssertionError(
+                    create_endpoint.path, f"Expected 1 created dataset, got {len(created)}"
+                )
+            if created[0].external_id != dataset_request.external_id:
+                raise EndpointAssertionError(
+                    create_endpoint.path, "Created dataset external ID does not match requested external ID."
+                )
+            retrieved = client.tool.datasets.retrieve([identifier])
+
+        retrieve_endpoint = client.tool.datasets._method_endpoint_map["retrieve"]
+        if len(retrieved) != 1:
+            raise EndpointAssertionError(
+                retrieve_endpoint.path, f"Expected 1 retrieved dataset, got {len(retrieved)}"
+            )
+        if retrieved[0].external_id != dataset_request.external_id:
+            raise EndpointAssertionError(
+                retrieve_endpoint.path, "Retrieved dataset external ID does not match requested external ID."
+            )
+        update_endpoint = client.tool.datasets._method_endpoint_map["update"]
+        updated = client.tool.datasets.update([dataset_request])
+        if len(updated) != 1:
+            raise EndpointAssertionError(update_endpoint.path, f"Expected 1 updated dataset, got {len(updated)}")
+        if updated[0].external_id != dataset_request.external_id:
+            raise EndpointAssertionError(
+                update_endpoint.path, "Updated dataset external ID does not match requested external ID."
+            )
+
+        # List datasets
+        ds_list = client.tool.datasets._method_endpoint_map["list"]
+        listed_ds = list(client.tool.datasets.list(limit=1))
+        if len(listed_ds) == 0:
+            raise EndpointAssertionError(ds_list.path, "Expected at least 1 listed dataset, got 0")
+
+        # DataSets cannot be deleted, so we do not test delete here.
