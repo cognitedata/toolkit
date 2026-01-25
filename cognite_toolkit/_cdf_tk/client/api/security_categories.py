@@ -46,7 +46,7 @@ class SecurityCategoriesAPI(CDFResourceAPI[InternalId, SecurityCategoryRequest, 
         Args:
             items: List of InternalId objects to delete.
         """
-        self._request_no_response(items, "delete")
+        self._request_no_response([item.as_unwrapped() for item in items], "delete")
 
     def paginate(
         self,
