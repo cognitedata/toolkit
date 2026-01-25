@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Set
-from typing import Any, get_args, get_origin
+from typing import Annotated, Any, get_args, get_origin
 
 import pytest
 
@@ -72,95 +72,133 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
 
 def crud_cdf_resource_apis() -> Iterable[tuple]:
     subclasses = get_concrete_subclasses(CDFResourceAPI)  # type: ignore[type-abstract]
-    for subclass in subclasses:
-        if not (hasattr(subclass, "create") and hasattr(subclass, "delete")):
+    for api_cls in subclasses:
+        if not (hasattr(api_cls, "create") and hasattr(api_cls, "delete")):
             # Need to be manually tested.
             continue
-        if subclass in NOT_GENERIC_TESTED:
+        if api_cls in NOT_GENERIC_TESTED:
             continue
-        yield pytest.param(subclass, id=subclass.__name__)
+        cdf_resource_base = next((base for base in api_cls.__orig_bases__ if get_origin(base) is CDFResourceAPI), None)  # type: ignore[attr-defined]
+        assert cdf_resource_base is not None, "Error in test. Could not find CDFResourceAPI in __orig_bases__"
+        _, request_cls, __ = get_args(cdf_resource_base)
+        if get_origin(request_cls) is Annotated:
+            # Todo support multiple request classes (hosted extractor sources)
+            continue
+
+        examples = get_examples_minimum_requests(request_cls)
+        if len(examples) == 1:
+            yield pytest.param(examples[0], request_cls, api_cls, id=api_cls.__name__)
+        else:
+            for i, example in enumerate(examples, start=1):
+                yield pytest.param(example, request_cls, api_cls, id=f"{api_cls.__name__}_example_{i}")
 
 
-def get_example_minimum_requests(request_cls: type[RequestResource]) -> dict[str, Any]:
+def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[dict[str, Any]]:
     """Return an example with the only required and identifier fields for the given resource class."""
-    requests: dict[type[RequestResource], dict[str, Any]] = {
-        AssetRequest: {"name": "smoke-test-asset", "externalId": "smoke-test-asset"},
-        EventRequest: {"externalId": "smoke-test-event"},
-        FileMetadataRequest: {"name": "smoke-test-file", "externalId": "smoke-test-file"},
-        ExtractionPipelineRequest: {
-            "name": "smoke-test-pipeline",
-            "externalId": "smoke-test-pipeline",
-            "dataSetId": -1,
-        },
-        KafkaSourceRequest: {
-            "name": "smoke-test-kafka-source",
-            "externalId": "smoke-test-kafka-source",
-            "bootstrapServers": "smoke-test:9092",
-            "topic": "smoke-test-topic",
-        },
-        RESTSourceRequest: {
-            "name": "smoke-test-rest-source",
-            "externalId": "smoke-test-rest-source",
-            "endpoint": "https://smoke-test-endpoint",
-        },
-        MQTTSourceRequest: {
-            "name": "smoke-test-mqtt-source",
-            "externalId": "smoke-test-mqtt-source",
-            "broker": "smoke-test-broker",
-        },
-        EventHubSourceRequest: {
-            "name": "smoke-test-eventhub-source",
-            "externalId": "smoke-test-eventhub-source",
-            "connectionString": "Endpoint=sb://smoke-test.servicebus.windows.net/;SharedAccessKeyName=smoke-test;SharedAccessKey = smoke-test-key",
-            "eventHubName": "smoke-test-hub",
-        },
-        HostedExtractorJobRequest: {
-            "name": "smoke-test-extractor-job",
-            "externalId": "smoke-test-extractor-job",
-            "pipelineId": 1,
-            "sourceId": 1,
-            "destinationId": 1,
-        },
-        HostedExtractorMappingRequest: {
-            "name": "smoke-test-extractor-mapping",
-            "externalId": "smoke-test-extractor-mapping",
-            "jobId": 1,
-            "mapping": {},
-        },
-        HostedExtractorDestinationRequest: {
-            "name": "smoke-test-extractor-destination",
-            "externalId": "smoke-test-extractor-destination",
-            "type": "CDF",
-        },
-        NodeRequest: {"externalId": "smoke-test-node", "name": "smoke-test-node"},
-        LabelRequest: {"name": "smoke-test-label", "externalId": "smoke-test-label", "color": "blue"},
-        RAWDatabase: {"name": "smoke-test-raw-database", "externalId": "smoke-test-raw-database"},
-        RAWTable: {"name": "smoke-test-raw-table", "externalId": "smoke-test-raw-table", "databaseId": 1},
-        SecurityCategoryRequest: {"name": "smoke-test-security-category", "externalId": "smoke-test-security-category"},
-        SequenceRequest: {"name": "smoke-test-sequence", "externalId": "smoke-test-sequence"},
-        StreamRequest: {"name": "smoke-test-stream", "externalId": "smoke-test-stream"},
-        ThreeDModelClassicRequest: {"name": "smoke-test-3d-model-classic", "externalId": "smoke-test-3d-model-classic"},
-        ThreeDModelDMSRequest: {"name": "smoke-test-3d-model-dms", "externalId": "smoke-test-3d-model-dms"},
-        AssetMappingClassicRequest: {"externalId": "smoke-test-asset-mapping-classic", "model3dId": 1, "assetId": 1},
-        AssetMappingDMRequest: {
-            "externalId": "smoke-test-asset-mapping-dm",
-            "model3dId": 1,
-            "nodeId": "smoke-test-node",
-        },
-        TimeSeriesRequest: {"name": "smoke-test-timeseries", "externalId": "smoke-test-timeseries"},
-        TransformationRequest: {
-            "name": "smoke-test-transformation",
-            "externalId": "smoke-test-transformation",
-            "script": "return input;",
-        },
-        WorkflowRequest: {"name": "smoke-test-workflow", "externalId": "smoke-test-workflow"},
-        WorkflowTriggerRequest: {
-            "name": "smoke-test-workflow-trigger",
-            "externalId": "smoke-test-workflow-trigger",
-            "workflowExternalId": "smoke-test-workflow",
-            "type": "ON_DEMAND",
-        },
-        WorkflowVersionRequest: {"workflowExternalId": "smoke-test-workflow", "version": "v1", "definition": {}},
+    requests: dict[type[RequestResource], list[dict[str, Any]]] = {
+        AssetRequest: [{"name": "smoke-test-asset", "externalId": "smoke-test-asset"}],
+        EventRequest: [{"externalId": "smoke-test-event"}],
+        FileMetadataRequest: [{"name": "smoke-test-file", "externalId": "smoke-test-file"}],
+        ExtractionPipelineRequest: [
+            {
+                "name": "smoke-test-pipeline",
+                "externalId": "smoke-test-pipeline",
+                "dataSetId": -1,
+            }
+        ],
+        KafkaSourceRequest: [
+            {
+                "name": "smoke-test-kafka-source",
+                "externalId": "smoke-test-kafka-source",
+                "bootstrapServers": "smoke-test:9092",
+                "topic": "smoke-test-topic",
+            }
+        ],
+        RESTSourceRequest: [
+            {
+                "name": "smoke-test-rest-source",
+                "externalId": "smoke-test-rest-source",
+                "endpoint": "https://smoke-test-endpoint",
+            }
+        ],
+        MQTTSourceRequest: [
+            {
+                "name": "smoke-test-mqtt-source",
+                "externalId": "smoke-test-mqtt-source",
+                "broker": "smoke-test-broker",
+            }
+        ],
+        EventHubSourceRequest: [
+            {
+                "name": "smoke-test-eventhub-source",
+                "externalId": "smoke-test-eventhub-source",
+                "connectionString": "Endpoint=sb://smoke-test.servicebus.windows.net/;SharedAccessKeyName=smoke-test;SharedAccessKey = smoke-test-key",
+                "eventHubName": "smoke-test-hub",
+            }
+        ],
+        HostedExtractorJobRequest: [
+            {
+                "name": "smoke-test-extractor-job",
+                "externalId": "smoke-test-extractor-job",
+                "pipelineId": 1,
+                "sourceId": 1,
+                "destinationId": 1,
+            }
+        ],
+        HostedExtractorMappingRequest: [
+            {
+                "name": "smoke-test-extractor-mapping",
+                "externalId": "smoke-test-extractor-mapping",
+                "jobId": 1,
+                "mapping": {},
+            }
+        ],
+        HostedExtractorDestinationRequest: [
+            {
+                "name": "smoke-test-extractor-destination",
+                "externalId": "smoke-test-extractor-destination",
+                "type": "CDF",
+            }
+        ],
+        NodeRequest: [{"externalId": "smoke-test-node", "name": "smoke-test-node"}],
+        LabelRequest: [{"name": "smoke-test-label", "externalId": "smoke-test-label", "color": "blue"}],
+        RAWDatabase: [{"name": "smoke-test-raw-database", "externalId": "smoke-test-raw-database"}],
+        RAWTable: [{"name": "smoke-test-raw-table", "externalId": "smoke-test-raw-table", "databaseId": 1}],
+        SecurityCategoryRequest: [
+            {"name": "smoke-test-security-category", "externalId": "smoke-test-security-category"}
+        ],
+        SequenceRequest: [{"name": "smoke-test-sequence", "externalId": "smoke-test-sequence"}],
+        StreamRequest: [{"name": "smoke-test-stream", "externalId": "smoke-test-stream"}],
+        ThreeDModelClassicRequest: [
+            {"name": "smoke-test-3d-model-classic", "externalId": "smoke-test-3d-model-classic"}
+        ],
+        ThreeDModelDMSRequest: [{"name": "smoke-test-3d-model-dms", "externalId": "smoke-test-3d-model-dms"}],
+        AssetMappingClassicRequest: [{"externalId": "smoke-test-asset-mapping-classic", "model3dId": 1, "assetId": 1}],
+        AssetMappingDMRequest: [
+            {
+                "externalId": "smoke-test-asset-mapping-dm",
+                "model3dId": 1,
+                "nodeId": "smoke-test-node",
+            }
+        ],
+        TimeSeriesRequest: [{"name": "smoke-test-timeseries", "externalId": "smoke-test-timeseries"}],
+        TransformationRequest: [
+            {
+                "name": "smoke-test-transformation",
+                "externalId": "smoke-test-transformation",
+                "script": "return input;",
+            }
+        ],
+        WorkflowRequest: [{"name": "smoke-test-workflow", "externalId": "smoke-test-workflow"}],
+        WorkflowTriggerRequest: [
+            {
+                "name": "smoke-test-workflow-trigger",
+                "externalId": "smoke-test-workflow-trigger",
+                "workflowExternalId": "smoke-test-workflow",
+                "type": "ON_DEMAND",
+            }
+        ],
+        WorkflowVersionRequest: [{"workflowExternalId": "smoke-test-workflow", "version": "v1", "definition": {}}],
     }
     try:
         return requests[request_cls]
@@ -169,17 +207,16 @@ def get_example_minimum_requests(request_cls: type[RequestResource]) -> dict[str
 
 
 class TestCDFResourceAPI:
-    @pytest.mark.parametrize("api_cls", crud_cdf_resource_apis())
+    @pytest.mark.parametrize("example_data, request_cls, api_cls", crud_cdf_resource_apis())
     def test_crud_list(
-        self, api_cls: type[CDFResourceAPI], toolkit_client: ToolkitClient, smoke_dataset: DataSetResponse
+        self,
+        example_data: dict[str, Any],
+        request_cls: type[RequestResource],
+        api_cls: type[CDFResourceAPI],
+        toolkit_client: ToolkitClient,
+        smoke_dataset: DataSetResponse,
     ) -> None:
         # Set up
-        cdf_resource_base = next((base for base in api_cls.__orig_bases__ if get_origin(base) is CDFResourceAPI), None)  # type: ignore[attr-defined]
-        assert cdf_resource_base is not None, "Error in test. Could not find CDFResourceAPI in __orig_bases__"
-        request_cls: type[RequestResource]
-        _, request_cls, __ = get_args(cdf_resource_base)
-
-        example_data = get_example_minimum_requests(request_cls)
         if "dataSetId" in example_data:
             example_data["dataSetId"] = smoke_dataset.id
 
@@ -194,13 +231,16 @@ class TestCDFResourceAPI:
         )
         methods = api._method_endpoint_map
         try:
-            create_endpoint = methods["create"]
-            created = api.create([request])
-            if len(created) != 1:
-                raise EndpointAssertionError(create_endpoint.path, f"Expected 1 created item, got {len(created)}")
-            created_item = created[0]
-            if created_item.as_request_resource().as_id() != id:
-                raise EndpointAssertionError(create_endpoint.path, "Created item's ID does not match the requested ID.")
+            if hasattr(api, "create"):
+                create_endpoint = methods["create"]
+                created = api.create([request])
+                if len(created) != 1:
+                    raise EndpointAssertionError(create_endpoint.path, f"Expected 1 created item, got {len(created)}")
+                created_item = created[0]
+                if created_item.as_request_resource().as_id() != id:
+                    raise EndpointAssertionError(
+                        create_endpoint.path, "Created item's ID does not match the requested ID."
+                    )
             if hasattr(api, "update"):
                 updated_endpoint = methods["update"]
                 updated = api.update([request])
@@ -224,7 +264,8 @@ class TestCDFResourceAPI:
                 if len(listed_items) == 0:
                     raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed item, got 0")
         finally:
-            api.delete([id])
+            if hasattr(api, "delete"):
+                api.delete([id])
 
     def test_all_cdf_resource_apis_registered(self) -> None:
         """Test that all CDFResourceAPI subclasses are registered in ToolkitClient."""
