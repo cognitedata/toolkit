@@ -212,7 +212,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
 @pytest.mark.usefixtures("smoke_space")
 class TestCDFResourceAPI:
     @pytest.mark.parametrize("example_data, request_cls, api_cls", crud_cdf_resource_apis())
-    def test_crud_list(
+    def test_crudl(
         self,
         example_data: dict[str, Any],
         request_cls: type[RequestResource],
@@ -220,6 +220,21 @@ class TestCDFResourceAPI:
         toolkit_client: ToolkitClient,
         smoke_dataset: DataSetResponse,
     ) -> None:
+        """Generic test for CRUDL (create, retrieve, update, delete, list) operations of CDFResourceAPI subclasses.
+
+        API endpoints that do not follow the standard CRUDL pattern or require special setup/teardown
+
+        Args:
+            example_data: Example data for creating the resource.
+            request_cls: The RequestResource subclass for the resource.
+            api_cls: The CDFResourceAPI subclass to test.
+            toolkit_client: The ToolkitClient fixture.
+            smoke_dataset: The smoke test dataset fixture.
+        Raises:
+            EndpointAssertionError: If any of the CRUDL operations do not behave as expected.
+
+        """
+
         # Set up
         if "dataSetId" in example_data:
             example_data["dataSetId"] = smoke_dataset.id
@@ -271,7 +286,7 @@ class TestCDFResourceAPI:
     def test_all_cdf_resource_apis_registered(self) -> None:
         """Test that all CDFResourceAPI subclasses are registered in ToolkitClient."""
         existing_api = set(get_concrete_subclasses(CDFResourceAPI))  # type: ignore[type-abstract]
-        generic_tested: set[type[CDFResourceAPI]] = {param[0][0] for param in crud_cdf_resource_apis()}
+        generic_tested: set[type[CDFResourceAPI]] = {param[0][2] for param in crud_cdf_resource_apis()}
 
         missing_tests = existing_api - (generic_tested | NOT_GENERIC_TESTED)
         if missing_tests:
