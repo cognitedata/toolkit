@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from tests.data import THREE_D_He2_FBX_ZIP
+from tests_smoke.constants import SMOKE_SPACE
 
 REPO_ROOT = Path(__file__).parent.parent
 
@@ -68,7 +69,7 @@ def smoke_dataset(toolkit_client: ToolkitClient) -> DataSetResponse:
 def smoke_space(toolkit_client: ToolkitClient) -> "Space":
     client = toolkit_client
 
-    space_external_id = "toolkit_smoke_test_space"
+    space_external_id = SMOKE_SPACE
     if space := client.data_modeling.spaces.retrieve(space_external_id):
         return space
     return client.data_modeling.spaces.apply(

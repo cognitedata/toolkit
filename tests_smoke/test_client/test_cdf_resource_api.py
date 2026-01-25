@@ -49,6 +49,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import Wor
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionRequest
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
+from tests_smoke.constants import SMOKE_SPACE
 from tests_smoke.exceptions import EndpointAssertionError
 
 NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
@@ -85,7 +86,11 @@ def crud_cdf_resource_apis() -> Iterable[tuple]:
             # Todo support multiple request classes (hosted extractor sources)
             continue
 
-        examples = get_examples_minimum_requests(request_cls)
+        try:
+            examples = get_examples_minimum_requests(request_cls)
+        except NotImplementedError:
+            # We lack test data.
+            continue
         if len(examples) == 1:
             yield pytest.param(examples[0], request_cls, api_cls, id=api_cls.__name__)
         else:
@@ -161,18 +166,16 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
             }
         ],
         NodeRequest: [{"externalId": "smoke-test-node", "name": "smoke-test-node"}],
-        LabelRequest: [{"name": "smoke-test-label", "externalId": "smoke-test-label", "color": "blue"}],
-        RAWDatabase: [{"name": "smoke-test-raw-database", "externalId": "smoke-test-raw-database"}],
-        RAWTable: [{"name": "smoke-test-raw-table", "externalId": "smoke-test-raw-table", "databaseId": 1}],
+        LabelRequest: [{"name": "smoke-test-label", "externalId": "smoke-test-label"}],
+        RAWDatabase: [{"name": "smoke-test-raw-database"}],
+        RAWTable: [{"name": "smoke-test-raw-table"}],
         SecurityCategoryRequest: [
             {"name": "smoke-test-security-category", "externalId": "smoke-test-security-category"}
         ],
-        SequenceRequest: [{"name": "smoke-test-sequence", "externalId": "smoke-test-sequence"}],
-        StreamRequest: [{"name": "smoke-test-stream", "externalId": "smoke-test-stream"}],
-        ThreeDModelClassicRequest: [
-            {"name": "smoke-test-3d-model-classic", "externalId": "smoke-test-3d-model-classic"}
-        ],
-        ThreeDModelDMSRequest: [{"name": "smoke-test-3d-model-dms", "externalId": "smoke-test-3d-model-dms"}],
+        SequenceRequest: [{"name": "smoke-test-sequence"}],
+        StreamRequest: [{"externalId": "smoke-test-stream", "settings": {"template": {"name": "ImmutableTestStream"}}}],
+        ThreeDModelClassicRequest: [{"name": "smoke-test-3d-model-classic"}],
+        ThreeDModelDMSRequest: [{"name": "smoke-test-3d-model-dms", "space": SMOKE_SPACE, "type": "CAD"}],
         AssetMappingClassicRequest: [{"externalId": "smoke-test-asset-mapping-classic", "model3dId": 1, "assetId": 1}],
         AssetMappingDMRequest: [
             {
@@ -181,15 +184,15 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
                 "nodeId": "smoke-test-node",
             }
         ],
-        TimeSeriesRequest: [{"name": "smoke-test-timeseries", "externalId": "smoke-test-timeseries"}],
+        TimeSeriesRequest: [{"externalId": "smoke-test-timeseries"}],
         TransformationRequest: [
             {
                 "name": "smoke-test-transformation",
                 "externalId": "smoke-test-transformation",
-                "script": "return input;",
+                "ignoreNullFields": True,
             }
         ],
-        WorkflowRequest: [{"name": "smoke-test-workflow", "externalId": "smoke-test-workflow"}],
+        WorkflowRequest: [{"externalId": "smoke-test-workflow"}],
         WorkflowTriggerRequest: [
             {
                 "name": "smoke-test-workflow-trigger",
@@ -206,6 +209,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         raise NotImplementedError(f"No example request defined for {request_cls.__name__}")
 
 
+@pytest.mark.usefixtures("smoke_space")
 class TestCDFResourceAPI:
     @pytest.mark.parametrize("example_data, request_cls, api_cls", crud_cdf_resource_apis())
     def test_crud_list(
@@ -226,13 +230,10 @@ class TestCDFResourceAPI:
         # We now that all subclasses only need http_client as argument, even though
         # CDFResourceAPI also require endpoint map (and disable gzip).
         api = api_cls(toolkit_client.http_client)  # type: ignore[call-arg]
-        assert hasattr(api, "create") and hasattr(api, "delete"), (
-            "API does not support create and delete methods. Cannot run CRUD test."
-        )
         methods = api._method_endpoint_map
         try:
             if hasattr(api, "create"):
-                create_endpoint = methods["create"]
+                create_endpoint = methods["create"] if "create" in methods else methods["upsert"]
                 created = api.create([request])
                 if len(created) != 1:
                     raise EndpointAssertionError(create_endpoint.path, f"Expected 1 created item, got {len(created)}")
@@ -242,7 +243,7 @@ class TestCDFResourceAPI:
                         create_endpoint.path, "Created item's ID does not match the requested ID."
                     )
             if hasattr(api, "update"):
-                updated_endpoint = methods["update"]
+                updated_endpoint = methods["update"] if "update" in methods else methods["upsert"]
                 updated = api.update([request])
                 if len(updated) != 1:
                     raise EndpointAssertionError(updated_endpoint.path, f"Expected 1 updated item, got {len(updated)}")
