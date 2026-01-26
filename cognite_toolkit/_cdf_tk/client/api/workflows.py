@@ -65,8 +65,8 @@ class WorkflowsAPI(CDFResourceAPI[ExternalId, WorkflowRequest, WorkflowResponse]
         result: list[WorkflowResponse] = []
         for item in items:
             endpoint = f"/workflows/{item.external_id}"
-            retrieved = self._request_item_response([item], "retrieve", endpoint=endpoint)
-            result.extend(retrieved)
+            for response in self._chunk_requests(items, "retrieve", self._serialize_items, endpoint_path=endpoint):
+                result.append(WorkflowResponse.model_validate_json(response.body))
         return result
 
     def delete(self, items: Sequence[ExternalId]) -> None:

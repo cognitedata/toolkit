@@ -17,6 +17,8 @@ from cognite_toolkit._cdf_tk.client.api.robotics_locations import LocationsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
+from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
+from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
@@ -78,6 +80,9 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         HostedExtractorJobsAPI,
         # Edge depend on nodes
         InstancesAPI,
+        # WorkflowTrigger and WorkflowVersion depend on existing workflows
+        WorkflowVersionsAPI,
+        WorkflowTriggersAPI,
     }
 )
 
@@ -226,13 +231,36 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         WorkflowRequest: [{"externalId": "smoke-test-workflow"}],
         WorkflowTriggerRequest: [
             {
-                "name": "smoke-test-workflow-trigger",
                 "externalId": "smoke-test-workflow-trigger",
                 "workflowExternalId": "smoke-test-workflow",
-                "type": "ON_DEMAND",
+                "workflowVersion": "v1",
+                "triggerRule": {
+                    "triggerType": "schedule",
+                    "cronExpression": "0 0 * * *",
+                },
+                "authentication": {"nonce": "smoke-test-nonce"},
             }
         ],
-        WorkflowVersionRequest: [{"workflowExternalId": "smoke-test-workflow", "version": "v1", "definition": {}}],
+        WorkflowVersionRequest: [
+            {
+                "workflowExternalId": "smoke-test-workflow",
+                "version": "v1",
+                "workflowDefinition": {
+                    "tasks": [
+                        {
+                            "externalId": "task1",
+                            "type": "cdf",
+                            "parameters": {
+                                "cdfRequest": {
+                                    "resourcePath": "/timeseries/list",
+                                    "method": "GET",
+                                }
+                            },
+                        }
+                    ]
+                },
+            }
+        ],
     }
     try:
         return requests[request_cls]
@@ -531,3 +559,81 @@ class TestCDFResourceAPI:
             # Clean up
             client.tool.instances.delete([edge_id])
             client.tool.instances.delete([node_id])
+
+    def test_workflow_crudl(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        workflow_example = get_examples_minimum_requests(WorkflowRequest)[0]
+        workflow_request = WorkflowRequest.model_validate(workflow_example)
+        workflow_id = workflow_request.as_id()
+
+        workflow_version = get_examples_minimum_requests(WorkflowVersionRequest)[0]
+        workflow_version_request = WorkflowVersionRequest.model_validate(workflow_version)
+        workflow_version_id = workflow_version_request.as_id()
+
+        workflow_trigger = get_examples_minimum_requests(WorkflowTriggerRequest)[0]
+        workflow_trigger_request = WorkflowTriggerRequest.model_validate(workflow_trigger)
+        workflow_trigger_id = workflow_trigger_request.as_id()
+        workflow_trigger_request.authentication.nonce = toolkit_client.iam.sessions.create(
+            session_type="ONESHOT_TOKEN_EXCHANGE"
+        ).nonce
+
+        try:
+            # Create workflow
+            create_endpoint = client.tool.workflows._method_endpoint_map["upsert"]
+            self.assert_endpoint_method(
+                lambda: client.tool.workflows.create([workflow_request]),
+                "create",
+                create_endpoint,
+                workflow_id,
+            )
+
+            # Create workflow version
+            version_create_endpoint = client.tool.workflows.versions._method_endpoint_map["upsert"]
+            self.assert_endpoint_method(
+                lambda: client.tool.workflows.versions.create([workflow_version_request]),
+                "create",
+                version_create_endpoint,
+                workflow_version_id,
+            )
+            # Create workflow trigger
+            trigger_create_endpoint = client.tool.workflows.triggers._method_endpoint_map["upsert"]
+            created_triggers = client.tool.workflows.triggers.create([workflow_trigger_request])
+            if len(created_triggers) != 1:
+                raise EndpointAssertionError(
+                    trigger_create_endpoint.path, f"Expected 1 created workflow trigger, got {len(created_triggers)}"
+                )
+            if created_triggers[0].as_id() != workflow_trigger_id:
+                raise EndpointAssertionError(
+                    trigger_create_endpoint.path, "Created workflow trigger ID does not match requested ID."
+                )
+
+            # Retrieve workflow version
+            version_retrieve_endpoint = client.tool.workflows.versions._method_endpoint_map["retrieve"]
+            self.assert_endpoint_method(
+                lambda: client.tool.workflows.versions.retrieve([workflow_version_id]),
+                "retrieve",
+                version_retrieve_endpoint,
+                workflow_version_id,
+            )
+
+            # List workflow versions
+            version_list_endpoint = client.tool.workflows.versions._method_endpoint_map["list"]
+            listed_versions = list(client.tool.workflows.versions.list(limit=1))
+            if len(listed_versions) == 0:
+                raise EndpointAssertionError(
+                    version_list_endpoint.path, "Expected at least 1 listed workflow version, got 0"
+                )
+            # List workflow triggers
+            trigger_list_endpoint = client.tool.workflows.triggers._method_endpoint_map["list"]
+            listed_triggers = list(client.tool.workflows.triggers.list(limit=1))
+            if len(listed_triggers) == 0:
+                raise EndpointAssertionError(
+                    trigger_list_endpoint.path, "Expected at least 1 listed workflow trigger, got 0"
+                )
+
+        finally:
+            # Clean up
+            client.tool.workflows.triggers.delete([workflow_trigger_id])
+            client.tool.workflows.versions.delete([workflow_version_id])
+            client.tool.workflows.delete([workflow_id])
