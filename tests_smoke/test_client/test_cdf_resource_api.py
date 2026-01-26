@@ -1,3 +1,4 @@
+import types
 from collections.abc import Iterable, Set
 from typing import Annotated, Any, get_args, get_origin
 
@@ -17,7 +18,7 @@ from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeRequest, NodeRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineRequest
@@ -86,19 +87,22 @@ def crud_cdf_resource_apis() -> Iterable[tuple]:
         assert cdf_resource_base is not None, "Error in test. Could not find CDFResourceAPI in __orig_bases__"
         _, request_cls, __ = get_args(cdf_resource_base)
         if get_origin(request_cls) is Annotated:
-            # Todo support multiple request classes (hosted extractor sources)
-            continue
-
-        try:
-            examples = get_examples_minimum_requests(request_cls)
-        except NotImplementedError:
-            # We lack test data.
-            continue
-        if len(examples) == 1:
-            yield pytest.param(examples[0], request_cls, api_cls, id=api_cls.__name__)
+            union_type = get_args(request_cls)[0]
+            if get_origin(union_type) is not types.UnionType:
+                raise NotImplementedError("Only Union Annotated types are supported in tests.")
+            request_classes: tuple[type[RequestResource], ...] = get_args(union_type)
         else:
-            for i, example in enumerate(examples, start=1):
-                yield pytest.param(example, request_cls, api_cls, id=f"{api_cls.__name__}_example_{i}")
+            request_classes = (request_cls,)
+        for request_cls in request_classes:
+            examples = get_examples_minimum_requests(request_cls)
+            id_str = f"{api_cls.__name__}"
+            if len(request_classes) > 1:
+                id_str += f" {request_cls.__name__}"
+            if len(examples) == 1:
+                yield pytest.param(examples[0], request_cls, api_cls, id=id_str)
+            else:
+                for no, example in enumerate(examples, start=1):
+                    yield pytest.param(example, request_cls, api_cls, id=f"{id_str} example {no}")
 
 
 def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[dict[str, Any]]:
@@ -164,6 +168,13 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         ],
         HostedExtractorDestinationRequest: [{"externalId": "smoke-test-extractor-destination"}],
         NodeRequest: [{"externalId": "smoke-test-node", "name": "smoke-test-node"}],
+        EdgeRequest: [
+            {
+                "externalId": "smoke-test-edge",
+                "sourceExternalId": "smoke-test-node",
+                "targetExternalId": "smoke-test-node",
+            }
+        ],
         LabelRequest: [{"name": "smoke-test-label", "externalId": "smoke-test-label"}],
         RAWDatabase: [{"name": "smoke-test-raw-database"}],
         RAWTable: [{"name": "smoke-test-raw-table", "dbName": "smoke-test-raw-database"}],
