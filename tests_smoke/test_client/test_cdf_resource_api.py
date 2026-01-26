@@ -134,9 +134,9 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         ],
         RESTSourceRequest: [
             {
-                "name": "smoke-test-rest-source",
+                "type": "rest",
                 "externalId": "smoke-test-rest-source",
-                "endpoint": "https://smoke-test-endpoint",
+                "host": "https://smoke-test-endpoint",
             }
         ],
         MQTTSourceRequest: [
@@ -148,7 +148,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         ],
         EventHubSourceRequest: [
             {
-                "type": "eventHub",
+                "type": "eventhub",
                 "externalId": "smoke-test-eventhub-source",
                 "host": "sb://smoke-test.servicebus.windows.net/",
                 "eventHubName": "smoke-test-hub",
