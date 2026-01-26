@@ -10,7 +10,7 @@ class InternalOrExternalIdDefinition(Identifier):
     type: str
 
 
-class UnwrappedInternalId(Identifier):
+class InternalIdUnwrapped(Identifier):
     id: int
 
     def __str__(self) -> str:
@@ -39,8 +39,8 @@ class InternalId(InternalOrExternalIdDefinition):
     def __str__(self) -> str:
         return f"id={self.id}"
 
-    def as_unwrapped(self) -> UnwrappedInternalId:
-        return UnwrappedInternalId(id=self.id)
+    def as_unwrapped(self) -> InternalIdUnwrapped:
+        return InternalIdUnwrapped(id=self.id)
 
 
 class ExternalId(InternalOrExternalIdDefinition):

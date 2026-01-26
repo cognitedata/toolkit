@@ -225,7 +225,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
 class TestCDFResourceAPI:
     def assert_endpoint_method(
         self, method: Callable[[], list[T_ResponseResource]], name: str, endpoint: Endpoint, id: Hashable | None = None
-    ) -> None:
+    ) -> Hashable:
         try:
             response_list = method()
         except ToolkitAPIError as e:
@@ -233,11 +233,13 @@ class TestCDFResourceAPI:
 
         if len(response_list) != 1:
             raise EndpointAssertionError(endpoint.path, f"Expected 1 {name} item, got {len(response_list)}")
-        if id is None:
-            return
         response = response_list[0]
-        if response.as_request_resource().as_id() != id:
+        response_id = response.as_request_resource().as_id()
+        if id is None:
+            return response_id
+        if response_id != id:
             raise EndpointAssertionError(endpoint.path, f"{name.title()} item's ID does not match the requested ID.")
+        return response_id
 
     @pytest.mark.parametrize("example_data, request_cls, api_cls", crud_cdf_resource_apis())
     def test_crudl(
@@ -268,7 +270,10 @@ class TestCDFResourceAPI:
             example_data["dataSetId"] = smoke_dataset.id
 
         request = request_cls.model_validate(example_data)
-        id = request.as_id()
+        try:
+            id: Hashable | None = request.as_id()
+        except ValueError as _:
+            id = None
 
         # We now that all subclasses only need http_client as argument, even though
         # CDFResourceAPI also require endpoint map (and disable gzip).
@@ -277,20 +282,20 @@ class TestCDFResourceAPI:
         try:
             if hasattr(api, "create"):
                 create_endpoint = methods["create"] if "create" in methods else methods["upsert"]
-                self.assert_endpoint_method(lambda: api.create([request]), "create", create_endpoint, id)
-            if hasattr(api, "update"):
-                updated_endpoint = methods["update"] if "update" in methods else methods["upsert"]
-                self.assert_endpoint_method(lambda: api.update([request]), "update", updated_endpoint, id)
+                id = self.assert_endpoint_method(lambda: api.create([request]), "create", create_endpoint, id)
             if hasattr(api, "retrieve"):
                 retrieve_endpoint = methods["retrieve"]
                 self.assert_endpoint_method(lambda: api.retrieve([id]), "retrieve", retrieve_endpoint, id)
+            if hasattr(api, "update"):
+                updated_endpoint = methods["update"] if "update" in methods else methods["upsert"]
+                self.assert_endpoint_method(lambda: api.update([request]), "update", updated_endpoint, id)
             if hasattr(api, "list"):
                 list_endpoint = methods["list"]
                 listed_items = list(api.list(limit=1))
                 if len(listed_items) == 0:
                     raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed item, got 0")
         finally:
-            if hasattr(api, "delete"):
+            if hasattr(api, "delete") and id is not None:
                 api.delete([id])
 
     def test_all_cdf_resource_apis_registered(self) -> None:
