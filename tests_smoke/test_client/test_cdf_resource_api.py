@@ -6,6 +6,8 @@ import pytest
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
+from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
+from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_capabilities import CapabilitiesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_data_postprocessing import DataPostProcessingAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_frames import FramesAPI
@@ -13,11 +15,10 @@ from cognite_toolkit._cdf_tk.client.api.robotics_locations import LocationsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
-from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI, RawDatabasesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse, DataSetRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest
@@ -70,6 +71,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # RAW tables depend on existing RAW databases, so they are tested together.
         RawDatabasesAPI,
         RawTablesAPI,
+        # Job depends on source and destination, so tested together.
+        HostedExtractorJobsAPI,
     }
 )
 
@@ -114,10 +117,11 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         ],
         KafkaSourceRequest: [
             {
-                "name": "smoke-test-kafka-source",
+                "type": "kafka",
                 "externalId": "smoke-test-kafka-source",
-                "bootstrapServers": "smoke-test:9092",
-                "topic": "smoke-test-topic",
+                "bootstrapBrokers": [
+                    {"host": "host1.kafka.local", "port": 9092},
+                ],
             }
         ],
         RESTSourceRequest: [
@@ -144,28 +148,21 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         ],
         HostedExtractorJobRequest: [
             {
-                "name": "smoke-test-extractor-job",
                 "externalId": "smoke-test-extractor-job",
-                "pipelineId": 1,
-                "sourceId": 1,
-                "destinationId": 1,
+                "sourceId": "smoke-test-kafka-source",
+                "destinationId": "smoke-test-extractor-destination",
+                "format": {"type": "cognite"},
+                "config": {"topic": "smoke-test-topic"},
             }
         ],
         HostedExtractorMappingRequest: [
             {
-                "name": "smoke-test-extractor-mapping",
                 "externalId": "smoke-test-extractor-mapping",
-                "jobId": 1,
-                "mapping": {},
+                "published": True,
+                "mapping": {"expression": "2 * 3"},
             }
         ],
-        HostedExtractorDestinationRequest: [
-            {
-                "name": "smoke-test-extractor-destination",
-                "externalId": "smoke-test-extractor-destination",
-                "type": "CDF",
-            }
-        ],
+        HostedExtractorDestinationRequest: [{"externalId": "smoke-test-extractor-destination"}],
         NodeRequest: [{"externalId": "smoke-test-node", "name": "smoke-test-node"}],
         LabelRequest: [{"name": "smoke-test-label", "externalId": "smoke-test-label"}],
         RAWDatabase: [{"name": "smoke-test-raw-database"}],
@@ -173,7 +170,9 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         SecurityCategoryRequest: [
             {"name": "smoke-test-security-category", "externalId": "smoke-test-security-category"}
         ],
-        SequenceRequest: [{"name": "smoke-test-sequence"}],
+        SequenceRequest: [
+            {"externalId": "smoke-test-sequence", "columns": [{"externalId": "smoke-test-sequence-column"}]}
+        ],
         StreamRequest: [{"externalId": "smoke-test-stream", "settings": {"template": {"name": "ImmutableTestStream"}}}],
         ThreeDModelClassicRequest: [{"name": "smoke-test-3d-model-classic"}],
         ThreeDModelDMSRequest: [{"name": "smoke-test-3d-model-dms", "space": SMOKE_SPACE, "type": "CAD"}],
@@ -350,9 +349,7 @@ class TestCDFResourceAPI:
             create_endpoint = client.tool.datasets._method_endpoint_map["create"]
             created = client.tool.datasets.create([dataset_request])
             if len(created) != 1:
-                raise EndpointAssertionError(
-                    create_endpoint.path, f"Expected 1 created dataset, got {len(created)}"
-                )
+                raise EndpointAssertionError(create_endpoint.path, f"Expected 1 created dataset, got {len(created)}")
             if created[0].external_id != dataset_request.external_id:
                 raise EndpointAssertionError(
                     create_endpoint.path, "Created dataset external ID does not match requested external ID."
@@ -361,9 +358,7 @@ class TestCDFResourceAPI:
 
         retrieve_endpoint = client.tool.datasets._method_endpoint_map["retrieve"]
         if len(retrieved) != 1:
-            raise EndpointAssertionError(
-                retrieve_endpoint.path, f"Expected 1 retrieved dataset, got {len(retrieved)}"
-            )
+            raise EndpointAssertionError(retrieve_endpoint.path, f"Expected 1 retrieved dataset, got {len(retrieved)}")
         if retrieved[0].external_id != dataset_request.external_id:
             raise EndpointAssertionError(
                 retrieve_endpoint.path, "Retrieved dataset external ID does not match requested external ID."
@@ -384,3 +379,95 @@ class TestCDFResourceAPI:
             raise EndpointAssertionError(ds_list.path, "Expected at least 1 listed dataset, got 0")
 
         # DataSets cannot be deleted, so we do not test delete here.
+
+    def test_hosted_extractors_crudl(self, toolkit_client: ToolkitClient, smoke_dataset: DataSetResponse) -> None:
+        client = toolkit_client
+
+        source_example = get_examples_minimum_requests(KafkaSourceRequest)[0]
+        source_request = KafkaSourceRequest.model_validate(source_example)
+        source_id = source_request.as_id()
+
+        dest_example = get_examples_minimum_requests(HostedExtractorDestinationRequest)[0]
+        dest_request = HostedExtractorDestinationRequest.model_validate(dest_example)
+        dest_id = dest_request.as_id()
+
+        job_example = get_examples_minimum_requests(HostedExtractorJobRequest)[0]
+        job_request = HostedExtractorJobRequest.model_validate(job_example)
+        job_id = job_request.as_id()
+
+        try:
+            # Create source
+            source_create_endpoint = client.tool.hosted_extractors.sources._method_endpoint_map["create"]
+            created_source = client.tool.hosted_extractors.sources.create([source_request])
+            if len(created_source) != 1:
+                raise EndpointAssertionError(
+                    source_create_endpoint.path, f"Expected 1 created source, got {len(created_source)}"
+                )
+            created_source_item = created_source[0]
+            if created_source_item.as_request_resource().as_id() != source_id:
+                raise EndpointAssertionError(
+                    source_create_endpoint.path, "Created source's ID does not match the requested ID."
+                )
+
+            # Create destination
+            destination_create_endpoint = client.tool.hosted_extractors.destinations._method_endpoint_map["create"]
+            created_destination = client.tool.hosted_extractors.destinations.create([dest_request])
+            if len(created_destination) != 1:
+                raise EndpointAssertionError(
+                    destination_create_endpoint.path, f"Expected 1 created destination, got {len(created_destination)}"
+                )
+            created_destination_item = created_destination[0]
+            if created_destination_item.as_request_resource().as_id() != dest_id:
+                raise EndpointAssertionError(
+                    destination_create_endpoint.path, "Created destination's ID does not match the requested ID."
+                )
+
+            # Create job (dependent on source and destination)
+            job_create_endpoint = client.tool.hosted_extractors.jobs._method_endpoint_map["create"]
+            job_created = client.tool.hosted_extractors.jobs.create([job_request])
+            if len(job_created) != 1:
+                raise EndpointAssertionError(
+                    job_create_endpoint.path, f"Expected 1 created job, got {len(job_created)}"
+                )
+            job_created_item = job_created[0]
+            if job_created_item.as_request_resource().as_id() != job_id:
+                raise EndpointAssertionError(
+                    job_create_endpoint.path, "Created job's ID does not match the requested ID."
+                )
+
+            # Retrieve job
+            job_retrieve_endpoint = client.tool.hosted_extractors.jobs._method_endpoint_map["retrieve"]
+            job_retrieved = client.tool.hosted_extractors.jobs.retrieve([job_id])
+            if len(job_retrieved) != 1:
+                raise EndpointAssertionError(
+                    job_retrieve_endpoint.path, f"Expected 1 retrieved job, got {len(job_retrieved)}"
+                )
+            job_retrieved_item = job_retrieved[0]
+            if job_retrieved_item.as_request_resource().as_id() != job_id:
+                raise EndpointAssertionError(
+                    job_retrieve_endpoint.path, "Retrieved job's ID does not match the requested ID."
+                )
+            # List jobs
+            job_list_endpoint = client.tool.hosted_extractors.jobs._method_endpoint_map["list"]
+            listed_jobs = list(client.tool.hosted_extractors.jobs.list(limit=1))
+            if len(listed_jobs) == 0:
+                raise EndpointAssertionError(job_list_endpoint.path, "Expected at least 1 listed job, got 0")
+
+            # Update job
+            job_update_endpoint = client.tool.hosted_extractors.jobs._method_endpoint_map["update"]
+            job_updated = client.tool.hosted_extractors.jobs.update([job_request])
+            if len(job_updated) != 1:
+                raise EndpointAssertionError(
+                    job_update_endpoint.path, f"Expected 1 updated job, got {len(job_updated)}"
+                )
+            job_updated_item = job_updated[0]
+            if job_updated_item.as_request_resource().as_id() != job_id:
+                raise EndpointAssertionError(
+                    job_update_endpoint.path, "Updated job's ID does not match the requested ID."
+                )
+
+        finally:
+            # Clean up
+            client.tool.hosted_extractors.jobs.delete([job_id], ignore_unknown_ids=True)
+            client.tool.hosted_extractors.destinations.delete([dest_id], ignore_unknown_ids=True)
+            client.tool.hosted_extractors.sources.delete([source_id], ignore_unknown_ids=True, force=True)
