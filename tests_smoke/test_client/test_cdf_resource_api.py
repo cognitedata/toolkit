@@ -5,7 +5,7 @@ from typing import Annotated, Any, get_args, get_origin
 import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client._resource_base import RequestResource
+from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawTablesAPI
@@ -224,7 +224,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
 @pytest.mark.usefixtures("smoke_space")
 class TestCDFResourceAPI:
     def assert_endpoint_method(
-        self, method: Callable[[], list[Any]], name: str, endpoint: Endpoint, id: Hashable | None = None
+        self, method: Callable[[], list[T_ResponseResource]], name: str, endpoint: Endpoint, id: Hashable | None = None
     ) -> None:
         try:
             response_list = method()
