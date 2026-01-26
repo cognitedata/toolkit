@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
+from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_capabilities import CapabilitiesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_data_postprocessing import DataPostProcessingAPI
@@ -75,6 +76,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         RawTablesAPI,
         # Job depends on source and destination, so tested together.
         HostedExtractorJobsAPI,
+        # Edge depend on nodes
+        InstancesAPI,
     }
 )
 
@@ -138,16 +141,16 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         ],
         MQTTSourceRequest: [
             {
-                "name": "smoke-test-mqtt-source",
+                "type": "mqtt5",
                 "externalId": "smoke-test-mqtt-source",
-                "broker": "smoke-test-broker",
+                "host": "smoke-test-mqtt-broker",
             }
         ],
         EventHubSourceRequest: [
             {
-                "name": "smoke-test-eventhub-source",
+                "type": "eventHub",
                 "externalId": "smoke-test-eventhub-source",
-                "connectionString": "Endpoint=sb://smoke-test.servicebus.windows.net/;SharedAccessKeyName=smoke-test;SharedAccessKey = smoke-test-key",
+                "host": "sb://smoke-test.servicebus.windows.net/",
                 "eventHubName": "smoke-test-hub",
             }
         ],
@@ -168,12 +171,24 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
             }
         ],
         HostedExtractorDestinationRequest: [{"externalId": "smoke-test-extractor-destination"}],
-        NodeRequest: [{"externalId": "smoke-test-node", "name": "smoke-test-node"}],
+        NodeRequest: [{"externalId": "smoke-test-node", "space": SMOKE_SPACE, "instanceType": "node"}],
         EdgeRequest: [
             {
                 "externalId": "smoke-test-edge",
-                "sourceExternalId": "smoke-test-node",
-                "targetExternalId": "smoke-test-node",
+                "space": SMOKE_SPACE,
+                "instanceType": "edge",
+                "startNode": {
+                    "space": SMOKE_SPACE,
+                    "externalId": "smoke-test-node",
+                },
+                "endNode": {
+                    "space": SMOKE_SPACE,
+                    "externalId": "smoke-test-node",
+                },
+                "type": {
+                    "space": SMOKE_SPACE,
+                    "externalId": "smoke-test-node",
+                },
             }
         ],
         LabelRequest: [{"name": "smoke-test-label", "externalId": "smoke-test-label"}],
@@ -273,6 +288,7 @@ class TestCDFResourceAPI:
         try:
             id: Hashable | None = request.as_id()
         except ValueError as _:
+            # If the request does not have enough info to create an identifier yet, we set id to None
             id = None
 
         # We now that all subclasses only need http_client as argument, even though
@@ -456,3 +472,58 @@ class TestCDFResourceAPI:
             client.tool.hosted_extractors.jobs.delete([job_id], ignore_unknown_ids=True)
             client.tool.hosted_extractors.destinations.delete([dest_id], ignore_unknown_ids=True)
             client.tool.hosted_extractors.sources.delete([source_id], ignore_unknown_ids=True, force=True)
+
+    def test_instances_crudl(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        node_example = get_examples_minimum_requests(NodeRequest)[0]
+        node_request = NodeRequest.model_validate(node_example)
+        node_id = node_request.as_id()
+
+        edge_example = get_examples_minimum_requests(EdgeRequest)[0]
+        edge_request = EdgeRequest.model_validate(edge_example)
+        edge_id = edge_request.as_id()
+
+        try:
+            # Create node
+            create_endpoint = client.tool.instances._method_endpoint_map["upsert"]
+            try:
+                created_node = client.tool.instances.create([node_request])
+            except ToolkitAPIError:
+                raise EndpointAssertionError(create_endpoint.path, "Creating node instance failed.")
+            if len(created_node) != 1:
+                raise EndpointAssertionError(create_endpoint.path, f"Expected 1 created node, got {len(created_node)}")
+            if created_node[0].as_id() != node_id:
+                raise EndpointAssertionError(create_endpoint.path, "Created node ID does not match requested node ID.")
+
+            # Create edge (dependent on node)
+            try:
+                created_edge = client.tool.instances.create([edge_request])
+            except ToolkitAPIError:
+                raise EndpointAssertionError(create_endpoint.path, "Creating edge instance failed.")
+            if len(created_edge) != 1:
+                raise EndpointAssertionError(create_endpoint.path, f"Expected 1 created edge, got {len(created_edge)}")
+            if created_edge[0].as_id() != edge_id:
+                raise EndpointAssertionError(create_endpoint.path, "Created edge ID does not match requested edge ID.")
+
+            # Retrieve edge
+            retrieve_endpoint = client.tool.instances._method_endpoint_map["retrieve"]
+            self.assert_endpoint_method(
+                lambda: client.tool.instances.retrieve([edge_id]), "retrieve", retrieve_endpoint, edge_id
+            )
+
+            # Retrieve node
+            self.assert_endpoint_method(
+                lambda: client.tool.instances.retrieve([node_id]), "retrieve", retrieve_endpoint, node_id
+            )
+
+            # List instances
+            list_endpoint = client.tool.instances._method_endpoint_map["list"]
+            listed = list(client.tool.instances.list(limit=2))
+            if len(listed) <= 1:
+                raise EndpointAssertionError(list_endpoint.path, "Expected at least 2 listed instances, got 0")
+
+        finally:
+            # Clean up
+            client.tool.instances.delete([edge_id])
+            client.tool.instances.delete([node_id])
