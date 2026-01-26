@@ -136,7 +136,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
             {
                 "type": "rest",
                 "externalId": "smoke-test-rest-source",
-                "host": "https://smoke-test-endpoint",
+                "host": "smoke-test-endpoint",
             }
         ],
         MQTTSourceRequest: [
@@ -150,8 +150,12 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
             {
                 "type": "eventhub",
                 "externalId": "smoke-test-eventhub-source",
-                "host": "sb://smoke-test.servicebus.windows.net/",
+                "host": "myHost",
                 "eventHubName": "smoke-test-hub",
+                "authentication": {
+                    "type": "basic",
+                    "username": "smoke-test-username",
+                },
             }
         ],
         HostedExtractorJobRequest: [
