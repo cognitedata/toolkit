@@ -540,13 +540,14 @@ class BuildCommand(ToolkitCommand):
                 continue
             elif client and self._check_resource_exists_in_cdf(client, loader_cls, id_):
                 continue
-            elif loader_cls.resource_cls is RawDatabase:
-                # Raw Databases are automatically created when a Raw Table is created.
-                continue
-            required_by = {
-                (required, path.relative_to(project_config_dir))
-                for required, path in self._dependencies_by_required[(loader_cls, id_)]
-            }
+            required_by: set[tuple[Hashable, Path]] = set()
+            for required, path in self._dependencies_by_required[(loader_cls, id_)]:
+                if path.name.endswith(RawTableCRUD.kind) and loader_cls is RawDatabaseCRUD:
+                    # RAW Databases are automatically created when a Raw Table is created.
+                    continue
+                relative_path = path.relative_to(project_config_dir)
+
+                required_by.add((required, relative_path))
             has_checked_cdf = client is not None
             self.warn(MissingDependencyWarning(loader_cls.resource_cls.__name__, id_, required_by, has_checked_cdf))
 
