@@ -40,7 +40,7 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
         Args:
             items: List of InstanceRequest objects to create.
         Returns:
-            List of created InstanceResponse objects.
+            List of created InstanceSlimDefinition objects.
         """
         response_items: list[InstanceSlimDefinition] = []
         for response in self._chunk_requests(items, "upsert", self._serialize_items):
