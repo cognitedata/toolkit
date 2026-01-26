@@ -1,5 +1,5 @@
 import types
-from collections.abc import Iterable, Set
+from collections.abc import Callable, Hashable, Iterable, Set
 from typing import Annotated, Any, get_args, get_origin
 
 import pytest
@@ -16,7 +16,8 @@ from cognite_toolkit._cdf_tk.client.api.robotics_locations import LocationsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
-from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI
+from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeRequest, NodeRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
@@ -222,6 +223,22 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
 
 @pytest.mark.usefixtures("smoke_space")
 class TestCDFResourceAPI:
+    def assert_endpoint_method(
+        self, method: Callable[[], list[Any]], name: str, endpoint: Endpoint, id: Hashable | None = None
+    ) -> None:
+        try:
+            response_list = method()
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(endpoint.path, f"{name} method failed with error: {e!s}") from e
+
+        if len(response_list) != 1:
+            raise EndpointAssertionError(endpoint.path, f"Expected 1 {name} item, got {len(response_list)}")
+        if id is None:
+            return
+        response = response_list[0]
+        if response.as_request_resource().as_id() != id:
+            raise EndpointAssertionError(endpoint.path, f"{name.title()} item's ID does not match the requested ID.")
+
     @pytest.mark.parametrize("example_data, request_cls, api_cls", crud_cdf_resource_apis())
     def test_crudl(
         self,
@@ -260,31 +277,13 @@ class TestCDFResourceAPI:
         try:
             if hasattr(api, "create"):
                 create_endpoint = methods["create"] if "create" in methods else methods["upsert"]
-                created = api.create([request])
-                if len(created) != 1:
-                    raise EndpointAssertionError(create_endpoint.path, f"Expected 1 created item, got {len(created)}")
-                created_item = created[0]
-                if created_item.as_request_resource().as_id() != id:
-                    raise EndpointAssertionError(
-                        create_endpoint.path, "Created item's ID does not match the requested ID."
-                    )
+                self.assert_endpoint_method(lambda: api.create([request]), "create", create_endpoint, id)
             if hasattr(api, "update"):
                 updated_endpoint = methods["update"] if "update" in methods else methods["upsert"]
-                updated = api.update([request])
-                if len(updated) != 1:
-                    raise EndpointAssertionError(updated_endpoint.path, f"Expected 1 updated item, got {len(updated)}")
+                self.assert_endpoint_method(lambda: api.update([request]), "update", updated_endpoint, id)
             if hasattr(api, "retrieve"):
                 retrieve_endpoint = methods["retrieve"]
-                retrieved = api.retrieve([id])
-                if len(retrieved) != 1:
-                    raise EndpointAssertionError(
-                        retrieve_endpoint.path, f"Expected 1 retrieved item, got {len(retrieved)}"
-                    )
-                retrieved_item = retrieved[0]
-                if retrieved_item.as_request_resource().as_id() != id:
-                    raise EndpointAssertionError(
-                        retrieve_endpoint.path, "Retrieved item's ID does not match the requested ID."
-                    )
+                self.assert_endpoint_method(lambda: api.retrieve([id]), "retrieve", retrieve_endpoint, id)
             if hasattr(api, "list"):
                 list_endpoint = methods["list"]
                 listed_items = list(api.list(limit=1))
@@ -346,8 +345,14 @@ class TestCDFResourceAPI:
                 raise EndpointAssertionError(table_list.path, "Expected at least 1 listed table, got 0")
         finally:
             # Clean up
-            client.tool.raw.tables.delete([table.as_id()])
-            client.tool.raw.databases.delete([db.as_id()])
+            try:
+                client.tool.raw.tables.delete([table.as_id()])
+            except ToolkitAPIError:
+                pass
+            try:
+                client.tool.raw.databases.delete([db.as_id()])
+            except ToolkitAPIError:
+                pass
 
     def test_datasets_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
@@ -358,13 +363,9 @@ class TestCDFResourceAPI:
         retrieved = client.tool.datasets.retrieve([identifier], ignore_unknown_ids=True)
         if len(retrieved) == 0:
             create_endpoint = client.tool.datasets._method_endpoint_map["create"]
-            created = client.tool.datasets.create([dataset_request])
-            if len(created) != 1:
-                raise EndpointAssertionError(create_endpoint.path, f"Expected 1 created dataset, got {len(created)}")
-            if created[0].external_id != dataset_request.external_id:
-                raise EndpointAssertionError(
-                    create_endpoint.path, "Created dataset external ID does not match requested external ID."
-                )
+            self.assert_endpoint_method(
+                lambda: client.tool.datasets.create([dataset_request]), "create", create_endpoint, identifier
+            )
             retrieved = client.tool.datasets.retrieve([identifier])
 
         retrieve_endpoint = client.tool.datasets._method_endpoint_map["retrieve"]
@@ -375,13 +376,9 @@ class TestCDFResourceAPI:
                 retrieve_endpoint.path, "Retrieved dataset external ID does not match requested external ID."
             )
         update_endpoint = client.tool.datasets._method_endpoint_map["update"]
-        updated = client.tool.datasets.update([dataset_request])
-        if len(updated) != 1:
-            raise EndpointAssertionError(update_endpoint.path, f"Expected 1 updated dataset, got {len(updated)}")
-        if updated[0].external_id != dataset_request.external_id:
-            raise EndpointAssertionError(
-                update_endpoint.path, "Updated dataset external ID does not match requested external ID."
-            )
+        self.assert_endpoint_method(
+            lambda: client.tool.datasets.update([dataset_request]), "update", update_endpoint, identifier
+        )
 
         # List datasets
         ds_list = client.tool.datasets._method_endpoint_map["list"]
@@ -409,55 +406,34 @@ class TestCDFResourceAPI:
         try:
             # Create source
             source_create_endpoint = client.tool.hosted_extractors.sources._method_endpoint_map["create"]
-            created_source = client.tool.hosted_extractors.sources.create([source_request])
-            if len(created_source) != 1:
-                raise EndpointAssertionError(
-                    source_create_endpoint.path, f"Expected 1 created source, got {len(created_source)}"
-                )
-            created_source_item = created_source[0]
-            if created_source_item.as_request_resource().as_id() != source_id:
-                raise EndpointAssertionError(
-                    source_create_endpoint.path, "Created source's ID does not match the requested ID."
-                )
+            self.assert_endpoint_method(
+                lambda: client.tool.hosted_extractors.sources.create([source_request]),
+                "create",
+                source_create_endpoint,
+                source_id,
+            )
 
             # Create destination
             destination_create_endpoint = client.tool.hosted_extractors.destinations._method_endpoint_map["create"]
-            created_destination = client.tool.hosted_extractors.destinations.create([dest_request])
-            if len(created_destination) != 1:
-                raise EndpointAssertionError(
-                    destination_create_endpoint.path, f"Expected 1 created destination, got {len(created_destination)}"
-                )
-            created_destination_item = created_destination[0]
-            if created_destination_item.as_request_resource().as_id() != dest_id:
-                raise EndpointAssertionError(
-                    destination_create_endpoint.path, "Created destination's ID does not match the requested ID."
-                )
+            self.assert_endpoint_method(
+                lambda: client.tool.hosted_extractors.destinations.create([dest_request]),
+                "create",
+                destination_create_endpoint,
+                dest_id,
+            )
 
             # Create job (dependent on source and destination)
             job_create_endpoint = client.tool.hosted_extractors.jobs._method_endpoint_map["create"]
-            job_created = client.tool.hosted_extractors.jobs.create([job_request])
-            if len(job_created) != 1:
-                raise EndpointAssertionError(
-                    job_create_endpoint.path, f"Expected 1 created job, got {len(job_created)}"
-                )
-            job_created_item = job_created[0]
-            if job_created_item.as_request_resource().as_id() != job_id:
-                raise EndpointAssertionError(
-                    job_create_endpoint.path, "Created job's ID does not match the requested ID."
-                )
+            self.assert_endpoint_method(
+                lambda: client.tool.hosted_extractors.jobs.create([job_request]), "create", job_create_endpoint, job_id
+            )
 
             # Retrieve job
             job_retrieve_endpoint = client.tool.hosted_extractors.jobs._method_endpoint_map["retrieve"]
-            job_retrieved = client.tool.hosted_extractors.jobs.retrieve([job_id])
-            if len(job_retrieved) != 1:
-                raise EndpointAssertionError(
-                    job_retrieve_endpoint.path, f"Expected 1 retrieved job, got {len(job_retrieved)}"
-                )
-            job_retrieved_item = job_retrieved[0]
-            if job_retrieved_item.as_request_resource().as_id() != job_id:
-                raise EndpointAssertionError(
-                    job_retrieve_endpoint.path, "Retrieved job's ID does not match the requested ID."
-                )
+            self.assert_endpoint_method(
+                lambda: client.tool.hosted_extractors.jobs.retrieve([job_id]), "retrieve", job_retrieve_endpoint, job_id
+            )
+
             # List jobs
             job_list_endpoint = client.tool.hosted_extractors.jobs._method_endpoint_map["list"]
             listed_jobs = list(client.tool.hosted_extractors.jobs.list(limit=1))
@@ -466,16 +442,9 @@ class TestCDFResourceAPI:
 
             # Update job
             job_update_endpoint = client.tool.hosted_extractors.jobs._method_endpoint_map["update"]
-            job_updated = client.tool.hosted_extractors.jobs.update([job_request])
-            if len(job_updated) != 1:
-                raise EndpointAssertionError(
-                    job_update_endpoint.path, f"Expected 1 updated job, got {len(job_updated)}"
-                )
-            job_updated_item = job_updated[0]
-            if job_updated_item.as_request_resource().as_id() != job_id:
-                raise EndpointAssertionError(
-                    job_update_endpoint.path, "Updated job's ID does not match the requested ID."
-                )
+            self.assert_endpoint_method(
+                lambda: client.tool.hosted_extractors.jobs.update([job_request]), "update", job_update_endpoint, job_id
+            )
 
         finally:
             # Clean up
