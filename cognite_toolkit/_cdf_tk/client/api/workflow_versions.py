@@ -65,7 +65,7 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
         result: list[WorkflowVersionResponse] = []
         for item in items:
             endpoint = f"/workflows/{item.workflow_external_id}/versions/{item.version}"
-            for response in self._chunk_requests(items, "retrieve", self._serialize_items, endpoint_path=endpoint):
+            for response in self._chunk_requests([item], "retrieve", self._serialize_items, endpoint_path=endpoint):
                 result.append(WorkflowVersionResponse.model_validate_json(response.body))
         return result
 

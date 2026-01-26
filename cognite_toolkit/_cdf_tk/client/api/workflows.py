@@ -65,7 +65,7 @@ class WorkflowsAPI(CDFResourceAPI[ExternalId, WorkflowRequest, WorkflowResponse]
         result: list[WorkflowResponse] = []
         for item in items:
             endpoint = f"/workflows/{item.external_id}"
-            for response in self._chunk_requests(items, "retrieve", self._serialize_items, endpoint_path=endpoint):
+            for response in self._chunk_requests([item], "retrieve", self._serialize_items, endpoint_path=endpoint):
                 result.append(WorkflowResponse.model_validate_json(response.body))
         return result
 
