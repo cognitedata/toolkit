@@ -17,6 +17,11 @@ from cognite_toolkit._cdf_tk.client.api.robotics_locations import LocationsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
+from cognite_toolkit._cdf_tk.client.api.three_d import (
+    ThreeDClassicAssetMappingAPI,
+    ThreeDClassicModelsAPI,
+    ThreeDDMAssetMappingAPI,
+)
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
@@ -83,6 +88,10 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # WorkflowTrigger and WorkflowVersion depend on existing workflows
         WorkflowVersionsAPI,
         WorkflowTriggersAPI,
+        # 3D Models are expensive to create, and AssetMappings depend on existing models and assets/nodes.
+        ThreeDClassicModelsAPI,
+        ThreeDDMAssetMappingAPI,
+        ThreeDClassicAssetMappingAPI,
     }
 )
 
@@ -209,7 +218,9 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         SequenceRequest: [
             {"externalId": "smoke-test-sequence", "columns": [{"externalId": "smoke-test-sequence-column"}]}
         ],
-        StreamRequest: [{"externalId": "smoke-test-stream", "settings": {"template": {"name": "ImmutableTestStream"}}}],
+        StreamRequest: [
+            {"externalId": "smoke-test-stream2", "settings": {"template": {"name": "ImmutableTestStream"}}}
+        ],
         ThreeDModelClassicRequest: [{"name": "smoke-test-3d-model-classic"}],
         ThreeDModelDMSRequest: [{"name": "smoke-test-3d-model-dms", "space": SMOKE_SPACE, "type": "CAD"}],
         AssetMappingClassicRequest: [{"externalId": "smoke-test-asset-mapping-classic", "model3dId": 1, "assetId": 1}],
@@ -440,6 +451,37 @@ class TestCDFResourceAPI:
             raise EndpointAssertionError(ds_list.path, "Expected at least 1 listed dataset, got 0")
 
         # DataSets cannot be deleted, so we do not test delete here.
+
+    def test_stream_crudl(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        stream_example = get_examples_minimum_requests(StreamRequest)[0]
+        stream_request = StreamRequest.model_validate(stream_example)
+        stream_id = stream_request.as_id()
+
+        # Retrieve
+        retrieved = client.streams.retrieve([stream_id], ignore_unknown_ids=True)
+        if len(retrieved) == 0:
+            create_endpoint = client.streams._method_endpoint_map["create"]
+            self.assert_endpoint_method(
+                lambda: client.streams.create([stream_request]), "create", create_endpoint, stream_id
+            )
+            retrieved = client.streams.retrieve([stream_id])
+        retrieve_endpoint = client.streams._method_endpoint_map["retrieve"]
+        if len(retrieved) != 1:
+            raise EndpointAssertionError(retrieve_endpoint.path, f"Expected 1 retrieved stream, got {len(retrieved)}")
+        if retrieved[0].external_id != stream_request.external_id:
+            raise EndpointAssertionError(
+                retrieve_endpoint.path, "Retrieved stream external ID does not match requested external ID."
+            )
+
+        # List streams
+        stream_list_endpoint = client.streams._method_endpoint_map["list"]
+        listed_streams = list(client.streams.list())
+        if len(listed_streams) == 0:
+            raise EndpointAssertionError(stream_list_endpoint.path, "Expected at least 1 listed stream, got 0")
+
+        # We do not delete the stream as there are limits to delete/recreate of it.
 
     def test_hosted_extractors_crudl(self, toolkit_client: ToolkitClient, smoke_dataset: DataSetResponse) -> None:
         client = toolkit_client
