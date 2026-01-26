@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.api.robotics_locations import LocationsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
+from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import (
     ThreeDClassicAssetMappingAPI,
     ThreeDClassicModelsAPI,
@@ -92,6 +93,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         ThreeDClassicModelsAPI,
         ThreeDDMAssetMappingAPI,
         ThreeDClassicAssetMappingAPI,
+        # Cannot be deleted and recreated frequently.
+        StreamsAPI,
     }
 )
 
@@ -219,7 +222,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
             {"externalId": "smoke-test-sequence", "columns": [{"externalId": "smoke-test-sequence-column"}]}
         ],
         StreamRequest: [
-            {"externalId": "smoke-test-stream2", "settings": {"template": {"name": "ImmutableTestStream"}}}
+            {"externalId": "smoke-test-stream3", "settings": {"template": {"name": "ImmutableTestStream"}}}
         ],
         ThreeDModelClassicRequest: [{"name": "smoke-test-3d-model-classic"}],
         ThreeDModelDMSRequest: [{"name": "smoke-test-3d-model-dms", "space": SMOKE_SPACE, "type": "CAD"}],
