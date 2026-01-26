@@ -1,4 +1,4 @@
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import Field
 
@@ -60,6 +60,7 @@ class HostedExtractorMapping(BaseModelObject):
 
 
 class HostedExtractorMappingRequest(HostedExtractorMapping, UpdatableRequestResource):
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"input"})
     input: MappingInput | None = None
 
 
