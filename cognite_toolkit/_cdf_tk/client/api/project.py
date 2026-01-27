@@ -1,7 +1,7 @@
 from cognite.client import CogniteClient
 
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.project import ProjectStatusList
 
 
@@ -14,7 +14,7 @@ class ProjectAPI:
     def status(self) -> ProjectStatusList:
         """Retrieve information about the current project."""
         response = self._http_client.request_single_retries(
-            RequestMessage2(
+            RequestMessage(
                 endpoint_url=f"{self._config.base_url}/api/v1/projects",
                 method="GET",
                 parameters={"withDataModelingStatus": True},

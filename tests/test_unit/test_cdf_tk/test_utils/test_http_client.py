@@ -10,16 +10,16 @@ import respx
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.http_client import (
-    ErrorDetails2,
-    FailedRequest2,
-    FailedResponse2,
+    ErrorDetails,
+    FailedRequest,
+    FailedResponse,
     HTTPClient,
-    ItemsFailedRequest2,
-    ItemsFailedResponse2,
-    ItemsRequest2,
-    ItemsSuccessResponse2,
-    RequestMessage2,
-    SuccessResponse2,
+    ItemsFailedRequest,
+    ItemsFailedResponse,
+    ItemsRequest,
+    ItemsSuccessResponse,
+    RequestMessage,
+    SuccessResponse,
 )
 
 
@@ -46,9 +46,9 @@ class TestHTTPClient2:
     def test_get_request(self, rsps: respx.MockRouter, http_client: HTTPClient) -> None:
         rsps.get("https://example.com/api/resource").respond(json={"key": "value"}, status_code=200)
         response = http_client.request_single(
-            RequestMessage2(endpoint_url="https://example.com/api/resource", method="GET", parameters={"query": "test"})
+            RequestMessage(endpoint_url="https://example.com/api/resource", method="GET", parameters={"query": "test"})
         )
-        assert isinstance(response, SuccessResponse2)
+        assert isinstance(response, SuccessResponse)
         assert response.status_code == 200
         assert response.body == '{"key":"value"}'
         assert rsps.calls[-1].request.url == "https://example.com/api/resource?query=test"
@@ -57,13 +57,13 @@ class TestHTTPClient2:
     def test_post_request(self, rsps: respx.MockRouter, http_client: HTTPClient) -> None:
         rsps.post("https://example.com/api/resource").respond(json={"id": 123, "status": "created"}, status_code=201)
         response = http_client.request_single(
-            RequestMessage2(
+            RequestMessage(
                 endpoint_url="https://example.com/api/resource",
                 method="POST",
                 body_content={"values": [float("nan")], "other": float("inf")},
             )
         )
-        assert isinstance(response, SuccessResponse2)
+        assert isinstance(response, SuccessResponse)
         assert response.status_code == 201
         assert response.body == '{"id":123,"status":"created"}'
         assert rsps.calls[-1].request.content == b'{"values":[null],"other":null}'
@@ -73,9 +73,9 @@ class TestHTTPClient2:
             json={"error": {"message": "bad request", "code": 400}}, status_code=400
         )
         response = http_client.request_single(
-            RequestMessage2(endpoint_url="https://example.com/api/resource", method="GET", parameters={"query": "fail"})
+            RequestMessage(endpoint_url="https://example.com/api/resource", method="GET", parameters={"query": "fail"})
         )
-        assert isinstance(response, FailedResponse2)
+        assert isinstance(response, FailedResponse)
         assert response.status_code == 400
         assert response.error.message == "bad request"
 
@@ -84,8 +84,8 @@ class TestHTTPClient2:
         url = "https://example.com/api/resource"
         rsps.get(url).respond(json={"error": "service unavailable"}, status_code=503)
         rsps.get(url).respond(json={"key": "value"}, status_code=200)
-        response = http_client.request_single_retries(RequestMessage2(endpoint_url=url, method="GET"))
-        assert isinstance(response, SuccessResponse2)
+        response = http_client.request_single_retries(RequestMessage(endpoint_url=url, method="GET"))
+        assert isinstance(response, SuccessResponse)
         assert response.status_code == 200
         assert response.body == '{"key":"value"}'
 
@@ -97,10 +97,10 @@ class TestHTTPClient2:
             )
         with patch("time.sleep"):  # Patch sleep to speed up the test
             response = client.request_single_retries(
-                RequestMessage2(endpoint_url="https://example.com/api/resource", method="GET")
+                RequestMessage(endpoint_url="https://example.com/api/resource", method="GET")
             )
 
-        assert isinstance(response, FailedResponse2)
+        assert isinstance(response, FailedResponse)
         assert response.status_code == 503
         assert response.error.message == "service unavailable"
 
@@ -112,9 +112,9 @@ class TestHTTPClient2:
         with patch(f"{HTTPClient.__module__}.time"):
             # Patch time to avoid actual sleep
             response = http_client.request_single_retries(
-                RequestMessage2(endpoint_url="http://nonexistent.domain/api/resource", method="GET")
+                RequestMessage(endpoint_url="http://nonexistent.domain/api/resource", method="GET")
             )
-        assert isinstance(response, FailedRequest2)
+        assert isinstance(response, FailedRequest)
         assert "RequestException after 1 attempts (connect error): Simulated connection error" == response.error
 
     def test_read_timeout_error(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
@@ -123,9 +123,9 @@ class TestHTTPClient2:
         with patch(f"{HTTPClient.__module__}.time"):
             # Patch time to avoid actual sleep
             response = http_client.request_single_retries(
-                RequestMessage2(endpoint_url="https://example.com/api/resource", method="GET")
+                RequestMessage(endpoint_url="https://example.com/api/resource", method="GET")
             )
-        assert isinstance(response, FailedRequest2)
+        assert isinstance(response, FailedRequest)
         assert "RequestException after 1 attempts (read error): Simulated read timeout" == response.error
 
     def test_zero_retries(self, toolkit_config: ToolkitClientConfig, rsps: respx.MockRouter) -> None:
@@ -135,39 +135,39 @@ class TestHTTPClient2:
         )
         with patch("time.sleep"):  # Patch sleep to speed up the test
             response = client.request_single_retries(
-                RequestMessage2(endpoint_url="https://example.com/api/resource", method="GET")
+                RequestMessage(endpoint_url="https://example.com/api/resource", method="GET")
             )
-        assert isinstance(response, FailedResponse2)
+        assert isinstance(response, FailedResponse)
         assert response.status_code == 503
         assert response.error.message == "service unavailable"
         assert len(rsps.calls) == 1
 
     def test_raise_if_already_retied(self, http_client_one_retry: HTTPClient) -> None:
         http_client = http_client_one_retry
-        bad_request = RequestMessage2(endpoint_url="https://example.com/api/resource", method="GET", status_attempt=3)
+        bad_request = RequestMessage(endpoint_url="https://example.com/api/resource", method="GET", status_attempt=3)
         with pytest.raises(RuntimeError, match=r"RequestMessage has already been attempted 3 times."):
             http_client.request_single_retries(bad_request)
 
     def test_error_text(self, http_client: HTTPClient, rsps: respx.MockRouter) -> None:
         rsps.get("https://example.com/api/resource").respond(json={"message": "plain_text"}, status_code=401)
         response = http_client.request_single(
-            RequestMessage2(endpoint_url="https://example.com/api/resource", method="GET")
+            RequestMessage(endpoint_url="https://example.com/api/resource", method="GET")
         )
-        assert isinstance(response, FailedResponse2)
+        assert isinstance(response, FailedResponse)
         assert response.status_code == 401
         assert response.error.message == '{"message":"plain_text"}'
 
     def test_request_alpha(self, http_client: HTTPClient, rsps: respx.MockRouter) -> None:
         rsps.get("https://example.com/api/alpha/endpoint").respond(json={"key": "value"}, status_code=200)
         response = http_client.request_single(
-            RequestMessage2(
+            RequestMessage(
                 endpoint_url="https://example.com/api/alpha/endpoint",
                 method="GET",
                 parameters={"query": "test"},
                 api_version="alpha",
             )
         )
-        assert isinstance(response, SuccessResponse2)
+        assert isinstance(response, SuccessResponse)
         assert response.status_code == 200
         assert rsps.calls[-1].request.headers["cdf-version"] == "alpha"
 
@@ -190,7 +190,7 @@ class TestHTTPClientItemRequests2:
         )
         items = [MyRequestItem(name="A", id=1), MyRequestItem(name="B", id=2)]
         results = http_client.request_items(
-            ItemsRequest2(
+            ItemsRequest(
                 endpoint_url="https://example.com/api/resource",
                 method="POST",
                 items=items,
@@ -199,7 +199,7 @@ class TestHTTPClientItemRequests2:
         )
         body = '{"items":[{"id":1,"value":42},{"id":2,"value":43}]}'
         assert results == [
-            ItemsSuccessResponse2(status_code=200, ids=["1", "2"], body=body, content=body.encode("utf-8"))
+            ItemsSuccessResponse(status_code=200, ids=["1", "2"], body=body, content=body.encode("utf-8"))
         ]
         assert len(rsps.calls) == 1
         assert json.loads(rsps.calls[0].request.content) == {
@@ -230,7 +230,7 @@ class TestHTTPClientItemRequests2:
             MyRequestItem(name="fail", id=2),
         ]
         results = http_client.request_items_retries(
-            ItemsRequest2(
+            ItemsRequest(
                 endpoint_url="https://example.com/api/resource",
                 method="POST",
                 items=request_items,
@@ -238,11 +238,11 @@ class TestHTTPClientItemRequests2:
         )
         body = '{"items":[{"externalId":"success","data":123}]}'
         assert results == [
-            ItemsSuccessResponse2(status_code=200, ids=["1"], body=body, content=body.encode("utf-8")),
-            ItemsFailedResponse2(
+            ItemsSuccessResponse(status_code=200, ids=["1"], body=body, content=body.encode("utf-8")),
+            ItemsFailedResponse(
                 status_code=400,
                 ids=["2"],
-                error=ErrorDetails2(message="Item failed", code=400),
+                error=ErrorDetails(message="Item failed", code=400),
                 body='{"error":{"message":"Item failed","code":400}}',
             ),
         ]
@@ -265,17 +265,17 @@ class TestHTTPClientItemRequests2:
         )
         items = [MyRequestItem(name="item1", id=1), MyRequestItem(name="item2", id=2)]
         results = http_client.request_items(
-            ItemsRequest2(
+            ItemsRequest(
                 endpoint_url="https://example.com/api/resource",
                 method="POST",
                 items=items,
             )
         )
         assert results == [
-            ItemsFailedResponse2(
+            ItemsFailedResponse(
                 status_code=401,
                 ids=["1", "2"],
-                error=ErrorDetails2(message="Unauthorized", code=401),
+                error=ErrorDetails(message="Unauthorized", code=401),
                 body='{"error":{"message":"Unauthorized","code":401}}',
             ),
         ]
@@ -285,14 +285,14 @@ class TestHTTPClientItemRequests2:
         rsps.post("https://example.com/api/resource/delete").respond(status_code=200)
         items = [MyRequestItem(name="A", id=1), MyRequestItem(name="B", id=2)]
         results = http_client.request_items(
-            ItemsRequest2(
+            ItemsRequest(
                 endpoint_url="https://example.com/api/resource/delete",
                 method="POST",
                 items=items,
             )
         )
         assert results == [
-            ItemsSuccessResponse2(status_code=200, ids=["1", "2"], body="", content=b""),
+            ItemsSuccessResponse(status_code=200, ids=["1", "2"], body="", content=b""),
         ]
 
     def test_timeout_error(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
@@ -300,14 +300,14 @@ class TestHTTPClientItemRequests2:
         rsps.post("https://example.com/api/resource").mock(side_effect=httpx.ReadTimeout("Simulated timeout error"))
         with patch("time.sleep"):
             results = client.request_items_retries(
-                ItemsRequest2(
+                ItemsRequest(
                     endpoint_url="https://example.com/api/resource",
                     method="POST",
                     items=[MyRequestItem(name="A", id=1)],
                 )
             )
         assert results == [
-            ItemsFailedRequest2(
+            ItemsFailedRequest(
                 ids=["1"], error_message="RequestException after 1 attempts (read error): Simulated timeout error"
             )
         ]
@@ -321,7 +321,7 @@ class TestHTTPClientItemRequests2:
         )
         with patch("time.sleep"):
             results = client.request_items_retries(
-                ItemsRequest2(
+                ItemsRequest(
                     endpoint_url="https://example.com/api/resource",
                     method="POST",
                     items=[MyRequestItem(name=str(i), id=i) for i in range(1000)],
@@ -333,8 +333,8 @@ class TestHTTPClientItemRequests2:
         assert actual_items_per_request == [1000, 500, 500, 250, 250]
         failures = Counter([type(result) for result in results for _ in getattr(result, "ids", [])])
         assert failures == {
-            ItemsFailedResponse2: 250,
-            ItemsFailedRequest2: 750,
+            ItemsFailedResponse: 250,
+            ItemsFailedRequest: 750,
         }
 
     @pytest.mark.usefixtures("disable_gzip")
@@ -345,7 +345,7 @@ class TestHTTPClientItemRequests2:
             status_code=400,
         )
         results = client.request_items_retries(
-            ItemsRequest2(
+            ItemsRequest(
                 endpoint_url="https://example.com/api/resource",
                 method="POST",
                 items=[MyRequestItem(name=str(i), id=i) for i in range(1000)],
@@ -353,7 +353,7 @@ class TestHTTPClientItemRequests2:
             )
         )
         actual_failure_types = Counter([type(results) for results in results])
-        assert actual_failure_types == {ItemsFailedResponse2: 1}
+        assert actual_failure_types == {ItemsFailedResponse: 1}
         assert len(rsps.calls) == 1
         actual_items_per_request = [len(json.loads(call.request.content)["items"]) for call in rsps.calls]
         assert actual_items_per_request == [1000]
@@ -366,7 +366,7 @@ class TestHTTPClientItemRequests2:
             status_code=400,
         )
         results = client.request_items_retries(
-            ItemsRequest2(
+            ItemsRequest(
                 endpoint_url="https://example.com/api/resource",
                 method="POST",
                 items=[MyRequestItem(name=str(i), id=i) for i in range(1000)],
@@ -374,7 +374,7 @@ class TestHTTPClientItemRequests2:
             )
         )
         actual_failure_types = Counter([type(results) for results in results for _ in getattr(results, "ids", [])])
-        assert actual_failure_types == {ItemsFailedResponse2: 500, ItemsFailedRequest2: 500}
+        assert actual_failure_types == {ItemsFailedResponse: 500, ItemsFailedRequest: 500}
         assert len(rsps.calls) == 2
         actual_items_per_request = [len(json.loads(call.request.content)["items"]) for call in rsps.calls]
         assert actual_items_per_request == [1000, 500]
@@ -387,7 +387,7 @@ class TestHTTPClientItemRequests2:
             status_code=400,
         )
         results = client.request_items_retries(
-            ItemsRequest2(
+            ItemsRequest(
                 endpoint_url="https://example.com/api/resource",
                 method="POST",
                 items=[MyRequestItem(name=str(i), id=i) for i in range(100)],
@@ -395,7 +395,7 @@ class TestHTTPClientItemRequests2:
             )
         )
         actual_failure_types = Counter([type(results) for results in results for _ in getattr(results, "ids", [])])
-        assert actual_failure_types == {ItemsFailedResponse2: 100}
+        assert actual_failure_types == {ItemsFailedResponse: 100}
         assert len(rsps.calls) == 199
 
     @pytest.mark.usefixtures("disable_gzip")
@@ -421,7 +421,7 @@ class TestHTTPClientItemRequests2:
         rsps.post("https://example.com/api/resource").mock(side_effect=dislike_942_112_and_547)
         with patch("time.sleep"):
             results = client.request_items_retries(
-                ItemsRequest2(
+                ItemsRequest(
                     endpoint_url="https://example.com/api/resource",
                     method="POST",
                     items=[MyRequestItem(name=str(i), id=i) for i in range(1000)],
@@ -429,12 +429,12 @@ class TestHTTPClientItemRequests2:
                 )
             )
         failures = Counter([type(results) for results in results for _ in getattr(results, "ids", [])])
-        assert failures == {ItemsFailedResponse2: 3, ItemsSuccessResponse2: 997}
+        assert failures == {ItemsFailedResponse: 3, ItemsSuccessResponse: 997}
 
 
 class TestItemMessage:
     def test_tracker_correctly_set(self) -> None:
-        message = ItemsRequest2(
+        message = ItemsRequest(
             endpoint_url="https://example.com/api/resource",
             method="POST",
             items=[MyRequestItem(name="A", id=1)],

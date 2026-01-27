@@ -9,9 +9,9 @@ from collections.abc import Iterable, Sequence
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
-    ItemsSuccessResponse2,
-    RequestMessage2,
-    SuccessResponse2,
+    ItemsSuccessResponse,
+    RequestMessage,
+    SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupRequest, GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
@@ -34,9 +34,7 @@ class GroupsAPI(CDFResourceAPI[InternalId, GroupRequest, GroupResponse]):
             },
         )
 
-    def _validate_page_response(
-        self, response: SuccessResponse2 | ItemsSuccessResponse2
-    ) -> PagedResponse[GroupResponse]:
+    def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[GroupResponse]:
         return PagedResponse[GroupResponse].model_validate_json(response.body)
 
     def create(self, items: Sequence[GroupRequest]) -> list[GroupResponse]:
@@ -59,7 +57,7 @@ class GroupsAPI(CDFResourceAPI[InternalId, GroupRequest, GroupResponse]):
         # Custom implementation since delete does not wrap the items in a {"id": ...} structure
         endpoint = self._method_endpoint_map["delete"]
         for chunk in chunker_sequence(items, endpoint.item_limit):
-            request = RequestMessage2(
+            request = RequestMessage(
                 endpoint_url=self._make_url(endpoint.path),
                 method=endpoint.method,
                 body_content={"items": [item.id for item in chunk]},

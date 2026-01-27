@@ -18,11 +18,11 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
-    FailedRequest2,
-    FailedResponse2,
+    FailedRequest,
+    FailedResponse,
     HTTPClient,
-    RequestMessage2,
-    SuccessResponse2,
+    RequestMessage,
+    SuccessResponse,
     ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
@@ -240,7 +240,7 @@ class TestMigrate3D:
                 [UploadItem(source_id=str(model.id), item=migration_request)], http_client=http_client
             )
 
-        errors = [str(res) for res in result if isinstance(res, FailedRequest2 | FailedResponse2)]
+        errors = [str(res) for res in result if isinstance(res, FailedRequest | FailedResponse)]
         if len(errors) > 0:
             raise EndpointAssertionError(
                 io.UPLOAD_ENDPOINT, f"{self.ERROR_HEADING}Errors: {humanize_collection(errors)}"
@@ -301,7 +301,7 @@ class TestMigrate3D:
             mapping_results = mapping_io.upload_items(
                 [UploadItem(source_id=f"{model.id}", item=asset_mapping)], http_client=http_client
             )
-        mapping_errors = [str(res) for res in mapping_results if isinstance(res, FailedRequest2 | FailedResponse2)]
+        mapping_errors = [str(res) for res in mapping_results if isinstance(res, FailedRequest | FailedResponse)]
         if len(mapping_errors) > 0:
             raise EndpointAssertionError(
                 mapping_io.UPLOAD_ENDPOINT, f"{self.ERROR_HEADING}Mapping Errors: {humanize_collection(mapping_errors)}"
@@ -371,14 +371,14 @@ def classic_file_with_content(
     if created_file.upload_url is None:
         raise AssertionError("Created classic file metadata has no upload URL.")
     response = client.http_client.request_single_retries(
-        RequestMessage2(
+        RequestMessage(
             endpoint_url=created_file.upload_url,
             method="PUT",
             content_type=mime_type,
             data_content=b"Toolkit classic file content for migration smoke test.",
         )
     )
-    if not isinstance(response, SuccessResponse2):
+    if not isinstance(response, SuccessResponse):
         raise EndpointAssertionError(
             created_file.upload_url,
             f"Failed to upload content for classic file metadata. Response: {response}",

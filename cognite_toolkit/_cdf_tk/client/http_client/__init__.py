@@ -1,33 +1,33 @@
 from ._client import HTTPClient
-from ._data_classes2 import (
-    ErrorDetails2,
-    FailedRequest2,
-    FailedResponse2,
-    HTTPResult2,
-    RequestMessage2,
-    SuccessResponse2,
+from ._data_classes import (
+    ErrorDetails,
+    FailedRequest,
+    FailedResponse,
+    HTTPResult,
+    RequestMessage,
+    SuccessResponse,
 )
 from ._exception import ToolkitAPIError
 from ._item_classes import (
-    ItemsFailedRequest2,
-    ItemsFailedResponse2,
-    ItemsRequest2,
-    ItemsResultMessage2,
-    ItemsSuccessResponse2,
+    ItemsFailedRequest,
+    ItemsFailedResponse,
+    ItemsRequest,
+    ItemsResultMessage,
+    ItemsSuccessResponse,
 )
 
 __all__ = [
-    "ErrorDetails2",
-    "FailedRequest2",
-    "FailedResponse2",
+    "ErrorDetails",
+    "FailedRequest",
+    "FailedResponse",
     "HTTPClient",
-    "HTTPResult2",
-    "ItemsFailedRequest2",
-    "ItemsFailedResponse2",
-    "ItemsRequest2",
-    "ItemsResultMessage2",
-    "ItemsSuccessResponse2",
-    "RequestMessage2",
-    "SuccessResponse2",
+    "HTTPResult",
+    "ItemsFailedRequest",
+    "ItemsFailedResponse",
+    "ItemsRequest",
+    "ItemsResultMessage",
+    "ItemsSuccessResponse",
+    "RequestMessage",
+    "SuccessResponse",
     "ToolkitAPIError",
 ]
