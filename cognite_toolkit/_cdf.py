@@ -131,6 +131,9 @@ def app() -> NoReturn:
     # Users run 'app()' directly, but that doesn't allow us to control excepton handling:
     try:
         _app()
+    except KeyboardInterrupt:
+        # This is raised when the user hits Ctrl+C - typically within an questionary prompt
+        raise typer.Abort("Operation cancelled by user.") from None
     except ToolkitError as err:
         if "--verbose" in sys.argv:
             print(Panel(traceback.format_exc(), title="Traceback", expand=False))
