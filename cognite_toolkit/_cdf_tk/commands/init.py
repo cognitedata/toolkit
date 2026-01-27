@@ -129,7 +129,7 @@ class InitCommand(ToolkitCommand):
                 "Select a task:",
                 choices=choices,
                 default=default_value,
-            ).ask()
+            ).unsafe_ask()
 
             # User cancelled (Ctrl+C or similar)
             if selected is None:
@@ -161,7 +161,7 @@ class InitCommand(ToolkitCommand):
                 confirm = questionary.confirm(
                     f"'{selected_item.description}' was already run {status_text}",
                     default=False,
-                ).ask()
+                ).unsafe_ask()
                 if not confirm:
                     continue
 
@@ -218,7 +218,7 @@ class InitCommand(ToolkitCommand):
         opt_in = questionary.confirm(
             "Do you want to opt in to collect usage statistics? This will help us improve the Toolkit.",
             default=True,
-        ).ask()
+        ).unsafe_ask()
         if dry_run:
             print("Would opt in to collect data" if opt_in else "Would not opt in to collect data")
             return

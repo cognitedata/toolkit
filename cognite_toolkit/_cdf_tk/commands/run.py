@@ -153,7 +153,7 @@ if __name__ == "__main__":
             )
 
         if is_interactive:
-            wait = questionary.confirm("Do you want to wait for the function to complete?").ask()
+            wait = questionary.confirm("Do you want to wait for the function to complete?").unsafe_ask()
 
         # Todo: Get one shot token using the call_args.authentication
         session = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
@@ -220,7 +220,7 @@ if __name__ == "__main__":
             # Interactive mode
             external_id = questionary.select(
                 "Select function to run", choices=list(function_builds_by_identifier.keys())
-            ).ask()
+            ).unsafe_ask()
         elif external_id not in function_builds_by_identifier.keys():
             raise ToolkitMissingResourceError(f"Could not find function with external id {external_id}")
         return function_builds_by_identifier[external_id]
@@ -235,7 +235,8 @@ if __name__ == "__main__":
         is_interactive: bool,
     ) -> FunctionCallArgs:
         if data_source is None and (
-            not is_interactive or not questionary.confirm("Do you want to provide input data for the function?").ask()
+            not is_interactive
+            or not questionary.confirm("Do you want to provide input data for the function?").unsafe_ask()
         ):
             return FunctionCallArgs()
         if is_interactive:
@@ -315,7 +316,7 @@ if __name__ == "__main__":
         if len(options) == 0:
             print(f"No schedules or workflows found for this {function_external_id} function.")
             return {}, None
-        selected_name: str = questionary.select("Select schedule to run", choices=options).ask()  # type: ignore[arg-type]
+        selected_name: str = questionary.select("Select schedule to run", choices=options).unsafe_ask()  # type: ignore[arg-type]
         selected = options[selected_name]
         if isinstance(selected, BuiltResourceFull):
             # Schedule
@@ -689,7 +690,7 @@ class RunWorkflowCommand(ToolkitCommand):
         if external_id is None:
             # Interactive mode
             choices = [questionary.Choice(title=f"{build.identifier!r}", value=build) for build in workflows]
-            selected = questionary.select("Select workflow to run", choices=choices).ask()
+            selected = questionary.select("Select workflow to run", choices=choices).unsafe_ask()
         else:
             selected_ = next(
                 (
@@ -719,7 +720,7 @@ class RunWorkflowCommand(ToolkitCommand):
                     is_interactive
                     and not questionary.confirm(
                         "Do you want to use input data and authentication from this trigger?"
-                    ).ask()
+                    ).unsafe_ask()
                 ):
                     break
                 credentials = (
@@ -750,7 +751,7 @@ class RunWorkflowCommand(ToolkitCommand):
             raise AuthorizationError(f"Could not create oneshot session for workflow {id_!r}: {e!s}") from e
 
         if is_interactive:
-            wait = questionary.confirm("Do you want to wait for the workflow to complete?").ask()
+            wait = questionary.confirm("Do you want to wait for the workflow to complete?").unsafe_ask()
         if id_.version is None:
             raise ToolkitValueError("Version is required for workflow.")
         execution = client.workflows.executions.run(

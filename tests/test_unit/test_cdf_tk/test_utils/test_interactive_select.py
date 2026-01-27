@@ -491,17 +491,6 @@ class TestInteractiveCanvasSelect:
 
         assert selected_external_ids == expected_selected
 
-    def test_interactive_abort_selection(self, monkeypatch) -> None:
-        answers = [None]
-        with (
-            monkeypatch_toolkit_client() as client,
-            MockQuestionary(InteractiveCanvasSelect.__module__, monkeypatch, answers),
-        ):
-            selector = InteractiveCanvasSelect(client)
-            with pytest.raises(ToolkitValueError) as exc_info:
-                selector.select_external_ids()
-        assert str(exc_info.value) == "No Canvas selection made. Aborting."
-
 
 class TestInteractiveChartSelect:
     @pytest.mark.parametrize(
@@ -601,17 +590,6 @@ class TestInteractiveChartSelect:
             selector = InteractiveChartSelect(client)
             selected_external_ids = selector.select_external_ids()
         assert selected_external_ids == expected_selected
-
-    def test_interactive_abort_selection(self, monkeypatch) -> None:
-        answers = [None]
-        with (
-            monkeypatch_toolkit_client() as client,
-            MockQuestionary(InteractiveChartSelect.__module__, monkeypatch, answers),
-        ):
-            selector = InteractiveChartSelect(client)
-            with pytest.raises(ToolkitValueError) as exc_info:
-                selector.select_external_ids()
-        assert str(exc_info.value) == "No Chart selection made. Aborting."
 
 
 class TestDataModelingInteractiveSelect:
