@@ -21,8 +21,10 @@ class ImportTransformationCLI(ToolkitCommand):
         get_client: Callable[[], ToolkitClient] | None = None,
         print_warning: bool = True,
         skip_tracking: bool = False,
+        silent: bool = False,
+        client: ToolkitClient | None = None,
     ):
-        super().__init__(print_warning, skip_tracking)
+        super().__init__(print_warning, skip_tracking, silent, client)
         self._dataset_external_id_by_id: dict[int, str] = {}
         # We only initialize the client if we need to look up dataset ids.
         self._client: ToolkitClient | None = None

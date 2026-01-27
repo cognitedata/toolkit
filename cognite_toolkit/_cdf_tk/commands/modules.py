@@ -23,6 +23,7 @@ from rich.table import Table
 from rich.tree import Tree
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml, Library
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import _cli_commands as CLICommands
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._changes import (
@@ -81,10 +82,11 @@ class ModulesCommand(ToolkitCommand):
         print_warning: bool = True,
         skip_tracking: bool = False,
         silent: bool = False,
+        client: ToolkitClient | None = None,
         temp_dir_suffix: str | None = None,
         module_source_dir: Path | None = None,
     ):
-        super().__init__(print_warning, skip_tracking, silent)
+        super().__init__(print_warning, skip_tracking, silent, client)
         self._module_source_dir: Path | None = module_source_dir
         # Use suffix to make temp directory unique (useful for parallel test execution)
         modules_dir_name = f"{MODULES}.{temp_dir_suffix}" if temp_dir_suffix else MODULES
