@@ -14,12 +14,12 @@ class OidcConfiguration(BaseModelObject):
     token_url: str | None = None
     issuer: str
     audience: str
-    skew_ms: int
+    skew_ms: int | None = None
     access_claims: list[Claim]
-    scoper_claims: list[Claim]
+    scope_claims: list[Claim]
     log_claims: list[Claim]
-    is_group_callback_enabled: bool
-    identity_provider_scope: str
+    is_group_callback_enabled: bool | None = None
+    identity_provider_scope: str | None = None
 
 
 class OrganizationResponse(BaseModelObject):
