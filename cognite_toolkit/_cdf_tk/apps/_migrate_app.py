@@ -913,12 +913,11 @@ class MigrateApp(typer.Typer):
         if external_id is None:
             interactive = InteractiveCanvasSelect(client)
             external_id = interactive.select_external_ids()
-            log_dir = questionary.path("Specify log directory for migration logs:", default=str(log_dir)).ask()
-            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
-            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
-            if any(res is None for res in [log_dir, dry_run, verbose]):
-                raise typer.Abort()
-            log_dir = Path(log_dir)
+            log_dir = Path(
+                questionary.path("Specify log directory for migration logs:", default=str(log_dir)).unsafe_ask()
+            )
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
 
         cmd = MigrationCommand()
         selector = CanvasExternalIdSelector(external_ids=tuple(external_id))
