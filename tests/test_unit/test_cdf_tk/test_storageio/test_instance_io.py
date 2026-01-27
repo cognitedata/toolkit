@@ -9,10 +9,14 @@ from cognite.client.data_classes import View
 from cognite.client.data_classes.data_modeling import DataModel, EdgeApply, Node, NodeApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.http_client import FailedResponseItems, HTTPClient, SuccessResponseItems
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceApplyList, InstanceList
+from cognite_toolkit._cdf_tk.client.http_client import (
+    HTTPClient,
+    ItemsFailedResponse2,
+    ItemsSuccessResponse2,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceList
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
-from cognite_toolkit._cdf_tk.storageio import InstanceIO
+from cognite_toolkit._cdf_tk.storageio import InstanceIO, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSpaceSelector, InstanceViewSelector, SelectedView
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -72,23 +76,22 @@ class TestInstanceIO:
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
         instance_count = 12
         with HTTPClient(config) as http_client:
-            instances = InstanceApplyList(
-                [
-                    NodeApply(
-                        space="my_space",
-                        external_id=f"instance_{i}",
-                    )
-                    if i % 2 == 0
-                    else EdgeApply(
-                        space="my_space",
-                        external_id=f"instance_{i}",
-                        type=("schema_space", "edge_type"),
-                        start_node=("my_space", f"instance_{i - 1}"),
-                        end_node=("my_space", f"instance_{i + 1}"),
-                    )
-                    for i in range(instance_count)
-                ]
+            instances = (
+                NodeApply(
+                    space="my_space",
+                    external_id=f"instance_{i}",
+                )
+                if i % 2 == 0
+                else EdgeApply(
+                    space="my_space",
+                    external_id=f"instance_{i}",
+                    type=("schema_space", "edge_type"),
+                    start_node=("my_space", f"instance_{i - 1}"),
+                    end_node=("my_space", f"instance_{i + 1}"),
+                )
+                for i in range(instance_count)
             )
+            upload_items = [UploadItem(source_id=instance.external_id, item=instance) for instance in instances]
 
             def hate_edges(request: httpx.Request) -> httpx.Response:
                 # Check request body content
@@ -119,12 +122,12 @@ class TestInstanceIO:
             with respx.mock() as rsps:
                 rsps.post(url).mock(side_effect=hate_edges)
                 io = InstanceIO(client)
-                results = io.upload_items(instances, http_client)
+                results = io.upload_items(upload_items, http_client)
 
             assert len(results) == instance_count
-            failed_items = [id for res in results if isinstance(res, FailedResponseItems) for id in res.ids]
+            failed_items = [id for res in results if isinstance(res, ItemsFailedResponse2) for id in res.ids]
             assert len(failed_items) == instance_count // 2
-            success_items = [id for res in results if isinstance(res, SuccessResponseItems) for id in res.ids]
+            success_items = [id for res in results if isinstance(res, ItemsSuccessResponse2) for id in res.ids]
             assert len(success_items) == instance_count // 2
 
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")

@@ -4,7 +4,7 @@ import pytest
 from cognite.client.data_classes import DataSet, Event, EventWrite
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2
 from cognite_toolkit._cdf_tk.storageio import CanvasIO
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
@@ -104,5 +104,5 @@ class TestCanvasIO:
         with HTTPClient(toolkit_client.config) as http_client:
             upload_result = io.upload_items(upload_items, http_client)
 
-        not_success = [message for message in upload_result if not isinstance(message, SuccessResponse)]
+        not_success = [message for message in upload_result if not isinstance(message, ItemsSuccessResponse2)]
         assert len(not_success) == 0, f"Some canvas items failed to upload: {humanize_collection(not_success)}"

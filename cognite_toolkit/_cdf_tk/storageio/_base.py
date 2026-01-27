@@ -1,10 +1,14 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass
-from typing import ClassVar, Generic, Literal, TypeVar
+from typing import Any, ClassVar, Generic, Literal, TypeVar
+
+from pydantic import ConfigDict
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, HTTPMessage, ItemsRequest
+from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest2, ItemsResultList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.utils.collection import chunker
@@ -36,8 +40,7 @@ class Page(Generic[T_ResourceResponse], Sized):
         return len(self.items)
 
 
-@dataclass
-class UploadItem(Generic[T_ResourceRequest]):
+class UploadItem(RequestItem, Generic[T_ResourceRequest]):
     """An item to be uploaded to CDF, consisting of a source ID and the writable Cognite resource.
 
     Attributes:
@@ -45,14 +48,16 @@ class UploadItem(Generic[T_ResourceRequest]):
         item: The writable Cognite resource to be uploaded.
     """
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     source_id: str
     item: T_ResourceRequest
 
-    def as_id(self) -> str:
+    def __str__(self) -> str:
         return self.source_id
 
-    def dump(self) -> JsonVal:
-        return self.item.dump(camel_case=True)
+    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+        return self.item.dump(camel_case=camel_case)
 
 
 class StorageIO(ABC, Generic[T_Selector, T_ResourceResponse]):
@@ -155,7 +160,7 @@ class UploadableStorageIO(
         data_chunk: Sequence[UploadItem[T_ResourceRequest]],
         http_client: HTTPClient,
         selector: T_Selector | None = None,
-    ) -> Sequence[HTTPMessage]:
+    ) -> ItemsResultList:
         """Upload a chunk of data to the storage using a custom HTTP client.
         This ensures that even if one item in the chunk fails, the rest will still be uploaded.
 
@@ -179,11 +184,11 @@ class UploadableStorageIO(
         else:
             raise ToolkitNotImplementedError(f"Unsupported UPLOAD_ENDPOINT_TYPE {self.UPLOAD_ENDPOINT_TYPE!r}.")
 
-        return http_client.request_with_retries(
-            message=ItemsRequest(
+        return http_client.request_items_retries(
+            message=ItemsRequest2(
                 endpoint_url=url,
                 method=self.UPLOAD_ENDPOINT_METHOD,
-                items=list(data_chunk),
+                items=data_chunk,
                 extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
             )
         )

@@ -1,6 +1,6 @@
 import sys
 from collections.abc import Collection, Iterator
-from typing import Any, Generic, Protocol, TypeVar
+from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
 
 from cognite.client import CogniteClient
 
@@ -10,6 +10,7 @@ else:
     from typing_extensions import Self
 
 
+@runtime_checkable
 class ResourceRequestProtocol(Protocol):
     @classmethod
     def _load(cls, data: dict[str, Any]) -> Self: ...
@@ -17,6 +18,7 @@ class ResourceRequestProtocol(Protocol):
     def dump(self, camel_case: bool = True) -> dict[str, Any]: ...
 
 
+@runtime_checkable
 class ResourceResponseProtocol(Protocol):
     def as_write(self) -> ResourceRequestProtocol: ...
 
