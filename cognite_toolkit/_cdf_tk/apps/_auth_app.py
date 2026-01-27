@@ -54,6 +54,7 @@ class AuthApp(typer.Typer):
         "projectsAcl": ["LIST", "READ"],
         "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"]
         """
+        # We do not pass in a client here as this is typically used to create the .env file needed for authentication.
         cmd = AuthCommand()
         cmd.run(
             lambda: cmd.init(
@@ -92,9 +93,8 @@ class AuthApp(typer.Typer):
         ] = False,
     ) -> None:
         """Verify that the current user or service principal has the required capabilities to run the CDF Toolkit commands."""
-        cmd = AuthCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
-
+        cmd = AuthCommand(client=client)
         cmd.run(
             lambda: cmd.verify(
                 client,

@@ -58,8 +58,9 @@ class RunApp(typer.Typer):
     ) -> None:
         """This command will run the specified transformation using a one-time session."""
         RunApp._print_deprecation_warning()
-        cmd = RunTransformationCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = RunTransformationCommand(client=client)
+
         cmd.run(lambda: cmd.run_transformation(client, external_id))
 
     @staticmethod
@@ -116,8 +117,8 @@ class RunApp(typer.Typer):
     ) -> None:
         """This command will run the specified workflow."""
         RunApp._print_deprecation_warning()
-        cmd = RunWorkflowCommand()
         env_vars = EnvironmentVariables.create_from_environment()
+        cmd = RunWorkflowCommand(client=env_vars.get_client())
         cmd.run(lambda: cmd.run_workflow(env_vars, organization_dir, env_name, external_id, version, wait))
 
 
@@ -188,8 +189,8 @@ class RunFunctionApp(typer.Typer):
     ) -> None:
         """This command will run the specified function locally."""
         RunApp._print_deprecation_warning()
-        cmd = RunFunctionCommand()
         env_vars = EnvironmentVariables.create_from_environment()
+        cmd = RunFunctionCommand(client=env_vars.get_client())
         cmd.run(
             lambda: cmd.run_local(
                 env_vars,
@@ -254,6 +255,6 @@ class RunFunctionApp(typer.Typer):
     ) -> None:
         """This command will run the specified function (assuming it is deployed) in CDF."""
         RunApp._print_deprecation_warning()
-        cmd = RunFunctionCommand()
         env_vars = EnvironmentVariables.create_from_environment()
+        cmd = RunFunctionCommand(client=env_vars.get_client())
         cmd.run(lambda: cmd.run_cdf(env_vars, organization_dir, env_name, external_id, schedule, wait))

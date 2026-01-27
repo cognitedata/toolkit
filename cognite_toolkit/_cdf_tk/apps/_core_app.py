@@ -210,9 +210,9 @@ class CoreApp(typer.Typer):
             print_warning = False
 
         cmd = (
-            BuildCommandV2(print_warning=print_warning)
+            BuildCommandV2(print_warning=print_warning, client=client)
             if Flags.v08.is_enabled()
-            else BuildCommand(print_warning=print_warning)
+            else BuildCommand(print_warning=print_warning, client=client)
         )
         cmd.run(
             lambda: cmd.execute(
@@ -302,8 +302,8 @@ class CoreApp(typer.Typer):
         ] = False,
     ) -> None:
         """Deploys the configuration files in the build directory to the CDF project."""
-        cmd = DeployCommand(print_warning=True)
         env_vars = EnvironmentVariables.create_from_environment()
+        cmd = DeployCommand(print_warning=True, client=env_vars.get_client())
         cmd.run(
             lambda: cmd.deploy_build_directory(
                 env_vars=env_vars,
@@ -371,8 +371,8 @@ class CoreApp(typer.Typer):
     ) -> None:
         """Cleans the resources in the build directory from the CDF project."""
         # Override cluster and project from the options/env variables
-        cmd = CleanCommand(print_warning=True)
         env = EnvironmentVariables.create_from_environment()
+        cmd = CleanCommand(print_warning=True, client=env.get_client())
         cmd.run(
             lambda: cmd.execute(
                 env,

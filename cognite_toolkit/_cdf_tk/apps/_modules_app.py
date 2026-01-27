@@ -1,3 +1,4 @@
+import contextlib
 from pathlib import Path
 from typing import Annotated
 
@@ -5,6 +6,7 @@ import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, PullCommand
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
@@ -77,6 +79,11 @@ class ModulesApp(typer.Typer):
         ] = False,
     ) -> None:
         """Initialize or upgrade a new CDF project with templates interactively."""
+        client: ToolkitClient | None = None
+        with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
+            # Try to load client if possible, but ignore errors.
+            # This is only used for logging purposes in the command.
+            client = EnvironmentVariables.create_from_environment().get_client()
 
         if library_url and not library_checksum:
             raise typer.BadParameter(
@@ -84,7 +91,7 @@ class ModulesApp(typer.Typer):
                 param_hint="--library-checksum",
             )
 
-        with ModulesCommand() as cmd:
+        with ModulesCommand(client=client) as cmd:
             cmd.run(
                 lambda: cmd.init(
                     organization_dir=organization_dir,
@@ -114,7 +121,13 @@ class ModulesApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        cmd = ModulesCommand()
+        client: ToolkitClient | None = None
+        with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
+            # Try to load client if possible, but ignore errors.
+            # This is only used for logging purposes in the command.
+            client = EnvironmentVariables.create_from_environment().get_client()
+
+        cmd = ModulesCommand(client=client)
         cmd.run(lambda: cmd.upgrade(organization_dir=organization_dir, verbose=verbose))
 
     # This is a trick to use an f-string for the docstring
@@ -140,7 +153,12 @@ class ModulesApp(typer.Typer):
         ] = False,
     ) -> None:
         """Add one or more new module(s) to the project."""
-        with ModulesCommand() as cmd:
+        client: ToolkitClient | None = None
+        with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
+            # Try to load client if possible, but ignore errors.
+            # This is only used for logging purposes in the command.
+            client = EnvironmentVariables.create_from_environment().get_client()
+        with ModulesCommand(client=client) as cmd:
             cmd.run(lambda: cmd.add(organization_dir=organization_dir))
 
     def pull(
@@ -187,8 +205,8 @@ class ModulesApp(typer.Typer):
         ] = False,
     ) -> None:
         """Pull a module from CDF. This will overwrite the local files with the latest version from CDF."""
-        cmd = PullCommand()
         env_vars = EnvironmentVariables.create_from_environment()
+        cmd = PullCommand(client=env_vars.get_client())
         cmd.run(
             lambda: cmd.pull_module(
                 module_name_or_path=module_name_or_path,
@@ -227,5 +245,11 @@ class ModulesApp(typer.Typer):
         ] = False,
     ) -> None:
         """List all available modules in the project."""
-        cmd = ModulesCommand()
+        client: ToolkitClient | None = None
+        with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
+            # Try to load client if possible, but ignore errors.
+            # This is only used for logging purposes in the command.
+            client = EnvironmentVariables.create_from_environment().get_client()
+
+        cmd = ModulesCommand(client=client)
         cmd.run(lambda: cmd.list(organization_dir=organization_dir, build_env_name=build_env))

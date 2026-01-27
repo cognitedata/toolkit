@@ -108,7 +108,7 @@ class MigrateApp(typer.Typer):
         depend on the primary resources 3D and annotations.
         """
         client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
-        cmd = MigrationPrepareCommand()
+        cmd = MigrationPrepareCommand(client=client)
         cmd.run(
             lambda: cmd.deploy_cognite_migration(
                 client,
@@ -167,7 +167,7 @@ class MigrateApp(typer.Typer):
             )
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.create(
                 client,
@@ -244,7 +244,7 @@ class MigrateApp(typer.Typer):
         elif data_set is None or instance_space is None:
             raise typer.BadParameter("Both data_set and instance_space must be provided together.")
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.create(
                 client,
@@ -337,7 +337,7 @@ class MigrateApp(typer.Typer):
             container_id=ContainerId("cdf_cdm", "CogniteAsset"),
         )
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
                 selected=selected,
@@ -484,7 +484,7 @@ class MigrateApp(typer.Typer):
             container_id=ContainerId("cdf_cdm", "CogniteActivity"),
         )
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
 
         cmd.run(
             lambda: cmd.migrate(
@@ -592,7 +592,7 @@ class MigrateApp(typer.Typer):
                 "Do you want to link old and new TimeSeries?", default=not skip_linking
             ).unsafe_ask()
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
                 selected=selected,
@@ -694,7 +694,7 @@ class MigrateApp(typer.Typer):
             resource_type="file",
             container_id=ContainerId("cdf_cdm", "CogniteFile"),
         )
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
 
         if data_set_id is None:
             skip_linking = not questionary.confirm(
@@ -841,7 +841,7 @@ class MigrateApp(typer.Typer):
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
                 selected=selected,
@@ -914,7 +914,7 @@ class MigrateApp(typer.Typer):
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         selector = CanvasExternalIdSelector(external_ids=tuple(external_id))
         cmd.run(
             lambda: cmd.migrate(
@@ -977,7 +977,7 @@ class MigrateApp(typer.Typer):
         else:
             selected_external_ids = InteractiveChartSelect(client).select_external_ids()
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
                 selected=ChartExternalIdSelector(external_ids=tuple(selected_external_ids)),
@@ -1039,7 +1039,7 @@ class MigrateApp(typer.Typer):
             selected_models = ThreeDInteractiveSelect(client, "migrate").select_three_d_models("classic")
             selected_ids = [model.id for model in selected_models]
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
                 selected=ThreeDModelIdSelector(ids=tuple(selected_ids)),
@@ -1133,7 +1133,7 @@ class MigrateApp(typer.Typer):
                 "--object-3d-space and --cad-node-space are required when specifying IDs directly."
             )
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
                 selected=ThreeDModelIdSelector(ids=tuple(selected_ids)),
@@ -1179,7 +1179,7 @@ class MigrateApp(typer.Typer):
         """Creates Infield V2 configurations from existing APM Configurations in CDF."""
         client = EnvironmentVariables.create_from_environment().get_client()
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.create(
                 client,

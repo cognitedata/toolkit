@@ -64,7 +64,8 @@ class UploadApp(typer.Typer):
         ] = False,
     ) -> None:
         """Commands to upload data to CDF."""
-        cmd = UploadCommand()
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = UploadCommand(client=client)
         if input_dir is None:
             input_candidate = sorted({p.parent for p in DEFAULT_INPUT_DIR.rglob(f"**/*{DATA_MANIFEST_SUFFIX}")})
             if not input_candidate:
@@ -89,7 +90,6 @@ class UploadApp(typer.Typer):
                     f"Deploy resources found in {display_name!r}?", default=deploy_resources
                 ).unsafe_ask()
 
-        client = EnvironmentVariables.create_from_environment().get_client()
         cmd.run(
             lambda: cmd.upload(
                 input_dir=input_dir,

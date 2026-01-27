@@ -62,8 +62,14 @@ from ._utils import _print_ids_or_length
 
 
 class DeployCommand(ToolkitCommand):
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
-        super().__init__(print_warning, skip_tracking, silent)
+    def __init__(
+        self,
+        print_warning: bool = True,
+        skip_tracking: bool = False,
+        silent: bool = False,
+        client: ToolkitClient | None = None,
+    ) -> None:
+        super().__init__(print_warning, skip_tracking, silent, client)
         self._clean_command = CleanCommand(print_warning, skip_tracking=True)
 
     def deploy_build_directory(
