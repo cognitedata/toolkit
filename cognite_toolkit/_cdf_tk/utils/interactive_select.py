@@ -362,6 +362,9 @@ class InteractiveCanvasSelect:
         if select_filter.select_all:
             return [canvas.external_id for canvas in available_canvases]
 
+        if not available_canvases:
+            raise ToolkitValueError("No Canvases available to select. Aborting.")
+
         selected_canvases = questionary.checkbox(
             "Select Canvases",
             choices=[
@@ -371,7 +374,8 @@ class InteractiveCanvasSelect:
                 )
                 for canvas in available_canvases
             ],
-        ).ask()
+            validate=lambda selected: "You must select at least one Canvas." if not selected else True,
+        ).unsafe_ask()
 
         return selected_canvases or []
 
