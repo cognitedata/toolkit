@@ -526,7 +526,7 @@ class MockQuestion:
         self.answer = answer
         self.choices = choices
 
-    def ask(self) -> Any:
+    def unsafe_ask(self) -> Any:
         if isinstance(self.answer, Callable):
             return self.answer(self.choices)
         return self.answer

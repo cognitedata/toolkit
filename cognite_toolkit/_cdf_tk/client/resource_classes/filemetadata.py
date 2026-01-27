@@ -1,4 +1,4 @@
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Literal
 
 from pydantic import Field, JsonValue
 
@@ -36,6 +36,12 @@ class FileMetadataRequest(FileMetadata, UpdatableRequestResource):
     # but we added it here for convenience so that it is available when converting
     # from response to request.
     instance_id: NodeReference | None = Field(default=None, exclude=True)
+
+    def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
+        update = super().as_update(mode)
+        # Name cannot be updated.
+        update["update"].pop("name", None)
+        return update
 
 
 class FileMetadataResponse(FileMetadata, ResponseResource[FileMetadataRequest]):

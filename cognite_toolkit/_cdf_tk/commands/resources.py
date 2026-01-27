@@ -32,7 +32,7 @@ class ResourcesCommand(ToolkitCommand):
                 if mod.name.casefold() == module.casefold():
                     return mod.dir
 
-            if questionary.confirm(f"{module} module not found. Do you want to create a new one?").ask():
+            if questionary.confirm(f"{module} module not found. Do you want to create a new one?").unsafe_ask():
                 return organization_dir / MODULES / module
 
             if verbose:
@@ -44,10 +44,10 @@ class ResourcesCommand(ToolkitCommand):
         choices = [Choice(title=mod.name, value=mod.dir) for mod in present_modules]
         choices.append(Choice(title="<Create new module>", value="NEW"))
 
-        selected = questionary.select("Select a module:", choices=choices).ask()
+        selected = questionary.select("Select a module:", choices=choices).unsafe_ask()
 
         if selected == "NEW":
-            new_module_name = questionary.text("Enter name for new module:").ask()
+            new_module_name = questionary.text("Enter name for new module:").unsafe_ask()
             if not new_module_name:
                 print("[red]No module name provided. Aborting...[/red]")
                 raise typer.Exit()
@@ -69,7 +69,7 @@ class ResourcesCommand(ToolkitCommand):
             sorted_cruds = sorted(RESOURCE_CRUD_LIST, key=lambda x: x.kind)
             choices = [Choice(title=crud.kind, value=crud) for crud in sorted_cruds]
 
-            selected = questionary.select("Select resource type:", choices=choices).ask()
+            selected = questionary.select("Select resource type:", choices=choices).unsafe_ask()
             if not selected:
                 print("[red]No resource type selected. Aborting...[/red]")
                 raise typer.Exit()
@@ -142,7 +142,10 @@ class ResourcesCommand(ToolkitCommand):
         file_name = f"{final_prefix}.{resource_crud.kind}.yaml"
         file_path: Path = resource_dir / file_name
 
-        if file_path.exists() and not questionary.confirm(f"{file_path.name} file already exists. Overwrite?").ask():
+        if (
+            file_path.exists()
+            and not questionary.confirm(f"{file_path.name} file already exists. Overwrite?").unsafe_ask()
+        ):
             print("[red]Skipping...[/red]")
             return
 

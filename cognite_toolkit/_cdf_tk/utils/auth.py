@@ -450,7 +450,7 @@ def prompt_user_environment_variables(current: EnvironmentVariables | None = Non
             if provider != "cdf"
         ],
         default=current.PROVIDER if current else "entra_id",
-    ).ask()
+    ).unsafe_ask()
     exclude = set()
     if provider == "cdf":
         exclude = set(VALID_LOGIN_FLOWS) - {"client_credentials"}
@@ -467,10 +467,10 @@ def prompt_user_environment_variables(current: EnvironmentVariables | None = Non
             "Choose the login flow (How do you going to authenticate?)",
             choices=choices,
             default=current.LOGIN_FLOW if current else "client_credentials",
-        ).ask()
+        ).unsafe_ask()
 
-    cdf_cluster = questionary.text("Enter the CDF cluster", default=current.CDF_CLUSTER if current else "").ask()
-    cdf_project = questionary.text("Enter the CDF project", default=current.CDF_PROJECT if current else "").ask()
+    cdf_cluster = questionary.text("Enter the CDF cluster", default=current.CDF_CLUSTER if current else "").unsafe_ask()
+    cdf_project = questionary.text("Enter the CDF project", default=current.CDF_PROJECT if current else "").unsafe_ask()
     args: dict[str, Any] = (
         current.dump(include_os=False)
         if current and _is_unchanged(current, provider, login_flow, cdf_project, cdf_cluster)  # type: ignore[arg-type]
@@ -490,7 +490,7 @@ def prompt_user_environment_variables(current: EnvironmentVariables | None = Non
     optional_values = env_vars.get_optional_with_value()
     for field_, value in optional_values:
         print(f"  {field_.name}={value}")
-    if questionary.confirm("Do you want to change any of these variables?", default=False).ask():
+    if questionary.confirm("Do you want to change any of these variables?", default=False).unsafe_ask():
         for field_, value in optional_values:
             user_value = get_user_value(field_, value, provider, cdf_cluster, cdf_project, idp_tenant_id)
             setattr(env_vars, field_.name, user_value)
@@ -517,9 +517,9 @@ def get_user_value(
     elif value is not None and not isinstance(value, str):
         default = str(value)
     if is_secret:
-        user_value = questionary.password(f"Enter the {display_name}:", default=default).ask()
+        user_value = questionary.password(f"Enter the {display_name}:", default=default).unsafe_ask()
     else:
-        user_value = questionary.text(f"Enter the {display_name}:", default=default).ask()
+        user_value = questionary.text(f"Enter the {display_name}:", default=default).unsafe_ask()
     if user_value is None:
         raise typer.Exit(0)
     if field_.type is int:
