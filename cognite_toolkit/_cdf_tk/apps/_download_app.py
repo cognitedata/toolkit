@@ -193,9 +193,9 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download RAW tables from CDF into a temporary directory."""
-        cmd = DownloadCommand()
-
         client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DownloadCommand(client=client)
+
         if tables and database:
             selectors = [RawTable(db_name=database, table_name=table) for table in tables]
         elif tables and not database:
@@ -289,7 +289,7 @@ class DownloadApp(typer.Typer):
             )
 
         selectors = [DataSetSelector(kind="Assets", data_set_external_id=data_set) for data_set in data_sets]
-        cmd = DownloadCommand()
+        cmd = DownloadCommand(client=client)
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
@@ -407,7 +407,7 @@ class DownloadApp(typer.Typer):
             )
 
         selectors = [DataSetSelector(kind="TimeSeries", data_set_external_id=data_set) for data_set in data_sets]
-        cmd = DownloadCommand()
+        cmd = DownloadCommand(client=client)
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
@@ -486,7 +486,7 @@ class DownloadApp(typer.Typer):
             )
 
         selectors = [DataSetSelector(kind="Events", data_set_external_id=data_set) for data_set in data_sets]
-        cmd = DownloadCommand()
+        cmd = DownloadCommand(client=client)
 
         cmd.run(
             lambda: cmd.download(
@@ -613,7 +613,7 @@ class DownloadApp(typer.Typer):
             selectors = [DataSetSelector(kind="FileMetadata", data_set_external_id=data_set) for data_set in data_sets]
             io = FileMetadataIO(client)
 
-        cmd = DownloadCommand()
+        cmd = DownloadCommand(client=client)
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,  # type: ignore[misc]
@@ -678,9 +678,9 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download an asset hierarchy from CDF into a temporary directory."""
-        cmd = DownloadCommand()
-
         client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DownloadCommand(client=client)
+
         if hierarchy is None:
             selector = AssetInteractiveSelect(client, "download")
             hierarchy = selector.select_hierarchy(allow_empty=False)
@@ -782,7 +782,8 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download Instances from CDF into a temporary directory."""
-        cmd = DownloadCommand()
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DownloadCommand(client=client)
 
         client = EnvironmentVariables.create_from_environment().get_client()
         if instance_space is None:
@@ -957,7 +958,7 @@ class DownloadApp(typer.Typer):
                 ).unsafe_ask()
             )
 
-        cmd = DownloadCommand()
+        cmd = DownloadCommand(client=client)
         selector = DataPointsDataSetSelector(
             data_set_external_id=dataset,
             start=start_time,
@@ -1028,8 +1029,8 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download Charts from CDF into a temporary directory."""
-        cmd = DownloadCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DownloadCommand(client=client)
         selector: ChartSelector
         if external_ids is None:
             selected_external_ids = InteractiveChartSelect(client).select_external_ids()
@@ -1101,8 +1102,8 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download Canvas from CDF into a temporary directory."""
-        cmd = DownloadCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DownloadCommand(client=client)
         selector: CanvasSelector
         if external_ids is None:
             selected_external_ids = InteractiveCanvasSelect(client).select_external_ids()

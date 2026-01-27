@@ -99,8 +99,9 @@ class BuildCommand(ToolkitCommand):
         print_warning: bool = True,
         skip_tracking: bool = False,
         silent: bool = False,
+        client: ToolkitClient | None = None,
     ) -> None:
-        super().__init__(print_warning, skip_tracking, silent)
+        super().__init__(print_warning, skip_tracking, silent, client)
         self.existing_resources_by_loader: dict[type[ResourceCRUD], set[Hashable]] = defaultdict(set)
         self.instantiated_loaders: dict[type[ResourceCRUD], ResourceCRUD] = {}
 

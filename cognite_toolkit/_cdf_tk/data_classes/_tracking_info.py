@@ -25,6 +25,7 @@ class CommandTrackingInfo(BaseModel):
 
     project: str | None = Field(default=None)
     cluster: str | None = Field(default=None)
+    organization: str | None = Field(default=None)
     module_ids: set[str] = Field(default_factory=set, alias="moduleIds")
     package_ids: set[str] = Field(default_factory=set, alias="packageIds")
     installed_module_ids: set[str] = Field(default_factory=set, alias="installedModuleIds")
