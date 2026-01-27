@@ -197,7 +197,8 @@ class CleanCommand(ToolkitCommand):
             "Which modules would you like to clean?",
             instruction="Use arrow up/down, press space to select item(s) and enter to save",
             choices=choices,
-        ).ask()
+            validate=lambda choice: "You must select at least one module." if len(choice) == 0 else True,
+        ).unsafe_ask()
 
         if not selected_modules:
             return None
