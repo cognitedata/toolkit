@@ -159,14 +159,13 @@ class MigrateApp(typer.Typer):
             # Interactive model
             selector = AssetInteractiveSelect(client, "migrate")
             data_set = selector.select_data_sets()
-            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
-            output_dir = questionary.path(
-                "Specify output directory for instance space definitions:", default=str(output_dir)
-            ).ask()
-            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
-            if any(res is None for res in [dry_run, output_dir, verbose]):
-                raise typer.Abort()
-            output_dir = Path(output_dir)
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            output_dir = Path(
+                questionary.path(
+                    "Specify output directory for instance space definitions:", default=str(output_dir)
+                ).unsafe_ask()
+            )
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
 
         cmd = MigrationCommand()
         cmd.run(
@@ -235,14 +234,13 @@ class MigrateApp(typer.Typer):
                 message="In which instance space do you want to create the source system?",
                 include_empty=True,
             )
-            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
-            output_dir = questionary.path(
-                "Specify output directory for instance space definitions:", default=str(output_dir)
-            ).ask()
-            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
-            if any(res is None for res in [instance_space, dry_run, output_dir, verbose]):
-                raise typer.Abort()
-            output_dir = Path(output_dir)
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            output_dir = Path(
+                questionary.path(
+                    "Specify output directory for instance space definitions:", default=str(output_dir)
+                ).unsafe_ask()
+            )
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
         elif data_set is None or instance_space is None:
             raise typer.BadParameter("Both data_set and instance_space must be provided together.")
 
@@ -399,10 +397,9 @@ class MigrateApp(typer.Typer):
                 ingestion_mapping=asset_mapping.external_id,
                 preferred_consumer_view=preferred_consumer_view,
             )
-            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
-            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
-            if any(res is None for res in [dry_run, verbose]):
-                raise typer.Abort()
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
+
         return selected, dry_run, verbose
 
     @classmethod
@@ -593,7 +590,7 @@ class MigrateApp(typer.Typer):
         if data_set_id is None and mapping_file is None:
             skip_linking = not questionary.confirm(
                 "Do you want to link old and new TimeSeries?", default=not skip_linking
-            ).ask()
+            ).unsafe_ask()
 
         cmd = MigrationCommand()
         cmd.run(
@@ -702,7 +699,7 @@ class MigrateApp(typer.Typer):
         if data_set_id is None:
             skip_linking = not questionary.confirm(
                 "Do you want to link old and new Files?", default=not skip_linking
-            ).ask()
+            ).unsafe_ask()
 
         cmd.run(
             lambda: cmd.migrate(
@@ -841,10 +838,8 @@ class MigrateApp(typer.Typer):
                 default_file_annotation_mapping=file_annotation_mapping,
             )
 
-            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
-            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
-            if any(res is None for res in [dry_run, verbose]):
-                raise typer.Abort()
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
 
         cmd = MigrationCommand()
         cmd.run(
@@ -1130,10 +1125,8 @@ class MigrateApp(typer.Typer):
                 message="In which instance space do you want to create the CAD Node nodes?",
                 include_empty=False,
             )
-            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
-            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
-            if any(res is None for res in [dry_run, verbose]):
-                raise typer.Abort()
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
 
         if object_3D_space is None or cad_node_space is None:
             raise typer.BadParameter(
