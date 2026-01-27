@@ -6,13 +6,15 @@ from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, Nod
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
-    FailedResponse,
     HTTPClient,
-    HTTPMessage,
-    ItemsRequest,
     RequestMessage2,
-    SuccessResponseItems,
     ToolkitAPIError,
+)
+from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
+    ItemsFailedResponse2,
+    ItemsRequest2,
+    ItemsResultList,
+    ItemsSuccessResponse2,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -170,20 +172,20 @@ class AssetCentricMigrationIO(
         data_chunk: Sequence[UploadItem[InstanceApply]],
         http_client: HTTPClient,
         selector: AssetCentricMigrationSelector | None = None,
-    ) -> Sequence[HTTPMessage]:
+    ) -> ItemsResultList:
         """Upload items by first linking them using files/set-pending-instance-ids and then uploading the instances."""
         if self.skip_linking:
-            return list(super().upload_items(data_chunk, http_client, None))
+            return super().upload_items(data_chunk, http_client, None)
         elif selector is None:
             raise ToolkitNotImplementedError(f"Selector must be provided for uploading {self.KIND} items.")
         elif selector.kind not in self.PENDING_INSTANCE_ID_ENDPOINT_BY_KIND:
-            return list(super().upload_items(data_chunk, http_client, None))
+            return super().upload_items(data_chunk, http_client, None)
 
         pending_instance_id_endpoint = self.PENDING_INSTANCE_ID_ENDPOINT_BY_KIND[selector.kind]
-        results: list[HTTPMessage] = []
+        results = ItemsResultList()
         to_upload = self.link_asset_centric(data_chunk, http_client, pending_instance_id_endpoint)
         if to_upload:
-            results.extend(list(super().upload_items(to_upload, http_client, None)))
+            results.extend(super().upload_items(to_upload, http_client, None))
         return results
 
     @classmethod
@@ -197,8 +199,8 @@ class AssetCentricMigrationIO(
         config = http_client.config
         successful_linked: set[str] = set()
         for batch in chunker_sequence(data_chunk, cls.CHUNK_SIZE):
-            batch_results = http_client.request_with_retries(
-                message=ItemsRequest(
+            batch_results = http_client.request_items_retries(
+                message=ItemsRequest2(
                     endpoint_url=config.create_api_url(pending_instance_id_endpoint),
                     method="POST",
                     api_version="alpha",
@@ -209,7 +211,7 @@ class AssetCentricMigrationIO(
                 )
             )
             for res in batch_results:
-                if isinstance(res, SuccessResponseItems):
+                if isinstance(res, ItemsSuccessResponse2):
                     successful_linked.update(res.ids)
         to_upload = [item for item in data_chunk if item.source_id in successful_linked]
         return to_upload
@@ -441,26 +443,26 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
         data_chunk: Sequence[UploadItem[ThreeDMigrationRequest]],
         http_client: HTTPClient,
         selector: ThreeDSelector | None = None,
-    ) -> Sequence[HTTPMessage]:
+    ) -> ItemsResultList:
         """Migrate 3D models by uploading them to the migrate/models endpoint."""
         if len(data_chunk) > self.CHUNK_SIZE:
             raise RuntimeError(f"Uploading more than {self.CHUNK_SIZE} 3D models at a time is not supported.")
 
-        results: list[HTTPMessage] = []
-        responses = http_client.request_with_retries(
-            message=ItemsRequest(
+        results = ItemsResultList()
+        responses = http_client.request_items_retries(
+            message=ItemsRequest2(
                 endpoint_url=self.client.config.create_api_url(self.UPLOAD_ENDPOINT),
                 method="POST",
-                items=list(data_chunk),
+                items=data_chunk,
             )
         )
         if (
-            failed_response := next((res for res in responses if isinstance(res, FailedResponse)), None)
+            failed_response := next((res for res in responses if isinstance(res, ItemsFailedResponse2)), None)
         ) and failed_response.status_code == 400:
             raise ToolkitAPIError("3D model migration failed. You need to enable the 3D migration alpha feature flag.")
 
         results.extend(responses)
-        success_ids = {id for res in responses if isinstance(res, SuccessResponseItems) for id in res.ids}
+        success_ids = {id for res in responses if isinstance(res, ItemsSuccessResponse2) for id in res.ids}
         for data in data_chunk:
             if data.source_id not in success_ids:
                 continue
@@ -535,21 +537,21 @@ class ThreeDAssetMappingMigrationIO(
         data_chunk: Sequence[UploadItem[AssetMappingDMRequest]],
         http_client: HTTPClient,
         selector: T_Selector | None = None,
-    ) -> Sequence[HTTPMessage]:
+    ) -> ItemsResultList:
         """Migrate 3D asset mappings by uploading them to the migrate/asset-mappings endpoint."""
         if not data_chunk:
-            return []
+            return ItemsResultList()
         # Assume all items in the chunk belong to the same model and revision, they should
         # if the .stream_data method is used for downloading.
         first = data_chunk[0]
         model_id = first.item.model_id
         revision_id = first.item.revision_id
         endpoint = self.UPLOAD_ENDPOINT.format(modelId=model_id, revisionId=revision_id)
-        responses = http_client.request_with_retries(
-            ItemsRequest(
+        return http_client.request_items_retries(
+            ItemsRequest2(
                 endpoint_url=self.client.config.create_api_url(endpoint),
                 method="POST",
-                items=list(data_chunk),
+                items=data_chunk,
                 extra_body_fields={
                     "dmsContextualizationConfig": {
                         "object3DSpace": self.object_3D_space,
@@ -558,7 +560,6 @@ class ThreeDAssetMappingMigrationIO(
                 },
             )
         )
-        return responses
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> AssetMappingDMRequest:
         raise NotImplementedError("Deserializing 3D Asset Mappings from JSON is not supported.")

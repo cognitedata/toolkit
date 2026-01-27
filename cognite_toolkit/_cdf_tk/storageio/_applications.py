@@ -7,11 +7,11 @@ from pydantic import JsonValue
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
-    HTTPMessage,
     HTTPResult2,
     RequestMessage2,
     SuccessResponse2,
 )
+from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     IndustrialCanvas,
     IndustrialCanvasApply,
@@ -189,9 +189,9 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         data_chunk: Sequence[UploadItem[IndustrialCanvasApply]],
         http_client: HTTPClient,
         selector: CanvasSelector | None = None,
-    ) -> Sequence[HTTPMessage]:
+    ) -> ItemsResultList:
         config = http_client.config
-        results: list[HTTPMessage] = []
+        results = ItemsResultList()
         for item in data_chunk:
             instances = item.item.as_instances()
             upsert_items: list[dict[str, JsonValue]] = []

@@ -436,7 +436,7 @@ class PullCommand(ToolkitCommand):
             selected = questionary.select(
                 "Select a module to pull",
                 choices=[Choice(title=module.name, value=module.name) for module in modules],
-            ).ask()
+            ).unsafe_ask()
         else:
             selected = parse_user_selected_modules([module_name_or_path])[0]
         build_module: str | Path
@@ -629,7 +629,7 @@ class PullCommand(ToolkitCommand):
             return questionary.select(
                 f"Select a {loader.display_name} to pull",
                 choices=[Choice(title=f"{r.identifier!r} - ({r.module_name})", value=r) for r in local_resources],
-            ).ask()
+            ).unsafe_ask()
         if id_ not in local_resources.identifiers:
             raise ToolkitMissingResourceError(
                 f"No {loader.display_name} with external id {id_} found in the current configuration in {organization_dir}."

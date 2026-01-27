@@ -1,9 +1,9 @@
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Hashable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from functools import partial
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 import questionary
 from cognite.client.data_classes import DataSetUpdate
@@ -11,17 +11,17 @@ from cognite.client.data_classes.data_modeling import Edge, NodeId
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._identifier import InstanceId
+from pydantic import JsonValue
 from rich import print
 from rich.console import Console
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
-    ItemsRequest,
     ItemsRequest2,
     ItemsSuccessResponse2,
-    SuccessResponseItems,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedInstanceIdentifier
 from cognite_toolkit._cdf_tk.cruds import (
@@ -79,15 +79,14 @@ class DeleteResults:
     failed: int = 0
 
 
-@dataclass
-class DeleteItem:
-    item: JsonVal
-    as_id_fun: Callable[[JsonVal], Hashable]
+class DeleteItem(RequestItem):
+    item: JsonValue
+    as_id_fun: Callable[[JsonValue], str]
 
-    def dump(self) -> JsonVal:
-        return self.item
+    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+        return self.item  # type: ignore[return-value]
 
-    def as_id(self) -> Hashable:
+    def __str__(self) -> str:
         return self.as_id_fun(self.item)
 
 
@@ -222,7 +221,7 @@ class PurgeCommand(ToolkitCommand):
         if not dry_run and not auto_yes:
             confirm = questionary.confirm(
                 f"Are you really sure you want to purge the {selected_space!r} space?", default=False
-            ).ask()
+            ).unsafe_ask()
             if not confirm:
                 return DeployResults([], "purge", dry_run=dry_run)
 
@@ -364,16 +363,16 @@ class PurgeCommand(ToolkitCommand):
     ) -> Callable[[list[JsonVal]], None]:
         crud = delete_item.crud
 
-        def as_id(item: JsonVal) -> Hashable:
+        def as_id(item: JsonVal) -> str:
             try:
-                return crud.get_id(item)
+                return str(crud.get_id(item))
             except KeyError:
                 # Fallback to internal ID
-                return crud.get_internal_id(item)
+                return str(crud.get_internal_id(item))
 
         def process(items: list[JsonVal]) -> None:
-            responses = delete_client.request_with_retries(
-                ItemsRequest(
+            responses = delete_client.request_items_retries(
+                ItemsRequest2(
                     endpoint_url=delete_url,
                     method="POST",
                     items=[DeleteItem(item=item, as_id_fun=as_id) for item in items],
@@ -381,10 +380,10 @@ class PurgeCommand(ToolkitCommand):
                 )
             )
             for response in responses:
-                if isinstance(response, SuccessResponseItems):
+                if isinstance(response, ItemsSuccessResponse2):
                     result.deleted += len(response.ids)
                 else:
-                    result.unchanged += len(items)
+                    result.unchanged += len(response.ids)
 
         return process
 
@@ -423,7 +422,7 @@ class PurgeCommand(ToolkitCommand):
         if not dry_run and not auto_yes:
             confirm = questionary.confirm(
                 f"Are you really sure you want to purge the {selected_data_set_external_id!r} dataSet?", default=False
-            ).ask()
+            ).unsafe_ask()
             if not confirm:
                 return DeployResults([], "purge", dry_run=dry_run)
 
@@ -595,7 +594,7 @@ class PurgeCommand(ToolkitCommand):
                 confirm = questionary.confirm(
                     f"Are you really sure you want to purge all {total:,} instances in {selector!s}?",
                     default=False,
-                ).ask()
+                ).unsafe_ask()
                 if not confirm:
                     return DeleteResults()
 
@@ -735,13 +734,17 @@ class PurgeCommand(ToolkitCommand):
         node_ids = [instance for instance in instances if isinstance(instance, NodeId)]
         if node_ids:
             timeseries = client.time_series.retrieve_multiple(instance_ids=node_ids, ignore_unknown_ids=True)
+            migrated_timeseries_ids = [
+                ts.id
+                for ts in timeseries
+                if ts.instance_id and ts.pending_instance_id  # type: ignore[attr-defined]
+            ]
             if not dry_run and timeseries:
-                migrated_timeseries_ids = [ts.id for ts in timeseries if ts.instance_id and ts.pending_instance_id]  # type: ignore[attr-defined]
                 client.time_series.unlink_instance_ids(id=migrated_timeseries_ids)
                 if verbose:
                     console.print(f"Unlinked {len(migrated_timeseries_ids)} timeseries from datapoints.")
             elif verbose and timeseries:
-                console.print(f"Would have unlinked {len(timeseries)} timeseries from datapoints.")
+                console.print(f"Would have unlinked {len(migrated_timeseries_ids)} timeseries from datapoints.")
         return instances
 
     @staticmethod
@@ -751,15 +754,15 @@ class PurgeCommand(ToolkitCommand):
         file_ids = [instance for instance in instances if isinstance(instance, NodeId)]
         if file_ids:
             files = client.files.retrieve_multiple(instance_ids=file_ids, ignore_unknown_ids=True)
+            migrated_file_ids = [
+                file.id
+                for file in files
+                if file.instance_id and file.pending_instance_id and file.id is not None  # type: ignore[attr-defined]
+            ]
             if not dry_run and files:
-                migrated_file_ids = [
-                    file.id
-                    for file in files
-                    if file.instance_id and file.pending_instance_id and file.id is not None  # type: ignore[attr-defined]
-                ]
                 client.files.unlink_instance_ids(id=migrated_file_ids)
                 if verbose:
                     console.print(f"Unlinked {len(migrated_file_ids)} files from nodes.")
             elif verbose and files:
-                console.print(f"Would have unlinked {len(files)} files from their blob content.")
+                console.print(f"Would have unlinked {len(migrated_file_ids)} files from their blob content.")
         return instances
