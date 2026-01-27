@@ -7,11 +7,11 @@ from pydantic import JsonValue
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
-    HTTPMessage,
-    HTTPResult2,
-    RequestMessage2,
-    SuccessResponse2,
+    HTTPResult,
+    RequestMessage,
+    SuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     IndustrialCanvas,
     IndustrialCanvasApply,
@@ -189,9 +189,9 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         data_chunk: Sequence[UploadItem[IndustrialCanvasApply]],
         http_client: HTTPClient,
         selector: CanvasSelector | None = None,
-    ) -> Sequence[HTTPMessage]:
+    ) -> ItemsResultList:
         config = http_client.config
-        results: list[HTTPMessage] = []
+        results = ItemsResultList()
         for item in data_chunk:
             instances = item.item.as_instances()
             upsert_items: list[dict[str, JsonValue]] = []
@@ -217,7 +217,7 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
             else:
                 to_delete = []
 
-            last_response: HTTPResult2 | None = None
+            last_response: HTTPResult | None = None
             for upsert_chunk, delete_chunk in zip_longest(
                 chunker_sequence(upsert_items, 1000), chunker_sequence(to_delete, 1000), fillvalue=None
             ):
@@ -229,13 +229,13 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
                     body_content["delete"] = delete_chunk
 
                 response = http_client.request_single_retries(
-                    message=RequestMessage2(
+                    message=RequestMessage(
                         endpoint_url=config.create_api_url("/models/instances"),
                         method="POST",
                         body_content=body_content,
                     )
                 )
-                if not isinstance(response, SuccessResponse2):
+                if not isinstance(response, SuccessResponse):
                     results.append(response.as_item_response(item.source_id))
                 last_response = response
             if last_response is not None:

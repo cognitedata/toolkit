@@ -6,7 +6,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -39,7 +39,7 @@ class ExtendedFunctionsAPI(FunctionsAPI):
             Function: The created function object.
         """
         result = self._toolkit_http_client.request_single_retries(
-            message=RequestMessage2(
+            message=RequestMessage(
                 endpoint_url=self._toolkit_config.create_api_url("/functions"),
                 method="POST",
                 body_content={"items": [function.dump(camel_case=True)]},
@@ -70,7 +70,7 @@ class ExtendedFunctionsAPI(FunctionsAPI):
             if ignore_unknown_ids:
                 body_content["ignoreUnknownIds"] = True
             result = self._toolkit_http_client.request_single_retries(
-                message=RequestMessage2(
+                message=RequestMessage(
                     endpoint_url=self._toolkit_config.create_api_url("/functions/delete"),
                     method="POST",
                     body_content=body_content,

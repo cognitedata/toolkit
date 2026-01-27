@@ -9,7 +9,7 @@ import random
 import re
 import string
 import typing
-from collections.abc import Callable, Hashable
+from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
 from types import UnionType
@@ -62,7 +62,6 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from pydantic import BaseModel, JsonValue
 from questionary import Choice
 
-from cognite_toolkit._cdf_tk.client.http_client import T_COVARIANT_ID, RequestItem
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters import (
     LocationFilter,
     LocationFilterScene,
@@ -417,17 +416,6 @@ class FakeCogniteResourceGenerator:
                 [self.create_value(first_not_none) for _ in range(self._random.randint(1, 3))],
                 cursor=self.create_value(str),
             )
-        elif container_type is RequestItem:
-
-            @dataclasses.dataclass
-            class FakeRequestItem(RequestItem):
-                def dump(self) -> dict[str, Any]:
-                    return {"key": "value"}
-
-                def as_id(self) -> str:
-                    return "identifier"
-
-            return FakeRequestItem()
 
         if var_name == "external_id" and type_ is str:
             return self._random_string(50, sample_from=string.ascii_uppercase + string.digits)
@@ -480,8 +468,6 @@ class FakeCogniteResourceGenerator:
             return self.create_value(type_.__bound__)
         elif inspect.isclass(type_) and issubclass(type_, CogniteResourceList):
             return type_([self.create_value(type_._RESOURCE) for _ in range(self._random.randint(1, 3))])
-        elif type_ is Hashable or type_ is T_COVARIANT_ID:
-            return "my_hashable"
         elif inspect.isclass(type_):
             return self.create_instance(type_)
         elif type(type_) is dataclasses.InitVar:
@@ -540,7 +526,7 @@ class MockQuestion:
         self.answer = answer
         self.choices = choices
 
-    def ask(self) -> Any:
+    def unsafe_ask(self) -> Any:
         if isinstance(self.answer, Callable):
             return self.answer(self.choices)
         return self.answer

@@ -4,9 +4,9 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedRespo
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
-    ItemsSuccessResponse2,
-    RequestMessage2,
-    SuccessResponse2,
+    ItemsSuccessResponse,
+    RequestMessage,
+    SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
@@ -42,7 +42,7 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
         return self._http_client.config.create_app_url(path)
 
     def _validate_page_response(
-        self, response: SuccessResponse2 | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse
     ) -> PagedResponse[LocationFilterResponse]:
         return PagedResponse[LocationFilterResponse].model_validate_json(response.body)
 
@@ -58,7 +58,7 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
         endpoint = self._method_endpoint_map["create"]
         results: list[LocationFilterResponse] = []
         for item in items:
-            request = RequestMessage2(
+            request = RequestMessage(
                 endpoint_url=self._make_url(endpoint.path),
                 method=endpoint.method,
                 body_content=item.model_dump(mode="json", by_alias=True),
@@ -80,7 +80,7 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
         endpoint = self._method_endpoint_map["retrieve"]
         results: list[LocationFilterResponse] = []
         for chunk in chunker_sequence(items, endpoint.item_limit):
-            request = RequestMessage2(
+            request = RequestMessage(
                 endpoint_url=self._make_url(endpoint.path),
                 method=endpoint.method,
                 body_content={"ids": [item.id for item in chunk]},
@@ -104,7 +104,7 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
         for item in items:
             if item.id is None:
                 raise ValueError("Item must have an ID for update operation.")
-            request = RequestMessage2(
+            request = RequestMessage(
                 endpoint_url=self._make_url(endpoint.path.format(id=item.id)),
                 method=endpoint.method,
                 body_content=item.model_dump(mode="json", by_alias=True),
@@ -128,7 +128,7 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
         endpoint = self._method_endpoint_map["delete"]
         results: list[LocationFilterResponse] = []
         for item in items:
-            request = RequestMessage2(
+            request = RequestMessage(
                 endpoint_url=self._make_url(endpoint.path.format(id=item.id)),
                 method=endpoint.method,
             )

@@ -42,7 +42,7 @@ def toolkit_client_config() -> ToolkitClientConfig:
 
 @pytest.fixture(scope="session")
 def toolkit_client(toolkit_client_config: ToolkitClientConfig) -> ToolkitClient:
-    return ToolkitClient(toolkit_client_config)
+    return ToolkitClient(toolkit_client_config, enable_set_pending_ids=True)
 
 
 @pytest.fixture(scope="session")

@@ -213,7 +213,9 @@ class TestThreeDAssetMappingMigrationIO:
         assert io.count(selector) is None, "3D Asset mapping count should be None"
 
         with HTTPClient(config) as http_client:
-            io.upload_items([UploadItem(f"{no:,}", item) for no, item in enumerate(items)], http_client=http_client)
+            io.upload_items(
+                [UploadItem(source_id=f"{no:,}", item=item) for no, item in enumerate(items)], http_client=http_client
+            )
 
         assert len(respx_mock.calls) == 4  # 1 model list, 2 mapping list, 1 uploads (since we pass in all at once)
 

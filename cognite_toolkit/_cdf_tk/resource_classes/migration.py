@@ -15,7 +15,7 @@ class ResourceViewMappingYAML(ToolkitResource):
         max_length=256,
         pattern=INSTANCE_EXTERNAL_ID_PATTERN,
     )
-    resource_type: Literal["asset", "event", "file", "timeSeries", "sequence", "assetAnnotation", "fileAnnotation"] = (
+    resource_type: Literal["asset", "event", "file", "timeseries", "sequence", "assetAnnotation", "fileAnnotation"] = (
         Field(
             description="The type of the resource to map to the view.",
         )
