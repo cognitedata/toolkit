@@ -143,7 +143,7 @@ class DumpConfigApp(typer.Typer):
             selected_data_model = DataModelId(*data_model_id)
         client = EnvironmentVariables.create_from_environment().get_client()
 
-        cmd = DumpResourceCommand()
+        cmd = DumpResourceCommand(client=client)
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 DataModelFinder(client, selected_data_model, include_global=include_global),
@@ -199,7 +199,7 @@ class DumpConfigApp(typer.Typer):
             selected_workflow = WorkflowVersionId(*workflow_id)
         client = EnvironmentVariables.create_from_environment().get_client()
 
-        cmd = DumpResourceCommand()
+        cmd = DumpResourceCommand(client=client)
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 WorkflowFinder(client, selected_workflow),
@@ -248,7 +248,7 @@ class DumpConfigApp(typer.Typer):
         """This command will dump the selected transformation as yaml to the folder specified, defaults to /tmp."""
         client = EnvironmentVariables.create_from_environment().get_client()
 
-        cmd = DumpResourceCommand()
+        cmd = DumpResourceCommand(client=client)
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 TransformationFinder(client, tuple(transformation_id) if transformation_id else None),
@@ -297,7 +297,7 @@ class DumpConfigApp(typer.Typer):
         """This command will dump the selected group as yaml to the folder specified, defaults to /tmp."""
         client = EnvironmentVariables.create_from_environment().get_client()
 
-        cmd = DumpResourceCommand()
+        cmd = DumpResourceCommand(client=client)
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 GroupFinder(client, tuple(group_name) if group_name else None),
@@ -346,7 +346,7 @@ class DumpConfigApp(typer.Typer):
         """Dump on or more agents as yaml to the specified folder, defaults to /tmp."""
 
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = DumpResourceCommand()
+        cmd = DumpResourceCommand(client=client)
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 AgentFinder(client, tuple(external_id) if external_id else None),
@@ -405,7 +405,7 @@ class DumpConfigApp(typer.Typer):
                 )
             selected_view_id = ViewId(*view_id)
 
-        cmd = DumpResourceCommand()
+        cmd = DumpResourceCommand(client=client)
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 NodeFinder(client, selected_view_id),
@@ -453,7 +453,7 @@ class DumpConfigApp(typer.Typer):
     ) -> None:
         """This command will dump the selected location filters as yaml to the folder specified, defaults to /tmp."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = DumpResourceCommand()
+        cmd = DumpResourceCommand(client=client)
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 LocationFilterFinder(client, tuple(external_id) if external_id else None),
@@ -501,7 +501,7 @@ class DumpConfigApp(typer.Typer):
     ) -> None:
         """This command will dump the selected extraction pipeline as yaml to the folder specified, defaults to /tmp."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = DumpResourceCommand()
+        cmd = DumpResourceCommand(client=client)
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 ExtractionPipelineFinder(client, tuple(external_id) if external_id else None),
@@ -549,7 +549,7 @@ class DumpConfigApp(typer.Typer):
     ) -> None:
         """This command will dump the selected datasets as yaml to the folder specified, defaults to /tmp."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = DumpResourceCommand()
+        cmd = DumpResourceCommand(client=client)
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 DataSetFinder(client, tuple(external_id) if external_id else None),
@@ -597,7 +597,7 @@ class DumpConfigApp(typer.Typer):
     ) -> None:
         """This command will dump the selected functions as yaml to the folder specified, defaults to /tmp."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = DumpResourceCommand()
+        cmd = DumpResourceCommand(client=client)
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 FunctionFinder(client, tuple(external_id) if external_id else None),
@@ -645,7 +645,7 @@ class DumpConfigApp(typer.Typer):
     ) -> None:
         """This command will dump the selected Streamlit apps as yaml to the folder specified, defaults to /tmp."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = DumpResourceCommand()
+        cmd = DumpResourceCommand(client=client)
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 StreamlitFinder(client, tuple(external_id) if external_id else None),
@@ -693,7 +693,7 @@ class DumpConfigApp(typer.Typer):
     ) -> None:
         """This command will dump the selected instance spaces as yaml to the folder specified, defaults to /tmp."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = DumpResourceCommand()
+        cmd = DumpResourceCommand(client=client)
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 SpaceFinder(client, tuple(spaces) if spaces else None),
@@ -748,7 +748,7 @@ class DumpConfigApp(typer.Typer):
                     "View ID must be provided as exactly two arguments: externalId and space."
                 )
             selected_view_id = SearchConfigViewId(*view_id)
-        cmd = DumpResourceCommand()
+        cmd = DumpResourceCommand(client=client)
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 SearchConfigFinder(client, tuple([selected_view_id]) if selected_view_id else None),

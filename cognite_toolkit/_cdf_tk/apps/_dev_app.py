@@ -1,3 +1,4 @@
+import contextlib
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -5,8 +6,10 @@ import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import ResourcesCommand
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 from ._run import RunApp
 
@@ -74,7 +77,13 @@ class DevApp(typer.Typer):
         ] = CDF_TOML.cdf.default_organization_dir,
     ) -> None:
         """create resource YAMLs."""
-        cmd = ResourcesCommand()
+        client: ToolkitClient | None = None
+        with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
+            # Try to load client if possible, but ignore errors.
+            # This is only used for logging purposes in the command.
+            client = EnvironmentVariables.create_from_environment().get_client()
+
+        cmd = ResourcesCommand(client=client)
         cmd.run(
             lambda: cmd.create(
                 organization_dir=organization_dir,

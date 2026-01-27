@@ -106,8 +106,8 @@ class PurgeApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will delete the contents of the specified dataset"""
-        cmd = PurgeCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = PurgeCommand(client=client)
 
         if external_id is None:
             # Is Interactive
@@ -203,9 +203,8 @@ class PurgeApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will delete the contents of the specified space."""
-
-        cmd = PurgeCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = PurgeCommand(client=client)
 
         if space is None:
             # Is Interactive
@@ -319,9 +318,9 @@ class PurgeApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will delete the contents of the specified instances."""
-
-        cmd = PurgeCommand()
         client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        cmd = PurgeCommand(client=client)
+
         is_interactive = view is None and instance_list is None
         selector: InstanceSelector
         if is_interactive:

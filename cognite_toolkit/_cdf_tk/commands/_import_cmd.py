@@ -24,7 +24,7 @@ class ImportTransformationCLI(ToolkitCommand):
         silent: bool = False,
         client: ToolkitClient | None = None,
     ):
-        super().__init__(print_warning, skip_tracking, silent, client)
+        super().__init__(print_warning, skip_tracking, silent, get_client() if get_client is not None else client)
         self._dataset_external_id_by_id: dict[int, str] = {}
         # We only initialize the client if we need to look up dataset ids.
         self._client: ToolkitClient | None = None
