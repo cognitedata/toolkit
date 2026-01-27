@@ -207,9 +207,13 @@ class AssetCentricInteractiveSelect(ABC):
 
         message = f"Select a {what} to {self.operation} listed as 'name (external_id) [count]'"
         if plurality == "multiple":
-            selected = questionary.checkbox(message, choices=choices).ask()
+            selected = questionary.checkbox(
+                message,
+                choices=choices,
+                validate=lambda choices: "You must select at least one." if not choices else True,
+            ).unsafe_ask()
         else:
-            selected = questionary.select(message, choices=choices).ask()
+            selected = questionary.select(message, choices=choices).unsafe_ask()
         if selected is None:
             raise ToolkitValueError(f"No {what} selected. Aborting.")
         elif selected is none_sentinel or (isinstance(selected, list) and none_sentinel in selected):
@@ -444,7 +448,7 @@ class InteractiveChartSelect:
                 for user in users
                 if user.user_identifier in chart_by_user
             ],
-        ).ask()
+        ).unsafe_ask()
         available_charts = ChartList(user_response)
         return available_charts
 
@@ -467,9 +471,7 @@ class AssetCentricDestinationSelect:
         destination_type = questionary.select(
             "Select a destination type",
             choices=[questionary.Choice(title=dest.capitalize(), value=dest) for dest in cls.valid_destinations],
-        ).ask()
-        if destination_type is None:
-            raise ToolkitValueError("No destination type selected. Aborting.")
+        ).unsafe_ask()
         # We only input valid destination types, so we can safely skip MyPy's type checking here
         return destination_type
 
@@ -573,11 +575,9 @@ class DataModelingSelect:
         question = message or f"Which view do you want to use to select instances to {self.operation}?"
         choices = [Choice(title=f"{view.external_id} (version={view.version})", value=view) for view in views]
         if multiselect:
-            selected_views = questionary.checkbox(question, choices=choices).ask()
+            selected_views = questionary.checkbox(question, choices=choices).unsafe_ask()
         else:
-            selected_views = questionary.select(question, choices=choices).ask()
-        if selected_views is None:
-            raise ToolkitValueError("No view(s) selected")
+            selected_views = questionary.select(question, choices=choices).unsafe_ask()
         if multiselect:
             if not isinstance(selected_views, list) or not all(isinstance(v, View) for v in selected_views):
                 raise ToolkitValueError(f"Selected views is not a valid list of View objects: {selected_views!r}")
@@ -601,9 +601,7 @@ class DataModelingSelect:
         selected_space = questionary.select(
             message,
             [Choice(title=space.space, value=space) for space in sorted(spaces, key=lambda s: s.space)],
-        ).ask()
-        if selected_space is None:
-            raise ToolkitValueError("No space selected")
+        ).unsafe_ask()
         if not isinstance(selected_space, Space):
             raise ToolkitValueError(f"Selected space is not a valid Space object: {selected_space!r}")
         return selected_space
@@ -628,9 +626,8 @@ class DataModelingSelect:
                 Choice(title="Nodes", value="node"),
                 Choice(title="Edges", value="edge"),
             ],
-        ).ask()
-        if selected_instance_type is None:
-            raise ToolkitValueError("No instance type selected")
+        ).unsafe_ask()
+
         if selected_instance_type not in ("node", "edge"):
             raise ToolkitValueError(f"Selected instance type is not valid: {selected_instance_type!r}")
         return selected_instance_type
@@ -643,9 +640,7 @@ class DataModelingSelect:
                 Choice(title="Schema spaces with schema", value="schema"),
                 Choice(title="Empty spaces without schema or instances", value="empty"),
             ],
-        ).ask()
-        if selected_space_type is None:
-            raise ToolkitValueError("No space type selected")
+        ).unsafe_ask()
         if selected_space_type not in ["instance", "schema", "empty"]:
             raise ToolkitValueError(f"Selected space type is not valid: {selected_space_type!r}")
         return selected_space_type
@@ -712,9 +707,9 @@ class DataModelingSelect:
             for space, count in sorted(count_by_space.items(), key=lambda item: item[1], reverse=True)
         ]
         if multiselect:
-            selected_spaces = questionary.checkbox(message, choices=choices).ask()
+            selected_spaces = questionary.checkbox(message, choices=choices).unsafe_ask()
         else:
-            selected_spaces = questionary.select(message, choices=choices).ask()
+            selected_spaces = questionary.select(message, choices=choices).unsafe_ask()
         if selected_spaces is None or (isinstance(selected_spaces, list) and len(selected_spaces) == 0):
             raise ToolkitValueError(
                 f"No instance space selected to {self.operation}. Use arrow keys to navigate and space key to select. Press enter to confirm."
@@ -742,9 +737,9 @@ class DataModelingSelect:
         message = f"In which empty Space{'(s)' if multiselect else ''} do you want to {self.operation}?"
         choices = [Choice(title=f"{space}", value=space) for space in sorted(empty_spaces)]
         if multiselect:
-            selected_spaces = questionary.checkbox(message, choices=choices).ask()
+            selected_spaces = questionary.checkbox(message, choices=choices).unsafe_ask()
         else:
-            selected_spaces = questionary.select(message, choices=choices).ask()
+            selected_spaces = questionary.select(message, choices=choices).unsafe_ask()
         if selected_spaces is None or (isinstance(selected_spaces, list) and len(selected_spaces) == 0):
             raise ToolkitValueError(f"No empty space selected to {self.operation}. Aborting.")
         return selected_spaces
@@ -810,9 +805,7 @@ class ResourceViewMappingInteractiveSelect:
         selected_mapping = questionary.select(
             f"Which Resource View Mapping do you want to use to {self.operation}? [identifier] (ingestion view)",
             choices=choices,
-        ).ask()
-        if selected_mapping is None:
-            raise ToolkitValueError("No Resource View Mapping selected.")
+        ).unsafe_ask()
         if not isinstance(selected_mapping, ResourceViewMapping):
             raise ToolkitValueError(
                 f"Selected Resource View Mapping is not a valid ResourceViewMapping object: {selected_mapping!r}"
@@ -834,9 +827,7 @@ class ThreeDInteractiveSelect:
                     Choice(title="Classic models", value="classic"),
                     Choice(title="Data modeling 3D", value="dm"),
                 ],
-            ).ask()
-        if model_type is None:
-            raise ToolkitValueError("No 3D model type selected.")
+            ).unsafe_ask()
         published = questionary.select(
             f"Do you want to {self.operation} published or unpublished 3D models?",
             choices=[
@@ -844,7 +835,7 @@ class ThreeDInteractiveSelect:
                 Choice(title="Unpublished models", value=False),
                 Choice(title="Both published and unpublished models", value=None),
             ],
-        ).ask()
+        ).unsafe_ask()
 
         models = self.client.tool.three_d.models_classic.list(
             published=published, include_revision_info=True, limit=None
@@ -862,7 +853,7 @@ class ThreeDInteractiveSelect:
         selected_models = questionary.checkbox(
             f"Select 3D models to {self.operation}:",
             choices=choices,
-        ).ask()
+        ).unsafe_ask()
         if selected_models is None or len(selected_models) == 0:
             raise ToolkitValueError("No 3D models selected.")
         return selected_models
