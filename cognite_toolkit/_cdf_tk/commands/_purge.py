@@ -222,7 +222,7 @@ class PurgeCommand(ToolkitCommand):
         if not dry_run and not auto_yes:
             confirm = questionary.confirm(
                 f"Are you really sure you want to purge the {selected_space!r} space?", default=False
-            ).ask()
+            ).unsafe_ask()
             if not confirm:
                 return DeployResults([], "purge", dry_run=dry_run)
 
@@ -423,7 +423,7 @@ class PurgeCommand(ToolkitCommand):
         if not dry_run and not auto_yes:
             confirm = questionary.confirm(
                 f"Are you really sure you want to purge the {selected_data_set_external_id!r} dataSet?", default=False
-            ).ask()
+            ).unsafe_ask()
             if not confirm:
                 return DeployResults([], "purge", dry_run=dry_run)
 
@@ -595,7 +595,7 @@ class PurgeCommand(ToolkitCommand):
                 confirm = questionary.confirm(
                     f"Are you really sure you want to purge all {total:,} instances in {selector!s}?",
                     default=False,
-                ).ask()
+                ).unsafe_ask()
                 if not confirm:
                     return DeleteResults()
 
