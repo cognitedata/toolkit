@@ -1,5 +1,3 @@
-from functools import lru_cache
-
 from cognite.client import CogniteClient
 
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
@@ -26,7 +24,6 @@ class ProjectAPI:
         success = response.get_success_or_raise()
         return ProjectStatusList._load(success.body_json["items"], cognite_client=self._cognite_client)
 
-    @lru_cache(maxsize=1)
     def organization(self) -> OrganizationResponse:
         """Retrieve information about the organization of the current project."""
         response = self._http_client.request_single_retries(
