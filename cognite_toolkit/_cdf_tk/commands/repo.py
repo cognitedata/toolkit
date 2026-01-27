@@ -52,7 +52,7 @@ class RepoCommand(ToolkitCommand):
                 )
 
         if host is None:
-            repo_host = questionary.select("Where do are you hosting the repository?", REPOSITORY_HOSTING).ask()
+            repo_host = questionary.select("Where do are you hosting the repository?", REPOSITORY_HOSTING).unsafe_ask()
         else:
             repo_host = next(
                 (provider for provider in REPOSITORY_HOSTING if provider.casefold() == host.casefold()), "Other"

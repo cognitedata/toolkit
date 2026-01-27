@@ -140,9 +140,7 @@ class AssetCentricInteractiveSelect(ABC):
     def select_hierarchies_or_data_sets(self) -> Literal["Hierarchy", "Data Set"]:
         what = questionary.select(
             f"Do you want to {self.operation} a hierarchy or a data set?", choices=["Hierarchy", "Data Set"]
-        ).ask()
-        if what is None:
-            raise ToolkitValueError("No selection made. Aborting.")
+        ).unsafe_ask()
         if what not in ["Hierarchy", "Data Set"]:
             raise ToolkitValueError(f"Unexpected selection: {what}. Aborting.")
         return what
@@ -267,9 +265,7 @@ class RawTableInteractiveSelect:
             selected_database = questionary.select(
                 f"Select a Raw Database to {self.operation}",
                 choices=[questionary.Choice(title=db, value=db) for db in databases],
-            ).ask()
-        if selected_database is None:
-            raise ToolkitValueError("No database selected. Aborting.")
+            ).unsafe_ask()
         available_tables = self._available_tables(selected_database)
         if not available_tables:
             raise ToolkitValueError(f"No raw tables available in database '{selected_database}'. Aborting.")
@@ -277,10 +273,8 @@ class RawTableInteractiveSelect:
         selected_tables = questionary.checkbox(
             f"Select Raw Tables in {selected_database} to {self.operation}",
             choices=[questionary.Choice(title=f"{table.table_name}", value=table) for table in available_tables],
-        ).ask()
+        ).unsafe_ask()
 
-        if selected_tables is None:
-            raise ToolkitValueError("No tables selected. Aborting.")
         return selected_tables
 
 
@@ -330,9 +324,7 @@ class InteractiveCanvasSelect:
         user_response = questionary.select(
             "Which Canvases do you want to select?",
             choices=cls.opening_choices,
-        ).ask()
-        if user_response is None:
-            raise ToolkitValueError("No Canvas selection made. Aborting.")
+        ).unsafe_ask()
         return user_response
 
     def _select_external_ids(self, select_filter: CanvasFilter) -> list[str]:
@@ -356,7 +348,7 @@ class InteractiveCanvasSelect:
                     for user in users
                     if user.user_identifier in canvas_by_user
                 ],
-            ).ask()
+            ).unsafe_ask()
             available_canvases = NodeList[Canvas](user_response)
 
         if select_filter.select_all:
@@ -407,9 +399,7 @@ class InteractiveChartSelect:
         user_response = questionary.select(
             "Which Charts do you want to select?",
             choices=cls.opening_choices,
-        ).ask()
-        if user_response is None:
-            raise ToolkitValueError("No Chart selection made. Aborting.")
+        ).unsafe_ask()
         return user_response
 
     def _select_external_ids(self, select_filter: ChartFilter) -> list[str]:
@@ -436,7 +426,7 @@ class InteractiveChartSelect:
                 )
                 for chart in available_charts
             ],
-        ).ask()
+        ).unsafe_ask()
         return selected_charts or []
 
     @classmethod
