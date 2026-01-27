@@ -5,7 +5,7 @@ from pydantic import JsonValue, TypeAdapter
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
     HostedExtractorSourceRequestUnion,
     HostedExtractorSourceResponse,
@@ -30,16 +30,16 @@ class HostedExtractorSourcesAPI(
         )
 
     def _validate_page_response(
-        self, response: SuccessResponse2 | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse
     ) -> PagedResponse[HostedExtractorSourceResponseUnion]:
-        if isinstance(response, SuccessResponse2):
+        if isinstance(response, SuccessResponse):
             data = response.body_json
         else:
             data = TypeAdapter(dict[str, JsonValue]).validate_json(response.body)
         items = [HostedExtractorSourceResponse.validate_python(item) for item in data.get("items", [])]
         return PagedResponse[HostedExtractorSourceResponseUnion](items=items, nextCursor=data.get("nextCursor"))
 
-    def _reference_response(self, response: SuccessResponse2) -> ResponseItems[ExternalId]:
+    def _reference_response(self, response: SuccessResponse) -> ResponseItems[ExternalId]:
         return ResponseItems[ExternalId].model_validate_json(response.body)
 
     def create(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:

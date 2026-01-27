@@ -7,7 +7,7 @@ https://api-docs.cognite.com/20230101/tag/Function-schedules/operation/postFunct
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
     FunctionScheduleResponse,
@@ -33,7 +33,7 @@ class FunctionSchedulesAPI(CDFResourceAPI[InternalId, FunctionScheduleRequest, F
         )
 
     def _validate_page_response(
-        self, response: SuccessResponse2 | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse
     ) -> PagedResponse[FunctionScheduleResponse]:
         return PagedResponse[FunctionScheduleResponse].model_validate_json(response.body)
 
