@@ -84,7 +84,7 @@ class AuthCommand(ToolkitCommand):
         ask_user = True
         if env_vars and not env_vars.get_missing_vars():
             print("Auth variables are already set.")
-            ask_user = questionary.confirm("Do you want to reconfigure the auth variables?", default=False).ask()
+            ask_user = questionary.confirm("Do you want to reconfigure the auth variables?", default=False).unsafe_ask()
 
         if ask_user or not env_vars:
             env_vars = prompt_user_environment_variables(env_vars)
@@ -111,10 +111,10 @@ class AuthCommand(ToolkitCommand):
             if questionary.confirm(
                 f"Do you want to overwrite the existing '.env' file? The existing will be renamed to {filename}",
                 default=False,
-            ).ask():
+            ).unsafe_ask():
                 shutil.move(".env", filename)
                 Path(".env").write_text(new_env_file, encoding="utf-8")
-        elif questionary.confirm("Do you want to save these to .env file for next time?", default=True).ask():
+        elif questionary.confirm("Do you want to save these to .env file for next time?", default=True).unsafe_ask():
             Path(".env").write_text(new_env_file, encoding="utf-8")
 
     def verify(
@@ -197,7 +197,7 @@ class AuthCommand(ToolkitCommand):
             if (
                 is_interactive
                 and missing_capabilities
-                and questionary.confirm("Do you want to update the group with the missing capabilities?").ask()
+                and questionary.confirm("Do you want to update the group with the missing capabilities?").unsafe_ask()
             ) or is_demo:
                 has_added_capabilities = self._update_missing_capabilities(
                     client, cdf_toolkit_group, missing_capabilities, dry_run
@@ -213,7 +213,7 @@ class AuthCommand(ToolkitCommand):
             if (
                 is_interactive
                 and missing_capabilities
-                and questionary.confirm("Do you want to update the group with the missing capabilities?").ask()
+                and questionary.confirm("Do you want to update the group with the missing capabilities?").unsafe_ask()
             ):
                 self._update_missing_capabilities(client, cdf_toolkit_group, missing_capabilities, dry_run)
         elif is_demo:
@@ -246,7 +246,7 @@ class AuthCommand(ToolkitCommand):
             if extra := self.check_duplicated_names(all_groups, cdf_toolkit_group):
                 if (
                     is_interactive
-                    and questionary.confirm("Do you want to delete the extra groups?", default=True).ask()
+                    and questionary.confirm("Do you want to delete the extra groups?", default=True).unsafe_ask()
                 ):
                     try:
                         client.iam.groups.delete(extra.as_ids())
@@ -274,7 +274,7 @@ class AuthCommand(ToolkitCommand):
         if not questionary.confirm(
             "Do you want to create it?",
             default=True,
-        ).ask():
+        ).unsafe_ask():
             return None
 
         if dry_run:
@@ -283,13 +283,10 @@ class AuthCommand(ToolkitCommand):
             )
             return None
 
-        while True:
-            source_id = questionary.text(
-                "What is the source id for the new group (typically a group id in the identity provider)?"
-            ).ask()
-            if source_id:
-                break
-            print("Source id cannot be empty.")
+        source_id = questionary.text(
+            "What is the source id for the new group (typically a group id in the identity provider)?",
+            validate=lambda value: value.strip() != "",
+        ).unsafe_ask()
 
         toolkit_group.source_id = source_id
         if already_used := [group.name for group in all_groups if group.source_id == source_id]:
@@ -298,7 +295,7 @@ class AuthCommand(ToolkitCommand):
                     f"The source id {source_id!r} is already used by the groups: {humanize_collection(already_used)!r}."
                 )
             )
-            if not questionary.confirm("This is NOT recommended. Do you want to continue?", default=False).ask():
+            if not questionary.confirm("This is NOT recommended. Do you want to continue?", default=False).unsafe_ask():
                 return None
 
         return self._create_toolkit_group_in_cdf(client, toolkit_group)
