@@ -277,6 +277,7 @@ class RawTableInteractiveSelect:
         selected_tables = questionary.checkbox(
             f"Select Raw Tables in {selected_database} to {self.operation}",
             choices=[questionary.Choice(title=f"{table.table_name}", value=table) for table in available_tables],
+            validate=lambda choices: True if choices else "You must select at least one table.",
         ).unsafe_ask()
 
         return selected_tables
@@ -430,6 +431,7 @@ class InteractiveChartSelect:
                 )
                 for chart in available_charts
             ],
+            validate=lambda selected: "You must select at least one Chart." if not selected else True,
         ).unsafe_ask()
         return selected_charts or []
 
@@ -575,7 +577,11 @@ class DataModelingSelect:
         question = message or f"Which view do you want to use to select instances to {self.operation}?"
         choices = [Choice(title=f"{view.external_id} (version={view.version})", value=view) for view in views]
         if multiselect:
-            selected_views = questionary.checkbox(question, choices=choices).unsafe_ask()
+            selected_views = questionary.checkbox(
+                question,
+                choices=choices,
+                validate=lambda choises: True if choises else "You must select at least one view.",
+            ).unsafe_ask()
         else:
             selected_views = questionary.select(question, choices=choices).unsafe_ask()
         if multiselect:
@@ -707,7 +713,11 @@ class DataModelingSelect:
             for space, count in sorted(count_by_space.items(), key=lambda item: item[1], reverse=True)
         ]
         if multiselect:
-            selected_spaces = questionary.checkbox(message, choices=choices).unsafe_ask()
+            selected_spaces = questionary.checkbox(
+                message,
+                choices=choices,
+                validate=lambda choises: True if choises else "You must select at least one space.",
+            ).unsafe_ask()
         else:
             selected_spaces = questionary.select(message, choices=choices).unsafe_ask()
         if selected_spaces is None or (isinstance(selected_spaces, list) and len(selected_spaces) == 0):
@@ -737,7 +747,11 @@ class DataModelingSelect:
         message = f"In which empty Space{'(s)' if multiselect else ''} do you want to {self.operation}?"
         choices = [Choice(title=f"{space}", value=space) for space in sorted(empty_spaces)]
         if multiselect:
-            selected_spaces = questionary.checkbox(message, choices=choices).unsafe_ask()
+            selected_spaces = questionary.checkbox(
+                message,
+                choices=choices,
+                validate=lambda choises: True if choises else "You must select at least one space.",
+            ).unsafe_ask()
         else:
             selected_spaces = questionary.select(message, choices=choices).unsafe_ask()
         if selected_spaces is None or (isinstance(selected_spaces, list) and len(selected_spaces) == 0):
@@ -853,6 +867,7 @@ class ThreeDInteractiveSelect:
         selected_models = questionary.checkbox(
             f"Select 3D models to {self.operation}:",
             choices=choices,
+            validate=lambda choices: True if choices else "You must select at least one 3D model.",
         ).unsafe_ask()
         if selected_models is None or len(selected_models) == 0:
             raise ToolkitValueError("No 3D models selected.")

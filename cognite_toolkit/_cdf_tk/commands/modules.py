@@ -383,6 +383,7 @@ class ModulesCommand(ToolkitCommand):
                 qmark=INDENT,
                 pointer=POINTER,
                 style=custom_style_fancy,
+                validate=lambda choices: True if choices else "You must select at least one environment.",
             ).unsafe_ask()
         else:
             environments = user_environments
@@ -470,6 +471,7 @@ class ModulesCommand(ToolkitCommand):
             qmark=INDENT,
             pointer=POINTER,
             style=custom_style_fancy,
+            validate=lambda choices: True if choices else "You must select at least one module.",
         ).unsafe_ask()
 
     def _select_packages(self, packages: Packages, existing_module_names: list[str] | None = None) -> Packages:

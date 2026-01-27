@@ -311,6 +311,7 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
         selected_transformation_ids: tuple[str, ...] | None = questionary.checkbox(
             "Which transformation(s) would you like to dump?",
             choices=choices,
+            validate=lambda choices: True if choices else "You must select at least one transformation.",
         ).unsafe_ask()
         if not selected_transformation_ids:
             raise ToolkitValueError(f"No transformations selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
@@ -356,6 +357,7 @@ class GroupFinder(ResourceFinder[tuple[str, ...]]):
                 Choice(f"{group_name} ({len(group_list)} group{'s' if len(group_list) > 1 else ''})", value=group_list)
                 for group_name, group_list in sorted(groups_by_name.items())
             ],
+            validate=lambda choices: True if choices else "You must select at least one group.",
         ).unsafe_ask()
         if not selected_groups:
             raise ToolkitValueError(f"No group selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
@@ -389,6 +391,7 @@ class AgentFinder(ResourceFinder[tuple[str, ...]]):
         selected_agent_ids: list[str] | None = questionary.checkbox(
             "Which agent(s) would you like to dump?",
             choices=choices,
+            validate=lambda choices: True if choices else "You must select at least one agent.",
         ).unsafe_ask()
         if not selected_agent_ids:
             raise ToolkitValueError(f"No agents selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
@@ -465,6 +468,7 @@ class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
         selected_filter_ids: tuple[str, ...] | None = questionary.checkbox(
             "Which filters would you like to dump?",
             choices=[Choice(name, value=id_) for name, id_ in id_by_display_name.items()],
+            validate=lambda choices: True if choices else "You must select at least one filter.",
         ).unsafe_ask()
         if not selected_filter_ids:
             raise ToolkitValueError(f"No filters selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
@@ -501,6 +505,7 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
         selected_pipeline_ids: tuple[str, ...] | None = questionary.checkbox(
             "Which extraction pipeline(s) would you like to dump?",
             choices=choices,
+            validate=lambda choices: True if choices else "You must select at least one pipeline.",
         ).unsafe_ask()
         if not selected_pipeline_ids:
             raise ToolkitValueError(f"No extraction pipelines selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
@@ -540,6 +545,7 @@ class DataSetFinder(ResourceFinder[tuple[str, ...]]):
         selected_dataset_ids: tuple[str, ...] | None = questionary.checkbox(
             "Which dataset(s) would you like to dump?",
             choices=choices,
+            validate=lambda choices: True if choices else "You must select at least one dataset.",
         ).unsafe_ask()
         if not selected_dataset_ids:
             raise ToolkitValueError(f"No datasets selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
@@ -576,6 +582,7 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
         selected_function_ids: tuple[str, ...] | None = questionary.checkbox(
             "Which function(s) would you like to dump?",
             choices=choices,
+            validate=lambda choices: True if choices else "You must select at least one function.",
         ).unsafe_ask()
         if not selected_function_ids:
             raise ToolkitValueError(f"No functions selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
@@ -655,6 +662,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
                 )
                 for app in sorted(self.apps, key=lambda a: a.name)
             ],
+            validate=lambda choices: True if choices else "You must select at least one Streamlit app.",
         ).unsafe_ask()
         if not selected_ids:
             raise ToolkitValueError(f"No Streamlit app selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
@@ -774,6 +782,7 @@ class SearchConfigFinder(ResourceFinder[tuple[SearchConfigViewId, ...]]):
         selected_view_ids: list[SearchConfigViewId] | None = questionary.checkbox(
             "For which view would you like to dump the search configuration?",
             choices=choices,
+            validate=lambda choices: True if choices else "You must select at least one view.",
         ).unsafe_ask()
         if not selected_view_ids:
             raise ToolkitValueError("No view selected for dumping the search configuration.")
