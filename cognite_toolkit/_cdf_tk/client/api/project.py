@@ -28,7 +28,7 @@ class ProjectAPI:
         """Retrieve information about the organization of the current project."""
         response = self._http_client.request_single_retries(
             RequestMessage(
-                endpoint_url=self._config.create_api_url(""),
+                endpoint_url=self._config.base_api_url,
                 method="GET",
             )
         )
