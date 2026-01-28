@@ -13,7 +13,7 @@ class MockToolkitCommand(ToolkitCommand):
     """Create a toolkit command instance for testing with mocked mixpanel."""
 
     def __init__(self) -> None:
-        super().__init__(print_warning=True, skip_tracking=False, silent=False)
+        super().__init__(print_warning=True, skip_tracking=False, silent=False, client=None)
 
     def execute(self) -> None:
         pass

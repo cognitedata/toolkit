@@ -17,9 +17,6 @@ from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 
 class ResourcesCommand(ToolkitCommand):
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
-        super().__init__(print_warning, skip_tracking, silent)
-
     def _get_or_prompt_module_path(self, module: str | None, organization_dir: Path, verbose: bool) -> Path:
         """
         Check if the module exists in the organization directory and return the module path.

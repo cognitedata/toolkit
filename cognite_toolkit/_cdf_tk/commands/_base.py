@@ -5,6 +5,8 @@ from typing import Any
 from rich import print
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.data_classes import CommandTrackingInfo
 from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitWarning,
@@ -16,12 +18,27 @@ _HAS_PRINTED_COLLECT_MESSAGE = False
 
 
 class ToolkitCommand:
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False):
+    def __init__(
+        self,
+        print_warning: bool = True,
+        skip_tracking: bool = False,
+        silent: bool = False,
+        client: ToolkitClient | None = None,
+    ):
         self._print_warning = print_warning
         self.silent = silent
         self.warning_list = WarningList[ToolkitWarning]()
         self.tracker = Tracker(skip_tracking)
         self._additional_tracking_info = CommandTrackingInfo()
+        if client is not None:
+            self._additional_tracking_info.cluster = client.config.cdf_cluster
+            try:
+                result = client.project.organization()
+            except (ToolkitAPIError, ValueError):
+                self._additional_tracking_info.project = client.config.project
+            else:
+                self._additional_tracking_info.organization = result.organization
+                self._additional_tracking_info.project = result.name
 
     @property
     def print_warning(self) -> bool:
