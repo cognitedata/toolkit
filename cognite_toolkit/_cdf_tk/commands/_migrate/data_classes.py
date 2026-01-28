@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio._data_classes import ModelList
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import (
     AssetCentricKindExtended,
     JsonVal,
@@ -155,7 +156,7 @@ class MigrationMappingList(ModelList[MigrationMapping]):
         }
         if resource_type not in cls_by_resource_type:
             raise ToolkitValueError(
-                f"Invalid resource type '{resource_type}'. Must be one of 'asset', 'timeseries', or 'file'."
+                f"Invalid resource type '{resource_type}'. Must be one of {humanize_collection(cls_by_resource_type.keys())}."
             )
         return cls_by_resource_type[resource_type].read_csv_file(filepath, resource_type=None)
 
