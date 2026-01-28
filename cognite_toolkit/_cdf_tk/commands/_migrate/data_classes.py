@@ -10,8 +10,10 @@ from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, Nod
 from cognite.client.utils._identifier import InstanceId
 from cognite.client.utils._text import to_camel_case
 from pydantic import BaseModel, BeforeValidator, Field, field_validator, model_validator
-from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier
@@ -161,8 +163,58 @@ class MigrationMappingList(ModelList[MigrationMapping]):
             )
         return cls_by_resource_type[resource_type].read_csv_file(filepath, resource_type=None)
 
-    def print_status(self, console: Console) -> None:
-        raise NotImplementedError()
+    def print_status(self, client: ToolkitClient) -> Panel | None:
+        if not self:
+            return None
+        first = self[0]
+
+        text = Text()
+        text.append("- Resource type: ", style="bold")
+        text.append(f"{first.resource_type}\n", style="cyan")
+        text.append("- Number of items: ", style="bold")
+        text.append(f"{len(self)}", style="green")
+        text.append("\n- Mapping: ", style="bold")
+        has_ingestion_view_column = "ingestionView" in self.columns
+        try:
+            ingestion_view = first.get_ingestion_view()
+        except ToolkitValueError:
+            text.append("Could not determine mapping", style="red")
+        else:
+            mapping = client.migration.resource_view_mapping.retrieve(external_id=ingestion_view)
+            if mapping is None:
+                text.append(f"Ingestion view '{ingestion_view}' does not exist", style="red")
+            else:
+                message = f"'{mapping.external_id}' writing to {mapping.view_id!r}"
+                if not has_ingestion_view_column:
+                    message += " (default)"
+                text.append(message, style="yellow")
+
+        if not has_ingestion_view_column:
+            text.append(
+                "\n\n* To specify a custom ingestion view for each mapping, add an 'ingestionView' column to the CSV file.",
+                style="dim",
+            )
+        if "consumerViewSpace" in self.columns and "consumerViewExternalId" in self.columns:
+            consumer_columns = ["consumerViewSpace", "consumerViewExternalId"]
+            if "consumerViewVersion" in self.columns:
+                consumer_columns.append("consumerViewVersion")
+            message = (
+                "\n* Preferred consumer views have been specified for the mappings "
+                f"using {humanize_collection(consumer_columns)} columns."
+            )
+            text.append(
+                message,
+                style="green",
+            )
+        else:
+            text.append(
+                "\n\n[WARNING] Consumer views have not been specified for the mappings. "
+                "This is NOT recommended as this is used to determine which view to use for the resource in applications like Canvas. "
+                "To specify preferred consumer views, add 'consumerViewSpace', 'consumerViewExternalId', and optionally 'consumerViewVersion' columns to the CSV file.",
+                style="red",
+            )
+
+        return Panel(text, title="Ready for migration", expand=False)
 
 
 def _validate_node_id(value: Any) -> Any:

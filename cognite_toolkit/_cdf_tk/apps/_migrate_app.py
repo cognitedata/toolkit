@@ -378,8 +378,16 @@ class MigrateApp(typer.Typer):
             file_selector = MigrationCSVFileSelector(datafile=mapping_file, kind=kind)
             selected: AssetCentricMigrationSelector = file_selector
 
-            file_selector.items.print_status(client.console)
-
+            panel = file_selector.items.print_status(client)
+            if panel is not None:
+                client.console.print(panel)
+                if not auto_yes:
+                    proceed = questionary.confirm(
+                        "Do you want to proceed with the migration?", default=False
+                    ).unsafe_ask()
+                    if not proceed:
+                        client.console.print("Migration aborted by user.")
+                        raise typer.Abort()
         elif data_set_id is not None:
             parsed_view = parse_view_str(consumption_view) if consumption_view is not None else None
             selected = MigrateDataSetSelector(
