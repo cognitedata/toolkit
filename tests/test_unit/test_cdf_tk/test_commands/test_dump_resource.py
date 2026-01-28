@@ -32,6 +32,7 @@ from questionary import Choice
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters import LocationFilter, LocationFilterList
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import SearchConfig, SearchConfigList, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
@@ -44,6 +45,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     FunctionFinder,
     GroupFinder,
     LocationFilterFinder,
+    ResourceViewMappingFinder,
     SearchConfigFinder,
     SpaceFinder,
     StreamlitFinder,
@@ -56,6 +58,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     FunctionCRUD,
     GroupAllScopedCRUD,
     LocationFilterCRUD,
+    ResourceViewMappingCRUD,
     SearchConfigCRUD,
     SpaceCRUD,
     StreamlitCRUD,
@@ -940,5 +943,84 @@ class TestDumpSearchConfigs:
         items = sorted([read_yaml_file(filepath) for filepath in filepaths], key=lambda d: d["view"]["externalId"])
         expected = sorted(
             [loader.dump_resource(sc) for sc in three_search_configs[1:]], key=lambda d: d["view"]["externalId"]
+        )
+        assert items == expected
+
+
+@pytest.fixture()
+def three_resource_view_mappings() -> list[ResourceViewMapping]:
+    return [
+        ResourceViewMapping(
+            external_id="mappingA",
+            version=1,
+            last_updated_time=1,
+            created_time=1,
+            resource_type="asset",
+            view_id=dm.ViewId("my_space", "CogniteAsset", "v1"),
+            property_mapping={"name": "name", "description": "description"},
+        ),
+        ResourceViewMapping(
+            external_id="mappingB",
+            version=1,
+            last_updated_time=1,
+            created_time=1,
+            resource_type="event",
+            view_id=dm.ViewId("my_space", "CogniteEvent", "v1"),
+            property_mapping={"type": "type", "subtype": "subtype"},
+        ),
+        ResourceViewMapping(
+            external_id="mappingC",
+            version=1,
+            last_updated_time=1,
+            created_time=1,
+            resource_type="timeseries",
+            view_id=dm.ViewId("my_space", "CogniteTimeSeries", "v1"),
+            property_mapping={"name": "name", "unit": "unit"},
+        ),
+    ]
+
+
+class TestResourceViewMappingFinder:
+    def test_select_resource_view_mappings(
+        self, three_resource_view_mappings: list[ResourceViewMapping], monkeypatch: MonkeyPatch
+    ) -> None:
+        def select_mappings(choices: list[Choice]) -> list[str]:
+            assert len(choices) == len(three_resource_view_mappings)
+            return [choices[1].value, choices[2].value]
+
+        answers = [select_mappings]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(ResourceViewMappingFinder.__module__, monkeypatch, answers),
+        ):
+            client.migration.resource_view_mapping.list.return_value = dm.NodeList(three_resource_view_mappings)
+            finder = ResourceViewMappingFinder(client, None)
+            selected = finder._interactive_select()
+
+        assert selected == ("mappingB", "mappingC")
+
+
+class TestDumpResourceViewMappings:
+    def test_dump_resource_view_mappings(
+        self, three_resource_view_mappings: list[ResourceViewMapping], tmp_path: Path
+    ) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.migration.resource_view_mapping.retrieve.return_value = dm.NodeList(three_resource_view_mappings[1:])
+
+            cmd = DumpResourceCommand(silent=True)
+            cmd.dump_to_yamls(
+                ResourceViewMappingFinder(client, ("mappingB", "mappingC")),
+                output_dir=tmp_path,
+                clean=False,
+                verbose=False,
+            )
+            loader = ResourceViewMappingCRUD(client, None, None)
+
+        filepaths = list(loader.find_files(tmp_path))
+        assert len(filepaths) == 2
+        items = sorted([read_yaml_file(filepath) for filepath in filepaths], key=lambda d: d["externalId"])
+        expected = sorted(
+            [loader.dump_resource(m) for m in three_resource_view_mappings[1:]], key=lambda d: d["externalId"]
         )
         assert items == expected
