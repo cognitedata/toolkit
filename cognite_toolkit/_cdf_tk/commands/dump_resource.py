@@ -28,7 +28,7 @@ from cognite.client.data_classes._base import (
 from cognite.client.data_classes.agents import (
     AgentList,
 )
-from cognite.client.data_classes.data_modeling import DataModelId
+from cognite.client.data_classes.data_modeling import DataModelId, NodeList
 from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.functions import (
@@ -829,8 +829,6 @@ class ResourceViewMappingFinder(ResourceFinder[tuple[str, ...]]):
         self.identifier = self._selected()
         loader = ResourceViewMappingCRUD.create_loader(self.client)
         if self.resource_view_mappings:
-            from cognite.client.data_classes.data_modeling import NodeList
-
             selected_mappings = NodeList[ResourceViewMapping](
                 [m for m in self.resource_view_mappings if m.external_id in self.identifier]
             )
