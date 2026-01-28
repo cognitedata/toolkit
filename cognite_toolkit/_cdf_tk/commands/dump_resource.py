@@ -829,7 +829,7 @@ class ResourceViewMappingFinder(ResourceFinder[tuple[str, ...]]):
         self.identifier = self._selected()
         loader = ResourceViewMappingCRUD.create_loader(self.client)
         if self.resource_view_mappings:
-            selected_mappings = NodeList(
+            selected_mappings = NodeList[ResourceViewMapping](
                 [m for m in self.resource_view_mappings if m.external_id in self.identifier]
             )
             yield [], selected_mappings, loader, None
