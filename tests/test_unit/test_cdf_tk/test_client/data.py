@@ -291,6 +291,7 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "instanceType": "node",
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
+            "wasModified": False,
             "version": 1,
             "properties": {
                 "my_space": {
@@ -318,6 +319,7 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             },
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
+            "wasModified": False,
             "version": 1,
             "properties": {
                 "my_space": {

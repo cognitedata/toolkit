@@ -1,13 +1,31 @@
 from collections.abc import Sequence
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import Field
+from pydantic import Field, model_serializer, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 
 
 class InternalOrExternalIdDefinition(Identifier):
     type: str
+
+
+class InternalIdUnwrapped(Identifier):
+    id: int
+
+    def __str__(self) -> str:
+        return f"id={self.id}"
+
+    @model_serializer
+    def serialize(self) -> int:
+        return self.id
+
+    @model_validator(mode="before")
+    @classmethod
+    def deserialize(cls, value: Any) -> Any:
+        if isinstance(value, int):
+            return {"id": value}
+        return value
 
 
 class InternalId(InternalOrExternalIdDefinition):
@@ -20,6 +38,9 @@ class InternalId(InternalOrExternalIdDefinition):
 
     def __str__(self) -> str:
         return f"id={self.id}"
+
+    def as_unwrapped(self) -> InternalIdUnwrapped:
+        return InternalIdUnwrapped(id=self.id)
 
 
 class ExternalId(InternalOrExternalIdDefinition):

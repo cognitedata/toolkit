@@ -1,4 +1,4 @@
-from typing import ClassVar
+from typing import Any, ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -48,6 +48,12 @@ class ExtractionPipelineRequest(ExtractionPipeline, UpdatableRequestResource):
     non_nullable_fields: ClassVar[frozenset[str]] = frozenset(
         {"documentation", "source", "notification_config", "schedule", "description"}
     )
+
+    def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
+        update = super().as_update(mode)
+        # createdBy cannot be updated.
+        update["update"].pop("createdBy", None)
+        return update
 
 
 class ExtractionPipelineResponse(ExtractionPipeline, ResponseResource[ExtractionPipelineRequest]):

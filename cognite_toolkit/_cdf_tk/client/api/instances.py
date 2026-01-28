@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceResponse,
     ViewReference,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedInstanceIdentifier
 
 
@@ -33,15 +34,18 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
     def _validate_response(self, response: SuccessResponse) -> ResponseItems[TypedInstanceIdentifier]:
         return ResponseItems[TypedInstanceIdentifier].model_validate_json(response.body)
 
-    def create(self, items: Sequence[InstanceRequest]) -> list[InstanceResponse]:
+    def create(self, items: Sequence[InstanceRequest]) -> list[InstanceSlimDefinition]:
         """Create instances in CDF.
 
         Args:
             items: List of InstanceRequest objects to create.
         Returns:
-            List of created InstanceResponse objects.
+            List of created InstanceSlimDefinition objects.
         """
-        return self._request_item_response(items, "upsert")
+        response_items: list[InstanceSlimDefinition] = []
+        for response in self._chunk_requests(items, "upsert", self._serialize_items):
+            response_items.extend(PagedResponse[InstanceSlimDefinition].model_validate_json(response.body).items)
+        return response_items
 
     def retrieve(
         self, items: Sequence[TypedInstanceIdentifier], source: ViewReference | None = None

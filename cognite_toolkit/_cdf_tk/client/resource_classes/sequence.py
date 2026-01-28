@@ -1,7 +1,9 @@
-from typing import ClassVar, Literal
+from collections import defaultdict
+from typing import Any, ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
+    Identifier,
     ResponseResource,
     UpdatableRequestResource,
 )
@@ -9,12 +11,15 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 from .identifiers import ExternalId
 
 
-class SequenceColumn(BaseModelObject):
+class SequenceColumn(UpdatableRequestResource):
     external_id: str
     name: str | None = None
     description: str | None = None
     metadata: dict[str, str] | None = None
     value_type: Literal["STRING", "DOUBLE", "LONG"] | None = None
+
+    def as_id(self) -> Identifier:
+        return ExternalId(external_id=self.external_id)
 
 
 class Sequence(BaseModelObject):
@@ -34,6 +39,32 @@ class Sequence(BaseModelObject):
 
 class SequenceRequest(Sequence, UpdatableRequestResource):
     container_fields: ClassVar[frozenset[str]] = frozenset({"metadata", "columns"})
+
+    def as_update(
+        self, mode: Literal["patch", "replace"], last_columns: list[SequenceColumn] | None = None
+    ) -> dict[str, Any]:
+        output = super().as_update(mode)
+        output["update"].pop("columns", None)
+        exclude_unset = mode == "patch"
+        existing_ids = {col.external_id for col in last_columns} if last_columns is not None else set()
+        columns: dict[str, list[Any]] = defaultdict(list)
+        for col in self.columns:
+            col_dumped = col.model_dump(mode="json", by_alias=True, exclude_none=True)
+            if col_dumped == {"externalId": col.external_id}:
+                continue  # No changes to this column
+
+            if col.external_id in existing_ids:
+                columns["modify"].append(col.as_update(mode=mode))
+            else:
+                columns["add"].append(col.model_dump(mode="json", by_alias=True, exclude_unset=exclude_unset))
+        if mode == "replace":
+            current_columns_ids = {col.external_id for col in self.columns}
+            for col in last_columns or []:
+                if col.external_id not in current_columns_ids:
+                    columns["remove"].append({"externalId": col.external_id})
+        if columns:
+            output["update"]["columns"] = dict(columns)
+        return output
 
 
 class SequenceResponse(Sequence, ResponseResource[SequenceRequest]):

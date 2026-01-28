@@ -1,20 +1,26 @@
+from pydantic import Field
+
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
     RequestResource,
     ResponseResource,
 )
 
-from .identifiers import NameId
+from .identifiers import InternalIdUnwrapped
 
 
 class SecurityCategory(BaseModelObject):
     name: str
 
-    def as_id(self) -> NameId:
-        return NameId(name=self.name)
 
+class SecurityCategoryRequest(SecurityCategory, RequestResource):
+    # This is not part of the request payload.
+    id: int | None = Field(None, exclude=True)
 
-class SecurityCategoryRequest(SecurityCategory, RequestResource): ...
+    def as_id(self) -> InternalIdUnwrapped:
+        if self.id is None:
+            raise ValueError("Cannot create identifier from SecurityCategoryRequest without id set")
+        return InternalIdUnwrapped(id=self.id)
 
 
 class SecurityCategoryResponse(SecurityCategory, ResponseResource[SecurityCategoryRequest]):

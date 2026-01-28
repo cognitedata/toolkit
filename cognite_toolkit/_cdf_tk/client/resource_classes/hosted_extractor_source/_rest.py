@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import Field
 
@@ -26,6 +26,7 @@ class RESTSource(BaseModelObject):
 
 
 class RESTSourceRequest(RESTSource, SourceRequestDefinition):
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"scheme", "port"})
     scheme: Literal["https", "http"] | None = None
     authentication: (
         BasicAuthenticationRequest | HTTPBasicAuthenticationRequest | ClientCredentialAuthenticationRequest | None
