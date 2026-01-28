@@ -166,33 +166,32 @@ class MigrationMappingList(ModelList[MigrationMapping]):
         if not self:
             return None
         first = self[0]
+        resource_type = first.resource_type
 
         text = Text()
-        text.append(f"Migrating {len(self)} {first.resource_type}", style="bold")
+        text.append(f"Migrating {len(self)} {resource_type}", style="bold")
         if "ingestionView" in self.columns:
             text.append("[green]Mapping column set[/green]")
         else:
             text.append(
-                "\n[WARNING] 'ingestionView' column not set in CSV file. "
-                "Using default ingestion view for all mappings.",
+                "\n[WARNING] 'ingestionView' column not set in CSV file. This is NOT recommended. "
+                f"All {resource_type}s will be ingested into CogniteCore. If you want to ingest the {resource_type}s "
+                f"into your own data modeling views, please add an 'ingestionView' column to the CSV file.",
                 style="red",
             )
         if "consumerViewSpace" in self.columns and "consumerViewExternalId" in self.columns:
             consumer_columns = ["consumerViewSpace", "consumerViewExternalId"]
             if "consumerViewVersion" in self.columns:
                 consumer_columns.append("consumerViewVersion")
-            message = (
-                "\n* Preferred consumer views have been specified for the mappings "
-                f"using {humanize_collection(consumer_columns)} columns."
-            )
             text.append(
-                message,
+                "Preferred consumer views specified "
+                f"for the mappings using the {humanize_collection(consumer_columns)} columns.",
                 style="green",
             )
         else:
             text.append(
-                "\n\n[WARNING] Consumer views have not been specified for the mappings. "
-                "This is NOT recommended as this is used to determine which view to use for the resource in applications like Canvas. "
+                "\n\n[WARNING] Consumer views have not been specified for the instances. "
+                f"This is NOT recommended as this is used to determine which view to use when migrating the {resource_type}s in applications like Canvas. "
                 "To specify preferred consumer views, add 'consumerViewSpace', 'consumerViewExternalId', and optionally 'consumerViewVersion' columns to the CSV file.",
                 style="red",
             )
