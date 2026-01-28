@@ -10,6 +10,7 @@ from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, Nod
 from cognite.client.utils._identifier import InstanceId
 from cognite.client.utils._text import to_camel_case
 from pydantic import BaseModel, BeforeValidator, Field, field_validator, model_validator
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
@@ -159,6 +160,9 @@ class MigrationMappingList(ModelList[MigrationMapping]):
                 f"Invalid resource type '{resource_type}'. Must be one of {humanize_collection(cls_by_resource_type.keys())}."
             )
         return cls_by_resource_type[resource_type].read_csv_file(filepath, resource_type=None)
+
+    def print_status(self, console: Console) -> None:
+        raise NotImplementedError()
 
 
 def _validate_node_id(value: Any) -> Any:

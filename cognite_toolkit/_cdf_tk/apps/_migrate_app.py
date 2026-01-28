@@ -365,7 +365,11 @@ class MigrateApp(typer.Typer):
         if data_set_id is not None and mapping_file is not None:
             raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
         elif mapping_file is not None:
-            selected: AssetCentricMigrationSelector = MigrationCSVFileSelector(datafile=mapping_file, kind=kind)
+            file_selector = MigrationCSVFileSelector(datafile=mapping_file, kind=kind)
+            selected: AssetCentricMigrationSelector = file_selector
+
+            file_selector.items.print_status(client.console)
+
         elif data_set_id is not None:
             parsed_view = parse_view_str(consumption_view) if consumption_view is not None else None
             selected = MigrateDataSetSelector(
