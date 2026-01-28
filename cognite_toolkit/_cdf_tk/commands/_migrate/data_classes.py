@@ -13,7 +13,6 @@ from pydantic import BaseModel, BeforeValidator, Field, field_validator, model_v
 from rich.panel import Panel
 from rich.text import Text
 
-from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier
@@ -163,36 +162,20 @@ class MigrationMappingList(ModelList[MigrationMapping]):
             )
         return cls_by_resource_type[resource_type].read_csv_file(filepath, resource_type=None)
 
-    def print_status(self, client: ToolkitClient) -> Panel | None:
+    def print_status(self) -> Panel | None:
         if not self:
             return None
         first = self[0]
 
         text = Text()
-        text.append("- Resource type: ", style="bold")
-        text.append(f"{first.resource_type}\n", style="cyan")
-        text.append("- Number of items: ", style="bold")
-        text.append(f"{len(self)}", style="green")
-        text.append("\n- Mapping: ", style="bold")
-        has_ingestion_view_column = "ingestionView" in self.columns
-        try:
-            ingestion_view = first.get_ingestion_view()
-        except ToolkitValueError:
-            text.append("Could not determine mapping", style="red")
+        text.append(f"Migrating {len(self)} {first.resource_type}", style="bold")
+        if "ingestionView" in self.columns:
+            text.append("[green]Mapping column set[/green]")
         else:
-            mapping = client.migration.resource_view_mapping.retrieve(external_id=ingestion_view)
-            if mapping is None:
-                text.append(f"Ingestion view '{ingestion_view}' does not exist", style="red")
-            else:
-                message = f"'{mapping.external_id}' writing to {mapping.view_id!r}"
-                if not has_ingestion_view_column:
-                    message += " (default)"
-                text.append(message, style="yellow")
-
-        if not has_ingestion_view_column:
             text.append(
-                "\n\n* To specify a custom ingestion view for each mapping, add an 'ingestionView' column to the CSV file.",
-                style="dim",
+                "\n[WARNING] 'ingestionView' column not set in CSV file. "
+                "Using default ingestion view for all mappings.",
+                style="red",
             )
         if "consumerViewSpace" in self.columns and "consumerViewExternalId" in self.columns:
             consumer_columns = ["consumerViewSpace", "consumerViewExternalId"]

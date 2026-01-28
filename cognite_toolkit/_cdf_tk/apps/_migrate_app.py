@@ -378,7 +378,7 @@ class MigrateApp(typer.Typer):
             file_selector = MigrationCSVFileSelector(datafile=mapping_file, kind=kind)
             selected: AssetCentricMigrationSelector = file_selector
 
-            panel = file_selector.items.print_status(client)
+            panel = file_selector.items.print_status()
             if panel is not None:
                 client.console.print(panel)
                 if not auto_yes:
