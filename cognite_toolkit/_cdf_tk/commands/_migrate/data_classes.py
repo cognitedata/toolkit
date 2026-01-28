@@ -171,7 +171,7 @@ class MigrationMappingList(ModelList[MigrationMapping]):
         text = Text()
         text.append(f"Migrating {len(self)} {resource_type}", style="bold")
         if "ingestionView" in self.columns:
-            text.append("[green]Mapping column set[/green]")
+            text.append("\n[green]Mapping column set[/green]")
         else:
             text.append(
                 "\n[WARNING] 'ingestionView' column not set in CSV file. This is NOT recommended. "
@@ -184,13 +184,13 @@ class MigrationMappingList(ModelList[MigrationMapping]):
             if "consumerViewVersion" in self.columns:
                 consumer_columns.append("consumerViewVersion")
             text.append(
-                "Preferred consumer views specified "
+                "\nPreferred consumer views specified "
                 f"for the mappings using the {humanize_collection(consumer_columns)} columns.",
                 style="green",
             )
         else:
             text.append(
-                "\n\n[WARNING] Consumer views have not been specified for the instances. "
+                "\n[WARNING] Consumer views have not been specified for the instances. "
                 f"This is NOT recommended as this is used to determine which view to use when migrating the {resource_type}s in applications like Canvas. "
                 "To specify preferred consumer views, add 'consumerViewSpace', 'consumerViewExternalId', and optionally 'consumerViewVersion' columns to the CSV file.",
                 style="red",
