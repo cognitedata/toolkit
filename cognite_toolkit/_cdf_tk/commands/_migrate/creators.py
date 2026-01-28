@@ -20,6 +20,7 @@ from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.events import EventProperty
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.apm_config_v1 import APMConfig, APMConfigList
 from cognite_toolkit._cdf_tk.cruds import NodeCRUD, ResourceCRUD, SpaceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitRequiredValueError
@@ -146,6 +147,7 @@ class SourceSystemCreator(MigrationCreator[NodeApplyList]):
         self.hierarchy = hierarchy
 
     def create_resources(self) -> NodeApplyList:
+        existing_resources = self._get_existing_source_systems()
         seen: set[str] = set()
         nodes = NodeApplyList([])
         for source in self._lookup_sources():
@@ -153,6 +155,9 @@ class SourceSystemCreator(MigrationCreator[NodeApplyList]):
             if not isinstance(source_str, str) or source_str in seen:
                 continue
             seen.add(source_str)
+            if existing_id := existing_resources.get(source_str):
+                self.client.console.print(f"Skipping {source_str} as it already exists in {existing_id!r}.")
+                continue
             nodes.append(
                 NodeApply(
                     space=self._instance_space,
@@ -164,6 +169,10 @@ class SourceSystemCreator(MigrationCreator[NodeApplyList]):
                 )
             )
         return nodes
+
+    def _get_existing_source_systems(self) -> dict[str, NodeReference]:
+        all_existing = self.client.migration.created_source_system.list(limit=-1)
+        return {node.source: NodeReference(space=node.space, external_id=node.external_id) for node in all_existing}
 
     def resource_configs(self, resources: NodeApplyList) -> list[ResourceConfig]:
         output: list[ResourceConfig] = []
