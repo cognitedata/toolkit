@@ -1118,12 +1118,12 @@ class MigrateApp(typer.Typer):
             object_3D_space = space_selector.select_instance_space(
                 multiselect=False,
                 message="In which instance space do you want to create the 3D Object nodes?",
-                include_empty=False,
+                include_empty=True,
             )
             cad_node_space = space_selector.select_instance_space(
                 multiselect=False,
                 message="In which instance space do you want to create the CAD Node nodes?",
-                include_empty=False,
+                include_empty=True,
             )
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
