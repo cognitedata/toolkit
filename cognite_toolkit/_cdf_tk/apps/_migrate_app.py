@@ -313,6 +313,14 @@ class MigrateApp(typer.Typer):
                 help="If set, the migration will not be executed, but only a report of what would be done is printed.",
             ),
         ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="(Only used with mapping-file) If set, no confirmation prompt will be shown before proceeding with the migration.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -331,6 +339,7 @@ class MigrateApp(typer.Typer):
             consumption_view=consumption_view,
             ingestion_mapping=ingestion_mapping,
             dry_run=dry_run,
+            auto_yes=auto_yes,
             verbose=verbose,
             kind="Assets",
             resource_type="asset",
@@ -356,6 +365,7 @@ class MigrateApp(typer.Typer):
         data_set_id: str | None,
         consumption_view: str | None,
         ingestion_mapping: str | None,
+        auto_yes: bool,
         dry_run: bool,
         verbose: bool,
         kind: AssetCentricKind,
@@ -464,6 +474,14 @@ class MigrateApp(typer.Typer):
                 help="If set, the migration will not be executed, but only a report of what would be done is printed.",
             ),
         ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="(Only used with mapping-file) If set, no confirmation prompt will be shown before proceeding with the migration.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -482,6 +500,7 @@ class MigrateApp(typer.Typer):
             consumption_view=consumption_view,
             ingestion_mapping=ingestion_mapping,
             dry_run=dry_run,
+            auto_yes=auto_yes,
             verbose=verbose,
             kind="Events",
             resource_type="event",
@@ -567,6 +586,14 @@ class MigrateApp(typer.Typer):
                 help="If set, the migration will not be executed, but only a report of what would be done is printed.",
             ),
         ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="(Only used with mapping-file) If set, no confirmation prompt will be shown before proceeding with the migration.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -586,6 +613,7 @@ class MigrateApp(typer.Typer):
             consumption_view=consumption_view,
             ingestion_mapping=ingestion_mapping,
             dry_run=dry_run,
+            auto_yes=auto_yes,
             verbose=verbose,
             kind="TimeSeries",
             resource_type="timeseries",
@@ -674,6 +702,14 @@ class MigrateApp(typer.Typer):
                 help="If set, the migration will not be executed, but only a report of what would be done is printed.",
             ),
         ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="(Only used with mapping-file) If set, no confirmation prompt will be shown before proceeding with the migration.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -693,6 +729,7 @@ class MigrateApp(typer.Typer):
             consumption_view=consumption_view,
             ingestion_mapping=ingestion_mapping,
             dry_run=dry_run,
+            auto_yes=auto_yes,
             verbose=verbose,
             kind="FileMetadata",
             resource_type="file",
