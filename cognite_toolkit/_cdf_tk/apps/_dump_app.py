@@ -53,7 +53,8 @@ class DumpApp(typer.Typer):
         self.command("agents")(DumpConfigApp.dump_agents)
 
         self.command("search-config")(DumpConfigApp.dump_search_config)
-        self.command("resource-view-mapping")(DumpConfigApp.dump_resource_view_mapping)
+        if Flags.MIGRATE.is_enabled():
+            self.command("resource-view-mapping")(DumpConfigApp.dump_resource_view_mapping)
 
     @staticmethod
     def dump_main(ctx: typer.Context) -> None:
@@ -81,7 +82,8 @@ class DumpConfigApp(typer.Typer):
         self.command("streamlit")(DumpConfigApp.dump_streamlit)
         self.command("agents")(self.dump_agents)
         self.command("search-config")(self.dump_search_config)
-        self.command("resource-view-mapping")(self.dump_resource_view_mapping)
+        if Flags.MIGRATE.is_enabled():
+            self.command("resource-view-mapping")(self.dump_resource_view_mapping)
 
     @staticmethod
     def dump_config_main(ctx: typer.Context) -> None:
@@ -797,7 +799,7 @@ class DumpConfigApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """This command will dump the selected resource view mapping(s) as yaml to the folder specified, defaults to /tmp."""
+        """[MIGRATION] This command will dump the selected resource view mapping(s) as yaml to the folder specified, defaults to /tmp."""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = DumpResourceCommand(client=client)
         cmd.run(
