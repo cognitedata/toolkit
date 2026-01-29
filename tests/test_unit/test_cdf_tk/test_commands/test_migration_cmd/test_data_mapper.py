@@ -52,7 +52,7 @@ class TestAssetCentricMapper:
                     resource=AssetResponse(
                         id=1000 + i,
                         name=f"Asset {i}",
-                        source="sap",
+                        source="SAP",
                         description=f"Description {i}",
                         createdTime=1,
                         lastUpdatedTime=1,
@@ -116,10 +116,14 @@ class TestAssetCentricMapper:
             first_asset = mapped[0]
             assert first_asset.sources[0].properties["source"] == DirectRelationReference("source_systems", "SAP")
 
+            # Check lookup calls
             assert client.migration.resource_view_mapping.retrieve.call_count == 1
             client.migration.resource_view_mapping.retrieve.assert_called_with(["cdf_asset_mapping"])
             assert client.migration.created_source_system.retrieve.call_count == 1
             assert client.data_modeling.views.retrieve.call_count == 1
+
+            assert client.migration.created_source_system.retrieve.call_count == 1
+            client.migration.created_source_system.retrieve.assert_called_with(["sap"])
 
     def test_map_chunk_before_prepare_raises_error(self, tmp_path: Path) -> None:
         """Test that calling map_chunk before prepare raises a RuntimeError."""

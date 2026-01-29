@@ -1,10 +1,10 @@
 import gzip
 from abc import ABC, abstractmethod
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import httpx
 from cognite.client import global_config
-from pydantic import TYPE_CHECKING, BaseModel, JsonValue, TypeAdapter, model_validator
+from pydantic import BaseModel, JsonValue, TypeAdapter, model_validator
 
 from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIError
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
