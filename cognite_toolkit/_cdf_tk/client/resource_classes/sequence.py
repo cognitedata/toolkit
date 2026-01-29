@@ -28,6 +28,9 @@ class SequenceColumnResponse(SequenceColumn, ResponseResource[SequenceColumnRequ
     created_time: int
     last_updated_time: int
 
+    def as_request_resource(self) -> SequenceColumnRequest:
+        return SequenceColumnRequest.model_validate(self.dump(), extra="ignore")
+
 
 class Sequence(BaseModelObject):
     external_id: str | None = None
