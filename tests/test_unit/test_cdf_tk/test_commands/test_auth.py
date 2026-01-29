@@ -21,7 +21,6 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.data_classes.iam import Group, GroupList, ProjectSpec, TokenInspection
 
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.project import ProjectStatusList
 from cognite_toolkit._cdf_tk.commands import AuthCommand
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -172,17 +171,7 @@ class TestAuthCommand:
 
 def test_get_capabilities_by_loader_hybrid_project(toolkit_client_approval: ApprovalToolkitClient):
     client = toolkit_client_approval.client
-    client.project = MagicMock()
-    client.project.status.return_value = ProjectStatusList._load(
-        [
-            {
-                "urlName": client.config.project,
-                "dataModelingStatus": "HYBRID",
-            }
-        ],
-        cognite_client=client,
-    )
-    caps_hybrid, _ = AuthCommand._get_capabilities_by_loader(client)
+    caps_hybrid, _ = AuthCommand._get_capabilities_by_loader(client, "HYBRID")
     cap_types_hybrid = {type(c) for c in caps_hybrid}
     assert AssetsAcl in cap_types_hybrid
     assert RelationshipsAcl in cap_types_hybrid
@@ -190,17 +179,7 @@ def test_get_capabilities_by_loader_hybrid_project(toolkit_client_approval: Appr
 
 def test_get_capabilities_by_loader_dm_only_project(toolkit_client_approval: ApprovalToolkitClient):
     client = toolkit_client_approval.client
-    client.project = MagicMock()
-    client.project.status.return_value = ProjectStatusList._load(
-        [
-            {
-                "urlName": client.config.project,
-                "dataModelingStatus": "DATA_MODELING_ONLY",
-            }
-        ],
-        cognite_client=client,
-    )
-    caps_dm_only, _ = AuthCommand._get_capabilities_by_loader(client)
+    caps_dm_only, _ = AuthCommand._get_capabilities_by_loader(client, "DATA_MODELING_ONLY")
     cap_types_dm_only = {type(c) for c in caps_dm_only}
     assert AssetsAcl not in cap_types_dm_only
     assert RelationshipsAcl not in cap_types_dm_only

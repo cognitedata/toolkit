@@ -21,6 +21,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from time import sleep
+from typing import Literal
 
 import questionary
 from cognite.client.data_classes.capabilities import (
@@ -160,7 +161,10 @@ class AuthCommand(ToolkitCommand):
         if not user_groups:
             raise AuthorizationError("The current user is not member of any groups in the CDF project.")
 
-        loader_capabilities, loaders_by_capability_tuple = self._get_capabilities_by_loader(client)
+        data_modeling_status = client.project.status().this_project.data_modeling_status
+        loader_capabilities, loaders_by_capability_tuple = self._get_capabilities_by_loader(
+            client, data_modeling_status
+        )
         toolkit_group = self._create_toolkit_group(loader_capabilities, demo_principal)
 
         if not is_demo:
@@ -424,11 +428,10 @@ class AuthCommand(ToolkitCommand):
 
     @staticmethod
     def _get_capabilities_by_loader(
-        client: ToolkitClient,
+        client: ToolkitClient, data_modeling_status: Literal["HYBRID", "DATA_MODELING_ONLY"]
     ) -> tuple[list[Capability], dict[tuple, list[str]]]:
         loaders_by_capability_tuple: dict[tuple, list[str]] = defaultdict(list)
         capability_by_id: dict[frozenset[tuple], Capability] = {}
-        project_type = client.project.status().this_project.data_modeling_status
         for crud_cls in cruds.RESOURCE_CRUD_LIST:
             crud = crud_cls.create_loader(client)
             if crud.prerequisite_warning() is not None:
@@ -451,7 +454,7 @@ class AuthCommand(ToolkitCommand):
                 capability = crud_cls.get_required_capability(None, read_only=False)
                 capabilities = capability if isinstance(capability, list) else [capability]
             for cap in capabilities:
-                if project_type == "DATA_MODELING_ONLY" and isinstance(cap, AssetsAcl | RelationshipsAcl):
+                if data_modeling_status == "DATA_MODELING_ONLY" and isinstance(cap, AssetsAcl | RelationshipsAcl):
                     continue
                 id_ = frozenset(cap.as_tuples())
                 if id_ not in capability_by_id:
