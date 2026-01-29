@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     GroupFinder,
     LocationFilterFinder,
     NodeFinder,
+    ResourceViewMappingFinder,
     SearchConfigFinder,
     SpaceFinder,
     StreamlitFinder,
@@ -52,6 +53,8 @@ class DumpApp(typer.Typer):
         self.command("agents")(DumpConfigApp.dump_agents)
 
         self.command("search-config")(DumpConfigApp.dump_search_config)
+        if Flags.MIGRATE.is_enabled():
+            self.command("resource-view-mapping")(DumpConfigApp.dump_resource_view_mapping)
 
     @staticmethod
     def dump_main(ctx: typer.Context) -> None:
@@ -79,6 +82,8 @@ class DumpConfigApp(typer.Typer):
         self.command("streamlit")(DumpConfigApp.dump_streamlit)
         self.command("agents")(self.dump_agents)
         self.command("search-config")(self.dump_search_config)
+        if Flags.MIGRATE.is_enabled():
+            self.command("resource-view-mapping")(self.dump_resource_view_mapping)
 
     @staticmethod
     def dump_config_main(ctx: typer.Context) -> None:
@@ -752,6 +757,54 @@ class DumpConfigApp(typer.Typer):
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 SearchConfigFinder(client, tuple([selected_view_id]) if selected_view_id else None),
+                output_dir=output_dir,
+                clean=clean,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def dump_resource_view_mapping(
+        ctx: typer.Context,
+        external_id: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="The external ID(s) of the resource view mapping(s) you want to dump. "
+                "If nothing is provided, an interactive prompt will be shown to select the resource view mappings.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the resource view mapping files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the resource view mappings.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """[MIGRATION] This command will dump the selected resource view mapping(s) as yaml to the folder specified, defaults to /tmp."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DumpResourceCommand(client=client)
+        cmd.run(
+            lambda: cmd.dump_to_yamls(
+                ResourceViewMappingFinder(client, tuple(external_id) if external_id else None),
                 output_dir=output_dir,
                 clean=clean,
                 verbose=verbose,

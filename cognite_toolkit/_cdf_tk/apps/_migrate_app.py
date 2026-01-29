@@ -313,6 +313,14 @@ class MigrateApp(typer.Typer):
                 help="If set, the migration will not be executed, but only a report of what would be done is printed.",
             ),
         ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="(Only used with mapping-file) If set, no confirmation prompt will be shown before proceeding with the migration.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -331,6 +339,7 @@ class MigrateApp(typer.Typer):
             consumption_view=consumption_view,
             ingestion_mapping=ingestion_mapping,
             dry_run=dry_run,
+            auto_yes=auto_yes,
             verbose=verbose,
             kind="Assets",
             resource_type="asset",
@@ -356,6 +365,7 @@ class MigrateApp(typer.Typer):
         data_set_id: str | None,
         consumption_view: str | None,
         ingestion_mapping: str | None,
+        auto_yes: bool,
         dry_run: bool,
         verbose: bool,
         kind: AssetCentricKind,
@@ -365,7 +375,19 @@ class MigrateApp(typer.Typer):
         if data_set_id is not None and mapping_file is not None:
             raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
         elif mapping_file is not None:
-            selected: AssetCentricMigrationSelector = MigrationCSVFileSelector(datafile=mapping_file, kind=kind)
+            file_selector = MigrationCSVFileSelector(datafile=mapping_file, kind=kind)
+            selected: AssetCentricMigrationSelector = file_selector
+
+            panel = file_selector.items.print_status()
+            if panel is not None:
+                client.console.print(panel)
+                if not auto_yes:
+                    proceed = questionary.confirm(
+                        "Do you want to proceed with the migration?", default=False
+                    ).unsafe_ask()
+                    if not proceed:
+                        client.console.print("Migration aborted by user.")
+                        raise typer.Abort()
         elif data_set_id is not None:
             parsed_view = parse_view_str(consumption_view) if consumption_view is not None else None
             selected = MigrateDataSetSelector(
@@ -460,6 +482,14 @@ class MigrateApp(typer.Typer):
                 help="If set, the migration will not be executed, but only a report of what would be done is printed.",
             ),
         ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="(Only used with mapping-file) If set, no confirmation prompt will be shown before proceeding with the migration.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -478,6 +508,7 @@ class MigrateApp(typer.Typer):
             consumption_view=consumption_view,
             ingestion_mapping=ingestion_mapping,
             dry_run=dry_run,
+            auto_yes=auto_yes,
             verbose=verbose,
             kind="Events",
             resource_type="event",
@@ -563,6 +594,14 @@ class MigrateApp(typer.Typer):
                 help="If set, the migration will not be executed, but only a report of what would be done is printed.",
             ),
         ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="(Only used with mapping-file) If set, no confirmation prompt will be shown before proceeding with the migration.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -582,6 +621,7 @@ class MigrateApp(typer.Typer):
             consumption_view=consumption_view,
             ingestion_mapping=ingestion_mapping,
             dry_run=dry_run,
+            auto_yes=auto_yes,
             verbose=verbose,
             kind="TimeSeries",
             resource_type="timeseries",
@@ -670,6 +710,14 @@ class MigrateApp(typer.Typer):
                 help="If set, the migration will not be executed, but only a report of what would be done is printed.",
             ),
         ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="(Only used with mapping-file) If set, no confirmation prompt will be shown before proceeding with the migration.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -689,6 +737,7 @@ class MigrateApp(typer.Typer):
             consumption_view=consumption_view,
             ingestion_mapping=ingestion_mapping,
             dry_run=dry_run,
+            auto_yes=auto_yes,
             verbose=verbose,
             kind="FileMetadata",
             resource_type="file",
