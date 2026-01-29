@@ -28,7 +28,7 @@ from cognite.client.data_classes._base import (
 from cognite.client.data_classes.agents import (
     AgentList,
 )
-from cognite.client.data_classes.data_modeling import DataModelId
+from cognite.client.data_classes.data_modeling import DataModelId, NodeList
 from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.functions import (
@@ -53,6 +53,7 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters import LocationFilterList
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import SearchConfigList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import ViewId as SearchConfigViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
@@ -69,6 +70,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     LocationFilterCRUD,
     NodeCRUD,
     ResourceCRUD,
+    ResourceViewMappingCRUD,
     SearchConfigCRUD,
     SpaceCRUD,
     StreamlitCRUD,
@@ -793,6 +795,44 @@ class SearchConfigFinder(ResourceFinder[tuple[SearchConfigViewId, ...]]):
         loader = SearchConfigCRUD.create_loader(self.client)
         if self.search_configs:
             yield [], SearchConfigList([sc for sc in self.search_configs if sc.view in self.identifier]), loader, None
+        else:
+            yield list(self.identifier), None, loader, None
+
+
+class ResourceViewMappingFinder(ResourceFinder[tuple[str, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
+        super().__init__(client, identifier)
+        self.resource_view_mappings: list[ResourceViewMapping] | None = None
+
+    def _interactive_select(self) -> tuple[str, ...]:
+        mappings = self.client.migration.resource_view_mapping.list(limit=-1)
+        if not mappings:
+            raise ToolkitMissingResourceError("No resource view mappings found")
+        self.resource_view_mappings = list(mappings)
+        choices = [
+            Choice(
+                f"{mapping.external_id} ({mapping.resource_type} -> {mapping.view_id.external_id})",
+                value=mapping.external_id,
+            )
+            for mapping in sorted(mappings, key=lambda m: m.external_id)
+        ]
+        selected_ids: list[str] | None = questionary.checkbox(
+            "Which resource view mapping(s) would you like to dump?",
+            choices=choices,
+            validate=lambda choices: True if choices else "You must select at least one resource view mapping.",
+        ).unsafe_ask()
+        if not selected_ids:
+            raise ToolkitValueError(f"No resource view mappings selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
+        return tuple(selected_ids)
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
+        self.identifier = self._selected()
+        loader = ResourceViewMappingCRUD.create_loader(self.client)
+        if self.resource_view_mappings:
+            selected_mappings = NodeList[ResourceViewMapping](
+                [m for m in self.resource_view_mappings if m.external_id in self.identifier]
+            )
+            yield [], selected_mappings, loader, None
         else:
             yield list(self.identifier), None, loader, None
 
