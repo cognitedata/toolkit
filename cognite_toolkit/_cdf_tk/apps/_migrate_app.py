@@ -745,7 +745,7 @@ class MigrateApp(typer.Typer):
         )
         cmd = MigrationCommand(client=client)
 
-        if data_set_id is None:
+        if data_set_id is None and mapping_file is None:
             skip_linking = not questionary.confirm(
                 "Do you want to link old and new Files?", default=not skip_linking
             ).unsafe_ask()
