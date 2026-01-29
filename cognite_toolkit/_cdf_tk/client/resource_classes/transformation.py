@@ -126,6 +126,7 @@ class TransformationResponse(Transformation, ResponseResource[TransformationRequ
     conflict_mode: str
     destination: Destination
     blocked: BlockedInfo | None = None
+    # In the API spec, owner is documented as a string, but the response is actually {"user": '<uuid>'}
     owner: str | dict[str, str]
     owner_is_current_user: bool
     has_source_oidc_credentials: bool

@@ -215,9 +215,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         LabelRequest: [{"name": "smoke-test-label", "externalId": "smoke-test-label"}],
         RAWDatabase: [{"name": "smoke-test-raw-database"}],
         RAWTable: [{"name": "smoke-test-raw-table", "dbName": "smoke-test-raw-database"}],
-        SecurityCategoryRequest: [
-            {"name": "smoke-test-security-category", "externalId": "smoke-test-security-category"}
-        ],
+        SecurityCategoryRequest: [{"name": "smoke-test-security-category"}],
         SequenceRequest: [
             {"externalId": "smoke-test-sequence", "columns": [{"externalId": "smoke-test-sequence-column"}]}
         ],
