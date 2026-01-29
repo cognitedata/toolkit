@@ -337,7 +337,12 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "id": 202,
             "externalId": "sequence_001",
             "columns": [
-                {"externalId": "col_1", "valueType": "STRING"},
+                {
+                    "externalId": "col_1",
+                    "valueType": "STRING",
+                    "createdTime": 1622547800000,
+                    "lastUpdatedTime": 1622547800000,
+                },
             ],
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
