@@ -137,11 +137,19 @@ class DirectRelationCache:
         if source_ids:
             # SourceSystems are not cached in the client, so we have to handle the caching ourselves.
             cache = cast(dict[str, DirectRelationReference], self._cache_map[self.TableName.SOURCE_NAME])
-            missing = set(source_ids) - set(cache.keys())
+            missing: dict[str, str] = {}
+            for source_id in source_ids:
+                if source_id.casefold() not in cache:
+                    missing[source_id.casefold()] = source_id
+                elif source_id not in cache:
+                    missing[source_id] = source_id
             if missing:
                 source_systems = self._client.migration.created_source_system.retrieve(list(missing))
                 for source_system in source_systems:
-                    cache[source_system.source] = source_system.as_direct_relation_reference()
+                    source_reference = source_system.as_direct_relation_reference()
+                    cache[source_system.source] = source_reference
+                    if original_str := missing.get(source_system.source):
+                        cache[original_str] = source_reference
         if file_ids:
             self._update_cache(self._client.migration.lookup.files(id=list(file_ids)), self.TableName.FILE_ID)
         if asset_external_ids:
