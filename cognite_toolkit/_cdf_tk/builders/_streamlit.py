@@ -1,5 +1,6 @@
 import shutil
 from collections.abc import Callable, Iterable, Sequence
+from pathlib import Path
 
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.cruds import StreamlitCRUD
@@ -12,11 +13,16 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitFileExistsError, ToolkitNo
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
     HighSeverityWarning,
+    RequirementsTXTValidationWarning,
     StreamlitRequirementsWarning,
     ToolkitWarning,
     WarningList,
 )
+from cognite_toolkit._cdf_tk.utils import validate_requirements_with_pip
 from cognite_toolkit._cdf_tk.utils.file import safe_read
+
+# Maximum number of error lines to display in warnings
+_MAX_ERROR_LINES = 3
 
 
 class StreamlitBuilder(Builder):
@@ -77,6 +83,19 @@ class StreamlitBuilder(Builder):
                     f"StreamlitApp directory not found in {app_directory}(based on externalId {external_id} defined in {source_file.source.path.as_posix()!r}.)"
                 )
 
+            if requirements_txt := app_directory / "requirements.txt":
+                validation_result = validate_requirements_with_pip(requirements_txt_path=requirements_txt)
+                if not validation_result.success:
+                    warnings.append(
+                        RequirementsTXTValidationWarning(
+                            filepath=source_file.source.path,
+                            error_details=validation_result.short_error,
+                            is_credential_error=validation_result.is_credential_error,
+                            external_id=external_id,
+                            resource="streamlit",
+                        )
+                    )
+
             requirements_file_content = safe_read(app_directory / "requirements.txt").splitlines()
             missing_packages = StreamlitCRUD._missing_recommended_requirements(requirements_file_content)
             if len(missing_packages) > 0:
@@ -90,3 +109,11 @@ class StreamlitBuilder(Builder):
             shutil.copytree(app_directory, destination, ignore=shutil.ignore_patterns("__pycache__"))
 
         return warnings
+
+    def _validate_requirements_txt(
+        self,
+        requirements_txt: Path,
+        filepath: Path,
+        external_id: str,
+    ) -> RequirementsTXTValidationWarning | None:
+        """Validate streamlit requirements.txt using pip dry-run."""

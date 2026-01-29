@@ -38,6 +38,14 @@ class PipValidationResult:
         ]
         return any(indicator in self.error_message for indicator in credential_indicators)
 
+    @property
+    def short_error(self) -> str:
+        """Get a shortened version of the error message with limited lines."""
+        error_detail = self.error_message or "Unknown error"
+        relevant_lines = [line for line in error_detail.strip().split("\n") if line.strip()][-_MAX_ERROR_LINES:]
+        error_detail = "\n      ".join(relevant_lines)
+        return error_detail
+
 
 def validate_requirements_with_pip(
     requirements_txt_path: Path,
