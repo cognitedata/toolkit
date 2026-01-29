@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.api.robotics_frames import FramesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_locations import LocationsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
+from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import (
@@ -44,6 +45,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
     MQTTSourceRequest,
     RESTSourceRequest,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalIdUnwrapped
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import SecurityCategoryRequest
@@ -95,6 +97,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         ThreeDClassicAssetMappingAPI,
         # Cannot be deleted and recreated frequently.
         StreamsAPI,
+        # SecurityCategories can easily hit a bad state.
+        SecurityCategoriesAPI,
     }
 )
 
@@ -680,3 +684,36 @@ class TestCDFResourceAPI:
             client.tool.workflows.triggers.delete([workflow_trigger_id])
             client.tool.workflows.versions.delete([workflow_version_id])
             client.tool.workflows.delete([workflow_id])
+
+    def test_security_categories_crudl(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        security_category_example = get_examples_minimum_requests(SecurityCategoryRequest)[0]
+        security_category_request = SecurityCategoryRequest.model_validate(security_category_example)
+
+        # Cleanup any existing security categories with the same name
+        existing_list = client.tool.security_categories.list(limit=None)
+        to_delete: list[InternalIdUnwrapped] = []
+        for existing in existing_list:
+            if existing.name == security_category_request.name:
+                to_delete.append(existing.as_id())
+        if to_delete:
+            client.tool.security_categories.delete(to_delete)
+
+        try:
+            # Create security category
+            create_endpoint = client.tool.security_categories._method_endpoint_map["create"]
+            created_id = self.assert_endpoint_method(
+                lambda: client.tool.security_categories.create([security_category_request]),
+                "create",
+                create_endpoint,
+            )
+
+            # List security categories
+            list_endpoint = client.tool.security_categories._method_endpoint_map["list"]
+            listed = list(client.tool.security_categories.list(limit=1))
+            if len(listed) == 0:
+                raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed security category, got 0")
+        finally:
+            # Clean up
+            client.tool.security_categories.delete([created_id])  # type: ignore[list-item]

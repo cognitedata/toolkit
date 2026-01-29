@@ -28,3 +28,6 @@ class SecurityCategoryResponse(SecurityCategory, ResponseResource[SecurityCatego
 
     def as_request_resource(self) -> SecurityCategoryRequest:
         return SecurityCategoryRequest.model_validate(self.dump(), extra="ignore")
+
+    def as_id(self) -> InternalIdUnwrapped:
+        return InternalIdUnwrapped(id=self.id)
