@@ -204,7 +204,7 @@ class AuthCommand(ToolkitCommand):
                 and questionary.confirm("Do you want to update the group with the missing capabilities?").unsafe_ask()
             ) or is_demo:
                 has_added_capabilities = self._update_missing_capabilities(
-                    client, cdf_toolkit_group, missing_capabilities, dry_run
+                    client, cdf_toolkit_group, missing_capabilities, dry_run, data_modeling_status
                 )
         elif is_toolkit_group_existing:  # and not is_user_in_toolkit_group
             self.warn(MediumSeverityWarning(f"The current client is not member of the {toolkit_group.name!r} group."))
@@ -219,7 +219,9 @@ class AuthCommand(ToolkitCommand):
                 and missing_capabilities
                 and questionary.confirm("Do you want to update the group with the missing capabilities?").unsafe_ask()
             ):
-                self._update_missing_capabilities(client, cdf_toolkit_group, missing_capabilities, dry_run)
+                self._update_missing_capabilities(
+                    client, cdf_toolkit_group, missing_capabilities, dry_run, data_modeling_status
+                )
         elif is_demo:
             # We create the group for the demo user
             cdf_toolkit_group = self._create_toolkit_group_in_cdf(client, toolkit_group)
@@ -364,6 +366,7 @@ class AuthCommand(ToolkitCommand):
         existing_group: Group,
         missing_capabilities: list[Capability],
         dry_run: bool,
+        data_modeling_status: Literal["HYBRID", "DATA_MODELING_ONLY"],
     ) -> bool:
         """Updates the missing capabilities. This assumes interactive mode."""
         updated_toolkit_group = GroupWrite.load(existing_group.dump())
@@ -371,6 +374,19 @@ class AuthCommand(ToolkitCommand):
             updated_toolkit_group.capabilities = missing_capabilities
         else:
             updated_toolkit_group.capabilities.extend(missing_capabilities)
+
+        if data_modeling_status == "DATA_MODELING_ONLY":
+            # Remove any AssetsAcl and RelationshipsAcl capabilities as these
+            # are not alowed in DATA_MODELING_ONLY projects.
+            filtered_capabilities = [
+                cap for cap in updated_toolkit_group.capabilities if not isinstance(cap, AssetsAcl | RelationshipsAcl)
+            ]
+            if len(filtered_capabilities) < len(updated_toolkit_group.capabilities):
+                print(
+                    f"  [bold yellow]INFO[/] - Removing {len(updated_toolkit_group.capabilities) - len(filtered_capabilities)} "
+                    "capabilities for Assets and Relationships as the project is in DATA_MODELING_ONLY mode."
+                )
+            updated_toolkit_group.capabilities = filtered_capabilities
 
         with warnings.catch_warnings():
             # If the user has unknown capabilities, we don't want the user to see the warning:

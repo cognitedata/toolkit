@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import yaml
+from cognite.client._api.iam import IAMAPI
 from cognite.client.data_classes._base import CogniteResource, CogniteResourceList, CogniteResponse
 from cognite.client.data_classes.capabilities import (
     AllProjectsScope,
@@ -18,9 +19,11 @@ from cognite.client.data_classes.capabilities import (
     ProjectCapability,
     ProjectCapabilityList,
     RelationshipsAcl,
+    StreamsAcl,
 )
 from cognite.client.data_classes.iam import Group, GroupList, ProjectSpec, TokenInspection
 
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import AuthCommand
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -183,6 +186,35 @@ def test_get_capabilities_by_loader_dm_only_project(toolkit_client_approval: App
     cap_types_dm_only = {type(c) for c in caps_dm_only}
     assert AssetsAcl not in cap_types_dm_only
     assert RelationshipsAcl not in cap_types_dm_only
+
+
+def test_update_missing_capabilities_dm_only_project() -> None:
+    missing_caps = [
+        StreamsAcl(actions=[StreamsAcl.Action.Read], scope=StreamsAcl.Scope.All()),
+    ]
+    existing = Group(
+        name="cognite_toolkit_service_principal",
+        source_id="123",
+        capabilities=[
+            AssetsAcl(actions=[AssetsAcl.Action.Read], scope=AllScope()),
+            RelationshipsAcl(actions=[RelationshipsAcl.Action.Read], scope=AllScope()),
+        ],
+    )
+    with monkeypatch_toolkit_client() as client:
+        client.iam.groups.create.return_value = Group(
+            name="cognite_toolkit_service_principal",
+            source_id="123",
+            capabilities=[StreamsAcl(actions=[StreamsAcl.Action.Read], scope=StreamsAcl.Scope.All())],
+        )
+        client.iam.compare_capabilities = IAMAPI.compare_capabilities
+
+    _ = AuthCommand()._update_missing_capabilities(
+        client, existing, missing_caps, dry_run=False, data_modeling_status="DATA_MODELING_ONLY"
+    )
+    client.iam.groups.create.assert_called_once()
+    created_group = client.iam.groups.create.call_args[0][0]
+    assert len(created_group.capabilities) == 1
+    assert created_group.capabilities[0] == StreamsAcl(actions=[StreamsAcl.Action.Read], scope=StreamsAcl.Scope.All())
 
 
 @pytest.mark.parametrize(
