@@ -6,7 +6,6 @@ from .base import (
     catch_warnings,
 )
 from .fileread import (
-    CaseTypoWarning,
     DataSetMissingWarning,
     DuplicatedItemWarning,
     EnvironmentVariableMissingWarning,
@@ -46,7 +45,6 @@ from .other import (
 )
 
 __all__ = [
-    "CaseTypoWarning",
     "DataSetMissingWarning",
     "DuplicatedItemWarning",
     "EnvironmentVariableMissingWarning",

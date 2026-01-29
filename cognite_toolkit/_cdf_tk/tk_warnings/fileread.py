@@ -168,14 +168,6 @@ class NamespacingConventionWarning(NamingConventionWarning):
 
 
 @dataclass(frozen=True)
-class CaseTypoWarning(UnusedParameterWarning):
-    expected: str
-
-    def get_message(self) -> str:
-        return f"{type(self).__name__}: Got {self.actual!r}. Did you mean {self.expected!r}?{self._location}."
-
-
-@dataclass(frozen=True)
 class MissingRequiredParameterWarning(YAMLFileWithElementWarning):
     severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
     expected: str
