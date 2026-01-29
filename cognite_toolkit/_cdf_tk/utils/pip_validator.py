@@ -5,15 +5,14 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-# Maximum number of error lines to include in warnings
-_MAX_ERROR_LINES = 3
-
 
 @dataclass
 class PipValidationResult:
     """Result from validating a requirements.txt file."""
 
     error_message: str | None = None
+    # The number of lines to include in the short error message
+    max_error_lines: int = 3
 
     @property
     def success(self) -> bool:
@@ -37,6 +36,14 @@ class PipValidationResult:
             "Authentication",
         ]
         return any(indicator in self.error_message for indicator in credential_indicators)
+
+    @property
+    def short_error(self) -> str:
+        """Get a shortened version of the error message with limited lines."""
+        error_detail = self.error_message or "Unknown error"
+        relevant_lines = [line for line in error_detail.strip().split("\n") if line.strip()][-self.max_error_lines :]
+        error_detail = "\n      ".join(relevant_lines)
+        return error_detail
 
 
 def validate_requirements_with_pip(

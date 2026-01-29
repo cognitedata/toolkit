@@ -9,13 +9,16 @@ from cognite_toolkit._cdf_tk.data_classes import (
     ModuleLocation,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileExistsError, ToolkitNotADirectoryError, ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
     HighSeverityWarning,
+    RequirementsTXTValidationWarning,
     StreamlitRequirementsWarning,
     ToolkitWarning,
     WarningList,
 )
+from cognite_toolkit._cdf_tk.utils import validate_requirements_with_pip
 from cognite_toolkit._cdf_tk.utils.file import safe_read
 
 
@@ -76,6 +79,21 @@ class StreamlitBuilder(Builder):
                 raise ToolkitNotADirectoryError(
                     f"StreamlitApp directory not found in {app_directory}(based on externalId {external_id} defined in {source_file.source.path.as_posix()!r}.)"
                 )
+
+            if (requirements_txt := app_directory / "requirements.txt").exists() and (
+                Flags.FUNCTION_REQUIREMENTS_VALIDATION.is_enabled()
+            ):
+                validation_result = validate_requirements_with_pip(requirements_txt_path=requirements_txt)
+                if not validation_result.success:
+                    warnings.append(
+                        RequirementsTXTValidationWarning(
+                            filepath=source_file.source.path,
+                            error_details=validation_result.short_error,
+                            is_credential_error=validation_result.is_credential_error,
+                            external_id=external_id,
+                            resource="streamlit",
+                        )
+                    )
 
             requirements_file_content = safe_read(app_directory / "requirements.txt").splitlines()
             missing_packages = StreamlitCRUD._missing_recommended_requirements(requirements_file_content)

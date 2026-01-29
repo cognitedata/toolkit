@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Hashable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 from rich.markup import escape
 
@@ -263,15 +263,16 @@ class StreamlitRequirementsWarning(FileReadWarning):
 
 
 @dataclass(frozen=True)
-class FunctionRequirementsValidationWarning(FileReadWarning):
+class RequirementsTXTValidationWarning(FileReadWarning):
     severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
-    function_external_id: str
+    external_id: str
     error_details: str
     is_credential_error: bool
+    resource: Literal["function", "streamlit"]
 
     def get_message(self) -> str:
         message = (
-            f"Function [bold]{self.function_external_id}[/bold] requirements.txt validation failed. "
+            f"{self.resource.title()} [bold]{self.external_id}[/bold] requirements.txt validation failed. "
             f"Packages could not be resolved: {self.error_details}"
         )
         if self.is_credential_error:
