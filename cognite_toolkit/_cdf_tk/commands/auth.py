@@ -377,7 +377,7 @@ class AuthCommand(ToolkitCommand):
 
         if data_modeling_status == "DATA_MODELING_ONLY":
             # Remove any AssetsAcl and RelationshipsAcl capabilities as these
-            # are not alowed in DATA_MODELING_ONLY projects.
+            # are not allowed in DATA_MODELING_ONLY projects.
             filtered_capabilities = [
                 cap for cap in updated_toolkit_group.capabilities if not isinstance(cap, AssetsAcl | RelationshipsAcl)
             ]
