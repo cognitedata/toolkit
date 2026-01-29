@@ -1,6 +1,5 @@
 import shutil
 from collections.abc import Callable, Iterable, Sequence
-from pathlib import Path
 
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.cruds import StreamlitCRUD
@@ -81,7 +80,7 @@ class StreamlitBuilder(Builder):
                     f"StreamlitApp directory not found in {app_directory}(based on externalId {external_id} defined in {source_file.source.path.as_posix()!r}.)"
                 )
 
-            if (requirements_txt := app_directory / "requirements.txt") and (
+            if (requirements_txt := app_directory / "requirements.txt").exists() and (
                 Flags.FUNCTION_REQUIREMENTS_VALIDATION.is_enabled()
             ):
                 validation_result = validate_requirements_with_pip(requirements_txt_path=requirements_txt)
@@ -109,11 +108,3 @@ class StreamlitBuilder(Builder):
             shutil.copytree(app_directory, destination, ignore=shutil.ignore_patterns("__pycache__"))
 
         return warnings
-
-    def _validate_requirements_txt(
-        self,
-        requirements_txt: Path,
-        filepath: Path,
-        external_id: str,
-    ) -> RequirementsTXTValidationWarning | None:
-        """Validate streamlit requirements.txt using pip dry-run."""
