@@ -4,8 +4,9 @@ from typing import Any
 import pytest
 from cognite.client.data_classes import DataSet, DataSetList
 from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
-from cognite.client.data_classes.data_modeling import DataModel, NodeApply, SpaceApply, View
+from cognite.client.data_classes.data_modeling import DataModel, NodeApply, NodeList, SpaceApply, View
 
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import CreatedSourceSystem
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.creators import InstanceSpaceCreator, SourceSystemCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATION_MODEL, VIEWS
@@ -100,6 +101,18 @@ class TestCreator:
         client.assets.aggregate_unique_values.return_value = asset_sources
         client.events.aggregate_unique_values.return_value = event_sources
         client.documents.aggregate_unique_values.return_value = file_sources
+        client.migration.created_source_system.list.return_value = NodeList[CreatedSourceSystem](
+            [
+                CreatedSourceSystem(
+                    space="my_other_space",
+                    external_id="sap",
+                    version=1,
+                    last_updated_time=1,
+                    created_time=1,
+                    source="sap",
+                )
+            ]
+        )
 
         results = MigrationCommand(silent=True).create(
             client=toolkit_client_approval.client,
@@ -111,10 +124,10 @@ class TestCreator:
         assert "nodes" in results
         result = results["nodes"]
         assert isinstance(result, ResourceDeployResult)
-        assert result.created == 5
+        assert result.created == 4
         configurations = list(tmp_path.rglob("*Node.yaml"))
-        assert len(configurations) == 5
-        expected_external_ids = {"aveva", "custom", "sap", "internal", "sharepoint"}
+        assert len(configurations) == 4
+        expected_external_ids = {"aveva", "custom", "internal", "sharepoint"}
         created_nodes = toolkit_client_approval.created_resources["Node"]
         assert all(isinstance(node, NodeApply) for node in created_nodes)
         assert {node.external_id for node in created_nodes} == expected_external_ids
