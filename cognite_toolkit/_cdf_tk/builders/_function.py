@@ -25,9 +25,6 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.utils import validate_requirements_with_pip
 
-# Maximum number of error lines to display in warnings
-_MAX_ERROR_LINES = 3
-
 
 class FunctionBuilder(Builder):
     _resource_folder = FunctionCRUD.folder_name

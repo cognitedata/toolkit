@@ -22,9 +22,6 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 from cognite_toolkit._cdf_tk.utils import validate_requirements_with_pip
 from cognite_toolkit._cdf_tk.utils.file import safe_read
 
-# Maximum number of error lines to display in warnings
-_MAX_ERROR_LINES = 3
-
 
 class StreamlitBuilder(Builder):
     _resource_folder = StreamlitCRUD.folder_name
