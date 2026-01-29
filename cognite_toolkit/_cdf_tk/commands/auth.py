@@ -381,10 +381,10 @@ class AuthCommand(ToolkitCommand):
             filtered_capabilities = [
                 cap for cap in updated_toolkit_group.capabilities if not isinstance(cap, AssetsAcl | RelationshipsAcl)
             ]
-            if len(filtered_capabilities) < len(updated_toolkit_group.capabilities):
-                print(
-                    f"  [bold yellow]INFO[/] - Removing {len(updated_toolkit_group.capabilities) - len(filtered_capabilities)} "
-                    "capabilities for Assets and Relationships as the project is in DATA_MODELING_ONLY mode."
+            if (removed_count := len(updated_toolkit_group.capabilities) - len(filtered_capabilities)) > 0:
+                self.console(
+                    f"Removing {removed_count} capabilities for Assets and Relationships as the project is in DATA_MODELING_ONLY mode.",
+                    prefix="  [bold yellow]INFO[/] - ",
                 )
             updated_toolkit_group.capabilities = filtered_capabilities
 
