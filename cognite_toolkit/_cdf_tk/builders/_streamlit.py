@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     ModuleLocation,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileExistsError, ToolkitNotADirectoryError, ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
     HighSeverityWarning,
@@ -83,7 +84,9 @@ class StreamlitBuilder(Builder):
                     f"StreamlitApp directory not found in {app_directory}(based on externalId {external_id} defined in {source_file.source.path.as_posix()!r}.)"
                 )
 
-            if requirements_txt := app_directory / "requirements.txt":
+            if (requirements_txt := app_directory / "requirements.txt") and (
+                Flags.FUNCTION_REQUIREMENTS_VALIDATION.is_enabled()
+            ):
                 validation_result = validate_requirements_with_pip(requirements_txt_path=requirements_txt)
                 if not validation_result.success:
                     warnings.append(

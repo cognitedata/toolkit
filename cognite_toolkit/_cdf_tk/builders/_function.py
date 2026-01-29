@@ -16,10 +16,10 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitFileExistsError, ToolkitNo
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
-    RequirementsTXTValidationWarning,
     HighSeverityWarning,
     LowSeverityWarning,
     MediumSeverityWarning,
+    RequirementsTXTValidationWarning,
     ToolkitWarning,
     WarningList,
 )
@@ -65,14 +65,10 @@ class FunctionBuilder(Builder):
         if validation_result.is_credential_error:
             self.validation_credential_errors += 1
 
-        error_detail = validation_result.error_message or "Unknown error"
-        relevant_lines = [line for line in error_detail.strip().split("\n") if line.strip()][-_MAX_ERROR_LINES:]
-        error_detail = "\n      ".join(relevant_lines)
-
         return RequirementsTXTValidationWarning(
             filepath=filepath,
             external_id=external_id,
-            error_details=error_detail,
+            error_details=validation_result.short_error,
             is_credential_error=validation_result.is_credential_error,
             resource="function",
         )
