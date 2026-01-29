@@ -1,6 +1,6 @@
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import Field, JsonValue
+from pydantic import Field, JsonValue, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -116,10 +116,16 @@ class HostedExtractorJob(BaseModelObject):
     destination_id: str
     source_id: str
     format: JobFormat
-    config: MQTTConfig | KafkaConfig | RestConfig
+    config: MQTTConfig | KafkaConfig | RestConfig | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
+
+    @field_validator("config", mode="before")
+    def empty_dict_as_none(cls, v: Any) -> Any:
+        if v == {}:
+            return None
+        return v
 
 
 class HostedExtractorJobRequest(HostedExtractorJob, UpdatableRequestResource): ...

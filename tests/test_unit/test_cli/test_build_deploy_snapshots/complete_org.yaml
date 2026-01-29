@@ -291,11 +291,6 @@ Datapoints:
     shape: 5x2
   kwargs: {}
   name: missing
-Destination:
-- credentials:
-    nonce: dummy-nonce
-  externalId: EventHubTarget
-  targetDataSetId: 7982613576047462211
 Edge:
 - endNode:
     externalId: endNode
@@ -482,7 +477,12 @@ Group:
     origin: cognite-toolkit
   name: gp_resource_scoped_complete_org
   sourceId: '1234567890123456789'
-Job:
+HostedExtractorDestinationRequest:
+- credentials:
+    nonce: dummy-nonce
+  externalId: EventHubTarget
+  targetDataSetId: 7982613576047462211
+HostedExtractorJobRequest:
 - destinationId: EventHubTarget
   externalId: myJob
   format:
@@ -490,6 +490,16 @@ Job:
     encoding: utf16
     type: value
   sourceId: my_eventhub
+HostedExtractorMappingRequest:
+- externalId: MyMapping
+  input:
+    delimiter: ','
+    type: csv
+  mapping:
+    expression: '[{ "type": "datapoint", "timestamp": to_unix_timestamp(input.timestamp,
+      "%Y-%m-%dT%H:%M:%S"), "value": try_float(input.value, null), "externalId": input.tag
+      }].filter(datapoint => datapoint.value is not null)'
+  published: true
 LabelDefinition:
 - dataSetId: 7982613576047462211
   description: Labels used for relationships that represent flows
@@ -538,16 +548,6 @@ Map:
   externalId: robotMap
   mapType: POINTCLOUD
   name: Robot navigation map
-Mapping:
-- externalId: MyMapping
-  input:
-    delimiter: ','
-    type: csv
-  mapping:
-    expression: '[{ "type": "datapoint", "timestamp": to_unix_timestamp(input.timestamp,
-      "%Y-%m-%dT%H:%M:%S"), "value": try_float(input.value, null), "externalId": input.tag
-      }].filter(datapoint => datapoint.value is not null)'
-  published: true
 Node:
 - externalId: AnEdgeType
   instanceType: node
@@ -831,7 +831,7 @@ SequenceRows:
     values:
     - 25.0
     - 3450000.0
-Source:
+SourceRequestDefinition:
 - eventHubName: The name of the event hub
   externalId: my_eventhub
   host: myHost

@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -18,6 +18,7 @@ class MQTTSource(BaseModelObject):
 
 
 class MQTTSourceRequest(MQTTSource, SourceRequestDefinition):
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"use_tls"})
     authentication: BasicAuthenticationRequest | None = None
     ca_certificate: CACertificateRequest | None = None
     auth_certificate: AuthCertificateRequest | None = None

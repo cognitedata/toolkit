@@ -26,7 +26,7 @@ class BasicAuthenticationResponse(BasicAuthentication, AuthenticationResponseDef
 
 
 class ClientCredentialAuthentication(BaseModelObject):
-    type: Literal["clientCredential"] = "clientCredential"
+    type: Literal["clientCredentials"] = "clientCredentials"
     client_id: str
     token_url: str
     scopes: str
