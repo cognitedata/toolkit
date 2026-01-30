@@ -157,19 +157,27 @@ class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
     @model_validator(mode="before")
     def move_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Move properties from sources to the top level."""
-        if "properties" not in values:
-            return values
-        values_copy = dict(values)
-        properties = values_copy.pop("properties")
-        if not isinstance(properties, dict) or cls.VIEW_ID.space not in properties:
-            return values
-        view_properties = properties.pop(cls.VIEW_ID.space)
-        identifier = f"{cls.VIEW_ID.external_id}/{cls.VIEW_ID.version}"
-        if not isinstance(view_properties, dict) or identifier not in view_properties:
-            return values
-        source_properties = view_properties.pop(identifier)
-        values_copy.update(source_properties)
-        return values_copy
+        return move_properties(values, cls.VIEW_ID)
+
+
+def move_properties(values: dict[str, Any], view_id: TypedViewReference) -> dict[str, Any]:
+    """Help function to move properties from properties.space.externalId/version to the top level.
+
+    It is used in WrappedInstanceResponse to move properties from the response to the top level.
+    """
+    if "properties" not in values:
+        return values
+    values_copy = dict(values)
+    properties = values_copy.pop("properties")
+    if not isinstance(properties, dict) or view_id.space not in properties:
+        return values
+    view_properties = properties.pop(view_id.space)
+    identifier = f"{view_id.external_id}/{view_id.version}"
+    if not isinstance(view_properties, dict) or identifier not in view_properties:
+        return values
+    source_properties = view_properties.pop(identifier)
+    values_copy.update(source_properties)
+    return values_copy
 
 
 T_WrappedInstanceResponse = TypeVar("T_WrappedInstanceResponse", bound=WrappedInstanceResponse)
@@ -209,17 +217,10 @@ class WrappedInstanceListResponse(ResponseResource[T_InstancesListRequest], ABC)
     external_id: str
 
     @model_validator(mode="before")
+    @classmethod
     def move_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Move properties from sources to the top level."""
-        sources = values.get(
-            "properties",
-        )
-        if sources and isinstance(sources, list):
-            for source in sources:
-                properties = source.get("properties", {})
-                if properties and isinstance(properties, dict):
-                    values.update(properties)
-        return values
+        return move_properties(values, cls.VIEW_ID)
 
     @abstractmethod
     def as_ids(self) -> list[TypedInstanceIdentifier]:
