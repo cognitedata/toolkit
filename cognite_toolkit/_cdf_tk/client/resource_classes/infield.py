@@ -69,11 +69,23 @@ class InFieldLocationConfig(BaseModelObject):
 
 class InFieldLocationConfigRequest(WrappedInstanceListRequest, InFieldLocationConfig):
     def dump_instances(self) -> list[dict[str, Any]]:
+        space: str | None = None
+        external_id: str | None = None
+        if self.data_exploration_config:
+            space = self.data_exploration_config.space or self.space
+            if self.data_exploration_config.external_id:
+                external_id = self.data_exploration_config.external_id
+            else:
+                candidate = f"{self.external_id}_data_exploration_config"
+                external_id = sanitize_instance_external_id(candidate)
+
         properties = self.model_dump(
             by_alias=True,
             exclude_unset=True,
             exclude={"data_exploration_config", "instance_type", "space", "external_id"},
         )
+        if space and external_id:
+            properties["dataExplorationConfig"] = {"space": space, "externalId": external_id}
         output: list[dict[str, Any]] = [
             {
                 "instanceType": self.instance_type,
@@ -87,13 +99,7 @@ class InFieldLocationConfigRequest(WrappedInstanceListRequest, InFieldLocationCo
                 ],
             }
         ]
-        if self.data_exploration_config:
-            space = self.data_exploration_config.space or self.space
-            if self.data_exploration_config.external_id:
-                external_id = self.data_exploration_config.external_id
-            else:
-                candidate = f"{self.external_id}_data_exploration_config"
-                external_id = sanitize_instance_external_id(candidate)
+        if space and external_id and self.data_exploration_config:
             output.append(
                 {
                     "instanceType": "node",
