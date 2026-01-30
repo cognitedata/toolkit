@@ -154,6 +154,23 @@ class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
     last_updated_time: int
     deleted_time: int | None = None
 
+    @model_validator(mode="before")
+    def move_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Move properties from sources to the top level."""
+        if "properties" not in values:
+            return values
+        values_copy = dict(values)
+        properties = values_copy.pop("properties")
+        if not isinstance(properties, dict) or cls.VIEW_ID.space not in properties:
+            return values
+        view_properties = properties.pop(cls.VIEW_ID.space)
+        identifier = f"{cls.VIEW_ID.external_id}/{cls.VIEW_ID.version}"
+        if not isinstance(view_properties, dict) or identifier not in view_properties:
+            return values
+        source_properties = view_properties.pop(identifier)
+        values_copy.update(source_properties)
+        return values_copy
+
 
 T_WrappedInstanceResponse = TypeVar("T_WrappedInstanceResponse", bound=WrappedInstanceResponse)
 

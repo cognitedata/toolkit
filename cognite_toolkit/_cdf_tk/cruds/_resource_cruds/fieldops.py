@@ -296,7 +296,7 @@ class InFieldLocationConfigCRUD(
     def dump_resource(
         self, resource: InFieldLocationConfigResponse, local: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        dumped = resource.dump()
+        dumped = resource.as_request_resource().dump()
         local = local or {}
         dumped.pop("instanceType", None)
         if isinstance(cdf_dec := dumped.get("dataExplorationConfig"), dict):
@@ -395,7 +395,7 @@ class InFieldCDMLocationConfigCRUD(
     def dump_resource(
         self, resource: InFieldCDMLocationConfigResponse, local: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        dumped = resource.as_write().dump(context="toolkit")
+        dumped = resource.as_request_resource().dump(context="toolkit")
         local = local or {}
         if "existingVersion" not in local:
             # Existing version is typically not set when creating nodes, but we get it back
