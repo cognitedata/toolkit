@@ -2,14 +2,17 @@ import pytest
 from cognite.client.data_classes.data_modeling import ContainerApply, Space, SpaceApply, ViewApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfig, InfieldLocationConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
+    InFieldCDMLocationConfigRequest,
+    InFieldLocationConfigRequest,
+)
 from tests.data import INFIELD_CDM_LOCATION_CONFIG_CONTAINER_YAML, INFIELD_CDM_LOCATION_CONFIG_VIEW_YAML
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
 class TestInfieldConfig:
     def test_create_retrieve_delete(self, toolkit_client: ToolkitClient, toolkit_space: Space) -> None:
-        config = InfieldLocationConfig.model_validate(
+        config = InFieldLocationConfigRequest.model_validate(
             {
                 "space": toolkit_space.space,
                 "externalId": f"test_crud_infield_config_{RUN_UNIQUE_ID}",
@@ -17,32 +20,24 @@ class TestInfieldConfig:
                 "dataExplorationConfig": {"observations": {"enabled": True}},
             }
         )
-
         try:
-            created_list = toolkit_client.infield.config.apply([config])
-            assert len(created_list) == 2, (
-                "Expected 2 configs to be created (data exploration config and infield location config)"
-            )
+            created_list = toolkit_client.infield.config.create([config])
+            assert len(created_list) == 1
             created = created_list[0]
-            assert created.as_id() == config.as_id()
+            assert created.external_id == config.external_id
 
             retrieved_configs = toolkit_client.infield.config.retrieve([config.as_id()])
             assert len(retrieved_configs) == 1
-            assert retrieved_configs[0].dump() == config.dump()
+            retrieved = retrieved_configs[0]
+            assert retrieved.data_exploration_config is not None
+            assert retrieved.data_exploration_config.observations == {"enabled": True}
 
-            deleted = toolkit_client.infield.config.delete([config])
-            assert len(deleted) == 2, (
-                "Expected 2 configs to be deleted (data exploration config and infield location config)"
-            )
+            deleted = toolkit_client.infield.config.delete([config.as_id()])
+            assert len(deleted) == 1
             retrieved_configs = toolkit_client.infield.config.retrieve([config.as_id()])
             assert len(retrieved_configs) == 0
         finally:
-            toolkit_client.data_modeling.instances.delete(
-                [
-                    (config.space, config.external_id),
-                    (config.data_exploration_config.space, config.data_exploration_config.external_id),
-                ]
-            )
+            toolkit_client.infield.config.delete([config.as_id()])
 
 
 @pytest.fixture
@@ -63,7 +58,7 @@ def deploy_infield_cdm_location_config(toolkit_client: ToolkitClient) -> None:
 class TestInFieldCDMConfig:
     @pytest.mark.usefixtures("deploy_infield_cdm_location_config")
     def test_create_retrieve_delete(self, toolkit_client: ToolkitClient, toolkit_space: Space) -> None:
-        config = InFieldCDMLocationConfig.model_validate(
+        config = InFieldCDMLocationConfigRequest.model_validate(
             {
                 "space": toolkit_space.space,
                 "externalId": f"test_crud_infield_cdm_config_{RUN_UNIQUE_ID}",
@@ -74,16 +69,16 @@ class TestInFieldCDMConfig:
         )
 
         try:
-            created_list = toolkit_client.infield.cdm_config.apply([config])
+            created_list = toolkit_client.infield.cdm_config.create([config])
             assert len(created_list) == 1, "Expected 1 config to be created (InField CDM location config)"
             created = created_list[0]
             assert created.as_id() == config.as_id()
 
             retrieved_configs = toolkit_client.infield.cdm_config.retrieve([config.as_id()])
             assert len(retrieved_configs) == 1
-            assert retrieved_configs[0].dump() == config.dump()
+            assert retrieved_configs[0].as_request_resource().dump() == config.dump()
 
-            deleted = toolkit_client.infield.cdm_config.delete([config])
+            deleted = toolkit_client.infield.cdm_config.delete([config.as_id()])
             assert len(deleted) == 1, "Expected 1 config to be deleted (InField CDM location config)"
             retrieved_configs = toolkit_client.infield.cdm_config.retrieve([config.as_id()])
             assert len(retrieved_configs) == 0
