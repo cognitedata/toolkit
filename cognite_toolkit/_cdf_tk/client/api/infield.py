@@ -4,19 +4,23 @@ from typing import Any, cast
 from pydantic import TypeAdapter
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client.api.instances import WrappedInstancesAPI
+from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.responses import QueryResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsRequest,
+    ItemsSuccessResponse,
     RequestMessage,
+    SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     DataExplorationConfig,
-    InFieldCDMLocationConfig,
+    InFieldCDMLocationConfigRequest,
+    InFieldCDMLocationConfigResponse,
     InfieldLocationConfig,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
-    InstanceResponseItem,
     InstanceResult,
     TypedNodeIdentifier,
 )
@@ -159,95 +163,20 @@ class InfieldConfigAPI:
         return result
 
 
-class InFieldCDMConfigAPI:
-    ENDPOINT = "/models/instances"
-    LOCATION_REF = "cdmLocationConfig"
+class InFieldCDMConfigAPI(
+    WrappedInstancesAPI[TypedNodeIdentifier, InFieldCDMLocationConfigRequest, InFieldCDMLocationConfigResponse]
+):
+    def _validate_response(self, response: SuccessResponse) -> ResponseItems[TypedNodeIdentifier]:
+        return ResponseItems[TypedNodeIdentifier].model_validate_json(response.body)
 
-    def __init__(self, http_client: HTTPClient, console: Console) -> None:
-        self._http_client = http_client
-        self._console = console
-        self._config = http_client.config
-
-    def apply(self, items: Sequence[InFieldCDMLocationConfig]) -> list[InstanceResult]:
-        if len(items) > 500:
-            raise ValueError("Cannot apply more than 500 InFieldCDMLocationConfig items at once.")
-
-        request_items = [item.as_request_item() for item in items]
-        results = self._http_client.request_items_retries(
-            ItemsRequest(
-                endpoint_url=self._config.create_api_url(self.ENDPOINT),
-                method="POST",
-                items=request_items,
-            )
-        )
-        results.raise_for_status()
-        return TypeAdapter(list[InstanceResult]).validate_python(results.get_items())
-
-    def retrieve(self, items: Sequence[TypedNodeIdentifier]) -> list[InFieldCDMLocationConfig]:
-        if len(items) > 100:
-            raise ValueError("Cannot retrieve more than 100 InFieldCDMLocationConfig items at once.")
-        if not items:
-            return []
-        result = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/query"),
-                method="POST",
-                body_content=self._retrieve_query(items),
-            )
-        )
-        success = result.get_success_or_raise()
-        parsed_response = QueryResponse[InstanceResponseItem].model_validate(success.body_json)
-        return self._parse_retrieve_response(parsed_response)
-
-    def delete(self, items: Sequence[InFieldCDMLocationConfig]) -> list[TypedNodeIdentifier]:
-        if len(items) > 500:
-            raise ValueError("Cannot delete more than 500 InFieldCDMLocationConfig items at once.")
-
-        identifiers = [item.as_id() for item in items]
-        responses = self._http_client.request_items_retries(
-            ItemsRequest(
-                endpoint_url=self._config.create_api_url(f"{self.ENDPOINT}/delete"),
-                method="POST",
-                items=identifiers,
-            )
-        )
-        responses.raise_for_status()
-        return TypeAdapter(list[TypedNodeIdentifier]).validate_python(responses.get_items())
-
-    @classmethod
-    def _retrieve_query(cls, items: Sequence[TypedNodeIdentifier]) -> dict[str, Any]:
-        return {
-            "with": {
-                cls.LOCATION_REF: {
-                    "limit": len(items),
-                    "nodes": {
-                        "filter": {
-                            "instanceReferences": [
-                                {"space": item.space, "externalId": item.external_id} for item in items
-                            ]
-                        },
-                    },
-                },
-            },
-            "select": {
-                cls.LOCATION_REF: {
-                    "sources": [{"source": InFieldCDMLocationConfig.VIEW_ID.dump(), "properties": ["*"]}],
-                },
-            },
-        }
-
-    def _parse_retrieve_response(
-        self, parsed_response: QueryResponse[InstanceResponseItem]
-    ) -> list[InFieldCDMLocationConfig]:
-        result: list[InFieldCDMLocationConfig] = []
-        for item in parsed_response.items[self.LOCATION_REF]:
-            properties = item.get_properties_for_source(InFieldCDMLocationConfig.VIEW_ID, include_identifier=True)
-            result.append(InFieldCDMLocationConfig.model_validate(properties))
-        return result
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[InFieldCDMLocationConfigResponse]:
+        return PagedResponse[InFieldCDMLocationConfigResponse].model_validate_json(response.body)
 
 
 class InfieldAPI:
     def __init__(self, http_client: HTTPClient, console: Console) -> None:
         self._http_client = http_client
         self.config = InfieldConfigAPI(http_client, console)
-        self.cdm_config = InFieldCDMConfigAPI(http_client, console)
+        self.cdm_config = InFieldCDMConfigAPI(http_client)
