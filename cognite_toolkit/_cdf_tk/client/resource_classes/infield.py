@@ -17,9 +17,9 @@ from .instance_api import (
 )
 
 if sys.version_info >= (3, 11):
-    pass
+    from typing import Self
 else:
-    pass
+    from typing_extensions import Self
 
 INFIELD_LOCATION_CONFIG_VIEW_ID = ViewReference(space="cdf_infield", external_id="InFieldLocationConfig", version="v1")
 INFIELD_CDM_LOCATION_CONFIG_VIEW_ID = ViewReference(
@@ -70,13 +70,17 @@ class InFieldLocationConfig(BaseModelObject):
 
 
 class InFieldLocationConfigRequest(WrappedInstanceListRequest, InFieldLocationConfig):
-    def dump(self) -> list[dict[str, Any]]:
+    def dump_instances(self) -> list[dict[str, Any]]:
         raise NotImplementedError()
 
 
 class InFieldLocationConfigResponse(WrappedInstanceListResponse, InFieldLocationConfig):
     def as_request_resource(self) -> InFieldLocationConfigRequest:
         return InFieldLocationConfigRequest.model_validate(self.dump(), extra="ignore")
+
+    @classmethod
+    def load_query_response(cls) -> Self:
+        raise NotImplementedError()
 
 
 class InFieldCDMLocationConfig(BaseModelObject):

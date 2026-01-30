@@ -13,10 +13,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import External
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldCDMLocationConfigRequest,
     InFieldCDMLocationConfigResponse,
-    InFieldLocationConfig,
-    InfieldLocationConfigList,
+    InFieldLocationConfigRequest,
+    InFieldLocationConfigResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceResult, TypedNodeIdentifier
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.apm_config_v1 import (
     APMConfig,
     APMConfigList,
@@ -249,10 +249,12 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
 
 
 @final
-class InFieldLocationConfigCRUD(ResourceCRUD[TypedNodeIdentifier, InFieldLocationConfig, InFieldLocationConfig]):
+class InFieldLocationConfigCRUD(
+    ResourceCRUD[TypedNodeIdentifier, InFieldLocationConfigRequest, InFieldLocationConfigResponse]
+):
     folder_name = "cdf_applications"
-    resource_cls = InFieldLocationConfig
-    resource_write_cls = InFieldLocationConfig
+    resource_cls = InFieldLocationConfigResponse
+    resource_write_cls = InFieldLocationConfigRequest
     kind = "InFieldLocationConfig"
     yaml_cls = InfieldLocationConfigYAML
     dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
@@ -263,7 +265,7 @@ class InFieldLocationConfigCRUD(ResourceCRUD[TypedNodeIdentifier, InFieldLocatio
         return "infield location configs"
 
     @classmethod
-    def get_id(cls, item: InFieldLocationConfig | dict) -> TypedNodeIdentifier:
+    def get_id(cls, item: InFieldLocationConfigRequest | InFieldLocationConfigResponse | dict) -> TypedNodeIdentifier:
         if isinstance(item, dict):
             return TypedNodeIdentifier(space=item["space"], external_id=item["externalId"])
         return TypedNodeIdentifier(space=item.space, external_id=item.external_id)
@@ -277,7 +279,7 @@ class InFieldLocationConfigCRUD(ResourceCRUD[TypedNodeIdentifier, InFieldLocatio
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[InFieldLocationConfig] | None, read_only: bool
+        cls, items: Sequence[InFieldLocationConfigRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items or items is None:
             return []
@@ -291,7 +293,9 @@ class InFieldLocationConfigCRUD(ResourceCRUD[TypedNodeIdentifier, InFieldLocatio
 
         return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
 
-    def dump_resource(self, resource: InFieldLocationConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
+    def dump_resource(
+        self, resource: InFieldLocationConfigResponse, local: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         dumped = resource.dump()
         local = local or {}
         dumped.pop("instanceType", None)
@@ -307,33 +311,24 @@ class InFieldLocationConfigCRUD(ResourceCRUD[TypedNodeIdentifier, InFieldLocatio
 
         return dumped
 
-    def create(self, items: Sequence[InFieldLocationConfig]) -> list[InstanceResult]:
-        created = self.client.infield.config.apply(items)
-        config_ids = {config.as_id() for config in items}
-        # We filter out all the data exploration configs that were created along with the infield location configs
-        # as we only want to count the infield location configs here.
-        return [res for res in created if res.as_id() in config_ids]
+    def create(self, items: Sequence[InFieldLocationConfigRequest]) -> list[InstanceSlimDefinition]:
+        return self.client.infield.config.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> InfieldLocationConfigList:
-        return InfieldLocationConfigList(self.client.infield.config.retrieve(list(ids)))
+    def retrieve(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> list[InFieldLocationConfigResponse]:
+        return self.client.infield.config.retrieve(list(ids))
 
-    def update(self, items: Sequence[InFieldLocationConfig]) -> Sized:
-        return self.create(items)
+    def update(self, items: Sequence[InFieldLocationConfigRequest]) -> Sized:
+        return self.client.infield.config.update(items)
 
     def delete(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> int:
-        # We must retrieve the full resource to get hte DataExplorationConfig linked resource deleted as well.
-        retrieved = self.retrieve(list(ids))
-        # Then, we pass the entire resource to the delete method, which will delete both the InfieldLocationConfig
-        # and the linked DataExplorationConfig.
-        _ = self.client.infield.config.delete(retrieved)
-        return len(retrieved)
+        return len(self.client.infield.config.delete(list(ids)))
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[InFieldLocationConfig]:
+    ) -> Iterable[InFieldLocationConfigResponse]:
         raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
 
     def diff_list(
@@ -419,7 +414,7 @@ class InFieldCDMLocationConfigCRUD(
         return self.create(items)
 
     def delete(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> int:
-        deleted = self.client.infield.cdm_config.delete(ids)
+        deleted = self.client.infield.cdm_config.delete(list(ids))
         return len(deleted)
 
     def _iterate(
