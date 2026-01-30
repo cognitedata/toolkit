@@ -1,11 +1,12 @@
 import os
 import shutil
 import tempfile
+import typing
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import cast
+from typing import cast, get_origin
 from unittest.mock import MagicMock
 
 import pytest
@@ -121,7 +122,12 @@ class TestFormatConsistency:
         loader = Loader.create_loader(env_vars_with_client.get_client())
         instance = fakegenerator.create_instance(loader.resource_write_cls)
 
-        assert isinstance(instance, loader.resource_write_cls)
+        if get_origin(loader.resource_write_cls) is typing.Annotated:
+            # HostedExtractorSource is a Union type.
+            union = typing.get_args(loader.resource_write_cls)[0]
+            assert isinstance(instance, union)
+        else:
+            assert isinstance(instance, loader.resource_write_cls)
 
     @pytest.mark.parametrize("Loader", RESOURCE_CRUD_LIST)
     def test_loader_takes_dict(
