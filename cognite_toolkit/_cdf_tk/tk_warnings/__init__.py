@@ -6,19 +6,18 @@ from .base import (
     catch_warnings,
 )
 from .fileread import (
-    CaseTypoWarning,
     DataSetMissingWarning,
     DuplicatedItemWarning,
     EnvironmentVariableMissingWarning,
     FileExistsWarning,
     FileReadWarning,
-    FunctionRequirementsValidationWarning,
     MissingFileWarning,
     MissingReferencedWarning,
     MissingRequiredParameterWarning,
     NamespacingConventionWarning,
     NamingConventionWarning,
     PrefixConventionWarning,
+    RequirementsTXTValidationWarning,
     ResourceMissingIdentifierWarning,
     SourceFileModifiedWarning,
     StreamlitRequirementsWarning,
@@ -46,13 +45,11 @@ from .other import (
 )
 
 __all__ = [
-    "CaseTypoWarning",
     "DataSetMissingWarning",
     "DuplicatedItemWarning",
     "EnvironmentVariableMissingWarning",
     "FileExistsWarning",
     "FileReadWarning",
-    "FunctionRequirementsValidationWarning",
     "GeneralWarning",
     "HTTPWarning",
     "HighSeverityWarning",
@@ -69,6 +66,7 @@ __all__ = [
     "NamespacingConventionWarning",
     "NamingConventionWarning",
     "PrefixConventionWarning",
+    "RequirementsTXTValidationWarning",
     "ResourceMissingIdentifierWarning",
     "SeverityLevel",
     "SourceFileModifiedWarning",
