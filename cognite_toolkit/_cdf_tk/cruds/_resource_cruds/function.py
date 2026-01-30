@@ -624,10 +624,12 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleID, FunctionScheduleWrit
         if parent_ids is None:
             yield from self.client.functions.schedules
         else:
-            for parent_id in parent_ids:
-                if not isinstance(parent_id, str):
-                    continue
-                yield from self.client.functions.schedules(function_external_id=parent_id)
+            external_ids = [external_id for external_id in parent_ids if isinstance(external_id, str)]
+            if not external_ids:
+                return
+            internal_ids = self.client.lookup.functions.id(external_ids)
+            for func_id in internal_ids:
+                yield from self.client.functions.schedules(function_id=func_id)
 
     def sensitive_strings(self, item: FunctionScheduleWrite) -> Iterable[str]:
         id_ = self.get_id(item)
