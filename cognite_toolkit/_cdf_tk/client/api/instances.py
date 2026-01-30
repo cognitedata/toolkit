@@ -216,7 +216,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
         self._http_client = http_client
         self._method_endpoint_map = METHOD_MAP
 
-    def create(self, items: Sequence[T_WrappedInstanceRequest]) -> list[InstanceSlimDefinition]:
+    def create(self, items: Sequence[T_InstancesListRequest,]) -> list[InstanceSlimDefinition]:
         """Create instances in CDF.
 
         Args:
@@ -227,13 +227,13 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
         endpoint = self._method_endpoint_map["upsert"]
         response_items: list[InstanceSlimDefinition] = []
         for item in items:
-            instance_dicts = item.dump()
+            instance_dicts = item.dump_instances()
             item_response: list[InstanceSlimDefinition] = []
             for chunk in chunker_sequence(instance_dicts, endpoint.item_limit):
                 request = RequestMessage(
                     endpoint_url=endpoint.path,
                     method=endpoint.method,
-                    body_content={"items": chunk},
+                    body_content={"items": chunk},  # type: ignore[dict-item]
                 )
                 response = self._http_client.request_single_retries(request)
                 success = response.get_success_or_raise()
@@ -265,7 +265,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
         )
         return merged_item
 
-    def update(self, items: Sequence[T_WrappedInstanceRequest]) -> list[InstanceSlimDefinition]:
+    def update(self, items: Sequence[T_InstancesListRequest]) -> list[InstanceSlimDefinition]:
         """
         # Automatically remove extra instances that are not there any more.
 
@@ -277,7 +277,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
         """
         raise NotImplementedError(f"{type(self).__name__} does not support update operation.")
 
-    def retrieve(self, items: Sequence[TypedNodeIdentifier]) -> list[T_WrappedInstanceResponse]:
+    def retrieve(self, items: Sequence[TypedNodeIdentifier]) -> list[T_InstancesListResponse]:
         """Retrieve instances from CDF.
 
         Args:
