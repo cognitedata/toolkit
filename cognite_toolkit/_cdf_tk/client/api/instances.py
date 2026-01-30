@@ -12,7 +12,6 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilte
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceRequest,
     InstanceResponse,
-    ViewReference,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
@@ -22,7 +21,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
     T_WrappedInstanceRequest,
     T_WrappedInstanceResponse,
     TypedInstanceIdentifier,
-    TypedNodeIdentifier,
+    TypedNodeIdentifier, ViewReference,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
@@ -161,8 +160,9 @@ class WrappedInstancesAPI(
 ):
     """API for wrapped instances in CDF. It is intended to be subclassed for specific wrapped instance types."""
 
-    def __init__(self, http_client: HTTPClient) -> None:
+    def __init__(self, http_client: HTTPClient, view_id: ViewReference) -> None:
         super().__init__(http_client=http_client, method_endpoint_map=METHOD_MAP)
+        self._view_id = view_id
 
     @abstractmethod
     def _validate_response(self, response: SuccessResponse) -> ResponseItems[T_TypedInstanceIdentifier]:
@@ -181,9 +181,7 @@ class WrappedInstancesAPI(
             response_items.extend(PagedResponse[InstanceSlimDefinition].model_validate_json(response.body).items)
         return response_items
 
-    def retrieve(
-        self, items: Sequence[T_TypedInstanceIdentifier], source: ViewReference | None = None
-    ) -> list[T_WrappedInstanceResponse]:
+    def retrieve(self, items: Sequence[T_TypedInstanceIdentifier]) -> list[T_WrappedInstanceResponse]:
         """Retrieve instances from CDF.
 
         Args:
@@ -193,7 +191,7 @@ class WrappedInstancesAPI(
             List of retrieved InstanceResponse objects.
         """
         return self._request_item_response(
-            items, method="retrieve", extra_body={"sources": [{"source": source.dump()}]} if source else None
+            items, method="retrieve", extra_body={"sources": [{"source": self._view_id.dump()}]}
         )
 
     def delete(self, items: Sequence[T_TypedInstanceIdentifier]) -> list[T_TypedInstanceIdentifier]:

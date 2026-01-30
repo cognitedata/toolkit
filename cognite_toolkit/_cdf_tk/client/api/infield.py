@@ -86,6 +86,9 @@ class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, In
 class InFieldCDMConfigAPI(
     WrappedInstancesAPI[TypedNodeIdentifier, InFieldCDMLocationConfigRequest, InFieldCDMLocationConfigResponse]
 ):
+    def __init__(self, http_client: HTTPClient) -> None:
+        super().__init__(http_client, InFieldCDMLocationConfigRequest.VIEW_ID)
+
     def _validate_response(self, response: SuccessResponse) -> ResponseItems[TypedNodeIdentifier]:
         return ResponseItems[TypedNodeIdentifier].model_validate_json(response.body)
 
