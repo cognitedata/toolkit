@@ -72,7 +72,7 @@ class RoboticFrameCRUD(ResourceCRUD[ExternalId, RobotFrameRequest, RobotFrameRes
         return self.client.tool.robotics.frames.create(items)
 
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[RobotFrameResponse]:
-        return self.client.tool.robotics.frames.retrieve(list(ids))
+        return self.client.tool.robotics.frames.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[RobotFrameRequest]) -> list[RobotFrameResponse]:
         return self.client.tool.robotics.frames.update(items, mode="replace")
@@ -80,7 +80,7 @@ class RoboticFrameCRUD(ResourceCRUD[ExternalId, RobotFrameRequest, RobotFrameRes
     def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
         if not ids:
             return 0
-        self.client.tool.robotics.frames.delete(list(ids))
+        self.client.tool.robotics.frames.delete(list(ids), ignore_unknown_ids=True)
         return len(ids)
 
     def _iterate(
