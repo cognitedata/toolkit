@@ -42,7 +42,7 @@ class ContainerYAML(ToolkitResource):
         description="Description of the container.",
         max_length=1024,
     )
-    used_for: Literal["node", "edge", "all"] | None = Field(
+    used_for: Literal["node", "edge", "record", "all"] | None = Field(
         default=None,
         description="Should this operation apply to nodes, edges or both.",
     )

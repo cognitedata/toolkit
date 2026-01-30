@@ -193,6 +193,10 @@ class TextProperty(ListablePropertyTypeDefinition):
         default=None,
         description="he set of language specific rules - used when sorting text fields.",
     )
+    max_text_size: int | None = Field(
+        default=None,
+        description="Specifies the maximum size in bytes of the text property, when encoded with utf-8",
+    )
 
 
 class FloatPrimitiveProperty(ListablePropertyTypeDefinition):
