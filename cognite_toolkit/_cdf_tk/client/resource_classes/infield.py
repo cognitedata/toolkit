@@ -4,6 +4,7 @@ from typing import Any, ClassVar, Literal
 from pydantic import JsonValue, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 
 from .instance_api import (
     TypedInstanceIdentifier,
@@ -86,16 +87,18 @@ class InFieldLocationConfigRequest(WrappedInstanceListRequest, InFieldLocationCo
                 ],
             }
         ]
-        if (
-            self.data_exploration_config
-            and self.data_exploration_config.space
-            and self.data_exploration_config.external_id
-        ):
+        if self.data_exploration_config:
+            space = self.data_exploration_config.space or self.space
+            if self.data_exploration_config.external_id:
+                external_id = self.data_exploration_config.external_id
+            else:
+                candidate = f"{self.external_id}_data_exploration_config"
+                external_id = sanitize_instance_external_id(candidate)
             output.append(
                 {
                     "instanceType": "node",
-                    "space": self.data_exploration_config.space,
-                    "externalId": self.data_exploration_config.external_id,
+                    "space": space,
+                    "externalId": external_id,
                     "sources": [
                         {
                             "source": DataExplorationConfig.VIEW_ID.dump(),

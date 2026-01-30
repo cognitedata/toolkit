@@ -351,4 +351,16 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
         Args:
             items: List of TypedInstanceIdentifier objects to delete.
         """
-        raise NotImplementedError()
+        endpoint = self._method_endpoint_map["delete"]
+        response_items: list[TypedNodeIdentifier] = []
+        for chunk in chunker_sequence(items, endpoint.item_limit):
+            request = RequestMessage(
+                endpoint_url=self._http_client.config.create_api_url(endpoint.path),
+                method=endpoint.method,
+                body_content={"items": [item.dump() for item in chunk]},
+            )
+            response = self._http_client.request_single_retries(request)
+            success = response.get_success_or_raise()
+            validated_response = ResponseItems[TypedNodeIdentifier].model_validate_json(success.body)
+            response_items.extend(validated_response.items)
+        return response_items
