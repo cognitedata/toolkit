@@ -161,6 +161,18 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import
     SearchConfigList,
     SearchConfigWrite,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
+    RobotCapabilityRequest,
+    RobotCapabilityResponse,
+    RobotDataPostProcessingRequest,
+    RobotDataPostProcessingResponse,
+    RobotFrameRequest,
+    RobotFrameResponse,
+    RobotLocationRequest,
+    RobotLocationResponse,
+    RobotMapRequest,
+    RobotMapResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelRequest,
     SimulatorModelResponse,
@@ -908,6 +920,61 @@ API_RESOURCES = [
         api_name="tool.hosted_extractors.mappings",
         resource_cls=HostedExtractorMappingRequest,
         _write_cls=HostedExtractorMappingResponse,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.robotics.capabilities",
+        resource_cls=RobotCapabilityResponse,
+        _write_cls=RobotCapabilityRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.robotics.locations",
+        resource_cls=RobotLocationResponse,
+        _write_cls=RobotLocationRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.robotics.frames",
+        resource_cls=RobotFrameResponse,
+        _write_cls=RobotFrameRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.robotics.data_postprocessing",
+        resource_cls=RobotDataPostProcessingResponse,
+        _write_cls=RobotDataPostProcessingRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.robotics.maps",
+        resource_cls=RobotMapResponse,
+        _write_cls=RobotMapRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
