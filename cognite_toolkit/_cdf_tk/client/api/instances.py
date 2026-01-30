@@ -228,7 +228,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
     def _validate_query_response(self, query_response: QueryResponse) -> list[T_InstancesListResponse]:
         raise NotImplementedError()
 
-    def create(self, items: Sequence[T_InstancesListRequest,]) -> list[InstanceSlimDefinition]:
+    def create(self, items: Sequence[T_InstancesListRequest]) -> list[InstanceSlimDefinition]:
         """Create instances in CDF.
 
         Args:
