@@ -56,7 +56,7 @@ class FramesAPI(CDFResourceAPI[ExternalId, RobotFrameRequest, RobotFrameResponse
         Returns:
             List of retrieved RobotFrameResponse objects.
         """
-        return self._request_item_response(items, method="retrieve")
+        return self._request_item_split_retries(items, method="retrieve")
 
     def update(
         self, items: Sequence[RobotFrameRequest], mode: Literal["patch", "replace"] = "replace"

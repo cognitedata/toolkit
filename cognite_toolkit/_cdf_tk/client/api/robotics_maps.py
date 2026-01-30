@@ -56,7 +56,7 @@ class MapsAPI(CDFResourceAPI[ExternalId, RobotMapRequest, RobotMapResponse]):
         Returns:
             List of retrieved RobotMapResponse objects.
         """
-        return self._request_item_response(items, method="retrieve")
+        return self._request_item_split_retries(items, method="retrieve")
 
     def update(
         self, items: Sequence[RobotMapRequest], mode: Literal["patch", "replace"] = "replace"

@@ -72,7 +72,7 @@ class DataPostProcessingAPI(
         Returns:
             List of retrieved RobotDataPostProcessingResponse objects.
         """
-        return self._request_item_response(items, method="retrieve")
+        return self._request_item_split_retries(items, method="retrieve")
 
     def update(
         self, items: Sequence[RobotDataPostProcessingRequest], mode: Literal["patch", "replace"] = "replace"
