@@ -278,15 +278,15 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
         return merged_item
 
     def update(self, items: Sequence[T_InstancesListRequest]) -> list[InstanceSlimDefinition]:
-        """
-        # Automatically remove extra instances that are not there any more.
+        """Update multi-wrapped instances in CDF.
+
+        This method automatically removes underlying instances that are part of the old object but not the new one.
 
         Args:
-            items:
+            items: A sequence of multi-wrapped instance requests to update.
 
         Returns:
-            List of updated InstanceSlimDefinition objects.
-
+            List of updated InstanceSlimDefinition objects, one for each item in the input sequence.
         """
         endpoint = self._method_endpoint_map["upsert"]
         updated: list[InstanceSlimDefinition] = []
