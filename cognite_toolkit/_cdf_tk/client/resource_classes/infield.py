@@ -4,14 +4,14 @@ from typing import Any, ClassVar, Literal
 from pydantic import JsonValue, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
-from cognite_toolkit._cdf_tk.client._resource_base import BaseResourceList, ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, BaseResourceList, ResponseResource
 from cognite_toolkit._cdf_tk.protocols import (
     ResourceRequestListProtocol,
     ResourceResponseListProtocol,
 )
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 
-from .instance_api import InstanceRequestResource, ViewReference
+from .instance_api import TypedNodeIdentifier, ViewReference, WrappedInstanceRequest, WrappedInstanceResponse
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -25,7 +25,7 @@ INFIELD_CDM_LOCATION_CONFIG_VIEW_ID = ViewReference(
 DATA_EXPLORATION_CONFIG_VIEW_ID = ViewReference(space="cdf_infield", external_id="DataExplorationConfig", version="v1")
 
 
-class DataExplorationConfig(InstanceRequestResource):
+class DataExplorationConfig(WrappedInstanceRequest):
     """Data Exploration Configuration resource class."""
 
     VIEW_ID: ClassVar[ViewReference] = DATA_EXPLORATION_CONFIG_VIEW_ID
@@ -40,7 +40,7 @@ class DataExplorationConfig(InstanceRequestResource):
 
 class InfieldLocationConfig(
     ResponseResource["InfieldLocationConfig"],
-    InstanceRequestResource,
+    WrappedInstanceRequest,
 ):
     """Infield Location Configuration resource class.
 
@@ -90,15 +90,9 @@ class InfieldLocationConfigList(
         return self
 
 
-class InFieldCDMLocationConfig(ResponseResource["InFieldCDMLocationConfig"], InstanceRequestResource):
-    """InField CDM Location Configuration resource class.
-
-    This class is used for both the response and request resource for InField CDM Location Configuration nodes.
-    """
-
+class InFieldCDMLocationConfig(BaseModelObject):
     VIEW_ID: ClassVar[ViewReference] = INFIELD_CDM_LOCATION_CONFIG_VIEW_ID
     instance_type: Literal["node"] = "node"
-
     name: str | None = None
     description: str | None = None
     feature_toggles: dict[str, JsonValue] | None = None
@@ -109,8 +103,14 @@ class InFieldCDMLocationConfig(ResponseResource["InFieldCDMLocationConfig"], Ins
     disciplines: list[dict[str, JsonValue]] | None = None
     data_exploration_config: dict[str, JsonValue] | None = None
 
-    def as_request_resource(self) -> "InFieldCDMLocationConfig":
-        return self
 
-    def as_write(self) -> Self:
-        return self
+class InFieldCDMLocationConfigRequest(WrappedInstanceRequest, InFieldCDMLocationConfig):
+    def as_id(self) -> TypedNodeIdentifier:
+        return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
+
+
+class InFieldCDMLocationConfigResponse(
+    WrappedInstanceResponse[InFieldCDMLocationConfigRequest], InFieldCDMLocationConfig
+):
+    def as_request_resource(self) -> InFieldCDMLocationConfigRequest:
+        return InFieldCDMLocationConfigRequest.model_validate(self.dump(), extra="ignore")
