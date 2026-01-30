@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import External
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldCDMLocationConfigRequest,
     InFieldCDMLocationConfigResponse,
-    InfieldLocationConfig,
+    InFieldLocationConfig,
     InfieldLocationConfigList,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceResult, TypedNodeIdentifier
@@ -249,10 +249,10 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
 
 
 @final
-class InFieldLocationConfigCRUD(ResourceCRUD[TypedNodeIdentifier, InfieldLocationConfig, InfieldLocationConfig]):
+class InFieldLocationConfigCRUD(ResourceCRUD[TypedNodeIdentifier, InFieldLocationConfig, InFieldLocationConfig]):
     folder_name = "cdf_applications"
-    resource_cls = InfieldLocationConfig
-    resource_write_cls = InfieldLocationConfig
+    resource_cls = InFieldLocationConfig
+    resource_write_cls = InFieldLocationConfig
     kind = "InFieldLocationConfig"
     yaml_cls = InfieldLocationConfigYAML
     dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
@@ -263,7 +263,7 @@ class InFieldLocationConfigCRUD(ResourceCRUD[TypedNodeIdentifier, InfieldLocatio
         return "infield location configs"
 
     @classmethod
-    def get_id(cls, item: InfieldLocationConfig | dict) -> TypedNodeIdentifier:
+    def get_id(cls, item: InFieldLocationConfig | dict) -> TypedNodeIdentifier:
         if isinstance(item, dict):
             return TypedNodeIdentifier(space=item["space"], external_id=item["externalId"])
         return TypedNodeIdentifier(space=item.space, external_id=item.external_id)
@@ -277,7 +277,7 @@ class InFieldLocationConfigCRUD(ResourceCRUD[TypedNodeIdentifier, InfieldLocatio
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[InfieldLocationConfig] | None, read_only: bool
+        cls, items: Sequence[InFieldLocationConfig] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items or items is None:
             return []
@@ -291,7 +291,7 @@ class InFieldLocationConfigCRUD(ResourceCRUD[TypedNodeIdentifier, InfieldLocatio
 
         return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
 
-    def dump_resource(self, resource: InfieldLocationConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
+    def dump_resource(self, resource: InFieldLocationConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.dump()
         local = local or {}
         dumped.pop("instanceType", None)
@@ -307,7 +307,7 @@ class InFieldLocationConfigCRUD(ResourceCRUD[TypedNodeIdentifier, InfieldLocatio
 
         return dumped
 
-    def create(self, items: Sequence[InfieldLocationConfig]) -> list[InstanceResult]:
+    def create(self, items: Sequence[InFieldLocationConfig]) -> list[InstanceResult]:
         created = self.client.infield.config.apply(items)
         config_ids = {config.as_id() for config in items}
         # We filter out all the data exploration configs that were created along with the infield location configs
@@ -317,7 +317,7 @@ class InFieldLocationConfigCRUD(ResourceCRUD[TypedNodeIdentifier, InfieldLocatio
     def retrieve(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> InfieldLocationConfigList:
         return InfieldLocationConfigList(self.client.infield.config.retrieve(list(ids)))
 
-    def update(self, items: Sequence[InfieldLocationConfig]) -> Sized:
+    def update(self, items: Sequence[InFieldLocationConfig]) -> Sized:
         return self.create(items)
 
     def delete(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> int:
@@ -333,7 +333,7 @@ class InFieldLocationConfigCRUD(ResourceCRUD[TypedNodeIdentifier, InfieldLocatio
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[InfieldLocationConfig]:
+    ) -> Iterable[InFieldLocationConfig]:
         raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
 
     def diff_list(

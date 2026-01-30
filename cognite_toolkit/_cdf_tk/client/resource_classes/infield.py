@@ -4,19 +4,22 @@ from typing import Any, ClassVar, Literal
 from pydantic import JsonValue, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
-from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, BaseResourceList, ResponseResource
-from cognite_toolkit._cdf_tk.protocols import (
-    ResourceRequestListProtocol,
-    ResourceResponseListProtocol,
-)
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 
-from .instance_api import TypedNodeIdentifier, ViewReference, WrappedInstanceRequest, WrappedInstanceResponse
+from .instance_api import (
+    TypedNodeIdentifier,
+    ViewReference,
+    WrappedInstanceListRequest,
+    WrappedInstanceListResponse,
+    WrappedInstanceRequest,
+    WrappedInstanceResponse,
+)
 
 if sys.version_info >= (3, 11):
-    from typing import Self
+    pass
 else:
-    from typing_extensions import Self
+    pass
 
 INFIELD_LOCATION_CONFIG_VIEW_ID = ViewReference(space="cdf_infield", external_id="InFieldLocationConfig", version="v1")
 INFIELD_CDM_LOCATION_CONFIG_VIEW_ID = ViewReference(
@@ -38,30 +41,19 @@ class DataExplorationConfig(WrappedInstanceRequest):
     assets: dict[str, JsonValue] | None = None
 
 
-class InfieldLocationConfig(
-    ResponseResource["InfieldLocationConfig"],
-    WrappedInstanceRequest,
-):
+class InFieldLocationConfig(BaseModelObject):
     """Infield Location Configuration resource class.
 
     This class is used for both the response and request resource for Infield Location Configuration nodes.
     """
 
     VIEW_ID: ClassVar[ViewReference] = INFIELD_LOCATION_CONFIG_VIEW_ID
-    instance_type: Literal["node"] = "node"
-
     root_location_external_id: str | None = None
     feature_toggles: dict[str, JsonValue] | None = None
     app_instance_space: str | None = None
     access_management: dict[str, JsonValue] | None = None
     data_filters: dict[str, JsonValue] | None = None
     data_exploration_config: DataExplorationConfig | None = None
-
-    def as_request_resource(self) -> "InfieldLocationConfig":
-        return self
-
-    def as_write(self) -> Self:
-        return self
 
     @field_validator("data_exploration_config", mode="before")
     @classmethod
@@ -77,17 +69,14 @@ class InfieldLocationConfig(
         return value
 
 
-class InfieldLocationConfigList(
-    BaseResourceList[InfieldLocationConfig],
-    ResourceResponseListProtocol,
-    ResourceRequestListProtocol,
-):
-    """A list of InfieldLocationConfig objects."""
+class InFieldLocationConfigRequest(WrappedInstanceListRequest, InFieldLocationConfig):
+    def dump(self) -> list[dict[str, Any]]:
+        raise NotImplementedError()
 
-    _RESOURCE = InfieldLocationConfig
 
-    def as_write(self) -> Self:
-        return self
+class InFieldLocationConfigResponse(WrappedInstanceListResponse, InFieldLocationConfig):
+    def as_request_resource(self) -> InFieldLocationConfigRequest:
+        return InFieldLocationConfigRequest.model_validate(self.dump(), extra="ignore")
 
 
 class InFieldCDMLocationConfig(BaseModelObject):

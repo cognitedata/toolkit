@@ -1,5 +1,8 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Any, ClassVar, Literal, TypeAlias, TypeVar
+
+from pydantic import BaseModel, ConfigDict
+from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -129,6 +132,37 @@ class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
 
 T_WrappedInstanceResponse = TypeVar("T_WrappedInstanceResponse", bound=WrappedInstanceResponse)
 
+
+class InstancesList(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="allow", populate_by_name=True)
+
+    VIEW_ID: ClassVar[ViewReference]
+    instance_type: Literal["node"] = "node"
+    space: str
+    external_id: str
+
+    def as_id(self) -> TypedNodeIdentifier:
+        return TypedNodeIdentifier(
+            instance_type=self.instance_type,
+            space=self.space,
+            external_id=self.external_id,
+        )
+
+
+class WrappedInstanceListRequest(InstancesList, ABC):
+    @abstractmethod
+    def dump(self) -> list[dict[str, Any]]:
+        """Dumps the object to a list of instance request dictionaries."""
+        raise NotImplementedError()
+
+
+T_InstancesListRequest = TypeVar("T_InstancesListRequest", bound=WrappedInstanceListRequest)
+
+
+class WrappedInstanceListResponse(InstancesList, ABC): ...
+
+
+T_InstancesListResponse = TypeVar("T_InstancesListResponse", bound=WrappedInstanceListResponse)
 
 # class InstanceSource(BaseModelObject):
 #     source: ViewReference
