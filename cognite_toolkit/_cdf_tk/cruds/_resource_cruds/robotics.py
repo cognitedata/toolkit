@@ -68,6 +68,14 @@ class RoboticFrameCRUD(ResourceCRUD[ExternalId, RobotFrameRequest, RobotFrameRes
             capabilities.RoboticsAcl.Scope.All(),
         )
 
+    def dump_resource(self, resource: RobotFrameResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
+        local = local or {}
+        if dumped.get("transform") is None and "transform" not in (local or {}):
+            # Default value set on the server side.
+            dumped.pop("transform", None)
+        return dumped
+
     def create(self, items: Sequence[RobotFrameRequest]) -> list[RobotFrameResponse]:
         return self.client.tool.robotics.frames.create(items)
 
@@ -397,6 +405,14 @@ class RoboticMapCRUD(ResourceCRUD[ExternalId, RobotMapRequest, RobotMapResponse]
         if dump.get("scale") == 1.0 and "scale" not in local:
             # Default value set on the server side.
             del dump["scale"]
+        for key in [
+            "data",
+            "frameExternalId",
+            "locationExternalId",
+        ]:
+            if dump.get(key) is None and key not in (local or {}):
+                # Key set to null on the server side.
+                dump.pop(key, None)
         return dump
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> RobotMapRequest:
