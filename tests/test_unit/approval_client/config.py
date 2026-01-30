@@ -137,8 +137,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldCDMLocationConfig,
-    InfieldLocationConfig,
-    InfieldLocationConfigList,
+    InFieldLocationConfig,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy import robotics
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import (
@@ -782,9 +781,8 @@ API_RESOURCES = [
     ),
     APIResource(
         api_name="infield.config",
-        resource_cls=InfieldLocationConfig,
-        _list_cls=InfieldLocationConfigList,
-        _write_cls=InfieldLocationConfig,
+        resource_cls=InFieldLocationConfig,
+        _write_cls=InFieldLocationConfig,
         methods={
             "create": [Method(api_class_method="apply", mock_class_method="create_multiple")],
             "retrieve": [
@@ -796,8 +794,6 @@ API_RESOURCES = [
         api_name="infield.cdm_config",
         resource_cls=InFieldCDMLocationConfig,
         _write_cls=InFieldCDMLocationConfig,
-        # Todo: Remove these.
-        _list_cls=InfieldLocationConfigList,
         methods={
             "create": [Method(api_class_method="apply", mock_class_method="create_multiple")],
             "retrieve": [
