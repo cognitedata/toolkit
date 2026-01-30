@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
+from itertools import zip_longest
 from typing import Any, Generic, Literal
 
-from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
+from pydantic import JsonValue
+
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, QueryResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
@@ -29,6 +32,7 @@ METHOD_MAP: dict[APIMethod, Endpoint] = {
     "delete": Endpoint(method="POST", path="/models/instances/delete", item_limit=1000),
     "list": Endpoint(method="POST", path="/models/instances/list", item_limit=1000),
 }
+QUERY_ENDPOINT = Endpoint(method="POST", path="/models/instances/query", item_limit=1000)
 
 
 class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, InstanceResponse]):
@@ -212,9 +216,18 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
 
     """
 
-    def __init__(self, http_client: HTTPClient) -> None:
+    def __init__(self, http_client: HTTPClient, query_chunk: int) -> None:
         self._http_client = http_client
         self._method_endpoint_map = METHOD_MAP
+        self._query_chunk = query_chunk
+
+    @abstractmethod
+    def _retrieve_query(self, item: Sequence[TypedInstanceIdentifier]) -> dict[str, Any]:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def _validate_query_response(self, query_response: QueryResponse) -> list[T_InstancesListResponse]:
+        raise NotImplementedError()
 
     def create(self, items: Sequence[T_InstancesListRequest,]) -> list[InstanceSlimDefinition]:
         """Create instances in CDF.
@@ -231,7 +244,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
             item_response: list[InstanceSlimDefinition] = []
             for chunk in chunker_sequence(instance_dicts, endpoint.item_limit):
                 request = RequestMessage(
-                    endpoint_url=endpoint.path,
+                    endpoint_url=self._http_client.config.create_api_url(endpoint.path),
                     method=endpoint.method,
                     body_content={"items": chunk},  # type: ignore[dict-item]
                 )
@@ -273,9 +286,43 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
             items:
 
         Returns:
+            List of updated InstanceSlimDefinition objects.
 
         """
-        raise NotImplementedError(f"{type(self).__name__} does not support update operation.")
+        endpoint = self._method_endpoint_map["upsert"]
+        updated: list[InstanceSlimDefinition] = []
+        for item in items:
+            identifier = item.as_id()
+            retrieved = self.retrieve([identifier])
+            if not retrieved:
+                raise ValueError(f"Item with identifier {identifier} not found for update.")
+            to_delete = [id.dump() for id in (set(retrieved[0].as_ids()) - set(item.as_ids()))]
+            to_update = item.dump_instances()
+            item_response: list[InstanceSlimDefinition] = []
+            for upsert_chunk, delete_chunk in zip_longest(
+                chunker_sequence(to_update, endpoint.item_limit),
+                chunker_sequence(to_delete, endpoint.item_limit),
+                fillvalue=None,
+            ):
+                body_content: dict[str, JsonValue] = {}
+                if upsert_chunk:
+                    # MyPy fails do understand that list[dict[str, JsonValue]] is a subtype of JsonValue
+                    body_content["items"] = upsert_chunk  # type: ignore[assignment]
+                if delete_chunk:
+                    body_content["delete"] = delete_chunk  # type: ignore[assignment]
+
+                response = self._http_client.request_single_retries(
+                    message=RequestMessage(
+                        endpoint_url=self._http_client.config.create_api_url(endpoint.path),
+                        method=endpoint.method,
+                        body_content=body_content,
+                    )
+                )
+                success = response.get_success_or_raise()
+                paged_response = PagedResponse[InstanceSlimDefinition].model_validate_json(success.body)
+                item_response.extend(paged_response.items)
+            updated.append(self._merge_instance_slim_definitions(item_response))
+        return updated
 
     def retrieve(self, items: Sequence[TypedNodeIdentifier]) -> list[T_InstancesListResponse]:
         """Retrieve instances from CDF.
@@ -285,7 +332,19 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
         Returns:
             List of retrieved InstanceResponse objects.
         """
-        raise NotImplementedError(f"{type(self).__name__} does not support retrieve operation.")
+        retrieved: list[T_InstancesListResponse] = []
+        for chunk in chunker_sequence(items, self._query_chunk):
+            query_body = self._retrieve_query(chunk)
+            request = RequestMessage(
+                endpoint_url=self._http_client.config.create_api_url(QUERY_ENDPOINT.path),
+                method=QUERY_ENDPOINT.method,
+                body_content=query_body,
+            )
+            response = self._http_client.request_single_retries(request)
+            success = response.get_success_or_raise()
+            paged_response = QueryResponse.model_validate_json(success.body)
+            retrieved.extend(self._validate_query_response(paged_response))
+        return retrieved
 
     def delete(self, items: Sequence[TypedNodeIdentifier]) -> list[TypedNodeIdentifier]:
         """Delete instances from CDF.
@@ -293,4 +352,4 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
         Args:
             items: List of TypedInstanceIdentifier objects to delete.
         """
-        raise NotImplementedError(f"{type(self).__name__} does not support delete operation.")
+        raise NotImplementedError()
