@@ -13,6 +13,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.auth import AuthCommand
 from cognite_toolkit._cdf_tk.commands.collect import CollectCommand
@@ -54,8 +55,14 @@ class InitChecklistItem:
 class InitCommand(ToolkitCommand):
     organization_dir: Path | None
 
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
-        super().__init__(print_warning, skip_tracking, silent)
+    def __init__(
+        self,
+        print_warning: bool = True,
+        skip_tracking: bool = False,
+        silent: bool = False,
+        client: ToolkitClient | None = None,
+    ) -> None:
+        super().__init__(print_warning, skip_tracking, silent, client)
         self.organization_dir = None
 
     def execute(self, dry_run: bool = False) -> None:
@@ -129,7 +136,7 @@ class InitCommand(ToolkitCommand):
                 "Select a task:",
                 choices=choices,
                 default=default_value,
-            ).ask()
+            ).unsafe_ask()
 
             # User cancelled (Ctrl+C or similar)
             if selected is None:
@@ -161,7 +168,7 @@ class InitCommand(ToolkitCommand):
                 confirm = questionary.confirm(
                     f"'{selected_item.description}' was already run {status_text}",
                     default=False,
-                ).ask()
+                ).unsafe_ask()
                 if not confirm:
                     continue
 
@@ -218,7 +225,7 @@ class InitCommand(ToolkitCommand):
         opt_in = questionary.confirm(
             "Do you want to opt in to collect usage statistics? This will help us improve the Toolkit.",
             default=True,
-        ).ask()
+        ).unsafe_ask()
         if dry_run:
             print("Would opt in to collect data" if opt_in else "Would not opt in to collect data")
             return

@@ -5,6 +5,7 @@ from pathlib import Path
 import questionary
 
 import cognite_toolkit
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import REPO_FILES_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
@@ -27,8 +28,9 @@ class RepoCommand(ToolkitCommand):
         skip_tracking: bool = False,
         silent: bool = False,
         skip_git_verify: bool = False,
+        client: ToolkitClient | None = None,
     ) -> None:
-        super().__init__(print_warning=print_warning, skip_tracking=skip_tracking, silent=silent)
+        super().__init__(print_warning=print_warning, skip_tracking=skip_tracking, silent=silent, client=client)
         self._repo_files = Path(resources.files(cognite_toolkit.__name__)) / REPO_FILES_DIR  # type: ignore [arg-type]
         self.skip_git_verify = skip_git_verify
 
@@ -52,7 +54,7 @@ class RepoCommand(ToolkitCommand):
                 )
 
         if host is None:
-            repo_host = questionary.select("Where do are you hosting the repository?", REPOSITORY_HOSTING).ask()
+            repo_host = questionary.select("Where do are you hosting the repository?", REPOSITORY_HOSTING).unsafe_ask()
         else:
             repo_host = next(
                 (provider for provider in REPOSITORY_HOSTING if provider.casefold() == host.casefold()), "Other"

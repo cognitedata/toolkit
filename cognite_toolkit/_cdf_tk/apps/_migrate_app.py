@@ -108,7 +108,7 @@ class MigrateApp(typer.Typer):
         depend on the primary resources 3D and annotations.
         """
         client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
-        cmd = MigrationPrepareCommand()
+        cmd = MigrationPrepareCommand(client=client)
         cmd.run(
             lambda: cmd.deploy_cognite_migration(
                 client,
@@ -159,16 +159,15 @@ class MigrateApp(typer.Typer):
             # Interactive model
             selector = AssetInteractiveSelect(client, "migrate")
             data_set = selector.select_data_sets()
-            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
-            output_dir = questionary.path(
-                "Specify output directory for instance space definitions:", default=str(output_dir)
-            ).ask()
-            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
-            if any(res is None for res in [dry_run, output_dir, verbose]):
-                raise typer.Abort()
-            output_dir = Path(output_dir)
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            output_dir = Path(
+                questionary.path(
+                    "Specify output directory for instance space definitions:", default=str(output_dir)
+                ).unsafe_ask()
+            )
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.create(
                 client,
@@ -235,18 +234,17 @@ class MigrateApp(typer.Typer):
                 message="In which instance space do you want to create the source system?",
                 include_empty=True,
             )
-            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
-            output_dir = questionary.path(
-                "Specify output directory for instance space definitions:", default=str(output_dir)
-            ).ask()
-            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
-            if any(res is None for res in [instance_space, dry_run, output_dir, verbose]):
-                raise typer.Abort()
-            output_dir = Path(output_dir)
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            output_dir = Path(
+                questionary.path(
+                    "Specify output directory for instance space definitions:", default=str(output_dir)
+                ).unsafe_ask()
+            )
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
         elif data_set is None or instance_space is None:
             raise typer.BadParameter("Both data_set and instance_space must be provided together.")
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.create(
                 client,
@@ -315,6 +313,14 @@ class MigrateApp(typer.Typer):
                 help="If set, the migration will not be executed, but only a report of what would be done is printed.",
             ),
         ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="(Only used with mapping-file) If set, no confirmation prompt will be shown before proceeding with the migration.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -333,13 +339,14 @@ class MigrateApp(typer.Typer):
             consumption_view=consumption_view,
             ingestion_mapping=ingestion_mapping,
             dry_run=dry_run,
+            auto_yes=auto_yes,
             verbose=verbose,
             kind="Assets",
             resource_type="asset",
             container_id=ContainerId("cdf_cdm", "CogniteAsset"),
         )
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
                 selected=selected,
@@ -358,6 +365,7 @@ class MigrateApp(typer.Typer):
         data_set_id: str | None,
         consumption_view: str | None,
         ingestion_mapping: str | None,
+        auto_yes: bool,
         dry_run: bool,
         verbose: bool,
         kind: AssetCentricKind,
@@ -367,7 +375,19 @@ class MigrateApp(typer.Typer):
         if data_set_id is not None and mapping_file is not None:
             raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
         elif mapping_file is not None:
-            selected: AssetCentricMigrationSelector = MigrationCSVFileSelector(datafile=mapping_file, kind=kind)
+            file_selector = MigrationCSVFileSelector(datafile=mapping_file, kind=kind)
+            selected: AssetCentricMigrationSelector = file_selector
+
+            panel = file_selector.items.print_status()
+            if panel is not None:
+                client.console.print(panel)
+                if not auto_yes:
+                    proceed = questionary.confirm(
+                        "Do you want to proceed with the migration?", default=False
+                    ).unsafe_ask()
+                    if not proceed:
+                        client.console.print("Migration aborted by user.")
+                        raise typer.Abort()
         elif data_set_id is not None:
             parsed_view = parse_view_str(consumption_view) if consumption_view is not None else None
             selected = MigrateDataSetSelector(
@@ -399,10 +419,9 @@ class MigrateApp(typer.Typer):
                 ingestion_mapping=asset_mapping.external_id,
                 preferred_consumer_view=preferred_consumer_view,
             )
-            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
-            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
-            if any(res is None for res in [dry_run, verbose]):
-                raise typer.Abort()
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
+
         return selected, dry_run, verbose
 
     @classmethod
@@ -463,6 +482,14 @@ class MigrateApp(typer.Typer):
                 help="If set, the migration will not be executed, but only a report of what would be done is printed.",
             ),
         ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="(Only used with mapping-file) If set, no confirmation prompt will be shown before proceeding with the migration.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -481,13 +508,14 @@ class MigrateApp(typer.Typer):
             consumption_view=consumption_view,
             ingestion_mapping=ingestion_mapping,
             dry_run=dry_run,
+            auto_yes=auto_yes,
             verbose=verbose,
             kind="Events",
             resource_type="event",
             container_id=ContainerId("cdf_cdm", "CogniteActivity"),
         )
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
 
         cmd.run(
             lambda: cmd.migrate(
@@ -566,6 +594,14 @@ class MigrateApp(typer.Typer):
                 help="If set, the migration will not be executed, but only a report of what would be done is printed.",
             ),
         ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="(Only used with mapping-file) If set, no confirmation prompt will be shown before proceeding with the migration.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -585,6 +621,7 @@ class MigrateApp(typer.Typer):
             consumption_view=consumption_view,
             ingestion_mapping=ingestion_mapping,
             dry_run=dry_run,
+            auto_yes=auto_yes,
             verbose=verbose,
             kind="TimeSeries",
             resource_type="timeseries",
@@ -593,9 +630,9 @@ class MigrateApp(typer.Typer):
         if data_set_id is None and mapping_file is None:
             skip_linking = not questionary.confirm(
                 "Do you want to link old and new TimeSeries?", default=not skip_linking
-            ).ask()
+            ).unsafe_ask()
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
                 selected=selected,
@@ -673,6 +710,14 @@ class MigrateApp(typer.Typer):
                 help="If set, the migration will not be executed, but only a report of what would be done is printed.",
             ),
         ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="(Only used with mapping-file) If set, no confirmation prompt will be shown before proceeding with the migration.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -692,17 +737,18 @@ class MigrateApp(typer.Typer):
             consumption_view=consumption_view,
             ingestion_mapping=ingestion_mapping,
             dry_run=dry_run,
+            auto_yes=auto_yes,
             verbose=verbose,
             kind="FileMetadata",
             resource_type="file",
             container_id=ContainerId("cdf_cdm", "CogniteFile"),
         )
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
 
-        if data_set_id is None:
+        if data_set_id is None and mapping_file is None:
             skip_linking = not questionary.confirm(
                 "Do you want to link old and new Files?", default=not skip_linking
-            ).ask()
+            ).unsafe_ask()
 
         cmd.run(
             lambda: cmd.migrate(
@@ -841,12 +887,10 @@ class MigrateApp(typer.Typer):
                 default_file_annotation_mapping=file_annotation_mapping,
             )
 
-            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
-            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
-            if any(res is None for res in [dry_run, verbose]):
-                raise typer.Abort()
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
                 selected=selected,
@@ -913,14 +957,13 @@ class MigrateApp(typer.Typer):
         if external_id is None:
             interactive = InteractiveCanvasSelect(client)
             external_id = interactive.select_external_ids()
-            log_dir = questionary.path("Specify log directory for migration logs:", default=str(log_dir)).ask()
-            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
-            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
-            if any(res is None for res in [log_dir, dry_run, verbose]):
-                raise typer.Abort()
-            log_dir = Path(log_dir)
+            log_dir = Path(
+                questionary.path("Specify log directory for migration logs:", default=str(log_dir)).unsafe_ask()
+            )
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         selector = CanvasExternalIdSelector(external_ids=tuple(external_id))
         cmd.run(
             lambda: cmd.migrate(
@@ -983,7 +1026,7 @@ class MigrateApp(typer.Typer):
         else:
             selected_external_ids = InteractiveChartSelect(client).select_external_ids()
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
                 selected=ChartExternalIdSelector(external_ids=tuple(selected_external_ids)),
@@ -1045,7 +1088,7 @@ class MigrateApp(typer.Typer):
             selected_models = ThreeDInteractiveSelect(client, "migrate").select_three_d_models("classic")
             selected_ids = [model.id for model in selected_models]
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
                 selected=ThreeDModelIdSelector(ids=tuple(selected_ids)),
@@ -1124,24 +1167,22 @@ class MigrateApp(typer.Typer):
             object_3D_space = space_selector.select_instance_space(
                 multiselect=False,
                 message="In which instance space do you want to create the 3D Object nodes?",
-                include_empty=False,
+                include_empty=True,
             )
             cad_node_space = space_selector.select_instance_space(
                 multiselect=False,
                 message="In which instance space do you want to create the CAD Node nodes?",
-                include_empty=False,
+                include_empty=True,
             )
-            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).ask()
-            verbose = questionary.confirm("Do you want verbose output?", default=verbose).ask()
-            if any(res is None for res in [dry_run, verbose]):
-                raise typer.Abort()
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
 
         if object_3D_space is None or cad_node_space is None:
             raise typer.BadParameter(
                 "--object-3d-space and --cad-node-space are required when specifying IDs directly."
             )
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
                 selected=ThreeDModelIdSelector(ids=tuple(selected_ids)),
@@ -1187,7 +1228,7 @@ class MigrateApp(typer.Typer):
         """Creates Infield V2 configurations from existing APM Configurations in CDF."""
         client = EnvironmentVariables.create_from_environment().get_client()
 
-        cmd = MigrationCommand()
+        cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.create(
                 client,

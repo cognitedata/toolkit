@@ -28,7 +28,7 @@ from cognite.client.data_classes._base import (
 from cognite.client.data_classes.agents import (
     AgentList,
 )
-from cognite.client.data_classes.data_modeling import DataModelId
+from cognite.client.data_classes.data_modeling import DataModelId, NodeList
 from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.functions import (
@@ -53,6 +53,7 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters import LocationFilterList
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import SearchConfigList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import ViewId as SearchConfigViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
@@ -69,6 +70,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     LocationFilterCRUD,
     NodeCRUD,
     ResourceCRUD,
+    ResourceViewMappingCRUD,
     SearchConfigCRUD,
     SpaceCRUD,
     StreamlitCRUD,
@@ -136,7 +138,9 @@ class DataModelFinder(ResourceFinder[DataModelId]):
         if len(available_spaces) == 1:
             selected_space = available_spaces[0]
         else:
-            selected_space = questionary.select("In which space is your data model located?", available_spaces).ask()
+            selected_space = questionary.select(
+                "In which space is your data model located?", available_spaces
+            ).unsafe_ask()
         data_model_ids = sorted(
             [model for model in data_model_ids if model.space == selected_space], key=lambda model: model.as_tuple()
         )
@@ -147,7 +151,7 @@ class DataModelFinder(ResourceFinder[DataModelId]):
                 Choice(f"{model_id!r}", value=model_id)
                 for model_id in sorted(data_model_ids, key=lambda model: model.as_tuple())
             ],
-        ).ask()
+        ).unsafe_ask()
 
         retrieved_models = self.client.data_modeling.data_models.retrieve(
             (selected_data_model.space, selected_data_model.external_id), inline_views=False
@@ -165,7 +169,7 @@ class DataModelFinder(ResourceFinder[DataModelId]):
         if not questionary.confirm(
             f"Would you like to select a different version than {selected_data_model.version} of the data model",
             default=False,
-        ).ask():
+        ).unsafe_ask():
             self.data_model = models_by_version[cast(str, selected_data_model.version)]
             return selected_data_model
 
@@ -175,7 +179,7 @@ class DataModelFinder(ResourceFinder[DataModelId]):
                 Choice(f"{version} ({len(model.views)} views)", value=version)
                 for version, model in models_by_version.items()
             ],
-        ).ask()
+        ).unsafe_ask()
         self.data_model = models_by_version[selected_model]
         return self.data_model.as_id()
 
@@ -240,7 +244,7 @@ class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
         selected_workflow_id: str = questionary.select(
             "Which workflow would you like to dump?",
             [Choice(workflow_id, value=workflow_id) for workflow_id in workflows.as_external_ids()],
-        ).ask()
+        ).unsafe_ask()
         for workflow in workflows:
             if workflow.external_id == selected_workflow_id:
                 self._workflow = workflow
@@ -256,7 +260,7 @@ class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
         selected_version: WorkflowVersionId = questionary.select(
             "Which version would you like to dump?",
             [Choice(f"{version!r}", value=version) for version in versions.as_ids()],
-        ).ask()
+        ).unsafe_ask()
         for version in versions:
             if version.version == selected_version.version:
                 self._workflow_version = version
@@ -309,7 +313,8 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
         selected_transformation_ids: tuple[str, ...] | None = questionary.checkbox(
             "Which transformation(s) would you like to dump?",
             choices=choices,
-        ).ask()
+            validate=lambda choices: True if choices else "You must select at least one transformation.",
+        ).unsafe_ask()
         if not selected_transformation_ids:
             raise ToolkitValueError(f"No transformations selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_transformation_ids)
@@ -354,7 +359,8 @@ class GroupFinder(ResourceFinder[tuple[str, ...]]):
                 Choice(f"{group_name} ({len(group_list)} group{'s' if len(group_list) > 1 else ''})", value=group_list)
                 for group_name, group_list in sorted(groups_by_name.items())
             ],
-        ).ask()
+            validate=lambda choices: True if choices else "You must select at least one group.",
+        ).unsafe_ask()
         if not selected_groups:
             raise ToolkitValueError(f"No group selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         self.groups = [group for group_list in selected_groups for group in group_list]
@@ -387,7 +393,8 @@ class AgentFinder(ResourceFinder[tuple[str, ...]]):
         selected_agent_ids: list[str] | None = questionary.checkbox(
             "Which agent(s) would you like to dump?",
             choices=choices,
-        ).ask()
+            validate=lambda choices: True if choices else "You must select at least one agent.",
+        ).unsafe_ask()
         if not selected_agent_ids:
             raise ToolkitValueError(f"No agents selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_agent_ids)
@@ -418,7 +425,7 @@ class NodeFinder(ResourceFinder[dm.ViewId]):
             raise ToolkitMissingResourceError("No spaces found")
         selected_space: str = questionary.select(
             "In which space is your node property view located?", [space.space for space in spaces]
-        ).ask()
+        ).unsafe_ask()
 
         views = self.client.data_modeling.views.list(space=selected_space, limit=-1, all_versions=False)
         if not views:
@@ -428,7 +435,7 @@ class NodeFinder(ResourceFinder[dm.ViewId]):
         selected_view_id: dm.ViewId = questionary.select(
             "Which node property view would you like to dump?",
             [Choice(repr(view), value=view) for view in views.as_ids()],
-        ).ask()
+        ).unsafe_ask()
         return selected_view_id
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
@@ -444,7 +451,7 @@ class NodeFinder(ResourceFinder[dm.ViewId]):
                 if not questionary.confirm(
                     f"Are you sure you want to dump {count} nodes? This may take a while.",
                     default=False,
-                ).ask():
+                ).unsafe_ask():
                     typer.Exit(0)
         nodes = dm.NodeList[dm.Node](list(loader.iterate()))
         yield [], nodes, loader, None
@@ -463,7 +470,8 @@ class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
         selected_filter_ids: tuple[str, ...] | None = questionary.checkbox(
             "Which filters would you like to dump?",
             choices=[Choice(name, value=id_) for name, id_ in id_by_display_name.items()],
-        ).ask()
+            validate=lambda choices: True if choices else "You must select at least one filter.",
+        ).unsafe_ask()
         if not selected_filter_ids:
             raise ToolkitValueError(f"No filters selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_filter_ids)
@@ -499,7 +507,8 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
         selected_pipeline_ids: tuple[str, ...] | None = questionary.checkbox(
             "Which extraction pipeline(s) would you like to dump?",
             choices=choices,
-        ).ask()
+            validate=lambda choices: True if choices else "You must select at least one pipeline.",
+        ).unsafe_ask()
         if not selected_pipeline_ids:
             raise ToolkitValueError(f"No extraction pipelines selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_pipeline_ids)
@@ -538,7 +547,8 @@ class DataSetFinder(ResourceFinder[tuple[str, ...]]):
         selected_dataset_ids: tuple[str, ...] | None = questionary.checkbox(
             "Which dataset(s) would you like to dump?",
             choices=choices,
-        ).ask()
+            validate=lambda choices: True if choices else "You must select at least one dataset.",
+        ).unsafe_ask()
         if not selected_dataset_ids:
             raise ToolkitValueError(f"No datasets selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_dataset_ids)
@@ -574,7 +584,8 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
         selected_function_ids: tuple[str, ...] | None = questionary.checkbox(
             "Which function(s) would you like to dump?",
             choices=choices,
-        ).ask()
+            validate=lambda choices: True if choices else "You must select at least one function.",
+        ).unsafe_ask()
         if not selected_function_ids:
             raise ToolkitValueError(f"No functions selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_function_ids)
@@ -635,7 +646,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
                 Choice(f"{item.value} ({item.count})", value=item.value)
                 for item in sorted(result, key=lambda r: (r.count, str(r.value) or ""))
             ],
-        ).ask()
+        ).unsafe_ask()
         files = self.client.files.list(
             limit=-1, directory_prefix="/streamlit-apps/", metadata={"creator": str(selected_creator)}
         )
@@ -653,7 +664,8 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
                 )
                 for app in sorted(self.apps, key=lambda a: a.name)
             ],
-        ).ask()
+            validate=lambda choices: True if choices else "You must select at least one Streamlit app.",
+        ).unsafe_ask()
         if not selected_ids:
             raise ToolkitValueError(f"No Streamlit app selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_ids)
@@ -772,7 +784,8 @@ class SearchConfigFinder(ResourceFinder[tuple[SearchConfigViewId, ...]]):
         selected_view_ids: list[SearchConfigViewId] | None = questionary.checkbox(
             "For which view would you like to dump the search configuration?",
             choices=choices,
-        ).ask()
+            validate=lambda choices: True if choices else "You must select at least one view.",
+        ).unsafe_ask()
         if not selected_view_ids:
             raise ToolkitValueError("No view selected for dumping the search configuration.")
         return tuple(selected_view_ids)
@@ -782,6 +795,44 @@ class SearchConfigFinder(ResourceFinder[tuple[SearchConfigViewId, ...]]):
         loader = SearchConfigCRUD.create_loader(self.client)
         if self.search_configs:
             yield [], SearchConfigList([sc for sc in self.search_configs if sc.view in self.identifier]), loader, None
+        else:
+            yield list(self.identifier), None, loader, None
+
+
+class ResourceViewMappingFinder(ResourceFinder[tuple[str, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
+        super().__init__(client, identifier)
+        self.resource_view_mappings: list[ResourceViewMapping] | None = None
+
+    def _interactive_select(self) -> tuple[str, ...]:
+        mappings = self.client.migration.resource_view_mapping.list(limit=-1)
+        if not mappings:
+            raise ToolkitMissingResourceError("No resource view mappings found")
+        self.resource_view_mappings = list(mappings)
+        choices = [
+            Choice(
+                f"{mapping.external_id} ({mapping.resource_type} -> {mapping.view_id.external_id})",
+                value=mapping.external_id,
+            )
+            for mapping in sorted(mappings, key=lambda m: m.external_id)
+        ]
+        selected_ids: list[str] | None = questionary.checkbox(
+            "Which resource view mapping(s) would you like to dump?",
+            choices=choices,
+            validate=lambda choices: True if choices else "You must select at least one resource view mapping.",
+        ).unsafe_ask()
+        if not selected_ids:
+            raise ToolkitValueError(f"No resource view mappings selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
+        return tuple(selected_ids)
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
+        self.identifier = self._selected()
+        loader = ResourceViewMappingCRUD.create_loader(self.client)
+        if self.resource_view_mappings:
+            selected_mappings = NodeList[ResourceViewMapping](
+                [m for m in self.resource_view_mappings if m.external_id in self.identifier]
+            )
+            yield [], selected_mappings, loader, None
         else:
             yield list(self.identifier), None, loader, None
 

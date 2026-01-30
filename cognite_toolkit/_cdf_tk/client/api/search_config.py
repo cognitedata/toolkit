@@ -4,9 +4,9 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedRespo
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
-    ItemsSuccessResponse2,
-    RequestMessage2,
-    SuccessResponse2,
+    ItemsSuccessResponse,
+    RequestMessage,
+    SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import (
     SearchConfigRequest,
@@ -38,7 +38,7 @@ class SearchConfigurationsAPI(CDFResourceAPI[SearchConfigViewId, SearchConfigReq
         return self._http_client.config.create_app_url(path)
 
     def _validate_page_response(
-        self, response: SuccessResponse2 | ItemsSuccessResponse2
+        self, response: SuccessResponse | ItemsSuccessResponse
     ) -> PagedResponse[SearchConfigResponse]:
         return PagedResponse[SearchConfigResponse].model_validate_json(response.body)
 
@@ -54,7 +54,7 @@ class SearchConfigurationsAPI(CDFResourceAPI[SearchConfigViewId, SearchConfigReq
         endpoint = self._method_endpoint_map["upsert"]
         results: list[SearchConfigResponse] = []
         for item in items:
-            request = RequestMessage2(
+            request = RequestMessage(
                 endpoint_url=self._make_url(endpoint.path),
                 method=endpoint.method,
                 body_content=item.model_dump(mode="json", by_alias=True),

@@ -55,7 +55,7 @@ class ProfileApp(typer.Typer):
         these data sets, and the RAW tables that is used in these transformations.
         """
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = ProfileAssetCommand(output_spreadsheet)
+        cmd = ProfileAssetCommand(output_spreadsheet, client=client)
         cmd.run(
             lambda: cmd.assets(
                 client=client,
@@ -90,7 +90,7 @@ class ProfileApp(typer.Typer):
         This shows an approximation of unstructured data count. This can, for example, be used to estimate the
         effort to model this data in data modeling."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = ProfileAssetCentricCommand(output_spreadsheet)
+        cmd = ProfileAssetCentricCommand(output_spreadsheet, client=client)
         cmd.run(
             lambda: cmd.asset_centric(
                 client,
@@ -127,7 +127,7 @@ class ProfileApp(typer.Typer):
         source of the data in a specific CDF resource.
         """
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = ProfileTransformationCommand(output_spreadsheet)
+        cmd = ProfileTransformationCommand(output_spreadsheet, client=client)
         cmd.run(
             lambda: cmd.transformation(
                 client,
@@ -165,7 +165,7 @@ class ProfileApp(typer.Typer):
         source of the data in a specific CDF resource.
         """
         client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = ProfileRawCommand(output_spreadsheet)
+        cmd = ProfileRawCommand(output_spreadsheet, client=client)
         cmd.run(
             lambda: cmd.raw(
                 client,

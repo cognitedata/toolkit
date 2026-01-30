@@ -106,8 +106,8 @@ class PurgeApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will delete the contents of the specified dataset"""
-        cmd = PurgeCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = PurgeCommand(client=client)
 
         if external_id is None:
             # Is Interactive
@@ -116,24 +116,21 @@ class PurgeApp(typer.Typer):
             skip_data = not questionary.confirm(
                 "Delete data in the dataset (time series, events, files, assets, sequences, relationships, labels, 3D models)?",
                 default=True,
-            ).ask()
+            ).unsafe_ask()
             include_configurations = questionary.confirm(
                 "Delete configurations (workflows, extraction pipelines and transformations) in the dataset?",
                 default=False,
-            ).ask()
+            ).unsafe_ask()
             asset_recursive = questionary.confirm(
                 "When deleting assets, delete all child assets recursively? (WARNING: This can lead "
                 "to assets not in the selected dataset being deleted if they are children of assets in the dataset.)",
                 default=False,
-            ).ask()
-            archive_dataset = questionary.confirm("Archive the dataset itself after purging?", default=False).ask()
-            dry_run = questionary.confirm("Dry run?", default=True).ask()
-            verbose = questionary.confirm("Verbose?", default=True).ask()
-
-            user_options = [archive_dataset, dry_run, verbose, skip_data, include_configurations, asset_recursive]
-
-            if any(selected is None for selected in user_options):
-                raise typer.Abort("Aborted by user.")
+            ).unsafe_ask()
+            archive_dataset = questionary.confirm(
+                "Archive the dataset itself after purging?", default=False
+            ).unsafe_ask()
+            dry_run = questionary.confirm("Dry run?", default=True).unsafe_ask()
+            verbose = questionary.confirm("Verbose?", default=True).unsafe_ask()
 
         cmd.run(
             lambda: cmd.dataset(
@@ -206,9 +203,8 @@ class PurgeApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will delete the contents of the specified space."""
-
-        cmd = PurgeCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = PurgeCommand(client=client)
 
         if space is None:
             # Is Interactive
@@ -222,11 +218,11 @@ class PurgeApp(typer.Typer):
                 space = interactive.select_schema_space(include_global=False).space
             else:
                 raise ToolkitValueError("Invalid space type selected.")
-            dry_run = questionary.confirm("Dry run?", default=True).ask()
+            dry_run = questionary.confirm("Dry run?", default=True).unsafe_ask()
             if space_type == "empty":
                 include_space = True
             else:
-                include_space = questionary.confirm("Delete the space itself?", default=False).ask()
+                include_space = questionary.confirm("Delete the space itself?", default=False).unsafe_ask()
 
         cmd.run(
             lambda: cmd.space(
@@ -322,9 +318,9 @@ class PurgeApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will delete the contents of the specified instances."""
-
-        cmd = PurgeCommand()
         client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        cmd = PurgeCommand(client=client)
+
         is_interactive = view is None and instance_list is None
         selector: InstanceSelector
         if is_interactive:
@@ -339,8 +335,10 @@ class PurgeApp(typer.Typer):
                 instance_type=selected_instance_type,
                 instance_spaces=tuple(instance_space) if instance_space else None,
             )
-            dry_run = questionary.confirm("Dry run?", default=True).ask()
-            unlink = questionary.confirm("Unlink instances connected to timeseries or files?", default=True).ask()
+            dry_run = questionary.confirm("Dry run?", default=True).unsafe_ask()
+            unlink = questionary.confirm(
+                "Unlink instances connected to timeseries or files?", default=True
+            ).unsafe_ask()
         elif instance_list is not None:
             selector = InstanceFileSelector(datafile=instance_list)
         elif view is not None:

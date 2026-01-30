@@ -1,12 +1,15 @@
+import contextlib
 from pathlib import Path
 from typing import Annotated
 
 import typer
 from rich import print
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import RepoCommand
 from cognite_toolkit._cdf_tk.commands.repo import REPOSITORY_HOSTING
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
 class RepoApp(typer.Typer):
@@ -37,6 +40,10 @@ class RepoApp(typer.Typer):
         verbose: bool = typer.Option(False, "-v", "--verbose", help="Verbose output"),
     ) -> None:
         """Initialize a new git repository with files like .gitignore, cdf.toml, and so on."""
-
-        cmd = RepoCommand()
+        client: ToolkitClient | None = None
+        with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
+            # Try to load client if possible, but ignore errors.
+            # This is only used for logging purposes in the command.
+            client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = RepoCommand(client=client)
         cmd.run(lambda: cmd.init(cwd=cwd, host=host, verbose=verbose))

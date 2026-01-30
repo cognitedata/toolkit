@@ -122,13 +122,21 @@ class HostedExtractorJob(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
     @field_validator("config", mode="before")
-    def empty_dict_as_none(cls, v: Any) -> Any:
-        if v == {}:
+    @classmethod
+    def empty_dict_as_none(cls, value: Any) -> Any:
+        if value == {}:
             return None
-        return v
+        return value
 
 
-class HostedExtractorJobRequest(HostedExtractorJob, UpdatableRequestResource): ...
+class HostedExtractorJobRequest(HostedExtractorJob, UpdatableRequestResource):
+    def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
+        update_item = super().as_update(mode=mode)
+        exclude_unset = mode == "patch"
+        update_item["update"]["format"] = {
+            "set": self.format.model_dump(mode="json", exclude_none=True, by_alias=True, exclude_unset=exclude_unset)
+        }
+        return update_item
 
 
 class HostedExtractorJobResponse(HostedExtractorJob, ResponseResource[HostedExtractorJobRequest]):

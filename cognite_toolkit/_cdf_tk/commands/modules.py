@@ -23,6 +23,7 @@ from rich.table import Table
 from rich.tree import Tree
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml, Library
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import _cli_commands as CLICommands
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._changes import (
@@ -81,10 +82,11 @@ class ModulesCommand(ToolkitCommand):
         print_warning: bool = True,
         skip_tracking: bool = False,
         silent: bool = False,
+        client: ToolkitClient | None = None,
         temp_dir_suffix: str | None = None,
         module_source_dir: Path | None = None,
     ):
-        super().__init__(print_warning, skip_tracking, silent)
+        super().__init__(print_warning, skip_tracking, silent, client)
         self._module_source_dir: Path | None = module_source_dir
         # Use suffix to make temp directory unique (useful for parallel test execution)
         modules_dir_name = f"{MODULES}.{temp_dir_suffix}" if temp_dir_suffix else MODULES
@@ -181,7 +183,7 @@ class ModulesCommand(ToolkitCommand):
                     if questionary.confirm(
                         f"{INDENT}Module {module.name} already exists in folder {target_dir}. Would you like to overwrite?",
                         default=False,
-                    ).ask():
+                    ).unsafe_ask():
                         safe_rmtree(target_dir)
                     else:
                         continue
@@ -351,7 +353,10 @@ class ModulesCommand(ToolkitCommand):
                 # Need to rerun the mode as bootcamp has a hardcoded organization directory
                 mode = self._verify_clean(bootcamp_org / MODULES, clean)
             # We only ask to verify if the user has not already selected overwrite in the _verify_clean method
-            if mode == "clean" or questionary.confirm("Would you like to continue with creation?", default=True).ask():
+            if (
+                mode == "clean"
+                or questionary.confirm("Would you like to continue with creation?", default=True).unsafe_ask()
+            ):
                 self._create(
                     organization_dir=bootcamp_org,
                     selected_packages=selected,
@@ -363,7 +368,7 @@ class ModulesCommand(ToolkitCommand):
 
         if (
             not is_interactive
-            and not questionary.confirm("Would you like to continue with creation?", default=True).ask()
+            and not questionary.confirm("Would you like to continue with creation?", default=True).unsafe_ask()
         ):
             print("Exiting...")
             raise typer.Exit()
@@ -380,7 +385,8 @@ class ModulesCommand(ToolkitCommand):
                 qmark=INDENT,
                 pointer=POINTER,
                 style=custom_style_fancy,
-            ).ask()
+                validate=lambda choices: True if choices else "You must select at least one environment.",
+            ).unsafe_ask()
         else:
             environments = user_environments
 
@@ -425,7 +431,7 @@ class ModulesCommand(ToolkitCommand):
             )
         )
 
-        organization_dir_raw = questionary.text(message="", default="").ask()
+        organization_dir_raw = questionary.text(message="", default="").unsafe_ask()
         return Path(organization_dir_raw.strip())
 
     @staticmethod
@@ -438,7 +444,7 @@ class ModulesCommand(ToolkitCommand):
             download_data = questionary.confirm(
                 f"The modules {humanize_collection(example_data)} has example data. Would you like to download it?",
                 default=True,
-            ).ask()
+            ).unsafe_ask()
         return download_data
 
     def _select_modules_in_package(self, package: Package) -> list[ModuleLocation]:
@@ -467,7 +473,8 @@ class ModulesCommand(ToolkitCommand):
             qmark=INDENT,
             pointer=POINTER,
             style=custom_style_fancy,
-        ).ask()
+            validate=lambda choices: True if choices else "You must select at least one module.",
+        ).unsafe_ask()
 
     def _select_packages(self, packages: Packages, existing_module_names: list[str] | None = None) -> Packages:
         adding_to_existing = False
@@ -488,7 +495,9 @@ class ModulesCommand(ToolkitCommand):
                 print(Padding.indent(tree, 5))
                 print("\n")
 
-                if not questionary.confirm("Would you like to make changes to the selection?", default=False).ask():
+                if not questionary.confirm(
+                    "Would you like to make changes to the selection?", default=False
+                ).unsafe_ask():
                     break
 
             if not any([len(package.modules) > 0 for package in packages.values()]):
@@ -510,7 +519,7 @@ class ModulesCommand(ToolkitCommand):
                 choices=choices,
                 pointer=POINTER,
                 style=custom_style_fancy,
-            ).ask()
+            ).unsafe_ask()
 
             if package is None:
                 raise typer.Exit(code=0)
@@ -545,7 +554,7 @@ class ModulesCommand(ToolkitCommand):
             pointer=POINTER,
             style=custom_style_fancy,
             instruction="use arrow up/down and " + "⮐ " + " to save",
-        ).ask()
+        ).unsafe_ask()
         if user_selection == "abort":
             print("Aborting...")
             raise typer.Exit()

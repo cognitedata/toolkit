@@ -68,7 +68,7 @@ class ViewDataSource(DestinationDefinition):
 
 
 class RawDataSource(DestinationDefinition):
-    type: Literal["raw_tables"] = "raw_tables"
+    type: Literal["raw"] = "raw"
     database: str
     table: str
 
@@ -108,7 +108,7 @@ class Transformation(BaseModelObject):
 
 class TransformationRequest(Transformation, UpdatableRequestResource):
     container_fields: ClassVar[frozenset[str]] = frozenset({"tags"})
-    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"is_public", "query", "destination"})
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"is_public", "query", "destination", "conflict_mode"})
     query: str | None = None
     conflict_mode: str | None = None
     destination: Destination | None = None
@@ -126,7 +126,8 @@ class TransformationResponse(Transformation, ResponseResource[TransformationRequ
     conflict_mode: str
     destination: Destination
     blocked: BlockedInfo | None = None
-    owner: str
+    # In the API spec, owner is documented as a string, but the response is actually {"user": '<uuid>'}
+    owner: str | dict[str, str]
     owner_is_current_user: bool
     has_source_oidc_credentials: bool
     has_destination_oidc_credentials: bool

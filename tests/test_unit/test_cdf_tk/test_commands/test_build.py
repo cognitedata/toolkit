@@ -9,8 +9,9 @@ import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes.data_modeling import DataModelId, Space
 
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawDatabase
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand
-from cognite_toolkit._cdf_tk.cruds import TransformationCRUD
+from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, TransformationCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, Environment, Packages
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -18,7 +19,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
-from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MissingDependencyWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests import data
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -146,6 +147,49 @@ capabilities:
                 on_error="raise",
             )
         assert len(cmd.warning_list) == 0
+
+    def test_build_missing_raw_db_gives_warning(
+        self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
+    ) -> None:
+        raw_group_yaml = """name: tmp_group_raw_acl_issue
+sourceId: '1234567890123456789'
+metadata:
+  origin: cognite-toolkit
+capabilities:
+- rawAcl:
+    actions:
+    - LIST
+    - READ
+    - WRITE
+    scope:
+      tableScope:
+        dbsToTables:
+          not_existing: []
+"""
+        filepath = tmp_path / "my_org" / "modules" / "my_module" / "auth" / "my.Group.yaml"
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        filepath.write_text(raw_group_yaml)
+
+        cmd = BuildCommand(silent=True)
+        with patch.dict(
+            os.environ,
+            {"CDF_PROJECT": env_vars_with_client.CDF_PROJECT, "CDF_CLUSTER": env_vars_with_client.CDF_CLUSTER},
+        ):
+            cmd.execute(
+                verbose=False,
+                organization_dir=tmp_path / "my_org",
+                build_dir=tmp_path / "build",
+                selected=None,
+                build_env_name=None,
+                no_clean=False,
+                client=toolkit_client_approval.mock_client,
+                on_error="raise",
+            )
+        assert len(cmd.warning_list) == 1
+        missing_dep = cmd.warning_list[0]
+        assert isinstance(missing_dep, MissingDependencyWarning)
+        assert missing_dep.dependency_type == RawDatabaseCRUD.resource_cls.__name__
+        assert missing_dep.identifier == RawDatabase("not_existing")
 
 
 class TestCheckYamlSemantics:

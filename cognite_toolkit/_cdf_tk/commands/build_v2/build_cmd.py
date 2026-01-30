@@ -21,8 +21,14 @@ from cognite_toolkit._version import __version__
 
 
 class BuildCommand(ToolkitCommand):
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
-        super().__init__(print_warning, skip_tracking, silent)
+    def __init__(
+        self,
+        print_warning: bool = True,
+        skip_tracking: bool = False,
+        silent: bool = False,
+        client: ToolkitClient | None = None,
+    ) -> None:
+        super().__init__(print_warning, skip_tracking, silent, client)
         self.issues = IssueList()
 
     def execute(

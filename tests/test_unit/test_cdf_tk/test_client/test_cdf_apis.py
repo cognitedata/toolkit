@@ -247,7 +247,7 @@ class TestCDFResourceAPI:
 
         # Test retrieve
         respx_mock.get(config.create_api_url(f"/workflows/{instance.external_id}")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+            return_value=httpx.Response(status_code=200, json=resource)
         )
         retrieved = api.retrieve([instance.as_id()])
         assert len(retrieved) == 1
@@ -294,7 +294,7 @@ class TestCDFResourceAPI:
         # Test retrieve
         respx_mock.get(
             config.create_api_url(f"/workflows/{instance.workflow_external_id}/versions/{instance.version}")
-        ).mock(return_value=httpx.Response(status_code=200, json={"items": [resource]}))
+        ).mock(return_value=httpx.Response(status_code=200, json=resource))
         retrieved = api.retrieve([instance.as_id()])
         assert len(retrieved) == 1
         assert retrieved[0].dump() == resource

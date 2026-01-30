@@ -3,7 +3,7 @@ from cognite.client.data_classes import DataSet
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import HTTPResult2, RequestMessage2, SuccessResponse2
+from cognite_toolkit._cdf_tk.client.http_client import HTTPResult, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import SimulatorModelRequest
 from tests_smoke.exceptions import EndpointAssertionError
 
@@ -20,7 +20,7 @@ def simulator(toolkit_client: ToolkitClient) -> str:
     config = toolkit_client.config
     # Check if simulator already exists
     list_response = http_client.request_single_retries(
-        RequestMessage2(
+        RequestMessage(
             endpoint_url=config.create_api_url("/simulators/list"),
             method="POST",
             body_content={"limit": 1000},
@@ -30,7 +30,7 @@ def simulator(toolkit_client: ToolkitClient) -> str:
         return simulator_external_id
 
     creation_response = http_client.request_single_retries(
-        RequestMessage2(
+        RequestMessage(
             endpoint_url=config.create_api_url("/simulators"),
             method="POST",
             body_content={"items": [SIMULATOR]},
@@ -42,8 +42,8 @@ def simulator(toolkit_client: ToolkitClient) -> str:
     raise EndpointAssertionError("/simulators", "Failed to create simulator for testing.")
 
 
-def _parse_simulator_response(list_response: HTTPResult2) -> str | None:
-    if not isinstance(list_response, SuccessResponse2):
+def _parse_simulator_response(list_response: HTTPResult) -> str | None:
+    if not isinstance(list_response, SuccessResponse):
         raise EndpointAssertionError("/simulators/list", str(list_response))
     try:
         items = list_response.body_json["items"]

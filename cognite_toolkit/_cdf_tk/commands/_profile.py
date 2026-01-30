@@ -71,8 +71,9 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
         print_warning: bool = True,
         skip_tracking: bool = False,
         silent: bool = False,
+        client: ToolkitClient | None = None,
     ) -> None:
-        super().__init__(print_warning, skip_tracking, silent)
+        super().__init__(print_warning, skip_tracking, silent, client)
         self.table_title = self.__class__.__name__.removesuffix("Command")
         self.output_spreadsheet: Path | None = output_spreadsheet
         if output_spreadsheet is not None:
@@ -329,7 +330,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
             )
 
     def _ask_store_file(self) -> None:
-        if file_path := questionary.path("Where do you want to save the profile?").ask():
+        if file_path := questionary.path("Where do you want to save the profile?").unsafe_ask():
             self.output_spreadsheet = Path(file_path)
 
 
@@ -347,8 +348,9 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
         print_warning: bool = True,
         skip_tracking: bool = False,
         silent: bool = False,
+        client: ToolkitClient | None = None,
     ) -> None:
-        super().__init__(output_spreadsheet, print_warning, skip_tracking, silent)
+        super().__init__(output_spreadsheet, print_warning, skip_tracking, silent, client)
         self.table_title = "Asset Profile for Hierarchy"
         self.hierarchy: str | None = None
         self.aggregators: dict[str, MetadataAggregator] = {}
@@ -641,8 +643,9 @@ class ProfileAssetCentricCommand(ProfileCommand[str]):
         print_warning: bool = True,
         skip_tracking: bool = False,
         silent: bool = False,
+        client: ToolkitClient | None = None,
     ) -> None:
-        super().__init__(output_spreadsheet, print_warning, skip_tracking, silent)
+        super().__init__(output_spreadsheet, print_warning, skip_tracking, silent, client)
         self.hierarchy: str | None = None
         self.table_title = "Asset Centric Profile"
         self.aggregators: dict[str, AssetCentricAggregator] = {}
@@ -742,8 +745,9 @@ class ProfileTransformationCommand(ProfileCommand[str]):
         print_warning: bool = True,
         skip_tracking: bool = False,
         silent: bool = False,
+        client: ToolkitClient | None = None,
     ) -> None:
-        super().__init__(output_spreadsheet, print_warning, skip_tracking, silent)
+        super().__init__(output_spreadsheet, print_warning, skip_tracking, silent, client)
         self.table_title = "Transformation Profile"
         self.destination_type: AssetCentricDestinationType | None = None
 
@@ -826,8 +830,9 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
         print_warning: bool = True,
         skip_tracking: bool = False,
         silent: bool = False,
+        client: ToolkitClient | None = None,
     ) -> None:
-        super().__init__(output_spreadsheet, print_warning, skip_tracking, silent)
+        super().__init__(output_spreadsheet, print_warning, skip_tracking, silent, client)
         self.table_title = "RAW Profile"
         self.destination_type: AssetCentricDestinationType | None = None
         self.client: ToolkitClient | None = None

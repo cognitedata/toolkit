@@ -1,8 +1,17 @@
 from collections.abc import Iterable, Sequence
+from itertools import zip_longest
 from typing import Any
 
+from pydantic import JsonValue
+
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, HTTPMessage, RequestMessage2
+from cognite_toolkit._cdf_tk.client.http_client import (
+    HTTPClient,
+    HTTPResult,
+    RequestMessage,
+    SuccessResponse,
+)
+from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     IndustrialCanvas,
     IndustrialCanvasApply,
@@ -180,28 +189,57 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         data_chunk: Sequence[UploadItem[IndustrialCanvasApply]],
         http_client: HTTPClient,
         selector: CanvasSelector | None = None,
-    ) -> Sequence[HTTPMessage]:
+    ) -> ItemsResultList:
         config = http_client.config
-        results: list[HTTPMessage] = []
+        results = ItemsResultList()
         for item in data_chunk:
             instances = item.item.as_instances()
-            items: list[dict[str, JsonVal]] = []
+            upsert_items: list[dict[str, JsonValue]] = []
             for instance in instances:
                 dumped = instance.dump()
                 if self.exclude_existing_version:
                     dumped.pop("existingVersion", None)
-                items.append(dumped)
+                upsert_items.append(dumped)
 
-            responses = http_client.request_single_retries(
-                message=RequestMessage2(
-                    endpoint_url=config.create_api_url("/models/instances"),
-                    method="POST",
-                    # MyPy does not understand that .dump is valid json
-                    body_content={"items": items},  # type: ignore[dict-item]
+            canvas = item.item.canvas
+            existing = self.client.canvas.industrial.retrieve(canvas.external_id)
+            if existing is not None:
+                existing_instance_ids = existing.as_write().as_instance_ids(include_solution_tags=False)
+                delete_set = set(existing_instance_ids) - set(item.item.as_instance_ids())
+                to_delete: list[Any] = [
+                    {
+                        "space": instance_id.space,
+                        "externalId": instance_id.external_id,
+                        "instanceType": instance_id.instance_type,
+                    }
+                    for instance_id in delete_set
+                ]
+            else:
+                to_delete = []
+
+            last_response: HTTPResult | None = None
+            for upsert_chunk, delete_chunk in zip_longest(
+                chunker_sequence(upsert_items, 1000), chunker_sequence(to_delete, 1000), fillvalue=None
+            ):
+                body_content: dict[str, JsonValue] = {}
+                if upsert_chunk:
+                    # MyPy fails do understand that list[dict[str, JsonValue]] is a subtype of JsonValue
+                    body_content["items"] = upsert_chunk  # type: ignore[assignment]
+                if delete_chunk:
+                    body_content["delete"] = delete_chunk
+
+                response = http_client.request_single_retries(
+                    message=RequestMessage(
+                        endpoint_url=config.create_api_url("/models/instances"),
+                        method="POST",
+                        body_content=body_content,
+                    )
                 )
-            )
-            results.append(responses.as_item_response(item.source_id))
-
+                if not isinstance(response, SuccessResponse):
+                    results.append(response.as_item_response(item.source_id))
+                last_response = response
+            if last_response is not None:
+                results.append(last_response.as_item_response(item.source_id))
         return results
 
     def data_to_json_chunk(

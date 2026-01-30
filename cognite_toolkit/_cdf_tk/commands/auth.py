@@ -21,6 +21,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from time import sleep
+from typing import Literal
 
 import questionary
 from cognite.client.data_classes.capabilities import (
@@ -84,7 +85,7 @@ class AuthCommand(ToolkitCommand):
         ask_user = True
         if env_vars and not env_vars.get_missing_vars():
             print("Auth variables are already set.")
-            ask_user = questionary.confirm("Do you want to reconfigure the auth variables?", default=False).ask()
+            ask_user = questionary.confirm("Do you want to reconfigure the auth variables?", default=False).unsafe_ask()
 
         if ask_user or not env_vars:
             env_vars = prompt_user_environment_variables(env_vars)
@@ -111,10 +112,10 @@ class AuthCommand(ToolkitCommand):
             if questionary.confirm(
                 f"Do you want to overwrite the existing '.env' file? The existing will be renamed to {filename}",
                 default=False,
-            ).ask():
+            ).unsafe_ask():
                 shutil.move(".env", filename)
                 Path(".env").write_text(new_env_file, encoding="utf-8")
-        elif questionary.confirm("Do you want to save these to .env file for next time?", default=True).ask():
+        elif questionary.confirm("Do you want to save these to .env file for next time?", default=True).unsafe_ask():
             Path(".env").write_text(new_env_file, encoding="utf-8")
 
     def verify(
@@ -160,7 +161,10 @@ class AuthCommand(ToolkitCommand):
         if not user_groups:
             raise AuthorizationError("The current user is not member of any groups in the CDF project.")
 
-        loader_capabilities, loaders_by_capability_tuple = self._get_capabilities_by_loader(client)
+        data_modeling_status = client.project.status().this_project.data_modeling_status
+        loader_capabilities, loaders_by_capability_tuple = self._get_capabilities_by_loader(
+            client, data_modeling_status
+        )
         toolkit_group = self._create_toolkit_group(loader_capabilities, demo_principal)
 
         if not is_demo:
@@ -197,10 +201,10 @@ class AuthCommand(ToolkitCommand):
             if (
                 is_interactive
                 and missing_capabilities
-                and questionary.confirm("Do you want to update the group with the missing capabilities?").ask()
+                and questionary.confirm("Do you want to update the group with the missing capabilities?").unsafe_ask()
             ) or is_demo:
                 has_added_capabilities = self._update_missing_capabilities(
-                    client, cdf_toolkit_group, missing_capabilities, dry_run
+                    client, cdf_toolkit_group, missing_capabilities, dry_run, data_modeling_status
                 )
         elif is_toolkit_group_existing:  # and not is_user_in_toolkit_group
             self.warn(MediumSeverityWarning(f"The current client is not member of the {toolkit_group.name!r} group."))
@@ -213,9 +217,11 @@ class AuthCommand(ToolkitCommand):
             if (
                 is_interactive
                 and missing_capabilities
-                and questionary.confirm("Do you want to update the group with the missing capabilities?").ask()
+                and questionary.confirm("Do you want to update the group with the missing capabilities?").unsafe_ask()
             ):
-                self._update_missing_capabilities(client, cdf_toolkit_group, missing_capabilities, dry_run)
+                self._update_missing_capabilities(
+                    client, cdf_toolkit_group, missing_capabilities, dry_run, data_modeling_status
+                )
         elif is_demo:
             # We create the group for the demo user
             cdf_toolkit_group = self._create_toolkit_group_in_cdf(client, toolkit_group)
@@ -246,7 +252,7 @@ class AuthCommand(ToolkitCommand):
             if extra := self.check_duplicated_names(all_groups, cdf_toolkit_group):
                 if (
                     is_interactive
-                    and questionary.confirm("Do you want to delete the extra groups?", default=True).ask()
+                    and questionary.confirm("Do you want to delete the extra groups?", default=True).unsafe_ask()
                 ):
                     try:
                         client.iam.groups.delete(extra.as_ids())
@@ -274,7 +280,7 @@ class AuthCommand(ToolkitCommand):
         if not questionary.confirm(
             "Do you want to create it?",
             default=True,
-        ).ask():
+        ).unsafe_ask():
             return None
 
         if dry_run:
@@ -283,13 +289,10 @@ class AuthCommand(ToolkitCommand):
             )
             return None
 
-        while True:
-            source_id = questionary.text(
-                "What is the source id for the new group (typically a group id in the identity provider)?"
-            ).ask()
-            if source_id:
-                break
-            print("Source id cannot be empty.")
+        source_id = questionary.text(
+            "What is the source id for the new group (typically a group id in the identity provider)?",
+            validate=lambda value: value.strip() != "",
+        ).unsafe_ask()
 
         toolkit_group.source_id = source_id
         if already_used := [group.name for group in all_groups if group.source_id == source_id]:
@@ -298,7 +301,7 @@ class AuthCommand(ToolkitCommand):
                     f"The source id {source_id!r} is already used by the groups: {humanize_collection(already_used)!r}."
                 )
             )
-            if not questionary.confirm("This is NOT recommended. Do you want to continue?", default=False).ask():
+            if not questionary.confirm("This is NOT recommended. Do you want to continue?", default=False).unsafe_ask():
                 return None
 
         return self._create_toolkit_group_in_cdf(client, toolkit_group)
@@ -363,6 +366,7 @@ class AuthCommand(ToolkitCommand):
         existing_group: Group,
         missing_capabilities: list[Capability],
         dry_run: bool,
+        data_modeling_status: Literal["HYBRID", "DATA_MODELING_ONLY"],
     ) -> bool:
         """Updates the missing capabilities. This assumes interactive mode."""
         updated_toolkit_group = GroupWrite.load(existing_group.dump())
@@ -370,6 +374,24 @@ class AuthCommand(ToolkitCommand):
             updated_toolkit_group.capabilities = missing_capabilities
         else:
             updated_toolkit_group.capabilities.extend(missing_capabilities)
+
+        if data_modeling_status == "DATA_MODELING_ONLY":
+            # Remove any AssetsAcl and RelationshipsAcl capabilities as these
+            # are not allowed in DATA_MODELING_ONLY projects.
+            filtered_capabilities: list[Capability] = []
+            removed: list[str] = []
+            for cap in updated_toolkit_group.capabilities:
+                if isinstance(cap, AssetsAcl | RelationshipsAcl):
+                    removed.append(str(cap))
+                else:
+                    filtered_capabilities.append(cap)
+            if removed:
+                self.console(
+                    f"Removing {humanize_collection(removed)} as the project is in DATA_MODELING_ONLY mode."
+                    f"These capabilities are not allowed in DATA_MODELING_ONLY projects.",
+                    prefix="  [bold yellow]INFO[/] - ",
+                )
+            updated_toolkit_group.capabilities = filtered_capabilities
 
         with warnings.catch_warnings():
             # If the user has unknown capabilities, we don't want the user to see the warning:
@@ -427,11 +449,10 @@ class AuthCommand(ToolkitCommand):
 
     @staticmethod
     def _get_capabilities_by_loader(
-        client: ToolkitClient,
+        client: ToolkitClient, data_modeling_status: Literal["HYBRID", "DATA_MODELING_ONLY"]
     ) -> tuple[list[Capability], dict[tuple, list[str]]]:
         loaders_by_capability_tuple: dict[tuple, list[str]] = defaultdict(list)
         capability_by_id: dict[frozenset[tuple], Capability] = {}
-        project_type = client.project.status().this_project.data_modeling_status
         for crud_cls in cruds.RESOURCE_CRUD_LIST:
             crud = crud_cls.create_loader(client)
             if crud.prerequisite_warning() is not None:
@@ -454,7 +475,7 @@ class AuthCommand(ToolkitCommand):
                 capability = crud_cls.get_required_capability(None, read_only=False)
                 capabilities = capability if isinstance(capability, list) else [capability]
             for cap in capabilities:
-                if project_type == "DATA_MODELING_ONLY" and isinstance(cap, AssetsAcl | RelationshipsAcl):
+                if data_modeling_status == "DATA_MODELING_ONLY" and isinstance(cap, AssetsAcl | RelationshipsAcl):
                     continue
                 id_ = frozenset(cap.as_tuples())
                 if id_ not in capability_by_id:

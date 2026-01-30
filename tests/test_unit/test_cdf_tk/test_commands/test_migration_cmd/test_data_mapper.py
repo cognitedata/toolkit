@@ -16,6 +16,7 @@ from cognite.client.data_classes.data_modeling import (
 
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import CreatedSourceSystem, ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
@@ -27,10 +28,11 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     AssetCentricMappingList,
     MigrationMapping,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ThreeDAssetMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, CanvasMapper, ThreeDAssetMapper
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, OperationTracker
+from tests.data import MIGRATION_DIR
 
 
 class TestAssetCentricMapper:
@@ -50,7 +52,7 @@ class TestAssetCentricMapper:
                     resource=AssetResponse(
                         id=1000 + i,
                         name=f"Asset {i}",
-                        source="sap",
+                        source="SAP",
                         description=f"Description {i}",
                         createdTime=1,
                         lastUpdatedTime=1,
@@ -114,10 +116,14 @@ class TestAssetCentricMapper:
             first_asset = mapped[0]
             assert first_asset.sources[0].properties["source"] == DirectRelationReference("source_systems", "SAP")
 
+            # Check lookup calls
             assert client.migration.resource_view_mapping.retrieve.call_count == 1
             client.migration.resource_view_mapping.retrieve.assert_called_with(["cdf_asset_mapping"])
             assert client.migration.created_source_system.retrieve.call_count == 1
             assert client.data_modeling.views.retrieve.call_count == 1
+
+            assert client.migration.created_source_system.retrieve.call_count == 1
+            client.migration.created_source_system.retrieve.assert_called_with(["sap"])
 
     def test_map_chunk_before_prepare_raises_error(self, tmp_path: Path) -> None:
         """Test that calling map_chunk before prepare raises a RuntimeError."""
@@ -288,3 +294,42 @@ class TestThreeDAssetMapper:
                 _, message = logger.tracker.add_issue.call_args.args
                 assert mapped is None, "Expected no mapped result"
                 assert message == expected
+
+
+class TestCanvasMapper:
+    def test_map_canvas_with_annotations(self):
+        input_canvas_path = MIGRATION_DIR / "canvas" / "annotated_canvas.yaml"
+        input_canvas = IndustrialCanvas.load(input_canvas_path.read_text(encoding="utf-8"))
+        with monkeypatch_toolkit_client() as client:
+            client.migration.lookup.assets.return_value = NodeId(space="my_space", external_id="asset_1")
+            client.migration.lookup.events.return_value = NodeId(space="my_space", external_id="event_1")
+            client.migration.lookup.files.return_value = NodeId(space="my_space", external_id="file_1")
+            client.migration.lookup.time_series.return_value = NodeId(space="my_space", external_id="timeseries_1")
+            client.migration.lookup.assets.consumer_view.return_value = ViewId(
+                space="cdm_cdm", external_id="CogniteAsset", version="v1"
+            )
+            client.migration.lookup.events.consumer_view.return_value = ViewId(
+                space="cdf_cdm", external_id="CogniteActivity", version="v1"
+            )
+            client.migration.lookup.files.consumer_view.return_value = ViewId(
+                space="cdf_cdm", external_id="CogniteFile", version="v1"
+            )
+            client.migration.lookup.time_series.consumer_view.return_value = ViewId(
+                space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
+            )
+
+            mapper = CanvasMapper(client, dry_run=False, skip_on_missing_ref=False)
+
+            actual = mapper.map([input_canvas])[0]
+
+        assert not actual.container_references
+        assert len(actual.fdm_instance_container_references) == len(input_canvas.container_references)
+
+        migrated_dumped_str = actual.dump_yaml()
+
+        unexpected_uuid: list[str] = []
+        for item in input_canvas.container_references:
+            if item.id_ in migrated_dumped_str:
+                unexpected_uuid.append(item.id_)
+        # After the migration, there should be no references to the original components of the Canvas.
+        assert not unexpected_uuid, f"Found unexpected user data in migrated canvas: {unexpected_uuid}"

@@ -193,9 +193,9 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download RAW tables from CDF into a temporary directory."""
-        cmd = DownloadCommand()
-
         client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DownloadCommand(client=client)
+
         if tables and database:
             selectors = [RawTable(db_name=database, table_name=table) for table in tables]
         elif tables and not database:
@@ -289,7 +289,7 @@ class DownloadApp(typer.Typer):
             )
 
         selectors = [DataSetSelector(kind="Assets", data_set_external_id=data_set) for data_set in data_sets]
-        cmd = DownloadCommand()
+        cmd = DownloadCommand(client=client)
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
@@ -319,37 +319,26 @@ class DownloadApp(typer.Typer):
             f"Select format to download the {display_name} in:",
             choices=[Choice(title=format_.value, value=format_) for format_ in available_formats],
             default=file_format,
-        ).ask()
+        ).unsafe_ask()
         compression = questionary.select(
             f"Select compression format to use when downloading the {display_name}:",
             choices=[Choice(title=comp.value, value=comp) for comp in CompressionFormat],
             default=compression,
-        ).ask()
+        ).unsafe_ask()
         output_dir = Path(
             questionary.path(
                 f"Where to download the {display_name}:",
                 default=str(output_dir),
                 only_directories=True,
-            ).ask()
+            ).unsafe_ask()
         )
-        while True:
-            limit_str = questionary.text(
+        limit = int(
+            questionary.text(
                 f"The maximum number of {display_name} to download from each dataset. Use -1 to download all {display_name}.",
                 default=str(limit),
-            ).ask()
-            if limit_str is None:
-                raise typer.Abort()
-            try:
-                limit = int(limit_str)
-            except ValueError:
-                print("[red]Please enter a valid integer for the limit.[/]")
-            else:
-                if max_limit is not None and limit > max_limit:
-                    print(
-                        f"[red]The maximum limit for downloading {display_name} is {max_limit}. Please enter a lower value.[/]"
-                    )
-                else:
-                    break
+                validate=lambda value: value.lstrip("-").isdigit() and (max_limit is None or int(value) <= max_limit),
+            ).unsafe_ask()
+        )
         return data_sets, file_format, compression, output_dir, limit
 
     def download_timeseries_cmd(
@@ -418,7 +407,7 @@ class DownloadApp(typer.Typer):
             )
 
         selectors = [DataSetSelector(kind="TimeSeries", data_set_external_id=data_set) for data_set in data_sets]
-        cmd = DownloadCommand()
+        cmd = DownloadCommand(client=client)
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,
@@ -497,7 +486,7 @@ class DownloadApp(typer.Typer):
             )
 
         selectors = [DataSetSelector(kind="Events", data_set_external_id=data_set) for data_set in data_sets]
-        cmd = DownloadCommand()
+        cmd = DownloadCommand(client=client)
 
         cmd.run(
             lambda: cmd.download(
@@ -584,7 +573,7 @@ class DownloadApp(typer.Typer):
                         Choice(title="Yes", value=True),
                         Choice(title="No", value=False),
                     ],
-                ).ask()
+                ).unsafe_ask()
             else:
                 include_file_contents = False
 
@@ -624,7 +613,7 @@ class DownloadApp(typer.Typer):
             selectors = [DataSetSelector(kind="FileMetadata", data_set_external_id=data_set) for data_set in data_sets]
             io = FileMetadataIO(client)
 
-        cmd = DownloadCommand()
+        cmd = DownloadCommand(client=client)
         cmd.run(
             lambda: cmd.download(
                 selectors=selectors,  # type: ignore[misc]
@@ -689,9 +678,9 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download an asset hierarchy from CDF into a temporary directory."""
-        cmd = DownloadCommand()
-
         client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DownloadCommand(client=client)
+
         if hierarchy is None:
             selector = AssetInteractiveSelect(client, "download")
             hierarchy = selector.select_hierarchy(allow_empty=False)
@@ -793,7 +782,8 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download Instances from CDF into a temporary directory."""
-        cmd = DownloadCommand()
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DownloadCommand(client=client)
 
         client = EnvironmentVariables.create_from_environment().get_client()
         if instance_space is None:
@@ -933,54 +923,42 @@ class DownloadApp(typer.Typer):
                 "Select the type of datapoints to download:",
                 choices=[Choice(title=dt.value, value=dt) for dt in DatapointsDataTypes],
                 default=datapoint_type,
-            ).ask()
+            ).unsafe_ask()
 
             start_time = (
                 questionary.text(
                     "Enter the start time for the datapoints to download (RFC3339 format or relative time, e.g., '1d-ago'). Leave empty to download from the beginning.",
                     default=start_time or "",
-                ).ask()
+                ).unsafe_ask()
                 or None
             )
             end_time = (
                 questionary.text(
                     "Enter the end time for the datapoints to download (RFC3339 format or relative time, e.g., '1d-ago'). Leave empty to download up to the latest.",
                     default=end_time or "",
-                ).ask()
+                ).unsafe_ask()
                 or None
             )
             file_format = questionary.select(
                 "Select format to download the datapoints in:",
                 choices=[Choice(title=format_.value, value=format_) for format_ in DatapointFormats],
                 default=file_format,
-            ).ask()
+            ).unsafe_ask()
             output_dir = Path(
                 questionary.path(
                     "Where to download the datapoints:", default=str(output_dir), only_directories=True
-                ).ask()
+                ).unsafe_ask()
             )
-            while True:
-                limit_str = questionary.text(
+            limit = int(
+                questionary.text(
                     "The maximum number of timeseries to download datapoints from. Use -1 to download all timeseries."
                     "The maximum number of datapoints in total is 10 million and 100 000 per timeseries.",
                     default=str(limit),
-                ).ask()
-                if limit_str is None:
-                    raise typer.Abort()
-                try:
-                    limit = int(limit_str)
-                except ValueError:
-                    print("[red]Please enter a valid integer for the limit.[/]")
-                else:
-                    if limit != -1 and limit < 1:
-                        print("[red]Please enter a valid integer greater than 0 or -1 for unlimited.[/]")
-                    else:
-                        break
-                verbose = questionary.confirm(
-                    "Turn on to get more verbose output when running the command?", default=verbose
-                ).ask()
+                    validate=lambda value: value.lstrip("-").isdigit() and (int(value) == -1 or int(value) > 0),
+                ).unsafe_ask()
+            )
 
-        cmd = DownloadCommand()
+        cmd = DownloadCommand(client=client)
         selector = DataPointsDataSetSelector(
             data_set_external_id=dataset,
             start=start_time,
@@ -1051,8 +1029,8 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download Charts from CDF into a temporary directory."""
-        cmd = DownloadCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DownloadCommand(client=client)
         selector: ChartSelector
         if external_ids is None:
             selected_external_ids = InteractiveChartSelect(client).select_external_ids()
@@ -1124,8 +1102,8 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download Canvas from CDF into a temporary directory."""
-        cmd = DownloadCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DownloadCommand(client=client)
         selector: CanvasSelector
         if external_ids is None:
             selected_external_ids = InteractiveCanvasSelect(client).select_external_ids()

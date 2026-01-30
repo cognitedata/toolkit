@@ -64,7 +64,8 @@ class UploadApp(typer.Typer):
         ] = False,
     ) -> None:
         """Commands to upload data to CDF."""
-        cmd = UploadCommand()
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = UploadCommand(client=client)
         if input_dir is None:
             input_candidate = sorted({p.parent for p in DEFAULT_INPUT_DIR.rglob(f"**/*{DATA_MANIFEST_SUFFIX}")})
             if not input_candidate:
@@ -73,11 +74,8 @@ class UploadApp(typer.Typer):
             input_dir = questionary.select(
                 "Select the input directory containing the data to upload:",
                 choices=[Choice(str(option.name), value=option) for option in input_candidate],
-            ).ask()
-            if input_dir is None:
-                typer.echo("No input directory selected. Exiting.")
-                raise typer.Exit(code=1)
-            dry_run = questionary.confirm("Proceed with dry run?", default=dry_run).ask()
+            ).unsafe_ask()
+            dry_run = questionary.confirm("Proceed with dry run?", default=dry_run).unsafe_ask()
             if dry_run is None:
                 typer.echo("No selection made for dry run. Exiting.")
                 raise typer.Exit(code=1)
@@ -90,12 +88,8 @@ class UploadApp(typer.Typer):
 
                 deploy_resources = questionary.confirm(
                     f"Deploy resources found in {display_name!r}?", default=deploy_resources
-                ).ask()
-                if deploy_resources is None:
-                    typer.echo("No selection made for deploying resources. Exiting.")
-                    raise typer.Exit(code=1)
+                ).unsafe_ask()
 
-        client = EnvironmentVariables.create_from_environment().get_client()
         cmd.run(
             lambda: cmd.upload(
                 input_dir=input_dir,

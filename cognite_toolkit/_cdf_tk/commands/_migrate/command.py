@@ -9,10 +9,10 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
-    FailedRequestItems,
-    FailedResponseItems,
     HTTPClient,
-    SuccessResponseItems,
+    ItemsFailedRequest,
+    ItemsFailedResponse,
+    ItemsSuccessResponse,
 )
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._migrate.creators import MigrationCreator
@@ -187,20 +187,20 @@ class MigrationCommand(ToolkitCommand):
             # Todo: Move logging into the UploadableStorageIO class
             issues: list[WriteIssue] = []
             for item in responses:
-                if isinstance(item, SuccessResponseItems):
+                if isinstance(item, ItemsSuccessResponse):
                     target.logger.tracker.finalize_item(item.ids, "success")
                     continue
-                if isinstance(item, FailedResponseItems):
+                if isinstance(item, ItemsFailedResponse):
                     error = item.error
                     for id_ in item.ids:
                         issue = WriteIssue(id=str(id_), status_code=error.code, message=error.message)
                         issues.append(issue)
-                elif isinstance(item, FailedRequestItems):
+                elif isinstance(item, ItemsFailedRequest):
                     for id_ in item.ids:
-                        issue = WriteIssue(id=str(id_), status_code=0, message=item.error)
+                        issue = WriteIssue(id=str(id_), status_code=0, message=item.error_message)
                         issues.append(issue)
 
-                if isinstance(item, FailedResponseItems | FailedRequestItems):
+                if isinstance(item, ItemsFailedResponse | ItemsFailedRequest):
                     target.logger.tracker.finalize_item(item.ids, "failure")
             if issues:
                 target.logger.log(issues)
