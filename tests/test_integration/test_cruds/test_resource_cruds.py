@@ -137,6 +137,24 @@ class TestFunctionScheduleLoader:
             if created:
                 toolkit_client.functions.schedules.delete(created[0].id)
 
+    def test_iterating_over_schedules(self, toolkit_client: ToolkitClient, dummy_function: Function) -> None:
+        client = toolkit_client
+        schedule = FunctionScheduleWrite(
+            name="test_iterating_over_schedules",
+            cron_expression="0 0 1 1 *",  # Yearly
+            function_id=dummy_function.id,
+            description="This schedule is persisted for the iteration test",
+        )
+        # Ensure the schedule exists
+        existing = client.functions.schedules.list(name=schedule.name, function_id=dummy_function.id, limit=1)
+        if not existing:
+            _ = client.functions.schedules.create(schedule)
+        crud = FunctionScheduleCRUD(client, None, None)
+
+        schedules = list(crud.iterate(parent_ids=[dummy_function.external_id]))
+        assert len(schedules) >= 1
+        assert any(s.name == schedule.name for s in schedules)
+
 
 @pytest.fixture(scope="session")
 def three_timeseries(cognite_client: CogniteClient) -> TimeSeriesList:
