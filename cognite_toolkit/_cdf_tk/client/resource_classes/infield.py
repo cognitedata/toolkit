@@ -1,7 +1,7 @@
 import sys
 from typing import Any, ClassVar, Literal
 
-from pydantic import JsonValue
+from pydantic import JsonValue, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 
@@ -13,6 +13,7 @@ from .instance_api import (
     WrappedInstanceListResponse,
     WrappedInstanceRequest,
     WrappedInstanceResponse,
+    move_properties,
 )
 
 if sys.version_info >= (3, 11):
@@ -43,6 +44,11 @@ class DataExplorationConfig(BaseModelObject):
     documents: dict[str, JsonValue] | None = None
     notifications: dict[str, JsonValue] | None = None
     assets: dict[str, JsonValue] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def move_properties(cls, data: dict[str, Any]) -> dict[str, Any]:
+        return move_properties(data, cls.VIEW_ID)
 
 
 class InFieldLocationConfig(BaseModelObject):
