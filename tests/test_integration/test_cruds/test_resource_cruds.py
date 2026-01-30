@@ -473,7 +473,7 @@ dataHandlingSchema:
             assert len(updated) == 1
             assert updated[0].input_schema == update.input_schema
 
-            retrieved = loader.retrieve([original.external_id])
+            retrieved = loader.retrieve([original.as_id()])
             assert len(retrieved) == 1
             assert retrieved[0].input_schema == update.input_schema
         finally:

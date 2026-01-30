@@ -94,7 +94,7 @@ class DataPostProcessingAPI(
         Args:
             items: List of ExternalId objects to delete.
         """
-        self._request_no_response(items, "delete")
+        self._request_item_split_retries_no_response(items, "delete")
 
     def paginate(
         self,

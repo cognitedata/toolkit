@@ -76,7 +76,7 @@ class RobotsAPI(CDFResourceAPI[DataSetId, RobotRequest, RobotResponse]):
         Args:
             items: List of DataSetId objects to delete.
         """
-        self._request_no_response(items, "delete")
+        self._request_item_split_retries_no_response(items, "delete")
 
     def paginate(
         self,
