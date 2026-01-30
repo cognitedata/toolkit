@@ -4,8 +4,6 @@ import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import RespaceCommand
-from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-
 
 class RespaceApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
