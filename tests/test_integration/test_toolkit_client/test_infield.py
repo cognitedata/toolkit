@@ -28,9 +28,11 @@ class TestInfieldConfig:
 
             retrieved_configs = toolkit_client.infield.config.retrieve([config.as_id()])
             assert len(retrieved_configs) == 1
-            assert retrieved_configs[0].as_request_resource().dump() == config.dump()
+            retrieved = retrieved_configs[0]
+            assert retrieved.data_exploration_config is not None
+            assert retrieved.data_exploration_config.observations == {"enabled": True}
 
-            deleted = toolkit_client.infield.config.delete([config])
+            deleted = toolkit_client.infield.config.delete([config.as_id()])
             assert len(deleted) == 1
             retrieved_configs = toolkit_client.infield.config.retrieve([config.as_id()])
             assert len(retrieved_configs) == 0
