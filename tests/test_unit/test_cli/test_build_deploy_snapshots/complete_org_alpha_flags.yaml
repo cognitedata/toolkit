@@ -70,97 +70,105 @@ GraphQLDataModel:
   preserveDml: true
   space: sp_schema
   version: '3_0_2'
-InFieldCDMLocationConfig:
-- accessManagement:
-    checklistAdmins:
-    - gp_infield_checklist_admins
-    - gp_location_admins
-    templateAdmins:
-    - gp_infield_template_admins
-    - gp_location_admins
-  dataExplorationConfig:
-    defaultView: asset_hierarchy
-    enabled: true
-    filters:
-    - type: status
-      values:
-      - active
-      - inactive
-    - type: location
-      values:
-      - plant_a
-      - plant_b
-    searchEnabled: true
-  dataFilters:
-    assets:
-      instanceSpaces:
-      - sp_my_data_space
-      path:
-        externalId: asset_hierarchy_root
-        space: sp_my_data_space
-    files:
-      instanceSpaces:
-      - sp_my_data_space
-      - sp_shared_space
-      path:
-        externalId: root_location_path
-        space: sp_my_data_space
-    maintenanceOrders:
-      instanceSpaces:
-      - sp_maintenance_space
-    notifications:
-      instanceSpaces:
-      - sp_notifications_space
-    operations:
-      instanceSpaces:
-      - sp_operations_space
-    timeSeries:
-      instanceSpaces:
-      - sp_my_data_space
-  dataStorage:
-    appInstanceSpace: sp_infield_app_space
-    rootLocation:
-      externalId: location_root_node
-      space: sp_my_data_space
-  description: Example InField CDM location configuration for demonstration purposes
-  disciplines:
-  - externalId: discipline_electrical
-    name: Electrical
-  - externalId: discipline_mechanical
-    name: Mechanical
-  - externalId: discipline_instrumentation
-    name: Instrumentation
-  - externalId: discipline_civil
-    name: Civil
-  externalId: my_location_config
-  featureToggles:
-    documents: true
-    media: true
-    notifications: true
-    templateChecklistFlow: false
-    threeD: true
-    trends: true
-    workorders: true
-  name: My Location Configuration
+InFieldCDMLocationConfigResponse:
+- externalId: my_location_config
+  instanceType: node
+  sources:
+  - properties:
+      accessManagement:
+        checklistAdmins:
+        - gp_infield_checklist_admins
+        - gp_location_admins
+        templateAdmins:
+        - gp_infield_template_admins
+        - gp_location_admins
+      dataExplorationConfig:
+        defaultView: asset_hierarchy
+        enabled: true
+        filters:
+        - type: status
+          values:
+          - active
+          - inactive
+        - type: location
+          values:
+          - plant_a
+          - plant_b
+        searchEnabled: true
+      dataFilters:
+        assets:
+          instanceSpaces:
+          - sp_my_data_space
+          path:
+            externalId: asset_hierarchy_root
+            space: sp_my_data_space
+        files:
+          instanceSpaces:
+          - sp_my_data_space
+          - sp_shared_space
+          path:
+            externalId: root_location_path
+            space: sp_my_data_space
+        maintenanceOrders:
+          instanceSpaces:
+          - sp_maintenance_space
+        notifications:
+          instanceSpaces:
+          - sp_notifications_space
+        operations:
+          instanceSpaces:
+          - sp_operations_space
+        timeSeries:
+          instanceSpaces:
+          - sp_my_data_space
+      dataStorage:
+        appInstanceSpace: sp_infield_app_space
+        rootLocation:
+          externalId: location_root_node
+          space: sp_my_data_space
+      description: Example InField CDM location configuration for demonstration purposes
+      disciplines:
+      - externalId: discipline_electrical
+        name: Electrical
+      - externalId: discipline_mechanical
+        name: Mechanical
+      - externalId: discipline_instrumentation
+        name: Instrumentation
+      - externalId: discipline_civil
+        name: Civil
+      featureToggles:
+        documents: true
+        media: true
+        notifications: true
+        templateChecklistFlow: false
+        threeD: true
+        trends: true
+        workorders: true
+      name: My Location Configuration
+      viewMappings:
+        asset:
+          externalId: CogniteAsset
+          space: cdf_core
+          version: v1
+        maintenanceOrder:
+          externalId: MaintenanceOrder
+          space: sp_maintenance_space
+          version: v1
+        notification:
+          externalId: Notification
+          space: sp_notifications_space
+          version: v1
+        operation:
+          externalId: Operation
+          space: sp_operations_space
+          version: v1
+    source:
+      externalId: InFieldCDMLocationConfig
+      space: infield_cdm_source_desc_sche_asset_file_ts
+      type: view
+      version: v1
   space: sp_instance
-  viewMappings:
-    asset:
-      externalId: CogniteAsset
-      space: cdf_core
-      version: v1
-    maintenanceOrder:
-      externalId: MaintenanceOrder
-      space: sp_maintenance_space
-      version: v1
-    notification:
-      externalId: Notification
-      space: sp_notifications_space
-      version: v1
-    operation:
-      externalId: Operation
-      space: sp_operations_space
-      version: v1
-InfieldLocationConfig:
+InFieldLocationConfigResponse:
 - accessManagement:
     checklistAdmins:
     - cdf_group_checklist_admins
@@ -188,7 +196,6 @@ InfieldLocationConfig:
     observations:
       defaultView: list
       enabled: true
-    space: sp_instance
   dataFilters:
     general:
       spaces:
