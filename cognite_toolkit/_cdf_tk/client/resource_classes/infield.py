@@ -28,7 +28,7 @@ INFIELD_CDM_LOCATION_CONFIG_VIEW_ID = ViewReference(
 DATA_EXPLORATION_CONFIG_VIEW_ID = ViewReference(space="cdf_infield", external_id="DataExplorationConfig", version="v1")
 
 
-class DataExplorationConfig(WrappedInstanceRequest):
+class DataExplorationConfig(BaseModelObject):
     """Data Exploration Configuration resource class."""
 
     VIEW_ID: ClassVar[ViewReference] = DATA_EXPLORATION_CONFIG_VIEW_ID
