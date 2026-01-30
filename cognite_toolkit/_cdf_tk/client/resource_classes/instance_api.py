@@ -107,9 +107,35 @@ class WrappedInstanceRequest(RequestResource, ABC):
     existing_version: int | None = None
 
     def dump(
-        self, camel_case: bool = True, include_type: bool = True, context: Literal["api", "toolkit"] = "api"
+        self, camel_case: bool = True, exclude_extra: bool = False, context: Literal["api", "toolkit"] = "api"
     ) -> dict[str, Any]:
-        raise NotImplementedError()
+        """Dump the resource to a dictionary.
+
+        Args:
+            camel_case (bool): Whether to use camelCase for the keys. Default is True.
+            exclude_extra (bool): Whether to exclude extra fields not defined in the model. Default is False.
+            context (Literal["api", "toolkit"]): The context in which the dump is used. Default is "api".
+
+        """
+        exclude: set[str] = set()
+        if exclude_extra:
+            exclude |= set(self.__pydantic_extra__) if self.__pydantic_extra__ else set()
+        if context == "api":
+            exclude.update({"existing_version", "instance_type", "space", "external_id"})
+        dumped = self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True, exclude=exclude)
+        if context == "toolkit":
+            return dumped
+        return {
+            "instanceType": self.instance_type,
+            "space": self.space,
+            "externalId": self.external_id,
+            "sources": [
+                {
+                    "source": self.VIEW_ID.dump(camel_case=camel_case, include_type=True),
+                    "properties": dumped,
+                }
+            ],
+        }
 
 
 T_WrappedInstanceRequest = TypeVar("T_WrappedInstanceRequest", bound=WrappedInstanceRequest)

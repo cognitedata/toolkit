@@ -1,11 +1,9 @@
 import sys
 from typing import Any, ClassVar, Literal
 
-from pydantic import JsonValue, field_validator
-from pydantic_core.core_schema import ValidationInfo
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 
 from .instance_api import (
     TypedNodeIdentifier,
@@ -33,6 +31,8 @@ class DataExplorationConfig(BaseModelObject):
 
     VIEW_ID: ClassVar[ViewReference] = DATA_EXPLORATION_CONFIG_VIEW_ID
     instance_type: Literal["node"] = "node"
+    space: str | None = None
+    external_id: str | None = None
 
     observations: dict[str, JsonValue] | None = None
     activities: dict[str, JsonValue] | None = None
@@ -55,19 +55,6 @@ class InFieldLocationConfig(BaseModelObject):
     data_filters: dict[str, JsonValue] | None = None
     data_exploration_config: DataExplorationConfig | None = None
 
-    @field_validator("data_exploration_config", mode="before")
-    @classmethod
-    def generate_identifier_if_missing(cls, value: Any, info: ValidationInfo) -> Any:
-        """We do not require the user to specify the space and externalId for the data exploration config."""
-        if isinstance(value, dict):
-            if value.get("space") is None:
-                value["space"] = info.data["space"]
-            if value.get("externalId") is None:
-                external_id = info.data["external_id"]
-                candidate = f"{external_id}_data_exploration_config"
-                value["externalId"] = sanitize_instance_external_id(candidate)
-        return value
-
 
 class InFieldLocationConfigRequest(WrappedInstanceListRequest, InFieldLocationConfig):
     def dump_instances(self) -> list[dict[str, Any]]:
@@ -84,8 +71,6 @@ class InFieldLocationConfigResponse(WrappedInstanceListResponse, InFieldLocation
 
 
 class InFieldCDMLocationConfig(BaseModelObject):
-    VIEW_ID: ClassVar[ViewReference] = INFIELD_CDM_LOCATION_CONFIG_VIEW_ID
-    instance_type: Literal["node"] = "node"
     name: str | None = None
     description: str | None = None
     feature_toggles: dict[str, JsonValue] | None = None
@@ -98,6 +83,9 @@ class InFieldCDMLocationConfig(BaseModelObject):
 
 
 class InFieldCDMLocationConfigRequest(WrappedInstanceRequest, InFieldCDMLocationConfig):
+    VIEW_ID: ClassVar[ViewReference] = INFIELD_CDM_LOCATION_CONFIG_VIEW_ID
+    instance_type: Literal["node"] = "node"
+
     def as_id(self) -> TypedNodeIdentifier:
         return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
 
@@ -105,5 +93,8 @@ class InFieldCDMLocationConfigRequest(WrappedInstanceRequest, InFieldCDMLocation
 class InFieldCDMLocationConfigResponse(
     WrappedInstanceResponse[InFieldCDMLocationConfigRequest], InFieldCDMLocationConfig
 ):
+    VIEW_ID: ClassVar[ViewReference] = INFIELD_CDM_LOCATION_CONFIG_VIEW_ID
+    instance_type: Literal["node"] = "node"
+
     def as_request_resource(self) -> InFieldCDMLocationConfigRequest:
         return InFieldCDMLocationConfigRequest.model_validate(self.dump(), extra="ignore")
