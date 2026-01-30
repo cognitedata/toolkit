@@ -21,7 +21,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
     T_WrappedInstanceRequest,
     T_WrappedInstanceResponse,
     TypedInstanceIdentifier,
-    TypedNodeIdentifier, ViewReference,
+    TypedNodeIdentifier,
+    TypedViewReference,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
@@ -60,7 +61,7 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
         return response_items
 
     def retrieve(
-        self, items: Sequence[TypedInstanceIdentifier], source: ViewReference | None = None
+        self, items: Sequence[TypedInstanceIdentifier], source: TypedViewReference | None = None
     ) -> list[InstanceResponse]:
         """Retrieve instances from CDF.
 
@@ -160,7 +161,7 @@ class WrappedInstancesAPI(
 ):
     """API for wrapped instances in CDF. It is intended to be subclassed for specific wrapped instance types."""
 
-    def __init__(self, http_client: HTTPClient, view_id: ViewReference) -> None:
+    def __init__(self, http_client: HTTPClient, view_id: TypedViewReference) -> None:
         super().__init__(http_client=http_client, method_endpoint_map=METHOD_MAP)
         self._view_id = view_id
 

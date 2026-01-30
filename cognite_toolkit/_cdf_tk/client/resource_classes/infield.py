@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from .instance_api import (
     TypedInstanceIdentifier,
     TypedNodeIdentifier,
-    ViewReference,
+    TypedViewReference,
     WrappedInstanceListRequest,
     WrappedInstanceListResponse,
     WrappedInstanceRequest,
@@ -20,17 +20,21 @@ if sys.version_info >= (3, 11):
 else:
     pass
 
-INFIELD_LOCATION_CONFIG_VIEW_ID = ViewReference(space="cdf_infield", external_id="InFieldLocationConfig", version="v1")
-INFIELD_CDM_LOCATION_CONFIG_VIEW_ID = ViewReference(
+INFIELD_LOCATION_CONFIG_VIEW_ID = TypedViewReference(
+    space="cdf_infield", external_id="InFieldLocationConfig", version="v1"
+)
+INFIELD_CDM_LOCATION_CONFIG_VIEW_ID = TypedViewReference(
     space="infield_cdm_source_desc_sche_asset_file_ts", external_id="InFieldCDMLocationConfig", version="v1"
 )
-DATA_EXPLORATION_CONFIG_VIEW_ID = ViewReference(space="cdf_infield", external_id="DataExplorationConfig", version="v1")
+DATA_EXPLORATION_CONFIG_VIEW_ID = TypedViewReference(
+    space="cdf_infield", external_id="DataExplorationConfig", version="v1"
+)
 
 
 class DataExplorationConfig(BaseModelObject):
     """Data Exploration Configuration resource class."""
 
-    VIEW_ID: ClassVar[ViewReference] = DATA_EXPLORATION_CONFIG_VIEW_ID
+    VIEW_ID: ClassVar[TypedViewReference] = DATA_EXPLORATION_CONFIG_VIEW_ID
     space: str | None = None
     external_id: str | None = None
 
@@ -47,7 +51,7 @@ class InFieldLocationConfig(BaseModelObject):
     This class is used for both the response and request resource for Infield Location Configuration nodes.
     """
 
-    VIEW_ID: ClassVar[ViewReference] = INFIELD_LOCATION_CONFIG_VIEW_ID
+    VIEW_ID: ClassVar[TypedViewReference] = INFIELD_LOCATION_CONFIG_VIEW_ID
     root_location_external_id: str | None = None
     feature_toggles: dict[str, JsonValue] | None = None
     app_instance_space: str | None = None
@@ -147,7 +151,7 @@ class InFieldCDMLocationConfig(BaseModelObject):
 
 
 class InFieldCDMLocationConfigRequest(WrappedInstanceRequest, InFieldCDMLocationConfig):
-    VIEW_ID: ClassVar[ViewReference] = INFIELD_CDM_LOCATION_CONFIG_VIEW_ID
+    VIEW_ID: ClassVar[TypedViewReference] = INFIELD_CDM_LOCATION_CONFIG_VIEW_ID
     instance_type: Literal["node"] = "node"
 
     def as_id(self) -> TypedNodeIdentifier:
@@ -157,7 +161,7 @@ class InFieldCDMLocationConfigRequest(WrappedInstanceRequest, InFieldCDMLocation
 class InFieldCDMLocationConfigResponse(
     WrappedInstanceResponse[InFieldCDMLocationConfigRequest], InFieldCDMLocationConfig
 ):
-    VIEW_ID: ClassVar[ViewReference] = INFIELD_CDM_LOCATION_CONFIG_VIEW_ID
+    VIEW_ID: ClassVar[TypedViewReference] = INFIELD_CDM_LOCATION_CONFIG_VIEW_ID
     instance_type: Literal["node"] = "node"
 
     def as_request_resource(self) -> InFieldCDMLocationConfigRequest:

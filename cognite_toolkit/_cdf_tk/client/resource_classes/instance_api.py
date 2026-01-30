@@ -73,7 +73,7 @@ class InstanceResult(BaseModelObject):
         )
 
 
-class ViewReference(Identifier):
+class TypedViewReference(Identifier):
     type: Literal["view"] = "view"
     space: str
     external_id: str
@@ -102,7 +102,7 @@ class WrappedInstanceRequest(RequestResource, ABC):
     It is used to define resources that are
     """
 
-    VIEW_ID: ClassVar[ViewReference]
+    VIEW_ID: ClassVar[TypedViewReference]
     instance_type: InstanceType
     space: str
     external_id: str
@@ -144,7 +144,7 @@ T_WrappedInstanceRequest = TypeVar("T_WrappedInstanceRequest", bound=WrappedInst
 
 
 class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
-    VIEW_ID: ClassVar[ViewReference]
+    VIEW_ID: ClassVar[TypedViewReference]
     instance_type: InstanceType
     space: str
     external_id: str
@@ -176,7 +176,7 @@ T_WrappedInstanceResponse = TypeVar("T_WrappedInstanceResponse", bound=WrappedIn
 
 
 class WrappedInstanceListRequest(RequestResource, ABC):
-    VIEW_ID: ClassVar[ViewReference]
+    VIEW_ID: ClassVar[TypedViewReference]
     instance_type: Literal["node"] = "node"
     space: str
     external_id: str
@@ -203,7 +203,7 @@ T_InstancesListRequest = TypeVar("T_InstancesListRequest", bound=WrappedInstance
 
 
 class WrappedInstanceListResponse(ResponseResource[T_InstancesListRequest], ABC):
-    VIEW_ID: ClassVar[ViewReference]
+    VIEW_ID: ClassVar[TypedViewReference]
     instance_type: Literal["node"] = "node"
     space: str
     external_id: str
