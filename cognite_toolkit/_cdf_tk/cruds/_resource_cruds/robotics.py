@@ -140,7 +140,7 @@ class RoboticLocationCRUD(ResourceCRUD[ExternalId, RobotLocationRequest, RobotLo
         return self.client.tool.robotics.locations.create(items)
 
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[RobotLocationResponse]:
-        return self.client.tool.robotics.locations.retrieve(list(ids))
+        return self.client.tool.robotics.locations.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[RobotLocationRequest]) -> list[RobotLocationResponse]:
         return self.client.tool.robotics.locations.update(items, mode="replace")
@@ -148,7 +148,7 @@ class RoboticLocationCRUD(ResourceCRUD[ExternalId, RobotLocationRequest, RobotLo
     def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
         if not ids:
             return 0
-        self.client.tool.robotics.locations.delete(list(ids))
+        self.client.tool.robotics.locations.delete(list(ids), ignore_unknown_ids=True)
         return len(ids)
 
     def _iterate(
@@ -216,7 +216,7 @@ class RoboticsDataPostProcessingCRUD(
         return self.client.tool.robotics.data_postprocessing.create(items)
 
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[RobotDataPostProcessingResponse]:
-        return self.client.tool.robotics.data_postprocessing.retrieve(list(ids))
+        return self.client.tool.robotics.data_postprocessing.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[RobotDataPostProcessingRequest]) -> list[RobotDataPostProcessingResponse]:
         # There is a bug in the /update endpoint that requires the input_schema to be a string
@@ -236,7 +236,7 @@ class RoboticsDataPostProcessingCRUD(
     def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
         if not ids:
             return 0
-        self.client.tool.robotics.data_postprocessing.delete(list(ids))
+        self.client.tool.robotics.data_postprocessing.delete(list(ids), ignore_unknown_ids=True)
         return len(ids)
 
     def _iterate(
@@ -303,7 +303,7 @@ class RobotCapabilityCRUD(ResourceCRUD[ExternalId, RobotCapabilityRequest, Robot
         return self.client.tool.robotics.capabilities.create(items)
 
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[RobotCapabilityResponse]:
-        return self.client.tool.robotics.capabilities.retrieve(list(ids))
+        return self.client.tool.robotics.capabilities.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[RobotCapabilityRequest]) -> list[RobotCapabilityResponse]:
         # There is a bug in the /update endpoint that requires the input_schema to be a string
@@ -326,7 +326,7 @@ class RobotCapabilityCRUD(ResourceCRUD[ExternalId, RobotCapabilityRequest, Robot
     def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
         if not ids:
             return 0
-        self.client.tool.robotics.capabilities.delete(list(ids))
+        self.client.tool.robotics.capabilities.delete(list(ids), ignore_unknown_ids=True)
         return len(ids)
 
     def _iterate(
@@ -406,7 +406,7 @@ class RoboticMapCRUD(ResourceCRUD[ExternalId, RobotMapRequest, RobotMapResponse]
         return self.client.tool.robotics.maps.create(items)
 
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[RobotMapResponse]:
-        return self.client.tool.robotics.maps.retrieve(list(ids))
+        return self.client.tool.robotics.maps.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[RobotMapRequest]) -> list[RobotMapResponse]:
         return self.client.tool.robotics.maps.update(items, mode="replace")
@@ -414,7 +414,7 @@ class RoboticMapCRUD(ResourceCRUD[ExternalId, RobotMapRequest, RobotMapResponse]
     def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
         if not ids:
             return 0
-        self.client.tool.robotics.maps.delete(list(ids))
+        self.client.tool.robotics.maps.delete(list(ids), ignore_unknown_ids=True)
         return len(ids)
 
     def _iterate(
