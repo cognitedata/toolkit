@@ -487,6 +487,10 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleID, FunctionScheduleWrit
         return FunctionScheduleID(item.function_external_id, item.name)
 
     @classmethod
+    def as_str(cls, id: FunctionScheduleID) -> str:
+        return sanitize_filename(f"{id.function_external_id}-{id.name}")
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "functionExternalId" in item:
             yield FunctionCRUD, item["functionExternalId"]
@@ -629,7 +633,12 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleID, FunctionScheduleWrit
                 return
             internal_ids = self.client.lookup.functions.id(external_ids)
             for func_id in internal_ids:
-                yield from self.client.functions.schedules(function_id=func_id)
+                funct_external_id = self.client.lookup.functions.external_id(func_id)
+                for schedule in self.client.functions.schedules(function_id=func_id):
+                    # FunctionExternalId is not set in the schedule object returned from the API,
+                    # so we need to set it here.
+                    schedule.function_external_id = funct_external_id
+                    yield schedule
 
     def sensitive_strings(self, item: FunctionScheduleWrite) -> Iterable[str]:
         id_ = self.get_id(item)
