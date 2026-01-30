@@ -6,6 +6,7 @@ from pydantic import JsonValue
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 
 from .instance_api import (
+    TypedInstanceIdentifier,
     TypedNodeIdentifier,
     ViewReference,
     WrappedInstanceListRequest,
@@ -15,9 +16,9 @@ from .instance_api import (
 )
 
 if sys.version_info >= (3, 11):
-    from typing import Self
+    pass
 else:
-    from typing_extensions import Self
+    pass
 
 INFIELD_LOCATION_CONFIG_VIEW_ID = ViewReference(space="cdf_infield", external_id="InFieldLocationConfig", version="v1")
 INFIELD_CDM_LOCATION_CONFIG_VIEW_ID = ViewReference(
@@ -30,7 +31,6 @@ class DataExplorationConfig(BaseModelObject):
     """Data Exploration Configuration resource class."""
 
     VIEW_ID: ClassVar[ViewReference] = DATA_EXPLORATION_CONFIG_VIEW_ID
-    instance_type: Literal["node"] = "node"
     space: str | None = None
     external_id: str | None = None
 
@@ -58,16 +58,80 @@ class InFieldLocationConfig(BaseModelObject):
 
 class InFieldLocationConfigRequest(WrappedInstanceListRequest, InFieldLocationConfig):
     def dump_instances(self) -> list[dict[str, Any]]:
-        raise NotImplementedError()
+        properties = self.model_dump(
+            by_alias=True,
+            exclude_unset=True,
+            exclude={"data_exploration_config", "instance_type", "space", "external_id"},
+        )
+        output: list[dict[str, Any]] = [
+            {
+                "instanceType": self.instance_type,
+                "space": self.space,
+                "externalId": self.external_id,
+                "sources": [
+                    {
+                        "source": self.VIEW_ID.dump(),
+                        "properties": properties,
+                    }
+                ],
+            }
+        ]
+        if (
+            self.data_exploration_config
+            and self.data_exploration_config.space
+            and self.data_exploration_config.external_id
+        ):
+            output.append(
+                {
+                    "instanceType": "node",
+                    "space": self.data_exploration_config.space,
+                    "externalId": self.data_exploration_config.external_id,
+                    "sources": [
+                        {
+                            "source": DataExplorationConfig.VIEW_ID.dump(),
+                            "properties": self.data_exploration_config.model_dump(
+                                by_alias=True, exclude_unset=True, exclude={"space", "external_id"}
+                            ),
+                        }
+                    ],
+                }
+            )
+        return output
+
+    def as_ids(self) -> list[TypedInstanceIdentifier]:
+        output: list[TypedInstanceIdentifier] = [self.as_id()]
+        if (
+            self.data_exploration_config
+            and self.data_exploration_config.space
+            and self.data_exploration_config.external_id
+        ):
+            output.append(
+                TypedNodeIdentifier(
+                    space=self.data_exploration_config.space,
+                    external_id=self.data_exploration_config.external_id,
+                )
+            )
+        return output
 
 
 class InFieldLocationConfigResponse(WrappedInstanceListResponse, InFieldLocationConfig):
     def as_request_resource(self) -> InFieldLocationConfigRequest:
         return InFieldLocationConfigRequest.model_validate(self.dump(), extra="ignore")
 
-    @classmethod
-    def load_query_response(cls) -> Self:
-        raise NotImplementedError()
+    def as_ids(self) -> list[TypedInstanceIdentifier]:
+        output: list[TypedInstanceIdentifier] = [TypedNodeIdentifier(space=self.space, external_id=self.external_id)]
+        if (
+            self.data_exploration_config
+            and self.data_exploration_config.space
+            and self.data_exploration_config.external_id
+        ):
+            output.append(
+                TypedNodeIdentifier(
+                    space=self.data_exploration_config.space,
+                    external_id=self.data_exploration_config.external_id,
+                )
+            )
+        return output
 
 
 class InFieldCDMLocationConfig(BaseModelObject):

@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar, Literal, TypeAlias, TypeVar
 
+from pydantic import model_validator
+
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
     Identifier,
@@ -174,6 +176,11 @@ class WrappedInstanceListRequest(RequestResource, ABC):
             external_id=self.external_id,
         )
 
+    @abstractmethod
+    def as_ids(self) -> list[TypedInstanceIdentifier]:
+        """Convert the response to a list of typed instance identifiers."""
+        raise NotImplementedError()
+
 
 T_InstancesListRequest = TypeVar("T_InstancesListRequest", bound=WrappedInstanceListRequest)
 
@@ -183,6 +190,24 @@ class WrappedInstanceListResponse(ResponseResource[T_InstancesListRequest], ABC)
     instance_type: Literal["node"] = "node"
     space: str
     external_id: str
+
+    @model_validator(mode="before")
+    def move_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Move properties from sources to the top level."""
+        sources = values.get(
+            "properties",
+        )
+        if sources and isinstance(sources, list):
+            for source in sources:
+                properties = source.get("properties", {})
+                if properties and isinstance(properties, dict):
+                    values.update(properties)
+        return values
+
+    @abstractmethod
+    def as_ids(self) -> list[TypedInstanceIdentifier]:
+        """Convert the response to a list of typed instance identifiers."""
+        raise NotImplementedError()
 
 
 T_InstancesListResponse = TypeVar("T_InstancesListResponse", bound=WrappedInstanceListResponse)
