@@ -65,8 +65,8 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
         result: list[WorkflowVersionResponse] = []
         for item in items:
             endpoint = f"/workflows/{item.workflow_external_id}/versions/{item.version}"
-            retrieved = self._request_item_response([item], "retrieve", endpoint=endpoint)
-            result.extend(retrieved)
+            for response in self._chunk_requests([item], "retrieve", self._serialize_items, endpoint_path=endpoint):
+                result.append(WorkflowVersionResponse.model_validate_json(response.body))
         return result
 
     def delete(self, items: Sequence[WorkflowVersionId]) -> None:

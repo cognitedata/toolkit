@@ -29,7 +29,7 @@ class InstanceSource(BaseModelObject):
 
 class InstanceRequestDefinition(InstanceDefinition, RequestResource, ABC):
     existing_version: int | None = None
-    sources: list[InstanceSource]
+    sources: list[InstanceSource] | None = None
 
 
 class InstanceResponseDefinition(InstanceDefinition, ResponseResource, Generic[T_RequestResource], ABC):
@@ -142,6 +142,24 @@ class EdgeResponse(InstanceResponseDefinition[EdgeRequest]):
             ]
         dumped["existingVersion"] = dumped.pop("version", None)
         return EdgeRequest.model_validate(dumped, extra="ignore")
+
+
+class InstanceSlimDefinition(BaseModelObject):
+    """Slim version of instance definition for listing instances."""
+
+    instance_type: Literal["node", "edge"]
+    version: int
+    was_modified: bool
+    space: str
+    external_id: str
+    created_time: int
+    last_updated_time: int
+
+    def as_id(self) -> TypedNodeIdentifier | TypedEdgeIdentifier:
+        if self.instance_type == "node":
+            return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
+        else:
+            return TypedEdgeIdentifier(space=self.space, external_id=self.external_id)
 
 
 InstanceRequest: TypeAlias = Annotated[
