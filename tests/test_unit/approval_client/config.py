@@ -140,7 +140,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InfieldLocationConfig,
     InfieldLocationConfigList,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy import robotics
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import (
     GraphQLDataModel,
     GraphQLDataModelList,
@@ -559,66 +558,6 @@ API_RESOURCES = [
             "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
             "retrieve": [
                 Method(api_class_method="__iter__", mock_class_method="iterate_values"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="robotics.data_postprocessing",
-        resource_cls=robotics.DataPostProcessing,
-        _list_cls=robotics.DataPostProcessingList,
-        _write_cls=robotics.DataPostProcessingWrite,
-        methods={
-            "create": [Method(api_class_method="create", mock_class_method="create_multiple")],
-            "retrieve": [
-                Method(api_class_method="retrieve", mock_class_method="return_values"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="robotics.frames",
-        resource_cls=robotics.Frame,
-        _list_cls=robotics.FrameList,
-        _write_cls=robotics.FrameWrite,
-        methods={
-            "create": [Method(api_class_method="create", mock_class_method="create_multiple")],
-            "retrieve": [
-                Method(api_class_method="retrieve", mock_class_method="return_values"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="robotics.locations",
-        resource_cls=robotics.Location,
-        _list_cls=robotics.LocationList,
-        _write_cls=robotics.LocationWrite,
-        methods={
-            "create": [Method(api_class_method="create", mock_class_method="create_multiple")],
-            "retrieve": [
-                Method(api_class_method="retrieve", mock_class_method="return_values"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="robotics.maps",
-        resource_cls=robotics.Map,
-        _list_cls=robotics.MapList,
-        _write_cls=robotics.MapWrite,
-        methods={
-            "create": [Method(api_class_method="create", mock_class_method="create_multiple")],
-            "retrieve": [
-                Method(api_class_method="retrieve", mock_class_method="return_values"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="robotics.capabilities",
-        resource_cls=robotics.RobotCapability,
-        _list_cls=robotics.RobotCapabilityList,
-        _write_cls=robotics.RobotCapabilityWrite,
-        methods={
-            "create": [Method(api_class_method="create", mock_class_method="create_multiple")],
-            "retrieve": [
-                Method(api_class_method="retrieve", mock_class_method="return_values"),
             ],
         },
     ),
