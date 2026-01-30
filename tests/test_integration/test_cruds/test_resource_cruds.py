@@ -42,17 +42,17 @@ from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from cognite.client.exceptions import CogniteAPIError, CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import (
     ExtendableCogniteFileApply,
     ExtendableCogniteFileApplyList,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.robotics import (
-    DataPostProcessingWrite,
-    DataPostProcessingWriteList,
-    RobotCapability,
-    RobotCapabilityWrite,
-    RobotCapabilityWriteList,
+from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
+    RobotCapabilityRequest,
+    RobotCapabilityResponse,
+    RobotDataPostProcessingRequest,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import (
@@ -73,6 +73,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     WorkflowVersionCRUD,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
+from cognite_toolkit._cdf_tk.utils import read_yaml_content
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
@@ -402,8 +403,8 @@ class TestAssetLoader:
 
 
 @pytest.fixture
-def existing_robot_capability(toolkit_client: ToolkitClient) -> RobotCapability:
-    write = RobotCapabilityWrite(
+def existing_robot_capability(toolkit_client: ToolkitClient) -> RobotCapabilityResponse:
+    write = RobotCapabilityRequest(
         name="integration_test_robot_capability",
         description="Test robot capability",
         external_id="integration_test_robot_capability",
@@ -413,25 +414,28 @@ def existing_robot_capability(toolkit_client: ToolkitClient) -> RobotCapability:
     )
 
     try:
-        return toolkit_client.robotics.capabilities.retrieve(write.external_id)
-    except CogniteAPIError:
-        return toolkit_client.robotics.capabilities.create(write)
+        return toolkit_client.tool.robotics.capabilities.retrieve([write.as_id()])[0]
+    except ToolkitAPIError:
+        return toolkit_client.tool.robotics.capabilities.create([write])[0]
 
 
 class TestRobotCapability:
     def test_retrieve_existing_and_not_existing(
-        self, toolkit_client: ToolkitClient, existing_robot_capability: RobotCapability
+        self, toolkit_client: ToolkitClient, existing_robot_capability: RobotCapabilityRequest
     ) -> None:
         loader = RobotCapabilityCRUD(toolkit_client, None)
 
-        capabilities = loader.retrieve([existing_robot_capability.external_id, "non_existing_robot"])
+        capabilities = loader.retrieve(
+            [existing_robot_capability.as_id(), ExternalId(external_id="non_existing_robot")]
+        )
 
         assert len(capabilities) == 1
 
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
         loader = RobotCapabilityCRUD(toolkit_client, None)
 
-        original = RobotCapabilityWrite.load("""name: Read dial gauge
+        original = RobotCapabilityRequest._load(
+            read_yaml_content("""name: Read dial gauge
 externalId: read_dial_gauge
 method: read_dial_gauge
 description: Original Description
@@ -444,8 +448,10 @@ dataHandlingSchema:
     id: robotics/schemas/0.1.0/data_handling/read_dial_gauge
     title: Read dial gauge data handling
 """)
+        )
 
-        update = RobotCapabilityWrite.load("""name: Read dial gauge
+        update = RobotCapabilityRequest._load(
+            read_yaml_content("""name: Read dial gauge
 externalId: read_dial_gauge
 method: read_dial_gauge
 description: Original Description
@@ -458,26 +464,28 @@ dataHandlingSchema:
     id: robotics/schemas/0.2.0/data_handling/read_dial_gauge
     title: Updated read dial gauge data handling
 """)
+        )
         try:
-            created = loader.create(RobotCapabilityWriteList([original]))
+            created = loader.create([original])
             assert len(created) == 1
 
-            updated = loader.update(RobotCapabilityWriteList([update]))
+            updated = loader.update([update])
             assert len(updated) == 1
             assert updated[0].input_schema == update.input_schema
 
-            retrieved = loader.retrieve([original.external_id])
+            retrieved = loader.retrieve([original.as_id()])
             assert len(retrieved) == 1
             assert retrieved[0].input_schema == update.input_schema
         finally:
-            loader.delete([original.external_id])
+            loader.delete([original.as_id()])
 
 
 class TestRobotDataPostProcessing:
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
         loader = RoboticsDataPostProcessingCRUD(toolkit_client, None)
 
-        original = DataPostProcessingWrite.load("""name: Read dial gauge
+        original = RobotDataPostProcessingRequest._load(
+            read_yaml_content("""name: Read dial gauge
 externalId: read_dial_gauge
 method: read_dial_gauge
 description: Original Description
@@ -513,8 +521,10 @@ inputSchema:
   - parameters
   additionalProperties: false
 """)
+        )
 
-        update = DataPostProcessingWrite.load("""method: read_dial_gauge
+        update = RobotDataPostProcessingRequest._load(
+            read_yaml_content("""method: read_dial_gauge
 name: Read dial gauge
 externalId: read_dial_gauge
 description: Read dial gauge from an image using Cognite Vision gauge reader
@@ -545,23 +555,24 @@ inputSchema:
         - parameters
       additionalProperties: false
   additionalProperties: false""")
+        )
 
         # Ensure the original is deleted even if the test fails
-        loader.delete([original.external_id])
+        loader.delete([original.as_id()])
 
         try:
-            created = loader.create(DataPostProcessingWriteList([original]))
+            created = loader.create([original])
             assert len(created) == 1
 
-            updated = loader.update(DataPostProcessingWriteList([update]))
+            updated = loader.update([update])
             assert len(updated) == 1
             assert updated[0].input_schema == update.input_schema
 
-            retrieved = loader.retrieve([original.external_id])
+            retrieved = loader.retrieve([original.as_id()])
             assert len(retrieved) == 1
             assert retrieved[0].input_schema == update.input_schema
         finally:
-            loader.delete([original.external_id])
+            loader.delete([original.as_id()])
 
 
 @pytest.fixture(scope="module")

@@ -53,7 +53,7 @@ class CapabilitiesAPI(CDFResourceAPI[ExternalId, RobotCapabilityRequest, RobotCa
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[ExternalId]) -> list[RobotCapabilityResponse]:
+    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[RobotCapabilityResponse]:
         """Retrieve capabilities from CDF.
 
         Args:
@@ -61,6 +61,8 @@ class CapabilitiesAPI(CDFResourceAPI[ExternalId, RobotCapabilityRequest, RobotCa
         Returns:
             List of retrieved RobotCapabilityResponse objects.
         """
+        if ignore_unknown_ids:
+            return self._request_item_split_retries(items, method="retrieve")
         return self._request_item_response(items, method="retrieve")
 
     def update(
@@ -77,13 +79,17 @@ class CapabilitiesAPI(CDFResourceAPI[ExternalId, RobotCapabilityRequest, RobotCa
         """
         return self._update(items, mode=mode)
 
-    def delete(self, items: Sequence[ExternalId]) -> None:
+    def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
         """Delete capabilities from CDF.
 
         Args:
             items: List of ExternalId objects to delete.
+            ignore_unknown_ids: If True, ignores unknown IDs during deletion.
         """
-        self._request_no_response(items, "delete")
+        if ignore_unknown_ids:
+            self._request_item_split_retries_no_response(items, "delete")
+        else:
+            self._request_no_response(items, "delete")
 
     def paginate(
         self,

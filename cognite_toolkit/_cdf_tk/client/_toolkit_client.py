@@ -11,7 +11,6 @@ from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFil
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_functions import ExtendedFunctionsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.robotics import RoboticsAPI as RoboticsLegacyAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 
 from .api.assets import AssetsAPI
@@ -80,7 +79,6 @@ class ToolkitClient(CogniteClient):
         self.console = console or Console()
         self.tool = ToolAPI(http_client, self.console)
         self.search = SearchAPI(self._config, self._API_VERSION, self)
-        self.robotics = RoboticsLegacyAPI(self._config, self._API_VERSION, self)
         self.dml = DMLAPI(self._config, self._API_VERSION, self)
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self, self.console)

@@ -218,42 +218,6 @@ DataModel:
     space: population_model
     type: view
     version: v1
-DataPostProcessing:
-- description: Original Description
-  externalId: read_dial_gauge
-  inputSchema:
-    $schema: http://json-schema.org/draft-07/schema#
-    additionalProperties: false
-    id: robotics/schemas/0.1.0/capabilities/ptz
-    properties:
-      method:
-        type: string
-      parameters:
-        properties:
-          pan:
-            maximum: 180
-            minimum: -180
-            type: number
-          tilt:
-            maximum: 90
-            minimum: -90
-            type: number
-          zoom:
-            maximum: 100
-            minimum: 0
-            type: number
-        required:
-        - tilt
-        - pan
-        - zoom
-        type: object
-    required:
-    - method
-    - parameters
-    title: PTZ camera capability input
-    type: object
-  method: read_dial_gauge
-  name: Read dial gauge
 DataSet:
 - description: This dataset is used for all the resources in the complete_org.
   externalId: ds_complete_org
@@ -387,9 +351,6 @@ FileMetadataResponse:
   mimeType: text/plain
   name: classicfile.txt
   source: doctrino
-Frame:
-- externalId: rootCoordinateFrame
-  name: Root coordinate frame
 Function:
 - description: This function stores its code in a Cognite File.
   externalId: fn_data_modeling_only_function
@@ -509,10 +470,6 @@ LabelDefinition:
   description: Pump label
   externalId: label_pump
   name: Pump
-Location:
-- description: Original Description
-  externalId: waterTreatmentPlant1_Windows_3_11_8
-  name: Water treatment plant
 LocationFilter:
 - assetCentric:
     dataSetIds:
@@ -543,11 +500,6 @@ LocationFilter:
 - description: This is a description of the location.
   externalId: main-location
   name: Main location name
-Map:
-- description: Original Description
-  externalId: robotMap
-  mapType: POINTCLOUD
-  name: Robot navigation map
 Node:
 - externalId: AnEdgeType
   instanceType: node
@@ -651,7 +603,7 @@ Relationship:
   sourceType: asset
   targetExternalId: MyEvent
   targetType: event
-RobotCapability:
+RobotCapabilityResponse:
 - dataHandlingSchema:
     $schema: http://json-schema.org/draft-07/schema#
     id: robotics/schemas/0.1.0/data_handling/ptz
@@ -714,6 +666,54 @@ RobotCapability:
     type: object
   method: ptz
   name: ptz
+RobotDataPostProcessingResponse:
+- description: Original Description
+  externalId: read_dial_gauge
+  inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: false
+    id: robotics/schemas/0.1.0/capabilities/ptz
+    properties:
+      method:
+        type: string
+      parameters:
+        properties:
+          pan:
+            maximum: 180
+            minimum: -180
+            type: number
+          tilt:
+            maximum: 90
+            minimum: -90
+            type: number
+          zoom:
+            maximum: 100
+            minimum: 0
+            type: number
+        required:
+        - tilt
+        - pan
+        - zoom
+        type: object
+    required:
+    - method
+    - parameters
+    title: PTZ camera capability input
+    type: object
+  method: read_dial_gauge
+  name: Read dial gauge
+RobotFrameResponse:
+- externalId: rootCoordinateFrame
+  name: Root coordinate frame
+RobotLocationResponse:
+- description: Original Description
+  externalId: waterTreatmentPlant1_Windows_3_11_8
+  name: Water treatment plant
+RobotMapResponse:
+- description: Original Description
+  externalId: robotMap
+  mapType: POINTCLOUD
+  name: Robot navigation map
 Row:
 - args: []
   dataframe:

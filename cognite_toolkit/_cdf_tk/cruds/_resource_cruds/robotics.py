@@ -1,30 +1,23 @@
 import json
-from collections.abc import Callable, Hashable, Iterable, Sequence
-from contextlib import suppress
+from collections.abc import Hashable, Iterable, Sequence
 from typing import Any
 
 from cognite.client.data_classes import capabilities
-from cognite.client.data_classes._base import T_CogniteResourceList
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.robotics import (
-    DataPostProcessing,
-    DataPostProcessingList,
-    DataPostProcessingWrite,
-    Frame,
-    FrameList,
-    FrameWrite,
-    Location,
-    LocationList,
-    LocationWrite,
-    Map,
-    MapList,
-    MapWrite,
-    RobotCapability,
-    RobotCapabilityList,
-    RobotCapabilityWrite,
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
+    RobotCapabilityRequest,
+    RobotCapabilityResponse,
+    RobotDataPostProcessingRequest,
+    RobotDataPostProcessingResponse,
+    RobotFrameRequest,
+    RobotFrameResponse,
+    RobotLocationRequest,
+    RobotLocationResponse,
+    RobotMapRequest,
+    RobotMapResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import (
@@ -37,10 +30,10 @@ from cognite_toolkit._cdf_tk.resource_classes import (
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 
-class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame]):
+class RoboticFrameCRUD(ResourceCRUD[ExternalId, RobotFrameRequest, RobotFrameResponse]):
     folder_name = "robotics"
-    resource_cls = Frame
-    resource_write_cls = FrameWrite
+    resource_cls = RobotFrameResponse
+    resource_write_cls = RobotFrameRequest
     kind = "Frame"
     yaml_cls = RobotFrameYAML
     _doc_url = "Frames/operation/createFrames"
@@ -50,20 +43,18 @@ class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame]):
         return "robotics frames"
 
     @classmethod
-    def get_id(cls, item: Frame | FrameWrite | dict) -> str:
+    def get_id(cls, item: RobotFrameRequest | RobotFrameResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
-        if not item.external_id:
-            raise KeyError("Frame must have external_id")
-        return item.external_id
+            return ExternalId(external_id=item["externalId"])
+        return item.as_id()
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[FrameWrite] | None, read_only: bool
+        cls, items: Sequence[RobotFrameRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -77,20 +68,27 @@ class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame]):
             capabilities.RoboticsAcl.Scope.All(),
         )
 
-    def create(self, items: Sequence[FrameWrite]) -> FrameList:
-        return self.client.robotics.frames.create(items)
+    def dump_resource(self, resource: RobotFrameResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
+        local = local or {}
+        if dumped.get("transform") is None and "transform" not in (local or {}):
+            # Default value set on the server side.
+            dumped.pop("transform", None)
+        return dumped
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> FrameList:
-        return _fallback_to_one_by_one(self.client.robotics.frames.retrieve, ids, FrameList)
+    def create(self, items: Sequence[RobotFrameRequest]) -> list[RobotFrameResponse]:
+        return self.client.tool.robotics.frames.create(items)
 
-    def update(self, items: Sequence[FrameWrite]) -> FrameList:
-        return self.client.robotics.frames.update(items)
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[RobotFrameResponse]:
+        return self.client.tool.robotics.frames.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        try:
-            self.client.robotics.frames.delete(ids)
-        except CogniteAPIError as e:
-            return len(e.successful)
+    def update(self, items: Sequence[RobotFrameRequest]) -> list[RobotFrameResponse]:
+        return self.client.tool.robotics.frames.update(items, mode="replace")
+
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+        if not ids:
+            return 0
+        self.client.tool.robotics.frames.delete(list(ids), ignore_unknown_ids=True)
         return len(ids)
 
     def _iterate(
@@ -98,14 +96,15 @@ class RoboticFrameCRUD(ResourceCRUD[str, FrameWrite, Frame]):
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[Frame]:
-        return iter(self.client.robotics.frames)
+    ) -> Iterable[RobotFrameResponse]:
+        for frames in self.client.tool.robotics.frames.iterate(limit=None):
+            yield from frames
 
 
-class RoboticLocationCRUD(ResourceCRUD[str, LocationWrite, Location]):
+class RoboticLocationCRUD(ResourceCRUD[ExternalId, RobotLocationRequest, RobotLocationResponse]):
     folder_name = "robotics"
-    resource_cls = Location
-    resource_write_cls = LocationWrite
+    resource_cls = RobotLocationResponse
+    resource_write_cls = RobotLocationRequest
     kind = "Location"
     yaml_cls = RobotLocationYAML
     _doc_url = "Locations/operation/createLocations"
@@ -115,20 +114,18 @@ class RoboticLocationCRUD(ResourceCRUD[str, LocationWrite, Location]):
         return "robotics locations"
 
     @classmethod
-    def get_id(cls, item: Location | LocationWrite | dict) -> str:
+    def get_id(cls, item: RobotLocationRequest | RobotLocationResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
-        if not item.external_id:
-            raise KeyError("Location must have external_id")
-        return item.external_id
+            return ExternalId(external_id=item["externalId"])
+        return item.as_id()
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[LocationWrite] | None, read_only: bool
+        cls, items: Sequence[RobotLocationRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -147,20 +144,19 @@ class RoboticLocationCRUD(ResourceCRUD[str, LocationWrite, Location]):
 
         return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
 
-    def create(self, items: Sequence[LocationWrite]) -> LocationList:
-        return self.client.robotics.locations.create(items)
+    def create(self, items: Sequence[RobotLocationRequest]) -> list[RobotLocationResponse]:
+        return self.client.tool.robotics.locations.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> LocationList:
-        return _fallback_to_one_by_one(self.client.robotics.locations.retrieve, ids, LocationList)
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[RobotLocationResponse]:
+        return self.client.tool.robotics.locations.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[LocationWrite]) -> LocationList:
-        return self.client.robotics.locations.update(items)
+    def update(self, items: Sequence[RobotLocationRequest]) -> list[RobotLocationResponse]:
+        return self.client.tool.robotics.locations.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        try:
-            self.client.robotics.locations.delete(ids)
-        except CogniteAPIError as e:
-            return len(e.successful)
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+        if not ids:
+            return 0
+        self.client.tool.robotics.locations.delete(list(ids), ignore_unknown_ids=True)
         return len(ids)
 
     def _iterate(
@@ -168,14 +164,23 @@ class RoboticLocationCRUD(ResourceCRUD[str, LocationWrite, Location]):
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[Location]:
-        return iter(self.client.robotics.locations)
+    ) -> Iterable[RobotLocationResponse]:
+        for locations in self.client.tool.robotics.locations.iterate(limit=None):
+            yield from locations
+
+    def dump_resource(self, resource: RobotLocationResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        return resource.as_request_resource().dump()
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> RobotLocationRequest:
+        return RobotLocationRequest.model_validate(resource)
 
 
-class RoboticsDataPostProcessingCRUD(ResourceCRUD[str, DataPostProcessingWrite, DataPostProcessing]):
+class RoboticsDataPostProcessingCRUD(
+    ResourceCRUD[ExternalId, RobotDataPostProcessingRequest, RobotDataPostProcessingResponse]
+):
     folder_name = "robotics"
-    resource_cls = DataPostProcessing
-    resource_write_cls = DataPostProcessingWrite
+    resource_cls = RobotDataPostProcessingResponse
+    resource_write_cls = RobotDataPostProcessingRequest
     kind = "DataPostProcessing"
     yaml_cls = RobotDataPostProcessingYAML
     _doc_url = "DataPostProcessing/operation/createDataPostProcessing"
@@ -185,20 +190,18 @@ class RoboticsDataPostProcessingCRUD(ResourceCRUD[str, DataPostProcessingWrite, 
         return "robotics data postprocessing"
 
     @classmethod
-    def get_id(cls, item: DataPostProcessing | DataPostProcessingWrite | dict) -> str:
+    def get_id(cls, item: RobotDataPostProcessingRequest | RobotDataPostProcessingResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
-        if not item.external_id:
-            raise KeyError("DataPostProcessing must have external_id")
-        return item.external_id
+            return ExternalId(external_id=item["externalId"])
+        return item.as_id()
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[DataPostProcessingWrite] | None, read_only: bool
+        cls, items: Sequence[RobotDataPostProcessingRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -217,32 +220,31 @@ class RoboticsDataPostProcessingCRUD(ResourceCRUD[str, DataPostProcessingWrite, 
 
         return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
 
-    def create(self, items: Sequence[DataPostProcessingWrite]) -> DataPostProcessingList:
-        return self.client.robotics.data_postprocessing.create(items)
+    def create(self, items: Sequence[RobotDataPostProcessingRequest]) -> list[RobotDataPostProcessingResponse]:
+        return self.client.tool.robotics.data_postprocessing.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> DataPostProcessingList:
-        return _fallback_to_one_by_one(self.client.robotics.data_postprocessing.retrieve, ids, DataPostProcessingList)
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[RobotDataPostProcessingResponse]:
+        return self.client.tool.robotics.data_postprocessing.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[DataPostProcessingWrite]) -> DataPostProcessingList:
+    def update(self, items: Sequence[RobotDataPostProcessingRequest]) -> list[RobotDataPostProcessingResponse]:
         # There is a bug in the /update endpoint that requires the input_schema to be a string
         # and not an object. This is a workaround until the bug is fixed.
         # We do the serialization to avoid modifying the original object.
         to_update = []
         for item in items:
             if isinstance(item.input_schema, dict):
-                update = DataPostProcessingWrite.load(item.dump())
+                update = RobotDataPostProcessingRequest.model_validate(item.dump())
                 update.input_schema = json.dumps(item.input_schema)  # type: ignore[assignment]
                 to_update.append(update)
             else:
                 to_update.append(item)
 
-        return self.client.robotics.data_postprocessing.update(to_update)
+        return self.client.tool.robotics.data_postprocessing.update(to_update, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        try:
-            self.client.robotics.data_postprocessing.delete(ids)
-        except CogniteAPIError as e:
-            return len(e.successful)
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+        if not ids:
+            return 0
+        self.client.tool.robotics.data_postprocessing.delete(list(ids), ignore_unknown_ids=True)
         return len(ids)
 
     def _iterate(
@@ -250,8 +252,9 @@ class RoboticsDataPostProcessingCRUD(ResourceCRUD[str, DataPostProcessingWrite, 
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[DataPostProcessing]:
-        return iter(self.client.robotics.data_postprocessing)
+    ) -> Iterable[RobotDataPostProcessingResponse]:
+        for items in self.client.tool.robotics.data_postprocessing.iterate(limit=None):
+            yield from items
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
@@ -261,10 +264,10 @@ class RoboticsDataPostProcessingCRUD(ResourceCRUD[str, DataPostProcessingWrite, 
         return super().diff_list(local, cdf, json_path)
 
 
-class RobotCapabilityCRUD(ResourceCRUD[str, RobotCapabilityWrite, RobotCapability]):
+class RobotCapabilityCRUD(ResourceCRUD[ExternalId, RobotCapabilityRequest, RobotCapabilityResponse]):
     folder_name = "robotics"
-    resource_cls = RobotCapability
-    resource_write_cls = RobotCapabilityWrite
+    resource_cls = RobotCapabilityResponse
+    resource_write_cls = RobotCapabilityRequest
     kind = "RobotCapability"
     yaml_cls = RobotCapabilityYAML
     _doc_url = "RobotCapabilities/operation/createRobotCapabilities"
@@ -274,20 +277,18 @@ class RobotCapabilityCRUD(ResourceCRUD[str, RobotCapabilityWrite, RobotCapabilit
         return "robotics robot capabilities"
 
     @classmethod
-    def get_id(cls, item: RobotCapability | RobotCapabilityWrite | dict) -> str:
+    def get_id(cls, item: RobotCapabilityRequest | RobotCapabilityResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
-        if not item.external_id:
-            raise KeyError("RobotCapability must have external_id")
-        return item.external_id
+            return ExternalId(external_id=item["externalId"])
+        return item.as_id()
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[RobotCapabilityWrite] | None, read_only: bool
+        cls, items: Sequence[RobotCapabilityRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -306,20 +307,20 @@ class RobotCapabilityCRUD(ResourceCRUD[str, RobotCapabilityWrite, RobotCapabilit
 
         return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
 
-    def create(self, items: Sequence[RobotCapabilityWrite]) -> RobotCapabilityList:
-        return self.client.robotics.capabilities.create(items)
+    def create(self, items: Sequence[RobotCapabilityRequest]) -> list[RobotCapabilityResponse]:
+        return self.client.tool.robotics.capabilities.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> RobotCapabilityList:
-        return _fallback_to_one_by_one(self.client.robotics.capabilities.retrieve, ids, RobotCapabilityList)
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[RobotCapabilityResponse]:
+        return self.client.tool.robotics.capabilities.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[RobotCapabilityWrite]) -> RobotCapabilityList:
+    def update(self, items: Sequence[RobotCapabilityRequest]) -> list[RobotCapabilityResponse]:
         # There is a bug in the /update endpoint that requires the input_schema to be a string
         # and not an object. This is a workaround until the bug is fixed.
         # We do the serialization to avoid modifying the original object.
         to_update = []
         for item in items:
             if isinstance(item.input_schema, dict) or isinstance(item.data_handling_schema, dict):
-                update = RobotCapabilityWrite.load(item.dump())
+                update = RobotCapabilityRequest.model_validate(item.dump())
                 if isinstance(item.data_handling_schema, dict):
                     update.data_handling_schema = json.dumps(item.data_handling_schema)  # type: ignore[assignment]
                 if isinstance(item.input_schema, dict):
@@ -328,13 +329,12 @@ class RobotCapabilityCRUD(ResourceCRUD[str, RobotCapabilityWrite, RobotCapabilit
             else:
                 to_update.append(item)
 
-        return self.client.robotics.capabilities.update(to_update)
+        return self.client.tool.robotics.capabilities.update(to_update, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        try:
-            self.client.robotics.capabilities.delete(ids)
-        except CogniteAPIError as e:
-            return len(e.successful)
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+        if not ids:
+            return 0
+        self.client.tool.robotics.capabilities.delete(list(ids), ignore_unknown_ids=True)
         return len(ids)
 
     def _iterate(
@@ -342,8 +342,9 @@ class RobotCapabilityCRUD(ResourceCRUD[str, RobotCapabilityWrite, RobotCapabilit
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[RobotCapability]:
-        return iter(self.client.robotics.capabilities)
+    ) -> Iterable[RobotCapabilityResponse]:
+        for items in self.client.tool.robotics.capabilities.iterate(limit=None):
+            yield from items
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
@@ -353,10 +354,10 @@ class RobotCapabilityCRUD(ResourceCRUD[str, RobotCapabilityWrite, RobotCapabilit
         return super().diff_list(local, cdf, json_path)
 
 
-class RoboticMapCRUD(ResourceCRUD[str, MapWrite, Map]):
+class RoboticMapCRUD(ResourceCRUD[ExternalId, RobotMapRequest, RobotMapResponse]):
     folder_name = "robotics"
-    resource_cls = Map
-    resource_write_cls = MapWrite
+    resource_cls = RobotMapResponse
+    resource_write_cls = RobotMapRequest
     kind = "Map"
     dependencies = frozenset({RoboticFrameCRUD, RoboticLocationCRUD})
     yaml_cls = RobotMapYAML
@@ -367,20 +368,18 @@ class RoboticMapCRUD(ResourceCRUD[str, MapWrite, Map]):
         return "robotics maps"
 
     @classmethod
-    def get_id(cls, item: Map | MapWrite | dict) -> str:
+    def get_id(cls, item: RobotMapRequest | RobotMapResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
-        if not item.external_id:
-            raise KeyError("Map must have external_id")
-        return item.external_id
+            return ExternalId(external_id=item["externalId"])
+        return item.as_id()
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[MapWrite] | None, read_only: bool
+        cls, items: Sequence[RobotMapRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -400,28 +399,38 @@ class RoboticMapCRUD(ResourceCRUD[str, MapWrite, Map]):
 
         return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
 
-    def dump_resource(self, resource: Map, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dump = resource.as_write().dump()
+    def dump_resource(self, resource: RobotMapResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dump = resource.as_request_resource().dump()
         local = local or {}
         if dump.get("scale") == 1.0 and "scale" not in local:
             # Default value set on the server side.
             del dump["scale"]
+        for key in [
+            "data",
+            "frameExternalId",
+            "locationExternalId",
+        ]:
+            if dump.get(key) is None and key not in (local or {}):
+                # Key set to null on the server side.
+                dump.pop(key, None)
         return dump
 
-    def create(self, items: Sequence[MapWrite]) -> MapList:
-        return self.client.robotics.maps.create(items)
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> RobotMapRequest:
+        return RobotMapRequest.model_validate(resource)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> MapList:
-        return _fallback_to_one_by_one(self.client.robotics.maps.retrieve, ids, MapList)
+    def create(self, items: Sequence[RobotMapRequest]) -> list[RobotMapResponse]:
+        return self.client.tool.robotics.maps.create(items)
 
-    def update(self, items: Sequence[MapWrite]) -> MapList:
-        return self.client.robotics.maps.update(items)
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[RobotMapResponse]:
+        return self.client.tool.robotics.maps.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        try:
-            self.client.robotics.maps.delete(ids)
-        except CogniteAPIError as e:
-            return len(e.successful)
+    def update(self, items: Sequence[RobotMapRequest]) -> list[RobotMapResponse]:
+        return self.client.tool.robotics.maps.update(items, mode="replace")
+
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+        if not ids:
+            return 0
+        self.client.tool.robotics.maps.delete(list(ids), ignore_unknown_ids=True)
         return len(ids)
 
     def _iterate(
@@ -429,21 +438,6 @@ class RoboticMapCRUD(ResourceCRUD[str, MapWrite, Map]):
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[Map]:
-        return iter(self.client.robotics.maps)
-
-
-def _fallback_to_one_by_one(
-    api_call: Callable, items: Sequence | SequenceNotStr, return_cls: type[T_CogniteResourceList]
-) -> T_CogniteResourceList:
-    try:
-        return api_call(items)
-    except CogniteAPIError:
-        return_items = return_cls([])
-        if len(items) > 1:
-            # The API does not give any information about which items were not found/failed.
-            # so we need to apply them one by one to find out which ones failed.
-            for item in items:
-                with suppress(CogniteAPIError):
-                    return_items.append(api_call(item))
-        return return_items
+    ) -> Iterable[RobotMapResponse]:
+        for maps in self.client.tool.robotics.maps.iterate(limit=None):
+            yield from maps
