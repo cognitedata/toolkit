@@ -64,6 +64,12 @@ class NameId(Identifier):
     def __str__(self) -> str:
         return f"name='{self.name}'"
 
+class RawTableId(Identifier):
+    name: str
+    db_name: str
+
+    def __str__(self) -> str:
+        return f"dbName='{self.db_name}', name='{self.name}'"
 
 class WorkflowVersionId(Identifier):
     workflow_external_id: str

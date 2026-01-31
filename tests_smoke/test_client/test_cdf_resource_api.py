@@ -47,7 +47,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalIdUnwrapped
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import SecurityCategoryRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest
@@ -217,8 +217,8 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
             }
         ],
         LabelRequest: [{"name": "smoke-test-label", "externalId": "smoke-test-label"}],
-        RAWDatabase: [{"name": "smoke-test-raw-database"}],
-        RAWTable: [{"name": "smoke-test-raw-table", "dbName": "smoke-test-raw-database"}],
+        RAWDatabaseResponse: [{"name": "smoke-test-raw-database"}],
+        RAWTableResponse: [{"name": "smoke-test-raw-table", "dbName": "smoke-test-raw-database"}],
         SecurityCategoryRequest: [{"name": "smoke-test-security-category"}],
         SequenceRequest: [
             {"externalId": "smoke-test-sequence", "columns": [{"externalId": "smoke-test-sequence-column"}]}
@@ -377,10 +377,10 @@ class TestCDFResourceAPI:
     def test_raw_tables_and_databases_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
-        database_example = get_examples_minimum_requests(RAWDatabase)[0]
-        table_example = get_examples_minimum_requests(RAWTable)[0]
-        db = RAWDatabase.model_validate(database_example)
-        table = RAWTable.model_validate(table_example)
+        database_example = get_examples_minimum_requests(RAWDatabaseResponse)[0]
+        table_example = get_examples_minimum_requests(RAWTableResponse)[0]
+        db = RAWDatabaseResponse.model_validate(database_example)
+        table = RAWTableResponse.model_validate(table_example)
 
         try:
             # Create database
