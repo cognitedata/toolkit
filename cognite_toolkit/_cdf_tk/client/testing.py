@@ -6,7 +6,9 @@ from unittest.mock import MagicMock
 from cognite.client._api.datapoints import DatapointsAPI
 from cognite.client._api.datapoints_subscriptions import DatapointsSubscriptionAPI
 from cognite.client._api.functions import FunctionCallsAPI, FunctionSchedulesAPI
-from cognite.client._api.raw import RawDatabasesAPI, RawRowsAPI, RawTablesAPI
+from cognite.client._api.raw import RawDatabasesAPI as LegacyRawDatabasesAPI
+from cognite.client._api.raw import RawRowsAPI
+from cognite.client._api.raw import RawTablesAPI as LegacyRawTablesAPI
 from cognite.client._api.simulators import SimulatorModelsAPI, SimulatorsAPI
 from cognite.client._api.synthetic_time_series import SyntheticDatapointsAPI
 from cognite.client.testing import CogniteClientMock
@@ -32,6 +34,7 @@ from cognite_toolkit._cdf_tk.client.api.legacy.robotics import (
 )
 from cognite_toolkit._cdf_tk.client.api.legacy.robotics import LocationsAPI as RoboticsLocationsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.search_config import SearchConfigurationsAPI
+from cognite_toolkit._cdf_tk.client.api.raw import RawAPI, RawDatabasesAPI, RawTablesAPI
 
 from ._toolkit_client import ToolAPI
 from .api.assets import AssetsAPI
@@ -135,9 +138,9 @@ class ToolkitClientMock(CogniteClientMock):
         self.migration.resource_view_mapping = MagicMock(spec_set=ResourceViewMappingAPI)
         self.migration.created_source_system = MagicMock(spec_set=CreatedSourceSystemAPI)
         self.raw = MagicMock(spec=ExtendedRawAPI)
-        self.raw.databases = MagicMock(spec_set=RawDatabasesAPI)
+        self.raw.databases = MagicMock(spec_set=LegacyRawDatabasesAPI)
         self.raw.rows = MagicMock(spec_set=RawRowsAPI)
-        self.raw.tables = MagicMock(spec_set=RawTablesAPI)
+        self.raw.tables = MagicMock(spec_set=LegacyRawTablesAPI)
 
         self.robotics = MagicMock()
         self.robotics.robots = MagicMock(spec=RoboticsAPI)
@@ -171,6 +174,9 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.hosted_extractors.destinations = MagicMock(spec_set=HostedExtractorDestinationsAPI)
         self.tool.hosted_extractors.mappings = MagicMock(spec_set=HostedExtractorMappingsAPI)
         self.tool.labels = MagicMock(spec_set=LabelsAPI)
+        self.tool.raw = MagicMock(spec=RawAPI)
+        self.tool.raw.databases = MagicMock(spec_set=RawDatabasesAPI)
+        self.tool.raw.tables = MagicMock(spec_set=RawTablesAPI)
         self.tool.security_categories = MagicMock(spec_set=SecurityCategoriesAPI)
         self.tool.sequences = MagicMock(spec_set=SequencesAPI)
         self.tool.transformations = MagicMock(spec_set=TransformationsAPI)

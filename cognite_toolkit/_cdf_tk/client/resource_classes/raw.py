@@ -47,7 +47,7 @@ class RAWDatabase(RequestResource, Identifier, ResponseResource["RAWDatabase"]):
     @classmethod
     def _load(cls, resource: dict[str, Any]) -> Self:
         """Load method to match CogniteResource signature."""
-        return cls.model_validate(resource, by_alias=False)
+        return cls.model_validate(resource, by_name=True)
 
 
 class RAWTable(RequestResource, Identifier, ResponseResource["RAWTable"]):
@@ -87,4 +87,4 @@ class RAWTable(RequestResource, Identifier, ResponseResource["RAWTable"]):
     @classmethod
     def _load(cls, resource: dict[str, Any]) -> Self:
         """Load method to match CogniteResource signature."""
-        return cls.model_validate(resource, by_alias=False)
+        return cls.model_validate(resource, by_name=True)
