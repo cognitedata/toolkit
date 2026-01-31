@@ -68,7 +68,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source._ba
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import GraphQLDataModelWrite
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.project import ProjectStatus, ProjectStatusList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawDatabase
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTable
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN, STREAM_IMMUTABLE_TEMPLATE_NAME
@@ -919,7 +919,7 @@ class ApprovalToolkitClient:
         def retrieve_hosted_extractor_source(items: Sequence, *_, **__) -> list:
             return existing_resources[SourceRequestDefinition.__name__]
 
-        def list_raw_db(*_, **__) -> list[RawDatabase]:
+        def list_raw_db(*_, **__) -> list[RAWDatabase]:
             return existing_resources[resource_cls.__name__]
 
         def list_raw_table(db_name: str, limit: int | None = None) -> list[RAWTable]:
