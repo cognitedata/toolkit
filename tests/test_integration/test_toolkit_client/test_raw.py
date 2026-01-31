@@ -12,13 +12,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
     UnknownTypeProfileColumn,
     VectorProfileColumn,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 
 
 @pytest.fixture(scope="module")
-def persistent_raw_database(toolkit_client: ToolkitClient) -> RAWDatabase:
+def persistent_raw_database(toolkit_client: ToolkitClient) -> RAWDatabaseResponse:
     db_name = "persistent_test_db"
-    db = RAWDatabase(name=db_name)
+    db = RAWDatabaseResponse(name=db_name)
     all_dbs = toolkit_client.tool.raw.databases.list(limit=None)
     if db_name in {d.name for d in all_dbs}:
         return db
@@ -50,19 +50,19 @@ class TestRAWDatabasesAPI:
         client = toolkit_client
 
         with pytest.raises(ToolkitAPIError) as exc_info:
-            client.tool.raw.databases.delete([RAWDatabase(name="this_db_does_not_exist")], recursive=True)
+            client.tool.raw.databases.delete([RAWDatabaseResponse(name="this_db_does_not_exist")], recursive=True)
 
         error = exc_info.value
         assert error.missing == [{"name": "this_db_does_not_exist"}]
 
 
 class TestRAWTablesAPI:
-    def test_delete_unknown(self, toolkit_client: ToolkitClient, persistent_raw_database: RAWDatabase) -> None:
+    def test_delete_unknown(self, toolkit_client: ToolkitClient, persistent_raw_database: RAWDatabaseResponse) -> None:
         client = toolkit_client
         db = persistent_raw_database
 
         with pytest.raises(ToolkitAPIError) as exc_info:
-            client.tool.raw.tables.delete([RAWTable(db_name=db.name, name="this_table_does_not_exist")])
+            client.tool.raw.tables.delete([RAWTableResponse(db_name=db.name, name="this_table_does_not_exist")])
 
         error = exc_info.value
         assert error.missing == [{"name": "this_table_does_not_exist"}]

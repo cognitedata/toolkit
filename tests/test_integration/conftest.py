@@ -45,7 +45,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
     RawTable,
     RawTableList,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.commands import CollectCommand
 from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -280,8 +280,8 @@ def populated_raw_table(toolkit_client: ToolkitClient, raw_data: RowWriteList) -
 def aggregator_raw_db(toolkit_client: ToolkitClient) -> str:
     loader = RawDatabaseCRUD.create_loader(toolkit_client)
     db_name = "toolkit_aggregators_test_db"
-    if not loader.retrieve([RAWDatabase(name=db_name)]):
-        loader.create([RAWDatabase(name=db_name)])
+    if not loader.retrieve([RAWDatabaseResponse(name=db_name)]):
+        loader.create([RAWDatabaseResponse(name=db_name)])
     return db_name
 
 
@@ -315,7 +315,7 @@ def aggregator_root_asset(toolkit_client: ToolkitClient, aggregator_two_datasets
     return retrieved
 
 
-def create_raw_table_with_data(client: ToolkitClient, table: RAWTable, rows: list[RowWrite]) -> None:
+def create_raw_table_with_data(client: ToolkitClient, table: RAWTableResponse, rows: list[RowWrite]) -> None:
     loader = RawTableCRUD.create_loader(client)
     existing_tables = loader.retrieve([table])
     if not existing_tables:
@@ -370,7 +370,7 @@ def aggregator_assets(
     ]
     create_raw_table_with_data(
         toolkit_client,
-        RAWTable(db_name=aggregator_raw_db, name=table_name),
+        RAWTableResponse(db_name=aggregator_raw_db, name=table_name),
         rows,
     )
 
@@ -422,7 +422,7 @@ def aggregator_events(
     ]
     create_raw_table_with_data(
         toolkit_client,
-        RAWTable(db_name=aggregator_raw_db, name=table_name),
+        RAWTableResponse(db_name=aggregator_raw_db, name=table_name),
         rows,
     )
     transformation = TransformationWrite(
@@ -466,7 +466,7 @@ def aggregator_files(
 
     create_raw_table_with_data(
         toolkit_client,
-        RAWTable(db_name=aggregator_raw_db, name=table_name),
+        RAWTableResponse(db_name=aggregator_raw_db, name=table_name),
         rows,
     )
     transformation = TransformationWrite(
@@ -520,7 +520,7 @@ def aggregator_time_series(
     ]
     create_raw_table_with_data(
         toolkit_client,
-        RAWTable(db_name=aggregator_raw_db, name=table_name),
+        RAWTableResponse(db_name=aggregator_raw_db, name=table_name),
         rows,
     )
     transformation = TransformationWrite(
@@ -561,7 +561,7 @@ def aggregator_sequences(
     ]
     create_raw_table_with_data(
         toolkit_client,
-        RAWTable(db_name=aggregator_raw_db, name=table_name),
+        RAWTableResponse(db_name=aggregator_raw_db, name=table_name),
         rows,
     )
     transformation = TransformationWrite(

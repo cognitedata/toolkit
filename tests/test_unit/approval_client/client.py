@@ -68,7 +68,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source._ba
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import GraphQLDataModelWrite
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.project import ProjectStatus, ProjectStatusList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawDatabase
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN, STREAM_IMMUTABLE_TEMPLATE_NAME
@@ -919,12 +919,12 @@ class ApprovalToolkitClient:
         def retrieve_hosted_extractor_source(items: Sequence, *_, **__) -> list:
             return existing_resources[SourceRequestDefinition.__name__]
 
-        def list_raw_db(*_, **__) -> list[RAWDatabase]:
+        def list_raw_db(*_, **__) -> list[RAWDatabaseResponse]:
             return existing_resources[resource_cls.__name__]
 
-        def list_raw_table(db_name: str, limit: int | None = None) -> list[RAWTable]:
+        def list_raw_table(db_name: str, limit: int | None = None) -> list[RAWTableResponse]:
             tables = [
-                RAWTable(db_name=db_name, name=table.name)
+                RAWTableResponse(db_name=db_name, name=table.name)
                 for table in existing_resources[resource_cls.__name__]
                 if table.db_name == db_name
             ]

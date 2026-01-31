@@ -31,7 +31,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTable
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
@@ -135,8 +135,8 @@ class TestCDFResourceAPI:
         This cannot be tested using the generic test above as it requires custom mocking of the
         api endpoints as database is part of the URL.
         """
-        resource = get_example_minimum_responses(RAWTable)
-        instance = RAWTable.model_validate(resource)
+        resource = get_example_minimum_responses(RAWTableResponse)
+        instance = RAWTableResponse.model_validate(resource)
         config = toolkit_config
         api = RawTablesAPI(HTTPClient(config))
 

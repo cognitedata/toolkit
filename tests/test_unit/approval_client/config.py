@@ -162,8 +162,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import
     SearchConfigWrite,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
-    RAWDatabase,
-    RAWTable,
+    RAWDatabaseResponse,
+    RAWTableResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelRequest,
@@ -921,8 +921,8 @@ API_RESOURCES = [
     ),
     APIResource(
         api_name="tool.raw.databases",
-        resource_cls=RAWDatabase,
-        _write_cls=RAWDatabase,
+        resource_cls=RAWDatabaseResponse,
+        _write_cls=RAWDatabaseResponse,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
@@ -932,8 +932,8 @@ API_RESOURCES = [
     ),
     APIResource(
         api_name="tool.raw.tables",
-        resource_cls=RAWTable,
-        _write_cls=RAWTable,
+        resource_cls=RAWTableResponse,
+        _write_cls=RAWTableResponse,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
