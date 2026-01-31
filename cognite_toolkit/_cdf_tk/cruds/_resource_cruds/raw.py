@@ -29,6 +29,7 @@ from rich import print
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import DatabaseYAML, TableYAML
@@ -218,7 +219,7 @@ class RawTableCRUD(ResourceContainerCRUD[RAWTable, RAWTable, RAWTable]):
             expected_tables = {table.name for table in raw_tables}
             try:
                 tables = self.client.tool.raw.tables.list(db_name=db_name, limit=None)
-            except CogniteAPIError as e:
+            except ToolkitAPIError as e:
                 if db_name in {item.get("name") for item in e.missing or []}:
                     continue
                 raise e
