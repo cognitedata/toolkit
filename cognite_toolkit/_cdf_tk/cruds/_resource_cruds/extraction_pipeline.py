@@ -35,8 +35,7 @@ from cognite.client.data_classes.extractionpipelines import (
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -127,7 +126,7 @@ class ExtractionPipelineCRUD(ResourceCRUD[str, ExtractionPipelineWrite, Extracti
                         seen_databases.add(db)
                         yield RawDatabaseCRUD, RAWDatabase(name=db)
                     if "tableName" in entry:
-                        yield RawTableCRUD, RawTable._load(entry)
+                        yield RawTableCRUD, RAWTable(db_name=db, name=entry["tableName"])
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):

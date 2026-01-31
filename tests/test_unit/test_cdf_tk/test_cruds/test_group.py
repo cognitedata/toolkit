@@ -6,8 +6,7 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes import Group, GroupWrite
 
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
 from cognite_toolkit._cdf_tk.cruds import (
     DataSetsCRUD,
     ExtractionPipelineCRUD,
@@ -193,7 +192,7 @@ class TestGroupLoader:
                 {"capabilities": [{"rawAcl": {"scope": {"tableScope": {"dbsToTables": {"my_db": ["my_table"]}}}}}]},
                 [
                     (RawDatabaseCRUD, RAWDatabase(name="my_db")),
-                    (RawTableCRUD, RawTable("my_db", "my_table")),
+                    (RawTableCRUD, RAWTable(db_name="my_db", name="my_table")),
                 ],
                 id="Table scope",
             ),
