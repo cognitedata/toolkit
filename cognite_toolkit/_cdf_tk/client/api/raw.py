@@ -167,7 +167,12 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
         Returns:
             PagedResponse of RAWTable objects.
         """
-        return self._paginate(cursor=cursor, limit=limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
+        page = self._paginate(cursor=cursor, limit=limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
+        page_items: list[RAWTable] = []
+        for table in page.items:
+            page_items.append(RAWTable(db_name=db_name, name=table.name))
+        page.items = page_items
+        return page
 
     def iterate(
         self,
@@ -183,7 +188,11 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
         Returns:
             Iterable of lists of RAWTable objects.
         """
-        return self._iterate(limit=limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
+        for table in self._iterate(limit=limit, endpoint_path=f"/raw/dbs/{db_name}/tables"):
+            chunk: list[RAWTable] = []
+            for t in table:
+                chunk.append(RAWTable(db_name=db_name, name=t.name))
+            yield chunk
 
     def list(self, db_name: str, limit: int | None = None) -> list[RAWTable]:
         """List all tables in a database in CDF.
@@ -195,7 +204,11 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
         Returns:
             List of RAWTable objects.
         """
-        return self._list(limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
+        listed = self._list(limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
+        to_return: list[RAWTable] = []
+        for table in listed:
+            to_return.append(RAWTable(db_name=db_name, name=table.name))
+        return to_return
 
 
 class RawAPI:
