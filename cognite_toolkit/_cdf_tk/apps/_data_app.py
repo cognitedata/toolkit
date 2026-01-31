@@ -3,6 +3,8 @@ from typing import Any
 import typer
 from rich import print
 
+from cognite_toolkit._cdf_tk.feature_flags import Flags
+
 from ._download_app import DownloadApp
 from ._purge import PurgeApp
 from ._respace_app import RespaceApp
@@ -16,7 +18,8 @@ class DataApp(typer.Typer):
         self.add_typer(DownloadApp(*args, **kwargs), name="download")
         self.add_typer(UploadApp(*args, **kwargs), name="upload")
         self.add_typer(PurgeApp(*args, **kwargs), name="purge")
-        self.add_typer(RespaceApp(*args, **kwargs), name="respace")
+        if Flags.RESPACE.is_enabled():
+            self.add_typer(RespaceApp(*args, **kwargs), name="respace")
 
     @staticmethod
     def main(ctx: typer.Context) -> None:
