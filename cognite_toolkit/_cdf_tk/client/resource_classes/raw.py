@@ -1,4 +1,5 @@
 import sys
+from typing import Any
 
 from pydantic import Field
 
@@ -9,7 +10,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 )
 
 if sys.version_info >= (3, 11):
-    from typing import Any, Self
+    from typing import Self
 else:
     from typing_extensions import Self
 
