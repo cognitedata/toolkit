@@ -5,6 +5,7 @@ from ._migrate import (
 )
 from ._profile import ProfileAssetCentricCommand, ProfileAssetCommand, ProfileRawCommand, ProfileTransformationCommand
 from ._purge import PurgeCommand
+from ._respace import RespaceCommand
 from ._upload import UploadCommand
 from .about import AboutCommand
 from .auth import AuthCommand
@@ -42,6 +43,7 @@ __all__ = [
     "PurgeCommand",
     "RepoCommand",
     "ResourcesCommand",
+    "RespaceCommand",
     "RunFunctionCommand",
     "RunTransformationCommand",
     "RunWorkflowCommand",

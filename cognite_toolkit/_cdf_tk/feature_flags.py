@@ -8,6 +8,15 @@ from cognite_toolkit._cdf_tk.constants import clean_name
 
 @dataclass(frozen=True)
 class FlagMetadata:
+    """Metadata for a feature flag.
+
+    Attributes:
+        visible: If True, the flag is shown in 'cdf about' even when disabled,
+            allowing users to discover it. If False, the flag is hidden unless
+            explicitly enabled in cdf.toml.
+        description: Human-readable description of what the flag enables.
+    """
+
     visible: bool
     description: str
 
@@ -68,6 +77,10 @@ class Flags(Enum):
     FUNCTION_REQUIREMENTS_VALIDATION = FlagMetadata(
         visible=True,
         description="Enables validation of function requirements.txt during build using pip dry-run",
+    )
+    RESPACE = FlagMetadata(
+        visible=False,
+        description="Enables the respace command for moving nodes between spaces",
     )
 
     def is_enabled(self) -> bool:
