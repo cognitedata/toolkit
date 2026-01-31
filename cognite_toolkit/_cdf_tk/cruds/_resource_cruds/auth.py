@@ -163,7 +163,9 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group]):
                         for db_name, tables in table_ids.get("dbsToTables", {}).items():
                             yield RawDatabaseCRUD, RAWDatabaseResponse(name=db_name)
                             if isinstance(tables, list):
-                                yield from ((RawTableCRUD, RAWTableResponse(db_name=db_name, name=table)) for table in tables)
+                                yield from (
+                                    (RawTableCRUD, RAWTableResponse(db_name=db_name, name=table)) for table in tables
+                                )
                             elif isinstance(tables, dict) and "tables" in tables:
                                 for table in tables["tables"]:
                                     yield RawTableCRUD, RAWTableResponse(db_name=db_name, name=table)

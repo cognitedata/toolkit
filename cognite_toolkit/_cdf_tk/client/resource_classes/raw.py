@@ -4,7 +4,6 @@ from typing import Any
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
-    Identifier,
     RequestResource,
     ResponseResource,
 )
@@ -48,6 +47,9 @@ class RAWDatabaseResponse(ResponseResource[RAWDatabaseRequest]):
     def as_request_resource(self) -> RAWDatabaseRequest:
         return RAWDatabaseRequest.model_validate(self.dump(), extra="ignore")
 
+    def as_id(self) -> NameId:
+        return NameId(name=self.name)
+
 
 class RAWTableRequest(RequestResource):
     # This is a query parameter, so we exclude it from serialization.
@@ -75,17 +77,21 @@ class RAWTableRequest(RequestResource):
             )
         return self.model_dump(mode="json", by_alias=False, exclude_unset=True)
 
-class RAWTableResponse(RequestResource, Identifier, ResponseResource["RAWTable"]):
+
+class RAWTableResponse(ResponseResource[RAWTableRequest]):
     # This is a query parameter, so we exclude it from serialization.
     # Default to empty string to allow parsing from API responses (which don't include db_name).
     db_name: str = Field(default="", exclude=True)
     name: str
 
-    def as_request_resource(self) -> "RAWTableResponse":
+    def as_request_resource(self) -> RAWTableRequest:
         dumped = {**self.dump(), "dbName": self.db_name}
-        return type(self).model_validate(dumped, extra="ignore")
+        return RAWTableRequest.model_validate(dumped, extra="ignore")
 
     @classmethod
     def _load(cls, resource: dict[str, Any]) -> Self:
         """Load method to match CogniteResource signature."""
         return cls.model_validate(resource, by_name=True)
+
+    def as_id(self) -> RawTableId:
+        return RawTableId(db_name=self.db_name, name=self.name)

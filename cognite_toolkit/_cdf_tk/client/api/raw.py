@@ -2,10 +2,16 @@ from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
+    RAWDatabaseRequest,
+    RAWDatabaseResponse,
+    RAWTableRequest,
+    RAWTableResponse,
+)
 
 
-class RawDatabasesAPI(CDFResourceAPI[RAWDatabaseResponse, RAWDatabaseResponse, RAWDatabaseResponse]):
+class RawDatabasesAPI(CDFResourceAPI[NameId, RAWDatabaseRequest, RAWDatabaseResponse]):
     """API for managing RAW databases in CDF.
 
     This API provides methods to create, list, and delete RAW databases.
@@ -21,13 +27,15 @@ class RawDatabasesAPI(CDFResourceAPI[RAWDatabaseResponse, RAWDatabaseResponse, R
             },
         )
 
-    def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[RAWDatabaseResponse]:
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[RAWDatabaseResponse]:
         return PagedResponse[RAWDatabaseResponse].model_validate_json(response.body)
 
     def _reference_response(self, response: SuccessResponse) -> ResponseItems[RAWDatabaseResponse]:
         return ResponseItems[RAWDatabaseResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[RAWDatabaseResponse]) -> list[RAWDatabaseResponse]:
+    def create(self, items: Sequence[RAWDatabaseRequest]) -> list[RAWDatabaseResponse]:
         """Create databases in CDF.
 
         Args:
@@ -38,14 +46,14 @@ class RawDatabasesAPI(CDFResourceAPI[RAWDatabaseResponse, RAWDatabaseResponse, R
         """
         return self._request_item_response(list(items), "create")
 
-    def delete(self, items: Sequence[RAWDatabaseResponse], recursive: bool = False) -> None:
+    def delete(self, items: Sequence[NameId], recursive: bool = False) -> None:
         """Delete databases from CDF.
 
         Args:
             items: List of RAWDatabase objects to delete.
             recursive: Whether to delete tables within the database recursively.
         """
-        self._request_no_response(list(items), "delete", extra_body={"recursive": recursive})
+        self._request_no_response(items, "delete", extra_body={"recursive": recursive})
 
     def paginate(
         self,
@@ -89,7 +97,7 @@ class RawDatabasesAPI(CDFResourceAPI[RAWDatabaseResponse, RAWDatabaseResponse, R
         return self._list(limit=limit)
 
 
-class RawTablesAPI(CDFResourceAPI[RAWTableResponse, RAWTableResponse, RAWTableResponse]):
+class RawTablesAPI(CDFResourceAPI[RawTableId, RAWTableRequest, RAWTableResponse]):
     """API for managing RAW tables in CDF.
 
     This API provides methods to create, list, and delete RAW tables within a database.
@@ -109,7 +117,9 @@ class RawTablesAPI(CDFResourceAPI[RAWTableResponse, RAWTableResponse, RAWTableRe
             },
         )
 
-    def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[RAWTableResponse]:
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[RAWTableResponse]:
         """Parse a page response. Note: db_name must be injected separately."""
         return PagedResponse[RAWTableResponse].model_validate_json(response.body)
 
@@ -117,7 +127,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTableResponse, RAWTableResponse, RAWTableRe
         """Parse a reference response. Note: db_name must be injected separately."""
         return ResponseItems[RAWTableResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[RAWTableResponse], ensure_parent: bool = False) -> list[RAWTableResponse]:
+    def create(self, items: Sequence[RAWTableRequest], ensure_parent: bool = False) -> list[RAWTableResponse]:
         """Create tables in a database in CDF.
 
         Args:
@@ -139,7 +149,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTableResponse, RAWTableResponse, RAWTableRe
                 result.append(RAWTableResponse(db_name=db_name, name=table.name))
         return result
 
-    def delete(self, items: Sequence[RAWTableResponse]) -> None:
+    def delete(self, items: Sequence[RawTableId]) -> None:
         """Delete tables from a database in CDF.
 
         Args:
