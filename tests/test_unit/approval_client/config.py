@@ -161,6 +161,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import
     SearchConfigList,
     SearchConfigWrite,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
+    RAWDatabase,
+    RAWTable,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelRequest,
     SimulatorModelResponse,
@@ -908,6 +912,28 @@ API_RESOURCES = [
         api_name="tool.hosted_extractors.mappings",
         resource_cls=HostedExtractorMappingRequest,
         _write_cls=HostedExtractorMappingResponse,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.raw.databases",
+        resource_cls=RAWDatabase,
+        _write_cls=RAWDatabase,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.raw.tables",
+        resource_cls=RAWTable,
+        _write_cls=RAWTable,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
