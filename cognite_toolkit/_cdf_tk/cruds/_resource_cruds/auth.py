@@ -42,8 +42,7 @@ from rich.markup import escape
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.resource_classes import GroupYAML, SecurityCategoriesYAML
@@ -164,10 +163,10 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group]):
                         for db_name, tables in table_ids.get("dbsToTables", {}).items():
                             yield RawDatabaseCRUD, RAWDatabase(name=db_name)
                             if isinstance(tables, list):
-                                yield from ((RawTableCRUD, RawTable(db_name, table)) for table in tables)
+                                yield from ((RawTableCRUD, RAWTable(db_name=db_name, name=table)) for table in tables)
                             elif isinstance(tables, dict) and "tables" in tables:
                                 for table in tables["tables"]:
-                                    yield RawTableCRUD, RawTable(db_name, table)
+                                    yield RawTableCRUD, RAWTable(db_name=db_name, name=table)
                     if extraction_pipeline_ids := scope.get(cap.ExtractionPipelineScope._scope_name, []):
                         if isinstance(extraction_pipeline_ids, dict) and "ids" in extraction_pipeline_ids:
                             for extraction_pipeline_id in extraction_pipeline_ids["ids"]:
