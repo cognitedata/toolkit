@@ -9,6 +9,7 @@ from cognite.client.data_classes.raw import RowWrite, Table, TableList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable, RawTableList
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_RESOURCE_DIR
@@ -131,10 +132,9 @@ class TestUploadCommand:
         assert isinstance(body, list)
         assert len(body) == 1_000
 
-        client.raw.tables.create.assert_called_once()
-        _, table_kwargs = client.raw.tables.create.call_args
-        assert table_kwargs["db_name"] == "test_db"
-        assert table_kwargs["name"] == ["test_table"]
+        client.tool.raw.tables.create.assert_called_once()
+        raw_tables, *_ = client.tool.raw.tables.create.call_args[0]
+        assert raw_tables == [RAWTableRequest(db_name="test_db", name="test_table")]
 
     def test_upload_raw_rows_dry_run(
         self, toolkit_config: ToolkitClientConfig, raw_json_directory: Path, monkeypatch: pytest.MonkeyPatch

@@ -99,7 +99,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
     LocationFilterResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
+    RAWDatabaseRequest,
+    RAWDatabaseResponse,
+    RAWTableRequest,
+    RAWTableResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     ResourceViewMappingRequest,
@@ -226,12 +231,14 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "data": {"label": "pump"},
             "status": "approved",
         },
-        RAWDatabase: {
+        RAWDatabaseResponse: {
             "name": "example_db",
+            "createdTime": 1622547800000,
         },
-        RAWTable: {
+        RAWTableResponse: {
             "dbName": "example_db",
             "name": "example_table",
+            "createdTime": 1622547800000,
         },
         SimulatorModelResponse: {
             "id": 111,
@@ -680,18 +687,18 @@ def iterate_cdf_resources() -> Iterable[tuple]:
     )
     yield pytest.param(
         CDFResource(
-            response_cls=RAWDatabase,
-            request_cls=RAWDatabase,
-            example_data=get_example_minimum_responses(RAWDatabase),
+            response_cls=RAWDatabaseResponse,
+            request_cls=RAWDatabaseRequest,
+            example_data=get_example_minimum_responses(RAWDatabaseResponse),
             api_class=RawDatabasesAPI,
         ),
         id="RAWDatabase",
     )
     yield pytest.param(
         CDFResource(
-            response_cls=RAWTable,
-            request_cls=RAWTable,
-            example_data=get_example_minimum_responses(RAWTable),
+            response_cls=RAWTableResponse,
+            request_cls=RAWTableRequest,
+            example_data=get_example_minimum_responses(RAWTableResponse),
             is_dump_equal_to_example=False,
             # We cannot use the generic tests RAWTableAPI for the RAWTable resource, as it requires db_name as
             # a path parameter and thus custom endpoint mocking.
