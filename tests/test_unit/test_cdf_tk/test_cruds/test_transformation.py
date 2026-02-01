@@ -10,7 +10,7 @@ from cognite.client.data_classes import data_modeling as dm
 from cognite.client.data_classes.transformations import NonceCredentials
 from cognite.client.exceptions import CogniteAPIError
 
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId, RawTableId
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import (
     DataModelCRUD,
@@ -188,8 +188,8 @@ authentication:
             pytest.param(
                 {"destination": {"type": "raw", "database": "my_db", "table": "my_table"}},
                 [
-                    (RawDatabaseCRUD, RAWDatabaseResponse(name="my_db")),
-                    (RawTableCRUD, RAWTableResponse(db_name="my_db", name="my_table")),
+                    (RawDatabaseCRUD, NameId(name="my_db")),
+                    (RawTableCRUD, RawTableId(db_name="my_db", name="my_table")),
                 ],
                 id="Transformation to RAW table",
             ),
