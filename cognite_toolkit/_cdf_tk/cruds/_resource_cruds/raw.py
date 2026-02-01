@@ -30,7 +30,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWDatabaseResponse,
@@ -44,7 +44,7 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class RawDatabaseCRUD(ResourceContainerCRUD[NameId, RAWDatabaseRequest, RAWDatabaseResponse]):
+class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabaseId, RAWDatabaseRequest, RAWDatabaseResponse]):
     item_name = "raw tables"
     folder_name = "raw"
     resource_cls = RAWDatabaseResponse
@@ -87,24 +87,24 @@ class RawDatabaseCRUD(ResourceContainerCRUD[NameId, RAWDatabaseRequest, RAWDatab
         return RawAcl(actions, scope)
 
     @classmethod
-    def get_id(cls, item: RAWDatabaseResponse | RAWDatabaseRequest | dict) -> NameId:
+    def get_id(cls, item: RAWDatabaseResponse | RAWDatabaseRequest | dict) -> RawDatabaseId:
         if isinstance(item, dict):
-            return NameId(name=item["name"])
-        return NameId(name=item.name)
+            return RawDatabaseId.model_validate(item)
+        return RawDatabaseId(name=item.name)
 
     @classmethod
-    def dump_id(cls, id: NameId) -> dict[str, Any]:
-        return id.dump()
+    def dump_id(cls, id: RawDatabaseId) -> dict[str, Any]:
+        return id.model_dump(mode="json", by_alias=True)
 
     def create(self, items: Sequence[RAWDatabaseRequest]) -> list[RAWDatabaseResponse]:
         return self.client.tool.raw.databases.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[NameId]) -> list[RAWDatabaseResponse]:
+    def retrieve(self, ids: SequenceNotStr[RawDatabaseId]) -> list[RAWDatabaseResponse]:
         database_list = self.client.tool.raw.databases.list(limit=None)
         target_dbs = {db.name for db in ids}
         return [db for db in database_list if db.name in target_dbs]
 
-    def delete(self, ids: SequenceNotStr[NameId]) -> int:
+    def delete(self, ids: SequenceNotStr[RawDatabaseId]) -> int:
         ids_list = list(ids)
         try:
             self.client.tool.raw.databases.delete(ids_list)
@@ -127,7 +127,7 @@ class RawDatabaseCRUD(ResourceContainerCRUD[NameId, RAWDatabaseRequest, RAWDatab
         for databases in self.client.tool.raw.databases.iterate():
             yield from databases
 
-    def count(self, ids: SequenceNotStr[NameId]) -> int:
+    def count(self, ids: SequenceNotStr[RawDatabaseId]) -> int:
         nr_of_tables = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.name), key=lambda x: x.name):
             try:
@@ -139,7 +139,7 @@ class RawDatabaseCRUD(ResourceContainerCRUD[NameId, RAWDatabaseRequest, RAWDatab
             nr_of_tables += len(tables)
         return nr_of_tables
 
-    def drop_data(self, ids: SequenceNotStr[NameId]) -> int:
+    def drop_data(self, ids: SequenceNotStr[RawDatabaseId]) -> int:
         nr_of_tables = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.name), key=lambda x: x.name):
             try:
@@ -229,9 +229,7 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
                 if db_name in {item.get("name") for item in e.missing or []}:
                     continue
                 raise e
-            retrieved.extend(
-                RAWTableResponse(db_name=db_name, name=table.name) for table in tables if table.name in expected_tables
-            )
+            retrieved.extend(table for table in tables if table.name in expected_tables)
         return retrieved
 
     def delete(self, ids: SequenceNotStr[RawTableId]) -> int:

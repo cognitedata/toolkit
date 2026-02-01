@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId, RawDatabaseId, RawTableId
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -18,8 +18,8 @@ else:
 class RAWDatabaseRequest(RequestResource):
     name: str = Field(alias="dbName")
 
-    def as_id(self) -> NameId:
-        return NameId(name=self.name)
+    def as_id(self) -> RawDatabaseId:
+        return RawDatabaseId(name=self.name)
 
     # Override dump to always use by_alias=False since the API expects name='...'
     def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:

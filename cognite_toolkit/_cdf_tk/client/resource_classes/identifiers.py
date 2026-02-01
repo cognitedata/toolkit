@@ -65,6 +65,23 @@ class NameId(Identifier):
         return f"name='{self.name}'"
 
 
+class RawDatabaseId(Identifier):
+    name: str = Field(alias="dbName")
+
+    def __str__(self) -> str:
+        return f"name='{self.name}'"
+
+    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+        """Dump the resource to a dictionary.
+
+        Args:
+            camel_case (bool): Will be ignored. Included for compatibility.
+            exclude_extra (bool): Will be ignored. Included for compatibility.
+
+        """
+        return self.model_dump(mode="json", by_alias=False)
+
+
 class RawTableId(Identifier):
     name: str
     db_name: str

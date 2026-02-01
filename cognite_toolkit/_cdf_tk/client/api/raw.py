@@ -2,7 +2,7 @@ from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWDatabaseResponse,
@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
 )
 
 
-class RawDatabasesAPI(CDFResourceAPI[NameId, RAWDatabaseRequest, RAWDatabaseResponse]):
+class RawDatabasesAPI(CDFResourceAPI[RawDatabaseId, RAWDatabaseRequest, RAWDatabaseResponse]):
     """API for managing RAW databases in CDF.
 
     This API provides methods to create, list, and delete RAW databases.
@@ -46,7 +46,7 @@ class RawDatabasesAPI(CDFResourceAPI[NameId, RAWDatabaseRequest, RAWDatabaseResp
         """
         return self._request_item_response(list(items), "create")
 
-    def delete(self, items: Sequence[NameId], recursive: bool = False) -> None:
+    def delete(self, items: Sequence[RawDatabaseId], recursive: bool = False) -> None:
         """Delete databases from CDF.
 
         Args:
