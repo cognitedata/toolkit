@@ -99,7 +99,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
     LocationFilterResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
+    RAWDatabaseRequest,
+    RAWDatabaseResponse,
+    RAWTableRequest,
+    RAWTableResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     ResourceViewMappingRequest,
@@ -683,7 +688,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
     yield pytest.param(
         CDFResource(
             response_cls=RAWDatabaseResponse,
-            request_cls=RAWDatabaseResponse,
+            request_cls=RAWDatabaseRequest,
             example_data=get_example_minimum_responses(RAWDatabaseResponse),
             api_class=RawDatabasesAPI,
         ),
@@ -692,7 +697,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
     yield pytest.param(
         CDFResource(
             response_cls=RAWTableResponse,
-            request_cls=RAWTableResponse,
+            request_cls=RAWTableRequest,
             example_data=get_example_minimum_responses(RAWTableResponse),
             is_dump_equal_to_example=False,
             # We cannot use the generic tests RAWTableAPI for the RAWTable resource, as it requires db_name as
