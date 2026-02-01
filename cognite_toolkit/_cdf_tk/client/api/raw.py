@@ -146,7 +146,8 @@ class RawTablesAPI(CDFResourceAPI[RawTableId, RAWTableRequest, RAWTableResponse]
                 group, "create", params={"ensureParent": ensure_parent}, endpoint=endpoint
             )
             for table in created:
-                result.append(RAWTableResponse(db_name=db_name, name=table.name))
+                table.db_name = db_name
+                result.append(table)
         return result
 
     def delete(self, items: Sequence[RawTableId]) -> None:
@@ -178,10 +179,8 @@ class RawTablesAPI(CDFResourceAPI[RawTableId, RAWTableRequest, RAWTableResponse]
             PagedResponse of RAWTable objects.
         """
         page = self._paginate(cursor=cursor, limit=limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
-        page_items: list[RAWTableResponse] = []
         for table in page.items:
-            page_items.append(RAWTableResponse(db_name=db_name, name=table.name))
-        page.items = page_items
+            table.db_name = db_name
         return page
 
     def iterate(
@@ -201,7 +200,7 @@ class RawTablesAPI(CDFResourceAPI[RawTableId, RAWTableRequest, RAWTableResponse]
         for table in self._iterate(limit=limit, endpoint_path=f"/raw/dbs/{db_name}/tables"):
             chunk: list[RAWTableResponse] = []
             for t in table:
-                chunk.append(RAWTableResponse(db_name=db_name, name=t.name))
+                t.db_name = db_name
             yield chunk
 
     def list(self, db_name: str, limit: int | None = None) -> list[RAWTableResponse]:
@@ -215,10 +214,9 @@ class RawTablesAPI(CDFResourceAPI[RawTableId, RAWTableRequest, RAWTableResponse]
             List of RAWTable objects.
         """
         listed = self._list(limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
-        to_return: list[RAWTableResponse] = []
         for table in listed:
-            to_return.append(RAWTableResponse(db_name=db_name, name=table.name))
-        return to_return
+            table.db_name = db_name
+        return listed
 
 
 class RawAPI:

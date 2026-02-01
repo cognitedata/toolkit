@@ -415,6 +415,10 @@ class TestCDFResourceAPI:
             listed_tables = list(client.tool.raw.tables.list(limit=1, db_name=db.name))
             if len(listed_tables) == 0:
                 raise EndpointAssertionError(table_list.path, "Expected at least 1 listed table, got 0")
+            if listed_tables[0].db_name != db.name:
+                raise EndpointAssertionError(
+                    table_list.path, "Listed table database name does not match the requested database name."
+                )
         finally:
             # Clean up
             try:
