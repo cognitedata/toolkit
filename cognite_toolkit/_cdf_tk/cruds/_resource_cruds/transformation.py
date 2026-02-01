@@ -65,7 +65,7 @@ from rich import print
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -186,7 +186,7 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
             if not isinstance(destination, dict):
                 return
             if destination.get("type") == "raw" and in_dict(("database", "table"), destination):
-                yield RawDatabaseCRUD, NameId(name=destination["database"])
+                yield RawDatabaseCRUD, RawDatabaseId(name=destination["database"])
                 yield RawTableCRUD, RawTableId(db_name=destination["database"], name=destination["table"])
             elif destination.get("type") in ("nodes", "edges") and (view := destination.get("view", {})):
                 if space := destination.get("instanceSpace"):

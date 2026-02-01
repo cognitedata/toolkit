@@ -35,7 +35,7 @@ from cognite.client.data_classes.extractionpipelines import (
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -124,7 +124,7 @@ class ExtractionPipelineCRUD(ResourceCRUD[str, ExtractionPipelineWrite, Extracti
                 if db := entry.get("dbName"):
                     if db not in seen_databases:
                         seen_databases.add(db)
-                        yield RawDatabaseCRUD, NameId(name=db)
+                        yield RawDatabaseCRUD, RawDatabaseId(name=db)
                     if "tableName" in entry:
                         yield RawTableCRUD, RawTableId(db_name=db, name=entry["tableName"])
 
