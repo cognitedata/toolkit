@@ -3,7 +3,7 @@ from collections.abc import Callable, Iterable, Sequence
 from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId
 from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
@@ -40,7 +40,7 @@ class RawBuilder(Builder):
                     entry_by_loader[RawDatabaseCRUD].append(item)
                 else:
                     entry_by_loader[RawTableCRUD].append(item)
-                    db_item = RAWDatabaseResponse(name=table_id.db_name).model_dump(by_alias=True)
+                    db_item = NameId(name=table_id.db_name).model_dump(by_alias=True)
                     hashable_db_item = tuple(db_item.items())
                     if hashable_db_item not in seen_databases:
                         seen_databases.add(hashable_db_item)
@@ -56,7 +56,7 @@ class RawBuilder(Builder):
                     # We have inferred the database from a Table file, so we need to recalculate the hash
                     # in case we also inferred the database from another Table file
                     new_hash = calculate_hash(
-                        yaml_safe_dump(sorted(entries, key=lambda entry: entry["dbName"])),
+                        yaml_safe_dump(sorted(entries, key=lambda entry: entry["name"])),
                         shorten=True,
                     )
                     source: SourceLocation = SourceLocationEager(path=source_file.source.path, _hash=new_hash)
