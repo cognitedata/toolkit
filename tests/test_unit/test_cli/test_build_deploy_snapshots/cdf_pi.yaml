@@ -68,9 +68,9 @@ Group:
     origin: Cognite Toolkit
   name: gp_transformations_springfield_aveva_pi
   sourceId: <not set>
-RAWDatabase:
+RAWDatabaseResponse:
 - name: ingestion
-RAWTable:
+RAWTableResponse:
 - name: timeseries_metadata
 Transformation:
 - conflictMode: upsert
