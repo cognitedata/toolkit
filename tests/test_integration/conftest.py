@@ -41,7 +41,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPResult, RequestMessage, SuccessResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
     RawTable,
 )
@@ -283,7 +283,7 @@ def populated_raw_table(toolkit_client: ToolkitClient, raw_data: RowWriteList) -
 def aggregator_raw_db(toolkit_client: ToolkitClient) -> str:
     loader = RawDatabaseCRUD.create_loader(toolkit_client)
     db_name = "toolkit_aggregators_test_db"
-    if not loader.retrieve([NameId(name=db_name)]):
+    if not loader.retrieve([RawDatabaseId(name=db_name)]):
         loader.create([RAWDatabaseRequest(name=db_name)])
     return db_name
 

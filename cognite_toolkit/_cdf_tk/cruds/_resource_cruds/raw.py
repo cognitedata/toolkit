@@ -214,7 +214,7 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dbName" in item:
-            yield RawDatabaseCRUD, NameId(name=item["dbName"])
+            yield RawDatabaseCRUD, RawDatabaseId(name=item["dbName"])
 
     def create(self, items: Sequence[RAWTableRequest]) -> list[RAWTableResponse]:
         return self.client.tool.raw.tables.create(items)
@@ -263,7 +263,7 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
     ) -> Iterable[RAWTableResponse]:
         if parent_ids is None:
             dbs = self.client.tool.raw.databases.list(limit=None)
-            parent_ids = [NameId(name=db.name) for db in dbs]
+            parent_ids = [RawDatabaseId(name=db.name) for db in dbs]
         for parent_id in parent_ids:
             if not isinstance(parent_id, NameId):
                 continue

@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId, RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -47,8 +47,8 @@ class RAWDatabaseResponse(ResponseResource[RAWDatabaseRequest]):
     def as_request_resource(self) -> RAWDatabaseRequest:
         return RAWDatabaseRequest.model_validate(self.dump(), extra="ignore")
 
-    def as_id(self) -> NameId:
-        return NameId(name=self.name)
+    def as_id(self) -> RawDatabaseId:
+        return RawDatabaseId(name=self.name)
 
 
 class RAWTableRequest(RequestResource):
