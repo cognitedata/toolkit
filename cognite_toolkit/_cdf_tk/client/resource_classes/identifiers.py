@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, model_serializer, model_validator
+from pydantic import AliasChoices, Field, model_serializer, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 
@@ -66,7 +66,7 @@ class NameId(Identifier):
 
 
 class RawDatabaseId(Identifier):
-    name: str = Field(alias="dbName")
+    name: str = Field(alias="name", validation_alias=AliasChoices("dbName", "name"))
 
     def __str__(self) -> str:
         return f"name='{self.name}'"
