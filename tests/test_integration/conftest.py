@@ -41,11 +41,14 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPResult, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
     RawTable,
-    RawTableList,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
+    RAWDatabaseRequest,
+    RAWTableRequest,
+)
 from cognite_toolkit._cdf_tk.commands import CollectCommand
 from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -280,8 +283,8 @@ def populated_raw_table(toolkit_client: ToolkitClient, raw_data: RowWriteList) -
 def aggregator_raw_db(toolkit_client: ToolkitClient) -> str:
     loader = RawDatabaseCRUD.create_loader(toolkit_client)
     db_name = "toolkit_aggregators_test_db"
-    if not loader.retrieve([RAWDatabaseResponse(name=db_name)]):
-        loader.create([RAWDatabaseResponse(name=db_name)])
+    if not loader.retrieve([NameId(name=db_name)]):
+        loader.create([RAWDatabaseRequest(name=db_name)])
     return db_name
 
 
@@ -315,11 +318,11 @@ def aggregator_root_asset(toolkit_client: ToolkitClient, aggregator_two_datasets
     return retrieved
 
 
-def create_raw_table_with_data(client: ToolkitClient, table: RAWTableResponse, rows: list[RowWrite]) -> None:
+def create_raw_table_with_data(client: ToolkitClient, table: RAWTableRequest, rows: list[RowWrite]) -> None:
     loader = RawTableCRUD.create_loader(client)
-    existing_tables = loader.retrieve([table])
+    existing_tables = loader.retrieve([table.as_id()])
     if not existing_tables:
-        loader.create(RawTableList([table]))
+        loader.create([table])
     data = client.raw.rows.list(table.db_name, table.name, limit=len(rows))
     if not data:
         client.raw.rows.insert(table.db_name, table.name, rows)
@@ -370,7 +373,7 @@ def aggregator_assets(
     ]
     create_raw_table_with_data(
         toolkit_client,
-        RAWTableResponse(db_name=aggregator_raw_db, name=table_name),
+        RAWTableRequest(db_name=aggregator_raw_db, name=table_name),
         rows,
     )
 
@@ -422,7 +425,7 @@ def aggregator_events(
     ]
     create_raw_table_with_data(
         toolkit_client,
-        RAWTableResponse(db_name=aggregator_raw_db, name=table_name),
+        RAWTableRequest(db_name=aggregator_raw_db, name=table_name),
         rows,
     )
     transformation = TransformationWrite(
@@ -466,7 +469,7 @@ def aggregator_files(
 
     create_raw_table_with_data(
         toolkit_client,
-        RAWTableResponse(db_name=aggregator_raw_db, name=table_name),
+        RAWTableRequest(db_name=aggregator_raw_db, name=table_name),
         rows,
     )
     transformation = TransformationWrite(
@@ -520,7 +523,7 @@ def aggregator_time_series(
     ]
     create_raw_table_with_data(
         toolkit_client,
-        RAWTableResponse(db_name=aggregator_raw_db, name=table_name),
+        RAWTableRequest(db_name=aggregator_raw_db, name=table_name),
         rows,
     )
     transformation = TransformationWrite(
@@ -561,7 +564,7 @@ def aggregator_sequences(
     ]
     create_raw_table_with_data(
         toolkit_client,
-        RAWTableResponse(db_name=aggregator_raw_db, name=table_name),
+        RAWTableRequest(db_name=aggregator_raw_db, name=table_name),
         rows,
     )
     transformation = TransformationWrite(
