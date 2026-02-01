@@ -137,6 +137,7 @@ class TestCDFResourceAPI:
         """
         resource = get_example_minimum_responses(RAWTableResponse)
         instance = RAWTableResponse.model_validate(resource)
+        request = instance.as_request_resource()
         config = toolkit_config
         api = RawTablesAPI(HTTPClient(config))
 
@@ -144,7 +145,7 @@ class TestCDFResourceAPI:
         respx_mock.post(config.create_api_url(f"/raw/dbs/{instance.db_name}/tables")).mock(
             return_value=httpx.Response(status_code=200, json={"items": [resource]})
         )
-        created = api.create([instance])
+        created = api.create([request])
         assert len(created) == 1
         assert created[0] == instance
 
@@ -152,7 +153,7 @@ class TestCDFResourceAPI:
         respx_mock.post(config.create_api_url(f"/raw/dbs/{instance.db_name}/tables/delete")).mock(
             return_value=httpx.Response(status_code=200)
         )
-        api.delete([instance])
+        api.delete([request.as_id()])
 
         # Test retrieve list
         respx_mock.get(config.create_api_url(f"/raw/dbs/{instance.db_name}/tables")).mock(

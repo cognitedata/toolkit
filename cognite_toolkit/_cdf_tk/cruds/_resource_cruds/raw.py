@@ -264,11 +264,9 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[RAWTableResponse]:
         if parent_ids is None:
-            # RAWDatabases are hashable, so this is safe.
-            dbs = self.client.tool.raw.databases.list(limit=None)  # type: ignore[assignment]
+            dbs = self.client.tool.raw.databases.list(limit=None)
             parent_ids = [NameId(name=db.name) for db in dbs]
-        # MyPy complains about parent_ids None here, but we just set it above.
-        for parent_id in parent_ids:  # type: ignore[union-attr]
+        for parent_id in parent_ids:
             if not isinstance(parent_id, NameId):
                 continue
             for tables in self.client.tool.raw.tables.iterate(db_name=parent_id.name):

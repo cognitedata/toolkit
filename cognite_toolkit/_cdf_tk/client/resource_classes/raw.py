@@ -83,6 +83,7 @@ class RAWTableResponse(ResponseResource[RAWTableRequest]):
     # Default to empty string to allow parsing from API responses (which don't include db_name).
     db_name: str = Field(default="", exclude=True)
     name: str
+    created_time: int
 
     def as_request_resource(self) -> RAWTableRequest:
         dumped = {**self.dump(), "dbName": self.db_name}

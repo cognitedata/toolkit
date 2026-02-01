@@ -228,10 +228,12 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
         },
         RAWDatabaseResponse: {
             "name": "example_db",
+            "createdTime": 1622547800000,
         },
         RAWTableResponse: {
             "dbName": "example_db",
             "name": "example_table",
+            "createdTime": 1622547800000,
         },
         SimulatorModelResponse: {
             "id": 111,
