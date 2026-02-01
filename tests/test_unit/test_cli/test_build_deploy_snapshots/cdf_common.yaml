@@ -55,10 +55,10 @@ Function:
     cognite-toolkit-hash: /=d32c50d9;handler.py=7a0c434e;requirements.txt=1d4815ec
   name: Annotation to Direct Relations Writer
   owner: Anonymous
-RAWDatabase:
+RAWDatabaseResponse:
 - name: contextualizationState
 - name: ingestion
-RAWTable:
+RAWTableResponse:
 - name: diagramParsing
 Space:
 - description: This space contains data

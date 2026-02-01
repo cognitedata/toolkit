@@ -641,9 +641,9 @@ Node:
 - externalId: startNode
   instanceType: node
   space: sp_instance
-RAWDatabase:
+RAWDatabaseResponse:
 - name: db_complete_org
-RAWTable:
+RAWTableResponse:
 - name: asset
 Relationship:
 - confidence: 0.42
