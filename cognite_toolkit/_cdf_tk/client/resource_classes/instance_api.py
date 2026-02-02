@@ -1,8 +1,14 @@
-from typing import Any, ClassVar, Literal, TypeAlias
+from abc import ABC, abstractmethod
+from typing import Any, ClassVar, Literal, TypeAlias, TypeVar
 
-from pydantic import ConfigDict, JsonValue, model_serializer
+from pydantic import model_validator
 
-from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Identifier, RequestResource
+from cognite_toolkit._cdf_tk.client._resource_base import (
+    BaseModelObject,
+    Identifier,
+    RequestResource,
+    ResponseResource,
+)
 
 InstanceType: TypeAlias = Literal["node", "edge"]
 
@@ -39,6 +45,9 @@ class TypedEdgeIdentifier(TypedInstanceIdentifier):
         return f"Edge({self.space}, {self.external_id})"
 
 
+T_TypedInstanceIdentifier = TypeVar("T_TypedInstanceIdentifier", bound=TypedInstanceIdentifier)
+
+
 class InstanceIdentifier(Identifier):
     space: str
     external_id: str
@@ -64,7 +73,7 @@ class InstanceResult(BaseModelObject):
         )
 
 
-class ViewReference(Identifier):
+class TypedViewReference(Identifier):
     type: Literal["view"] = "view"
     space: str
     external_id: str
@@ -88,107 +97,138 @@ class ViewReference(Identifier):
 #######################################################
 
 
-class InstanceRequestResource(RequestResource):
-    """This is a base class for resources that are Instances."""
+class WrappedInstanceRequest(RequestResource, ABC):
+    """This is a base class for resources that are Instances.
+    It is used to define resources that are
+    """
 
-    VIEW_ID: ClassVar[ViewReference]
-    instance_type: InstanceType
-    space: str
-    external_id: str
-
-    def as_id(self) -> TypedInstanceIdentifier:
-        return TypedInstanceIdentifier(
-            instance_type=self.instance_type,
-            space=self.space,
-            external_id=self.external_id,
-        )
-
-    def as_request_item(self) -> "InstanceRequestItem":
-        return InstanceRequestItem(
-            instance_type=self.instance_type,
-            space=self.space,
-            external_id=self.external_id,
-            sources=[InstanceSource(source=self.VIEW_ID, resource=self)],
-        )
-
-
-class InstanceSource(BaseModelObject):
-    source: ViewReference
-    resource: InstanceRequestResource
-
-    @model_serializer(mode="plain")
-    def serialize_resource(self) -> dict[str, Any]:
-        properties: dict[str, JsonValue] = {}
-        for field_id, field in type(self.resource).model_fields.items():
-            if field_id in InstanceRequestResource.model_fields:
-                # Skip space, external_id, instance_type
-                continue
-            key = field.alias or field_id
-            properties[key] = self._serialize_property(getattr(self.resource, field_id))
-
-        return {
-            "source": self.source.model_dump(by_alias=True),
-            "properties": properties,
-        }
-
-    @classmethod
-    def _serialize_property(cls, value: Any) -> JsonValue:
-        """Handles serialization of direct relations."""
-        if isinstance(value, InstanceRequestResource):
-            return {"space": value.space, "externalId": value.external_id}
-        elif isinstance(value, list):
-            return [cls._serialize_property(v) for v in value]
-        return value
-
-
-class InstanceRequestItem(RequestResource):
-    model_config = ConfigDict(populate_by_name=True)
+    VIEW_ID: ClassVar[TypedViewReference]
     instance_type: InstanceType
     space: str
     external_id: str
     existing_version: int | None = None
-    sources: list[InstanceSource] | None = None
 
-    def as_id(self) -> TypedInstanceIdentifier:
-        return TypedInstanceIdentifier(
-            instance_type=self.instance_type,
-            space=self.space,
-            external_id=self.external_id,
-        )
+    def dump(
+        self, camel_case: bool = True, exclude_extra: bool = False, context: Literal["api", "toolkit"] = "api"
+    ) -> dict[str, Any]:
+        """Dump the resource to a dictionary.
+
+        Args:
+            camel_case (bool): Whether to use camelCase for the keys. Default is True.
+            exclude_extra (bool): Whether to exclude extra fields not defined in the model. Default is False.
+            context (Literal["api", "toolkit"]): The context in which the dump is used. Default is "api".
+
+        """
+        exclude: set[str] = set()
+        if exclude_extra:
+            exclude |= set(self.__pydantic_extra__) if self.__pydantic_extra__ else set()
+        if context == "api":
+            exclude.update({"existing_version", "instance_type", "space", "external_id"})
+        dumped = self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True, exclude=exclude)
+        if context == "toolkit":
+            return dumped
+        return {
+            "instanceType": self.instance_type,
+            "space": self.space,
+            "externalId": self.external_id,
+            "sources": [
+                {
+                    "source": self.VIEW_ID.dump(camel_case=camel_case, include_type=True),
+                    "properties": dumped,
+                }
+            ],
+        }
 
 
-class InstanceResponseItem(BaseModelObject):
+T_WrappedInstanceRequest = TypeVar("T_WrappedInstanceRequest", bound=WrappedInstanceRequest)
+
+
+class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
+    VIEW_ID: ClassVar[TypedViewReference]
     instance_type: InstanceType
     space: str
     external_id: str
+
     version: int
-    type: TypedInstanceIdentifier | None = None
     created_time: int
     last_updated_time: int
     deleted_time: int | None = None
-    properties: dict[str, dict[str, dict[str, JsonValue]]] | None = None
 
-    def get_properties_for_source(
-        self, source: ViewReference, include_identifier: bool = False
-    ) -> dict[str, JsonValue]:
-        output: dict[str, JsonValue] = (
-            {"space": self.space, "externalId": self.external_id} if include_identifier else {}
-        )
-        if not self.properties:
-            return output
-        if source.space not in self.properties:
-            return output
-        space_properties = self.properties[source.space]
-        view_version = f"{source.external_id}/{source.version}"
-        output.update(space_properties.get(view_version, {}))
-        return output
+    @model_validator(mode="before")
+    def move_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Move properties from sources to the top level."""
+        return move_properties(values, cls.VIEW_ID)
 
-    def as_id(self) -> TypedInstanceIdentifier:
-        return TypedInstanceIdentifier(
+
+def move_properties(values: dict[str, Any], view_id: TypedViewReference) -> dict[str, Any]:
+    """Help function to move properties from properties.space.externalId/version to the top level.
+
+    It is used in WrappedInstanceResponse to move properties from the response to the top level.
+    """
+    if "properties" not in values:
+        return values
+    values_copy = dict(values)
+    properties = values_copy.pop("properties")
+    if not isinstance(properties, dict) or view_id.space not in properties:
+        return values
+    view_properties = properties.pop(view_id.space)
+    identifier = f"{view_id.external_id}/{view_id.version}"
+    if not isinstance(view_properties, dict) or identifier not in view_properties:
+        return values
+    source_properties = view_properties.pop(identifier)
+    values_copy.update(source_properties)
+    return values_copy
+
+
+T_WrappedInstanceResponse = TypeVar("T_WrappedInstanceResponse", bound=WrappedInstanceResponse)
+
+
+class WrappedInstanceListRequest(RequestResource, ABC):
+    VIEW_ID: ClassVar[TypedViewReference]
+    instance_type: Literal["node"] = "node"
+    space: str
+    external_id: str
+
+    @abstractmethod
+    def dump_instances(self) -> list[dict[str, Any]]:
+        """Dumps the object to a list of instance request dictionaries."""
+        raise NotImplementedError()
+
+    def as_id(self) -> TypedNodeIdentifier:
+        return TypedNodeIdentifier(
             instance_type=self.instance_type,
             space=self.space,
             external_id=self.external_id,
         )
+
+    @abstractmethod
+    def as_ids(self) -> list[TypedInstanceIdentifier]:
+        """Convert the response to a list of typed instance identifiers."""
+        raise NotImplementedError()
+
+
+T_InstancesListRequest = TypeVar("T_InstancesListRequest", bound=WrappedInstanceListRequest)
+
+
+class WrappedInstanceListResponse(ResponseResource[T_InstancesListRequest], ABC):
+    VIEW_ID: ClassVar[TypedViewReference]
+    instance_type: Literal["node"] = "node"
+    space: str
+    external_id: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def move_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Move properties from sources to the top level."""
+        return move_properties(values, cls.VIEW_ID)
+
+    @abstractmethod
+    def as_ids(self) -> list[TypedInstanceIdentifier]:
+        """Convert the response to a list of typed instance identifiers."""
+        raise NotImplementedError()
+
+
+T_InstancesListResponse = TypeVar("T_InstancesListResponse", bound=WrappedInstanceListResponse)
 
 
 class NodeReference(BaseModelObject):
