@@ -11,14 +11,12 @@ class SimulatorModelRevision(BaseModelObject):
     description: str | None = None
     file_id: int
 
-    def as_id(self) -> ExternalId:
-        return ExternalId(external_id=self.external_id)
-
 
 class SimulatorModelRevisionRequest(RequestResource, SimulatorModelRevision):
     """Request class for creating a simulator model revision."""
 
-    ...
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
 
 
 class SimulatorModelRevisionResponse(ResponseResource[SimulatorModelRevisionRequest], SimulatorModelRevision):
@@ -28,7 +26,7 @@ class SimulatorModelRevisionResponse(ResponseResource[SimulatorModelRevisionRequ
     description: str | None = None
     simulator_model_external_id: str
     created_by_user_id: str
-    status: Literal["unknown", "uccess", "failure"] = "unknown"
+    status: Literal["unknown", "success", "failure"] = "unknown"
     status_message: str | None = None
     version_number: int
     log_id: int
