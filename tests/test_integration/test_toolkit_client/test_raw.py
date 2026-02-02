@@ -3,6 +3,7 @@ from cognite.client.data_classes.raw import RowWriteList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
     BooleanProfileColumn,
     NumberProfileColumn,
@@ -12,7 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
     UnknownTypeProfileColumn,
     VectorProfileColumn,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse
 
 
 @pytest.fixture(scope="module")
@@ -50,7 +51,7 @@ class TestRAWDatabasesAPI:
         client = toolkit_client
 
         with pytest.raises(ToolkitAPIError) as exc_info:
-            client.tool.raw.databases.delete([RAWDatabaseResponse(name="this_db_does_not_exist")], recursive=True)
+            client.tool.raw.databases.delete([RawDatabaseId(name="this_db_does_not_exist")], recursive=True)
 
         error = exc_info.value
         assert error.missing == [{"name": "this_db_does_not_exist"}]
@@ -62,7 +63,7 @@ class TestRAWTablesAPI:
         db = persistent_raw_database
 
         with pytest.raises(ToolkitAPIError) as exc_info:
-            client.tool.raw.tables.delete([RAWTableResponse(db_name=db.name, name="this_table_does_not_exist")])
+            client.tool.raw.tables.delete([RawTableId(db_name=db.name, name="this_table_does_not_exist")])
 
         error = exc_info.value
         assert error.missing == [{"name": "this_table_does_not_exist"}]

@@ -94,7 +94,7 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabaseId, RAWDatabaseRequest, R
 
     @classmethod
     def dump_id(cls, id: RawDatabaseId) -> dict[str, Any]:
-        return id.model_dump(mode="json", by_alias=True)
+        return {"dbName": id.name}
 
     def create(self, items: Sequence[RAWDatabaseRequest]) -> list[RAWDatabaseResponse]:
         return self.client.tool.raw.databases.create(items)

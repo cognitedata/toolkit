@@ -14,7 +14,7 @@ from rich.progress import track
 from cognite_toolkit._cdf_tk.builders import Builder, FunctionBuilder, create_builder
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
@@ -606,7 +606,7 @@ class BuildCommand(ToolkitCommand):
             if identifier:
                 identifier_kind_pairs.append((identifier, item_loader.kind))
                 if first_seen := self._ids_by_resource_type[item_loader].get(identifier):
-                    if isinstance(identifier, RAWDatabaseResponse):
+                    if isinstance(identifier, RawDatabaseId):
                         # RawDatabases are picked up from both RawTables and RawDatabases files. Note it is not possible
                         # to define a raw table without also defining the raw database. Thus, it is impossible to
                         # avoid duplicated RawDatabase warnings if you have multiple RawTables files.
