@@ -136,9 +136,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
     HostedExtractorSourceResponseUnion,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
-    InFieldCDMLocationConfig,
-    InfieldLocationConfig,
-    InfieldLocationConfigList,
+    InFieldCDMLocationConfigRequest,
+    InFieldCDMLocationConfigResponse,
+    InFieldLocationConfigRequest,
+    InFieldLocationConfigResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import (
     GraphQLDataModel,
@@ -733,26 +734,23 @@ API_RESOURCES = [
     ),
     APIResource(
         api_name="infield.config",
-        resource_cls=InfieldLocationConfig,
-        _list_cls=InfieldLocationConfigList,
-        _write_cls=InfieldLocationConfig,
+        resource_cls=InFieldLocationConfigResponse,
+        _write_cls=InFieldLocationConfigRequest,
         methods={
-            "create": [Method(api_class_method="apply", mock_class_method="create_multiple")],
+            "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
-                Method(api_class_method="retrieve", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
             ],
         },
     ),
     APIResource(
         api_name="infield.cdm_config",
-        resource_cls=InFieldCDMLocationConfig,
-        _write_cls=InFieldCDMLocationConfig,
-        # Todo: Remove these.
-        _list_cls=InfieldLocationConfigList,
+        resource_cls=InFieldCDMLocationConfigResponse,
+        _write_cls=InFieldCDMLocationConfigRequest,
         methods={
-            "create": [Method(api_class_method="apply", mock_class_method="create_multiple")],
+            "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
-                Method(api_class_method="retrieve", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
             ],
         },
     ),

@@ -4,6 +4,7 @@ from cognite.client.data_classes.data_modeling.ids import DataModelId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters import (
     AssetCentricFilter,
     AssetCentricSubFilter,
+    LocationFilter,
     LocationFilterScene,
     LocationFilterWrite,
 )
@@ -117,3 +118,23 @@ class TestLocationFilterLoader:
         assert isinstance(error, ToolkitCycleError)
         assert "cycle" in str(error).lower()
         assert "location filters" in str(error).lower()
+
+    def test_dump_minimum(
+        self,
+        toolkit_client_approval: ApprovalToolkitClient,
+    ) -> None:
+        crud = LocationFilterCRUD.create_loader(toolkit_client_approval.mock_client)
+        location_filter = LocationFilter(
+            external_id="springfield",
+            name="Springfield Location",
+            created_time=1,
+            updated_time=1,
+            id=1,
+            data_modeling_type="HYBRID",
+        )
+        dumped = crud.dump_resource(location_filter)
+        assert dumped == {
+            "externalId": "springfield",
+            "name": "Springfield Location",
+            "dataModelingType": "HYBRID",
+        }

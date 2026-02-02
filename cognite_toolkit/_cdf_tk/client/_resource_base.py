@@ -3,10 +3,8 @@
 import sys
 import types
 from abc import ABC, abstractmethod
-from collections import UserList
 from typing import Any, ClassVar, Generic, Literal, TypeVar, Union, get_args, get_origin
 
-from cognite.client import CogniteClient
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
@@ -165,23 +163,3 @@ class ResponseResource(BaseModelObject, Generic[T_RequestResource], ABC):
 
 
 T_ResponseResource = TypeVar("T_ResponseResource", bound=ResponseResource)
-
-# Todo: Delete this class and use list[T_Resource] directly
-T_Resource = TypeVar("T_Resource", bound=RequestResource | ResponseResource)
-
-
-class BaseResourceList(UserList[T_Resource]):
-    """Base class for resource lists."""
-
-    _RESOURCE: type[T_Resource]
-
-    def __init__(self, initlist: list[T_Resource] | None = None, **_: Any) -> None:
-        super().__init__(initlist or [])
-
-    def dump(self, camel_case: bool = True) -> list[dict[str, Any]]:
-        return [item.dump(camel_case) for item in self.data]
-
-    @classmethod
-    def load(cls, data: list[dict[str, Any]], cognite_client: "CogniteClient | None" = None) -> Self:
-        items = [cls._RESOURCE.model_validate(item) for item in data]
-        return cls(items)  # type: ignore[arg-type]
