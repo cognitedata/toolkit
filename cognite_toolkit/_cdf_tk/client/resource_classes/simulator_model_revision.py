@@ -1,11 +1,11 @@
-from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, ResponseResource
+from typing import Literal
+
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 
 from .identifiers import ExternalId
 
 
-class SimulatorModelRevisionRequest(RequestResource):
-    """Request class for creating a simulator model revision."""
-
+class SimulatorModelRevision(BaseModelObject):
     external_id: str
     model_external_id: str
     description: str | None = None
@@ -15,28 +15,26 @@ class SimulatorModelRevisionRequest(RequestResource):
         return ExternalId(external_id=self.external_id)
 
 
-class SimulatorModelRevisionResponse(ResponseResource[SimulatorModelRevisionRequest]):
+class SimulatorModelRevisionRequest(RequestResource, SimulatorModelRevision):
+    """Request class for creating a simulator model revision."""
+
+    ...
+
+
+class SimulatorModelRevisionResponse(ResponseResource[SimulatorModelRevisionRequest], SimulatorModelRevision):
     """Response class for a simulator model revision."""
 
     id: int
-    external_id: str
-    simulator_external_id: str
-    model_external_id: str
     description: str | None = None
-    file_id: int
-    created_by_user_id: str | None = None
-    status: str
+    simulator_model_external_id: str
+    created_by_user_id: str
+    status: Literal["unknown", "uccess", "failure"] = "unknown"
     status_message: str | None = None
     version_number: int
-    log_id: int | None = None
-    data_set_id: int | None = None
+    log_id: int
+    data_set_id: int
     created_time: int
     last_updated_time: int
 
     def as_request_resource(self) -> SimulatorModelRevisionRequest:
-        return SimulatorModelRevisionRequest(
-            external_id=self.external_id,
-            model_external_id=self.model_external_id,
-            description=self.description,
-            file_id=self.file_id,
-        )
+        return SimulatorModelRevisionRequest.model_validate(self.dump(), extra="ignore")

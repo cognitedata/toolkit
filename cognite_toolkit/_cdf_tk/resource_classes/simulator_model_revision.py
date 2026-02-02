@@ -10,6 +10,6 @@ class SimulatorModelRevisionYAML(ToolkitResource):
     """
 
     external_id: str = Field(description="External ID of the simulator model revision.", min_length=1, max_length=255)
-    model_external_id: str = Field(description="External ID of the simulator model.", min_length=1, max_length=255)
-    description: str | None = Field(None, description="Description of the simulator model revision.", max_length=500)
+    model_external_id: str = Field(description="External ID of the simulator model.")
+    description: str | None = Field(None, description="Description of the simulator model revision.", max_length=255)
     file_external_id: str = Field(description="External ID of the file containing the model.")
