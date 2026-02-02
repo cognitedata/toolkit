@@ -4,6 +4,11 @@ from typing import Any, final
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.request_classes.filters import (
+    SimulatorModelRevisionFilter,
+    SimulatorModelRoutineFilter,
+    SimulatorModelRoutineRevisionFilter,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelRequest,
@@ -28,7 +33,7 @@ from cognite_toolkit._cdf_tk.resource_classes.simulator_routine import Simulator
 from cognite_toolkit._cdf_tk.resource_classes.simulator_routine_revision import SimulatorRoutineRevisionYAML
 
 from .data_organization import DataSetsCRUD
-from .file import CogniteFileCRUD
+from .file import CogniteFileCRUD, FileMetadataCRUD
 
 
 @final
@@ -139,14 +144,18 @@ class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, Simulat
 
 
 @final
-class SimulatorModelRevisionCRUD(ResourceCRUD[ExternalId, SimulatorModelRevisionRequest, SimulatorModelRevisionResponse]):
+class SimulatorModelRevisionCRUD(
+    ResourceCRUD[ExternalId, SimulatorModelRevisionRequest, SimulatorModelRevisionResponse]
+):
     folder_name = "simulators"
     resource_cls = SimulatorModelRevisionResponse
     resource_write_cls = SimulatorModelRevisionRequest
     yaml_cls = SimulatorModelRevisionYAML
     kind = "SimulatorModelRevision"
-    dependencies = frozenset({SimulatorModelCRUD, CogniteFileCRUD})
+    dependencies = frozenset({SimulatorModelCRUD, CogniteFileCRUD, FileMetadataCRUD})
     _doc_url = "Simulator-Models/operation/create_simulator_model_revision_simulators_models_revisions_post"
+
+    support_update = False
 
     @property
     def display_name(self) -> str:
@@ -184,10 +193,6 @@ class SimulatorModelRevisionCRUD(ResourceCRUD[ExternalId, SimulatorModelRevision
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[SimulatorModelRevisionResponse]:
         return self.client.tool.simulators.model_revisions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[SimulatorModelRevisionRequest]) -> list[SimulatorModelRevisionResponse]:
-        # Simulator model revisions do not support updates
-        raise NotImplementedError("Simulator model revisions do not support updates")
-
     def delete(self, ids: SequenceNotStr[ExternalId | InternalOrExternalId]) -> int:
         # Simulator model revisions do not support delete
         raise NotImplementedError("Simulator model revisions do not support delete")
@@ -198,21 +203,13 @@ class SimulatorModelRevisionCRUD(ResourceCRUD[ExternalId, SimulatorModelRevision
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[SimulatorModelRevisionResponse]:
-        cursor: str | None = None
         model_external_ids: list[str] | None = None
         if parent_ids:
             model_external_ids = [str(pid) for pid in parent_ids]
-        while True:
-            page = self.client.tool.simulators.model_revisions.paginate(
-                model_external_ids=model_external_ids,
-                all_versions=True,
-                limit=1000,
-                cursor=cursor,
-            )
-            yield from page.items
-            if not page.next_cursor or not page.items:
-                break
-            cursor = page.next_cursor
+        for items in self.client.tool.simulators.model_revisions.iterate(
+            filter=SimulatorModelRevisionFilter(model_external_ids=model_external_ids)
+        ):
+            yield from items
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -304,20 +301,13 @@ class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, Sim
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[SimulatorRoutineResponse]:
-        cursor: str | None = None
         model_external_ids: list[str] | None = None
         if parent_ids:
             model_external_ids = [str(pid) for pid in parent_ids]
-        while True:
-            page = self.client.tool.simulators.routines.paginate(
-                model_external_ids=model_external_ids,
-                limit=1000,
-                cursor=cursor,
-            )
-            yield from page.items
-            if not page.next_cursor or not page.items:
-                break
-            cursor = page.next_cursor
+        for items in self.client.tool.simulators.routines.iterate(
+            filter=SimulatorModelRoutineFilter(model_external_ids=model_external_ids),
+        ):
+            yield from items
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -327,9 +317,7 @@ class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, Sim
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SimulatorRoutineRequest:
         return SimulatorRoutineRequest.model_validate(resource)
 
-    def dump_resource(
-        self, resource: SimulatorRoutineResponse, local: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
+    def dump_resource(self, resource: SimulatorRoutineResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         return resource.as_request_resource().dump()
 
 
@@ -395,21 +383,13 @@ class SimulatorRoutineRevisionCRUD(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[SimulatorRoutineRevisionResponse]:
-        cursor: str | None = None
         routine_external_ids: list[str] | None = None
         if parent_ids:
             routine_external_ids = [str(pid) for pid in parent_ids]
-        while True:
-            page = self.client.tool.simulators.routine_revisions.paginate(
-                routine_external_ids=routine_external_ids,
-                all_versions=True,
-                limit=1000,
-                cursor=cursor,
-            )
-            yield from page.items
-            if not page.next_cursor or not page.items:
-                break
-            cursor = page.next_cursor
+        for items in self.client.tool.simulators.routine_revisions.iterate(
+            filter=SimulatorModelRoutineRevisionFilter(routine_external_ids=routine_external_ids)
+        ):
+            yield from items
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:

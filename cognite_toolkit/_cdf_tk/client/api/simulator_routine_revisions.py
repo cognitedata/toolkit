@@ -1,9 +1,9 @@
 from collections.abc import Iterable, Sequence
-from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.request_classes.filters import SimulatorModelRoutineRevisionFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision import (
     SimulatorRoutineRevisionRequest,
@@ -18,12 +18,8 @@ class SimulatorRoutineRevisionsAPI(
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(
-                    method="POST", path="/simulators/routines/revisions", item_limit=1, concurrency_max_workers=1
-                ),
-                "retrieve": Endpoint(
-                    method="POST", path="/simulators/routines/revisions/byids", item_limit=1, concurrency_max_workers=1
-                ),
+                "create": Endpoint(method="POST", path="/simulators/routines/revisions", item_limit=1),
+                "retrieve": Endpoint(method="POST", path="/simulators/routines/revisions/byids", item_limit=1),
                 "list": Endpoint(method="POST", path="/simulators/routines/revisions/list", item_limit=1000),
             },
         )
@@ -66,57 +62,47 @@ class SimulatorRoutineRevisionsAPI(
 
     def paginate(
         self,
-        routine_external_ids: list[str] | None = None,
-        all_versions: bool = False,
+        filter: SimulatorModelRoutineRevisionFilter | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[SimulatorRoutineRevisionResponse]:
         """Iterate over simulator routine revisions in CDF.
 
         Args:
-            routine_external_ids: Filter by routine external IDs.
-            all_versions: Whether to return all versions.
+            filter: Filter to apply to the list of simulator routine revisions.
             limit: Maximum number of items to return per page.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of SimulatorRoutineRevisionResponse objects.
         """
-        filter_: dict[str, Any] = {}
-        if routine_external_ids:
-            filter_["routineExternalIds"] = routine_external_ids
-        filter_["allVersions"] = all_versions
-
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            body={"filter": filter_ or None},
+            body={
+                "filter": filter.dump() if filter else None,
+            },
         )
 
     def iterate(
         self,
-        routine_external_ids: list[str] | None = None,
-        all_versions: bool = False,
+        filter: SimulatorModelRoutineRevisionFilter | None = None,
         limit: int = 100,
     ) -> Iterable[list[SimulatorRoutineRevisionResponse]]:
         """Iterate over simulator routine revisions in CDF.
 
         Args:
-            routine_external_ids: Filter by routine external IDs.
-            all_versions: Whether to return all versions.
+            filter: Filter to apply to the list of simulator routine revisions.
             limit: Maximum number of items to return per page.
 
         Returns:
             Iterable of lists of SimulatorRoutineRevisionResponse objects.
         """
-        filter_: dict[str, Any] = {}
-        if routine_external_ids:
-            filter_["routineExternalIds"] = routine_external_ids
-        filter_["allVersions"] = all_versions
-
         return self._iterate(
             limit=limit,
-            body={"filter": filter_ or None},
+            body={
+                "filter": filter.dump() if filter else None,
+            },
         )
 
     def list(

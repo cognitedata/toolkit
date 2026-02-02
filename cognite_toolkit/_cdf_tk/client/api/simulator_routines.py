@@ -1,9 +1,9 @@
 from collections.abc import Iterable, Sequence
-from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.request_classes.filters import SimulatorModelRoutineFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine import (
     SimulatorRoutineRequest,
@@ -16,12 +16,8 @@ class SimulatorRoutinesAPI(CDFResourceAPI[InternalOrExternalId, SimulatorRoutine
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(
-                    method="POST", path="/simulators/routines", item_limit=1, concurrency_max_workers=1
-                ),
-                "delete": Endpoint(
-                    method="POST", path="/simulators/routines/delete", item_limit=1, concurrency_max_workers=1
-                ),
+                "create": Endpoint(method="POST", path="/simulators/routines", item_limit=1),
+                "delete": Endpoint(method="POST", path="/simulators/routines/delete", item_limit=1),
                 "list": Endpoint(method="POST", path="/simulators/routines/list", item_limit=1000),
             },
         )
@@ -55,59 +51,45 @@ class SimulatorRoutinesAPI(CDFResourceAPI[InternalOrExternalId, SimulatorRoutine
 
     def paginate(
         self,
-        model_external_ids: list[str] | None = None,
-        simulator_integration_external_ids: list[str] | None = None,
+        filter: SimulatorModelRoutineFilter | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[SimulatorRoutineResponse]:
         """Iterate over simulator routines in CDF.
 
         Args:
-            model_external_ids: Filter by model external IDs.
-            simulator_integration_external_ids: Filter by simulator integration external IDs.
+            filter: Filter to apply to the simulator routines.
             limit: Maximum number of items to return per page.
             cursor: Cursor for pagination.
 
         Returns:
             PagedResponse of SimulatorRoutineResponse objects.
         """
-        filter_: dict[str, Any] = {}
-        if model_external_ids:
-            filter_["modelExternalIds"] = model_external_ids
-        if simulator_integration_external_ids:
-            filter_["simulatorIntegrationExternalIds"] = simulator_integration_external_ids
-
         return self._paginate(
+            body={"filter": filter.dump() if filter else None},
             cursor=cursor,
             limit=limit,
-            body={"filter": filter_ or None},
         )
 
     def iterate(
         self,
-        model_external_ids: list[str] | None = None,
-        simulator_integration_external_ids: list[str] | None = None,
+        filter: SimulatorModelRoutineFilter | None = None,
         limit: int = 100,
     ) -> Iterable[list[SimulatorRoutineResponse]]:
         """Iterate over simulator routines in CDF.
 
         Args:
-            model_external_ids: Filter by model external IDs.
-            simulator_integration_external_ids: Filter by simulator integration external IDs.
+            filter: Filter to apply to the simulator routines.
             limit: Maximum number of items to return per page.
 
         Returns:
             Iterable of lists of SimulatorRoutineResponse objects.
         """
-        filter_: dict[str, Any] = {}
-        if model_external_ids:
-            filter_["modelExternalIds"] = model_external_ids
-        if simulator_integration_external_ids:
-            filter_["simulatorIntegrationExternalIds"] = simulator_integration_external_ids
-
         return self._iterate(
             limit=limit,
-            body={"filter": filter_ or None},
+            body={
+                "filter": filter.dump() if filter else None,
+            },
         )
 
     def list(
