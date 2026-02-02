@@ -126,10 +126,9 @@ class LocationFilterCRUD(ResourceCRUD[str, LocationFilterWrite, LocationFilter])
 
     def dump_resource(self, resource: LocationFilter, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
-        local = local or {}
         if parent_id := dumped.pop("parentId", None):
             dumped["parentExternalId"] = self.client.lookup.location_filters.external_id(parent_id)
-        if dumped.get("dataModelingType") == "HYBRID" and "dataModelingType" not in local and local is not None:
+        if dumped.get("dataModelingType") == "HYBRID" and local is not None and "dataModelingType" not in local:
             # Default set on server side
             dumped.pop("dataModelingType")
         if "assetCentric" not in dumped:
