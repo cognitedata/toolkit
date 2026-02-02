@@ -65,7 +65,7 @@ class HTTPClient:
         pool_connections: int = 10,
         pool_maxsize: int = 20,
         retry_status_codes: Set[int] = frozenset({408, 429, 502, 503, 504}),
-        split_items_status_codes: Set[int] = frozenset({400, 408, 409, 422, 502, 503, 504}),
+        split_items_status_codes: Set[int] = frozenset({400, 404, 408, 409, 422, 502, 503, 504}),
         console: Console | None = None,
     ):
         self.config = config

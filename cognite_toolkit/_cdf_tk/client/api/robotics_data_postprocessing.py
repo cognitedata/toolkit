@@ -64,14 +64,19 @@ class DataPostProcessingAPI(
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[ExternalId]) -> list[RobotDataPostProcessingResponse]:
+    def retrieve(
+        self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False
+    ) -> list[RobotDataPostProcessingResponse]:
         """Retrieve data post-processing configurations from CDF.
 
         Args:
             items: List of ExternalId objects to retrieve.
+            ignore_unknown_ids: If True, ignores unknown IDs during retrieval.
         Returns:
             List of retrieved RobotDataPostProcessingResponse objects.
         """
+        if ignore_unknown_ids:
+            return self._request_item_split_retries(items, method="retrieve")
         return self._request_item_response(items, method="retrieve")
 
     def update(
@@ -88,13 +93,17 @@ class DataPostProcessingAPI(
         """
         return self._update(items, mode=mode)
 
-    def delete(self, items: Sequence[ExternalId]) -> None:
+    def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
         """Delete data post-processing configurations from CDF.
 
         Args:
             items: List of ExternalId objects to delete.
+            ignore_unknown_ids: If True, ignores unknown IDs during deletion.
         """
-        self._request_no_response(items, "delete")
+        if ignore_unknown_ids:
+            self._request_item_split_retries_no_response(items, "delete")
+        else:
+            self._request_no_response(items, "delete")
 
     def paginate(
         self,

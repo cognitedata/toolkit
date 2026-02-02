@@ -25,16 +25,15 @@ from cognite_toolkit._cdf_tk.client.api.legacy.extended_functions import Extende
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.location_filters import LocationFiltersAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.robotics import (
-    CapabilitiesAPI,
-    DataPostProcessingAPI,
-    FramesAPI,
-    MapsAPI,
-    RoboticsAPI,
-)
-from cognite_toolkit._cdf_tk.client.api.legacy.robotics import LocationsAPI as RoboticsLocationsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawAPI, RawDatabasesAPI, RawTablesAPI
+from cognite_toolkit._cdf_tk.client.api.robotics import RoboticsAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_capabilities import CapabilitiesAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_data_postprocessing import DataPostProcessingAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_frames import FramesAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_locations import LocationsAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
+from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 
 from ._toolkit_client import ToolAPI
 from .api.assets import AssetsAPI
@@ -142,14 +141,6 @@ class ToolkitClientMock(CogniteClientMock):
         self.raw.rows = MagicMock(spec_set=RawRowsAPI)
         self.raw.tables = MagicMock(spec_set=LegacyRawTablesAPI)
 
-        self.robotics = MagicMock()
-        self.robotics.robots = MagicMock(spec=RoboticsAPI)
-        self.robotics.data_postprocessing = MagicMock(spec_set=DataPostProcessingAPI)
-        self.robotics.locations = MagicMock(spec_set=RoboticsLocationsAPI)
-        self.robotics.frames = MagicMock(spec_set=FramesAPI)
-        self.robotics.maps = MagicMock(spec_set=MapsAPI)
-        self.robotics.capabilities = MagicMock(spec_set=CapabilitiesAPI)
-
         self.data_modeling.instances = MagicMock(spec_set=ExtendedInstancesAPI)
 
         self.time_series = MagicMock(spec=ExtendedTimeSeriesAPI)
@@ -177,6 +168,13 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.raw = MagicMock(spec=RawAPI)
         self.tool.raw.databases = MagicMock(spec_set=RawDatabasesAPI)
         self.tool.raw.tables = MagicMock(spec_set=RawTablesAPI)
+        self.tool.robotics = MagicMock(spec=RoboticsAPI)
+        self.tool.robotics.capabilities = MagicMock(spec_set=CapabilitiesAPI)
+        self.tool.robotics.data_postprocessing = MagicMock(spec_set=DataPostProcessingAPI)
+        self.tool.robotics.frames = MagicMock(spec_set=FramesAPI)
+        self.tool.robotics.locations = MagicMock(spec_set=LocationsAPI)
+        self.tool.robotics.maps = MagicMock(spec_set=MapsAPI)
+        self.tool.robotics.robots = MagicMock(spec_set=RobotsAPI)
         self.tool.security_categories = MagicMock(spec_set=SecurityCategoriesAPI)
         self.tool.sequences = MagicMock(spec_set=SequencesAPI)
         self.tool.transformations = MagicMock(spec_set=TransformationsAPI)
