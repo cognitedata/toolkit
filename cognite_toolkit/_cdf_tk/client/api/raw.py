@@ -198,10 +198,9 @@ class RawTablesAPI(CDFResourceAPI[RawTableId, RAWTableRequest, RAWTableResponse]
             Iterable of lists of RAWTable objects.
         """
         for table in self._iterate(limit=limit, endpoint_path=f"/raw/dbs/{db_name}/tables"):
-            chunk: list[RAWTableResponse] = []
             for t in table:
                 t.db_name = db_name
-            yield chunk
+            yield table
 
     def list(self, db_name: str, limit: int | None = None) -> list[RAWTableResponse]:
         """List all tables in a database in CDF.

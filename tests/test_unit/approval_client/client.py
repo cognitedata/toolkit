@@ -924,7 +924,7 @@ class ApprovalToolkitClient:
 
         def list_raw_table(db_name: str, limit: int | None = None) -> list[RAWTableResponse]:
             tables = [
-                RAWTableResponse(db_name=db_name, name=table.name)
+                RAWTableResponse(db_name=db_name, name=table.name, created_time=0)
                 for table in existing_resources[resource_cls.__name__]
                 if table.db_name == db_name
             ]
