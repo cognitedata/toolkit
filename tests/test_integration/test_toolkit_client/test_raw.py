@@ -13,16 +13,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
     UnknownTypeProfileColumn,
     VectorProfileColumn,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseRequest, RAWDatabaseResponse
 
 
 @pytest.fixture(scope="module")
 def persistent_raw_database(toolkit_client: ToolkitClient) -> RAWDatabaseResponse:
     db_name = "persistent_test_db"
-    db = RAWDatabaseResponse(name=db_name)
+    db = RAWDatabaseRequest(name=db_name)
     all_dbs = toolkit_client.tool.raw.databases.list(limit=None)
-    if db_name in {d.name for d in all_dbs}:
-        return db
+    if existing_db := next((d for d in all_dbs if d.name == db_name), None):
+        return existing_db
     created_db = toolkit_client.tool.raw.databases.create([db])
     assert len(created_db) == 1
     created_db = created_db[0]
