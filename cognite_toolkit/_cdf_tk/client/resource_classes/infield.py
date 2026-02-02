@@ -1,4 +1,3 @@
-import sys
 from typing import Any, ClassVar, Literal
 
 from pydantic import JsonValue, model_validator
@@ -16,11 +15,6 @@ from .instance_api import (
     WrappedInstanceResponse,
     move_properties,
 )
-
-if sys.version_info >= (3, 11):
-    pass
-else:
-    pass
 
 INFIELD_LOCATION_CONFIG_VIEW_ID = TypedViewReference(
     space="cdf_infield", external_id="InFieldLocationConfig", version="v1"
