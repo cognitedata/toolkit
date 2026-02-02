@@ -96,6 +96,9 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabaseId, RAWDatabaseRequest, R
     def dump_id(cls, id: RawDatabaseId) -> dict[str, Any]:
         return {"dbName": id.name}
 
+    def dump_resource(self, resource: RAWDatabaseResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        return {"dbName": resource.name}
+
     def create(self, items: Sequence[RAWDatabaseRequest]) -> list[RAWDatabaseResponse]:
         return self.client.tool.raw.databases.create(items)
 
@@ -215,6 +218,9 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dbName" in item:
             yield RawDatabaseCRUD, RawDatabaseId(name=item["dbName"])
+
+    def dump_resource(self, resource: RAWTableResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        return {"dbName": resource.db_name, "tableName": resource.name}
 
     def create(self, items: Sequence[RAWTableRequest]) -> list[RAWTableResponse]:
         return self.client.tool.raw.tables.create(items)
