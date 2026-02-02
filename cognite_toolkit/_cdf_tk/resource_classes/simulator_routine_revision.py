@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Any, Literal, TypeAlias
 
 from pydantic import Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
@@ -31,7 +31,7 @@ class DataSamplingConfig(BaseModelResource):
     granularity: int = Field(description="Granularity of the data sampling in minutes")
 
 
-LogicalCheckAggregate = Literal["average", "interpolation", "stepInterpolation"]
+Aggregate = Literal["average", "interpolation", "stepInterpolation"]
 LogicalCheckOperator = Literal["eq", "ne", "gt", "ge", "lt", "le"]
 
 
@@ -40,36 +40,54 @@ class LogicalCheckConfig(BaseModelResource):
 
     enabled: bool = Field(default=True, description="Whether this logical check is enabled.")
     timeseries_external_id: str = Field(description="External ID of the time series to check.")
-    aggregate: LogicalCheckAggregate = Field(description="Aggregation method to apply.")
+    aggregate: Aggregate = Field(description="Aggregation method to apply.")
     operator: LogicalCheckOperator = Field(description="Comparison operator.")
     value: float = Field(description="Value to compare against.")
-
-
-SteadyStateAggregate = Literal["average", "interpolation", "stepInterpolation"]
 
 
 class SteadyStateDetectionConfig(BaseModelResource):
     enabled: bool = Field(default=True, description="Whether this steady state detection is enabled.")
     timeseries_external_id: str = Field(description="External ID of the time series to monitor.")
-    aggregate: SteadyStateAggregate = Field(description="Aggregation method to apply.")
+    aggregate: Aggregate = Field(description="Aggregation method to apply.")
     min_section_size: int = Field(description="Minimum section size for steady state detection.")
     var_threshold: float = Field(description="Variance threshold for steady state detection.")
     slope_threshold: float = Field(description="Slope threshold for steady state detection.")
 
 
-class RoutineInputConfig(BaseModelResource):
+ValueType: TypeAlias = Literal["STRING", "DOUBLE", "STRING_ARRAY", "DOUBLE_ARRAY"]
+
+
+class Unit(BaseModelResource):
+    """Unit definition for inputs and outputs."""
+
+    name: str = Field(description="Name of the unit.", min_length=1, max_length=50)
+    quantity: str = Field(description="Type of the unit.", min_length=1, max_length=50)
+
+
+class RoutineInputConstantConfig(BaseModelResource):
     """Input configuration for the routine."""
 
-    name: str = Field(description="Name of the input.")
+    name: str = Field(description="Constant name")
     reference_id: str = Field(description="Reference ID for the input.")
-    value: Any | None = Field(default=None, description="Default value for the input.")
-    value_type: str | None = Field(default=None, description="Type of the value.")
-    unit: str | None = Field(default=None, description="Unit of the input.")
-    unit_type: str | None = Field(default=None, description="Type of unit.")
-    source_external_id: str | None = Field(default=None, description="External ID of the source.")
-    source_type: str | None = Field(default=None, description="Type of the source.")
-    aggregate: str | None = Field(default=None, description="Aggregation method.")
-    save_timeseries_external_id: str | None = Field(default=None, description="External ID for saving to time series.")
+    value: str | float | list[str] | list[float] = Field(description="Default value for the input.")
+    value_type: ValueType = Field(default="STRING", description="Type of the value.")
+    unit: Unit | None = Field(default=None, description="Unit of the input.")
+    save_timeseries_external_id: str | None = Field(
+        default=None, description="Time series external ID to use when saving the input sample in CDF."
+    )
+
+
+class RoutineInputTimeseriesConfig(BaseModelResource):
+    """Input configuration for the routine."""
+
+    name: str = Field(description="Timeseries name")
+    reference_id: str = Field(description="Reference ID for the input.")
+    source_external_id: str = Field(description="External id of the source time series to read from.")
+    aggregate: Aggregate = Field(description="Aggregation method to apply.")
+    unit: Unit | None = Field(default=None, description="Unit of the input.")
+    save_timeseries_external_id: str | None = Field(
+        default=None, description="Time series external ID to use when saving the input sample in CDF."
+    )
 
 
 class RoutineOutputConfig(BaseModelResource):
@@ -77,9 +95,8 @@ class RoutineOutputConfig(BaseModelResource):
 
     name: str = Field(description="Name of the output.")
     reference_id: str = Field(description="Reference ID for the output.")
-    value_type: str | None = Field(default=None, description="Type of the value.")
-    unit: str | None = Field(default=None, description="Unit of the output.")
-    unit_type: str | None = Field(default=None, description="Type of unit.")
+    unit: Unit | None = Field(default=None, description="Unit of the output.")
+    value_type: ValueType = Field(default="STRING", description="Type of the value.")
     save_timeseries_external_id: str | None = Field(default=None, description="External ID for saving to time series.")
 
 
@@ -95,7 +112,7 @@ class SimulatorRoutineConfiguration(BaseModelResource):
     steady_state_detection: list[SteadyStateDetectionConfig] = Field(
         description="List of steady state detection configurations.", min_length=0, max_length=1, default_factory=list
     )
-    inputs: list[RoutineInputConfig] | None = Field(default=None, description="List of input configurations.")
+    inputs: list[RoutineInputConstantConfig] | None = Field(default=None, description="List of input configurations.")
     outputs: list[RoutineOutputConfig] | None = Field(default=None, description="List of output configurations.")
 
 
