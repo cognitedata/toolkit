@@ -386,10 +386,10 @@ class TestInteractiveCanvasSelect:
     @pytest.mark.parametrize(
         "selected_cdf, answers, expected_selected, expected_options",
         [
-            pytest.param({}, ["All public Canvases"], [], None, id="No canvases in CDF"),
+            pytest.param({}, ["All Canvases"], [], None, id="No canvases in CDF"),
             pytest.param(
                 {"Public1", "Public2", "Private1", "Private2"},
-                ["All public Canvases"],
+                ["All Canvases"],
                 ["Public1", "Public2", "Private1", "Private2"],
                 None,
                 id="All canvases selected",
@@ -410,14 +410,14 @@ class TestInteractiveCanvasSelect:
             ),
             pytest.param(
                 {"Public1", "Public2", "Private1", "Private2"},
-                ["All public Canvases by given user", "Marge Simpson (marge)"],
+                ["All by given user", "Marge Simpson (marge)"],
                 ["Public2", "Private1"],
                 None,
                 id="All by given user",
             ),
             pytest.param(
                 {"Public1", "Public2", "Private1", "Private2"},
-                ["Selected public Canvases by given user", "Marge Simpson (marge)", {"Public2"}],
+                ["Selected by given user", "Marge Simpson (marge)", {"Public2"}],
                 ["Public2"],
                 2,
                 id="Selected by given user",
