@@ -242,6 +242,8 @@ class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, Sim
     dependencies = frozenset({SimulatorModelCRUD})
     _doc_url = "Simulator-Routines/operation/create_simulator_routine_simulators_routines_post"
 
+    support_update = False
+
     @property
     def display_name(self) -> str:
         return "simulator routines"
@@ -279,15 +281,11 @@ class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, Sim
         # Simulator routines do not have a retrieve endpoint, we need to list and filter
         all_items: list[SimulatorRoutineResponse] = []
         id_set = {id_.external_id for id_ in ids}
-        for batch in self.client.tool.simulators.routines.iterate(limit=1000):
+        for batch in self.client.tool.simulators.routines.iterate(limit=None):
             for item in batch:
                 if item.external_id in id_set:
                     all_items.append(item)
         return all_items
-
-    def update(self, items: Sequence[SimulatorRoutineRequest]) -> list[SimulatorRoutineResponse]:
-        # Simulator routines do not support updates
-        raise NotImplementedError("Simulator routines do not support updates")
 
     def delete(self, ids: SequenceNotStr[ExternalId | InternalOrExternalId]) -> int:
         if not ids:
@@ -333,6 +331,8 @@ class SimulatorRoutineRevisionCRUD(
     dependencies = frozenset({SimulatorRoutineCRUD})
     _doc_url = "Simulator-Routines/operation/create_simulator_routine_revision_simulators_routines_revisions_post"
 
+    support_update = False
+
     @property
     def display_name(self) -> str:
         return "simulator routine revisions"
@@ -369,10 +369,6 @@ class SimulatorRoutineRevisionCRUD(
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[SimulatorRoutineRevisionResponse]:
         return self.client.tool.simulators.routine_revisions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> list[SimulatorRoutineRevisionResponse]:
-        # Simulator routine revisions do not support updates
-        raise NotImplementedError("Simulator routine revisions do not support updates")
-
     def delete(self, ids: SequenceNotStr[ExternalId | InternalOrExternalId]) -> int:
         # Simulator routine revisions do not support delete
         raise NotImplementedError("Simulator routine revisions do not support delete")
@@ -395,11 +391,3 @@ class SimulatorRoutineRevisionCRUD(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "routineExternalId" in item:
             yield SimulatorRoutineCRUD, item["routineExternalId"]
-
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SimulatorRoutineRevisionRequest:
-        return SimulatorRoutineRevisionRequest.model_validate(resource)
-
-    def dump_resource(
-        self, resource: SimulatorRoutineRevisionResponse, local: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return resource.as_request_resource().dump()

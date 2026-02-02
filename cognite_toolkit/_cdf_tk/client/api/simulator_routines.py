@@ -74,7 +74,7 @@ class SimulatorRoutinesAPI(CDFResourceAPI[InternalOrExternalId, SimulatorRoutine
     def iterate(
         self,
         filter: SimulatorModelRoutineFilter | None = None,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[list[SimulatorRoutineResponse]]:
         """Iterate over simulator routines in CDF.
 
