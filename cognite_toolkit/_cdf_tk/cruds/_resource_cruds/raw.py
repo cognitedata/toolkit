@@ -17,7 +17,7 @@ import itertools
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, cast, final
+from typing import Any, final
 
 from cognite.client.data_classes.capabilities import (
     Capability,
@@ -29,11 +29,13 @@ from rich import print
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
-    RawDatabase,
-    RawDatabaseList,
-    RawTable,
-    RawTableList,
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId, RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
+    RAWDatabaseRequest,
+    RAWDatabaseResponse,
+    RAWTableRequest,
+    RAWTableResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import DatabaseYAML, TableYAML
@@ -42,11 +44,11 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabase, RawDatabase, RawDatabase]):
+class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabaseId, RAWDatabaseRequest, RAWDatabaseResponse]):
     item_name = "raw tables"
     folder_name = "raw"
-    resource_cls = RawDatabase
-    resource_write_cls = RawDatabase
+    resource_cls = RAWDatabaseResponse
+    resource_write_cls = RAWDatabaseRequest
     kind = "Database"
     yaml_cls = DatabaseYAML
     dependencies = frozenset({GroupAllScopedCRUD})
@@ -63,7 +65,7 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabase, RawDatabase, RawDatabas
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[RawDatabase] | None, read_only: bool
+        cls, items: Sequence[RAWDatabaseRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -78,86 +80,89 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabase, RawDatabase, RawDatabas
         if items:
             tables_by_database: dict[str, list[str]] = {}
             for item in items:
-                tables_by_database[item.db_name] = []
+                tables_by_database[item.name] = []
 
             scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()
 
         return RawAcl(actions, scope)
 
     @classmethod
-    def get_id(cls, item: RawDatabase | dict) -> RawDatabase:
+    def get_id(cls, item: RAWDatabaseResponse | RAWDatabaseRequest | dict) -> RawDatabaseId:
         if isinstance(item, dict):
-            return RawDatabase(item["dbName"])
-        return item
+            return RawDatabaseId.model_validate(item)
+        return RawDatabaseId(name=item.name)
 
     @classmethod
-    def dump_id(cls, id: RawDatabase) -> dict[str, Any]:
-        return {"dbName": id.db_name}
+    def dump_id(cls, id: RawDatabaseId) -> dict[str, Any]:
+        return {"dbName": id.name}
 
-    def create(self, items: Sequence[RawDatabase]) -> RawDatabaseList:
-        database_list = self.client.raw.databases.create([db.db_name for db in items])
-        return RawDatabaseList([RawDatabase(db_name=db.name) for db in database_list if db.name])
+    def dump_resource(self, resource: RAWDatabaseResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        return {"dbName": resource.name}
 
-    def retrieve(self, ids: SequenceNotStr[RawDatabase]) -> RawDatabaseList:
-        database_list = self.client.raw.databases.list(limit=-1)
-        target_dbs = {db.db_name for db in ids}
-        return RawDatabaseList([RawDatabase(db_name=db.name) for db in database_list if db.name in target_dbs])
+    def create(self, items: Sequence[RAWDatabaseRequest]) -> list[RAWDatabaseResponse]:
+        return self.client.tool.raw.databases.create(items)
 
-    def delete(self, ids: SequenceNotStr[RawDatabase]) -> int:
-        db_names = [table.db_name for table in ids]
+    def retrieve(self, ids: SequenceNotStr[RawDatabaseId]) -> list[RAWDatabaseResponse]:
+        database_list = self.client.tool.raw.databases.list(limit=None)
+        target_dbs = {db.name for db in ids}
+        return [db for db in database_list if db.name in target_dbs]
+
+    def delete(self, ids: SequenceNotStr[RawDatabaseId]) -> int:
+        ids_list = list(ids)
         try:
-            self.client.raw.databases.delete(db_names)
-        except CogniteAPIError as e:
+            self.client.tool.raw.databases.delete(ids_list)
+        except ToolkitAPIError as e:
             # Bug in API, missing is returned as failed
-            if e.failed and (db_names := [name for name in db_names if name not in e.failed]):
-                self.client.raw.databases.delete(db_names)
+            if e.missing and (remaining := [db for db in ids_list if db.name not in e.missing]):
+                self.client.tool.raw.databases.delete(remaining)
             elif e.code == 404 and "not found" in e.message and "database" in e.message:
                 return 0
             else:
                 raise e
-        return len(db_names)
+        return len(ids_list)
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[RawDatabase]:
-        return (RawDatabase(db_name=cast(str, db.name)) for db in self.client.raw.databases)
+    ) -> Iterable[RAWDatabaseResponse]:
+        for databases in self.client.tool.raw.databases.iterate():
+            yield from databases
 
-    def count(self, ids: SequenceNotStr[RawDatabase]) -> int:
+    def count(self, ids: SequenceNotStr[RawDatabaseId]) -> int:
         nr_of_tables = 0
-        for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
+        for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.name), key=lambda x: x.name):
             try:
-                tables = self.client.raw.tables.list(db_name=db_name, limit=-1)
+                tables = self.client.tool.raw.tables.list(db_name=db_name, limit=None)
             except CogniteAPIError as e:
                 if db_name in {item.get("name") for item in e.missing or []}:
                     continue
                 raise e
-            nr_of_tables += len(tables.data)
+            nr_of_tables += len(tables)
         return nr_of_tables
 
-    def drop_data(self, ids: SequenceNotStr[RawDatabase]) -> int:
+    def drop_data(self, ids: SequenceNotStr[RawDatabaseId]) -> int:
         nr_of_tables = 0
-        for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
+        for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.name), key=lambda x: x.name):
             try:
-                existing = self.client.raw.tables.list(db_name=db_name, limit=-1).as_names()
-            except CogniteAPIError as e:
+                existing = self.client.tool.raw.tables.list(db_name=db_name, limit=None)
+            except ToolkitAPIError as e:
                 if db_name in {item.get("name") for item in e.missing or []}:
                     continue
                 raise e
             if existing:
-                self.client.raw.tables.delete(db_name=db_name, name=existing)
+                self.client.tool.raw.tables.delete([table.as_id() for table in existing])
                 nr_of_tables += len(existing)
         return nr_of_tables
 
 
 @final
-class RawTableCRUD(ResourceContainerCRUD[RawTable, RawTable, RawTable]):
+class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableResponse]):
     item_name = "raw rows"
     folder_name = "raw"
-    resource_cls = RawTable
-    resource_write_cls = RawTable
+    resource_cls = RAWTableResponse
+    resource_write_cls = RAWTableRequest
     kind = "Table"
     yaml_cls = TableYAML
     support_update = False
@@ -175,7 +180,7 @@ class RawTableCRUD(ResourceContainerCRUD[RawTable, RawTable, RawTable]):
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[RawTable] | None, read_only: bool
+        cls, items: Sequence[RAWTableRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -190,75 +195,70 @@ class RawTableCRUD(ResourceContainerCRUD[RawTable, RawTable, RawTable]):
         if items:
             tables_by_database = defaultdict(list)
             for item in items:
-                tables_by_database[item.db_name].append(item.table_name)
+                tables_by_database[item.db_name].append(item.name)
 
             scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()
 
         return RawAcl(actions, scope)
 
     @classmethod
-    def get_id(cls, item: RawTable | dict) -> RawTable:
+    def get_id(cls, item: RAWTableResponse | RAWTableRequest | dict) -> RawTableId:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"dbName", "tableName"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return RawTable(item["dbName"], item["tableName"])
-        return item
+            return RawTableId(db_name=item["dbName"], name=item["tableName"])
+        return RawTableId(db_name=item.db_name, name=item.name)
 
     @classmethod
-    def dump_id(cls, id: RawTable) -> dict[str, Any]:
-        return {"dbName": id.db_name, "tableName": id.table_name}
+    def dump_id(cls, id: RawTableId) -> dict[str, Any]:
+        return {"dbName": id.db_name, "tableName": id.name}
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dbName" in item:
-            yield RawDatabaseCRUD, RawDatabase(item["dbName"])
+            yield RawDatabaseCRUD, RawDatabaseId(name=item["dbName"])
 
-    def create(self, items: Sequence[RawTable]) -> RawTableList:
-        created = RawTableList([])
-        for db_name, raw_tables in itertools.groupby(sorted(items, key=lambda x: x.db_name), key=lambda x: x.db_name):
-            tables = [table.table_name for table in raw_tables]
-            new_tables = self.client.raw.tables.create(db_name=db_name, name=tables)
-            created.extend([RawTable(db_name=db_name, table_name=cast(str, table.name)) for table in new_tables])
-        return created
+    def dump_resource(self, resource: RAWTableResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        return {"dbName": resource.db_name, "tableName": resource.name}
 
-    def retrieve(self, ids: SequenceNotStr[RawTable]) -> RawTableList:
-        retrieved = RawTableList([])
+    def create(self, items: Sequence[RAWTableRequest]) -> list[RAWTableResponse]:
+        return self.client.tool.raw.tables.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[RawTableId]) -> list[RAWTableResponse]:
+        retrieved: list[RAWTableResponse] = []
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
-            expected_tables = {table.table_name for table in raw_tables}
+            expected_tables = {table.name for table in raw_tables}
             try:
-                tables = self.client.raw.tables.list(db_name=db_name, limit=-1)
-            except CogniteAPIError as e:
+                tables = self.client.tool.raw.tables.list(db_name=db_name, limit=None)
+            except ToolkitAPIError as e:
                 if db_name in {item.get("name") for item in e.missing or []}:
                     continue
                 raise e
-            retrieved.extend(
-                [RawTable(db_name=db_name, table_name=table.name) for table in tables if table.name in expected_tables]
-            )
+            retrieved.extend(table for table in tables if table.name in expected_tables)
         return retrieved
 
-    def delete(self, ids: SequenceNotStr[RawTable]) -> int:
+    def delete(self, ids: SequenceNotStr[RawTableId]) -> int:
         count = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
-            tables = [table.table_name for table in raw_tables if table.table_name]
-            if tables:
+            tables_to_delete = [table for table in raw_tables if table.name]
+            if tables_to_delete:
                 try:
-                    self.client.raw.tables.delete(db_name=db_name, name=tables)
-                except CogniteAPIError as e:
+                    self.client.tool.raw.tables.delete(tables_to_delete)
+                except ToolkitAPIError as e:
                     if e.code != 404:
                         raise e
-                    # Missing is returned as failed
-                    missing = {item.get("name") for item in (e.missing or [])}.union(set(e.failed or []))
+                    missing = {item.get("name") for item in (e.missing or [])}
                     if "not found" in e.message and "database" in e.message:
                         continue
-                    elif tables := [name for name in tables if name not in missing]:
-                        self.client.raw.tables.delete(db_name=db_name, name=tables)
-                    elif not tables:
+                    elif remaining := [t for t in tables_to_delete if t.name not in missing]:
+                        self.client.tool.raw.tables.delete(remaining)
+                    elif not remaining:
                         # Table does not exist.
                         continue
                     else:
                         raise e
-                count += len(tables)
+                count += len(tables_to_delete)
         return count
 
     def _iterate(
@@ -266,28 +266,36 @@ class RawTableCRUD(ResourceContainerCRUD[RawTable, RawTable, RawTable]):
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[RawTable]:
-        for parent_id in parent_ids or (RawDatabase(cast(str, db.name)) for db in self.client.raw.databases):
-            if not isinstance(parent_id, RawDatabase):
+    ) -> Iterable[RAWTableResponse]:
+        if parent_ids is None:
+            dbs = self.client.tool.raw.databases.list(limit=None)
+            parent_ids = [RawDatabaseId(name=db.name) for db in dbs]
+        for parent_id in parent_ids:
+            if not isinstance(parent_id, NameId):
                 continue
-            for table in self.client.raw.tables(parent_id.db_name):
-                yield RawTable(db_name=parent_id.db_name, table_name=cast(str, table.name))
+            for tables in self.client.tool.raw.tables.iterate(db_name=parent_id.name):
+                yield from tables
 
-    def count(self, ids: SequenceNotStr[RawTable]) -> int:
+    def count(self, ids: SequenceNotStr[RawTableId]) -> int:
         if not self._printed_warning:
             print("  [bold green]INFO:[/] Raw rows do not support count (there is no aggregation method).")
             self._printed_warning = True
         return -1
 
-    def drop_data(self, ids: SequenceNotStr[RawTable]) -> int:
+    def drop_data(self, ids: SequenceNotStr[RawTableId]) -> int:
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             try:
-                existing = set(self.client.raw.tables.list(db_name=db_name, limit=-1).as_names())
+                existing_tables = self.client.tool.raw.tables.list(db_name=db_name, limit=None)
+                existing_names = {table.name for table in existing_tables}
             except CogniteAPIError as e:
                 if db_name in {item.get("name") for item in e.missing or []}:
                     continue
                 raise e
-            tables = [table.table_name for table in raw_tables if table.table_name in existing]
-            if tables:
-                self.client.raw.tables.delete(db_name=db_name, name=tables)
+            tables_to_delete = [
+                RAWTableResponse(db_name=db_name, name=table.name)
+                for table in raw_tables
+                if table.name in existing_names
+            ]
+            if tables_to_delete:
+                self.client.tool.raw.tables.delete([table.as_id() for table in tables_to_delete])
         return -1

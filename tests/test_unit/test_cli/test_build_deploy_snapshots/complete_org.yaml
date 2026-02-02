@@ -226,8 +226,6 @@ DataSet:
     module in the Cognite Data Fusion Toolkit.
   externalId: ds_timeseries_foo
   name: Example dataset.
-Database:
-- name: db_complete_org
 DatapointSubscription:
 - dataSetId: 7982613576047462211
   description: All timeseries with externalId starting with ts_value
@@ -595,6 +593,10 @@ Node:
 - externalId: startNode
   instanceType: node
   space: sp_instance
+RAWDatabaseResponse:
+- name: db_complete_org
+RAWTableResponse:
+- name: asset
 Relationship:
 - confidence: 0.42
   dataSetId: 7982613576047462211
@@ -846,9 +848,6 @@ Space:
 - space: sp_instance
 - space: sp_nodes
 - space: sp_schema
-Table:
-- createdTime: 1
-  name: asset
 ThreeDModel:
 - createdTime: 1
   dataSetId: 7982613576047462211
@@ -1142,4 +1141,3 @@ WorkflowVersion:
       timeout: 3600
       type: transformation
   workflowExternalId: baz
-deleted: {}

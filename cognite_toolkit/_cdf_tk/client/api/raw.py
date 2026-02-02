@@ -2,10 +2,16 @@ from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
+    RAWDatabaseRequest,
+    RAWDatabaseResponse,
+    RAWTableRequest,
+    RAWTableResponse,
+)
 
 
-class RawDatabasesAPI(CDFResourceAPI[RAWDatabase, RAWDatabase, RAWDatabase]):
+class RawDatabasesAPI(CDFResourceAPI[RawDatabaseId, RAWDatabaseRequest, RAWDatabaseResponse]):
     """API for managing RAW databases in CDF.
 
     This API provides methods to create, list, and delete RAW databases.
@@ -21,13 +27,15 @@ class RawDatabasesAPI(CDFResourceAPI[RAWDatabase, RAWDatabase, RAWDatabase]):
             },
         )
 
-    def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[RAWDatabase]:
-        return PagedResponse[RAWDatabase].model_validate_json(response.body)
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[RAWDatabaseResponse]:
+        return PagedResponse[RAWDatabaseResponse].model_validate_json(response.body)
 
-    def _reference_response(self, response: SuccessResponse) -> ResponseItems[RAWDatabase]:
-        return ResponseItems[RAWDatabase].model_validate_json(response.body)
+    def _reference_response(self, response: SuccessResponse) -> ResponseItems[RAWDatabaseResponse]:
+        return ResponseItems[RAWDatabaseResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[RAWDatabase]) -> list[RAWDatabase]:
+    def create(self, items: Sequence[RAWDatabaseRequest]) -> list[RAWDatabaseResponse]:
         """Create databases in CDF.
 
         Args:
@@ -38,20 +46,20 @@ class RawDatabasesAPI(CDFResourceAPI[RAWDatabase, RAWDatabase, RAWDatabase]):
         """
         return self._request_item_response(list(items), "create")
 
-    def delete(self, items: Sequence[RAWDatabase], recursive: bool = False) -> None:
+    def delete(self, items: Sequence[RawDatabaseId], recursive: bool = False) -> None:
         """Delete databases from CDF.
 
         Args:
             items: List of RAWDatabase objects to delete.
             recursive: Whether to delete tables within the database recursively.
         """
-        self._request_no_response(list(items), "delete", extra_body={"recursive": recursive})
+        self._request_no_response(items, "delete", extra_body={"recursive": recursive})
 
     def paginate(
         self,
         limit: int = 100,
         cursor: str | None = None,
-    ) -> PagedResponse[RAWDatabase]:
+    ) -> PagedResponse[RAWDatabaseResponse]:
         """Iterate over all databases in CDF.
 
         Args:
@@ -66,7 +74,7 @@ class RawDatabasesAPI(CDFResourceAPI[RAWDatabase, RAWDatabase, RAWDatabase]):
     def iterate(
         self,
         limit: int = 100,
-    ) -> Iterable[list[RAWDatabase]]:
+    ) -> Iterable[list[RAWDatabaseResponse]]:
         """Iterate over all databases in CDF.
 
         Args:
@@ -77,7 +85,7 @@ class RawDatabasesAPI(CDFResourceAPI[RAWDatabase, RAWDatabase, RAWDatabase]):
         """
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = None) -> list[RAWDatabase]:
+    def list(self, limit: int | None = None) -> list[RAWDatabaseResponse]:
         """List all databases in CDF.
 
         Args:
@@ -89,7 +97,7 @@ class RawDatabasesAPI(CDFResourceAPI[RAWDatabase, RAWDatabase, RAWDatabase]):
         return self._list(limit=limit)
 
 
-class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
+class RawTablesAPI(CDFResourceAPI[RawTableId, RAWTableRequest, RAWTableResponse]):
     """API for managing RAW tables in CDF.
 
     This API provides methods to create, list, and delete RAW tables within a database.
@@ -109,15 +117,17 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
             },
         )
 
-    def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[RAWTable]:
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[RAWTableResponse]:
         """Parse a page response. Note: db_name must be injected separately."""
-        return PagedResponse[RAWTable].model_validate_json(response.body)
+        return PagedResponse[RAWTableResponse].model_validate_json(response.body)
 
-    def _reference_response(self, response: SuccessResponse) -> ResponseItems[RAWTable]:
+    def _reference_response(self, response: SuccessResponse) -> ResponseItems[RAWTableResponse]:
         """Parse a reference response. Note: db_name must be injected separately."""
-        return ResponseItems[RAWTable].model_validate_json(response.body)
+        return ResponseItems[RAWTableResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[RAWTable], ensure_parent: bool = False) -> list[RAWTable]:
+    def create(self, items: Sequence[RAWTableRequest], ensure_parent: bool = False) -> list[RAWTableResponse]:
         """Create tables in a database in CDF.
 
         Args:
@@ -127,7 +137,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
         Returns:
             List of created RAWTable objects.
         """
-        result: list[RAWTable] = []
+        result: list[RAWTableResponse] = []
         for (db_name,), group in self._group_items_by_text_field(items, "db_name").items():
             if not db_name:
                 raise ValueError("db_name must be set on all RAWTable items for creation.")
@@ -136,10 +146,11 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
                 group, "create", params={"ensureParent": ensure_parent}, endpoint=endpoint
             )
             for table in created:
-                result.append(RAWTable(db_name=db_name, name=table.name))
+                table.db_name = db_name
+                result.append(table)
         return result
 
-    def delete(self, items: Sequence[RAWTable]) -> None:
+    def delete(self, items: Sequence[RawTableId]) -> None:
         """Delete tables from a database in CDF.
 
         Args:
@@ -156,7 +167,7 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
         db_name: str,
         limit: int = 100,
         cursor: str | None = None,
-    ) -> PagedResponse[RAWTable]:
+    ) -> PagedResponse[RAWTableResponse]:
         """Iterate over all tables in a database in CDF.
 
         Args:
@@ -167,13 +178,16 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
         Returns:
             PagedResponse of RAWTable objects.
         """
-        return self._paginate(cursor=cursor, limit=limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
+        page = self._paginate(cursor=cursor, limit=limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
+        for table in page.items:
+            table.db_name = db_name
+        return page
 
     def iterate(
         self,
         db_name: str,
         limit: int = 100,
-    ) -> Iterable[list[RAWTable]]:
+    ) -> Iterable[list[RAWTableResponse]]:
         """Iterate over all tables in a database in CDF.
 
         Args:
@@ -183,9 +197,12 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
         Returns:
             Iterable of lists of RAWTable objects.
         """
-        return self._iterate(limit=limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
+        for table in self._iterate(limit=limit, endpoint_path=f"/raw/dbs/{db_name}/tables"):
+            for t in table:
+                t.db_name = db_name
+            yield table
 
-    def list(self, db_name: str, limit: int | None = None) -> list[RAWTable]:
+    def list(self, db_name: str, limit: int | None = None) -> list[RAWTableResponse]:
         """List all tables in a database in CDF.
 
         Args:
@@ -195,7 +212,10 @@ class RawTablesAPI(CDFResourceAPI[RAWTable, RAWTable, RAWTable]):
         Returns:
             List of RAWTable objects.
         """
-        return self._list(limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
+        listed = self._list(limit, endpoint_path=f"/raw/dbs/{db_name}/tables")
+        for table in listed:
+            table.db_name = db_name
+        return listed
 
 
 class RawAPI:

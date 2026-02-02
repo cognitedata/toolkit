@@ -9,7 +9,7 @@ import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes.data_modeling import DataModelId, Space
 
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawDatabase
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand
 from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, TransformationCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, Environment, Packages
@@ -189,7 +189,7 @@ capabilities:
         missing_dep = cmd.warning_list[0]
         assert isinstance(missing_dep, MissingDependencyWarning)
         assert missing_dep.dependency_type == RawDatabaseCRUD.resource_cls.__name__
-        assert missing_dep.identifier == RawDatabase("not_existing")
+        assert missing_dep.identifier == RawDatabaseId(name="not_existing")
 
 
 class TestCheckYamlSemantics:

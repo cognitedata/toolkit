@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import RawFileCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment, BuiltResource, BuiltResourceList, SourceLocationEager
@@ -40,7 +40,7 @@ class TestRawFileLoader:
         state.built_resources[RawFileCRUD.folder_name] = BuiltResourceList(
             [
                 BuiltResource(
-                    RawTable("myDB", "myTable"),
+                    RAWTableRequest(db_name="myDB", name="myTable"),
                     SourceLocationEager(source_file, "1z234"),
                     RawTableCRUD.kind,
                     None,
@@ -76,7 +76,7 @@ class TestRawFileLoader:
         state.built_resources[RawFileCRUD.folder_name] = BuiltResourceList(
             [
                 BuiltResource(
-                    RawTable("myDB", "myTable"),
+                    RAWTableRequest(db_name="myDB", name="myTable"),
                     SourceLocationEager(source_file, "1z234"),
                     RawTableCRUD.kind,
                     None,

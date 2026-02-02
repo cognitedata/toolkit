@@ -23,6 +23,7 @@ class HTTPResult(BaseModel):
                 f"Request failed with status code {self.status_code}: {self.error.message}",
                 missing=self.error.missing,  # type: ignore[arg-type]
                 duplicated=self.error.duplicated,  # type: ignore[arg-type]
+                code=self.error.code,
             )
         elif isinstance(self, FailedRequest):
             raise ToolkitAPIError(f"Request failed with error: {self.error}")

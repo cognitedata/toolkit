@@ -6,7 +6,9 @@ from unittest.mock import MagicMock
 from cognite.client._api.datapoints import DatapointsAPI
 from cognite.client._api.datapoints_subscriptions import DatapointsSubscriptionAPI
 from cognite.client._api.functions import FunctionCallsAPI, FunctionSchedulesAPI
-from cognite.client._api.raw import RawDatabasesAPI, RawRowsAPI, RawTablesAPI
+from cognite.client._api.raw import RawDatabasesAPI as LegacyRawDatabasesAPI
+from cognite.client._api.raw import RawRowsAPI
+from cognite.client._api.raw import RawTablesAPI as LegacyRawTablesAPI
 from cognite.client._api.simulators import SimulatorModelsAPI, SimulatorsAPI
 from cognite.client._api.synthetic_time_series import SyntheticDatapointsAPI
 from cognite.client.testing import CogniteClientMock
@@ -24,6 +26,7 @@ from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAP
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.search_config import SearchConfigurationsAPI
+from cognite_toolkit._cdf_tk.client.api.raw import RawAPI, RawDatabasesAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics import RoboticsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_capabilities import CapabilitiesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_data_postprocessing import DataPostProcessingAPI
@@ -134,9 +137,9 @@ class ToolkitClientMock(CogniteClientMock):
         self.migration.resource_view_mapping = MagicMock(spec_set=ResourceViewMappingAPI)
         self.migration.created_source_system = MagicMock(spec_set=CreatedSourceSystemAPI)
         self.raw = MagicMock(spec=ExtendedRawAPI)
-        self.raw.databases = MagicMock(spec_set=RawDatabasesAPI)
+        self.raw.databases = MagicMock(spec_set=LegacyRawDatabasesAPI)
         self.raw.rows = MagicMock(spec_set=RawRowsAPI)
-        self.raw.tables = MagicMock(spec_set=RawTablesAPI)
+        self.raw.tables = MagicMock(spec_set=LegacyRawTablesAPI)
 
         self.data_modeling.instances = MagicMock(spec_set=ExtendedInstancesAPI)
 
@@ -162,6 +165,9 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.hosted_extractors.destinations = MagicMock(spec_set=HostedExtractorDestinationsAPI)
         self.tool.hosted_extractors.mappings = MagicMock(spec_set=HostedExtractorMappingsAPI)
         self.tool.labels = MagicMock(spec_set=LabelsAPI)
+        self.tool.raw = MagicMock(spec=RawAPI)
+        self.tool.raw.databases = MagicMock(spec_set=RawDatabasesAPI)
+        self.tool.raw.tables = MagicMock(spec_set=RawTablesAPI)
         self.tool.robotics = MagicMock(spec=RoboticsAPI)
         self.tool.robotics.capabilities = MagicMock(spec_set=CapabilitiesAPI)
         self.tool.robotics.data_postprocessing = MagicMock(spec_set=DataPostProcessingAPI)
