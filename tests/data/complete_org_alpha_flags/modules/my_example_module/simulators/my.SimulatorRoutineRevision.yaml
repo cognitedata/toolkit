@@ -1,0 +1,55 @@
+externalId: my_simulator_model_revision
+routineExternalId: my_simulator_routine
+configuration:
+  schedule:
+    enabled: false
+  dataSampling:
+    enabled: false
+    logicalCheck: []
+    steadyStateDetection: []
+    inputs:
+    - name: Cold water Temperature
+      referenceId: CWT
+      value: 10.0
+      valueType: DOUBLE
+      unit:
+        name: C
+        quantity: temperature
+    - name: Hot water Temperature
+      referenceId: HWT
+      value: 10.0
+      valueType: DOUBLE
+      unit:
+        name: C
+        quantity: temperature
+    outputs:
+      name: Shower Temperature
+      referenceId: ST
+      unit:
+        name: C
+        quantity: temperature
+      valueType: DOUBLE
+script:
+- order: 1
+  description: Set Inputs
+  steps:
+  - order: 1
+    stepType: Set
+    arguments:
+      referenceId: CWT
+      address: input.com
+- order: 2
+  description: Solve the flowsheet
+  steps:
+  - order: 1
+    stepType: Command
+    arguments:
+      command: Solve
+- order: 3
+  description: Set simulator outputs
+  steps:
+  - order: 1
+    stepType: Get
+    arguments:
+      referenceId: ST
+      address: output.com

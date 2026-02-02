@@ -805,7 +805,7 @@ def simulator_integration(simulator: str, toolkit_dataset: DataSet, toolkit_clie
         RequestMessage(
             endpoint_url=config.create_api_url("simulators/integrations/list"),
             method="POST",
-            body_content={"filter": {"simulatorExternalIds": simulator}, "limit": 1000},
+            body_content={"filter": {"simulatorExternalIds": [simulator]}, "limit": 1000},
         )
     )
     body = list_response.get_success_or_raise().body_json

@@ -1,0 +1,8 @@
+externalId: my_simulator_model_revision_file
+name: simulator_model_revision.txt
+directory: /files
+dataSetExternalId: ds_complete_org
+mimeType: application/plain
+source: doctrino
+metadata:
+  origin: cognite-toolkit
