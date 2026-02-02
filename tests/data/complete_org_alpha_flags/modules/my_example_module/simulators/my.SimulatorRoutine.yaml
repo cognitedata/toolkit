@@ -1,0 +1,7 @@
+externalId: my_simulator_routine
+modelExternalId: my_simulator_model
+# This must match the fixture when testing the deployment of complete_org.
+# test_deploy_complete_org
+simulatorIntegrationExternalId: integration-test-simulator-integration
+name: My Simulator Routine
+description: This is an example simulator routine for demonstration purposes.

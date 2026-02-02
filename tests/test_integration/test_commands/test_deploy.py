@@ -36,7 +36,7 @@ from tests import data
 @pytest.mark.skipif(
     sys.version_info < (3, 11), reason="We only run this test on Python 3.11+ to avoid parallelism issues"
 )
-@pytest.mark.usefixtures("simulator")
+@pytest.mark.usefixtures("simulator", "simulator_integration")
 def test_deploy_complete_org(env_vars: EnvironmentVariables, build_dir: Path) -> None:
     build = BuildCommand(silent=True, skip_tracking=True)
 

@@ -781,6 +781,56 @@ def simulator(toolkit_client: ToolkitClient) -> str:
     return simulator_external_id
 
 
+@pytest.fixture(scope="session")
+def simulator_integration(simulator: str, toolkit_dataset: DataSet, toolkit_client: ToolkitClient) -> str:
+    external_id = "integration-test-simulator-integration"
+    simulator_integration = {
+        "externalId": external_id,
+        "simulatorExternalId": simulator,
+        "heartbeat": 0,
+        "dataSetId": toolkit_dataset.id,
+        "connectorVersion": "1.0.0",
+        "simulatorVersion": "1.0.0",
+        "licenseStatus": "AVAILABLE",
+        "licenseLastCheckedTime": 0,
+        "connectorStatus": "IDLE",
+        "connectorStatusUpdatedTime": 0,
+    }
+
+    http_client = toolkit_client.http_client
+    config = toolkit_client.config
+
+    # Check if simulator integration already exists
+    list_response = http_client.request_single_retries(
+        RequestMessage(
+            endpoint_url=config.create_api_url("simulators/integrations/list"),
+            method="POST",
+            body_content={"filter": {"simulatorExternalIds": simulator}, "limit": 1000},
+        )
+    )
+    body = list_response.get_success_or_raise().body_json
+    assert "items" in body
+    items = body["items"]
+    for item in items:
+        if item["externalId"] == external_id:
+            return external_id
+
+    creation_response = http_client.request_single_retries(
+        RequestMessage(
+            endpoint_url=config.create_api_url("simulators/integrations"),
+            method="POST",
+            body_content={"items": [simulator_integration]},
+        )
+    )
+    body = creation_response.get_success_or_raise().body_json
+    assert "items" in body
+    items = body["items"]
+    for item in items:
+        if item["externalId"] == external_id:
+            return external_id
+    raise ValueError("Failed to create or retrieve simulator integration.")
+
+
 def _parse_simulator_response(response: HTTPResult) -> str | None:
     assert isinstance(response, SuccessResponse)
     assert "items" in response.body_json
