@@ -146,7 +146,7 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
         scene: LocationFilterScene | None = None,
         asset_centric: AssetCentricFilter | None = None,
         views: list[LocationFilterView] | None = None,
-        data_modeling_type: Literal["HYBRID", "DATA_MODELING_ONLY"] | None = None,
+        data_modeling_type: Literal["HYBRID", "DATA_MODELING_ONLY", "ASSET_CENTRIC_ONLY"] | None = None,
         _parent_external_id: str | None = None,
     ) -> None:
         self.external_id = external_id
@@ -250,7 +250,7 @@ class LocationFilter(LocationFilterCore):
         scene: LocationFilterScene | None = None,
         asset_centric: AssetCentricFilter | None = None,
         views: list[LocationFilterView] | None = None,
-        data_modeling_type: Literal["HYBRID", "DATA_MODELING_ONLY"] | None = None,
+        data_modeling_type: Literal["HYBRID", "DATA_MODELING_ONLY", "ASSET_CENTRIC_ONLY"] | None = None,
         locations: "LocationFilterList | None" = None,
     ) -> None:
         super().__init__(
