@@ -214,9 +214,9 @@ class SimulatorModelRevisionCRUD(
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "modelExternalId" in item:
-            yield SimulatorModelCRUD, item["modelExternalId"]
+            yield SimulatorModelCRUD, ExternalId(external_id=item["modelExternalId"])
         if "fileExternalId" in item:
-            yield CogniteFileCRUD, item["fileExternalId"]
+            yield FileMetadataCRUD, ExternalId(external_id=item["fileExternalId"])
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SimulatorModelRevisionRequest:
         if file_external_id := resource.pop("fileExternalId", None):
@@ -310,7 +310,7 @@ class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, Sim
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "modelExternalId" in item:
-            yield SimulatorModelCRUD, item["modelExternalId"]
+            yield SimulatorModelCRUD, ExternalId(external_id=item["modelExternalId"])
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SimulatorRoutineRequest:
         return SimulatorRoutineRequest.model_validate(resource)
@@ -390,4 +390,4 @@ class SimulatorRoutineRevisionCRUD(
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "routineExternalId" in item:
-            yield SimulatorRoutineCRUD, item["routineExternalId"]
+            yield SimulatorRoutineCRUD, ExternalId(external_id=item["routineExternalId"])
