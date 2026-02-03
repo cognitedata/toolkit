@@ -18,7 +18,10 @@ from cognite_toolkit._cdf_tk.client.api.robotics_locations import LocationsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
+from cognite_toolkit._cdf_tk.client.api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
+from cognite_toolkit._cdf_tk.client.api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
+from cognite_toolkit._cdf_tk.client.api.simulator_routines import SimulatorRoutinesAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import (
     ThreeDClassicAssetMappingAPI,
@@ -84,6 +87,9 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         DataPostProcessingAPI,
         # Needs special handling as it needs an existing simulator to create models.
         SimulatorModelsAPI,
+        SimulatorRoutinesAPI,
+        SimulatorModelRevisionsAPI,
+        SimulatorRoutineRevisionsAPI,
         # Do not support delete.
         DataSetsAPI,
         # RAW tables depend on existing RAW databases, so they are tested together.
