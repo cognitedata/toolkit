@@ -877,6 +877,27 @@ class APMConfigInteractiveSelect:
         self.client = client
         self.operation = operation
 
+    def _get_choices(self) -> list[Choice]:
+        """Fetch APM configs and create choices for selection.
+
+        Returns:
+            List of questionary Choice objects for the available APM configs.
+
+        Raises:
+            ToolkitMissingResourceError: If no APM configs are found.
+        """
+        configs = self.client.infield.apm_config.list(limit=None)
+        if not configs:
+            raise ToolkitMissingResourceError("No APM configs found.")
+
+        return [
+            Choice(
+                title=f"{config.name} ({config.external_id})" if config.name else f"({config.external_id})",
+                value=config,
+            )
+            for config in configs
+        ]
+
     def select_apm_configs(self) -> list[APMConfigResponse]:
         """Select multiple APM configs interactively.
 
@@ -887,17 +908,7 @@ class APMConfigInteractiveSelect:
             ToolkitMissingResourceError: If no APM configs are found.
             ToolkitValueError: If no APM configs are selected.
         """
-        configs = self.client.infield.apm_config.list(limit=None)
-        if not configs:
-            raise ToolkitMissingResourceError("No APM configs found.")
-
-        choices = [
-            Choice(
-                title=f"{config.name} ({config.external_id})" if config.name else f"({config.external_id})",
-                value=config,
-            )
-            for config in configs
-        ]
+        choices = self._get_choices()
         selected_configs = questionary.checkbox(
             f"Select APM configs to {self.operation}:",
             choices=choices,
@@ -917,17 +928,7 @@ class APMConfigInteractiveSelect:
             ToolkitMissingResourceError: If no APM configs are found.
             ToolkitValueError: If no APM config is selected.
         """
-        configs = self.client.infield.apm_config.list(limit=None)
-        if not configs:
-            raise ToolkitMissingResourceError("No APM configs found.")
-
-        choices = [
-            Choice(
-                title=f"{config.name} ({config.external_id})" if config.name else f"({config.external_id})",
-                value=config,
-            )
-            for config in configs
-        ]
+        choices = self._get_choices()
         selected_config = questionary.select(
             f"Select an APM config to {self.operation}:",
             choices=choices,

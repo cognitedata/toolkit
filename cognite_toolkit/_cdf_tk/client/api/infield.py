@@ -8,7 +8,11 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse,
     SuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest, APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
+    APM_CONFIG_SPACE,
+    APMConfigRequest,
+    APMConfigResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     DataExplorationConfig,
     InFieldCDMLocationConfigRequest,
@@ -118,27 +122,7 @@ class APMConfigAPI(WrappedInstancesAPI[TypedNodeIdentifier, APMConfigRequest, AP
         Returns:
             List of APMConfigResponse objects.
         """
-        from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
-        from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APM_CONFIG_SPACE
-        from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference
-
-        filter_ = InstanceFilter(
-            instance_type="node",
-            space=[APM_CONFIG_SPACE],
-            source=ViewReference(
-                space=self._view_id.space,
-                external_id=self._view_id.external_id,
-                version=self._view_id.version,
-            ),
-        )
-        body = {
-            **filter_.dump(),
-            "sort": [
-                {"property": ["node", "space"], "direction": "ascending"},
-                {"property": ["node", "externalId"], "direction": "ascending"},
-            ],
-        }
-        return self._list(limit=limit, body=body)
+        return super()._list_instances(spaces=[APM_CONFIG_SPACE], limit=limit)
 
 
 class InfieldAPI:
