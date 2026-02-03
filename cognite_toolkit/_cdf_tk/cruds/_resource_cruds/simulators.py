@@ -35,6 +35,7 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, di
 
 from .data_organization import DataSetsCRUD
 from .file import FileMetadataCRUD
+from .timeseries import TimeSeriesCRUD
 
 
 @final
@@ -329,7 +330,7 @@ class SimulatorRoutineRevisionCRUD(
     resource_write_cls = SimulatorRoutineRevisionRequest
     yaml_cls = SimulatorRoutineRevisionYAML
     kind = "SimulatorRoutineRevision"
-    dependencies = frozenset({SimulatorRoutineCRUD})
+    dependencies = frozenset({SimulatorRoutineCRUD, TimeSeriesCRUD})
     _doc_url = "Simulator-Routines/operation/create_simulator_routine_revision_simulators_routines_revisions_post"
 
     support_update = False
@@ -392,6 +393,21 @@ class SimulatorRoutineRevisionCRUD(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "routineExternalId" in item:
             yield SimulatorRoutineCRUD, ExternalId(external_id=item["routineExternalId"])
+        config = item.get("configuration", {})
+        if not isinstance(config, dict):
+            return
+        for key in ["logicalCheck", "steadyStateDetection"]:
+            if isinstance(value := config.get(key), dict) and "timeSeriesExternalId" in value:
+                yield TimeSeriesCRUD, ExternalId(external_id=value["timeSeriesExternalId"])
+        for key in ["inputs", "outputs"]:
+            if isinstance(io_list := config.get(key), list):
+                for io_item in io_list:
+                    if not isinstance(io_item, dict):
+                        continue
+                    if "saveTimeseriesExternalId" in io_item:
+                        yield TimeSeriesCRUD, ExternalId(external_id=io_item["saveTimeseriesExternalId"])
+                    if "sourceExternalId" in io_item and key == "inputs":
+                        yield TimeSeriesCRUD, ExternalId(external_id=io_item["sourceExternalId"])
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
