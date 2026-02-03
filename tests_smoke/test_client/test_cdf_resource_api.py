@@ -69,7 +69,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import WorkflowTriggerRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import NonceCredentials, WorkflowTriggerRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionRequest
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
@@ -658,9 +658,9 @@ class TestCDFResourceAPI:
         workflow_trigger = get_examples_minimum_requests(WorkflowTriggerRequest)[0]
         workflow_trigger_request = WorkflowTriggerRequest.model_validate(workflow_trigger)
         workflow_trigger_id = workflow_trigger_request.as_id()
-        workflow_trigger_request.authentication.nonce = toolkit_client.iam.sessions.create(
-            session_type="ONESHOT_TOKEN_EXCHANGE"
-        ).nonce
+        workflow_trigger_request.authentication = NonceCredentials(
+            nonce=toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
+        )
 
         try:
             # Create workflow

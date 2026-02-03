@@ -24,11 +24,11 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     WorkflowOrchestrationAcl,
 )
-from cognite.client.exceptions import CogniteAuthError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
@@ -505,15 +505,19 @@ class WorkflowTriggerCRUD(ResourceCRUD[ExternalId, WorkflowTriggerRequest, Workf
     def _upsert(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
         created: list[WorkflowTriggerResponse] = []
         for item in items:
-            created.append(self._upsert_item(item))
+            created_item = self._upsert_item(item)
+            if created_item is not None:
+                created.append(created_item)
         return created
 
-    def _upsert_item(self, item: WorkflowTriggerRequest) -> WorkflowTriggerResponse:
+    def _upsert_item(self, item: WorkflowTriggerRequest) -> WorkflowTriggerResponse | None:
         credentials = self._authentication_by_id.get(item.external_id)
         try:
             result = self.client.tool.workflows.triggers.create([item])
+            if not result:
+                return None
             return result[0]
-        except CogniteAuthError as e:
+        except ToolkitAPIError as e:
             if hint := try_find_error(credentials):
                 raise ResourceCreationError(f"Failed to create WorkflowTrigger {item.external_id}: {hint}") from e
             raise e

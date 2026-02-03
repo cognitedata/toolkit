@@ -55,7 +55,7 @@ class WorkflowTrigger(BaseModelObject):
 
 class WorkflowTriggerRequest(WorkflowTrigger, RequestResource):
     # authentication is inherited from WorkflowTrigger as optional
-    pass
+    ...
 
 
 class WorkflowTriggerResponse(WorkflowTrigger, ResponseResource[WorkflowTriggerRequest]):
