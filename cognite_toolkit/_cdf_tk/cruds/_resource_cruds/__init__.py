@@ -35,7 +35,12 @@ from .robotics import (
     RoboticMapCRUD,
     RoboticsDataPostProcessingCRUD,
 )
-from .simulators import SimulatorModelCRUD
+from .simulators import (
+    SimulatorModelCRUD,
+    SimulatorModelRevisionCRUD,
+    SimulatorRoutineCRUD,
+    SimulatorRoutineRevisionCRUD,
+)
 from .streams import StreamCRUD
 from .three_d_model import ThreeDModelCRUD
 from .timeseries import DatapointSubscriptionCRUD, TimeSeriesCRUD
@@ -85,6 +90,9 @@ __all__ = [
     "SequenceCRUD",
     "SequenceRowCRUD",
     "SimulatorModelCRUD",
+    "SimulatorModelRevisionCRUD",
+    "SimulatorRoutineCRUD",
+    "SimulatorRoutineRevisionCRUD",
     "SpaceCRUD",
     "StreamCRUD",
     "StreamlitCRUD",

@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceWorker,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import Loader
+from cognite_toolkit._cdf_tk.cruds._resource_cruds import SimulatorModelRevisionCRUD, SimulatorRoutineRevisionCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
     DeployResults,
@@ -316,8 +317,8 @@ class CleanCommand(ToolkitCommand):
             if not issubclass(loader_cls, ResourceCRUD):
                 continue
             loader = loader_cls.create_loader(client, build_dir)
-            if type(loader) is DataSetsCRUD:
-                self.warn(ToolkitNotSupportedWarning(feature="Dataset clean."))
+            if isinstance(loader, DataSetsCRUD | SimulatorModelRevisionCRUD | SimulatorRoutineRevisionCRUD):
+                self.warn(ToolkitNotSupportedWarning(feature=f"{loader.display_name} clean."))
                 continue
             result = self.clean_resources(
                 loader,

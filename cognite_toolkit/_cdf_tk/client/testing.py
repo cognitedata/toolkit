@@ -9,7 +9,6 @@ from cognite.client._api.functions import FunctionCallsAPI, FunctionSchedulesAPI
 from cognite.client._api.raw import RawDatabasesAPI as LegacyRawDatabasesAPI
 from cognite.client._api.raw import RawRowsAPI
 from cognite.client._api.raw import RawTablesAPI as LegacyRawTablesAPI
-from cognite.client._api.simulators import SimulatorModelsAPI, SimulatorsAPI
 from cognite.client._api.synthetic_time_series import SyntheticDatapointsAPI
 from cognite.client.testing import CogniteClientMock
 from rich.console import Console
@@ -71,6 +70,11 @@ from .api.project import ProjectAPI
 from .api.search import SearchAPI
 from .api.security_categories import SecurityCategoriesAPI
 from .api.sequences import SequencesAPI
+from .api.simulator_model_revisions import SimulatorModelRevisionsAPI
+from .api.simulator_models import SimulatorModelsAPI
+from .api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
+from .api.simulator_routines import SimulatorRoutinesAPI
+from .api.simulators import SimulatorsAPI
 from .api.streams import StreamsAPI
 from .api.three_d import ThreeDAPI, ThreeDClassicModelsAPI
 from .api.timeseries import TimeSeriesAPI
@@ -158,6 +162,9 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.events = MagicMock(spec_set=EventsAPI)
         self.tool.simulators = MagicMock(spec=SimulatorsAPI)
         self.tool.simulators.models = MagicMock(spec_set=SimulatorModelsAPI)
+        self.tool.simulators.model_revisions = MagicMock(spec_set=SimulatorModelRevisionsAPI)
+        self.tool.simulators.routines = MagicMock(spec_set=SimulatorRoutinesAPI)
+        self.tool.simulators.routine_revisions = MagicMock(spec_set=SimulatorRoutineRevisionsAPI)
         self.tool.datasets = MagicMock(spec_set=DataSetsAPI)
         self.tool.extraction_pipelines = MagicMock(spec_set=ExtractionPipelinesAPI)
         self.tool.hosted_extractors = MagicMock(spec=HostedExtractorsAPI)

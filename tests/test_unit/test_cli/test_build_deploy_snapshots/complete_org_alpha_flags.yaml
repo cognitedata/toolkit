@@ -47,6 +47,8 @@ FileCRUD:
 - externalId: MyExtendedFile
   filehash: c7fbc0e8
   space: sp_nodes
+- external_id: my_simulator_model_revision_file
+  filehash: edf1f778
 - external_id: shopConfigFile
   filehash: b1f3b6ef
 FileMetadata:
@@ -56,6 +58,14 @@ FileMetadata:
   name: Multi_File_Function.zip
   overwrite: true
 FileMetadataResponse:
+- dataSetId: 7982613576047462211
+  directory: /files
+  externalId: my_simulator_model_revision_file
+  metadata:
+    origin: cognite-toolkit
+  mimeType: application/plain
+  name: simulator_model_revision.txt
+  source: doctrino
 - dataSetId: 7982613576047462211
   directory: /files
   externalId: shopConfigFile
@@ -292,6 +302,98 @@ SimulatorModelResponse:
   name: My Simulator Model
   simulatorExternalId: integration-test-simulator
   type: SteadyState
+SimulatorModelRevisionResponse:
+- description: This is a revision of the example simulator model for demonstration
+    purposes.
+  externalId: my_simulator_model_revision
+  fileId: 13770889679571710424
+  modelExternalId: my_simulator_model
+SimulatorRoutineResponse:
+- description: This is an example simulator routine for demonstration purposes.
+  externalId: my_simulator_routine
+  modelExternalId: my_simulator_model
+  name: My Simulator Routine
+  simulatorIntegrationExternalId: integration-test-simulator-integration
+SimulatorRoutineRevisionResponse:
+- configuration:
+    dataSampling:
+      enabled: true
+      granularity: 1
+      samplingWindow: 15
+      validationWindow: 5
+    inputs:
+    - name: Cold water Temperature
+      referenceId: CWT
+      unit:
+        name: C
+        quantity: temperature
+      value: 10.0
+      valueType: DOUBLE
+    - name: Cold Water Pressure
+      referenceId: CWP
+      unit:
+        name: bar
+        quantity: pressure
+      value:
+      - 3.6
+      valueType: DOUBLE_ARRAY
+    logicalCheck:
+    - aggregate: average
+      enabled: true
+      operator: lt
+      timeseriesExternalId: simulator_routine_revision_logical_check
+      value: 75.8
+    outputs:
+    - name: Shower Temperature
+      referenceId: ST
+      unit:
+        name: C
+        quantity: temperature
+      valueType: DOUBLE
+    schedule:
+      enabled: false
+    steadyStateDetection:
+    - aggregate: average
+      enabled: true
+      minSectionSize: 1
+      slopeThreshold: 0.5
+      varThreshold: 3.5
+  externalId: my_simulator_routine_revision
+  routineExternalId: my_simulator_routine
+  script:
+  - description: Set Inputs
+    order: 1
+    steps:
+    - arguments:
+        objectName: Cold Water
+        objectProperty: Temperature
+        referenceId: CWT
+      description: Set Cold water Temperature
+      order: 1
+      stepType: Set
+    - arguments:
+        objectName: Cold Water
+        objectProperty: Pressure
+        referenceId: CWP
+      description: Set Cold Water Pressure
+      order: 2
+      stepType: Set
+  - description: Solve the flowsheet
+    order: 2
+    steps:
+    - arguments:
+        command: Solve
+      order: 1
+      stepType: Command
+  - description: Set simulator outputs
+    order: 3
+    steps:
+    - arguments:
+        objectName: Shower
+        objectProperty: Temperature
+        referenceId: ST
+      order: 1
+      stepType: Get
 Space:
 - space: sp_instance
 - space: sp_schema
@@ -300,3 +402,6 @@ StreamResponse:
   settings:
     template:
       name: ImmutableTestStream
+TimeSeriesResponse:
+- externalId: simulator_routine_revision_logical_check
+  name: Simulator Routine Revision Logical Check

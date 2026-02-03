@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceCRUD,
     ResourceWorker,
 )
+from cognite_toolkit._cdf_tk.cruds._resource_cruds import SimulatorModelRevisionCRUD, SimulatorRoutineRevisionCRUD
 from cognite_toolkit._cdf_tk.cruds._worker import CategorizedResources
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
@@ -208,6 +209,9 @@ class DeployCommand(ToolkitCommand):
             if not issubclass(loader_cls, ResourceCRUD):
                 continue
             loader: ResourceCRUD = loader_cls.create_loader(client, build_dir)
+            if isinstance(loader, SimulatorRoutineRevisionCRUD | SimulatorModelRevisionCRUD):
+                # There are deleted when the routine/model is deleted, so skip here.
+                continue
             result = self._clean_command.clean_resources(
                 loader,
                 env_vars=env_vars,

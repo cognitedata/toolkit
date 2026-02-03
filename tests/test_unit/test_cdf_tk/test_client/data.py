@@ -31,7 +31,10 @@ from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.sequences import SequencesAPI
+from cognite_toolkit._cdf_tk.client.api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
+from cognite_toolkit._cdf_tk.client.api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
+from cognite_toolkit._cdf_tk.client.api.simulator_routines import SimulatorRoutinesAPI
 from cognite_toolkit._cdf_tk.client.api.spaces import SpacesAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import ThreeDClassicModelsAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
@@ -137,6 +140,18 @@ from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import Sequen
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelRequest,
     SimulatorModelResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model_revision import (
+    SimulatorModelRevisionRequest,
+    SimulatorModelRevisionResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine import (
+    SimulatorRoutineRequest,
+    SimulatorRoutineResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision import (
+    SimulatorRoutineRevisionRequest,
+    SimulatorRoutineRevisionResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest, StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
@@ -250,6 +265,44 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "lastUpdatedTime": 1622547800000,
             # 'type' is not required in the response, but is required in the request. Likely a bug in the CDF API docs.
             "type": "default",
+        },
+        SimulatorModelRevisionResponse: {
+            "id": 112,
+            "externalId": "simulator_model_revision_001",
+            "modelExternalId": "simulator_model_001",
+            "fileId": 654321,
+            "status": "unknown",
+            "simulatorExternalId": "simulator_001",
+            "createdByUserId": "doctrino",
+            "versionNumber": 1,
+            "logId": 987654,
+            "dataSetId": 123456,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        SimulatorRoutineResponse: {
+            "id": 113,
+            "externalId": "simulator_routine_001",
+            "simulatorIntegrationExternalId": "simulator_integration_001",
+            "simulatorExternalId": "simulator_001",
+            "name": "Example Simulator Routine",
+            "modelExternalId": "simulator_model_001",
+            "dataSetId": 123456,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        SimulatorRoutineRevisionResponse: {
+            "id": 114,
+            "externalId": "simulator_routine_revision_001",
+            "configuration": {"schedule": {"enabled": False}, "dataSampling": {"enabled": False}},
+            "routineExternalId": "simulator_routine_001",
+            "modelExternalId": "simulator_model_001",
+            "simulatorExternalId": "simulator_001",
+            "simulatorIntegrationExternalId": "simulator_integration_001",
+            "createdByUserId": "doctrino",
+            "versionNumber": 1,
+            "dataSetId": 123456,
+            "createdTime": 1622547800000,
         },
         SpaceResponse: {
             "space": "my_space",
@@ -713,6 +766,33 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             api_class=SimulatorModelsAPI,
         ),
         id="SimulatorModel",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=SimulatorRoutineResponse,
+            request_cls=SimulatorRoutineRequest,
+            example_data=get_example_minimum_responses(SimulatorRoutineResponse),
+            api_class=SimulatorRoutinesAPI,
+        ),
+        id="SimulatorRoutine",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=SimulatorModelRevisionResponse,
+            request_cls=SimulatorModelRevisionRequest,
+            example_data=get_example_minimum_responses(SimulatorModelRevisionResponse),
+            api_class=SimulatorModelRevisionsAPI,
+        ),
+        id="SimulatorModelRevision",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=SimulatorRoutineRevisionResponse,
+            request_cls=SimulatorRoutineRevisionRequest,
+            example_data=get_example_minimum_responses(SimulatorRoutineRevisionResponse),
+            api_class=SimulatorRoutineRevisionsAPI,
+        ),
+        id="SimulatorRoutineRevision",
     )
     yield pytest.param(
         CDFResource(

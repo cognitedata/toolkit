@@ -1,7 +1,7 @@
 import sys
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationStatus, AnnotationType
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, ViewReference
@@ -111,3 +111,38 @@ class ThreeDAssetMapping3DNodeFilter(ThreeDAssetMappingFilter):
 
 class ThreeDAssetMappingTreeIndexFilter(ThreeDAssetMappingFilter):
     tree_indexes: list[int] = Field(max_length=100)
+
+
+class SimulatorFilter(Filter):
+    simulator_external_ids: list[str] | None = None
+
+
+class EpochTimestampRange(BaseModelRequest):
+    model_config = ConfigDict(protected_namespaces=tuple())
+    min_: int | None = Field(default=None, alias="min")
+    max_: int | None = Field(default=None, alias="max")
+
+
+class SimulatorModelFilter(SimulatorFilter):
+    external_id_prefix: str | None = None
+    data_set_ids: list[int] | None = None
+
+
+class SimulatorModelRevisionFilter(SimulatorFilter):
+    model_external_ids: list[str] | None = None
+    all_versions: bool | None = None
+    created_time: EpochTimestampRange | None = None
+    last_updated_time: EpochTimestampRange | None = None
+
+
+class SimulatorModelRoutineFilter(SimulatorFilter):
+    model_external_ids: list[str] | None = None
+    simulator_integration_external_ids: list[str] | None = None
+
+
+class SimulatorModelRoutineRevisionFilter(SimulatorFilter):
+    routine_external_ids: list[str] | None = None
+    all_versions: bool | None = None
+    model_external_ids: list[str] | None = None
+    simulator_integration_external_ids: list[str] | None = None
+    created_time: EpochTimestampRange | None = None

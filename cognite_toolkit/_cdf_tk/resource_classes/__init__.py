@@ -41,6 +41,9 @@ from .search_config import SearchConfigYAML
 from .securitycategories import SecurityCategoriesYAML
 from .sequence import SequenceRowYAML, SequenceYAML
 from .simulator_model import SimulatorModelYAML
+from .simulator_model_revision import SimulatorModelRevisionYAML
+from .simulator_routine import SimulatorRoutineYAML
+from .simulator_routine_revision import SimulatorRoutineRevisionYAML
 from .space import SpaceYAML
 from .streamlit_ import StreamlitYAML
 from .streams import StreamYAML
@@ -95,7 +98,10 @@ __all__ = [
     "SecurityCategoriesYAML",
     "SequenceRowYAML",
     "SequenceYAML",
+    "SimulatorModelRevisionYAML",
     "SimulatorModelYAML",
+    "SimulatorRoutineRevisionYAML",
+    "SimulatorRoutineYAML",
     "SpaceYAML",
     "StreamYAML",
     "StreamlitYAML",
