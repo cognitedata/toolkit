@@ -128,7 +128,7 @@ class ScriptStep(BaseModelResource):
     @classmethod
     def validate_arguments(cls, v: dict[str, Any], info: ValidationInfo) -> dict:
         step_type = info.data.get("step_type")
-        if not (step_type == "Get" or step_type == "Get"):
+        if step_type not in ("Get", "Set"):
             return v  # No validation for other step types
         required_keys: set[str] = {"referenceId"}
         missing_keys = required_keys - set(v.keys())
