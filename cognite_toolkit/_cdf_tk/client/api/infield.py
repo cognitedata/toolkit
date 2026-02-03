@@ -1,8 +1,6 @@
 from collections.abc import Sequence
 from typing import Any
 
-from rich.console import Console
-
 from cognite_toolkit._cdf_tk.client.api.instances import MultiWrappedInstancesAPI, WrappedInstancesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse, QueryResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -10,6 +8,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse,
     SuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest, APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     DataExplorationConfig,
     InFieldCDMLocationConfigRequest,
@@ -22,7 +21,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
     TypedInstanceIdentifier,
     TypedNodeIdentifier,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse, APMConfigRequest
 
 
 class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, InFieldLocationConfigResponse]):

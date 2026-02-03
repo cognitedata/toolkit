@@ -22,8 +22,8 @@ if sys.version_info >= (3, 11):
 else:
     pass
 
-
-APM_CONFIG_VIEW_ID = TypedViewReference(space="APM_Config", external_id="APM_Config", version="1")
+APM_CONFIG_SPACE = "APM_Config"
+APM_CONFIG_VIEW_ID = TypedViewReference(space=APM_CONFIG_SPACE, external_id="APM_Config", version="1")
 
 
 class ThreeDModelIdentifier(BaseModelObject):
@@ -131,7 +131,7 @@ class APMConfigRequest(WrappedInstanceRequest, APMConfig):
 
     VIEW_ID: ClassVar[TypedViewReference] = APM_CONFIG_VIEW_ID
     instance_type: Literal["node"] = "node"
-    space: Literal["APM_Config"] = "APM_Config"
+    space: Literal["APM_Config"] = APM_CONFIG_SPACE
 
     def as_id(self) -> TypedNodeIdentifier:
         return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
@@ -142,7 +142,7 @@ class APMConfigResponse(WrappedInstanceResponse[APMConfigRequest], APMConfig):
 
     VIEW_ID: ClassVar[TypedViewReference] = APM_CONFIG_VIEW_ID
     instance_type: Literal["node"] = "node"
-    space: Literal["APM_Config"] = "APM_Config"
+    space: Literal["APM_Config"] = APM_CONFIG_SPACE
 
     def as_request_resource(self) -> APMConfigRequest:
         return APMConfigRequest.model_validate(self.dump(), extra="ignore")
