@@ -397,8 +397,10 @@ class SimulatorRoutineRevisionCRUD(
         if not isinstance(config, dict):
             return
         for key in ["logicalCheck", "steadyStateDetection"]:
-            if isinstance(value := config.get(key), dict) and "timeSeriesExternalId" in value:
-                yield TimeSeriesCRUD, ExternalId(external_id=value["timeSeriesExternalId"])
+            if isinstance(values := config.get(key), list):
+                for value in values:
+                    if isinstance(value, dict) and "timeSeriesExternalId" in value:
+                        yield TimeSeriesCRUD, ExternalId(external_id=value["timeSeriesExternalId"])
         for key in ["inputs", "outputs"]:
             if isinstance(io_list := config.get(key), list):
                 for io_item in io_list:
