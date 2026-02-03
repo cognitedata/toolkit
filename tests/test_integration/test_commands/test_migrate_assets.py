@@ -12,6 +12,8 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedInstanceIdentifier, TypedViewReference
+from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
@@ -135,6 +137,25 @@ class TestMigrateEventsCommand:
         assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0}
 
 
+@pytest.fixture()
+def timeseries_with_unit(toolkit_client: ToolkitClient, toolkit_space: Space) -> Iterator[TimeSeriesResponse]:
+    request = TimeSeriesRequest(
+        external_id=f"toolkit_timeseries_with_unit_test_{RUN_UNIQUE_ID}",
+        name="Toolkit Time Series with Unit Test",
+        unit_external_id="velocity:m-per-hr",
+        is_string=False,
+        is_step=False,
+    )
+    created = toolkit_client.tool.timeseries.create([request])
+    yield created[0]
+
+    deleted = toolkit_client.tool.instances.delete(
+        [TypedInstanceIdentifier(instance_type="node", space=toolkit_space.space, external_id=request.external_id)]
+    )
+    if not deleted:
+        toolkit_client.tool.timeseries.delete([request.as_id()], ignore_unknown_ids=True)
+
+
 class TestMigrateTimeSeriesCommand:
     def test_migrate_time_series_by_dataset_dry_run(
         self, toolkit_client: ToolkitClient, migration_hierarchy_minimal: HierarchyMinimal, tmp_path: Path
@@ -156,6 +177,54 @@ class TestMigrateTimeSeriesCommand:
         )
         results = {item.status: item.count for item in result}
         assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0}
+
+    def test_migrate_time_series_with_unit(
+        self,
+        toolkit_client: ToolkitClient,
+        timeseries_with_unit: TimeSeriesResponse,
+        tmp_path: Path,
+        toolkit_space: Space,
+    ) -> None:
+        space = toolkit_space.space
+        client = toolkit_client
+
+        input_file = tmp_path / "timeseries_migration.csv"
+        with input_file.open("w", encoding="utf-8") as f:
+            f.write(
+                "id,space,externalId,ingestionView\n"
+                + "\n".join(f"{ts.id},{space},{ts.external_id},{TIME_SERIES_ID}" for ts in [timeseries_with_unit])
+                + "\n"
+            )
+
+        cmd = MigrationCommand(skip_tracking=True, silent=True)
+        cmd.migrate(
+            selected=MigrationCSVFileSelector(datafile=input_file, kind="TimeSeries"),
+            data=AssetCentricMigrationIO(client, skip_linking=False),
+            mapper=AssetCentricMapper(client),
+            log_dir=tmp_path / "logs",
+            dry_run=False,
+            verbose=True,
+        )
+        view_id = TypedViewReference(
+            space="cdf_cdm",
+            external_id="CogniteTimeSeries",
+            version="v1",
+        )
+        migrated = client.tool.instances.retrieve(
+            [TypedInstanceIdentifier(instance_type="node", space=space, external_id=timeseries_with_unit.external_id)],
+            view_id,
+        )
+        assert len(migrated) == 1
+        migrated_ts = migrated[0]
+        properties = migrated_ts.properties
+        assert properties is not None
+        view_ref = view_id.as_reference()
+        assert view_ref in properties
+        view_properties = properties[view_ref]
+        assert view_properties["unit"] == {
+            "space": "cdf_cdm_units",
+            "externalId": timeseries_with_unit.unit_external_id,
+        }
 
 
 class TestMigrateFileMetadataCommand:
