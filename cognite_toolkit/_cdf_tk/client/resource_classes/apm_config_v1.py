@@ -22,7 +22,7 @@ if sys.version_info >= (3, 11):
 else:
     pass
 
-APM_CONFIG_SPACE = "APM_Config"
+APM_CONFIG_SPACE: Literal["APM_Config"] = "APM_Config"
 APM_CONFIG_VIEW_ID = TypedViewReference(space=APM_CONFIG_SPACE, external_id="APM_Config", version="1")
 
 

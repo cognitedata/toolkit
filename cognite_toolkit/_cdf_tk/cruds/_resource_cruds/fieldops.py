@@ -4,12 +4,13 @@ from pathlib import Path
 from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, DataModelInstancesAcl
-from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeId
-from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest, APMConfigResponse, \
-    APM_CONFIG_SPACE
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
+    APM_CONFIG_SPACE,
+    APMConfigRequest,
+    APMConfigResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
@@ -27,7 +28,6 @@ from cognite_toolkit._cdf_tk.resource_classes import (
     InfieldV1YAML,
 )
 from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
-from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 
 from .auth import GroupAllScopedCRUD
@@ -81,7 +81,8 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
         return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID([APM_CONFIG_SPACE]))
 
     def prerequisite_warning(self) -> str | None:
-        views = self.client.data_modeling.views.retrieve(APMConfigResponse.VIEW_ID)
+        view_id = APMConfigRequest.VIEW_ID
+        views = self.client.data_modeling.views.retrieve((view_id.space, view_id.external_id, view_id.version))
         if len(views) > 0:
             return None
         return (
@@ -92,29 +93,27 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
     def create(self, items: Sequence[APMConfigRequest]) -> list[InstanceSlimDefinition]:
         return self.client.infield.apm_config.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> :
-        return self.client.infield.apm_config.retrieve(TypedNodeIdentifier.from_external_ids(ids, space=APM_CONFIG_SPACE))
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[APMConfigResponse]:
+        return self.client.infield.apm_config.retrieve(
+            TypedNodeIdentifier.from_external_ids(ids, space=APM_CONFIG_SPACE)
+        )
 
     def update(self, items: Sequence[APMConfigRequest]) -> list[InstanceSlimDefinition]:
         return self.client.infield.apm_config.create(items)
 
     def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
-        return self.client.infield.apm_config.delete([TypedNodeIdentifier.from_external_ids(ids, space=APM_CONFIG_SPACE)])
-
-    @staticmethod
-    def _as_node_ids(ids: SequenceNotStr[str]) -> list[NodeId]:
-        return [NodeId(APMConfig.space, id) for id in ids]
+        deleted = self.client.infield.apm_config.delete(
+            TypedNodeIdentifier.from_external_ids(ids, space=APM_CONFIG_SPACE)
+        )
+        return len(deleted)
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[APMConfig]:
-        for node in iterate_instances(
-            self.client, space=space, instance_type="node", source=APMConfig.view_id, console=self.console
-        ):
-            yield APMConfig.from_node(node)
+    ) -> Iterable[APMConfigResponse]:
+        raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -178,7 +177,7 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
                     continue
                 if ds_external_ids := filter_.pop("dataSetExternalIds", None):
                     filter_["dataSetIds"] = self.client.lookup.data_sets.id(ds_external_ids, is_dry_run)
-        return APMConfigWrite._load(resource)
+        return APMConfigRequest._load(resource)
 
     def dump_resource(self, resource: APMConfigResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
