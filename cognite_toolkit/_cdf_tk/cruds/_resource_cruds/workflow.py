@@ -588,10 +588,29 @@ class WorkflowTriggerCRUD(ResourceCRUD[ExternalId, WorkflowTriggerRequest, Workf
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowTriggerRequest:
         if isinstance(resource.get("data"), dict):
             resource["data"] = json.dumps(resource["data"])
+        # Remove authentication from resource dict as it contains clientId/clientSecret
+        # which are stored separately in _authentication_by_id and converted to nonce at creation time
+        resource.pop("authentication", None)
         return WorkflowTriggerRequest.model_validate(resource)
 
     def dump_resource(self, resource: WorkflowTriggerResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_request_resource().dump()
+        # Dump directly from response, excluding response-only fields
+        dumped = resource.dump()
+        # Remove response-only fields
+        dumped.pop("createdTime", None)
+        dumped.pop("lastUpdatedTime", None)
+        dumped.pop("isPaused", None)
+        # Remove input if None to match local format
+        if dumped.get("input") is None:
+            dumped.pop("input", None)
+        # Remove authentication if None
+        if dumped.get("authentication") is None:
+            dumped.pop("authentication", None)
+
+        # Ensure triggerType is included in triggerRule (might be excluded due to exclude_unset=True)
+        if "triggerRule" in dumped and "triggerType" not in dumped["triggerRule"]:
+            dumped["triggerRule"]["triggerType"] = resource.trigger_rule.trigger_type
+
         local = local or {}
         if isinstance(dumped.get("data"), str) and isinstance(local.get("data"), dict):
             dumped["data"] = json.loads(dumped["data"])

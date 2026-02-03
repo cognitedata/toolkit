@@ -3,17 +3,19 @@ from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.credentials import OAuthClientCredentials
-from cognite.client.data_classes import WorkflowTrigger
-from cognite.client.data_classes.workflows import (
-    SubworkflowReferenceParameters,
-    WorkflowDefinitionUpsert,
-    WorkflowScheduledTriggerRule,
-    WorkflowTask,
-    WorkflowVersionId,
-    WorkflowVersionUpsert,
-)
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
+    ScheduleTriggerRule,
+    WorkflowTriggerResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
+    SubworkflowTaskParameters,
+    Task,
+    WorkflowDefinition,
+    WorkflowVersionRequest,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import WorkflowTriggerCRUD, WorkflowVersionCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError, ToolkitRequiredValueError
@@ -48,7 +50,7 @@ workflowVersion: v1
             loader.load_resource_file(trigger_file, {})
         client.config.is_strict_validation = False
         local_dict = loader.load_resource_file(trigger_file, {})[0]
-        credentials = loader._authentication_by_id[loader.get_id(local_dict)]
+        credentials = loader._authentication_by_id[loader.get_id(local_dict).external_id]
         assert credentials.client_id == "toolkit-client-id"
         assert credentials.client_secret == "toolkit-client-secret"
 
@@ -64,11 +66,14 @@ authentication:
   clientSecret: my-client-secret
 """
 
-        cdf_trigger = WorkflowTrigger(
-            "daily-8am-utc",
-            trigger_rule=WorkflowScheduledTriggerRule(cron_expression="0 8 * * *"),
+        cdf_trigger = WorkflowTriggerResponse(
+            external_id="daily-8am-utc",
+            trigger_rule=ScheduleTriggerRule(cron_expression="0 8 * * *"),
             workflow_external_id="wf_example_repeater",
             workflow_version="v1",
+            created_time=0,
+            last_updated_time=0,
+            is_paused=False,
             metadata={
                 WorkflowTriggerCRUD._MetadataKey.secret_hash: calculate_secure_hash(
                     {"clientId": "my-client-id", "clientSecret": "my-client-secret"}, shorten=True
@@ -102,14 +107,19 @@ class TestWorkflowVersionLoader:
         }
 
         workflows = [
-            WorkflowVersionUpsert(
+            WorkflowVersionRequest(
                 workflow_external_id=id_,
                 version="v1",
-                workflow_definition=WorkflowDefinitionUpsert(
+                workflow_definition=WorkflowDefinition(
                     tasks=[
-                        WorkflowTask(
+                        Task(
                             external_id=f"task_{id_}",
-                            parameters=SubworkflowReferenceParameters(dependency, "v1"),
+                            type="subworkflow",
+                            parameters=SubworkflowTaskParameters(
+                                subworkflow=WorkflowVersionId(
+                                    workflow_external_id=dependency, version="v1"
+                                )
+                            ),
                         ),
                     ]
                 ),
@@ -122,4 +132,4 @@ class TestWorkflowVersionLoader:
 
         error = exc.value
         assert isinstance(error, ToolkitCycleError)
-        assert error.args[1] == [WorkflowVersionId(id_, "v1") for id_ in ["a", "c", "b", "a"]]
+        assert error.args[1] == [WorkflowVersionId(workflow_external_id=id_, version="v1") for id_ in ["a", "c", "b", "a"]]
