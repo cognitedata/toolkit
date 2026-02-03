@@ -361,7 +361,7 @@ SimulatorRoutineRevisionResponse:
       slopeThreshold: 0.5
       timeseriesExternalId: null
       varThreshold: 3.5
-  externalId: my_simulator_model_revision
+  externalId: my_simulator_routine_revision
   routineExternalId: my_simulator_routine
   script:
   - description: Set Inputs
