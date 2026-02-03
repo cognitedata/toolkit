@@ -45,7 +45,7 @@ from .api.hosted_extractor_destinations import HostedExtractorDestinationsAPI
 from .api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from .api.hosted_extractor_mappings import HostedExtractorMappingsAPI
 from .api.hosted_extractor_sources import HostedExtractorSourcesAPI
-from .api.infield import InfieldAPI, InFieldCDMConfigAPI, InfieldConfigAPI
+from .api.infield import APMConfigAPI, InfieldAPI, InFieldCDMConfigAPI, InfieldConfigAPI
 from .api.labels import LabelsAPI
 from .api.lookup import (
     AssetLookUpAPI,
@@ -108,6 +108,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.functions.calls = MagicMock(spec_set=FunctionCallsAPI)
         self.functions.schedules = MagicMock(spec_set=FunctionSchedulesAPI)
         self.infield = MagicMock(spec=InfieldAPI)
+        self.infield.apm_config = MagicMock(spec_set=APMConfigAPI)
         self.infield.config = MagicMock(spec_set=InfieldConfigAPI)
         self.infield.cdm_config = MagicMock(spec_set=InFieldCDMConfigAPI)
 

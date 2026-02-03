@@ -1,13 +1,23 @@
+"""This module contains data classes for the APM Config node used to configure Infield.
+
+These classes are used to represent the configuration of the APM Config node in a structured way, such that it can be
+used in the InfieldV1 Loader and thus be represented as a resource type in Toolkit. We do not do any validation in the
+FeatureConfiguration objects as this is just JSON object in the node, but use the structure to do lookup of
+data sets, spaces, and groups.
+"""
+
 from typing import ClassVar, Literal
 
-from cognite_toolkit._cdf_tk.client._resource_base import (
-    BaseModelObject,
-    RequestResource,
-    ResponseResource,
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
+    TypedNodeIdentifier,
+    TypedViewReference,
+    WrappedInstanceRequest,
+    WrappedInstanceResponse,
 )
 
-from .data_modeling import ViewReference
-from .identifiers import ExternalId
+APM_CONFIG_SPACE: Literal["APM_Config"] = "APM_Config"
+APM_CONFIG_VIEW_ID = TypedViewReference(space=APM_CONFIG_SPACE, external_id="APM_Config", version="1")
 
 
 class ThreeDModelIdentifier(BaseModelObject):
@@ -100,10 +110,8 @@ class FeatureConfiguration(BaseModelObject):
 
 
 class APMConfig(BaseModelObject):
-    space: ClassVar[str] = "APM_Config"
-    view_ref: ClassVar[ViewReference] = ViewReference(space="APM_Config", external_id="APM_Config", version="1")
-    instance_type: Literal["node"] = "node"
-    external_id: str
+    """Base class for APM Config containing common properties."""
+
     name: str | None = None
     app_data_space_id: str | None = None
     app_data_space_version: str | None = None
@@ -111,18 +119,28 @@ class APMConfig(BaseModelObject):
     customer_data_space_version: str | None = None
     feature_configuration: FeatureConfiguration | None = None
 
-    def as_id(self) -> ExternalId:
-        return ExternalId(external_id=self.external_id)
+
+class APMConfigRequest(WrappedInstanceRequest, APMConfig):
+    """APM Config request resource for creating/updating nodes."""
+
+    VIEW_ID: ClassVar[TypedViewReference] = APM_CONFIG_VIEW_ID
+    instance_type: Literal["node"] = "node"
+    space: Literal["APM_Config"] = APM_CONFIG_SPACE
+
+    def as_id(self) -> TypedNodeIdentifier:
+        return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
 
 
-class APMConfigRequest(APMConfig, RequestResource):
-    existing_version: int | None = None
+class APMConfigResponse(WrappedInstanceResponse[APMConfigRequest], APMConfig):
+    """APM Config response resource returned from API."""
 
-
-class APMConfigResponse(APMConfig, ResponseResource[APMConfigRequest]):
-    version: int
-    created_time: int
-    last_updated_time: int
+    VIEW_ID: ClassVar[TypedViewReference] = APM_CONFIG_VIEW_ID
+    instance_type: Literal["node"] = "node"
+    space: Literal["APM_Config"] = APM_CONFIG_SPACE
 
     def as_request_resource(self) -> APMConfigRequest:
-        return APMConfigRequest.model_validate(self.dump(), extra="ignore")
+        # InstanceType and space are constants, so we exclude them.
+        return APMConfigRequest.model_validate(
+            self.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude={"instance_type", "space"}),
+            extra="ignore",
+        )

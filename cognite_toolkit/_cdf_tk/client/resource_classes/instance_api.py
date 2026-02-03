@@ -1,4 +1,6 @@
+import sys
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from typing import Any, ClassVar, Literal, TypeAlias, TypeVar
 
 from pydantic import model_validator
@@ -9,6 +11,12 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 InstanceType: TypeAlias = Literal["node", "edge"]
 
@@ -36,6 +44,14 @@ class TypedNodeIdentifier(TypedInstanceIdentifier):
 
     def __str__(self) -> str:
         return f"Node({self.space}, {self.external_id})"
+
+    @classmethod
+    def from_external_id(cls, item: ExternalId, space: str) -> Self:
+        return cls(instance_type="node", space=space, external_id=item.external_id)
+
+    @classmethod
+    def from_external_ids(cls, items: Iterable[ExternalId], space: str) -> list[Self]:
+        return [cls.from_external_id(item, space) for item in items]
 
 
 class TypedEdgeIdentifier(TypedInstanceIdentifier):
