@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._references import ViewReference
 
 InstanceType: TypeAlias = Literal["node", "edge"]
 
@@ -88,6 +89,13 @@ class TypedViewReference(Identifier):
         This is the default serialization method for request resources.
         """
         return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=not include_type)
+
+    def as_reference(self) -> ViewReference:
+        return ViewReference(
+            space=self.space,
+            external_id=self.external_id,
+            version=self.version,
+        )
 
 
 ######################################################
