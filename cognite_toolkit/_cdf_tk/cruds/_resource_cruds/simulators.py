@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
     SimulatorRoutineRevisionResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.resource_classes import SimulatorModelYAML
 from cognite_toolkit._cdf_tk.resource_classes.simulator_model_revision import SimulatorModelRevisionYAML
 from cognite_toolkit._cdf_tk.resource_classes.simulator_routine import SimulatorRoutineYAML
@@ -197,7 +198,10 @@ class SimulatorModelRevisionCRUD(
 
     def delete(self, ids: SequenceNotStr[ExternalId | InternalOrExternalId]) -> int:
         # Simulator model revisions do not support delete
-        raise NotImplementedError("Simulator model revisions do not support delete")
+        raise ToolkitNotSupported(
+            "You cannot delete or update simulator model revisions. They are immutable."
+            "You can either: 1) Create a new revision - change the external ID and create a new revision. 2) Delete the model - this will delete all revisions."
+        )
 
     def _iterate(
         self,
@@ -373,7 +377,11 @@ class SimulatorRoutineRevisionCRUD(
 
     def delete(self, ids: SequenceNotStr[ExternalId | InternalOrExternalId]) -> int:
         # Simulator routine revisions do not support delete
-        raise NotImplementedError("Simulator routine revisions do not support delete")
+        raise ToolkitNotSupported(
+            "You cannot delete or update simulator routine revisions. They are immutable."
+            "You can either: 1) Create a new revision - change the external ID and create a new revision. "
+            "2) Delete the routine - this will delete all revisions."
+        )
 
     def _iterate(
         self,
