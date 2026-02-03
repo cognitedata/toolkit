@@ -296,7 +296,7 @@ Space:
 - space: sp_instance
 - space: sp_schema
 StreamResponse:
-- externalId: my-stream
+- externalId: my-stream2
   settings:
     template:
       name: ImmutableTestStream
