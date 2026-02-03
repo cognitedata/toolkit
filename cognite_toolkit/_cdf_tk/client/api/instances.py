@@ -208,11 +208,15 @@ class WrappedInstancesAPI(
         return response_items
 
     def _list_instances(
-        self, spaces: list[str] | None = None, limit: int | None = 100
+        self,
+        instance_type: Literal["node", "edge"] = "node",
+        spaces: list[str] | None = None,
+        limit: int | None = 100,
     ) -> list[T_WrappedInstanceResponse]:
         """List all wrapped instances in CDF.
 
         Args:
+            instance_type: The type of instance to list. Defaults to "node".
             spaces: Optional list of spaces to filter by.
             limit: Maximum number of items to return. If None, all items are returned.
 
@@ -220,7 +224,7 @@ class WrappedInstancesAPI(
             List of wrapped instance response objects.
         """
         filter_ = InstanceFilter(
-            instance_type="node",
+            instance_type=instance_type,
             space=spaces,
             source=ViewReference(
                 space=self._view_id.space,
@@ -231,8 +235,8 @@ class WrappedInstancesAPI(
         body = {
             **filter_.dump(),
             "sort": [
-                {"property": ["node", "space"], "direction": "ascending"},
-                {"property": ["node", "externalId"], "direction": "ascending"},
+                {"property": [instance_type, "space"], "direction": "ascending"},
+                {"property": [instance_type, "externalId"], "direction": "ascending"},
             ],
         }
         return self._list(limit=limit, body=body)

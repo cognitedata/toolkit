@@ -122,7 +122,7 @@ class APMConfigAPI(WrappedInstancesAPI[TypedNodeIdentifier, APMConfigRequest, AP
         Returns:
             List of APMConfigResponse objects.
         """
-        return super()._list_instances(spaces=[APM_CONFIG_SPACE], limit=limit)
+        return super()._list_instances(spaces=[APM_CONFIG_SPACE], instance_type="node", limit=limit)
 
 
 class InfieldAPI:
