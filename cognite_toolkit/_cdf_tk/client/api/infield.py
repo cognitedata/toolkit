@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
     TypedInstanceIdentifier,
     TypedNodeIdentifier,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse, APMConfigRequest
 
 
 class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, InFieldLocationConfigResponse]):
@@ -98,8 +99,22 @@ class InFieldCDMConfigAPI(
         return PagedResponse[InFieldCDMLocationConfigResponse].model_validate_json(response.body)
 
 
+class APMConfigAPI(WrappedInstancesAPI[TypedNodeIdentifier, APMConfigRequest, APMConfigResponse]):
+    def __init__(self, http_client: HTTPClient) -> None:
+        super().__init__(http_client, APMConfigRequest.VIEW_ID)
+
+    def _validate_response(self, response: SuccessResponse) -> ResponseItems[TypedNodeIdentifier]:
+        return ResponseItems[TypedNodeIdentifier].model_validate_json(response.body)
+
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[APMConfigResponse]:
+        return PagedResponse[APMConfigResponse].model_validate_json(response.body)
+
+
 class InfieldAPI:
-    def __init__(self, http_client: HTTPClient, console: Console) -> None:
+    def __init__(self, http_client: HTTPClient) -> None:
         self._http_client = http_client
+        self.apm_config = APMConfigAPI(http_client)
         self.config = InfieldConfigAPI(http_client)
         self.cdm_config = InFieldCDMConfigAPI(http_client)
