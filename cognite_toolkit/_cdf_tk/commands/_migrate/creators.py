@@ -19,9 +19,10 @@ from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.events import EventProperty
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APM_CONFIG_SPACE, APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
 from cognite_toolkit._cdf_tk.cruds import NodeCRUD, ResourceCRUD, SpaceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest
@@ -225,12 +226,28 @@ class InfieldV2ConfigCreator(MigrationCreator[InFieldCDMLocationConfigRequest]):
     DISPLAY_NAME = "Infield V2 Configuration"
     HAS_LINEAGE = False
 
-    def __init__(self, client: ToolkitClient, apm_configs: Sequence[APMConfigResponse]) -> None:
+    def __init__(
+        self,
+        client: ToolkitClient,
+        external_ids: Sequence[str] | None = None,
+        apm_configs: Sequence[APMConfigResponse] | None = None,
+    ) -> None:
         super().__init__(client)
+        if sum([external_ids is not None, apm_configs is not None]) != 1:
+            raise ValueError("Exactly one of external_ids or apm_configs must be provided.")
+        self.external_ids = external_ids
         self.apm_configs = apm_configs
 
     def create_resources(self) -> list[InFieldCDMLocationConfigRequest]:
-        raise NotImplementedError()
+        if self.external_ids is not None:
+            apm_configs = self.client.infield.apm_config.retrieve(
+                TypedNodeIdentifier.from_str_ids(self.external_ids, space=APM_CONFIG_SPACE)
+            )
+        elif self.apm_configs is not None:
+            apm_configs = list(self.apm_configs)
+        else:
+            raise NotImplementedError("This should not happen.")
+        return [self._create_infield_v2_config(config) for config in apm_configs]
 
     def resource_configs(self, resources: Sequence[InFieldCDMLocationConfigRequest]) -> list[ResourceConfig]:
         return [ResourceConfig(filestem=node.external_id, data=node.dump(context="toolkit")) for node in resources]
