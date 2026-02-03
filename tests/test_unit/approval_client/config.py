@@ -181,6 +181,18 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelRequest,
     SimulatorModelResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model_revision import (
+    SimulatorModelRevisionRequest,
+    SimulatorModelRevisionResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine import (
+    SimulatorRoutineRequest,
+    SimulatorRoutineResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision import (
+    SimulatorRoutineRevisionRequest,
+    SimulatorRoutineRevisionResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 
@@ -817,6 +829,39 @@ API_RESOURCES = [
         api_name="tool.simulators.models",
         resource_cls=SimulatorModelResponse,
         _write_cls=SimulatorModelRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.simulators.model_revisions",
+        resource_cls=SimulatorModelRevisionResponse,
+        _write_cls=SimulatorModelRevisionRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.simulators.routines",
+        resource_cls=SimulatorRoutineResponse,
+        _write_cls=SimulatorRoutineRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="list", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.simulators.routine_revisions",
+        resource_cls=SimulatorRoutineRevisionResponse,
+        _write_cls=SimulatorRoutineRevisionRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
