@@ -27,6 +27,7 @@ from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.data_classes.raw import Database, DatabaseList, Table, TableList
 from questionary import Choice
 
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import CANVAS_INSTANCE_SPACE, Canvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList
@@ -37,6 +38,7 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.aggregators import AssetCentricAggregator
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
+    APMConfigInteractiveSelect,
     AssetCentricDestinationSelect,
     AssetInteractiveSelect,
     DataModelingSelect,
@@ -1060,3 +1062,115 @@ class TestThreeDInteractiveSelect:
             result = selector.select_three_d_models()
         assert len(result) == 1
         assert result[0].name == "Model 2"
+
+
+class TestAPMConfigInteractiveSelect:
+    def test_interactive_select_apm_configs(self, monkeypatch) -> None:
+        def select_apm_configs(choices: list[Choice]) -> list[APMConfigResponse]:
+            assert len(choices) == 3
+            return [choices[1].value]
+
+        answers = [select_apm_configs]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(APMConfigInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            selector = APMConfigInteractiveSelect(client, "test_operation")
+            client.infield.apm_config.list.return_value = [
+                APMConfigResponse(
+                    external_id=f"config_{i}",
+                    name=f"Config {i}",
+                    space="APM_Config",
+                    version=1,
+                    last_updated_time=1,
+                    created_time=1,
+                )
+                for i in range(3)
+            ]
+
+            result = selector.select_apm_configs()
+        assert len(result) == 1
+        assert result[0].external_id == "config_1"
+
+    def test_interactive_select_single_apm_config(self, monkeypatch) -> None:
+        def select_apm_config(choices: list[Choice]) -> APMConfigResponse:
+            assert len(choices) == 2
+            return choices[0].value
+
+        answers = [select_apm_config]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(APMConfigInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            selector = APMConfigInteractiveSelect(client, "test_operation")
+            client.infield.apm_config.list.return_value = [
+                APMConfigResponse(
+                    external_id=f"config_{i}",
+                    name=f"Config {i}",
+                    space="APM_Config",
+                    version=1,
+                    last_updated_time=1,
+                    created_time=1,
+                )
+                for i in range(2)
+            ]
+
+            result = selector.select_apm_config()
+        assert result.external_id == "config_0"
+
+    def test_interactive_select_apm_configs_no_configs(self, monkeypatch) -> None:
+        with monkeypatch_toolkit_client() as client:
+            selector = APMConfigInteractiveSelect(client, "test_operation")
+            client.infield.apm_config.list.return_value = []
+
+            with pytest.raises(ToolkitMissingResourceError) as exc_info:
+                selector.select_apm_configs()
+
+            assert str(exc_info.value) == "No APM configs found."
+
+    def test_interactive_select_apm_config_no_configs(self, monkeypatch) -> None:
+        with monkeypatch_toolkit_client() as client:
+            selector = APMConfigInteractiveSelect(client, "test_operation")
+            client.infield.apm_config.list.return_value = []
+
+            with pytest.raises(ToolkitMissingResourceError) as exc_info:
+                selector.select_apm_config()
+
+            assert str(exc_info.value) == "No APM configs found."
+
+    def test_interactive_select_apm_configs_with_no_name(self, monkeypatch) -> None:
+        def select_apm_configs(choices: list[Choice]) -> list[APMConfigResponse]:
+            # Check that configs without names are displayed correctly
+            assert len(choices) == 2
+            assert choices[0].title == "(config_0)"  # No name
+            assert choices[1].title == "Config 1 (config_1)"  # Has name
+            return [choices[0].value]
+
+        answers = [select_apm_configs]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(APMConfigInteractiveSelect.__module__, monkeypatch, answers),
+        ):
+            selector = APMConfigInteractiveSelect(client, "test_operation")
+            client.infield.apm_config.list.return_value = [
+                APMConfigResponse(
+                    external_id="config_0",
+                    name=None,  # No name
+                    space="APM_Config",
+                    version=1,
+                    last_updated_time=1,
+                    created_time=1,
+                ),
+                APMConfigResponse(
+                    external_id="config_1",
+                    name="Config 1",
+                    space="APM_Config",
+                    version=1,
+                    last_updated_time=1,
+                    created_time=1,
+                ),
+            ]
+
+            result = selector.select_apm_configs()
+        assert len(result) == 1
+        assert result[0].external_id == "config_0"
