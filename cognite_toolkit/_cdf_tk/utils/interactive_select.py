@@ -21,6 +21,7 @@ from questionary import Choice
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import Canvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList, Visibility
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
@@ -867,3 +868,73 @@ class ThreeDInteractiveSelect:
         if selected_models is None or len(selected_models) == 0:
             raise ToolkitValueError("No 3D models selected.")
         return selected_models
+
+
+class APMConfigInteractiveSelect:
+    """Interactive select for APM Config (Infield V1) configurations."""
+
+    def __init__(self, client: ToolkitClient, operation: str) -> None:
+        self.client = client
+        self.operation = operation
+
+    def _get_choices(self) -> list[Choice]:
+        """Fetch APM configs and create choices for selection.
+
+        Returns:
+            List of questionary Choice objects for the available APM configs.
+
+        Raises:
+            ToolkitMissingResourceError: If no APM configs are found.
+        """
+        configs = self.client.infield.apm_config.list(limit=None)
+        if not configs:
+            raise ToolkitMissingResourceError("No APM configs found.")
+
+        return [
+            Choice(
+                title=f"{config.name} ({config.external_id})" if config.name else f"({config.external_id})",
+                value=config,
+            )
+            for config in configs
+        ]
+
+    def select_apm_configs(self) -> list[APMConfigResponse]:
+        """Select multiple APM configs interactively.
+
+        Returns:
+            List of selected APMConfigResponse objects.
+
+        Raises:
+            ToolkitMissingResourceError: If no APM configs are found.
+            ToolkitValueError: If no APM configs are selected.
+        """
+        choices = self._get_choices()
+        selected_configs = questionary.checkbox(
+            f"Select APM configs to {self.operation}:",
+            choices=choices,
+            validate=lambda choices: True if choices else "You must select at least one APM config.",
+        ).unsafe_ask()
+        if selected_configs is None or len(selected_configs) == 0:
+            raise ToolkitValueError("No APM configs selected.")
+        return selected_configs
+
+    def select_apm_config(self) -> APMConfigResponse:
+        """Select a single APM config interactively.
+
+        Returns:
+            The selected APMConfigResponse object.
+
+        Raises:
+            ToolkitMissingResourceError: If no APM configs are found.
+            ToolkitValueError: If no APM config is selected.
+        """
+        choices = self._get_choices()
+        selected_config = questionary.select(
+            f"Select an APM config to {self.operation}:",
+            choices=choices,
+        ).unsafe_ask()
+        if selected_config is None:
+            raise ToolkitValueError("No APM config selected.")
+        if not isinstance(selected_config, APMConfigResponse):
+            raise ToolkitValueError(f"Selected APM config is not a valid APMConfigResponse object: {selected_config!r}")
+        return selected_config

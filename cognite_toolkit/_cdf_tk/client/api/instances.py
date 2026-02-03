@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilte
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceRequest,
     InstanceResponse,
+    ViewReference,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
@@ -205,6 +206,40 @@ class WrappedInstancesAPI(
         for response in self._chunk_requests(items, "delete", self._serialize_items):
             response_items.extend(self._validate_response(response).items)
         return response_items
+
+    def _list_instances(
+        self,
+        instance_type: Literal["node", "edge"] = "node",
+        spaces: list[str] | None = None,
+        limit: int | None = 100,
+    ) -> list[T_WrappedInstanceResponse]:
+        """List all wrapped instances in CDF.
+
+        Args:
+            instance_type: The type of instance to list. Defaults to "node".
+            spaces: Optional list of spaces to filter by.
+            limit: Maximum number of items to return. If None, all items are returned.
+
+        Returns:
+            List of wrapped instance response objects.
+        """
+        filter_ = InstanceFilter(
+            instance_type=instance_type,
+            space=spaces,
+            source=ViewReference(
+                space=self._view_id.space,
+                external_id=self._view_id.external_id,
+                version=self._view_id.version,
+            ),
+        )
+        body = {
+            **filter_.dump(),
+            "sort": [
+                {"property": [instance_type, "space"], "direction": "ascending"},
+                {"property": [instance_type, "externalId"], "direction": "ascending"},
+            ],
+        }
+        return self._list(limit=limit, body=body)
 
 
 class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListResponse], ABC):

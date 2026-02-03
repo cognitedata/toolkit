@@ -8,7 +8,11 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse,
     SuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest, APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
+    APM_CONFIG_SPACE,
+    APMConfigRequest,
+    APMConfigResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     DataExplorationConfig,
     InFieldCDMLocationConfigRequest,
@@ -108,6 +112,17 @@ class APMConfigAPI(WrappedInstancesAPI[TypedNodeIdentifier, APMConfigRequest, AP
         self, response: SuccessResponse | ItemsSuccessResponse
     ) -> PagedResponse[APMConfigResponse]:
         return PagedResponse[APMConfigResponse].model_validate_json(response.body)
+
+    def list(self, limit: int | None = 100) -> list[APMConfigResponse]:
+        """List all APM configs.
+
+        Args:
+            limit: Maximum number of items to return. If None, all items are returned.
+
+        Returns:
+            List of APMConfigResponse objects.
+        """
+        return super()._list_instances(spaces=[APM_CONFIG_SPACE], instance_type="node", limit=limit)
 
 
 class InfieldAPI:
