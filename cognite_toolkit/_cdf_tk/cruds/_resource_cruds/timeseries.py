@@ -112,20 +112,21 @@ class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSe
 
     def dump_resource(self, resource: TimeSeriesResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
-        local = local or {}
+        local_dict = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if security_categories := dumped.pop("securityCategories", []):
             dumped["securityCategoryNames"] = self.client.lookup.security_categories.external_id(security_categories)
         if asset_id := dumped.pop("assetId", None):
             dumped["assetExternalId"] = self.client.lookup.assets.external_id(asset_id)
-        for key, default in [
-            ("isStep", False),
-            ("isString", False),
-            ("metadata", {}),
-        ]:
-            if dumped.get(key) == default and key not in local:
-                dumped.pop(key)
+        if local is not None:
+            for key, default in [
+                ("isStep", False),
+                ("isString", False),
+                ("metadata", {}),
+            ]:
+                if dumped.get(key) == default and key not in local_dict:
+                    dumped.pop(key)
         return dumped
 
     def create(self, items: Sequence[TimeSeriesRequest]) -> list[TimeSeriesResponse]:
