@@ -1,4 +1,4 @@
-from collections.abc import Hashable, Iterable, Sequence
+from collections.abc import Hashable, Iterable, Sequence, Sized
 from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability
@@ -158,8 +158,6 @@ class SimulatorModelRevisionCRUD(
     dependencies = frozenset({SimulatorModelCRUD, FileMetadataCRUD})
     _doc_url = "Simulator-Models/operation/create_simulator_model_revision_simulators_models_revisions_post"
 
-    support_update = False
-
     @property
     def display_name(self) -> str:
         return "simulator model revisions"
@@ -196,11 +194,18 @@ class SimulatorModelRevisionCRUD(
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[SimulatorModelRevisionResponse]:
         return self.client.tool.simulators.model_revisions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: SequenceNotStr[ExternalId | InternalOrExternalId]) -> int:
-        # Simulator model revisions do not support delete
+    def update(self, items: Sequence[SimulatorModelRevisionRequest]) -> Sized:
+        # Simulator model revisions API does not support update
         raise ToolkitNotSupported(
-            "You cannot delete or update simulator model revisions. They are immutable."
-            "You can either: 1) Create a new revision - change the external ID and create a new revision. 2) Delete the model - this will delete all revisions."
+            "You cannot update simulator model revisions. They are immutable."
+            "You can change the external ID and create a new revision."
+        )
+
+    def delete(self, ids: SequenceNotStr[ExternalId | InternalOrExternalId]) -> int:
+        # Simulator model revisions API does not support delete
+        raise ToolkitNotSupported(
+            "You cannot delete simulator model revisions. They are immutable."
+            "You can delete the model - this will delete all revisions."
         )
 
     def _iterate(
@@ -337,8 +342,6 @@ class SimulatorRoutineRevisionCRUD(
     dependencies = frozenset({SimulatorRoutineCRUD, TimeSeriesCRUD})
     _doc_url = "Simulator-Routines/operation/create_simulator_routine_revision_simulators_routines_revisions_post"
 
-    support_update = False
-
     @property
     def display_name(self) -> str:
         return "simulator routine revisions"
@@ -375,12 +378,18 @@ class SimulatorRoutineRevisionCRUD(
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[SimulatorRoutineRevisionResponse]:
         return self.client.tool.simulators.routine_revisions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: SequenceNotStr[ExternalId | InternalOrExternalId]) -> int:
-        # Simulator routine revisions do not support delete
+    def update(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> Sized:
+        # Simulator routine revisions API does not support update
         raise ToolkitNotSupported(
-            "You cannot delete or update simulator routine revisions. They are immutable."
-            "You can either: 1) Create a new revision - change the external ID and create a new revision. "
-            "2) Delete the routine - this will delete all revisions."
+            "You cannot update simulator routine revisions. They are immutable."
+            "You can change the external ID and create a new revision."
+        )
+
+    def delete(self, ids: SequenceNotStr[ExternalId | InternalOrExternalId]) -> int:
+        # Simulator routine revisions API does not support delete
+        raise ToolkitNotSupported(
+            "You cannot delete simulator routine revisions. They are immutable."
+            "You can delete the routine - this will delete all revisions."
         )
 
     def _iterate(
