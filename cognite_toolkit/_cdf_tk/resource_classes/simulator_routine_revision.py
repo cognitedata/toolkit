@@ -121,8 +121,8 @@ class ScriptStep(BaseModelResource):
 
     order: int = Field(description="Order of the step within the stage.")
     description: str | None = Field(default=None, description="Description of the step.")
-    step_type: Literal["Get", "Set", "Command"] = Field(description="Type of the step, either 'Get' or 'Set'.")
-    arguments: dict[str, Any] = Field(description="Arguments for the Get or Set step.")
+    step_type: Literal["Get", "Set", "Command"] = Field(description="Type of the step.")
+    arguments: dict[str, Any] = Field(description="Arguments for the step.")
 
     @field_validator("arguments", mode="after")
     @classmethod
