@@ -225,11 +225,15 @@ class InfieldV2ConfigCreator(MigrationCreator[InFieldCDMLocationConfigRequest]):
     DISPLAY_NAME = "Infield V2 Configuration"
     HAS_LINEAGE = False
 
+    def __init__(self, client: ToolkitClient, apm_configs: Sequence[APMConfigResponse]) -> None:
+        super().__init__(client)
+        self.apm_configs = apm_configs
+
     def create_resources(self) -> list[InFieldCDMLocationConfigRequest]:
         raise NotImplementedError()
 
     def resource_configs(self, resources: Sequence[InFieldCDMLocationConfigRequest]) -> list[ResourceConfig]:
         return [ResourceConfig(filestem=node.external_id, data=node.dump(context="toolkit")) for node in resources]
 
-    def _create_infield_v2_config(self, config: APMConfigResponse) -> NodeApply:
+    def _create_infield_v2_config(self, config: APMConfigResponse) -> InFieldCDMLocationConfigRequest:
         raise NotImplementedError("To be implemented")
