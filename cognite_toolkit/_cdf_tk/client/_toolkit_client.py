@@ -95,7 +95,7 @@ class ToolkitClient(CogniteClient):
         self.token = TokenAPI(self)
         self.charts = ChartsAPI(self._config, self._API_VERSION, self)
         self.project = ProjectAPI(config=toolkit_config, cognite_client=self)
-        self.infield = InfieldAPI(http_client, self.console)
+        self.infield = InfieldAPI(http_client)
         self.streams = StreamsAPI(http_client)
 
     @property

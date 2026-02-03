@@ -4,10 +4,13 @@ from pathlib import Path
 from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, DataModelInstancesAcl
-from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeId
-from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
+    APM_CONFIG_SPACE,
+    APMConfigRequest,
+    APMConfigResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
@@ -17,11 +20,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldLocationConfigResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.apm_config_v1 import (
-    APMConfig,
-    APMConfigList,
-    APMConfigWrite,
-)
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import (
@@ -30,7 +28,6 @@ from cognite_toolkit._cdf_tk.resource_classes import (
     InfieldV1YAML,
 )
 from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
-from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 
 from .auth import GroupAllScopedCRUD
@@ -41,10 +38,10 @@ from .group_scoped import GroupResourceScopedCRUD
 
 
 @final
-class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
+class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse]):
     folder_name = "cdf_applications"
-    resource_cls = APMConfig
-    resource_write_cls = APMConfigWrite
+    resource_cls = APMConfigResponse
+    resource_write_cls = APMConfigRequest
     kind = "InfieldV1"
     yaml_cls = InfieldV1YAML
     dependencies = frozenset({DataSetsCRUD, AssetCRUD, SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
@@ -57,20 +54,20 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
         return "infield configs"
 
     @classmethod
-    def get_id(cls, item: APMConfig | APMConfigWrite | dict) -> str:
+    def get_id(cls, item: APMConfigResponse | APMConfigRequest | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
+            return ExternalId(external_id=item["externalId"])
         if not item.external_id:
             raise KeyError("APMConfig must have external_id")
-        return item.external_id
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return {"externalId": id.external_id}
 
     @classmethod
     def get_required_capability(
-        cls, items: collections.abc.Sequence[APMConfigWrite] | None, read_only: bool
+        cls, items: collections.abc.Sequence[APMConfigRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -81,58 +78,42 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
             else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
         )
 
-        return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID([APMConfig.space]))
+        return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID([APM_CONFIG_SPACE]))
 
     def prerequisite_warning(self) -> str | None:
-        views = self.client.data_modeling.views.retrieve(APMConfig.view_id)
+        view_id = APMConfigRequest.VIEW_ID
+        views = self.client.data_modeling.views.retrieve((view_id.space, view_id.external_id, view_id.version))
         if len(views) > 0:
             return None
         return (
-            f"{self.display_name} requires the {APMConfig.view_id!r} to be deployed. "
+            f"{self.display_name} requires the {APMConfigRequest.VIEW_ID!r} to be deployed. "
             f"Install the infield options with cdf modules init/add to deploy it."
         )
 
-    def create(self, items: Sequence[APMConfigWrite]) -> NodeApplyResultList:
-        result = self.client.data_modeling.instances.apply(
-            nodes=[item.as_node() for item in items], auto_create_direct_relations=True, replace=False
+    def create(self, items: Sequence[APMConfigRequest]) -> list[InstanceSlimDefinition]:
+        return self.client.infield.apm_config.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[APMConfigResponse]:
+        return self.client.infield.apm_config.retrieve(
+            TypedNodeIdentifier.from_external_ids(ids, space=APM_CONFIG_SPACE)
         )
-        return result.nodes
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> APMConfigList:
-        result = self.client.data_modeling.instances.retrieve(
-            nodes=self._as_node_ids(ids), sources=APMConfig.view_id
-        ).nodes
-        return APMConfigList.from_nodes(result)
+    def update(self, items: Sequence[APMConfigRequest]) -> list[InstanceSlimDefinition]:
+        return self.client.infield.apm_config.create(items)
 
-    def update(self, items: Sequence[APMConfigWrite]) -> NodeApplyResultList:
-        result = self.client.data_modeling.instances.apply(
-            nodes=[item.as_node() for item in items], auto_create_direct_relations=True, replace=True
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+        deleted = self.client.infield.apm_config.delete(
+            TypedNodeIdentifier.from_external_ids(ids, space=APM_CONFIG_SPACE)
         )
-        return result.nodes
-
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        try:
-            deleted = self.client.data_modeling.instances.delete(nodes=self._as_node_ids(ids))
-        except CogniteAPIError as e:
-            if "not exist" in e.message and "space" in e.message.lower():
-                return 0
-            raise e
-        return len(deleted.nodes)
-
-    @staticmethod
-    def _as_node_ids(ids: SequenceNotStr[str]) -> list[NodeId]:
-        return [NodeId(APMConfig.space, id) for id in ids]
+        return len(deleted)
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[APMConfig]:
-        for node in iterate_instances(
-            self.client, space=space, instance_type="node", source=APMConfig.view_id, console=self.console
-        ):
-            yield APMConfig.from_node(node)
+    ) -> Iterable[APMConfigResponse]:
+        raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -180,7 +161,7 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
             safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="customerDataSpaceVersion"
         )
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> APMConfigWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> APMConfigRequest:
         root_location_configurations = self._get_root_location_configurations(resource)
         for config in root_location_configurations or []:
             if not isinstance(config, dict):
@@ -196,10 +177,10 @@ class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
                     continue
                 if ds_external_ids := filter_.pop("dataSetExternalIds", None):
                     filter_["dataSetIds"] = self.client.lookup.data_sets.id(ds_external_ids, is_dry_run)
-        return APMConfigWrite._load(resource)
+        return APMConfigRequest._load(resource)
 
-    def dump_resource(self, resource: APMConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+    def dump_resource(self, resource: APMConfigResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_write().dump(context="toolkit")
         local = local or {}
         if "existingVersion" not in local:
             # Existing version is typically not set when creating nodes, but we get it back

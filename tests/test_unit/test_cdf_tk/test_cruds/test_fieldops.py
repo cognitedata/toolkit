@@ -1,13 +1,13 @@
 import pytest
 
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.apm_config_v1 import (
-    APMConfigWrite,
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
+    APMConfigRequest,
     FeatureConfiguration,
     ResourceFilters,
     RootLocationConfiguration,
     RootLocationDataFilters,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     DataSetsCRUD,
@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.feature_flags import Flags
 class TestInfieldV1Loader:
     @pytest.mark.skipif(not Flags.INFIELD.is_enabled(), reason="Alpha feature is not enabled")
     def test_dependent_items(self) -> None:
-        item = APMConfigWrite(
+        item = APMConfigRequest(
             external_id="my_config",
             app_data_space_id="my_app_data_space",
             customer_data_space_id="my_customer_data_space",
@@ -41,7 +41,7 @@ class TestInfieldV1Loader:
                 ]
             ),
         )
-        dumped = item.dump()
+        dumped = item.dump(context="toolkit")
         dumped["featureConfiguration"]["rootLocationConfigurations"][0]["dataSetExternalId"] = "my_dataset"
         dumped["featureConfiguration"]["rootLocationConfigurations"][0]["dataFilters"]["assets"][
             "dataSetExternalIds"
