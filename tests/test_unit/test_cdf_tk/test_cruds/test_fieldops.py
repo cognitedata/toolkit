@@ -1,13 +1,13 @@
 import pytest
 
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.apm_config_v1 import (
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigWrite,
     FeatureConfiguration,
     ResourceFilters,
     RootLocationConfiguration,
     RootLocationDataFilters,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     DataSetsCRUD,

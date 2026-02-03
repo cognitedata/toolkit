@@ -1,7 +1,7 @@
 import pytest
 from cognite.client.data_classes.data_modeling import Node
 
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.apm_config_v1 import (
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfig,
     APMConfigCore,
     APMConfigWrite,

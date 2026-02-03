@@ -20,8 +20,8 @@ from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.events import EventProperty
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfig, APMConfigList
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.apm_config_v1 import APMConfig, APMConfigList
 from cognite_toolkit._cdf_tk.cruds import NodeCRUD, ResourceCRUD, SpaceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection

@@ -8,6 +8,11 @@ from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeI
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
+    APMConfig,
+    APMConfigList,
+    APMConfigWrite,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
@@ -17,11 +22,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldLocationConfigResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.apm_config_v1 import (
-    APMConfig,
-    APMConfigList,
-    APMConfigWrite,
-)
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import (
