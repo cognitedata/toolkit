@@ -228,6 +228,11 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
                 if delete_chunk:
                     body_content["delete"] = delete_chunk
 
+                # Always auto-create start and end nodes for canvases, as we know that all start and end nodes
+                # are in the Canvas, but they might not be in ordered correctly in the upload data.
+                body_content["autoCreateStartNodes"] = True
+                body_content["autoCreateEndNodes"] = True
+
                 response = http_client.request_single_retries(
                     message=RequestMessage(
                         endpoint_url=config.create_api_url("/models/instances"),
