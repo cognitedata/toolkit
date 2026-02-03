@@ -6,7 +6,6 @@ FeatureConfiguration objects as this is just JSON object in the node, but use th
 data sets, spaces, and groups.
 """
 
-import sys
 from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
@@ -16,11 +15,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
     WrappedInstanceRequest,
     WrappedInstanceResponse,
 )
-
-if sys.version_info >= (3, 11):
-    pass
-else:
-    pass
 
 APM_CONFIG_SPACE: Literal["APM_Config"] = "APM_Config"
 APM_CONFIG_VIEW_ID = TypedViewReference(space=APM_CONFIG_SPACE, external_id="APM_Config", version="1")
