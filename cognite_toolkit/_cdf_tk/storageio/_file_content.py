@@ -286,7 +286,6 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                     method="PUT",
                     content_type=item.mime_type,
                     data_content=content_bytes,
-                    content_length=len(content_bytes),
                 )
             )
             results.append(upload_response.as_item_response(str(item)))
