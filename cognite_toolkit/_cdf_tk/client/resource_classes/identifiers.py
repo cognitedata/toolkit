@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, model_serializer, model_validator
+from pydantic import AliasChoices, Field, model_serializer, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 
@@ -63,6 +63,31 @@ class NameId(Identifier):
 
     def __str__(self) -> str:
         return f"name='{self.name}'"
+
+
+class RawDatabaseId(Identifier):
+    name: str = Field(alias="name", validation_alias=AliasChoices("dbName", "name"))
+
+    def __str__(self) -> str:
+        return f"name='{self.name}'"
+
+    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+        """Dump the resource to a dictionary.
+
+        Args:
+            camel_case (bool): Will be ignored. Included for compatibility.
+            exclude_extra (bool): Will be ignored. Included for compatibility.
+
+        """
+        return self.model_dump(mode="json", by_alias=False)
+
+
+class RawTableId(Identifier):
+    name: str
+    db_name: str
+
+    def __str__(self) -> str:
+        return f"dbName='{self.db_name}', name='{self.name}'"
 
 
 class WorkflowVersionId(Identifier):

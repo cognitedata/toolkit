@@ -8,7 +8,8 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
-from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI
+from cognite_toolkit._cdf_tk.client.api.infield import InFieldCDMConfigAPI
+from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI, WrappedInstancesAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_capabilities import CapabilitiesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_data_postprocessing import DataPostProcessingAPI
@@ -46,8 +47,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
     RESTSourceRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalIdUnwrapped
+from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabase, RAWTable
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
+    RAWDatabaseRequest,
+    RAWTableRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import SecurityCategoryRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest
@@ -99,6 +104,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         StreamsAPI,
         # SecurityCategories can easily hit a bad state.
         SecurityCategoriesAPI,
+        # Created response cannot be made into a request.
+        InFieldCDMConfigAPI,
     }
 )
 
@@ -108,9 +115,16 @@ def crud_cdf_resource_apis() -> Iterable[tuple]:
     for api_cls in subclasses:
         if api_cls in NOT_GENERIC_TESTED:
             continue
-        cdf_resource_base = next((base for base in api_cls.__orig_bases__ if get_origin(base) is CDFResourceAPI), None)  # type: ignore[attr-defined]
-        assert cdf_resource_base is not None, "Error in test. Could not find CDFResourceAPI in __orig_bases__"
-        _, request_cls, __ = get_args(cdf_resource_base)
+        base_cls = next(
+            (
+                base
+                for base in api_cls.__orig_bases__  # type: ignore[attr-defined]
+                if get_origin(base) in (CDFResourceAPI, WrappedInstancesAPI)
+            ),
+            None,
+        )
+        assert base_cls is not None, f"Could not find generic base class for {api_cls.__name__}"
+        _, request_cls, __ = get_args(base_cls)
         if get_origin(request_cls) is Annotated:
             union_type = get_args(request_cls)[0]
             if get_origin(union_type) is not types.UnionType:
@@ -196,6 +210,12 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
             }
         ],
         HostedExtractorDestinationRequest: [{"externalId": "smoke-test-extractor-destination"}],
+        InFieldCDMLocationConfigRequest: [
+            {
+                "space": SMOKE_SPACE,
+                "externalId": "smoke-test-infield-cdm-location-config",
+            }
+        ],
         NodeRequest: [{"externalId": "smoke-test-node", "space": SMOKE_SPACE, "instanceType": "node"}],
         EdgeRequest: [
             {
@@ -217,8 +237,8 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
             }
         ],
         LabelRequest: [{"name": "smoke-test-label", "externalId": "smoke-test-label"}],
-        RAWDatabase: [{"name": "smoke-test-raw-database"}],
-        RAWTable: [{"name": "smoke-test-raw-table", "dbName": "smoke-test-raw-database"}],
+        RAWDatabaseRequest: [{"name": "smoke-test-raw-database"}],
+        RAWTableRequest: [{"name": "smoke-test-raw-table", "dbName": "smoke-test-raw-database"}],
         SecurityCategoryRequest: [{"name": "smoke-test-security-category"}],
         SequenceRequest: [
             {"externalId": "smoke-test-sequence", "columns": [{"externalId": "smoke-test-sequence-column"}]}
@@ -377,10 +397,10 @@ class TestCDFResourceAPI:
     def test_raw_tables_and_databases_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
-        database_example = get_examples_minimum_requests(RAWDatabase)[0]
-        table_example = get_examples_minimum_requests(RAWTable)[0]
-        db = RAWDatabase.model_validate(database_example)
-        table = RAWTable.model_validate(table_example)
+        database_example = get_examples_minimum_requests(RAWDatabaseRequest)[0]
+        table_example = get_examples_minimum_requests(RAWTableRequest)[0]
+        db = RAWDatabaseRequest.model_validate(database_example)
+        table = RAWTableRequest.model_validate(table_example)
 
         try:
             # Create database
@@ -412,6 +432,10 @@ class TestCDFResourceAPI:
             listed_tables = list(client.tool.raw.tables.list(limit=1, db_name=db.name))
             if len(listed_tables) == 0:
                 raise EndpointAssertionError(table_list.path, "Expected at least 1 listed table, got 0")
+            if listed_tables[0].db_name != db.name:
+                raise EndpointAssertionError(
+                    table_list.path, "Listed table database name does not match the requested database name."
+                )
         finally:
             # Clean up
             try:
@@ -717,3 +741,35 @@ class TestCDFResourceAPI:
         finally:
             # Clean up
             client.tool.security_categories.delete([created_id])  # type: ignore[list-item]
+
+    def test_infield_cdm_location_config_crudl(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        location_config_example = get_examples_minimum_requests(InFieldCDMLocationConfigRequest)[0]
+        location_config_request = InFieldCDMLocationConfigRequest.model_validate(location_config_example)
+        location_config_id = location_config_request.as_id()
+
+        try:
+            # Create location config
+            create_endpoint = client.infield.cdm_config._method_endpoint_map["upsert"]
+            try:
+                created = client.infield.cdm_config.create([location_config_request])
+            except ToolkitAPIError:
+                raise EndpointAssertionError(create_endpoint.path, "Creating location config instance failed.")
+            if len(created) != 1:
+                raise EndpointAssertionError(create_endpoint.path, f"Expected 1 created node, got {len(created)}")
+            if created[0].as_id() != location_config_id:
+                raise EndpointAssertionError(create_endpoint.path, "Created node ID does not match requested node ID.")
+
+            # Retrieve location config
+            retrieve_endpoint = client.infield.cdm_config._method_endpoint_map["retrieve"]
+            self.assert_endpoint_method(
+                lambda: client.infield.cdm_config.retrieve([location_config_id]),
+                "retrieve",
+                retrieve_endpoint,
+                location_config_id,
+            )
+
+        finally:
+            # Clean up
+            client.infield.cdm_config.delete([location_config_id])

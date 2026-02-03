@@ -8,7 +8,7 @@ from cognite.client.data_classes import FileMetadataWrite
 
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import ExtendableCogniteFileApply
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.protocols import (
     T_ResourceRequest,
@@ -167,7 +167,7 @@ class RawFileCRUD(DataCRUD):
         for resource in state.built_resources[self.folder_name]:
             if resource.kind != RawTableCRUD.kind:
                 continue
-            table = cast(RawTable, resource.identifier)
+            table = cast(RAWTableResponse, resource.identifier)
             datafile = next(
                 (
                     resource.source.path.with_suffix(f".{file_type}")
@@ -210,7 +210,7 @@ class RawFileCRUD(DataCRUD):
                 continue
 
             self.client.raw.rows.insert_dataframe(
-                db_name=table.db_name, table_name=table.table_name, dataframe=data, ensure_parent=False
+                db_name=table.db_name, table_name=table.name, dataframe=data, ensure_parent=False
             )
             yield (
                 (f" Inserted {len(data):,} rows of {len(data.columns):,} columns from '{datafile!s}' into {table!r}."),
