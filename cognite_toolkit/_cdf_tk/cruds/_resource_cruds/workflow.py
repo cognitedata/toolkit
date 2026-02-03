@@ -131,7 +131,7 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
         return dumped
 
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[WorkflowResponse]:
-        return self.client.tool.workflows.retrieve(list(ids))
+        return self.client.tool.workflows.retrieve(list(ids), ignore_unknown_ids=True)
 
     def create(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
         return self.client.tool.workflows.create(items)
@@ -372,7 +372,7 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest
     def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> list[WorkflowVersionResponse]:
         if not ids:
             return []
-        return self.client.tool.workflows.versions.retrieve(list(ids))
+        return self.client.tool.workflows.versions.retrieve(list(ids), ignore_unknown_ids=True)
 
     def _upsert(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
         return self.client.tool.workflows.versions.create(items)
