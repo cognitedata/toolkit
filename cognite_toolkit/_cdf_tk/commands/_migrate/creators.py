@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, Generic
 
 from cognite.client.data_classes import DataSetList, filters
-from cognite.client.data_classes._base import T_CogniteResourceList
 from cognite.client.data_classes.aggregations import UniqueResult
 from cognite.client.data_classes.assets import AssetProperty
 from cognite.client.data_classes.data_modeling import (
@@ -20,10 +19,12 @@ from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.events import EventProperty
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.cruds import NodeCRUD, ResourceCRUD, SpaceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .data_model import CREATED_SOURCE_SYSTEM_VIEW_ID, SPACE, SPACE_SOURCE_VIEW_ID
@@ -35,7 +36,7 @@ class ResourceConfig:
     data: dict[str, Any]
 
 
-class MigrationCreator(ABC, Generic[T_CogniteResourceList]):
+class MigrationCreator(ABC, Generic[T_ResourceRequest]):
     """Base class for migration resources configurations that are created resources."""
 
     CRUD: type[ResourceCRUD]
@@ -46,14 +47,14 @@ class MigrationCreator(ABC, Generic[T_CogniteResourceList]):
         self.client = client
 
     @abstractmethod
-    def create_resources(self) -> T_CogniteResourceList:
+    def create_resources(self) -> Sequence[T_ResourceRequest]:
         raise NotImplementedError("Subclasses should implement this method")
 
     @abstractmethod
-    def resource_configs(self, resources: T_CogniteResourceList) -> list[ResourceConfig]:
+    def resource_configs(self, resources: Sequence[T_ResourceRequest]) -> list[ResourceConfig]:
         raise NotImplementedError("Subclasses should implement this method")
 
-    def store_lineage(self, resources: T_CogniteResourceList) -> int:
+    def store_lineage(self, resources: Sequence[T_ResourceRequest]) -> int:
         """Store lineage information for the created resources.
 
         Args:
@@ -62,7 +63,7 @@ class MigrationCreator(ABC, Generic[T_CogniteResourceList]):
         raise NotImplementedError("Subclasses should implement this method")
 
 
-class InstanceSpaceCreator(MigrationCreator[SpaceApplyList]):
+class InstanceSpaceCreator(MigrationCreator[SpaceApply]):
     """Creates instance spaces for migration."""
 
     CRUD = SpaceCRUD
@@ -99,10 +100,10 @@ class InstanceSpaceCreator(MigrationCreator[SpaceApplyList]):
             ]
         )
 
-    def resource_configs(self, resources: SpaceApplyList) -> list[ResourceConfig]:
+    def resource_configs(self, resources: Sequence[SpaceApply]) -> list[ResourceConfig]:
         return [ResourceConfig(filestem=space.space, data=space.dump()) for space in resources]
 
-    def store_lineage(self, resources: SpaceApplyList) -> int:
+    def store_lineage(self, resources: Sequence[SpaceApply]) -> int:
         data_set_by_external_id = {ds.external_id: ds for ds in self.datasets}
         nodes = NodeApplyList(
             [
@@ -127,7 +128,7 @@ class InstanceSpaceCreator(MigrationCreator[SpaceApplyList]):
         return len(res.nodes)
 
 
-class SourceSystemCreator(MigrationCreator[NodeApplyList]):
+class SourceSystemCreator(MigrationCreator[NodeApply]):
     CRUD = NodeCRUD
     DISPLAY_NAME = "Source System"
     COGNITE_SOURCE_SYSTEM_VIEW_ID = ViewId("cdf_cdm", "CogniteSourceSystem", "v1")
@@ -174,7 +175,7 @@ class SourceSystemCreator(MigrationCreator[NodeApplyList]):
         all_existing = self.client.migration.created_source_system.list(limit=-1)
         return {node.source: NodeReference(space=node.space, external_id=node.external_id) for node in all_existing}
 
-    def resource_configs(self, resources: NodeApplyList) -> list[ResourceConfig]:
+    def resource_configs(self, resources: Sequence[NodeApply]) -> list[ResourceConfig]:
         output: list[ResourceConfig] = []
         for node in resources:
             copy = NodeApply(
@@ -214,21 +215,21 @@ class SourceSystemCreator(MigrationCreator[NodeApplyList]):
         else:
             raise ValueError("This should not happen.")
 
-    def store_lineage(self, resources: NodeApplyList) -> int:
+    def store_lineage(self, resources: Sequence[NodeApply]) -> int:
         # We already store lineage when creating the resources.
         return len(resources)
 
 
-class InfieldV2ConfigCreator(MigrationCreator[NodeApplyList]):
+class InfieldV2ConfigCreator(MigrationCreator[InFieldCDMLocationConfigRequest]):
     CRUD = NodeCRUD
     DISPLAY_NAME = "Infield V2 Configuration"
     HAS_LINEAGE = False
 
-    def create_resources(self) -> NodeApplyList:
+    def create_resources(self) -> list[InFieldCDMLocationConfigRequest]:
         raise NotImplementedError()
 
-    def resource_configs(self, resources: NodeApplyList) -> list[ResourceConfig]:
-        return [ResourceConfig(filestem=node.external_id, data=node.dump()) for node in resources]
+    def resource_configs(self, resources: Sequence[InFieldCDMLocationConfigRequest]) -> list[ResourceConfig]:
+        return [ResourceConfig(filestem=node.external_id, data=node.dump(context="toolkit")) for node in resources]
 
-    def _create_infield_v2_config(self, config: APMConfig) -> NodeApply:
+    def _create_infield_v2_config(self, config: APMConfigResponse) -> NodeApply:
         raise NotImplementedError("To be implemented")
