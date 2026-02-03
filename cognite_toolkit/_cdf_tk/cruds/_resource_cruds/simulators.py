@@ -399,17 +399,17 @@ class SimulatorRoutineRevisionCRUD(
         for key in ["logicalCheck", "steadyStateDetection"]:
             if isinstance(values := config.get(key), list):
                 for value in values:
-                    if isinstance(value, dict) and "timeSeriesExternalId" in value:
-                        yield TimeSeriesCRUD, ExternalId(external_id=value["timeSeriesExternalId"])
+                    if isinstance(value, dict) and isinstance(external_id := value.get("timeseriesExternalId"), str):
+                        yield TimeSeriesCRUD, ExternalId(external_id=external_id)
         for key in ["inputs", "outputs"]:
             if isinstance(io_list := config.get(key), list):
                 for io_item in io_list:
                     if not isinstance(io_item, dict):
                         continue
-                    if "saveTimeseriesExternalId" in io_item:
-                        yield TimeSeriesCRUD, ExternalId(external_id=io_item["saveTimeseriesExternalId"])
-                    if "sourceExternalId" in io_item and key == "inputs":
-                        yield TimeSeriesCRUD, ExternalId(external_id=io_item["sourceExternalId"])
+                    if isinstance(external_id := io_item.get("saveTimeseriesExternalId"), str):
+                        yield TimeSeriesCRUD, ExternalId(external_id=external_id)
+                    if isinstance(external_id := io_item.get("sourceExternalId"), str):
+                        yield TimeSeriesCRUD, ExternalId(external_id=external_id)
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]

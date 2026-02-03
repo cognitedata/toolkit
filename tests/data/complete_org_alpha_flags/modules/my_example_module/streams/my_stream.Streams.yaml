@@ -1,4 +1,4 @@
-externalId: my-stream
+externalId: my-stream2
 settings:
   template:
     name: ImmutableTestStream
