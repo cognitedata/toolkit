@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.resource_classes.simulator_routine import Simulator
 from cognite_toolkit._cdf_tk.resource_classes.simulator_routine_revision import SimulatorRoutineRevisionYAML
 
 from .data_organization import DataSetsCRUD
-from .file import CogniteFileCRUD, FileMetadataCRUD
+from .file import FileMetadataCRUD
 
 
 @final
@@ -152,7 +152,7 @@ class SimulatorModelRevisionCRUD(
     resource_write_cls = SimulatorModelRevisionRequest
     yaml_cls = SimulatorModelRevisionYAML
     kind = "SimulatorModelRevision"
-    dependencies = frozenset({SimulatorModelCRUD, CogniteFileCRUD, FileMetadataCRUD})
+    dependencies = frozenset({SimulatorModelCRUD, FileMetadataCRUD})
     _doc_url = "Simulator-Models/operation/create_simulator_model_revision_simulators_models_revisions_post"
 
     support_update = False

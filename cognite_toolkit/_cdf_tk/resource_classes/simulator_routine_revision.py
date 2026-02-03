@@ -47,7 +47,7 @@ class LogicalCheckConfig(BaseModelResource):
 
 class SteadyStateDetectionConfig(BaseModelResource):
     enabled: bool = Field(default=True, description="Whether this steady state detection is enabled.")
-    timeseries_external_id: str = Field(description="External ID of the time series to monitor.")
+    timeseries_external_id: str | None = Field(default=None, description="External ID of the time series to monitor.")
     aggregate: Aggregate = Field(description="Aggregation method to apply.")
     min_section_size: int = Field(description="Minimum section size for steady state detection.")
     var_threshold: float = Field(description="Variance threshold for steady state detection.")

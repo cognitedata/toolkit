@@ -1,26 +1,33 @@
-from typing import Any, Literal
+from typing import Any, Literal, TypeAlias
+
+from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 
 from .identifiers import ExternalId
 
 
-# ========== Schedule Configuration ==========
+class Disabled(BaseModelObject):
+    enabled: Literal[False] = False
+
+
 class ScheduleConfig(BaseModelObject):
     """Schedule configuration for the routine."""
 
-    enabled: bool = False
+    enabled: Literal[True] = True
+    cron_expression: str
 
 
-# ========== Data Sampling Configuration ==========
 class DataSamplingConfig(BaseModelObject):
     """Data sampling configuration for the routine."""
 
-    enabled: bool = False
+    enabled: Literal[True] = True
+    validation_window: int | None = None
+    sampling_window: int
+    granularity: int
 
 
-# ========== Logical Check Configuration ==========
-LogicalCheckAggregate = Literal["average", "min", "max", "sum", "count"]
+Aggregate = Literal["average", "interpolation", "stepInterpolation"]
 LogicalCheckOperator = Literal["eq", "ne", "gt", "ge", "lt", "le"]
 
 
@@ -29,39 +36,49 @@ class LogicalCheckConfig(BaseModelObject):
 
     enabled: bool = True
     timeseries_external_id: str
-    aggregate: LogicalCheckAggregate
+    aggregate: Aggregate
     operator: LogicalCheckOperator
     value: float
 
 
-# ========== Steady State Detection Configuration ==========
-SteadyStateAggregate = Literal["average", "min", "max", "sum", "count"]
-
-
 class SteadyStateDetectionConfig(BaseModelObject):
-    """Steady state detection configuration for time series data."""
-
     enabled: bool = True
-    timeseries_external_id: str
-    aggregate: SteadyStateAggregate
+    timeseries_external_id: str | None = None
+    aggregate: Aggregate
     min_section_size: int
     var_threshold: float
     slope_threshold: float
 
 
-# ========== Input/Output Configuration ==========
-class RoutineInputConfig(BaseModelObject):
+ValueType: TypeAlias = Literal["STRING", "DOUBLE", "STRING_ARRAY", "DOUBLE_ARRAY"]
+
+
+class Unit(BaseModelObject):
+    """Unit definition for inputs and outputs."""
+
+    name: str
+    quantity: str
+
+
+class RoutineInputConstantConfig(BaseModelObject):
     """Input configuration for the routine."""
 
     name: str
     reference_id: str
-    value: Any | None = None
-    value_type: str | None = None
-    unit: str | None = None
-    unit_type: str | None = None
-    source_external_id: str | None = None
-    source_type: str | None = None
-    aggregate: str | None = None
+    value: str | float | list[str] | list[float]
+    value_type: ValueType = "STRING"
+    unit: Unit | None = None
+    save_timeseries_external_id: str | None = None
+
+
+class RoutineInputTimeseriesConfig(BaseModelObject):
+    """Input configuration for the routine."""
+
+    name: str
+    reference_id: str
+    source_external_id: str
+    aggregate: Aggregate
+    unit: Unit | None = None
     save_timeseries_external_id: str | None = None
 
 
@@ -70,9 +87,8 @@ class RoutineOutputConfig(BaseModelObject):
 
     name: str
     reference_id: str
-    value_type: str | None = None
-    unit: str | None = None
-    unit_type: str | None = None
+    unit: Unit | None = None
+    value_type: ValueType = "STRING"
     save_timeseries_external_id: str | None = None
 
 
@@ -80,31 +96,21 @@ class RoutineOutputConfig(BaseModelObject):
 class SimulatorRoutineConfiguration(BaseModelObject):
     """Complete configuration for a simulator routine revision."""
 
-    schedule: ScheduleConfig | None = None
-    data_sampling: DataSamplingConfig | None = None
-    logical_check: list[LogicalCheckConfig] | None = None
-    steady_state_detection: list[SteadyStateDetectionConfig] | None = None
-    inputs: list[RoutineInputConfig] | None = None
+    schedule: ScheduleConfig | Disabled
+    data_sampling: DataSamplingConfig | Disabled
+    logical_check: list[LogicalCheckConfig] = Field(default_factory=list)
+    steady_state_detection: list[SteadyStateDetectionConfig] = Field(default_factory=list)
+    inputs: list[RoutineInputConstantConfig] | None = None
     outputs: list[RoutineOutputConfig] | None = None
 
 
-# ========== Script Configuration ==========
-ScriptStepType = Literal["Get", "Set", "Command"]
-
-
-class ScriptStepArguments(BaseModelObject):
-    """Arguments for a script step."""
-
-    reference_id: str | None = None
-
-
 class ScriptStep(BaseModelObject):
-    """A single step within a script stage."""
+    """A Get or Set step within a script stage."""
 
     order: int
     description: str | None = None
-    step_type: ScriptStepType
-    arguments: ScriptStepArguments | dict[str, Any]
+    step_type: Literal["Get", "Set", "Command"]
+    arguments: dict[str, Any]
 
 
 class ScriptStage(BaseModelObject):
@@ -115,7 +121,6 @@ class ScriptStage(BaseModelObject):
     steps: list[ScriptStep]
 
 
-# ========== Main Resource Classes ==========
 class SimulatorRoutineRevision(BaseModelObject):
     external_id: str
     routine_external_id: str
