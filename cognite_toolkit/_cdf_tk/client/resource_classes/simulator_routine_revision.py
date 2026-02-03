@@ -134,6 +134,24 @@ class SimulatorRoutineRevisionRequest(RequestResource, SimulatorRoutineRevision)
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
+    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+        """Dump the resource to a dictionary.
+
+        Args:
+            camel_case (bool): Whether to use camelCase for the keys. Default is True.
+            exclude_extra (bool): Whether to exclude extra fields not defined in the model. Default is False.
+
+        """
+        # Override to set exclude_unset to False. This is required as Disable for example needs to be fully serialized.
+        if exclude_extra:
+            return self.model_dump(
+                mode="json",
+                by_alias=camel_case,
+                exclude_unset=False,
+                exclude=set(self.__pydantic_extra__) if self.__pydantic_extra__ else None,
+            )
+        return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=False)
+
 
 class SimulatorRoutineRevisionResponse(ResponseResource[SimulatorRoutineRevisionRequest], SimulatorRoutineRevision):
     """Response class for a simulator routine revision."""

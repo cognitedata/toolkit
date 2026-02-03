@@ -1,13 +1,26 @@
+from typing import Any
+
 import pytest
 from cognite.client.data_classes import DataSet
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import HTTPResult, RequestMessage, SuccessResponse
-from cognite_toolkit._cdf_tk.client.request_classes.filters import SimulatorModelRevisionFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import (
+    SimulatorModelRevisionFilter,
+    SimulatorModelRoutineFilter,
+    SimulatorModelRoutineRevisionFilter,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import SimulatorModelRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model_revision import SimulatorModelRevisionRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine import SimulatorRoutineRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision import (
+    Disabled,
+    ScriptStage,
+    SimulatorRoutineConfiguration,
+    SimulatorRoutineRevisionRequest,
+)
 from tests_smoke.exceptions import EndpointAssertionError
 
 SIMULATOR_EXTERNAL_ID = "smoke_test_simulator"
@@ -59,6 +72,52 @@ def _parse_simulator_response(list_response: HTTPResult) -> str | None:
         return None
 
 
+@pytest.fixture(scope="session")
+def simulator_integration_external_id(simulator: str, toolkit_client: ToolkitClient, smoke_dataset: DataSet) -> str:
+    http_client = toolkit_client.http_client
+    config = toolkit_client.config
+    simulator_integration: dict[str, Any] = {
+        "externalId": SIMULATOR_INTEGRATION_ID,
+        "simulatorExternalId": simulator,
+        "heartbeat": 0,
+        "dataSetId": smoke_dataset.id,
+        "connectorVersion": "1.0.0",
+        "simulatorVersion": "1.0.0",
+        "licenseStatus": "AVAILABLE",
+        "licenseLastCheckedTime": 0,
+        "connectorStatus": "IDLE",
+        "connectorStatusUpdatedTime": 0,
+    }
+
+    # Check if simulator integration already exists
+    list_response = http_client.request_single_retries(
+        RequestMessage(
+            endpoint_url=config.create_api_url("simulators/integrations/list"),
+            method="POST",
+            body_content={"filter": {"simulatorExternalIds": [simulator]}, "limit": 1000},
+        )
+    )
+    if not isinstance(list_response, SuccessResponse):
+        raise EndpointAssertionError("/simulators/integrations/list", str(list_response))
+    items = list_response.body_json["items"]
+    if any(item["externalId"] == SIMULATOR_INTEGRATION_ID for item in items):
+        return SIMULATOR_INTEGRATION_ID
+
+    creation_response = http_client.request_single_retries(
+        RequestMessage(
+            endpoint_url=config.create_api_url("/simulators/integrations"),
+            method="POST",
+            body_content={"items": [simulator_integration]},
+        )
+    )
+    if not isinstance(creation_response, SuccessResponse):
+        raise EndpointAssertionError("/simulators/integrations", str(creation_response))
+    created_items = creation_response.body_json.get("items", [])
+    if any(item["externalId"] == SIMULATOR_INTEGRATION_ID for item in created_items):
+        return SIMULATOR_INTEGRATION_ID
+    raise EndpointAssertionError("/simulators/integrations", "Failed to create simulator integration for testing.")
+
+
 @pytest.fixture()
 def simulator_model_revision_file(smoke_dataset: DataSet, toolkit_client: ToolkitClient) -> FileMetadataResponse:
     client = toolkit_client
@@ -101,17 +160,18 @@ def simulator_model_revision_file(smoke_dataset: DataSet, toolkit_client: Toolki
     return created[0]
 
 
-class TestSimulatorModelsAPI:
+class TestSimulatorsAPI:
     def test_crudl(
         self,
         simulator: str,
+        simulator_integration_external_id: str,
         smoke_dataset: DataSet,
         toolkit_client: ToolkitClient,
         simulator_model_revision_file: FileMetadataResponse,
     ) -> None:
         model = SimulatorModelRequest(
             external_id="smoke_test_simulator_model",
-            simulator_external_id=SIMULATOR_EXTERNAL_ID,
+            simulator_external_id=simulator,
             name="Smoke Test Simulator Model",
             data_set_id=smoke_dataset.id,
             type="SteadyState",
@@ -122,7 +182,28 @@ class TestSimulatorModelsAPI:
             description="Smoke Test Simulator Revision",
             file_id=simulator_model_revision_file.id,
         )
+        routine = SimulatorRoutineRequest(
+            external_id="smoke_test_simulator_routine",
+            model_external_id=model.external_id,
+            simulator_integration_external_id=simulator_integration_external_id,
+            name="Smoke Test Simulator Routine",
+            description="Smoke Test Simulator Routine Description",
+        )
+        routine_revision = SimulatorRoutineRevisionRequest(
+            external_id="smoke_test_simulator_routine_revision",
+            routine_external_id=routine.external_id,
+            configuration=SimulatorRoutineConfiguration(
+                schedule=Disabled(),
+                data_sampling=Disabled(),
+                logical_check=[],
+                steady_state_detection=[],
+                inputs=[],
+                outputs=[],
+            ),
+            script=[ScriptStage(order=1, steps=[])],
+        )
         try:
+            ## Simulator Model CRUDL operations ##
             model_endpoints = toolkit_client.tool.simulators.models._method_endpoint_map
             created = toolkit_client.tool.simulators.models.create([model])
             if len(created) != 1:
@@ -168,6 +249,7 @@ class TestSimulatorModelsAPI:
                     f"Expected 1 listed simulator model, got {len(listed)}",
                 )
 
+            ## Simulator Model Revision CRUDL operations ##
             revision_endpoints = toolkit_client.tool.simulators.model_revisions._method_endpoint_map
             created_revision = toolkit_client.tool.simulators.model_revisions.create([revision])
             if len(created_revision) != 1:
@@ -203,7 +285,72 @@ class TestSimulatorModelsAPI:
                     revision_endpoints["list"].path,
                     f"Expected 1 listed simulator model revision, got {len(listed_revisions)}",
                 )
+
+            ## Simulator Routine CRUDL operations ##
+            routine_endpoints = toolkit_client.tool.simulators.routines._method_endpoint_map
+            created_routine = toolkit_client.tool.simulators.routines.create([routine])
+            if len(created_routine) != 1:
+                raise EndpointAssertionError(
+                    routine_endpoints["create"].path,
+                    f"Expected 1 created simulator routine, got {len(created_routine)}",
+                )
+            if created_routine[0].external_id != routine.external_id:
+                raise EndpointAssertionError(
+                    routine_endpoints["create"].path,
+                    f"Expected created simulator routine external ID to be {routine.external_id}, got {created_routine[0].external_id}",
+                )
+            listed_routines = list(
+                toolkit_client.tool.simulators.routines.iterate(
+                    SimulatorModelRoutineFilter(model_external_ids=[model.external_id]), limit=1
+                )
+            )
+            if len(listed_routines) != 1:
+                raise EndpointAssertionError(
+                    routine_endpoints["list"].path,
+                    f"Expected 1 listed simulator routine, got {len(listed_routines)}",
+                )
+
+            # Simulator Routine Revision CRUDL operations #
+            routine_revision_endpoints = toolkit_client.tool.simulators.routine_revisions._method_endpoint_map
+            created_routine_revision = toolkit_client.tool.simulators.routine_revisions.create([routine_revision])
+            if len(created_routine_revision) != 1:
+                raise EndpointAssertionError(
+                    routine_revision_endpoints["create"].path,
+                    f"Expected 1 created simulator routine revision, got {len(created_routine_revision)}",
+                )
+            if created_routine_revision[0].external_id != routine_revision.external_id:
+                raise EndpointAssertionError(
+                    routine_revision_endpoints["create"].path,
+                    f"Expected created simulator routine revision external ID to be {routine_revision.external_id}, got {created_routine_revision[0].external_id}",
+                )
+            retrieved_routine_revision = toolkit_client.tool.simulators.routine_revisions.retrieve(
+                [routine_revision.as_id()]
+            )
+            if len(retrieved_routine_revision) != 1:
+                raise EndpointAssertionError(
+                    routine_revision_endpoints["retrieve"].path,
+                    f"Expected 1 retrieved simulator routine revision, got {len(retrieved_routine_revision)}",
+                )
+            if retrieved_routine_revision[0].external_id != routine_revision.external_id:
+                raise EndpointAssertionError(
+                    routine_revision_endpoints["retrieve"].path,
+                    f"Expected retrieved simulator routine revision external ID to be {routine_revision.external_id}, got {retrieved_routine_revision[0].external_id}",
+                )
+            listed_routine_revisions = list(
+                toolkit_client.tool.simulators.routine_revisions.iterate(
+                    filter=SimulatorModelRoutineRevisionFilter(
+                        model_external_ids=[model.external_id], routine_external_ids=[routine.external_id]
+                    ),
+                    limit=1,
+                )
+            )
+            if len(listed_routine_revisions) != 1:
+                raise EndpointAssertionError(
+                    routine_revision_endpoints["list"].path,
+                    f"Expected 1 listed simulator routine revision, got {len(listed_routine_revisions)}",
+                )
         finally:
+            toolkit_client.tool.simulators.routines.delete([routine.as_id()])
             toolkit_client.tool.simulators.models.delete([model.as_id()])
 
 

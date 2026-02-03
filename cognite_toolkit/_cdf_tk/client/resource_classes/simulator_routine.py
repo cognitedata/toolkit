@@ -23,7 +23,6 @@ class SimulatorRoutineResponse(ResponseResource[SimulatorRoutineRequest], Simula
 
     id: int
     simulator_external_id: str
-    name: str
     description: str | None = None
     data_set_id: int
     created_time: int
