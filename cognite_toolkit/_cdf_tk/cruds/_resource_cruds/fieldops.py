@@ -180,7 +180,7 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
         return APMConfigRequest._load(resource)
 
     def dump_resource(self, resource: APMConfigResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+        dumped = resource.as_write().dump(context="toolkit")
         local = local or {}
         if "existingVersion" not in local:
             # Existing version is typically not set when creating nodes, but we get it back
