@@ -43,7 +43,7 @@ from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.apm_config import APMConfigRequest, APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest, APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (

@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
-from cognite_toolkit._cdf_tk.client.api.infield import InFieldCDMConfigAPI
+from cognite_toolkit._cdf_tk.client.api.infield import APMConfigAPI, InFieldCDMConfigAPI
 from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI, WrappedInstancesAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_capabilities import CapabilitiesAPI
@@ -32,6 +32,7 @@ from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTrigger
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeRequest, NodeRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
@@ -112,6 +113,7 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         SecurityCategoriesAPI,
         # Created response cannot be made into a request.
         InFieldCDMConfigAPI,
+        APMConfigAPI,
     }
 )
 
@@ -153,6 +155,11 @@ def crud_cdf_resource_apis() -> Iterable[tuple]:
 def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[dict[str, Any]]:
     """Return an example with the only required and identifier fields for the given resource class."""
     requests: dict[type[RequestResource], list[dict[str, Any]]] = {
+        APMConfigRequest: [
+            {
+                "externalId": "smoke-test-apm-config",
+            }
+        ],
         AssetRequest: [{"name": "smoke-test-asset", "externalId": "smoke-test-asset"}],
         DataSetRequest: [{"externalId": "smoke-tests-crudl-dataset"}],
         EventRequest: [{"externalId": "smoke-test-event"}],
@@ -779,3 +786,35 @@ class TestCDFResourceAPI:
         finally:
             # Clean up
             client.infield.cdm_config.delete([location_config_id])
+
+    def test_apm_config_crudls(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        apm_config_example = get_examples_minimum_requests(APMConfigRequest)[0]
+        apm_config_request = APMConfigRequest.model_validate(apm_config_example)
+        apm_config_id = apm_config_request.as_id()
+
+        try:
+            # Create APM config
+            create_endpoint = client.infield.apm_config._method_endpoint_map["upsert"]
+            try:
+                created = client.infield.apm_config.create([apm_config_request])
+            except ToolkitAPIError:
+                raise EndpointAssertionError(create_endpoint.path, "Creating APM config instance failed.")
+            if len(created) != 1:
+                raise EndpointAssertionError(create_endpoint.path, f"Expected 1 created APM config, got {len(created)}")
+            if created[0].as_id() != apm_config_id:
+                raise EndpointAssertionError(create_endpoint.path, "Created APM config ID does not match requested ID.")
+
+            # Retrieve APM config
+            retrieve_endpoint = client.infield.apm_config._method_endpoint_map["retrieve"]
+            self.assert_endpoint_method(
+                lambda: client.infield.apm_config.retrieve([apm_config_id]),
+                "retrieve",
+                retrieve_endpoint,
+                apm_config_id,
+            )
+
+        finally:
+            # Clean up
+            client.infield.apm_config.delete([apm_config_id])
