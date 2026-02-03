@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.resource_classes import SimulatorModelYAML
 from cognite_toolkit._cdf_tk.resource_classes.simulator_model_revision import SimulatorModelRevisionYAML
 from cognite_toolkit._cdf_tk.resource_classes.simulator_routine import SimulatorRoutineYAML
 from cognite_toolkit._cdf_tk.resource_classes.simulator_routine_revision import SimulatorRoutineRevisionYAML
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
 
 from .data_organization import DataSetsCRUD
 from .file import FileMetadataCRUD
@@ -391,3 +392,12 @@ class SimulatorRoutineRevisionCRUD(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "routineExternalId" in item:
             yield SimulatorRoutineCRUD, ExternalId(external_id=item["routineExternalId"])
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path[0] == "configuration":
+            return diff_list_force_hashable(local, cdf)
+        elif json_path[0] == "script":
+            return diff_list_identifiable(local, cdf, get_identifier=lambda x: x["order"])
+        return super().diff_list(local, cdf, json_path)

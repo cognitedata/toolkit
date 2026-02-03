@@ -9,11 +9,11 @@ configuration:
     granularity: 1
     validationWindow: 5
   logicalCheck:
-    - enabled: true
-      timeseriesExternalId: simulator_routine_revision_logical_check
-      aggregate: average
-      operator: lt
-      value: 75.8
+  - enabled: true
+    timeseriesExternalId: simulator_routine_revision_logical_check
+    aggregate: average
+    operator: lt
+    value: 75.8
   steadyStateDetection:
   - enabled: true
     aggregate: average
@@ -26,11 +26,12 @@ configuration:
     value: 10.0
     valueType: DOUBLE
     unit:
-     name: C
-     quantity: temperature
+      name: C
+      quantity: temperature
   - name: Cold Water Pressure
     referenceId: CWP
-    value: [3.6]
+    value:
+    - 3.6
     valueType: DOUBLE_ARRAY
     unit:
       name: bar

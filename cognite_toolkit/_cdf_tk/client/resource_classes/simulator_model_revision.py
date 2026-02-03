@@ -24,7 +24,7 @@ class SimulatorModelRevisionResponse(ResponseResource[SimulatorModelRevisionRequ
 
     id: int
     description: str | None = None
-    simulator_model_external_id: str
+    simulator_external_id: str
     created_by_user_id: str
     status: Literal["unknown", "success", "failure"] = "unknown"
     status_message: str | None = None
