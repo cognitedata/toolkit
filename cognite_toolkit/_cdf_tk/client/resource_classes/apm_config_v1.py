@@ -139,6 +139,7 @@ class APMConfigResponse(WrappedInstanceResponse[APMConfigRequest], APMConfig):
     space: Literal["APM_Config"] = APM_CONFIG_SPACE
 
     def as_request_resource(self) -> APMConfigRequest:
+        # InstanceType and space are constants, so we exclude them.
         return APMConfigRequest.model_validate(
             self.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude={"instance_type", "space"}),
             extra="ignore",
