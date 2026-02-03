@@ -18,13 +18,11 @@ configuration:
   - enabled: true
     aggregate: average
     minSectionSize: 1
-    timeseriesExternalId: null
     varThreshold: 3.5
     slopeThreshold: 0.5
   inputs:
   - name: Cold water Temperature
     referenceId: CWT
-    saveTimeseriesExternalId: null
     value: 10.0
     valueType: DOUBLE
     unit:
@@ -32,7 +30,6 @@ configuration:
       quantity: temperature
   - name: Cold Water Pressure
     referenceId: CWP
-    saveTimeseriesExternalId: null
     value:
     - 3.6
     valueType: DOUBLE_ARRAY
@@ -76,7 +73,6 @@ script:
   steps:
   - order: 1
     stepType: Get
-    description: null
     arguments:
       referenceId: ST
       objectName: Shower
