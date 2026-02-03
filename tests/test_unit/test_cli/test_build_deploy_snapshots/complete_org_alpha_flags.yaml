@@ -323,6 +323,7 @@ SimulatorRoutineRevisionResponse:
     inputs:
     - name: Cold water Temperature
       referenceId: CWT
+      saveTimeseriesExternalId: null
       unit:
         name: C
         quantity: temperature
@@ -330,6 +331,7 @@ SimulatorRoutineRevisionResponse:
       valueType: DOUBLE
     - name: Cold Water Pressure
       referenceId: CWP
+      saveTimeseriesExternalId: null
       unit:
         name: bar
         quantity: pressure
@@ -345,6 +347,7 @@ SimulatorRoutineRevisionResponse:
     outputs:
     - name: Shower Temperature
       referenceId: ST
+      saveTimeseriesExternalId: null
       unit:
         name: C
         quantity: temperature
@@ -356,6 +359,7 @@ SimulatorRoutineRevisionResponse:
       enabled: true
       minSectionSize: 1
       slopeThreshold: 0.5
+      timeseriesExternalId: null
       varThreshold: 3.5
   externalId: my_simulator_model_revision
   routineExternalId: my_simulator_routine
@@ -382,6 +386,7 @@ SimulatorRoutineRevisionResponse:
     steps:
     - arguments:
         command: Solve
+      description: null
       order: 1
       stepType: Command
   - description: Set simulator outputs
@@ -391,6 +396,7 @@ SimulatorRoutineRevisionResponse:
         objectName: Shower
         objectProperty: Temperature
         referenceId: ST
+      description: null
       order: 1
       stepType: Get
 Space:
