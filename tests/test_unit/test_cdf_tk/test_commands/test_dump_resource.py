@@ -229,9 +229,9 @@ class TestDataModelFinder:
 @pytest.fixture()
 def three_location_filters() -> list[LocationFilterResponse]:
     return [
-        LocationFilterResponse(id=1, external_id="filterA", name="Filter A", created_time=1, updated_time=1),
-        LocationFilterResponse(id=2, external_id="filterB", name="Filter B", created_time=1, updated_time=1),
-        LocationFilterResponse(id=3, external_id="filterC", name="Filter C", created_time=1, updated_time=1),
+        LocationFilterResponse(id=1, external_id="filterA", name="Filter A", created_time=1, last_updated_time=1),
+        LocationFilterResponse(id=2, external_id="filterB", name="Filter B", created_time=1, last_updated_time=1),
+        LocationFilterResponse(id=3, external_id="filterC", name="Filter C", created_time=1, last_updated_time=1),
     ]
 
 
