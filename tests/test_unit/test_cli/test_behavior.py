@@ -12,7 +12,6 @@ from cognite.client.data_classes import (
     Group,
     GroupWrite,
     Transformation,
-    WorkflowTrigger,
 )
 from cognite.client.data_classes.capabilities import AssetsAcl, EventsAcl, TimeSeriesAcl
 from pytest import MonkeyPatch
@@ -262,10 +261,14 @@ def test_pull_workflow_trigger_with_environment_variables(
         ("{{ ingestionClientSecret }}", "this-is-the-ingestion-client-secret"),
     ]:
         vars_replaced = vars_replaced.replace(key, value)
-    trigger_dict = yaml.safe_load(vars_replaced)
-    trigger_dict["triggerRule"]["cronExpression"] = "* 4 * * *"
-    trigger = WorkflowTrigger._load(trigger_dict)
-    toolkit_client_approval.append(WorkflowTrigger, trigger)
+    response_dict = yaml.safe_load(vars_replaced)
+    response_dict["triggerRule"]["cronExpression"] = "* 4 * * *"
+    response_dict.pop("authentication", None)
+    response_dict["createdTime"] = 0
+    response_dict["lastUpdatedTime"] = 1
+    response_dict["isPaused"] = False
+    trigger = WorkflowTriggerResponse._load(response_dict)
+    toolkit_client_approval.append(WorkflowTriggerResponse, trigger)
 
     cmd = PullCommand(silent=True)
     cmd.pull_module(
