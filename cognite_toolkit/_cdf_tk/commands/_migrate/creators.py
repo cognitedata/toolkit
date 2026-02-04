@@ -13,6 +13,7 @@ from cognite.client.data_classes.data_modeling import (
     SpaceApply,
     ViewId,
 )
+
 from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.events import EventProperty
 
@@ -233,15 +234,38 @@ class InfieldV2ConfigCreator(MigrationCreator):
             apm_configs = self.client.infield.apm_config.retrieve(
                 TypedNodeIdentifier.from_str_ids(self.external_ids, space=APM_CONFIG_SPACE)
             )
-        elif self.apm_configs is not None:
-            apm_configs = list(self.apm_configs)
         else:
-            raise NotImplementedError("This should not happen.")
-        raise NotImplementedError(
-            f"To be implemented converting {len(apm_configs)} APM configs to InField CDM Location Configs."
-        )
+            apm_configs = list(self.apm_configs)
+
+        all_location_configs: list[CreatedResource[InFieldCDMLocationConfigRequest]] = []
+        all_location_filters: list[CreatedResource[InFieldCDMLocationConfigRequest]] = []
+        for apm_config in apm_configs:
+            location_configs, location_filters = self._create_infield_v2_config(apm_config)
+            all_location_configs.extend(
+                CreatedResource(
+                    resource=loc_config,
+                    config_data=loc_config.dump(),
+                    filestem=f"{apm_config.external_id}_location_{loc_config.name}",
+                )
+                for idx, loc_config in enumerate(location_configs)
+
+            )
+            all_location_filters.extend(
+                CreatedResource(
+                    resource=loc_filter,
+                    config_data=loc_filter.dump(),
+                    filestem=f"{apm_config.external_id}_filter_{loc_filter.name}",
+                )
+                for idx, loc_filter in enumerate(location_filters)
+            )
+        yield ToCreateResources(
+            resources=all_location_configs,
+            crud_cls=NodeCRUD,
+
+
 
     def _create_infield_v2_config(
         self, config: APMConfigResponse
-    ) -> tuple[InFieldCDMLocationConfigRequest, LocationFilterRequest]:
-        raise NotImplementedError("To be implemented")
+    ) -> tuple[list[InFieldCDMLocationConfigRequest], list[LocationFilterRequest]]:
+        location_configs: list[InFieldCDMLocationConfigRequest] = []
+        location_filters: list[LocationFilterRequest] = []
