@@ -43,7 +43,8 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
-    ) -> PagedResponse[LocationFilterResponse]        return PagedResponse[LocationFilterResponse].model_validate_json(response.body)
+    ) -> PagedResponse[LocationFilterResponse]:
+        return PagedResponse[LocationFilterResponse].model_validate_json(response.body)
 
     def create(self, items: Sequence[LocationFilterRequest]) -> list[LocationFilterResponse]:
         """Create a new location filter.
