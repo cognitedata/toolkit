@@ -5,6 +5,7 @@ import pytest
 from cognite.client.credentials import OAuthClientCredentials
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     ScheduleTriggerRule,
     WorkflowTriggerResponse,
@@ -15,7 +16,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     WorkflowDefinition,
     WorkflowVersionRequest,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import WorkflowTriggerCRUD, WorkflowVersionCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError, ToolkitRequiredValueError
@@ -116,9 +116,7 @@ class TestWorkflowVersionLoader:
                             external_id=f"task_{id_}",
                             type="subworkflow",
                             parameters=SubworkflowTaskParameters(
-                                subworkflow=WorkflowVersionId(
-                                    workflow_external_id=dependency, version="v1"
-                                )
+                                subworkflow=WorkflowVersionId(workflow_external_id=dependency, version="v1")
                             ),
                         ),
                     ]
@@ -132,4 +130,6 @@ class TestWorkflowVersionLoader:
 
         error = exc.value
         assert isinstance(error, ToolkitCycleError)
-        assert error.args[1] == [WorkflowVersionId(workflow_external_id=id_, version="v1") for id_ in ["a", "c", "b", "a"]]
+        assert error.args[1] == [
+            WorkflowVersionId(workflow_external_id=id_, version="v1") for id_ in ["a", "c", "b", "a"]
+        ]
