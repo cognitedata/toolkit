@@ -45,17 +45,15 @@ class WorkflowTrigger(BaseModelObject):
     workflow_version: str
     input: JsonValue | None = None
     metadata: dict[str, str] | None = None
-    # Note: authentication with nonce is only required when creating/updating via the API.
-    # It's not returned in responses and is handled separately during resource loading.
-    authentication: NonceCredentials | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
 
 class WorkflowTriggerRequest(WorkflowTrigger, RequestResource):
-    # authentication is inherited from WorkflowTrigger as optional
-    ...
+    # Note: authentication with nonce is required, but we set it to optional to
+    # allow loading from file without it. This is utilized in the WorkflowTriggerCRUD.
+    authentication: NonceCredentials | None = None
 
 
 class WorkflowTriggerResponse(WorkflowTrigger, ResponseResource[WorkflowTriggerRequest]):
