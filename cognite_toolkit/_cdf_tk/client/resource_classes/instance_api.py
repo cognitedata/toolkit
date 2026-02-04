@@ -53,6 +53,10 @@ class TypedNodeIdentifier(TypedInstanceIdentifier):
     def from_external_ids(cls, items: Iterable[ExternalId], space: str) -> list[Self]:
         return [cls.from_external_id(item, space) for item in items]
 
+    @classmethod
+    def from_str_ids(cls, items: Iterable[str], space: str) -> list[Self]:
+        return [cls(instance_type="node", space=space, external_id=item) for item in items]
+
 
 class TypedEdgeIdentifier(TypedInstanceIdentifier):
     instance_type: Literal["edge"] = "edge"

@@ -45,6 +45,7 @@ from .api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from .api.hosted_extractor_mappings import HostedExtractorMappingsAPI
 from .api.hosted_extractor_sources import HostedExtractorSourcesAPI
 from .api.infield import APMConfigAPI, InfieldAPI, InFieldCDMConfigAPI, InfieldConfigAPI
+from .api.instances import InstancesAPI
 from .api.labels import LabelsAPI
 from .api.lookup import (
     AssetLookUpAPI,
@@ -159,6 +160,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.assets = MagicMock(spec_set=AssetsAPI)
         self.tool.timeseries = MagicMock(spec_set=TimeSeriesAPI)
         self.tool.filemetadata = MagicMock(spec_set=FileMetadataAPI)
+        self.tool.instances = MagicMock(spec=InstancesAPI)
         self.tool.events = MagicMock(spec_set=EventsAPI)
         self.tool.simulators = MagicMock(spec=SimulatorsAPI)
         self.tool.simulators.models = MagicMock(spec_set=SimulatorModelsAPI)

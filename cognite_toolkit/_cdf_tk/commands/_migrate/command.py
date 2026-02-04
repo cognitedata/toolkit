@@ -255,6 +255,7 @@ class MigrationCommand(ToolkitCommand):
         creator: MigrationCreator,
         dry_run: bool,
         output_dir: Path,
+        deploy: bool = True,
         verbose: bool = False,
     ) -> DeployResults:
         """This method is used to create migration resource in CDF."""
@@ -262,43 +263,48 @@ class MigrationCommand(ToolkitCommand):
 
         deploy_cmd = DeployCommand(self.print_warning, silent=self.silent)
         deploy_cmd.tracker = self.tracker
-
-        crud_cls = creator.CRUD
-        resource_list = creator.create_resources()
-
+        # crud_cls = creator.CRUD
+        # resource_list = creator.create_resources()
         results = DeployResults([], "deploy", dry_run=dry_run)
-        crud = crud_cls.create_loader(client)
-        worker = ResourceWorker(crud, "deploy")
-        local_by_id = {crud.get_id(item): (item.dump(), item) for item in resource_list}
-        worker.validate_access(local_by_id, is_dry_run=dry_run)
-        cdf_resources = crud.retrieve(list(local_by_id.keys()))
-        resources = worker.categorize_resources(local_by_id, cdf_resources, False, verbose)
+        for to_create in creator.create_resources():
+            crud_cls = to_create.crud_cls
+            if deploy:
+                crud = crud_cls.create_loader(client)
+                worker = ResourceWorker(crud, "deploy")
+                local_by_id = {
+                    crud.get_id(item.resource): (item.resource.dump(), item.resource) for item in to_create.resources
+                }
+                worker.validate_access(local_by_id, is_dry_run=dry_run)
+                cdf_resources = crud.retrieve(list(local_by_id.keys()))
+                resources = worker.categorize_resources(local_by_id, cdf_resources, False, verbose)
 
-        if dry_run:
-            result = deploy_cmd.dry_run_deploy(resources, crud, False, False)
-        else:
-            result = deploy_cmd.actual_deploy(resources, crud)
-            if result.calculated_total > 0 and creator.HAS_LINEAGE:
-                store_count = creator.store_lineage(resource_list)
-                self.console(f"Stored lineage for {store_count:,} {creator.DISPLAY_NAME}.")
+                if dry_run:
+                    result = deploy_cmd.dry_run_deploy(resources, crud, False, False)
+                else:
+                    result = deploy_cmd.actual_deploy(resources, crud)
+                    if result.calculated_total > 0 and to_create.store_linage is not None:
+                        store_count = to_create.store_linage()
+                        self.console(f"Stored lineage for {store_count:,} {to_create.display_name}.")
 
-        verb = "Would deploy" if dry_run else "Deploying"
-        self.console(f"{verb} {creator.DISPLAY_NAME} to CDF.")
+                verb = "Would deploy" if dry_run else "Deploying"
+                self.console(f"{verb} {to_create.display_name} to CDF.")
 
-        resource_configs = creator.resource_configs(resource_list)
-        for config in resource_configs:
-            filepath = output_dir / crud_cls.folder_name / f"{sanitize_filename(config.filestem)}.{crud_cls.kind}.yaml"
-            filepath.parent.mkdir(parents=True, exist_ok=True)
-            safe_write(filepath, yaml_safe_dump(config.data))
-        self.console(
-            f"{len(resource_configs)} {crud_cls.kind} resource configurations written to {(output_dir / crud_cls.folder_name).as_posix()!r}"
-        )
-        self.console("It is recommended to add these files to a Toolkit governed module.")
+                if result:
+                    results[result.name] = result
 
-        if result:
-            results[result.name] = result
+                if results.has_counts:
+                    print(results.counts_table())
 
-        if results.has_counts:
-            print(results.counts_table())
+            for item in to_create.resources:
+                if item.config_data and item.filestem:
+                    filepath = (
+                        output_dir / crud_cls.folder_name / f"{sanitize_filename(item.filestem)}.{crud_cls.kind}.yaml"
+                    )
+                    filepath.parent.mkdir(parents=True, exist_ok=True)
+                    safe_write(filepath, yaml_safe_dump(item.config_data))
+            self.console(
+                f"{len(to_create.resources)} {crud_cls.kind} resource configurations written to {(output_dir / crud_cls.folder_name).as_posix()!r}"
+            )
+            self.console("It is recommended to add these files to a Toolkit governed module.")
 
         return results
