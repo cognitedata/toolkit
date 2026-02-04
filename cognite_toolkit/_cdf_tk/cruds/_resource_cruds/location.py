@@ -18,7 +18,6 @@ from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError, ToolkitCy
 from cognite_toolkit._cdf_tk.resource_classes import LocationYAML
 from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 from .classic import AssetCRUD, SequenceCRUD
 from .data_organization import DataSetsCRUD
@@ -95,6 +94,7 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
         # so we fix it here.
         return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="version")
 
+    @classmethod
     def as_str(cls, id: ExternalId) -> str:
         return id.external_id
 

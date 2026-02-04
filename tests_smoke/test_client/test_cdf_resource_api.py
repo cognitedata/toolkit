@@ -28,7 +28,6 @@ from cognite_toolkit._cdf_tk.client.api.three_d import (
     ThreeDClassicModelsAPI,
     ThreeDDMAssetMappingAPI,
 )
-from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
@@ -39,7 +38,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeRe
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationRequest,
@@ -55,6 +53,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalIdUnwrapped
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWTableRequest,
@@ -252,9 +251,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
             }
         ],
         LabelRequest: [{"name": "smoke-test-label", "externalId": "smoke-test-label"}],
-        LocationFilterRequest: [
-            {"externalId": "smoke-test-location-filter", "name": "smoke-test-location-filter"}
-        ],
+        LocationFilterRequest: [{"externalId": "smoke-test-location-filter", "name": "smoke-test-location-filter"}],
         RAWDatabaseRequest: [{"name": "smoke-test-raw-database"}],
         RAWTableRequest: [{"name": "smoke-test-raw-table", "dbName": "smoke-test-raw-database"}],
         SecurityCategoryRequest: [{"name": "smoke-test-security-category"}],
@@ -381,7 +378,7 @@ class TestCDFResourceAPI:
         # CDFResourceAPI also require endpoint map (and disable gzip).
         api = api_cls(toolkit_client.http_client)  # type: ignore[call-arg]
         methods = api._method_endpoint_map
-        api.list()
+
         try:
             if hasattr(api, "create"):
                 create_endpoint = methods["create"] if "create" in methods else methods["upsert"]
