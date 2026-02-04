@@ -463,7 +463,7 @@ class TestResourceCRUDs:
         [
             loader_cls
             for loader_cls in RESOURCE_CRUD_LIST
-            if loader_cls != {HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD}
+            if loader_cls not in {HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD}
         ],
     )
     def test_dump_resource_with_local_id(self, loader_cls: type[ResourceCRUD]) -> None:
