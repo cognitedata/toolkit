@@ -65,6 +65,8 @@ class LocationFilterRequest(LocationFilter, RequestResource):
 
     # This is not part of the request payload, but we need it to identify existing resources for updates.
     id: int | None = Field(default=None, exclude=True)
+    # Used for topological sorting and deferred parent ID lookup during creation.
+    parent_external_id: str | None = Field(default=None, exclude=True)
 
     def as_id(self) -> InternalId:
         if self.id is None:

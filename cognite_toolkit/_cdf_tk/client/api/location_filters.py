@@ -151,10 +151,7 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
         """
         return self._paginate(cursor=None, limit=100, body={"flat": flat})
 
-    def iterate(
-        self,
-        flat: bool = True,
-    ) -> Iterable[list[LocationFilterResponse]]:
+    def iterate(self, flat: bool = True) -> Iterable[list[LocationFilterResponse]]:
         """Iterate over all location filters.
 
         Args:

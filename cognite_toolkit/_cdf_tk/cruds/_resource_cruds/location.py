@@ -7,11 +7,10 @@ from cognite.client.data_classes.capabilities import Capability, LocationFilters
 from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters import (
-    LocationFilter,
-    LocationFilterList,
-    LocationFilterWrite,
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
+    LocationFilterRequest,
+    LocationFilterResponse,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
@@ -28,10 +27,10 @@ from .timeseries import TimeSeriesCRUD
 
 
 @final
-class LocationFilterCRUD(ResourceCRUD[str, LocationFilterWrite, LocationFilter]):
+class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, LocationFilterResponse]):
     folder_name = "locations"
-    resource_cls = LocationFilter
-    resource_write_cls = LocationFilterWrite
+    resource_cls = LocationFilterResponse
+    resource_write_cls = LocationFilterRequest
     yaml_cls = LocationYAML
     dependencies = frozenset(
         {
@@ -57,7 +56,7 @@ class LocationFilterCRUD(ResourceCRUD[str, LocationFilterWrite, LocationFilter])
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[LocationFilterWrite] | None, read_only: bool
+        cls, items: Sequence[LocationFilterRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -76,16 +75,16 @@ class LocationFilterCRUD(ResourceCRUD[str, LocationFilterWrite, LocationFilter])
         )
 
     @classmethod
-    def get_id(cls, item: LocationFilter | LocationFilterWrite | dict) -> str:
+    def get_id(cls, item: LocationFilterRequest | LocationFilterResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
+            return ExternalId(external_id=item["externalId"])
         if not item.external_id:
             raise KeyError("LocationFilter must have external_id")
-        return item.external_id
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return {"externalId": id.external_id}
 
     def safe_read(self, filepath: Path | str) -> str:
         # The version is a string, but the user often writes it as an int.
@@ -95,7 +94,7 @@ class LocationFilterCRUD(ResourceCRUD[str, LocationFilterWrite, LocationFilter])
         # so we fix it here.
         return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="version")
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LocationFilterWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LocationFilterRequest:
         if parent_external_id := resource.pop("parentExternalId", None):
             # This is a workaround: when the parentExternalId cannot be resolved because the parent
             # hasn't been created yet, we save it so that we can try again "later"
@@ -104,10 +103,10 @@ class LocationFilterCRUD(ResourceCRUD[str, LocationFilterWrite, LocationFilter])
             except ResourceRetrievalError:
                 resource["parentId"] = -1
             # Store the parent external ID for topological sorting and late look up.
-            resource["_parentExternalId"] = parent_external_id
+            resource["parentExternalId"] = parent_external_id
 
         if "assetCentric" not in resource:
-            return LocationFilterWrite._load(resource)
+            return LocationFilterRequest.model_validate(resource)
         asset_centric = resource["assetCentric"]
         if data_set_external_ids := asset_centric.pop("dataSetExternalIds", None):
             asset_centric["dataSetIds"] = self.client.lookup.data_sets.id(
@@ -122,10 +121,10 @@ class LocationFilterCRUD(ResourceCRUD[str, LocationFilterWrite, LocationFilter])
                     allow_empty=True,
                 )
 
-        return LocationFilterWrite._load(resource)
+        return LocationFilterRequest.model_validate(resource)
 
-    def dump_resource(self, resource: LocationFilter, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+    def dump_resource(self, resource: LocationFilterResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
         if parent_id := dumped.pop("parentId", None):
             dumped["parentExternalId"] = self.client.lookup.location_filters.external_id(parent_id)
         if dumped.get("dataModelingType") == "HYBRID" and local is not None and "dataModelingType" not in local:
@@ -154,16 +153,15 @@ class LocationFilterCRUD(ResourceCRUD[str, LocationFilterWrite, LocationFilter])
         return super().diff_list(local, cdf, json_path)
 
     @classmethod
-    def topological_sort(cls, items: Sequence[LocationFilterWrite]) -> list[LocationFilterWrite]:
+    def topological_sort(cls, items: Sequence[LocationFilterRequest]) -> list[LocationFilterRequest]:
         """Sorts the location filters in topological order based on their parent-child relationships."""
-        location_by_id: dict[str, LocationFilterWrite] = {cls.get_id(item): item for item in items}
+        location_by_id: dict[str, LocationFilterRequest] = {item.external_id: item for item in items}
         dependencies: dict[str, set[str]] = {}
         for item_id, item in location_by_id.items():
             dependencies[item_id] = set()
             # If this item has a parent, add it as a dependency
-            if item._parent_external_id:
-                if item._parent_external_id in location_by_id:
-                    dependencies[item_id].add(item._parent_external_id)
+            if item.parent_external_id and item.parent_external_id in location_by_id:
+                dependencies[item_id].add(item.parent_external_id)
         try:
             return [
                 location_by_id[item_id]
@@ -176,55 +174,49 @@ class LocationFilterCRUD(ResourceCRUD[str, LocationFilterWrite, LocationFilter])
                 *e.args[1:],
             ) from None
 
-    def create(self, items: Sequence[LocationFilterWrite]) -> LocationFilterList:
-        created: list[LocationFilter] = []
+    def create(self, items: Sequence[LocationFilterRequest]) -> list[LocationFilterResponse]:
+        created: list[LocationFilterResponse] = []
         # Note: the Location API does not support batch creation, so we need to do this one by one.
         # Furthermore, we could not do the parentExternalId->parentId lookup before the parent was created,
         # hence it may be deferred here.
         # Use topological sort to ensure parents are created before children
         for item in self.topological_sort(items):
             # These are set if lookup has been deferred
-            if item._parent_external_id and item.parent_id == -1:
-                item.parent_id = self.client.lookup.location_filters.id(item._parent_external_id)
-            created.append(self.client.search.locations.create(item))
-        return LocationFilterList(created)
+            if item.parent_external_id and item.parent_id == -1:
+                item.parent_id = self.client.lookup.location_filters.id(item.parent_external_id)
+            created.extend(self.client.tool.location_filter.create([item]))
+        return created
 
-    def retrieve(self, external_ids: SequenceNotStr[str]) -> LocationFilterList:
-        all_locations = self.client.search.locations.list()
-        found_locations: LocationFilterList = LocationFilterList([])
+    def retrieve(self, external_ids: SequenceNotStr[ExternalId]) -> list[LocationFilterResponse]:
+        # Use flat=True to get all locations in a flat list
+        all_locations = self.client.tool.location_filter.list(flat=True)
+        external_id_set = {ext_id.external_id for ext_id in external_ids}
+        return [loc for loc in all_locations if loc.external_id in external_id_set]
 
-        # locationfilter list returns a tree structure, so we need to traverse it
-        def _recursive_find(locs: LocationFilterList) -> None:
-            for loc in locs:
-                if loc.external_id in external_ids:
-                    found_locations.append(loc)
-                if loc.locations:
-                    _recursive_find(loc.locations)
+    def update(self, items: Sequence[LocationFilterRequest]) -> list[LocationFilterResponse]:
+        all_locations = self.client.tool.location_filter.list(flat=True)
+        ids = {loc.external_id: loc.id for loc in all_locations}
+        # Set the id on each item before updating
+        for item in items:
+            item.id = ids[item.external_id]
+        return self.client.tool.location_filter.update(items)
 
-        _recursive_find(all_locations)
-        return LocationFilterList(found_locations)
-
-    def update(self, items: Sequence[LocationFilterWrite]) -> LocationFilterList:
-        updated = []
-        ids = {item.external_id: item.id for item in self.retrieve([item.external_id for item in items])}
-        for update in items:
-            updated.append(self.client.search.locations.update(ids[update.external_id], update))
-        return LocationFilterList(updated)
-
-    def delete(self, external_ids: SequenceNotStr[str]) -> int:
-        count = 0
-        for id in [loc.id for loc in self.retrieve(external_ids)]:
-            self.client.search.locations.delete(id)
-            count += 1
-        return count
+    def delete(self, external_ids: SequenceNotStr[ExternalId]) -> int:
+        locations = self.retrieve(external_ids)
+        if not locations:
+            return 0
+        ids = [InternalId(id=loc.id) for loc in locations]
+        self.client.tool.location_filter.delete(ids)
+        return len(ids)
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[LocationFilter]:
-        return iter(self.client.search.locations)
+    ) -> Iterable[LocationFilterResponse]:
+        for chunk in self.client.tool.location_filter.iterate(flat=True):
+            yield from chunk
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
