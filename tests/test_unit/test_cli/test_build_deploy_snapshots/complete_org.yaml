@@ -1102,7 +1102,9 @@ WorkflowResponse:
   description: A workflow for processing data
   externalId: baz
 WorkflowTriggerResponse:
-- externalId: MyTrigger
+- authentication:
+    nonce: dummy-nonce
+  externalId: MyTrigger
   metadata:
     cognite-toolkit-auth-hash: def5e2e0
   triggerRule:

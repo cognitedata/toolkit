@@ -240,7 +240,9 @@ WorkflowResponse:
   description: This runs the full ingestion with population and contextualization
   externalId: ingestion
 WorkflowTriggerResponse:
-- externalId: ingestion
+- authentication:
+    nonce: dummy-nonce
+  externalId: ingestion
   metadata:
     cognite-toolkit-auth-hash: 003722e2
   triggerRule:
