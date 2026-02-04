@@ -160,7 +160,4 @@ class WorkflowVersionResponse(WorkflowVersion, ResponseResource[WorkflowVersionR
     last_updated_time: int
 
     def as_request_resource(self) -> WorkflowVersionRequest:
-        try:
-            return WorkflowVersionRequest.model_validate(self.dump(), extra="ignore")
-        except ValueError as e:
-            raise ValueError(f"Failed to convert WorkflowVersionResponse to WorkflowVersionRequest: {e}") from e
+        return WorkflowVersionRequest.model_validate(self.dump(), extra="ignore")

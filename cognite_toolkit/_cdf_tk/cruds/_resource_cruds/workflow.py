@@ -32,6 +32,7 @@ from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
+    NonceCredentials,
     WorkflowTriggerRequest,
     WorkflowTriggerResponse,
 )
@@ -297,7 +298,12 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest
             if task_id not in local_task_by_id:
                 continue
             local_task = local_task_by_id[task_id]
-            for key, default_value in [("retries", 3), ("timeout", 3600), ("onFailure", "abortWorkflow")]:
+            for key, default_value in [
+                ("retries", 3),
+                ("timeout", 3600),
+                ("onFailure", "abortWorkflow"),
+                ("dependsOn", []),
+            ]:
                 if key not in local_task and cdf_task.get(key) == default_value:
                     del cdf_task[key]
                 elif (
@@ -520,6 +526,7 @@ class WorkflowTriggerCRUD(ResourceCRUD[ExternalId, WorkflowTriggerRequest, Workf
 
     def _upsert_item(self, item: WorkflowTriggerRequest) -> WorkflowTriggerResponse | None:
         credentials = self._authentication_by_id.get(item.external_id)
+        item.authentication = NonceCredentials(nonce=self.client.iam.sessions.create(credentials).nonce)
         try:
             result = self.client.tool.workflows.triggers.create([item])
             if not result:
