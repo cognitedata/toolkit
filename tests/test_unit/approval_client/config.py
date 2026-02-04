@@ -980,7 +980,7 @@ API_RESOURCES = [
         },
     ),
     APIResource(
-        api_name="tool.location_filters",
+        api_name="tool.location_filter",
         resource_cls=LocationFilterResponse,
         _write_cls=LocationFilterRequest,
         methods={
