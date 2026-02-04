@@ -321,6 +321,8 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest
                     local_function = local_parameters["function"]
                     if local_function.get("data") == {} and "data" not in cdf_function:
                         cdf_parameters["function"] = local_function
+                    elif cdf_function.get("data") == {} and "data" not in local_function:
+                        del cdf_function["data"]
             elif local_task["type"] == "transformation" and cdf_task["type"] == "transformation":
                 cdf_parameters = cdf_task["parameters"]
                 local_parameters = local_task["parameters"]
