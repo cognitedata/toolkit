@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFil
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_functions import ExtendedFunctionsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
+from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 
 from .api.assets import AssetsAPI
@@ -53,6 +54,7 @@ class ToolAPI:
         self.hosted_extractors = HostedExtractorsAPI(http_client)
         self.instances = InstancesAPI(http_client)
         self.labels = LabelsAPI(http_client)
+        self.location_filter = LocationFiltersAPI(http_client)
         self.filemetadata = FileMetadataAPI(http_client)
         self.raw = RawAPI(http_client)
         self.robotics = RoboticsAPI(http_client)
