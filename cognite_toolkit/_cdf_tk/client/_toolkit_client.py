@@ -54,7 +54,7 @@ class ToolAPI:
         self.hosted_extractors = HostedExtractorsAPI(http_client)
         self.instances = InstancesAPI(http_client)
         self.labels = LabelsAPI(http_client)
-        self.location_filter = LocationFiltersAPI(http_client)
+        self.location_filters = LocationFiltersAPI(http_client)
         self.filemetadata = FileMetadataAPI(http_client)
         self.raw = RawAPI(http_client)
         self.robotics = RoboticsAPI(http_client)
