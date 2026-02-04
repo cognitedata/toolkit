@@ -12,26 +12,29 @@ from cognite.client.data_classes import (
     Group,
     GroupWrite,
     Transformation,
-    Workflow,
-    WorkflowDefinition,
     WorkflowTrigger,
-    WorkflowVersion,
-    WorkflowVersionId,
-    WorkflowVersionUpsert,
 )
 from cognite.client.data_classes.capabilities import AssetsAcl, EventsAcl, TimeSeriesAcl
-from cognite.client.data_classes.workflows import (
-    SubworkflowReferenceParameters,
-    TransformationTaskParameters,
-    WorkflowDefinitionUpsert,
-    WorkflowScheduledTriggerRule,
-    WorkflowTask,
-)
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk import cdf_toml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters import LocationFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
+    ScheduleTriggerRule,
+    WorkflowTriggerResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
+    SubworkflowTaskParameters,
+    Task,
+    TransformationRef,
+    TransformationTaskParameters,
+    WorkflowDefinition,
+    WorkflowVersionRequest,
+    WorkflowVersionResponse,
+)
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, DumpResourceCommand, PullCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
@@ -40,6 +43,7 @@ from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.tk_warnings import MissingDependencyWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from tests.constants import CDF_PROJECT, chdir
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
@@ -639,31 +643,41 @@ def test_dump_workflow(
 ) -> None:
     # Simulate Workflow, WorkflowVersion, and WorkflowTrigger in CDF.
     toolkit_client_approval.append(
-        Workflow,
-        Workflow("myWorkflow", 0, 1),
+        WorkflowResponse,
+        WorkflowResponse(external_id="myWorkflow", created_time=0, last_updated_time=1),
     )
     toolkit_client_approval.append(
-        WorkflowVersion,
-        WorkflowVersion(
-            "myWorkflow",
-            "v1",
-            WorkflowDefinition(
+        WorkflowVersionResponse,
+        WorkflowVersionResponse(
+            workflow_external_id="myWorkflow",
+            version="v1",
+            workflow_definition=WorkflowDefinition(
                 # We are testing that the dump fetches the workflow version, not the actual content of the workflow.
-                hash_="some-hash",
                 tasks=[],
             ),
-            0,
-            1,
+            created_time=0,
+            last_updated_time=1,
         ),
     )
     toolkit_client_approval.append(
-        WorkflowTrigger, WorkflowTrigger("myTrigger", WorkflowScheduledTriggerRule("* * * * * "), "myWorkflow", "v1")
+        WorkflowTriggerResponse,
+        WorkflowTriggerResponse(
+            external_id="myTrigger",
+            trigger_rule=ScheduleTriggerRule(cron_expression="* * * * *"),
+            workflow_external_id="myWorkflow",
+            workflow_version="v1",
+            created_time=0,
+            last_updated_time=1,
+            is_paused=False,
+        ),
     )
 
     output_dir = tmp_path / "tmp_dump"
     cmd = DumpResourceCommand(silent=True)
     cmd.dump_to_yamls(
-        WorkflowFinder(env_vars_with_client.get_client(), WorkflowVersionId("myWorkflow", "v1")),
+        WorkflowFinder(
+            env_vars_with_client.get_client(), WorkflowVersionId(workflow_external_id="myWorkflow", version="v1")
+        ),
         output_dir=output_dir,
         clean=True,
         verbose=False,
@@ -848,26 +862,35 @@ def test_workflow_deployment_order(
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
 ) -> None:
-    subworkflow = WorkflowVersionUpsert(
+    subworkflow = WorkflowVersionRequest(
         workflow_external_id="mySubWorkflow",
         version="v1",
-        workflow_definition=WorkflowDefinitionUpsert(
+        workflow_definition=WorkflowDefinition(
             tasks=[
-                WorkflowTask(
+                Task(
                     external_id="task1",
-                    parameters=TransformationTaskParameters(external_id="someTransformation"),
+                    type="transformation",
+                    parameters=TransformationTaskParameters(
+                        transformation=TransformationRef(external_id="someTransformation"),
+                    ),
                 )
             ],
         ),
     )
-    main_workflow = WorkflowVersionUpsert(
+    main_workflow = WorkflowVersionRequest(
         workflow_external_id="myWorkflow",
         version="v1",
-        workflow_definition=WorkflowDefinitionUpsert(
+        workflow_definition=WorkflowDefinition(
             tasks=[
-                WorkflowTask(
+                Task(
                     external_id="subworkflowTask",
-                    parameters=SubworkflowReferenceParameters(subworkflow.workflow_external_id, subworkflow.version),
+                    type="subworkflow",
+                    parameters=SubworkflowTaskParameters(
+                        subworkflow=WorkflowVersionId(
+                            workflow_external_id=subworkflow.workflow_external_id,
+                            version=subworkflow.version,
+                        ),
+                    ),
                 ),
             ],
         ),
@@ -879,8 +902,8 @@ def test_workflow_deployment_order(
     main_workflow_file = resource_folder / f"1.{main_workflow.workflow_external_id}.{WorkflowVersionCRUD.kind}.yaml"
     subworkflow_file = resource_folder / f"2.{subworkflow.workflow_external_id}.{WorkflowVersionCRUD.kind}.yaml"
     main_workflow_file.parent.mkdir(parents=True, exist_ok=True)
-    main_workflow_file.write_text(main_workflow.dump_yaml(), encoding="utf-8")
-    subworkflow_file.write_text(subworkflow.dump_yaml(), encoding="utf-8")
+    main_workflow_file.write_text(yaml_safe_dump(main_workflow.dump()), encoding="utf-8")
+    subworkflow_file.write_text(yaml_safe_dump(subworkflow.dump()), encoding="utf-8")
 
     BuildCommand(silent=True, skip_tracking=True).execute(
         verbose=False,
@@ -905,8 +928,9 @@ def test_workflow_deployment_order(
         force_update=False,
     )
 
-    # Verify that the workflow was created in the corr
-    workflows = toolkit_client_approval.created_resources_of_type(WorkflowVersion)
+    # Verify that the workflow was created in the correct order, subworkflow before main.
+    # Note: Resources are stored under the response type name but contain request objects
+    workflows = toolkit_client_approval.created_resources_of_type(WorkflowVersionResponse)
     assert len(workflows) == 2
     assert [workflow.workflow_external_id for workflow in workflows] == [
         subworkflow.workflow_external_id,
