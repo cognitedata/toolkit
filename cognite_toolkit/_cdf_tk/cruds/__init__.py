@@ -62,6 +62,9 @@ from ._resource_cruds import (
     SequenceCRUD,
     SequenceRowCRUD,
     SimulatorModelCRUD,
+    SimulatorModelRevisionCRUD,
+    SimulatorRoutineCRUD,
+    SimulatorRoutineRevisionCRUD,
     SpaceCRUD,
     StreamCRUD,
     StreamlitCRUD,
@@ -90,6 +93,9 @@ if not FeatureFlag.is_enabled(Flags.STREAMS):
     _EXCLUDED_CRUDS.add(StreamCRUD)
 if not FeatureFlag.is_enabled(Flags.SIMULATORS):
     _EXCLUDED_CRUDS.add(SimulatorModelCRUD)
+    _EXCLUDED_CRUDS.add(SimulatorRoutineRevisionCRUD)
+    _EXCLUDED_CRUDS.add(SimulatorRoutineCRUD)
+    _EXCLUDED_CRUDS.add(SimulatorModelRevisionCRUD)
 
 CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[Loader]]] = defaultdict(list)
 CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)
