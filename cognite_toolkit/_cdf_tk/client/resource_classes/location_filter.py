@@ -57,7 +57,7 @@ class LocationFilter(BaseModelObject):
     scene: LocationFilterScene | None = None
     asset_centric: AssetCentricFilter | None = None
     views: list[LocationFilterView] | None = None
-    data_modeling_type: Literal["HYBRID", "DATA_MODELING_ONLY"] | None = None
+    data_modeling_type: Literal["HYBRID", "DATA_MODELING_ONLY", "ASSET_CENTRIC_ONLY"] | None = None
 
 
 class LocationFilterRequest(LocationFilter, RequestResource):
@@ -79,7 +79,7 @@ class LocationFilterResponse(LocationFilter, ResponseResource[LocationFilterRequ
 
     id: int
     created_time: int
-    updated_time: int
+    last_updated_time: int
     locations: list["LocationFilterResponse"] | None = None
 
     def as_request_resource(self) -> LocationFilterRequest:

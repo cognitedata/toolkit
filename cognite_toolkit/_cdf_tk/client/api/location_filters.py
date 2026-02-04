@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Sequence
+from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -43,8 +44,7 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
-    ) -> PagedResponse[LocationFilterResponse]:
-        return PagedResponse[LocationFilterResponse].model_validate_json(response.body)
+    ) -> PagedResponse[LocationFilterResponse]        return PagedResponse[LocationFilterResponse].model_validate_json(response.body)
 
     def create(self, items: Sequence[LocationFilterRequest]) -> list[LocationFilterResponse]:
         """Create a new location filter.
@@ -136,6 +136,25 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
             response = result.get_success_or_raise()
             results.append(LocationFilterResponse.model_validate_json(response.body))
         return results
+
+    # Overwritten to avoid passing limit to the body
+    def _paginate(
+        self,
+        limit: int,
+        cursor: str | None = None,
+        params: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
+        endpoint_path: str | None = None,
+    ) -> PagedResponse[LocationFilterResponse]:
+        endpoint = self._method_endpoint_map["list"]
+        request = RequestMessage(
+            endpoint_url=self._make_url(endpoint.path),
+            method=endpoint.method,
+            body_content=body or {},
+        )
+        result = self._http_client.request_single_retries(request)
+        response = result.get_success_or_raise()
+        return self._validate_page_response(response)
 
     def paginate(
         self,

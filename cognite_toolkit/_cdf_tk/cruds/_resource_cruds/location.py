@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError, ToolkitCy
 from cognite_toolkit._cdf_tk.resource_classes import LocationYAML
 from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 from .classic import AssetCRUD, SequenceCRUD
 from .data_organization import DataSetsCRUD
@@ -93,6 +94,9 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
         return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="version")
+
+    def as_str(cls, id: ExternalId) -> str:
+        return id.external_id
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LocationFilterRequest:
         if parent_external_id := resource.pop("parentExternalId", None):
