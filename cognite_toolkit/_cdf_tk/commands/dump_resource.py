@@ -884,7 +884,6 @@ class DumpResourceCommand(ToolkitCommand):
             output_dir.mkdir(exist_ok=True)
 
         dumped_ids: list[Hashable] = []
-        # resources: Sequence[ResourceResponseProtocol] | None = None
         for identifiers, resources, loader, subfolder in finder:
             if not identifiers and not resources:
                 # No resources to dump
