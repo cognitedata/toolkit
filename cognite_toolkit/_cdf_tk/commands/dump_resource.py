@@ -21,10 +21,6 @@ from cognite.client.data_classes import (
     TransformationScheduleList,
     filters,
 )
-from cognite.client.data_classes._base import (
-    CogniteResource,
-    CogniteResourceList,
-)
 from cognite.client.data_classes.agents import (
     AgentList,
 )
@@ -52,6 +48,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters import LocationFilterList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import SearchConfigList
@@ -89,6 +86,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitResourceMissingError,
     ToolkitValueError,
 )
+from cognite_toolkit._cdf_tk.protocols import ResourceResponseProtocol
 from cognite_toolkit._cdf_tk.tk_warnings import FileExistsWarning, HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, sanitize_filename, yaml_safe_dump
@@ -108,7 +106,9 @@ class ResourceFinder(Iterable, ABC, Generic[T_ID]):
         return self.identifier or self._interactive_select()
 
     @abstractmethod
-    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceCRUD, None | str]]:
+    def __iter__(
+        self,
+    ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         raise NotImplementedError
 
     @abstractmethod
@@ -116,7 +116,7 @@ class ResourceFinder(Iterable, ABC, Generic[T_ID]):
         raise NotImplementedError
 
     # Can be implemented in subclasses
-    def update(self, resources: Sequence[CogniteResource]) -> None: ...
+    def update(self, resources: Sequence[ResourceResponseProtocol]) -> None: ...
 
 
 class DataModelFinder(ResourceFinder[DataModelId]):
@@ -856,7 +856,7 @@ class DumpResourceCommand(ToolkitCommand):
             output_dir.mkdir(exist_ok=True)
 
         dumped_ids: list[Hashable] = []
-        resources: Sequence[CogniteResource] | None = None
+        # resources: Sequence[ResourceResponseProtocol] | None = None
         for identifiers, resources, loader, subfolder in finder:
             if not identifiers and not resources:
                 # No resources to dump
@@ -864,7 +864,7 @@ class DumpResourceCommand(ToolkitCommand):
             if resources is None:
                 try:
                     resources = loader.retrieve(identifiers)
-                except CogniteAPIError as e:
+                except (CogniteAPIError, ToolkitAPIError) as e:
                     raise ResourceRetrievalError(f"Failed to retrieve {humanize_collection(identifiers)}: {e!s}") from e
                 if len(resources) == 0:
                     raise ToolkitResourceMissingError(
