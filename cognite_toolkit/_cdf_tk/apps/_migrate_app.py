@@ -42,6 +42,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
+    APMConfigInteractiveSelect,
     AssetInteractiveSelect,
     DataModelingSelect,
     FileMetadataInteractiveSelect,
@@ -71,7 +72,6 @@ class MigrateApp(typer.Typer):
         self.command("charts")(self.charts)
         self.command("3d")(self.three_d)
         self.command("3d-mappings")(self.three_d_asset_mapping)
-        # Uncomment when infield v2 config migration is ready
         # self.command("infield-configs")(self.infield_configs)
 
     def main(self, ctx: typer.Context) -> None:
@@ -1199,6 +1199,13 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def infield_configs(
         ctx: typer.Context,
+        external_id: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="The external IDs of the APM Configurations to create Infield V2 configurations for. "
+                "If not provided, an interactive selection will be performed to select the APM Configurations."
+            ),
+        ] = None,
         output_dir: Annotated[
             Path,
             typer.Option(
@@ -1229,10 +1236,22 @@ class MigrateApp(typer.Typer):
         client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = MigrationCommand(client=client)
+        if external_id is None:
+            apm_configs = APMConfigInteractiveSelect(client, "migrate").select_apm_configs()
+            output_dir = Path(
+                questionary.path(
+                    "Specify output directory for Infield V2 configuration definitions:", default=str(output_dir)
+                ).unsafe_ask()
+            )
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
+        else:
+            apm_configs = None
+
         cmd.run(
             lambda: cmd.create(
                 client,
-                creator=InfieldV2ConfigCreator(client),
+                creator=InfieldV2ConfigCreator(client, external_id, apm_configs),
                 output_dir=output_dir,
                 dry_run=dry_run,
                 verbose=verbose,
