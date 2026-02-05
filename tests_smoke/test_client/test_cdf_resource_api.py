@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from cognite_toolkit._cdf_tk.client.api.infield import APMConfigAPI, InFieldCDMConfigAPI
 from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI, WrappedInstancesAPI
+from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_capabilities import CapabilitiesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_data_postprocessing import DataPostProcessingAPI
@@ -50,9 +51,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
     MQTTSourceRequest,
     RESTSourceRequest,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalIdUnwrapped
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId, InternalIdUnwrapped
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWTableRequest,
@@ -114,6 +116,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # Created response cannot be made into a request.
         InFieldCDMConfigAPI,
         APMConfigAPI,
+        # Update and list have to be specially handled due to the way the API works.
+        LocationFiltersAPI,
     }
 )
 
@@ -250,6 +254,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
             }
         ],
         LabelRequest: [{"name": "smoke-test-label", "externalId": "smoke-test-label"}],
+        LocationFilterRequest: [{"externalId": "smoke-test-location-filter", "name": "smoke-test-location-filter"}],
         RAWDatabaseRequest: [{"name": "smoke-test-raw-database"}],
         RAWTableRequest: [{"name": "smoke-test-raw-table", "dbName": "smoke-test-raw-database"}],
         SecurityCategoryRequest: [{"name": "smoke-test-security-category"}],
@@ -376,6 +381,7 @@ class TestCDFResourceAPI:
         # CDFResourceAPI also require endpoint map (and disable gzip).
         api = api_cls(toolkit_client.http_client)  # type: ignore[call-arg]
         methods = api._method_endpoint_map
+
         try:
             if hasattr(api, "create"):
                 create_endpoint = methods["create"] if "create" in methods else methods["upsert"]
@@ -818,3 +824,52 @@ class TestCDFResourceAPI:
         finally:
             # Clean up
             client.infield.apm_config.delete([apm_config_id])
+
+    def test_location_filter_crudls(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        example = get_examples_minimum_requests(LocationFilterRequest)[0]
+        request = LocationFilterRequest.model_validate(example)
+        location_filter_id: InternalId | None = None
+        try:
+            # Create location filter
+            create_endpoint = client.tool.location_filters._method_endpoint_map["create"]
+            try:
+                created = client.tool.location_filters.create([request])
+            except ToolkitAPIError:
+                raise EndpointAssertionError(create_endpoint.path, "Creating location filter instance failed.")
+            if len(created) != 1:
+                raise EndpointAssertionError(
+                    create_endpoint.path, f"Expected 1 created location filter, got {len(created)}"
+                )
+
+            # Get location filter ID
+            request = created[0].as_request_resource()
+            location_filter_id = request.as_id()
+            # Retrieve location filter
+            retrieve_endpoint = client.tool.location_filters._method_endpoint_map["retrieve"]
+            self.assert_endpoint_method(
+                lambda: client.tool.location_filters.retrieve([location_filter_id]),
+                "retrieve",
+                retrieve_endpoint,
+                id=location_filter_id,
+            )
+
+            # Update location filter
+            update_endpoint = client.tool.location_filters._method_endpoint_map["update"]
+            self.assert_endpoint_method(
+                lambda: client.tool.location_filters.update([request]),
+                "update",
+                update_endpoint,
+                id=location_filter_id,
+            )
+
+            # List location filters
+            list_endpoint = client.tool.location_filters._method_endpoint_map["list"]
+            listed = client.tool.location_filters.list()
+            if len(listed) == 0:
+                raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed location filter, got 0")
+        finally:
+            # Clean up
+            if location_filter_id is not None:
+                client.tool.location_filters.delete([location_filter_id])

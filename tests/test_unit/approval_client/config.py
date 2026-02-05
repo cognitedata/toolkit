@@ -165,6 +165,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import
     SearchConfigList,
     SearchConfigWrite,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
+    LocationFilterRequest,
+    LocationFilterResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseResponse,
     RAWTableResponse,
@@ -985,6 +989,17 @@ API_RESOURCES = [
         api_name="tool.robotics.maps",
         resource_cls=RobotMapResponse,
         _write_cls=RobotMapRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.location_filters",
+        resource_cls=LocationFilterResponse,
+        _write_cls=LocationFilterRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [

@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Sequence
+from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -13,7 +14,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
     LocationFilterResponse,
 )
-from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 
 class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, LocationFilterResponse]):
@@ -77,18 +77,7 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
         Returns:
             The retrieved location filter.
         """
-        endpoint = self._method_endpoint_map["retrieve"]
-        results: list[LocationFilterResponse] = []
-        for chunk in chunker_sequence(items, endpoint.item_limit):
-            request = RequestMessage(
-                endpoint_url=self._make_url(endpoint.path),
-                method=endpoint.method,
-                body_content={"ids": [item.id for item in chunk]},
-            )
-            result = self._http_client.request_single_retries(request)
-            response = result.get_success_or_raise()
-            results.extend(self._validate_page_response(response).items)
-        return results
+        return self._request_item_response(items, "retrieve")
 
     def update(self, items: Sequence[LocationFilterRequest]) -> list[LocationFilterResponse]:
         """Update an existing location filter.
@@ -137,6 +126,25 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
             results.append(LocationFilterResponse.model_validate_json(response.body))
         return results
 
+    # Overwritten to avoid passing limit to the body
+    def _paginate(
+        self,
+        limit: int,
+        cursor: str | None = None,
+        params: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
+        endpoint_path: str | None = None,
+    ) -> PagedResponse[LocationFilterResponse]:
+        endpoint = self._method_endpoint_map["list"]
+        request = RequestMessage(
+            endpoint_url=self._make_url(endpoint.path),
+            method=endpoint.method,
+            body_content=body or {},
+        )
+        result = self._http_client.request_single_retries(request)
+        response = result.get_success_or_raise()
+        return self._validate_page_response(response)
+
     def paginate(
         self,
         flat: bool = True,
@@ -151,10 +159,7 @@ class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, Locat
         """
         return self._paginate(cursor=None, limit=100, body={"flat": flat})
 
-    def iterate(
-        self,
-        flat: bool = True,
-    ) -> Iterable[list[LocationFilterResponse]]:
+    def iterate(self, flat: bool = True) -> Iterable[list[LocationFilterResponse]]:
         """Iterate over all location filters.
 
         Args:

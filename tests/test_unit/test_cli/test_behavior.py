@@ -19,7 +19,9 @@ from pytest import MonkeyPatch
 from cognite_toolkit._cdf_tk import cdf_toml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import WorkflowVersionId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters import LocationFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
+    LocationFilterResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     ScheduleTriggerRule,
@@ -719,7 +721,7 @@ def test_build_deploy_location_filter_with_same_filename_in_different_modules(
         verbose=False,
     )
 
-    locations = toolkit_client_approval.created_resources_of_type(LocationFilter)
+    locations = toolkit_client_approval.created_resources_of_type(LocationFilterResponse)
 
     assert len(locations) == 2
 
@@ -825,7 +827,7 @@ dataModelingType: DATA_MODELING_ONLY
     )
 
     # Verify that the workflow was created in the correct order, parent before child.
-    filters = toolkit_client_approval.created_resources_of_type(LocationFilter)
+    filters = toolkit_client_approval.created_resources_of_type(LocationFilterResponse)
     assert len(filters) == 2
     assert [loc_filter.external_id for loc_filter in filters] == ["parent", "child"]
 

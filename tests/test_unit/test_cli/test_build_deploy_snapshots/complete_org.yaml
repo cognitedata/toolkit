@@ -468,7 +468,7 @@ LabelDefinition:
   description: Pump label
   externalId: label_pump
   name: Pump
-LocationFilter:
+LocationFilterResponse:
 - assetCentric:
     dataSetIds:
     - 0
