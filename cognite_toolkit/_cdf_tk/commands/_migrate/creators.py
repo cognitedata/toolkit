@@ -22,6 +22,8 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APM_CONFIG_SPACE,
     APMConfigResponse,
+    Discipline,
+    FeatureConfiguration,
     RootLocationConfiguration,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -292,11 +294,20 @@ class InfieldV2ConfigCreator(MigrationCreator):
         location_filters: list[LocationFilterRequest] = []
         if not config.feature_configuration:
             return location_configs, location_filters
+
+        data_exploration = self._create_data_exploration(config.feature_configuration)
+
         for index, root_location_config in enumerate(config.feature_configuration.root_location_configurations or []):
             location_filter = self._create_location_filter(root_location_config)
             location_filters.append(location_filter)
             location_configs.append(
-                self._create_location_config(root_location_config, location_filter.external_id, index)
+                self._create_location_config(
+                    root_location_config,
+                    config.feature_configuration.disciplines,
+                    data_exploration,
+                    location_filter.external_id,
+                    index,
+                )
             )
 
         return location_configs, location_filters
@@ -323,7 +334,12 @@ class InfieldV2ConfigCreator(MigrationCreator):
         )
 
     def _create_location_config(
-        self, config: RootLocationConfiguration, location_filter_external_id: str, index: int
+        self,
+        config: RootLocationConfiguration,
+        disciplines: list[Discipline] | None,
+        data_exploration: dict[str, JsonValue],
+        location_filter_external_id: str,
+        index: int,
     ) -> InFieldCDMLocationConfigRequest:
         if config.external_id:
             external_id = config.external_id
@@ -340,8 +356,6 @@ class InfieldV2ConfigCreator(MigrationCreator):
             access_management["checklistAdmins"] = config.checklist_admins  # type: ignore[assignment]
 
         # Todo:
-        #   - data_exploration_config
-        #   - disciplines
         #   - view_mappings
         #   - data_storage
         return InFieldCDMLocationConfigRequest(
@@ -352,4 +366,27 @@ class InfieldV2ConfigCreator(MigrationCreator):
             feature_toggles=config.feature_toggles.dump() if config.feature_toggles else None,
             access_management=access_management or None,
             data_filters=config.data_filters.dump() if config.data_filters else None,
+            disciplines=[discipline.dump() for discipline in disciplines] if disciplines else None,
+            data_exploration_config=data_exploration or None,
         )
+
+    def _create_data_exploration(self, config: FeatureConfiguration) -> dict[str, JsonValue]:
+        data_exploration: dict[str, JsonValue] = {}
+        if config.observations:
+            data_exploration["observations"] = config.observations
+        if config.activities:
+            data_exploration["activities"] = config.activities.dump()
+        if config.documents:
+            documents: dict[str, JsonValue] = {}
+            if config.documents.type:
+                documents["type"] = config.documents.type.removeprefix("metadata.")
+            if config.documents.title:
+                documents["title"] = config.documents.title
+            if config.documents.description:
+                documents["description"] = config.documents.description.removeprefix("metadata.")
+            data_exploration["documents"] = documents
+        if config.notifications:
+            data_exploration["notifications"] = config.notifications.dump()
+        if config.asset_page_configuration:
+            data_exploration["assets"] = config.asset_page_configuration.dump()
+        return data_exploration
