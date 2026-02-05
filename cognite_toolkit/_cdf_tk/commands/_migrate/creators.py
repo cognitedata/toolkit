@@ -1,3 +1,4 @@
+import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
@@ -13,22 +14,34 @@ from cognite.client.data_classes.data_modeling import (
     SpaceApply,
     ViewId,
 )
-
 from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.events import EventProperty
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APM_CONFIG_SPACE, APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
+    APM_CONFIG_SPACE,
+    APMConfigResponse,
+    RootLocationConfiguration,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
     NodeReference,
     NodeRequest,
     ViewReference,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
+    INFIELD_ON_CDM_DATA_MODEL,
+    InFieldCDMLocationConfigRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterRequest
-from cognite_toolkit._cdf_tk.cruds import NodeCRUD, ResourceCRUD, SpaceCRUD, LocationFilterCRUD, InFieldCDMLocationConfigCRUD
+from cognite_toolkit._cdf_tk.cruds import (
+    InFieldCDMLocationConfigCRUD,
+    LocationFilterCRUD,
+    NodeCRUD,
+    ResourceCRUD,
+    SpaceCRUD,
+)
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -235,10 +248,11 @@ class InfieldV2ConfigCreator(MigrationCreator):
                 TypedNodeIdentifier.from_str_ids(self.external_ids, space=APM_CONFIG_SPACE)
             )
         else:
-            apm_configs = list(self.apm_configs)
+            # We know this is not None from the check in __init__
+            apm_configs = list(cast(Sequence[APMConfigResponse], self.apm_configs))
 
         all_location_configs: list[CreatedResource[InFieldCDMLocationConfigRequest]] = []
-        all_location_filters: list[CreatedResource[InFieldCDMLocationConfigRequest]] = []
+        all_location_filters: list[CreatedResource[LocationFilterRequest]] = []
         for apm_config in apm_configs:
             location_configs, location_filters = self._create_infield_v2_config(apm_config)
             all_location_configs.extend(
@@ -248,7 +262,6 @@ class InfieldV2ConfigCreator(MigrationCreator):
                     filestem=f"{apm_config.external_id}_location_{loc_config.name}",
                 )
                 for idx, loc_config in enumerate(location_configs)
-
             )
             all_location_filters.extend(
                 CreatedResource(
@@ -259,13 +272,49 @@ class InfieldV2ConfigCreator(MigrationCreator):
                 for idx, loc_filter in enumerate(location_filters)
             )
         yield ToCreateResources(
-            resources=all_location_configs,
+            resources=all_location_filters,
             crud_cls=LocationFilterCRUD,
-
-
+            display_name="Location Filters",
+        )
+        yield ToCreateResources(
+            resources=all_location_configs,
+            crud_cls=InFieldCDMLocationConfigCRUD,
+            display_name="InField CDM Location Configs",
+        )
 
     def _create_infield_v2_config(
         self, config: APMConfigResponse
     ) -> tuple[list[InFieldCDMLocationConfigRequest], list[LocationFilterRequest]]:
         location_configs: list[InFieldCDMLocationConfigRequest] = []
         location_filters: list[LocationFilterRequest] = []
+        if not config.feature_configuration:
+            return location_configs, location_filters
+        for root_location_config in config.feature_configuration.root_location_configurations or []:
+            location_filters.append(self._create_location_filter(root_location_config))
+            location_configs.append(self._create_location_config(root_location_config))
+
+        return location_configs, location_filters
+
+    def _create_location_filter(self, config: RootLocationConfiguration) -> LocationFilterRequest:
+        original_external_id = config.external_id or config.asset_external_id or str(uuid.uuid4())
+        external_id = f"location_filter_{original_external_id}"
+        name = config.display_name or config.asset_external_id or external_id
+
+        instance_spaces = [
+            space
+            for space in [config.app_data_instance_space, config.source_data_instance_space]
+            if space is not None and space != ""
+        ]
+
+        # Todo: Scene and views
+        return LocationFilterRequest(
+            external_id=external_id,
+            name=name,
+            description="InField location, migrated from old location configuration",
+            instance_spaces=instance_spaces or None,
+            data_models=[INFIELD_ON_CDM_DATA_MODEL],
+            data_modeling_type="DATA_MODELING_ONLY",
+        )
+
+    def _create_location_config(self, config: RootLocationConfiguration) -> InFieldCDMLocationConfigRequest:
+        raise NotImplementedError()
