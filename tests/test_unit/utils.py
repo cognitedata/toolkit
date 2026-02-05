@@ -62,10 +62,6 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from pydantic import BaseModel, JsonValue
 from questionary import Choice
 
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters import (
-    LocationFilter,
-    LocationFilterScene,
-)
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.sequences import ToolkitSequenceRows
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.constants import MODULES
@@ -240,14 +236,9 @@ class FakeCogniteResourceGenerator:
             if resource_cls is Geometry and name == "geometries":
                 # Special case for Geometry to avoid recursion.
                 value = None
-            elif name == "scene":
-                value = self.create_value(LocationFilterScene, var_name=name)
             elif name == "version":
                 # Special case
                 value = random.choice(["v1", "v2", "v3"])
-            elif resource_cls is LocationFilter and name == "locations":
-                # Special case for LocationFilter to avoid recursion.
-                value = None
             else:
                 value = self.create_value(type_hint_by_name[name], var_name=name)
 

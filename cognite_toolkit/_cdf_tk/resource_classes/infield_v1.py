@@ -1,4 +1,14 @@
+from pydantic import JsonValue
+
 from .base import BaseModelResource, ToolkitResource
+
+
+class EnabledToggle(BaseModelResource):
+    enabled: bool | None = None
+
+
+class DisabledToggle(BaseModelResource):
+    disabled: bool | None = None
 
 
 class ThreeDModelIdentifier(BaseModelResource):
@@ -86,8 +96,52 @@ class RootLocationConfiguration(BaseModelResource):
     observations: ObservationsConfig | None = None
 
 
+class Activities(BaseModelResource):
+    overview_card: dict[str, JsonValue] | None = None
+
+
+class Documents(BaseModelResource):
+    type: str | None = None
+    title: str | None = None
+    description: str | None = None
+
+
+class Discipline(BaseModelResource):
+    name: str | None = None
+    external_id: str | None = None
+
+
+class Notification(BaseModelResource):
+    overview_card: dict[str, JsonValue] | None = None
+
+
+class CabinetConfiguration(BaseModelResource):
+    enable_plan_analysis: bool | None = None
+    enable_hourly_optimisation: bool | None = None
+    enable_resource_allocation: bool | None = None
+
+
+class AssetPagePropertyCardConfiguration(BaseModelResource):
+    linkable_asset_keys: list[str] | None = None
+    highlighted_properties: list[str] | None = None
+
+
+class AssetPageConfiguration(BaseModelResource):
+    property_card: AssetPagePropertyCardConfiguration
+
+
 class FeatureConfiguration(BaseModelResource):
     root_location_configurations: list[RootLocationConfiguration] | None = None
+    copilot: EnabledToggle | DisabledToggle | None = None
+    activities: Activities | None = None
+    documents: Documents | None = None
+    disciplines: list[Discipline] | None = None
+    notifications: Notification | None = None
+    psn_configuration: EnabledToggle | DisabledToggle | None = None
+    canvas_configuration: EnabledToggle | DisabledToggle | None = None
+    cabinet_configuration: CabinetConfiguration | None = None
+    asset_page_configuration: AssetPageConfiguration | None = None
+    subactivities_configuration: EnabledToggle | DisabledToggle | None = None
 
 
 class InfieldV1YAML(ToolkitResource):
