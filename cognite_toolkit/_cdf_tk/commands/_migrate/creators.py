@@ -28,7 +28,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterRequest
-from cognite_toolkit._cdf_tk.cruds import NodeCRUD, ResourceCRUD, SpaceCRUD
+from cognite_toolkit._cdf_tk.cruds import NodeCRUD, ResourceCRUD, SpaceCRUD, LocationFilterCRUD, InFieldCDMLocationConfigCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -260,7 +260,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
             )
         yield ToCreateResources(
             resources=all_location_configs,
-            crud_cls=NodeCRUD,
+            crud_cls=LocationFilterCRUD,
 
 
 
