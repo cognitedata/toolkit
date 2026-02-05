@@ -49,11 +49,11 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters import LocationFilterList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import SearchConfigList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import ViewId as SearchConfigViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
+from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.cruds import (
     AgentCRUD,
     ContainerCRUD,
@@ -471,8 +471,8 @@ class NodeFinder(ResourceFinder[dm.ViewId]):
 
 class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
     @cached_property
-    def all_filters(self) -> LocationFilterList:
-        return self.client.search.locations.list()
+    def all_filters(self) -> list[LocationFilterResponse]:
+        return self.client.tool.location_filters.list()
 
     def _interactive_select(self) -> tuple[str, ...]:
         filters = self.all_filters
@@ -488,13 +488,13 @@ class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
             raise ToolkitValueError(f"No filters selected for dumping.{_INTERACTIVE_SELECT_HELPER_TEXT}")
         return tuple(selected_filter_ids)
 
-    def _get_filters(self, identifiers: tuple[str, ...]) -> LocationFilterList:
+    def _get_filters(self, identifiers: tuple[str, ...]) -> list[LocationFilterResponse]:
         if not identifiers:
             return self.all_filters
         filters = [f for f in self.all_filters if f.external_id in identifiers]
         if not filters:
             raise ToolkitResourceMissingError(f"Location filters {identifiers} not found", str(identifiers))
-        return LocationFilterList(filters)
+        return filters
 
     def __iter__(
         self,

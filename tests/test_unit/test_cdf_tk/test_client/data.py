@@ -581,7 +581,7 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "externalId": "location_001",
             "name": "My Location",
             "createdTime": 1622547800000,
-            "updatedTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
         },
         RelationshipResponse: {
             "externalId": "relationship_001",

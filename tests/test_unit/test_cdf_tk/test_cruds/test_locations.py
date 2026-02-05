@@ -1,12 +1,13 @@
 import pytest
-from cognite.client.data_classes.data_modeling.ids import DataModelId
 
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters import (
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataModelReference
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     AssetCentricFilter,
     AssetCentricSubFilter,
-    LocationFilter,
+    LocationFilterRequest,
+    LocationFilterResponse,
     LocationFilterScene,
-    LocationFilterWrite,
 )
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.location import LocationFilterCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
@@ -16,7 +17,7 @@ from tests.test_unit.approval_client.client import ApprovalToolkitClient
 
 
 @pytest.fixture
-def exhaustive_filter(env_vars_with_client: EnvironmentVariables) -> LocationFilterWrite:
+def exhaustive_filter(env_vars_with_client: EnvironmentVariables) -> LocationFilterRequest:
     loader = LocationFilterCRUD.create_loader(env_vars_with_client.get_client())
     raw_list = loader.load_resource_file(
         LOAD_DATA / "locations" / "exhaustive.LocationFilter.yaml", env_vars_with_client.dump()
@@ -36,49 +37,51 @@ class TestLocationFilterLoader:
             LOAD_DATA / "locations" / "minimum.LocationFilter.yaml", env_vars_with_client.dump()
         )
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
-        assert isinstance(loaded, LocationFilterWrite)
+        assert isinstance(loaded, LocationFilterRequest)
         assert loaded.external_id == "springfield"
 
-    def test_load_filter_write(self, exhaustive_filter: LocationFilterWrite) -> None:
-        assert isinstance(exhaustive_filter, LocationFilterWrite)
+    def test_load_filter_write(self, exhaustive_filter: LocationFilterRequest) -> None:
+        assert isinstance(exhaustive_filter, LocationFilterRequest)
         assert exhaustive_filter.external_id == "unique-external-id-123"
 
-    def test_load_filter_write_data_models(self, exhaustive_filter: LocationFilterWrite) -> None:
-        assert isinstance(exhaustive_filter.data_models[0], DataModelId)
+    def test_load_filter_write_data_models(self, exhaustive_filter: LocationFilterRequest) -> None:
+        assert isinstance(exhaustive_filter.data_models[0], DataModelReference)
         assert exhaustive_filter.data_models[0].external_id == "data-model-id-456"
 
-    def test_load_filter_write_instance_spaces(self, exhaustive_filter: LocationFilterWrite) -> None:
+    def test_load_filter_write_instance_spaces(self, exhaustive_filter: LocationFilterRequest) -> None:
         assert isinstance(exhaustive_filter.instance_spaces, list)
         assert exhaustive_filter.instance_spaces[0] == "instance-space-main"
 
-    def test_load_filter_write_scene(self, exhaustive_filter: LocationFilterWrite) -> None:
+    def test_load_filter_write_scene(self, exhaustive_filter: LocationFilterRequest) -> None:
         assert isinstance(exhaustive_filter.scene, LocationFilterScene)
         assert exhaustive_filter.scene.external_id == "scene-id-012"
 
-    def test_load_filter_write_asset_centric(self, exhaustive_filter: LocationFilterWrite) -> None:
+    def test_load_filter_write_asset_centric(self, exhaustive_filter: LocationFilterRequest) -> None:
         assert isinstance(exhaustive_filter.asset_centric, AssetCentricFilter)
         assert isinstance(exhaustive_filter.asset_centric.assets, AssetCentricSubFilter)
-        assert exhaustive_filter.asset_centric.asset_subtree_ids[0] == {"externalId": "general-subtree-id-890"}
-        assert exhaustive_filter.asset_centric.assets.asset_subtree_ids[0] == {"externalId": "root-asset"}
-        assert exhaustive_filter.asset_centric.events.asset_subtree_ids[0] == {"externalId": "event-subtree-id-678"}
+        assert exhaustive_filter.asset_centric.asset_subtree_ids[0] == ExternalId(external_id="general-subtree-id-890")
+        assert exhaustive_filter.asset_centric.assets.asset_subtree_ids[0] == ExternalId(external_id="root-asset")
+        assert exhaustive_filter.asset_centric.events.asset_subtree_ids[0] == ExternalId(
+            external_id="event-subtree-id-678"
+        )
 
     def test_topological_sort_success(self) -> None:
         # Create location filters with parent-child relationships
         # Structure: grandparent -> parent -> child
         location_filters = [
-            LocationFilterWrite(
+            LocationFilterRequest(
                 external_id="child",
                 name="Child Location",
                 parent_id=-1,  # Deferred lookup
-                _parent_external_id="parent",
+                parent_external_id="parent",
             ),
-            LocationFilterWrite(
+            LocationFilterRequest(
                 external_id="parent",
                 name="Parent Location",
                 parent_id=-1,  # Deferred lookup
-                _parent_external_id="grandparent",
+                parent_external_id="grandparent",
             ),
-            LocationFilterWrite(
+            LocationFilterRequest(
                 external_id="grandparent",
                 name="Grandparent Location",
                 parent_id=None,  # No parent
@@ -103,11 +106,11 @@ class TestLocationFilterLoader:
 
         location_filters = []
         for id_, parent_id in dependencies.items():
-            location_filter = LocationFilterWrite(
+            location_filter = LocationFilterRequest(
                 external_id=id_,
                 name=f"Location {id_}",
                 parent_id=-1,  # Deferred lookup
-                _parent_external_id=parent_id,
+                parent_external_id=parent_id,
             )
             location_filters.append(location_filter)
 
@@ -124,11 +127,11 @@ class TestLocationFilterLoader:
         toolkit_client_approval: ApprovalToolkitClient,
     ) -> None:
         crud = LocationFilterCRUD.create_loader(toolkit_client_approval.mock_client)
-        location_filter = LocationFilter(
+        location_filter = LocationFilterResponse(
             external_id="springfield",
             name="Springfield Location",
             created_time=1,
-            updated_time=1,
+            last_updated_time=1,
             id=1,
             data_modeling_type="HYBRID",
         )

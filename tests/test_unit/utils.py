@@ -67,6 +67,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters imp
     LocationFilterScene,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.sequences import ToolkitSequenceRows
+from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
 from tests.data import COMPLETE_ORG
@@ -359,7 +360,11 @@ class FakeCogniteResourceGenerator:
             if skip_defaulted_args and field.default is not None:
                 continue
             name = field.alias or field_id
-            value = self.create_value(field.annotation, var_name=field_id)
+            if name == "locations" and model_cls is LocationFilterResponse:
+                # Special case for LocationFilter to avoid recursion.
+                value = None
+            else:
+                value = self.create_value(field.annotation, var_name=field_id)
             keyword_arguments[name] = value
 
         return model_cls(**keyword_arguments)
