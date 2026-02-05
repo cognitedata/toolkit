@@ -123,6 +123,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
+    FunctionScheduleRequest,
+    FunctionScheduleResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationRequest,
     HostedExtractorDestinationResponse,
@@ -1038,6 +1042,28 @@ API_RESOURCES = [
         api_name="tool.workflows.triggers",
         resource_cls=WorkflowTriggerResponse,
         _write_cls=WorkflowTriggerRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="list", mock_class_method="list"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.functions",
+        resource_cls=FunctionScheduleResponse,
+        _write_cls=FunctionScheduleRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="list", mock_class_method="list"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.functions.schedules",
+        resource_cls=FunctionScheduleResponse,
+        _write_cls=FunctionScheduleRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
