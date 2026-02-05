@@ -1,6 +1,6 @@
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import Field, JsonValue, field_validator
+from pydantic import Field, JsonValue, field_serializer, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
@@ -10,6 +10,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 )
 
 from .identifiers import Identifier, WorkflowVersionId
+
+TaskType: TypeAlias = Literal["function", "transformation", "cdf", "dynamic", "subworkflow", "simulation"]
 
 
 class TaskId(Identifier):
@@ -111,14 +113,14 @@ Parameter = Annotated[
 
 class Task(BaseModelObject):
     external_id: str
-    type: str
+    type: TaskType
     name: str | None = None
     description: str | None = None
     retries: int | None = None
     timeout: int | None = None
     on_failure: Literal["abortWorkflow", "skipTask"] = "abortWorkflow"
     depends_on: list[TaskId] | None = None
-    parameters: Parameter | None = None
+    parameters: Parameter
 
     @field_validator("parameters", mode="before")
     @classmethod
@@ -128,6 +130,12 @@ class Task(BaseModelObject):
         value = dict(value)
         value["type"] = info.data["type"]
         return value
+
+    @field_serializer("type", mode="plain")
+    def prefer_parameter_type(self, value: Any) -> Any:
+        # In case the type is set by accident to not match parameters.type
+        # we prefer parameters.type
+        return self.parameters.type
 
 
 class WorkflowDefinition(BaseModelObject):

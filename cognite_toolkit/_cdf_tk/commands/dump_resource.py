@@ -32,14 +32,6 @@ from cognite.client.data_classes.functions import (
     FunctionList,
     FunctionSchedulesList,
 )
-from cognite.client.data_classes.workflows import (
-    Workflow,
-    WorkflowList,
-    WorkflowTriggerList,
-    WorkflowVersion,
-    WorkflowVersionId,
-    WorkflowVersionList,
-)
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils import ms_to_datetime
 from questionary import Choice
@@ -49,11 +41,17 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
+    ExternalId,
+    WorkflowVersionId,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import SearchConfigList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import ViewId as SearchConfigViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.cruds import (
     AgentCRUD,
     ContainerCRUD,
@@ -236,32 +234,38 @@ class DataModelFinder(ResourceFinder[DataModelId]):
 class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
     def __init__(self, client: ToolkitClient, identifier: WorkflowVersionId | None = None):
         super().__init__(client, identifier)
-        self._workflow: Workflow | None = None
-        self._workflow_version: WorkflowVersion | None = None
+        self._workflow: WorkflowResponse | None = None
+        self._workflow_version: WorkflowVersionResponse | None = None
 
     def _interactive_select(self) -> WorkflowVersionId:
-        workflows = self.client.workflows.list(limit=-1)
+        workflows = self.client.tool.workflows.list(limit=None)
         if not workflows:
             raise ToolkitMissingResourceError("No workflows found")
+        workflow_external_ids = [wf.external_id for wf in workflows]
         selected_workflow_id: str = questionary.select(
             "Which workflow would you like to dump?",
-            [Choice(workflow_id, value=workflow_id) for workflow_id in workflows.as_external_ids()],
+            [Choice(workflow_id, value=workflow_id) for workflow_id in workflow_external_ids],
         ).unsafe_ask()
         for workflow in workflows:
             if workflow.external_id == selected_workflow_id:
                 self._workflow = workflow
                 break
 
-        versions = self.client.workflows.versions.list(selected_workflow_id, limit=-1)
+        versions = [
+            v
+            for page in self.client.tool.workflows.versions.iterate(workflow_external_id=selected_workflow_id)
+            for v in page
+        ]
         if len(versions) == 0:
             raise ToolkitMissingResourceError(f"No versions found for workflow {selected_workflow_id}")
         if len(versions) == 1:
             self._workflow_version = versions[0]
             return self._workflow_version.as_id()
 
+        version_ids = [v.as_id() for v in versions]
         selected_version: WorkflowVersionId = questionary.select(
             "Which version would you like to dump?",
-            [Choice(f"{version!r}", value=version) for version in versions.as_ids()],
+            [Choice(f"{version!r}", value=version) for version in version_ids],
         ).unsafe_ask()
         for version in versions:
             if version.version == selected_version.version:
@@ -273,23 +277,22 @@ class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
         self,
     ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
+        workflow_id = ExternalId(external_id=self.identifier.workflow_external_id)
         if self._workflow:
-            yield [], WorkflowList([self._workflow]), WorkflowCRUD.create_loader(self.client), None
+            yield [], [self._workflow], WorkflowCRUD.create_loader(self.client), None
         else:
-            yield [self.identifier.workflow_external_id], None, WorkflowCRUD.create_loader(self.client), None
+            yield [workflow_id], None, WorkflowCRUD.create_loader(self.client), None
         if self._workflow_version:
             yield (
                 [],
-                WorkflowVersionList([self._workflow_version]),
+                [self._workflow_version],
                 WorkflowVersionCRUD.create_loader(self.client),
                 None,
             )
         else:
             yield [self.identifier], None, WorkflowVersionCRUD.create_loader(self.client), None
         trigger_loader = WorkflowTriggerCRUD.create_loader(self.client)
-        trigger_list = WorkflowTriggerList(
-            list(trigger_loader.iterate(parent_ids=[self.identifier.workflow_external_id]))
-        )
+        trigger_list = list(trigger_loader.iterate(parent_ids=[workflow_id]))
         yield [], trigger_list, trigger_loader, None
 
 

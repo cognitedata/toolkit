@@ -4,8 +4,11 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from cognite.client.data_classes.capabilities import FilesAcl, FunctionsAcl
-from cognite.client.data_classes.workflows import WorkflowScheduledTriggerRule, WorkflowTrigger
 
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
+    ScheduleTriggerRule,
+    WorkflowTriggerResponse,
+)
 from cognite_toolkit._cdf_tk.cruds import FunctionCRUD, ResourceWorker, WorkflowTriggerCRUD
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -13,12 +16,15 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 class TestResourceWorker:
     def test_mask_sensitive_data(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
         toolkit_client_approval.append(
-            WorkflowTrigger,
-            WorkflowTrigger(
-                "my_trigger",
-                WorkflowScheduledTriggerRule(cron_expression="* * * * *"),
-                "my_workflow",
-                "v1",
+            WorkflowTriggerResponse,
+            WorkflowTriggerResponse(
+                external_id="my_trigger",
+                trigger_rule=ScheduleTriggerRule(cron_expression="* * * * *"),
+                workflow_external_id="my_workflow",
+                workflow_version="v1",
+                created_time=0,
+                last_updated_time=0,
+                is_paused=False,
                 metadata={
                     WorkflowTriggerCRUD._MetadataKey.secret_hash: "outdated-hash",
                 },

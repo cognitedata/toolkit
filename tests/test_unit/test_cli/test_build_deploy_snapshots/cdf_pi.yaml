@@ -89,13 +89,15 @@ Transformation:
   query: "select \n  externalId as externalId,\n  name as name,\n  'numeric' as type,\n\
     \  false as isStep,\n  if(try_get_unit(`unit`) IS NOT NULL, node_reference('cdf_cdm_units',\
     \ try_get_unit(`unit`)), NULL) as unit,\n  `unit` as sourceUnit\n  \nfrom `ingestion`.`timeseries_metadata`\n"
-Workflow:
+WorkflowResponse:
 - dataSetId: 316416785021717804
   description: This workflow populates Cognite Data Fusion with data from Springfield
     AVEVA PI.
   externalId: aveva_pi_population
-WorkflowTrigger:
-- externalId: aveva_pi_population_trigger
+WorkflowTriggerResponse:
+- authentication:
+    nonce: dummy-nonce
+  externalId: aveva_pi_population_trigger
   metadata:
     cognite-toolkit-auth-hash: 5a5b7daa
   triggerRule:
@@ -103,7 +105,7 @@ WorkflowTrigger:
     triggerType: schedule
   workflowExternalId: aveva_pi_population
   workflowVersion: v1
-WorkflowVersion:
+WorkflowVersionResponse:
 - version: v1
   workflowDefinition:
     tasks:
@@ -113,6 +115,5 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: pi_timeseries_springfield_aveva_pi
-          useTransformationCredentials: false
       type: transformation
   workflowExternalId: aveva_pi_population

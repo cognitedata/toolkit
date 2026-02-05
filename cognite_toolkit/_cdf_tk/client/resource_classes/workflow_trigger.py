@@ -51,7 +51,9 @@ class WorkflowTrigger(BaseModelObject):
 
 
 class WorkflowTriggerRequest(WorkflowTrigger, RequestResource):
-    authentication: NonceCredentials
+    # Note: authentication with nonce is required, but we set it to optional to
+    # allow loading from file without it. This is utilized in the WorkflowTriggerCRUD.
+    authentication: NonceCredentials | None = None
 
 
 class WorkflowTriggerResponse(WorkflowTrigger, ResponseResource[WorkflowTriggerRequest]):
