@@ -150,11 +150,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models 
     GraphQLDataModelList,
     GraphQLDataModelWrite,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.location_filters import (
-    LocationFilter,
-    LocationFilterList,
-    LocationFilterWrite,
-)
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
     ResourceViewMapping,
     ResourceViewMappingApply,
@@ -592,18 +587,6 @@ API_RESOURCES = [
             "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
             "retrieve": [
                 Method(api_class_method="__iter__", mock_class_method="iterate_values"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="search.locations",
-        resource_cls=LocationFilter,
-        _list_cls=LocationFilterList,
-        _write_cls=LocationFilterWrite,
-        methods={
-            "create": [Method(api_class_method="create", mock_class_method="create_single")],
-            "retrieve": [
-                Method(api_class_method="retrieve", mock_class_method="return_values"),
             ],
         },
     ),

@@ -401,7 +401,7 @@ class SecurityCategoriesLookUpAPI(AllLookUpAPI):
 
 class LocationFiltersLookUpAPI(AllLookUpAPI):
     def _lookup(self) -> None:
-        for location in self._toolkit_client.search.locations.list():
+        for location in self._toolkit_client.tool.location_filters.list(flat=True):
             if location.external_id and location.id:
                 self._cache[location.external_id] = location.id
                 self._reverse_cache[location.id] = location.external_id
