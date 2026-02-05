@@ -16,6 +16,7 @@ from cognite.client.data_classes.data_modeling import (
 )
 from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.events import EventProperty
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
@@ -230,6 +231,8 @@ class SourceSystemCreator(MigrationCreator):
 
 
 class InfieldV2ConfigCreator(MigrationCreator):
+    TARGET_SPACE = "APM_Config"
+
     def __init__(
         self,
         client: ToolkitClient,
@@ -289,9 +292,12 @@ class InfieldV2ConfigCreator(MigrationCreator):
         location_filters: list[LocationFilterRequest] = []
         if not config.feature_configuration:
             return location_configs, location_filters
-        for root_location_config in config.feature_configuration.root_location_configurations or []:
-            location_filters.append(self._create_location_filter(root_location_config))
-            location_configs.append(self._create_location_config(root_location_config))
+        for index, root_location_config in enumerate(config.feature_configuration.root_location_configurations or []):
+            location_filter = self._create_location_filter(root_location_config)
+            location_filters.append(location_filter)
+            location_configs.append(
+                self._create_location_config(root_location_config, location_filter.external_id, index)
+            )
 
         return location_configs, location_filters
 
@@ -316,5 +322,34 @@ class InfieldV2ConfigCreator(MigrationCreator):
             data_modeling_type="DATA_MODELING_ONLY",
         )
 
-    def _create_location_config(self, config: RootLocationConfiguration) -> InFieldCDMLocationConfigRequest:
-        raise NotImplementedError()
+    def _create_location_config(
+        self, config: RootLocationConfiguration, location_filter_external_id: str, index: int
+    ) -> InFieldCDMLocationConfigRequest:
+        if config.external_id:
+            external_id = config.external_id
+        elif config.asset_external_id:
+            external_id = f"{config.asset_external_id}_{index}"
+        else:
+            external_id = f"infield_location_{index}_{uuid.uuid4()}"
+
+        access_management: dict[str, JsonValue] = {}
+        if config.template_admins:
+            # list[str] is a valid JsonValue
+            access_management["templateAdmins"] = config.template_admins  # type: ignore[assignment]
+        if config.checklist_admins:
+            access_management["checklistAdmins"] = config.checklist_admins  # type: ignore[assignment]
+
+        # Todo:
+        #   - data_exploration_config
+        #   - disciplines
+        #   - view_mappings
+        #   - data_storage
+        return InFieldCDMLocationConfigRequest(
+            space=self.TARGET_SPACE,
+            external_id=external_id,
+            name="InField Location Config",
+            description="Migrated InField Location Configuration",
+            feature_toggles=config.feature_toggles.dump() if config.feature_toggles else None,
+            access_management=access_management or None,
+            data_filters=config.data_filters.dump() if config.data_filters else None,
+        )
