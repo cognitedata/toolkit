@@ -1097,12 +1097,14 @@ View:
       name: timestamp
   space: population_model
   version: v1
-Workflow:
+WorkflowResponse:
 - dataSetId: 7982613576047462211
   description: A workflow for processing data
   externalId: baz
-WorkflowTrigger:
-- externalId: MyTrigger
+WorkflowTriggerResponse:
+- authentication:
+    nonce: dummy-nonce
+  externalId: MyTrigger
   metadata:
     cognite-toolkit-auth-hash: def5e2e0
   triggerRule:
@@ -1110,7 +1112,7 @@ WorkflowTrigger:
     triggerType: schedule
   workflowExternalId: baz
   workflowVersion: '1'
-WorkflowVersion:
+WorkflowVersionResponse:
 - version: '1'
   workflowDefinition:
     description: Execute tasks in sequence
@@ -1121,6 +1123,7 @@ WorkflowVersion:
       onFailure: abortWorkflow
       parameters:
         function:
+          data: {}
           externalId: fn_first_function
         isAsyncComplete: false
       retries: 3

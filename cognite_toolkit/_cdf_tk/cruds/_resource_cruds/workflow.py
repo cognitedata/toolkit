@@ -19,32 +19,28 @@ from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any, final
 
-from cognite.client.data_classes import (
-    ClientCredentials,
-    Workflow,
-    WorkflowTrigger,
-    WorkflowTriggerUpsert,
-    WorkflowUpsert,
-    WorkflowVersion,
-    WorkflowVersionId,
-    WorkflowVersionUpsert,
-)
+from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes.capabilities import (
     Capability,
     WorkflowOrchestrationAcl,
 )
-from cognite.client.data_classes.workflows import (
-    SubworkflowReferenceParameters,
-    WorkflowList,
-    WorkflowTriggerList,
-    WorkflowVersionList,
-)
-from cognite.client.exceptions import CogniteAuthError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
-from rich import print
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
+    NonceCredentials,
+    WorkflowTriggerRequest,
+    WorkflowTriggerResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
+    SubworkflowTaskParameters,
+    WorkflowVersionRequest,
+    WorkflowVersionResponse,
+)
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
@@ -53,7 +49,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.resource_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
-    LowSeverityWarning,
     MissingReferencedWarning,
     ToolkitWarning,
 )
@@ -74,10 +69,10 @@ from .transformation import TransformationCRUD
 
 
 @final
-class WorkflowCRUD(ResourceCRUD[str, WorkflowUpsert, Workflow]):
+class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
     folder_name = "workflows"
-    resource_cls = Workflow
-    resource_write_cls = WorkflowUpsert
+    resource_cls = WorkflowResponse
+    resource_write_cls = WorkflowRequest
     kind = "Workflow"
     dependencies = frozenset(
         {
@@ -97,7 +92,7 @@ class WorkflowCRUD(ResourceCRUD[str, WorkflowUpsert, Workflow]):
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[WorkflowUpsert] | None, read_only: bool
+        cls, items: Sequence[WorkflowRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -114,63 +109,64 @@ class WorkflowCRUD(ResourceCRUD[str, WorkflowUpsert, Workflow]):
         )
 
     @classmethod
-    def get_id(cls, item: Workflow | WorkflowUpsert | dict) -> str:
+    def get_id(cls, item: WorkflowRequest | WorkflowResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
+            return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
             raise ToolkitRequiredValueError("Workflow must have external_id set.")
-        return item.external_id
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowUpsert:
+    @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return sanitize_filename(id.external_id)
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
-        return WorkflowUpsert._load(resource)
+        return WorkflowRequest.model_validate(resource)
 
-    def dump_resource(self, resource: Workflow, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+    def dump_resource(self, resource: WorkflowResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         return dumped
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> Sequence[Workflow]:
-        return self.client.workflows.retrieve(external_id=ids, ignore_unknown_ids=True)
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[WorkflowResponse]:
+        return self.client.tool.workflows.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def create(self, items: Sequence[WorkflowUpsert]) -> WorkflowList:
-        return self.client.workflows.upsert(items)
+    def create(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
+        return self.client.tool.workflows.create(items)
 
-    def update(self, items: Sequence[WorkflowUpsert]) -> WorkflowList:
-        return self.client.workflows.upsert(items)
+    def update(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
+        return self.client.tool.workflows.update(items)
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        successes = 0
-        for id_ in ids:
-            try:
-                self.client.workflows.delete(external_id=id_)
-            except CogniteNotFoundError:
-                print(f"  [bold yellow]WARNING:[/] Workflow {id_} does not exist, skipping delete.")
-            else:
-                successes += 1
-        return successes
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+        if not ids:
+            return 0
+        self.client.tool.workflows.delete(list(ids))
+        return len(ids)
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[Workflow]:
+    ) -> Iterable[WorkflowResponse]:
         if data_set_external_id is None:
-            yield from self.client.workflows.list(limit=-1)
+            for workflows in self.client.tool.workflows.iterate(limit=100):
+                yield from workflows
             return
         data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
         if data_set is None:
             raise ToolkitRequiredValueError(f"DataSet {data_set_external_id!r} does not exist")
-        for workflow in self.client.workflows.list(limit=-1):
-            if workflow.data_set_id == data_set.id:
-                yield workflow
+        for workflows in self.client.tool.workflows.iterate(limit=100):
+            for workflow in workflows:
+                if workflow.data_set_id == data_set.id:
+                    yield workflow
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -184,10 +180,10 @@ class WorkflowCRUD(ResourceCRUD[str, WorkflowUpsert, Workflow]):
 
 
 @final
-class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionUpsert, WorkflowVersion]):
+class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest, WorkflowVersionResponse]):
     folder_name = "workflows"
-    resource_cls = WorkflowVersion
-    resource_write_cls = WorkflowVersionUpsert
+    resource_cls = WorkflowVersionResponse
+    resource_write_cls = WorkflowVersionRequest
     kind = "WorkflowVersion"
     dependencies = frozenset({WorkflowCRUD})
     parent_resource = frozenset({WorkflowCRUD})
@@ -204,7 +200,7 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionUpsert,
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[WorkflowVersionUpsert] | None, read_only: bool
+        cls, items: Sequence[WorkflowVersionRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -221,12 +217,12 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionUpsert,
         )
 
     @classmethod
-    def get_id(cls, item: WorkflowVersion | WorkflowVersionUpsert | dict) -> WorkflowVersionId:
+    def get_id(cls, item: WorkflowVersionRequest | WorkflowVersionResponse | dict) -> WorkflowVersionId:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"workflowExternalId", "version"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return WorkflowVersionId(item["workflowExternalId"], item["version"])
+            return WorkflowVersionId(workflow_external_id=item["workflowExternalId"], version=item["version"])
         return item.as_id()
 
     @classmethod
@@ -276,8 +272,8 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionUpsert,
             if "parameters" in replaced_task and "parameters" in original_task:
                 replaced_task["parameters"] = original_task["parameters"]
 
-    def dump_resource(self, resource: WorkflowVersion, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+    def dump_resource(self, resource: WorkflowVersionResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
         if not local:
             return dumped
         # Sort to match the order of the local tasks
@@ -302,7 +298,12 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionUpsert,
             if task_id not in local_task_by_id:
                 continue
             local_task = local_task_by_id[task_id]
-            for key, default_value in [("retries", 3), ("timeout", 3600), ("onFailure", "abortWorkflow")]:
+            for key, default_value in [
+                ("retries", 3),
+                ("timeout", 3600),
+                ("onFailure", "abortWorkflow"),
+                ("dependsOn", []),
+            ]:
                 if key not in local_task and cdf_task.get(key) == default_value:
                     del cdf_task[key]
                 elif (
@@ -320,6 +321,8 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionUpsert,
                     local_function = local_parameters["function"]
                     if local_function.get("data") == {} and "data" not in cdf_function:
                         cdf_parameters["function"] = local_function
+                    elif cdf_function.get("data") == {} and "data" not in local_function:
+                        del cdf_function["data"]
             elif local_task["type"] == "transformation" and cdf_task["type"] == "transformation":
                 cdf_parameters = cdf_task["parameters"]
                 local_parameters = local_task["parameters"]
@@ -350,7 +353,7 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionUpsert,
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "workflowExternalId" in item:
-            yield WorkflowCRUD, item["workflowExternalId"]
+            yield WorkflowCRUD, ExternalId(external_id=item["workflowExternalId"])
 
     @classmethod
     def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
@@ -378,42 +381,48 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionUpsert,
                 )
         return warnings
 
-    def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
+    def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> list[WorkflowVersionResponse]:
         if not ids:
-            return WorkflowVersionList([])
-        return self.client.workflows.versions.retrieve(workflow_external_id=list(ids), ignore_unknown_ids=True)
+            return []
+        return self.client.tool.workflows.versions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def _upsert(self, items: Sequence[WorkflowVersionUpsert]) -> WorkflowVersionList:
-        return self.client.workflows.versions.upsert(items)
+    def _upsert(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
+        return self.client.tool.workflows.versions.create(items)
 
-    def create(self, items: Sequence[WorkflowVersionUpsert]) -> WorkflowVersionList:
-        upserted: list[WorkflowVersion] = []
+    def create(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
+        upserted: list[WorkflowVersionResponse] = []
         for item in self.topological_sort(items):
-            upserted.extend(self.client.workflows.versions.upsert([item]))
-        return WorkflowVersionList(upserted)
+            upserted.extend(self.client.tool.workflows.versions.create([item]))
+        return upserted
 
-    def update(self, items: Sequence[WorkflowVersionUpsert]) -> WorkflowVersionList:
+    def update(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
         return self._upsert(items)
 
     def delete(self, ids: SequenceNotStr[WorkflowVersionId]) -> int:
-        successes = 0
-        for id in ids:
-            try:
-                self.client.workflows.versions.delete(id)
-            except CogniteNotFoundError:
-                print(f"  [bold yellow]WARNING:[/] WorkflowVersion {id} does not exist, skipping delete.")
-            else:
-                successes += 1
-        return successes
+        if not ids:
+            return 0
+        self.client.tool.workflows.versions.delete(list(ids))
+        return len(ids)
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[WorkflowVersion]:
-        workflow_ids = [parent_id for parent_id in parent_ids if isinstance(parent_id, str)] if parent_ids else None
-        return self.client.workflows.versions.list(limit=-1, workflow_version_ids=workflow_ids)  # type: ignore[arg-type]
+    ) -> Iterable[WorkflowVersionResponse]:
+        # Note: The new API doesn't support filtering by workflow_ids in list, so we iterate over all
+        for versions in self.client.tool.workflows.versions.iterate(limit=100):
+            if parent_ids is not None:
+                workflow_ids = {
+                    parent_id.external_id if isinstance(parent_id, ExternalId) else parent_id
+                    for parent_id in parent_ids
+                    if isinstance(parent_id, (str, ExternalId))
+                }
+                for version in versions:
+                    if version.workflow_external_id in workflow_ids:
+                        yield version
+            else:
+                yield from versions
 
     @classmethod
     def as_str(cls, id: WorkflowVersionId) -> str:
@@ -427,16 +436,16 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionUpsert,
         return sanitize_filename(f"{id.workflow_external_id}{version}")
 
     @classmethod
-    def topological_sort(cls, items: Sequence[WorkflowVersionUpsert]) -> list[WorkflowVersionUpsert]:
-        workflow_by_id: dict[WorkflowVersionId, WorkflowVersionUpsert] = {item.as_id(): item for item in items}
+    def topological_sort(cls, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionRequest]:
+        workflow_by_id: dict[WorkflowVersionId, WorkflowVersionRequest] = {item.as_id(): item for item in items}
         dependencies: dict[WorkflowVersionId, set[WorkflowVersionId]] = {}
         for item_id, item in workflow_by_id.items():
             dependencies[item_id] = set()
             for task in item.workflow_definition.tasks:
-                if isinstance(task.parameters, SubworkflowReferenceParameters):
-                    dependencies[item_id].add(
-                        WorkflowVersionId(task.parameters.workflow_external_id, task.parameters.version)
-                    )
+                if isinstance(task.parameters, SubworkflowTaskParameters):
+                    subworkflow = task.parameters.subworkflow
+                    if isinstance(subworkflow, WorkflowVersionId):
+                        dependencies[item_id].add(subworkflow)
 
         try:
             return [
@@ -452,10 +461,10 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionUpsert,
 
 
 @final
-class WorkflowTriggerCRUD(ResourceCRUD[str, WorkflowTriggerUpsert, WorkflowTrigger]):
+class WorkflowTriggerCRUD(ResourceCRUD[ExternalId, WorkflowTriggerRequest, WorkflowTriggerResponse]):
     folder_name = "workflows"
-    resource_cls = WorkflowTrigger
-    resource_write_cls = WorkflowTriggerUpsert
+    resource_cls = WorkflowTriggerResponse
+    resource_write_cls = WorkflowTriggerRequest
     kind = "WorkflowTrigger"
     dependencies = frozenset({WorkflowCRUD, WorkflowVersionCRUD, GroupResourceScopedCRUD, GroupAllScopedCRUD})
     parent_resource = frozenset({WorkflowCRUD})
@@ -475,18 +484,22 @@ class WorkflowTriggerCRUD(ResourceCRUD[str, WorkflowTriggerUpsert, WorkflowTrigg
         return "workflow triggers"
 
     @classmethod
-    def get_id(cls, item: WorkflowTriggerUpsert | WorkflowTrigger | dict) -> str:
+    def get_id(cls, item: WorkflowTriggerRequest | WorkflowTriggerResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
-        return item.external_id
+            return ExternalId(external_id=item["externalId"])
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
+
+    @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[WorkflowTriggerUpsert] | None, read_only: bool
+        cls, items: Sequence[WorkflowTriggerRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -502,53 +515,58 @@ class WorkflowTriggerCRUD(ResourceCRUD[str, WorkflowTriggerUpsert, WorkflowTrigg
             WorkflowOrchestrationAcl.Scope.All(),
         )
 
-    def create(self, items: Sequence[WorkflowTriggerUpsert]) -> WorkflowTriggerList:
+    def create(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
         return self._upsert(items)
 
-    def _upsert(self, items: Sequence[WorkflowTriggerUpsert]) -> WorkflowTriggerList:
-        created = WorkflowTriggerList([])
+    def _upsert(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
+        created: list[WorkflowTriggerResponse] = []
         for item in items:
-            created.append(self._upsert_item(item))
+            created_item = self._upsert_item(item)
+            if created_item is not None:
+                created.append(created_item)
         return created
 
-    def _upsert_item(self, item: WorkflowTriggerUpsert) -> WorkflowTrigger:
+    def _upsert_item(self, item: WorkflowTriggerRequest) -> WorkflowTriggerResponse | None:
         credentials = self._authentication_by_id.get(item.external_id)
+        item.authentication = NonceCredentials(nonce=self.client.iam.sessions.create(credentials).nonce)
         try:
-            return self.client.workflows.triggers.upsert(item, credentials)
-        except CogniteAuthError as e:
+            result = self.client.tool.workflows.triggers.create([item])
+            if not result:
+                return None
+            return result[0]
+        except ToolkitAPIError as e:
             if hint := try_find_error(credentials):
                 raise ResourceCreationError(f"Failed to create WorkflowTrigger {item.external_id}: {hint}") from e
             raise e
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowTriggerList:
-        all_triggers = self.client.workflows.triggers.list(limit=-1)
-        lookup = set(ids)
-        return WorkflowTriggerList([trigger for trigger in all_triggers if trigger.external_id in lookup])
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[WorkflowTriggerResponse]:
+        all_triggers = self.client.tool.workflows.triggers.list(limit=None)
+        lookup = {id_.external_id for id_ in ids}
+        return [trigger for trigger in all_triggers if trigger.external_id in lookup]
 
-    def update(self, items: Sequence[WorkflowTriggerUpsert]) -> WorkflowTriggerList:
+    def update(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
         return self._upsert(items)
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        successes = 0
-        for id in ids:
-            try:
-                self.client.workflows.triggers.delete(external_id=id)
-            except CogniteNotFoundError:
-                LowSeverityWarning(f"WorkflowTrigger {id} does not exist, skipping delete.").print_warning()
-            else:
-                successes += 1
-        return successes
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+        if not ids:
+            return 0
+        self.client.tool.workflows.triggers.delete(list(ids))
+        return len(ids)
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[WorkflowTrigger]:
-        triggers = self.client.workflows.triggers.list(limit=-1)
+    ) -> Iterable[WorkflowTriggerResponse]:
+        triggers = self.client.tool.workflows.triggers.list(limit=None)
         if parent_ids is not None:
             # Parent = Workflow
-            workflow_ids = {parent_id for parent_id in parent_ids if isinstance(parent_id, str)}
+            workflow_ids = {
+                parent_id.external_id if isinstance(parent_id, ExternalId) else parent_id
+                for parent_id in parent_ids
+                if isinstance(parent_id, (str, ExternalId))
+            }
             return (trigger for trigger in triggers if trigger.workflow_external_id in workflow_ids)
         return triggers
 
@@ -556,10 +574,13 @@ class WorkflowTriggerCRUD(ResourceCRUD[str, WorkflowTriggerUpsert, WorkflowTrigg
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         """Returns all items that this item requires."""
         if "workflowExternalId" in item:
-            yield WorkflowCRUD, item["workflowExternalId"]
+            yield WorkflowCRUD, ExternalId(external_id=item["workflowExternalId"])
 
             if "workflowVersion" in item:
-                yield WorkflowVersionCRUD, WorkflowVersionId(item["workflowExternalId"], item["workflowVersion"])
+                yield (
+                    WorkflowVersionCRUD,
+                    WorkflowVersionId(workflow_external_id=item["workflowExternalId"], version=item["workflowVersion"]),
+                )
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
@@ -571,9 +592,13 @@ class WorkflowTriggerCRUD(ResourceCRUD[str, WorkflowTriggerUpsert, WorkflowTrigg
         for resource in resources:
             identifier = self.get_id(resource)
             credentials = read_auth(
-                resource.get("authentication"), self.client.config, identifier, "workflow trigger", console=self.console
+                resource.get("authentication"),
+                self.client.config,
+                identifier.external_id,
+                "workflow trigger",
+                console=self.console,
             )
-            self._authentication_by_id[identifier] = credentials
+            self._authentication_by_id[identifier.external_id] = credentials
             if "metadata" not in resource:
                 resource["metadata"] = {}
             resource["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(
@@ -581,13 +606,32 @@ class WorkflowTriggerCRUD(ResourceCRUD[str, WorkflowTriggerUpsert, WorkflowTrigg
             )
         return resources
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowTriggerUpsert:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowTriggerRequest:
         if isinstance(resource.get("data"), dict):
             resource["data"] = json.dumps(resource["data"])
-        return WorkflowTriggerUpsert._load(resource)
+        # Remove authentication from resource dict as it contains clientId/clientSecret
+        # which are stored separately in _authentication_by_id and converted to nonce at creation time
+        resource.pop("authentication", None)
+        return WorkflowTriggerRequest.model_validate(resource)
 
-    def dump_resource(self, resource: WorkflowTrigger, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+    def dump_resource(self, resource: WorkflowTriggerResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        # Dump directly from response, excluding response-only fields
+        dumped = resource.dump()
+        # Remove response-only fields
+        dumped.pop("createdTime", None)
+        dumped.pop("lastUpdatedTime", None)
+        dumped.pop("isPaused", None)
+        # Remove input if None to match local format
+        if dumped.get("input") is None:
+            dumped.pop("input", None)
+        # Remove authentication if None
+        if dumped.get("authentication") is None:
+            dumped.pop("authentication", None)
+
+        # Ensure triggerType is included in triggerRule (might be excluded due to exclude_unset=True)
+        if "triggerRule" in dumped and "triggerType" not in dumped["triggerRule"]:
+            dumped["triggerRule"]["triggerType"] = resource.trigger_rule.trigger_type
+
         local = local or {}
         if isinstance(dumped.get("data"), str) and isinstance(local.get("data"), dict):
             dumped["data"] = json.loads(dumped["data"])
@@ -605,7 +649,7 @@ class WorkflowTriggerCRUD(ResourceCRUD[str, WorkflowTriggerUpsert, WorkflowTrigg
             dumped["authentication"] = local["authentication"]
         return dumped
 
-    def sensitive_strings(self, item: WorkflowTriggerUpsert) -> Iterable[str]:
+    def sensitive_strings(self, item: WorkflowTriggerRequest) -> Iterable[str]:
         id_ = self.get_id(item)
-        if id_ in self._authentication_by_id:
-            yield self._authentication_by_id[id_].client_secret
+        if id_.external_id in self._authentication_by_id:
+            yield self._authentication_by_id[id_.external_id].client_secret

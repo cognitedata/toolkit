@@ -2,10 +2,10 @@ from pathlib import Path
 from typing import Annotated, Any, Union
 
 import typer
-from cognite.client.data_classes import WorkflowVersionId
 from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from rich import print
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import ViewId as SearchConfigViewId
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
@@ -195,13 +195,13 @@ class DumpConfigApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected workflow as yaml to the folder specified, defaults to /tmp."""
-        selected_workflow: Union[WorkflowVersionId, None] = None
+        selected_workflow: WorkflowVersionId | None = None
         if workflow_id is not None:
             if len(workflow_id) <= 1:
                 raise ToolkitRequiredValueError(
                     "Workflow ID must have at least 1 part: external_id and, optionally, version."
                 )
-            selected_workflow = WorkflowVersionId(*workflow_id)
+            selected_workflow = WorkflowVersionId(workflow_external_id=workflow_id[0], version=workflow_id[1])
         client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = DumpResourceCommand(client=client)

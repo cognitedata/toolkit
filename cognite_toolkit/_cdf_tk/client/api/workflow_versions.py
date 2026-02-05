@@ -3,7 +3,12 @@ from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import (
+    HTTPClient,
+    ItemsSuccessResponse,
+    RequestMessage,
+    SuccessResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     WorkflowVersionRequest,
@@ -54,19 +59,32 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
         """
         return self.create(items)
 
-    def retrieve(self, items: Sequence[WorkflowVersionId]) -> list[WorkflowVersionResponse]:
+    def retrieve(
+        self, items: Sequence[WorkflowVersionId], ignore_unknown_ids: bool = False
+    ) -> list[WorkflowVersionResponse]:
         """Retrieve workflow versions from CDF.
 
         Args:
             items: List of WorkflowVersionId objects to retrieve.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
         Returns:
             List of retrieved WorkflowVersionResponse objects.
         """
         result: list[WorkflowVersionResponse] = []
+        endpoint = self._method_endpoint_map["retrieve"]
         for item in items:
-            endpoint = f"/workflows/{item.workflow_external_id}/versions/{item.version}"
-            for response in self._chunk_requests([item], "retrieve", self._serialize_items, endpoint_path=endpoint):
+            response = self._http_client.request_single_retries(
+                RequestMessage(
+                    endpoint_url=self._make_url(f"/workflows/{item.workflow_external_id}/versions/{item.version}"),
+                    method=endpoint.method,
+                )
+            )
+            if isinstance(response, SuccessResponse):
                 result.append(WorkflowVersionResponse.model_validate_json(response.body))
+            elif ignore_unknown_ids:
+                continue
+            else:
+                _ = response.get_success_or_raise()
         return result
 
     def delete(self, items: Sequence[WorkflowVersionId]) -> None:

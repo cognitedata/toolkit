@@ -2,7 +2,12 @@ from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import (
+    HTTPClient,
+    ItemsSuccessResponse,
+    RequestMessage,
+    SuccessResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
 
@@ -53,20 +58,31 @@ class WorkflowsAPI(CDFResourceAPI[ExternalId, WorkflowRequest, WorkflowResponse]
         """
         return self.create(items)
 
-    def retrieve(self, items: Sequence[ExternalId]) -> list[WorkflowResponse]:
-        """Retrieve a workflow from CDF by external ID.
+    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[WorkflowResponse]:
+        """Retrieve workflows from CDF by external ID.
 
         Args:
             items: List of ExternalId objects to retrieve.
+            ignore_unknown_ids: Whether to ignore unknown IDs.
 
         Returns:
-            The retrieved WorkflowResponse object, or None if not found.
+            List of retrieved WorkflowResponse objects.
         """
         result: list[WorkflowResponse] = []
+        endpoint = self._method_endpoint_map["retrieve"]
         for item in items:
-            endpoint = f"/workflows/{item.external_id}"
-            for response in self._chunk_requests([item], "retrieve", self._serialize_items, endpoint_path=endpoint):
+            response = self._http_client.request_single_retries(
+                RequestMessage(
+                    endpoint_url=self._make_url(f"/workflows/{item.external_id}"),
+                    method=endpoint.method,
+                )
+            )
+            if isinstance(response, SuccessResponse):
                 result.append(WorkflowResponse.model_validate_json(response.body))
+            elif ignore_unknown_ids:
+                continue
+            else:
+                _ = response.get_success_or_raise()
         return result
 
     def delete(self, items: Sequence[ExternalId]) -> None:

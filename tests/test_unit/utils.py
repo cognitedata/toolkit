@@ -374,6 +374,8 @@ class FakeCogniteResourceGenerator:
 
         if isinstance(type_, typing.ForwardRef):
             type_ = type_._evaluate(globals(), self._type_checking())
+        if inspect.isclass(type_) and issubclass(type_, BaseModel):
+            return self.create_pydantic_instance(type_)
 
         container_type = get_origin(type_)
         is_container = container_type is not None

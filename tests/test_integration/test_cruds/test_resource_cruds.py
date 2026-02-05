@@ -19,7 +19,6 @@ from cognite.client.data_classes import (
     FunctionSchedulesList,
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
-    FunctionTaskParameters,
     FunctionWrite,
     GroupWrite,
     LabelDefinitionWrite,
@@ -27,8 +26,6 @@ from cognite.client.data_classes import (
     TimeSeriesWrite,
     TimeSeriesWriteList,
     TransformationWrite,
-    WorkflowVersionUpsert,
-    WorkflowVersionUpsertList,
     filters,
 )
 from cognite.client.data_classes.capabilities import IDScopeLowerCase, TimeSeriesAcl
@@ -53,6 +50,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotCapabilityRequest,
     RobotCapabilityResponse,
     RobotDataPostProcessingRequest,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
+    FunctionTaskParameters,
+    WorkflowVersionRequest,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import (
@@ -834,7 +835,7 @@ workflowDefinition:
         task2 = definition.workflow_definition.tasks[1]
         parameters = task2.parameters
         assert isinstance(parameters, FunctionTaskParameters)
-        assert parameters.data == "${myTask1.output.data}"
+        assert parameters.function.data == "${myTask1.output.data}"
         assert len(warning_list) == 0, "We should not get a warning for using a reference in a task parameter"
 
     def test_load_workflow_without_defaults_not_redeployed(self, toolkit_client: ToolkitClient) -> None:
@@ -863,9 +864,9 @@ workflowDefinition:
         resource_dict = loader.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
         resource = loader.load_resource(resource_dict[0])
-        assert isinstance(resource, WorkflowVersionUpsert)
+        assert isinstance(resource, WorkflowVersionRequest)
         if not loader.retrieve([resource.as_id()]):
-            _ = loader.create(WorkflowVersionUpsertList([resource]))
+            _ = loader.create([resource])
 
         worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([filepath])

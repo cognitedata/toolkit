@@ -919,6 +919,9 @@ class ApprovalToolkitClient:
         def retrieve_hosted_extractor_source(items: Sequence, *_, **__) -> list:
             return existing_resources[SourceRequestDefinition.__name__]
 
+        def list(*_, **__) -> list:
+            return existing_resources[resource_cls.__name__]
+
         def list_raw_db(*_, **__) -> list[RAWDatabaseResponse]:
             return existing_resources[resource_cls.__name__]
 
@@ -946,6 +949,7 @@ class ApprovalToolkitClient:
                 retrieve_hosted_extractor_source,
                 list_raw_db,
                 list_raw_table,
+                list,
             ]
         }
         if mock_method not in available_retrieve_methods:
