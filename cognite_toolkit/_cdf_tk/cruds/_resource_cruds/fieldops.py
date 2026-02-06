@@ -111,7 +111,7 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[APMConfigResponse]:
         raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
 
@@ -308,7 +308,7 @@ class InFieldLocationConfigCRUD(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[InFieldLocationConfigResponse]:
         raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
 
@@ -402,7 +402,7 @@ class InFieldCDMLocationConfigCRUD(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[InFieldCDMLocationConfigResponse]:
         raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
 

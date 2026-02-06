@@ -432,7 +432,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[FunctionResponse]:
         for functions in self.client.tool.functions.iterate():
             yield from functions
@@ -591,11 +591,13 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
                 raise e
 
             # Create a new request with the function_id and nonce set
-            to_create = FunctionScheduleRequest.model_validate({
-                **item.dump(),
-                "functionId": function_id_by_external_id[id_.function_external_id],
-                "nonce": session.nonce,
-            })
+            to_create = FunctionScheduleRequest.model_validate(
+                {
+                    **item.dump(),
+                    "functionId": function_id_by_external_id[id_.function_external_id],
+                    "nonce": session.nonce,
+                }
+            )
 
             result = self.client.tool.functions.schedules.create([to_create])
             if result:
@@ -628,18 +630,15 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
 
     def delete(self, ids: SequenceNotStr[FunctionScheduleId]) -> int:
         schedules = self.retrieve(ids)
-        count = 0
-        for schedule in schedules:
-            if schedule.id:
-                self.client.tool.functions.schedules.delete([InternalId(id=schedule.id)])
-                count += 1
-        return count
+        ids = [InternalId(id=schedule.id) for schedule in schedules if schedule.id]
+        self.client.tool.functions.schedules.delete(ids)
+        return len(ids)
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[FunctionScheduleResponse]:
         if parent_ids is None:
             for schedules in self.client.tool.functions.schedules.iterate():

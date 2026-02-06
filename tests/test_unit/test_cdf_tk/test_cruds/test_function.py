@@ -7,7 +7,6 @@ import yaml
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     ClientCredentials,
-    Function,
     FunctionSchedule,
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
