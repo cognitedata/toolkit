@@ -1,5 +1,6 @@
 import types
 from collections.abc import Callable, Hashable, Iterable, Set
+from pathlib import Path
 from typing import Annotated, Any, get_args, get_origin
 
 import pytest
@@ -41,7 +42,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeRe
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
