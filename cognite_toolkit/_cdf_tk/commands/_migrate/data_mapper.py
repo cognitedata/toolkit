@@ -32,7 +32,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     IndustrialCanvasApply,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartWrite
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMappingApply
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
+    RESOURCE_VIEW_MAPPING_SPACE,
+    ResourceViewMappingRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
     AssetMappingDMRequest,
@@ -61,7 +64,6 @@ from cognite_toolkit._cdf_tk.storageio.selectors import CanvasSelector, ChartSel
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
 
-from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import RESOURCE_VIEW_MAPPING_SPACE
 from .data_classes import AssetCentricMapping
 from .selectors import AssetCentricMigrationSelector
 
@@ -101,7 +103,7 @@ class AssetCentricMapper(
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
         self._ingestion_view_by_id: dict[ViewId, View] = {}
-        self._view_mapping_by_id: dict[str, ResourceViewMappingApply] = {}
+        self._view_mapping_by_id: dict[str, ResourceViewMappingRequest] = {}
         self._direct_relation_cache = DirectRelationCache(client)
 
     def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
@@ -111,14 +113,23 @@ class AssetCentricMapper(
         )
         defaults = {mapping.external_id: mapping for mapping in create_default_mappings()}
         # Custom mappings from CDF override the default mappings
-        self._view_mapping_by_id = defaults | {view.external_id: view.as_write() for view in ingestion_views}
+        self._view_mapping_by_id = defaults | {view.external_id: view.as_request_resource() for view in ingestion_views}
         missing_mappings = set(ingestion_view_ids) - set(self._view_mapping_by_id.keys())
         if missing_mappings:
             raise ToolkitValueError(
                 f"The following ingestion views were not found: {humanize_collection(missing_mappings)}"
             )
 
-        view_ids = list({mapping.view_id for mapping in self._view_mapping_by_id.values()})
+        view_ids = list(
+            {
+                ViewId(
+                    space=mapping.view_id.space,
+                    external_id=mapping.view_id.external_id,
+                    version=mapping.view_id.version,
+                )
+                for mapping in self._view_mapping_by_id.values()
+            }
+        )
         views = self.client.data_modeling.views.retrieve(view_ids)
         self._ingestion_view_by_id = {view.as_id(): view for view in views}
         missing_views = set(view_ids) - set(self._ingestion_view_by_id.keys())

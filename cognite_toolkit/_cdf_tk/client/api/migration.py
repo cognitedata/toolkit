@@ -98,8 +98,10 @@ class ResourceViewMappingsAPI(
     ) -> PagedResponse[ResourceViewMappingResponse]:
         return PagedResponse[ResourceViewMappingResponse].model_validate_json(response.body)
 
-    def list(self, limit: int | None = 100) -> list[ResourceViewMappingResponse]:
-        return super()._list_instances(spaces=[RESOURCE_VIEW_MAPPING_SPACE], instance_type="node", limit=limit)
+    def list(self, resource_type: str | None = None, limit: int | None = 100) -> list[ResourceViewMappingResponse]:
+
+
+        return super()._list_instances(spaces=[RESOURCE_VIEW_MAPPING_SPACE], instance_type="node", limit=limit, )
 
 
 class CreatedSourceSystemAPI:
