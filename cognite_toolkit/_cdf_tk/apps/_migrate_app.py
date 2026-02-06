@@ -72,7 +72,7 @@ class MigrateApp(typer.Typer):
         self.command("charts")(self.charts)
         self.command("3d")(self.three_d)
         self.command("3d-mappings")(self.three_d_asset_mapping)
-        # self.command("infield-configs")(self.infield_configs)
+        self.command("infield-configs")(self.infield_configs)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
