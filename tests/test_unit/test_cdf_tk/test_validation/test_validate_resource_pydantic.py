@@ -19,9 +19,9 @@ def timeseries_yaml_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "my_timeseries", "type": "numeric"},
         [
-            "Unused field: 'type'",
+            "Unknown field: 'type'",
         ],
-        id="Unused field type",
+        id="Unknown field type",
     )
 
     yield pytest.param(
@@ -41,9 +41,9 @@ def timeseries_yaml_test_cases() -> Iterable:
             {"name": "my_timeseries_2", "type": "numeric"},
         ],
         [
-            "In item [1] unused field: 'nam'",
+            "In item [1] unknown field: 'nam'",
             "In item [2] missing required field: 'externalId'",
-            "In item [2] unused field: 'type'",
+            "In item [2] unknown field: 'type'",
         ],
         id="Multiple issues in a list of timeseries",
     )
