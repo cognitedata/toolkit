@@ -95,6 +95,12 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
         """
         self._request_no_response(items, "delete")
 
+    def _create_list_body(self, workflow_external_id: str | None = None) -> dict[str, Any] | None:
+        body: dict[str, Any] = {}
+        if workflow_external_id:
+            body["filter"] = {"workflowFilters": [{"externalId": workflow_external_id}]}
+        return body or None
+
     def paginate(
         self,
         workflow_external_id: str | None = None,
@@ -111,14 +117,10 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
         Returns:
             PagedResponse of WorkflowVersionResponse objects.
         """
-        body: dict[str, Any] = {}
-        if workflow_external_id:
-            body["workflowExternalId"] = workflow_external_id
-
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            body=body,
+            body=self._create_list_body(workflow_external_id),
         )
 
     def iterate(
@@ -135,17 +137,14 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
         Returns:
             Iterable of lists of WorkflowVersionResponse objects.
         """
-        body: dict[str, Any] = {}
-        if workflow_external_id:
-            body["filter"] = {"workflowFilters": [{"externalId": workflow_external_id}]}
-
         return self._iterate(
             limit=limit,
-            body=body,
+            body=self._create_list_body(workflow_external_id),
         )
 
     def list(
         self,
+        workflow_external_id: str | None = None,
         limit: int | None = 100,
     ) -> list[WorkflowVersionResponse]:
         """List all workflow versions in CDF.
@@ -153,4 +152,4 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
         Returns:
             List of WorkflowVersionResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=limit, body=self._create_list_body(workflow_external_id))
