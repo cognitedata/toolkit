@@ -29,7 +29,7 @@ def invalid_workflow_version_test_cases() -> Iterable:
             "workflowDefinition": {"description": "desc", "tasks": []},
             "foo": 123,
         },
-        {"Unused field: 'foo'"},
+        {"Unknown field: 'foo'"},
         id="Extra field at top level",
     )
     yield pytest.param(

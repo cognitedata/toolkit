@@ -47,7 +47,7 @@ def invalid_sequence_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"externalId": "seq_1", "columns": [{"externalId": "col_1"}], "unknownField": "value"},
-        {"Unused field: 'unknownField'"},
+        {"Unknown field: 'unknownField'"},
         id="unknown-field-present",
     )
 
@@ -205,7 +205,7 @@ def invalid_sequence_row_test_cases() -> Iterable:
             "rows": [{"rowNumber": 0, "values": [1]}],
             "unknownField": "value",
         },
-        {"Unused field: 'unknownField'"},
+        {"Unknown field: 'unknownField'"},
         id="unknown-field-present",
     )
     yield pytest.param(

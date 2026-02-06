@@ -31,8 +31,8 @@ def invalid_search_config_test_cases() -> Iterable:
             "view": {"space": "my_space", "externalId": "my_view"},
             "unknown_field": "value",
         },
-        {"Unused field: 'unknown_field'"},
-        id="Unused field",
+        {"Unknown field: 'unknown_field'"},
+        id="Unknown field",
     )
 
 

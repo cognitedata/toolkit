@@ -12,7 +12,7 @@ from tests.test_unit.utils import find_resources
 def invalid_security_category_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "MyCategory"},
-        {"Missing required field: 'name'", "Unused field: 'externalId'"},
+        {"Missing required field: 'name'", "Unknown field: 'externalId'"},
         id="Missing required field: name",
     )
 

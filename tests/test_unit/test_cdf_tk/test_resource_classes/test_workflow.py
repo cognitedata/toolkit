@@ -12,7 +12,7 @@ from tests.test_unit.utils import find_resources
 def invalid_workflow_test_cases() -> Iterable:
     yield pytest.param(
         {"name": "MyWorkflow"},
-        {"Missing required field: 'externalId'", "Unused field: 'name'"},
+        {"Missing required field: 'externalId'", "Unknown field: 'name'"},
         id="Missing required field: externalId",
     )
     yield pytest.param(

@@ -39,7 +39,7 @@ def invalid_robot_location_cases() -> Iterable:
             "externalId": "loc_001",
             "unknownField": "value",
         },
-        {"Unused field: 'unknownField'"},
+        {"Unknown field: 'unknownField'"},
         id="unknown-field-present",
     )
 

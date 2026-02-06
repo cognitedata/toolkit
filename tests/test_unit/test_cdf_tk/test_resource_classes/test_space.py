@@ -12,7 +12,7 @@ from tests.test_unit.utils import find_resources
 def invalid_space_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "mySpace"},
-        {"Unused field: 'externalId'", "Missing required field: 'space'"},
+        {"Unknown field: 'externalId'", "Missing required field: 'space'"},
         id="Missing required field: space",
     )
     yield pytest.param(

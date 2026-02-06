@@ -121,8 +121,8 @@ def invalid_hosted_extractor_source_test_cases() -> Iterable:
             "In authentication missing required field: 'clientId'",
             "In authentication missing required field: 'clientSecret'",
             "In authentication missing required field: 'tokenUrl'",
-            "In authentication unused field: 'client_id'",
-            "In authentication unused field: 'token_url'",
+            "In authentication unknown field: 'client_id'",
+            "In authentication unknown field: 'token_url'",
         },
         id="RESTSource ClientCredentials missing client_secret",
     )
