@@ -336,6 +336,30 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
     except KeyError:
         raise NotImplementedError(f"No example request defined for {request_cls.__name__}")
 
+@pytest.fixture(scope="module")
+def function_code(toolkit_client: ToolkitClient, tmp_path: Path) -> FileMetadataResponse:
+    code = '''from cognite.client import CogniteClient
+
+
+def handle(client: CogniteClient, data: dict, function_call_info: dict) -> str:
+    print("Print statements will be shown in the logs.")
+    print("Running with the following configuration:\n")
+    return {
+        "data": data,
+        "functionInfo": function_call_info,
+    }
+'''
+    metadata = FileMetadataRequest(
+        name="Smoke test function code",
+        external_id="smoke-test-function-code",
+        mime_type="application/zip",
+    )
+
+    file_response = toolkit_client.tool.filemetadata.retrieve([metadata.as_id()])
+    if file_response:
+        return file_response[0]
+    toolkit_client.functions.create()
+
 
 @pytest.mark.usefixtures("smoke_space")
 class TestCDFResourceAPI:
