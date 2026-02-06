@@ -550,6 +550,8 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
     def dump_resource(self, resource: FunctionScheduleResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # Dump the response fields directly since as_request_resource() is not supported
         dumped = resource.as_request_resource().dump()
+        # Add functionExternalId to the dumped resource for comparison and retrieval purposes, even though it is not part of the API response.
+        dumped["functionExternalId"] = resource.function_external_id
         local = local or {}
         if "functionId" in dumped and "functionId" not in local:
             dumped.pop("functionId")

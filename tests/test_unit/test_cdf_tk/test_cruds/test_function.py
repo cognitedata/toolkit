@@ -8,7 +8,6 @@ import yaml
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     ClientCredentials,
-    FunctionSchedule,
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
     FunctionWrite,
@@ -18,7 +17,10 @@ from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
+    FunctionScheduleRequest,
+    FunctionScheduleResponse,
+)
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import FunctionCRUD, FunctionScheduleCRUD, ResourceWorker
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError, ToolkitRequiredValueError
@@ -242,13 +244,14 @@ authentication:
         auth_hash = calculate_secure_hash(auth_dict, shorten=True)
 
         with monkeypatch_toolkit_client() as client:
-            cdf_schedule = FunctionSchedule(
+            cdf_schedule = FunctionScheduleResponse(
                 id=123,
                 name="daily-8am-utc",
                 function_external_id="fn_example_repeater",
                 cron_expression="0 8 * * *",
                 description=f"Run the function every day at 8am UTC {FunctionScheduleCRUD._hash_key}: {auth_hash}",
-                cognite_client=client,
+                created_time=1,
+                when="2024-01-01T08:00:00Z",
             )
             # The as_write method looks up the input data.
             client.functions.schedules.get_input_data.return_value = None
