@@ -456,5 +456,5 @@ class DatapointsIO(
                 start_row = row_no + 1
                 batch = {col: [] for col in column_names}
             last_row = row_no
-            if any(batch.values()):
-                yield [(f"rows {start_row} to{last_row}", batch)]  # type: ignore[list-item]
+        if any(batch.values()):
+            yield [(f"rows {start_row} to{last_row}", batch)]  # type: ignore[list-item]
