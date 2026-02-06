@@ -36,6 +36,8 @@ from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 
 from ._toolkit_client import ToolAPI
 from .api.assets import AssetsAPI
+from .api.containers import ContainersAPI
+from .api.data_models import DataModelsAPI
 from .api.datasets import DataSetsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
@@ -79,12 +81,14 @@ from .api.simulator_models import SimulatorModelsAPI
 from .api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
 from .api.simulator_routines import SimulatorRoutinesAPI
 from .api.simulators import SimulatorsAPI
+from .api.spaces import SpacesAPI
 from .api.streams import StreamsAPI
 from .api.three_d import ThreeDAPI, ThreeDClassicModelsAPI
 from .api.timeseries import TimeSeriesAPI
 from .api.token import TokenAPI
 from .api.transformations import TransformationsAPI
 from .api.verify import VerifyAPI
+from .api.views import ViewsAPI
 from .api.workflow_triggers import WorkflowTriggersAPI
 from .api.workflow_versions import WorkflowVersionsAPI
 from .api.workflows import WorkflowsAPI
@@ -162,7 +166,11 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.assets = MagicMock(spec_set=AssetsAPI)
         self.tool.timeseries = MagicMock(spec_set=TimeSeriesAPI)
         self.tool.filemetadata = MagicMock(spec_set=FileMetadataAPI)
+        self.tool.containers = MagicMock(spec_set=ContainersAPI)
+        self.tool.data_models = MagicMock(spec_set=DataModelsAPI)
         self.tool.instances = MagicMock(spec=InstancesAPI)
+        self.tool.spaces = MagicMock(spec_set=SpacesAPI)
+        self.tool.views = MagicMock(spec_set=ViewsAPI)
         self.tool.location_filters = MagicMock(spec=LocationFiltersAPI)
         self.tool.events = MagicMock(spec_set=EventsAPI)
         self.tool.functions = MagicMock(spec=FunctionsAPI)
