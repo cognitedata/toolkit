@@ -1215,14 +1215,6 @@ class MigrateApp(typer.Typer):
                 "to govern these configurations in a git repository.",
             ),
         ] = Path("tmp"),
-        dry_run: Annotated[
-            bool,
-            typer.Option(
-                "--dry-run",
-                "-d",
-                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
-            ),
-        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -1243,7 +1235,6 @@ class MigrateApp(typer.Typer):
                     "Specify output directory for Infield V2 configuration definitions:", default=str(output_dir)
                 ).unsafe_ask()
             )
-            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
         else:
             apm_configs = None
@@ -1253,7 +1244,8 @@ class MigrateApp(typer.Typer):
                 client,
                 creator=InfieldV2ConfigCreator(client, external_id, apm_configs),
                 output_dir=output_dir,
-                dry_run=dry_run,
+                dry_run=False,
+                deploy=False,
                 verbose=verbose,
             )
         )

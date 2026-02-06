@@ -24,9 +24,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigResponse,
     Discipline,
     FeatureConfiguration,
-    ResourceFilters,
     RootLocationConfiguration,
-    RootLocationDataFilters,
     RootLocationFeatureToggles,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -48,7 +46,11 @@ from cognite_toolkit._cdf_tk.cruds import (
     ResourceCRUD,
     SpaceCRUD,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitMigrationError,
+    ToolkitMissingResourceError,
+    ToolkitRequiredValueError,
+)
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
@@ -308,7 +310,6 @@ class InfieldV2ConfigCreator(MigrationCreator):
                     root_location_config,
                     config.feature_configuration.disciplines,
                     data_exploration,
-                    location_filter.external_id,
                     index,
                 )
             )
@@ -341,15 +342,26 @@ class InfieldV2ConfigCreator(MigrationCreator):
         config: RootLocationConfiguration,
         disciplines: list[Discipline] | None,
         data_exploration: dict[str, JsonValue],
-        location_filter_external_id: str,
         index: int,
     ) -> InFieldCDMLocationConfigRequest:
+        if (
+            config.asset_external_id is None
+            or config.app_data_instance_space is None
+            or config.source_data_instance_space is None
+        ):
+            raise ToolkitMigrationError(
+                f"Root location configuration with external ID '{config.external_id}' is missing required fields for migration. "
+            )
+        root_node = self.client.migration.lookup.assets(external_id=config.asset_external_id)
+        if not root_node:
+            raise ToolkitMissingResourceError(
+                f"Root asset with external ID '{config.asset_external_id}' not migrated. Cannot create location config for root location configuration with external ID '{config.external_id}'."
+            )
+
         if config.external_id:
             external_id = config.external_id
-        elif config.asset_external_id:
-            external_id = f"{config.asset_external_id}_{index}"
         else:
-            external_id = f"infield_location_{index}_{uuid.uuid4()}"
+            external_id = f"{config.asset_external_id}_{index}"
 
         feature_toggles: dict[str, Any] | None = None
         if isinstance(config.feature_toggles, RootLocationFeatureToggles):
@@ -359,32 +371,35 @@ class InfieldV2ConfigCreator(MigrationCreator):
 
         access_management: dict[str, JsonValue] = {}
         if config.template_admins:
+            # Todo Fetch and update groups. Jira ticket: CDF-27033
             # list[str] is a valid JsonValue
             access_management["templateAdmins"] = config.template_admins  # type: ignore[assignment]
         if config.checklist_admins:
             access_management["checklistAdmins"] = config.checklist_admins  # type: ignore[assignment]
 
-        data_filters: dict[str, JsonValue] | None = None
-        if isinstance(config.data_filters, RootLocationDataFilters):
-            data_filters = self._create_data_filter(config.data_filters)
+        data_filters: dict[str, JsonValue] = {}
+        for key in ["assets", "files", "timeseries", "maintenanceOrders", "operations", "notifications"]:
+            # Todo Assets does not support multiple instanceSpaces.
+            #    add to Validation in cdf build.
+            data_filters[key] = {"instanceSpaces": [config.source_data_instance_space]}
+
         data_storage: dict[str, JsonValue] = {
-            "rootLocation": {
-                "space": "<Please fill in the space for the root location>",
-                "externalId": "<Please fill in the external ID for the root location>",
-            }
+            # dict[str, str] is a valid JsonValue
+            "rootLocation": root_node.dump(include_instance_type=False),  # type: ignore[dict-item]
+            "appDataInstanceSpace": config.app_data_instance_space,
         }
-        if config.app_data_instance_space:
-            data_storage["appDataInstanceSpace"] = config.app_data_instance_space
         view_mappings: dict[str, JsonValue] = {}
-        for key in ["asset", "operation", "notification", "maintenanceOrder", "file"]:
-            view_mappings[key] = {
-                "space": "<Please fill in the space for the asset view>",
-                "externalId": "<Please fill in the external ID for the asset view>",
-                "version": "<Please fill in the version for the asset view>",
-            }
+        for key, default_view in [
+            ("asset", ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1")),
+            ("operation", ViewReference(space="cdf_idm", external_id="CogniteOperation", version="v1")),
+            ("notification", ViewReference(space="cdf_idm", external_id="CogniteNotification", version="v1")),
+            ("maintenanceOrder", ViewReference(space="cdf_idm", external_id="CogniteMaintenanceOrder", version="v1")),
+            ("file", ViewReference(space="cdf_cdm", external_id="CogniteFile", version="v1")),
+        ]:
+            view_mappings[key] = default_view.dump()
 
         return InFieldCDMLocationConfigRequest(
-            space=self.TARGET_SPACE,
+            space=config.source_data_instance_space or "<Please fill in the source data instance space>",
             external_id=external_id,
             name="InField Location Config",
             description="Migrated InField Location Configuration",
@@ -401,8 +416,6 @@ class InfieldV2ConfigCreator(MigrationCreator):
         data_exploration: dict[str, JsonValue] = {}
         if config.observations:
             data_exploration["observations"] = config.observations
-        if config.activities:
-            data_exploration["activities"] = config.activities.dump()
         if config.documents:
             documents: dict[str, JsonValue] = {}
             if config.documents.type:
@@ -415,46 +428,8 @@ class InfieldV2ConfigCreator(MigrationCreator):
         if config.notifications:
             data_exploration["notifications"] = config.notifications.dump()
         if config.asset_page_configuration:
-            data_exploration["assets"] = config.asset_page_configuration.dump()
+            dumped = config.asset_page_configuration.dump()
+            # Linkable Asset Key is used for implicit connections in the old Asset.metaadata.
+            dumped.pop("linkableAssetKeys", None)
+            data_exploration["assets"] = dumped
         return data_exploration
-
-    def _create_data_filter(self, filter: RootLocationDataFilters) -> dict[str, JsonValue] | None:
-        data_filters: dict[str, JsonValue] = {}
-        if filter.assets:
-            data_filters["assets"] = self._create_resource_filter(filter.assets)
-        if filter.files:
-            data_filters["files"] = self._create_resource_filter(filter.files)
-        if filter.timeseries:
-            data_filters["timeseries"] = self._create_resource_filter(filter.timeseries)
-        if filter.general:
-            general = self._create_resource_filter(filter.general)
-            data_filters["maintenanceOrders"] = general.copy()
-            data_filters["operations"] = general.copy()
-            data_filters["notifications"] = general.copy()
-
-        return data_filters or None
-
-    def _create_resource_filter(self, filter: ResourceFilters) -> dict[str, JsonValue]:
-        resource_filter: dict[str, JsonValue] = {}
-        instance_spaces: list[str] = []
-        if filter.spaces:
-            instance_spaces.extend(filter.spaces)
-        if filter.data_set_ids:
-            migrated_space = self.client.migration.space_source.retrieve(filter.data_set_ids)
-            instance_spaces.extend([space.space for space in migrated_space])
-        if instance_spaces:
-            # list[str] is a valid JsonValue
-            resource_filter["instanceSpaces"] = instance_spaces  # type: ignore[assignment]
-
-        if filter.root_asset_external_ids:
-            result = self.client.migration.lookup.assets(external_id=filter.root_asset_external_ids)
-            if missing := set(filter.root_asset_external_ids) - set(result.keys()):
-                self.client.console.print(
-                    "[bold yellow]Warning:[/bold yellow] The following root asset external IDs "
-                    "were not found and will be ignored in the filter: "
-                )
-                self.client.console.print(f"{humanize_collection(missing)}")
-            if result:
-                # list[dict[str, str]] is a valid JsonValue
-                resource_filter["paths"] = [item.dump(include_instance_type=False) for item in result.values()]  # type: ignore[misc]
-        return resource_filter
