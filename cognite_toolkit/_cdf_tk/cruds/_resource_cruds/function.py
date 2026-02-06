@@ -549,12 +549,7 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
 
     def dump_resource(self, resource: FunctionScheduleResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # Dump the response fields directly since as_request_resource() is not supported
-        dumped = resource.dump()
-        # Remove response-only fields
-        dumped.pop("id", None)
-        dumped.pop("createdTime", None)
-        dumped.pop("when", None)
-        dumped.pop("sessionId", None)
+        dumped = resource.as_request_resource().dump()
         local = local or {}
         if "functionId" in dumped and "functionId" not in local:
             dumped.pop("functionId")
@@ -650,22 +645,13 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
             for schedules in self.client.tool.functions.schedules.iterate():
                 yield from schedules
         else:
-            external_ids = [
-                parent_id.external_id if isinstance(parent_id, ExternalId) else parent_id
-                for parent_id in parent_ids
-                if isinstance(parent_id, (str, ExternalId))
-            ]
+            external_ids = [parent_id.external_id for parent_id in parent_ids if isinstance(parent_id, ExternalId)]
             if not external_ids:
                 return
             internal_ids = self.client.lookup.functions.id(external_ids)
-            all_schedules = self.client.tool.functions.schedules.list()
-            for func_id, func_external_id in zip(internal_ids, external_ids):
-                for schedule in all_schedules:
-                    if schedule.function_id == func_id:
-                        # FunctionExternalId is not set in the schedule object returned from the API,
-                        # so we need to set it here.
-                        schedule.function_external_id = func_external_id
-                        yield schedule
+            for function_id in internal_ids:
+                for schedules in self.client.tool.functions.schedules.iterate(function_id=function_id):
+                    yield from schedules
 
     def sensitive_strings(self, item: FunctionScheduleRequest) -> Iterable[str]:
         id_ = self.get_id(item)

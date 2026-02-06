@@ -380,10 +380,7 @@ FunctionResponse:
   secrets:
     mysecret: ${ENVIRONMENT_SECRET}
 FunctionScheduleResponse:
-- authentication:
-    clientId: dummy-123
-    clientSecret: dummy-secret
-  cronExpression: 0 8 * * *
+- cronExpression: 0 8 * * *
   data:
     breakfast: 'today: peanut butter sandwich and coffee'
     dinner: 'today: steak and red wine'
