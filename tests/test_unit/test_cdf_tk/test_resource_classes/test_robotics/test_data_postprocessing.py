@@ -53,7 +53,7 @@ def invalid_robot_data_postprocessing_cases() -> Iterable:
     )
     yield pytest.param(
         {"name": "Test PostProcessing", "externalId": "postproc_001", "method": "test_method", "unknownField": "value"},
-        {"Unused field: 'unknownField'"},
+        {"Unknown field: 'unknownField'"},
         id="unknown-field-present",
     )
 

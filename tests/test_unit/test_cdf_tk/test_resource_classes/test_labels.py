@@ -15,8 +15,8 @@ def invalid_label_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"externalId": "equipment:pump", "dataSetId": 123},
-        {"Unused field: 'dataSetId'", "Missing required field: 'name'"},
-        id="Unused field: dataSetId and missing name",
+        {"Unknown field: 'dataSetId'", "Missing required field: 'name'"},
+        id="Unknown field: dataSetId and missing name",
     )
 
 

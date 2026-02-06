@@ -171,13 +171,13 @@ class TestDataModelYAML:
                     "version": "v1",
                     "unknown_field": "some_value",
                 },
-                ["Unused field: 'unknown_field'"],
+                ["Unknown field: 'unknown_field'"],
                 id="single-unknown-field",
             ),
         ],
     )
     def test_data_model_with_extra_fields(self, data: dict, expected_errors: str) -> None:
-        """Test that data models with extra/unused properties are properly rejected."""
+        """Test that data models with extra/unknown properties are properly rejected."""
         warning_list = validate_resource_yaml_pydantic(data, DataModelYAML, Path("test.yaml"))
         assert len(warning_list) >= 1
         format_warning = warning_list[0]

@@ -15,8 +15,8 @@ def invalid_asset_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"externalId": "asset_1", "name": "Asset 1", "parentId": 123},
-        {"Unused field: 'parentId'"},
-        id="Unused field: parentId",
+        {"Unknown field: 'parentId'"},
+        id="Unknown field: parentId",
     )
 
 

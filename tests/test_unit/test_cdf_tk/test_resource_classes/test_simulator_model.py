@@ -39,8 +39,8 @@ def invalid_simulator_model_test_cases() -> Iterable:
             "type": "steady_state",
             "id": 123,
         },
-        {"Unused field: 'id'"},
-        id="Unused field: id",
+        {"Unknown field: 'id'"},
+        id="Unknown field: id",
     )
     yield pytest.param(
         {
@@ -51,8 +51,8 @@ def invalid_simulator_model_test_cases() -> Iterable:
             "type": "steady_state",
             "dataSetId": 123,
         },
-        {"Unused field: 'dataSetId'"},
-        id="Unused field: dataSetId (should use dataSetExternalId)",
+        {"Unknown field: 'dataSetId'"},
+        id="Unknown field: dataSetId (should use dataSetExternalId)",
     )
 
 

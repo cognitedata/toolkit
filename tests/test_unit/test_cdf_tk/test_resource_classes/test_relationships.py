@@ -23,9 +23,9 @@ def invalid_relationship_test_cases() -> Iterable:
             "Missing required field: 'sourceType'",
             "Missing required field: 'targetExternalId'",
             "Missing required field: 'targetType'",
-            "Unused field: 'dataSetId'",
+            "Unknown field: 'dataSetId'",
         },
-        id="Unused field: dataSetId and missing name",
+        id="Unknown field: dataSetId and missing name",
     )
 
 

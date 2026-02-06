@@ -12,7 +12,7 @@ from tests.test_unit.utils import find_resources
 def invalid_database_test_cases() -> Iterable:
     yield pytest.param(
         {"name": "Asset 1"},
-        {"Unused field: 'name'", "Missing required field: 'dbName'"},
+        {"Unknown field: 'name'", "Missing required field: 'dbName'"},
         id="Missing required field: dbName",
     )
     yield pytest.param(

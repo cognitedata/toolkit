@@ -45,7 +45,7 @@ def invalid_edge_test_cases() -> Iterable:
             **_EDGE_TEST_DATA,
             "unknownField": "value",
         },
-        {"Unused field: 'unknownField'"},
+        {"Unknown field: 'unknownField'"},
         id="unknown-field-present",
     )
     yield pytest.param(
@@ -89,7 +89,7 @@ def invalid_edge_test_cases() -> Iterable:
                 "unknownField": "value",
             },
         },
-        {"In type unused field: 'unknownField'"},
+        {"In type unknown field: 'unknownField'"},
         id="unknown-field-node-type",
     )
     yield pytest.param(
