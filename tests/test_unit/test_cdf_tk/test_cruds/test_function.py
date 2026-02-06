@@ -17,6 +17,7 @@ from cognite.client.data_classes.capabilities import FilesAcl, FunctionsAcl
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import FunctionCRUD, FunctionScheduleCRUD, ResourceWorker
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError, ToolkitRequiredValueError
@@ -44,7 +45,7 @@ class TestFunctionLoader:
         )
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
 
-        assert isinstance(loaded, FunctionWrite)
+        assert isinstance(loaded, FunctionRequest)
 
     def test_update_secrets(
         self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
@@ -55,10 +56,12 @@ secrets:
     secret1: value1
     secret2: value2
         """
-        cdf_function = Function(
+        cdf_function = FunctionResponse(
+            id=123,
             name="my_function",
             external_id="my_function",
             file_id=123,
+            created_time=0,
             status="Ready",
             metadata={
                 FunctionCRUD._MetadataKey.function_hash: FunctionCRUD._create_hash_values(tmp_path / "my_function"),
@@ -75,7 +78,7 @@ secrets:
                 "secret2": "***",
             },
         )
-        toolkit_client_approval.append(Function, cdf_function)
+        toolkit_client_approval.append(FunctionResponse, cdf_function)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_yaml
@@ -91,14 +94,29 @@ secrets:
             "unchanged": len(resources.unchanged),
         } == {"create": 0, "update": 0, "delete": 0, "unchanged": 1}
 
-        toolkit_client_approval.clear_cdf_resources(Function)
-        cdf_function.metadata[FunctionCRUD._MetadataKey.secret_hash] = calculate_secure_hash(
-            {
-                "secret1": "value1",
-                "secret2": "updated_value2",
-            }
+        toolkit_client_approval.clear_cdf_resources(FunctionResponse)
+        cdf_function = FunctionResponse(
+            id=123,
+            name="my_function",
+            external_id="my_function",
+            file_id=123,
+            created_time=0,
+            status="Ready",
+            metadata={
+                FunctionCRUD._MetadataKey.function_hash: FunctionCRUD._create_hash_values(tmp_path / "my_function"),
+                FunctionCRUD._MetadataKey.secret_hash: calculate_secure_hash(
+                    {
+                        "secret1": "value1",
+                        "secret2": "updated_value2",
+                    }
+                ),
+            },
+            secrets={
+                "secret1": "***",
+                "secret2": "***",
+            },
         )
-        toolkit_client_approval.append(Function, cdf_function)
+        toolkit_client_approval.append(FunctionResponse, cdf_function)
         resources = worker.prepare_resources([filepath])
 
         assert {
@@ -115,10 +133,12 @@ secrets:
             external_id="my_function",
             index_url="http://my-index-url",
         ).dump()
-        cdf_function = Function(
+        cdf_function = FunctionResponse(
+            id=123,
             name="my_function",
             file_id=123,
             external_id="my_function",
+            created_time=0,
             metadata={
                 FunctionCRUD._MetadataKey.function_hash: calculate_directory_hash(
                     tmp_path / "my_function", exclude_prefixes={".DS_Store"}

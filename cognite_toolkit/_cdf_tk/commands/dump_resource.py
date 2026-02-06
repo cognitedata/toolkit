@@ -620,10 +620,14 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
             selected_functions = FunctionList([f for f in self.functions if f.external_id in self.identifier])
             yield [], selected_functions, loader, None
         else:
-            yield list(self.identifier), None, loader, None
+            # Convert string identifiers to ExternalId objects
+            external_ids = [ExternalId(external_id=ext_id) for ext_id in self.identifier]
+            yield external_ids, None, loader, None
 
         schedule_loader = FunctionScheduleCRUD.create_loader(self.client)
-        schedules = schedule_loader.iterate(parent_ids=list(self.identifier))
+        # Pass ExternalId objects as parent_ids
+        parent_external_ids = [ExternalId(external_id=ext_id) for ext_id in self.identifier]
+        schedules = schedule_loader.iterate(parent_ids=parent_external_ids)
         yield [], FunctionSchedulesList(list(schedules)), schedule_loader, None
 
     def dump_function_code(self, function: Function, folder: Path) -> None:

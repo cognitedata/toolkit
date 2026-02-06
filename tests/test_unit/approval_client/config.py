@@ -123,6 +123,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
     FunctionScheduleResponse,
@@ -1051,12 +1052,12 @@ API_RESOURCES = [
     ),
     APIResource(
         api_name="tool.functions",
-        resource_cls=FunctionScheduleResponse,
-        _write_cls=FunctionScheduleRequest,
+        resource_cls=FunctionResponse,
+        _write_cls=FunctionRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
-                Method(api_class_method="list", mock_class_method="list"),
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
             ],
         },
     ),

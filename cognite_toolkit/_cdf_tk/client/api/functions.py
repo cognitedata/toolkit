@@ -10,10 +10,10 @@ from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedu
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId, InternalOrExternalId
 
 
-class FunctionsAPI(CDFResourceAPI[InternalId, FunctionRequest, FunctionResponse]):
+class FunctionsAPI(CDFResourceAPI[InternalOrExternalId, FunctionRequest, FunctionResponse]):
     """API for managing CDF functions.
 
     Note: Functions do not support update operations.
@@ -47,11 +47,13 @@ class FunctionsAPI(CDFResourceAPI[InternalId, FunctionRequest, FunctionResponse]
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[InternalId], ignore_unknown_ids: bool = False) -> list[FunctionResponse]:
+    def retrieve(
+        self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False
+    ) -> list[FunctionResponse]:
         """Retrieve functions from CDF by ID.
 
         Args:
-            items: List of InternalId objects to retrieve.
+            items: List of ExternalId or InternalId objects to retrieve.
             ignore_unknown_ids: Whether to ignore unknown IDs.
 
         Returns:
@@ -61,11 +63,11 @@ class FunctionsAPI(CDFResourceAPI[InternalId, FunctionRequest, FunctionResponse]
             items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
         )
 
-    def delete(self, items: Sequence[InternalId], ignore_unknown_ids: bool = False) -> None:
+    def delete(self, items: Sequence[InternalOrExternalId], ignore_unknown_ids: bool = False) -> None:
         """Delete functions from CDF.
 
         Args:
-            items: List of InternalId objects to delete.
+            items: List of ExternalId or InternalId objects to delete.
             ignore_unknown_ids: Whether to ignore unknown IDs.
         """
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
