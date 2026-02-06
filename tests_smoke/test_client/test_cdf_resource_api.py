@@ -709,7 +709,9 @@ class TestCDFResourceAPI:
 
             # List workflow versions
             version_list_endpoint = client.tool.workflows.versions._method_endpoint_map["list"]
-            listed_versions = list(client.tool.workflows.versions.list(limit=1))
+            listed_versions = list(
+                client.tool.workflows.versions.list(workflow_external_id=workflow_request.external_id, limit=1)
+            )
             if len(listed_versions) == 0:
                 raise EndpointAssertionError(
                     version_list_endpoint.path, "Expected at least 1 listed workflow version, got 0"
