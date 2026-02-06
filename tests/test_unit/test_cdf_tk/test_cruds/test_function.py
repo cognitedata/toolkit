@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import responses
+import respx
 import yaml
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
@@ -17,6 +18,7 @@ from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import FunctionCRUD, FunctionScheduleCRUD, ResourceWorker
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError, ToolkitRequiredValueError
@@ -279,14 +281,20 @@ authentication:
                 "123789109801",
                 "${MY_SUPER_SECRET}",
                 ResourceCreationError(
-                    "Failed to create Function Schedule FunctionScheduleID(function_external_id='fn_example_repeater', name='daily-8am-utc'): The environment variable is not set: MY_SUPER_SECRET"
+                    "Failed to create Function Schedule functionExternalId='fn_example_repeater', "
+                    "name='daily-8am-utc': The environment variable is not set: MY_SUPER_SECRET."
                 ),
                 id="Invalid credentials missing envrionment variable",
             ),
         ],
     )
     def test_create_error_message_invalid_credentials(
-        self, client_id: str, client_secret: str, expected_error: Exception, toolkit_config: ToolkitClientConfig
+        self,
+        client_id: str,
+        client_secret: str,
+        expected_error: Exception,
+        toolkit_config: ToolkitClientConfig,
+        respx_mock: respx.MockRouter,
     ) -> None:
         config = toolkit_config
         with responses.RequestsMock() as rsps:
@@ -314,7 +322,7 @@ authentication:
             )
             client = ToolkitClient(toolkit_config)
             loader = FunctionScheduleCRUD(client, None, None)
-            schedule = FunctionScheduleWrite(
+            schedule = FunctionScheduleRequest(
                 name="daily-8am-utc",
                 function_external_id="fn_example_repeater",
                 cron_expression="0 8 * * *",
@@ -325,7 +333,7 @@ authentication:
                 client_secret=client_secret,
             )
             with pytest.raises(type(expected_error)) as exc_val:
-                loader.create(FunctionScheduleWriteList([schedule]))
+                loader.create([schedule])
 
             assert str(expected_error) in str(exc_val.value)
 
@@ -350,6 +358,6 @@ authentication:
 
             assert (
                 "Failed to create function schedule "
-                "FunctionScheduleID(function_external_id='fn_non_existent_function', name='daily-8am-utc'). "
-                "Could not find function 'fn_non_existent_function'"
+                "functionExternalId='fn_non_existent_function', name='daily-8am-utc'. Could "
+                "not find function 'fn_non_existent_function'"
             ) in str(exc_val.value)

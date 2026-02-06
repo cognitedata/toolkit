@@ -538,7 +538,9 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
                 console=self.console
             )
             resource.pop("functionId", None)
-
+        # Remove authentication from resource dict as it contains clientId/clientSecret
+        # which are stored separately in _authentication_by_id and converted to nonce at creation time
+        resource.pop("authentication", None)
         return FunctionScheduleRequest.model_validate(resource)
 
     def dump_resource(self, resource: FunctionScheduleResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
