@@ -377,6 +377,20 @@ class ApprovalToolkitClient:
             deleted_resources[resource_cls.__name__].extend(deleted)
             return deleted
 
+        def delete(items: Sequence, *_, **__) -> list:
+            """Generic delete mock for tool.* APIs that accept reference/identifier sequences."""
+            dumped = []
+            for item in items:
+                if hasattr(item, "model_dump"):
+                    dumped.append(item.model_dump(by_alias=True))
+                elif hasattr(item, "dump"):
+                    dumped.append(item.dump(camel_case=True))
+                else:
+                    dumped.append(item)
+            if dumped:
+                deleted_resources[resource_cls.__name__].extend(dumped)
+            return dumped
+
         available_delete_methods = {
             fn.__name__: fn
             for fn in [
@@ -385,6 +399,7 @@ class ApprovalToolkitClient:
                 delete_raw,
                 delete_data_modeling,
                 delete_space,
+                delete,
             ]
         }
         if mock_method not in available_delete_methods:
