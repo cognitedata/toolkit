@@ -12,8 +12,6 @@ from cognite.client.data_classes import (
     ExtractionPipeline,
     ExtractionPipelineList,
     FileMetadataList,
-    Function,
-    FunctionList,
     Group,
     GroupList,
     Transformation,
@@ -525,18 +523,11 @@ class TestDumpFunctions:
         expected = sorted([loader.dump_resource(func) for func in three_functions[1:]], key=lambda d: d["externalId"])
         assert items == expected
 
-    def test_interactive_select_functions(self, monkeypatch: MonkeyPatch) -> None:
-        # Create FunctionList for the legacy client.functions.list mock
-        legacy_functions = FunctionList(
-            [
-                Function(external_id="functionA", name="Function A", file_id=1),
-                Function(external_id="functionB", name="Function B", file_id=2),
-                Function(external_id="functionC", name="Function C", file_id=3),
-            ]
-        )
-
+    def test_interactive_select_functions(
+        self, monkeypatch: MonkeyPatch, three_functions: list[FunctionResponse]
+    ) -> None:
         def select_functions(choices: list[Choice]) -> list[str]:
-            assert len(choices) == len(legacy_functions)
+            assert len(choices) == len(three_functions)
             return [choices[1].value, choices[2].value]
 
         answers = [select_functions]
@@ -545,7 +536,7 @@ class TestDumpFunctions:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(FunctionFinder.__module__, monkeypatch, answers),
         ):
-            client.functions.list.return_value = legacy_functions
+            client.tool.functions.list.return_value = three_functions
             finder = FunctionFinder(client, None)
             selected = finder._interactive_select()
 
