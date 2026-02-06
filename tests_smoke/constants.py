@@ -1,1 +1,3 @@
 SMOKE_SPACE = "toolkit_smoke_test_space"
+SMOKE_TEST_CONTAINER_EXTERNAL_ID = "toolkit_smoke_test_container"
+SMOKE_TEST_VIEW_EXTERNAL_ID = "toolkit_smoke_test_dataset"
