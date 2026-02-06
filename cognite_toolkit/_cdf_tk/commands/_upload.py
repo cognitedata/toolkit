@@ -202,10 +202,8 @@ class UploadCommand(ToolkitCommand):
                 if io is None:
                     continue
                 reader = MultiFileReader(datafiles)
-                if (reader.is_table and not isinstance(io, TableUploadableStorageIO)) and (
-                    # FileContentIO supports uploading any file format.
-                    not isinstance(io, FileContentIO)
-                ):
+                # FileContentIO supports uploading any file format.
+                if reader.is_table and not isinstance(io, TableUploadableStorageIO | FileContentIO):
                     raise ToolkitValueError(f"{selector.display_name} does not support {reader.format!r} files.")
 
                 chunk_count = io.count_chunks(reader)
