@@ -277,6 +277,10 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
             if key in local and local[key] in {None, ""} and key not in dumped:
                 dumped[key] = local[key]
 
+        if dumped.get("runtime") == "py312" and "runtime" not in local:
+            # Remove the default value of the runtime for Python 3.12, as it is the default runtime and does not need to be specified.
+            dumped.pop("runtime", None)
+
         return dumped
 
     def _is_activated(self, action: str) -> bool:

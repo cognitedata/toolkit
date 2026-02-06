@@ -21,7 +21,6 @@ class FunctionBase(BaseModelObject):
     cpu: float | None = None
     memory: float | None = None
     runtime: Literal["py310", "py311", "py312"] | None = None
-    runtime_version: str | None = None
     metadata: dict[str, str] | None = None
     index_url: str | None = None
     extra_index_urls: list[str] | None = None
@@ -46,6 +45,7 @@ class FunctionResponse(FunctionBase, ResponseResource[FunctionRequest]):
 
     id: int
     created_time: int
+    runtime_version: str | None = None
     status: FunctionStatus | None = None
     error: FunctionAPIError | None = None
 
