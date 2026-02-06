@@ -39,7 +39,14 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoi
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeRequest, NodeRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerRequest,
+    DataModelRequest,
+    EdgeRequest,
+    NodeRequest,
+    SpaceRequest,
+    ViewRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineRequest
@@ -60,12 +67,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId, InternalIdUnwrapped
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    ContainerRequest,
-    DataModelRequest,
-    SpaceRequest,
-    ViewRequest,
-)
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
@@ -87,7 +88,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import Non
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionRequest
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
-from tests_smoke.constants import SMOKE_SPACE, SMOKE_TEST_VIEW_EXTERNAL_ID, SMOKE_TEST_CONTAINER_EXTERNAL_ID
+from tests_smoke.constants import SMOKE_SPACE, SMOKE_TEST_CONTAINER_EXTERNAL_ID, SMOKE_TEST_VIEW_EXTERNAL_ID
 from tests_smoke.exceptions import EndpointAssertionError
 
 NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
@@ -337,10 +338,10 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
                 },
             }
         ],
-        SpaceRequest: [{"space": "smoke-test-space"}],
+        SpaceRequest: [{"space": "smoke_test_space"}],
         ContainerRequest: [
             {
-                "externalId": "smoke-test-container",
+                "externalId": "smoke_test_container",
                 "space": SMOKE_SPACE,
                 "properties": {
                     "name": {"type": {"type": "text"}},
@@ -349,7 +350,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         ],
         ViewRequest: [
             {
-                "externalId": "smoke-test-view",
+                "externalId": "smoke_test_view",
                 "space": SMOKE_SPACE,
                 "version": "v1",
                 "properties": {
@@ -365,7 +366,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         ],
         DataModelRequest: [
             {
-                "externalId": "smoke-test-data-model",
+                "externalId": "smoke_test_data_model",
                 "space": SMOKE_SPACE,
                 "version": "v1",
                 "views": [
