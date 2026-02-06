@@ -4,7 +4,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Reque
 
 from .identifiers import ExternalId
 
-FunctionStatus: TypeAlias = Literal["Queued", "Deploying", "Ready", "Failed"]
+FunctionStatus: TypeAlias = Literal["Queued", "Deploying", "Ready", "Failed", "Retired"]
 
 
 class FunctionBase(BaseModelObject):
@@ -20,7 +20,7 @@ class FunctionBase(BaseModelObject):
     env_vars: dict[str, str] | None = None
     cpu: float | None = None
     memory: float | None = None
-    runtime: Literal["py310", "py311", "py312"] | None = None
+    runtime: Literal["py38", "py39", "py310", "py311", "py312"] | None = None
     metadata: dict[str, str] | None = None
     index_url: str | None = None
     extra_index_urls: list[str] | None = None

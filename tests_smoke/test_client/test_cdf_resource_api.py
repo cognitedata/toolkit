@@ -1,6 +1,7 @@
+import io
 import types
+import zipfile
 from collections.abc import Callable, Hashable, Iterable, Set
-from pathlib import Path
 from typing import Annotated, Any, get_args, get_origin
 
 import pytest
@@ -35,7 +36,7 @@ from cognite_toolkit._cdf_tk.client.api.three_d import (
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeRequest, NodeRequest
@@ -336,29 +337,60 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
     except KeyError:
         raise NotImplementedError(f"No example request defined for {request_cls.__name__}")
 
+
 @pytest.fixture(scope="module")
-def function_code(toolkit_client: ToolkitClient, tmp_path: Path) -> FileMetadataResponse:
-    code = '''from cognite.client import CogniteClient
-
-
-def handle(client: CogniteClient, data: dict, function_call_info: dict) -> str:
-    print("Print statements will be shown in the logs.")
-    print("Running with the following configuration:\n")
-    return {
-        "data": data,
-        "functionInfo": function_call_info,
-    }
-'''
+def function_code(toolkit_client: ToolkitClient) -> FileMetadataResponse:
     metadata = FileMetadataRequest(
         name="Smoke test function code",
         external_id="smoke-test-function-code",
         mime_type="application/zip",
     )
 
-    file_response = toolkit_client.tool.filemetadata.retrieve([metadata.as_id()])
+    file_response = toolkit_client.tool.filemetadata.retrieve([metadata.as_id()], ignore_unknown_ids=True)
     if file_response:
+        if not file_response[0].uploaded:
+            raise EndpointAssertionError(
+                "/filemetadata",
+                "A file with the same external ID already exists but is not uploaded. Please delete or change the external ID of the existing file.",
+            )
         return file_response[0]
-    toolkit_client.functions.create()
+    code = """from cognite.client import CogniteClient
+
+
+    def handle(client: CogniteClient, data: dict, function_call_info: dict) -> str:
+        print("Print statements will be shown in the logs.")
+        print("Running with the following configuration:\n")
+        return {
+            "data": data,
+            "functionInfo": function_call_info,
+        }
+    """
+    # Create zip file in memory with handler.py
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("handler.py", code)
+    zip_content = zip_buffer.getvalue()
+
+    created = toolkit_client.tool.filemetadata.create([metadata])
+    if len(created) != 1:
+        raise EndpointAssertionError("/filemetadata", f"Expected 1 created file metadata, got {len(created)}")
+    file = created[0]
+    if file.upload_url is None:
+        raise EndpointAssertionError("/filemetadata", "No upload URL returned for the created file metadata.")
+    response = toolkit_client.http_client.request_single_retries(
+        RequestMessage(
+            endpoint_url=file.upload_url,
+            method="PUT",
+            content_type="application/zip",
+            data_content=zip_content,
+        )
+    )
+    if not isinstance(response, SuccessResponse):
+        raise EndpointAssertionError(
+            "/filemetadata",
+            f"Failed to upload function code to the provided upload URL. {response!s}",
+        )
+    return file
 
 
 @pytest.mark.usefixtures("smoke_space")
@@ -914,3 +946,87 @@ class TestCDFResourceAPI:
             # Clean up
             if location_filter_id is not None:
                 client.tool.location_filters.delete([location_filter_id])
+
+    def test_function_crudls(self, toolkit_client: ToolkitClient, function_code: FileMetadataResponse) -> None:
+        client = toolkit_client
+
+        function_example = get_examples_minimum_requests(FunctionRequest)[0]
+        function_example["fileId"] = function_code.id
+        function_request = FunctionRequest.model_validate(function_example)
+        function_id = function_request.as_id()
+
+        schedule_example = get_examples_minimum_requests(FunctionScheduleRequest)[0]
+        function_schedule_request = FunctionScheduleRequest.model_validate(schedule_example)
+
+        schedule_id: InternalId | None = None
+
+        try:
+            # Create function
+            create_endpoint = client.tool.functions._method_endpoint_map["create"]
+            try:
+                created_list = client.tool.functions.create([function_request])
+            except ToolkitAPIError:
+                raise EndpointAssertionError(create_endpoint.path, "Creating function instance failed.")
+            if len(created_list) != 1:
+                raise EndpointAssertionError(
+                    create_endpoint.path, f"Expected 1 created function, got {len(created_list)}"
+                )
+            if created_list[0].as_request_resource().as_id() != function_id:
+                raise EndpointAssertionError(create_endpoint.path, "Created function ID does not match requested ID.")
+            created = created_list[0]
+
+            # Retrieve function
+            retrieve_endpoint = client.tool.functions._method_endpoint_map["retrieve"]
+            self.assert_endpoint_method(
+                lambda: client.tool.functions.retrieve([function_id]),
+                "retrieve",
+                retrieve_endpoint,
+                function_id,
+            )
+            # List functions
+            list_endpoint = client.tool.functions._method_endpoint_map["list"]
+            listed = list(client.tool.functions.list(limit=1))
+            if len(listed) == 0:
+                raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed function, got 0")
+
+            # Create function schedule (dependent on function)
+            function_schedule_request.function_id = created.id
+            function_schedule_request.nonce = toolkit_client.iam.sessions.create(
+                session_type="ONESHOT_TOKEN_EXCHANGE"
+            ).nonce
+            schedule_create_endpoint = client.tool.functions.schedules._method_endpoint_map["create"]
+            try:
+                created_schedule_list = client.tool.functions.schedules.create([function_schedule_request])
+            except ToolkitAPIError:
+                raise EndpointAssertionError(
+                    schedule_create_endpoint.path, "Creating function schedule instance failed."
+                )
+            if len(created_schedule_list) != 1:
+                raise EndpointAssertionError(
+                    schedule_create_endpoint.path,
+                    f"Expected 1 created function schedule, got {len(created_schedule_list)}",
+                )
+            created_schedule = created_schedule_list[0]
+            schedule_id = created_schedule.as_request_resource().as_id()
+            self.assert_endpoint_method(
+                lambda: client.tool.functions.schedules.retrieve([schedule_id]),
+                "retrieve",
+                client.tool.functions.schedules._method_endpoint_map["retrieve"],
+                schedule_id,
+            )
+
+            # List function schedules
+            schedule_list_endpoint = client.tool.functions.schedules._method_endpoint_map["list"]
+            try:
+                listed_schedules = client.tool.functions.schedules.list(function_id=created.id, limit=1)
+            except ToolkitAPIError:
+                raise EndpointAssertionError(schedule_list_endpoint.path, "Listing function schedules failed.")
+            if len(listed_schedules) == 0:
+                raise EndpointAssertionError(
+                    schedule_list_endpoint.path, "Expected at least 1 listed function schedule, got 0"
+                )
+        finally:
+            # Clean up
+            if schedule_id is not None:
+                client.tool.functions.schedules.delete([schedule_id])
+            client.tool.functions.delete([function_id], ignore_unknown_ids=True)
