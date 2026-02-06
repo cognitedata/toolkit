@@ -7,6 +7,8 @@ import pytest
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
+from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
+from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from cognite_toolkit._cdf_tk.client.api.infield import APMConfigAPI, InFieldCDMConfigAPI
 from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI, WrappedInstancesAPI
@@ -40,6 +42,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetReque
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationRequest,
 )
@@ -118,6 +122,9 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         APMConfigAPI,
         # Update and list have to be specially handled due to the way the API works.
         LocationFiltersAPI,
+        # Dependency between Functions and FunctionSchedules makes it hard to test them in a generic way.
+        FunctionsAPI,
+        FunctionSchedulesAPI,
     }
 )
 
@@ -168,6 +175,13 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         DataSetRequest: [{"externalId": "smoke-tests-crudl-dataset"}],
         EventRequest: [{"externalId": "smoke-test-event"}],
         FileMetadataRequest: [{"name": "smoke-test-file", "externalId": "smoke-test-file"}],
+        FunctionRequest: [{"externalId": "smoke-test-function", "name": "smoke-test-function", "fileId": -1}],
+        FunctionScheduleRequest: [
+            {
+                "name": "smoke-test-function-schedule",
+                "cronExpression": "0 0 * * *",
+            }
+        ],
         ExtractionPipelineRequest: [
             {
                 "name": "smoke-test-pipeline",

@@ -349,7 +349,7 @@ FileMetadataResponse:
   mimeType: text/plain
   name: classicfile.txt
   source: doctrino
-Function:
+FunctionResponse:
 - description: This function stores its code in a Cognite File.
   externalId: fn_data_modeling_only_function
   fileId: 8
@@ -379,8 +379,11 @@ Function:
   runtime: py311
   secrets:
     mysecret: ${ENVIRONMENT_SECRET}
-FunctionSchedule:
-- cronExpression: 0 8 * * *
+FunctionScheduleResponse:
+- authentication:
+    clientId: dummy-123
+    clientSecret: dummy-secret
+  cronExpression: 0 8 * * *
   data:
     breakfast: 'today: peanut butter sandwich and coffee'
     dinner: 'today: steak and red wine'
