@@ -24,7 +24,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigResponse,
     Discipline,
     FeatureConfiguration,
+    ResourceFilters,
     RootLocationConfiguration,
+    RootLocationDataFilters,
+    RootLocationFeatureToggles,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
@@ -348,8 +351,8 @@ class InfieldV2ConfigCreator(MigrationCreator):
         else:
             external_id = f"infield_location_{index}_{uuid.uuid4()}"
 
-        feature_toggles: dict[str, Any] = {}
-        if config.feature_toggles is not None:
+        feature_toggles: dict[str, Any] | None = None
+        if isinstance(config.feature_toggles, RootLocationFeatureToggles):
             feature_toggles = config.feature_toggles.dump()
             if config.feature_toggles.observations:
                 feature_toggles["observations"] = config.feature_toggles.observations.is_enabled
@@ -361,18 +364,36 @@ class InfieldV2ConfigCreator(MigrationCreator):
         if config.checklist_admins:
             access_management["checklistAdmins"] = config.checklist_admins  # type: ignore[assignment]
 
-        # Todo:
-        #   - view_mappings
-        #   - data_storage
+        data_filters: dict[str, JsonValue] | None = None
+        if isinstance(config.data_filters, RootLocationDataFilters):
+            data_filters = self._create_data_filter(config.data_filters)
+        data_storage: dict[str, JsonValue] = {
+            "rootLocation": {
+                "space": "<Please fill in the space for the root location>",
+                "externalId": "<Please fill in the external ID for the root location>",
+            }
+        }
+        if config.app_data_instance_space:
+            data_storage["appDataInstanceSpace"] = config.app_data_instance_space
+        view_mappings: dict[str, JsonValue] = {}
+        for key in ["asset", "operation", "notification", "maintenanceOrder", "file"]:
+            view_mappings[key] = {
+                "space": "<Please fill in the space for the asset view>",
+                "externalId": "<Please fill in the external ID for the asset view>",
+                "version": "<Please fill in the version for the asset view>",
+            }
+
         return InFieldCDMLocationConfigRequest(
             space=self.TARGET_SPACE,
             external_id=external_id,
             name="InField Location Config",
             description="Migrated InField Location Configuration",
-            feature_toggles=feature_toggles or None,
+            feature_toggles=feature_toggles,
             access_management=access_management or None,
-            data_filters=config.data_filters.dump() if config.data_filters else None,
+            data_filters=data_filters,
             disciplines=[discipline.dump() for discipline in disciplines] if disciplines else None,
+            data_storage=data_storage,
+            view_mappings=view_mappings,
             data_exploration_config=data_exploration or None,
         )
 
@@ -396,3 +417,44 @@ class InfieldV2ConfigCreator(MigrationCreator):
         if config.asset_page_configuration:
             data_exploration["assets"] = config.asset_page_configuration.dump()
         return data_exploration
+
+    def _create_data_filter(self, filter: RootLocationDataFilters) -> dict[str, JsonValue] | None:
+        data_filters: dict[str, JsonValue] = {}
+        if filter.assets:
+            data_filters["assets"] = self._create_resource_filter(filter.assets)
+        if filter.files:
+            data_filters["files"] = self._create_resource_filter(filter.files)
+        if filter.timeseries:
+            data_filters["timeseries"] = self._create_resource_filter(filter.timeseries)
+        if filter.general:
+            general = self._create_resource_filter(filter.general)
+            data_filters["maintenanceOrders"] = general.copy()
+            data_filters["operations"] = general.copy()
+            data_filters["notifications"] = general.copy()
+
+        return data_filters or None
+
+    def _create_resource_filter(self, filter: ResourceFilters) -> dict[str, JsonValue]:
+        resource_filter: dict[str, JsonValue] = {}
+        instance_spaces: list[str] = []
+        if filter.spaces:
+            instance_spaces.extend(filter.spaces)
+        if filter.data_set_ids:
+            migrated_space = self.client.migration.space_source.retrieve(filter.data_set_ids)
+            instance_spaces.extend([space.space for space in migrated_space])
+        if instance_spaces:
+            # list[str] is a valid JsonValue
+            resource_filter["instanceSpaces"] = instance_spaces  # type: ignore[assignment]
+
+        if filter.root_asset_external_ids:
+            result = self.client.migration.lookup.assets(external_id=filter.root_asset_external_ids)
+            if missing := set(filter.root_asset_external_ids) - set(result.keys()):
+                self.client.console.print(
+                    "[bold yellow]Warning:[/bold yellow] The following root asset external IDs "
+                    "were not found and will be ignored in the filter: "
+                )
+                self.client.console.print(f"{humanize_collection(missing)}")
+            if result:
+                # list[dict[str, str]] is a valid JsonValue
+                resource_filter["paths"] = [item.dump(include_instance_type=False) for item in result.values()]  # type: ignore[misc]
+        return resource_filter
