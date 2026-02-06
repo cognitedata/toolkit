@@ -60,6 +60,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId, InternalIdUnwrapped
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerRequest,
+    DataModelRequest,
+    SpaceRequest,
+    ViewRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
@@ -81,7 +87,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import Non
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionRequest
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
-from tests_smoke.constants import SMOKE_SPACE
+from tests_smoke.constants import SMOKE_SPACE, SMOKE_TEST_VIEW_EXTERNAL_ID, SMOKE_TEST_CONTAINER_EXTERNAL_ID
 from tests_smoke.exceptions import EndpointAssertionError
 
 NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
@@ -331,6 +337,46 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
                 },
             }
         ],
+        SpaceRequest: [{"space": "smoke-test-space"}],
+        ContainerRequest: [
+            {
+                "externalId": "smoke-test-container",
+                "space": SMOKE_SPACE,
+                "properties": {
+                    "name": {"type": {"type": "text"}},
+                },
+            }
+        ],
+        ViewRequest: [
+            {
+                "externalId": "smoke-test-view",
+                "space": SMOKE_SPACE,
+                "version": "v1",
+                "properties": {
+                    "name": {
+                        "container": {
+                            "space": SMOKE_SPACE,
+                            "externalId": SMOKE_TEST_CONTAINER_EXTERNAL_ID,
+                        },
+                        "containerPropertyIdentifier": "name",
+                    },
+                },
+            }
+        ],
+        DataModelRequest: [
+            {
+                "externalId": "smoke-test-data-model",
+                "space": SMOKE_SPACE,
+                "version": "v1",
+                "views": [
+                    {
+                        "space": SMOKE_SPACE,
+                        "externalId": SMOKE_TEST_VIEW_EXTERNAL_ID,
+                        "version": "v1",
+                    }
+                ],
+            }
+        ],
     }
     try:
         return requests[request_cls]
@@ -393,7 +439,7 @@ def function_code(toolkit_client: ToolkitClient) -> FileMetadataResponse:
     return file
 
 
-@pytest.mark.usefixtures("smoke_space")
+@pytest.mark.usefixtures("smoke_space", "smoke_container", "smoke_view")
 class TestCDFResourceAPI:
     def assert_endpoint_method(
         self, method: Callable[[], list[T_ResponseResource]], name: str, endpoint: Endpoint, id: Hashable | None = None
