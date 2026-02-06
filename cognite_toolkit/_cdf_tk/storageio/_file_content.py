@@ -444,5 +444,6 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
             )
 
     @classmethod
-    def count_chunks(cls, reader: MultiFileReader) -> int:
+    def count_items(cls, reader: MultiFileReader, selector: FileContentSelector | None = None) -> int:
+        # We upload one file at a time, so the number of items is the number of input files
         return len(reader.input_files)
