@@ -348,6 +348,12 @@ class InfieldV2ConfigCreator(MigrationCreator):
         else:
             external_id = f"infield_location_{index}_{uuid.uuid4()}"
 
+        feature_toggles: dict[str, Any] = {}
+        if config.feature_toggles is not None:
+            feature_toggles = config.feature_toggles.dump()
+            if config.feature_toggles.observations:
+                feature_toggles["observations"] = config.feature_toggles.observations.is_enabled
+
         access_management: dict[str, JsonValue] = {}
         if config.template_admins:
             # list[str] is a valid JsonValue
@@ -363,7 +369,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
             external_id=external_id,
             name="InField Location Config",
             description="Migrated InField Location Configuration",
-            feature_toggles=config.feature_toggles.dump() if config.feature_toggles else None,
+            feature_toggles=feature_toggles or None,
             access_management=access_management or None,
             data_filters=config.data_filters.dump() if config.data_filters else None,
             disciplines=[discipline.dump() for discipline in disciplines] if disciplines else None,
