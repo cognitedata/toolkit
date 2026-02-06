@@ -104,7 +104,7 @@ class TestFunctionScheduleLoader:
 
         # Function schedules cannot be updated, they must be deleted and recreated.
         loader.delete([identifier])
-        loader.create(FunctionScheduleWriteList([function_schedule]))
+        loader.create([function_schedule])
 
         retrieved = loader.retrieve([identifier])
         if not retrieved or retrieved[0].description != function_schedule.description:
@@ -153,7 +153,7 @@ class TestFunctionScheduleLoader:
             _ = client.functions.schedules.create(schedule)
         crud = FunctionScheduleCRUD(client, None, None)
 
-        schedules = list(crud.iterate(parent_ids=[dummy_function.external_id]))
+        schedules = list(crud.iterate(parent_ids=[ExternalId(external_id=dummy_function.external_id)]))
         assert len(schedules) >= 1
         assert any(s.name == schedule.name for s in schedules)
 
