@@ -242,7 +242,7 @@ class UploadableStorageIO(
         yield from chunker(iterable, cls.CHUNK_SIZE)
 
     @classmethod
-    def count_chunks(cls, reader: MultiFileReader) -> int:
+    def count_items(cls, reader: MultiFileReader) -> int:
         """Count the number of items in a MultiFileReader.
 
         This method can be overridden by subclasses to customize how items are counted.
