@@ -37,7 +37,7 @@ class TestDataPointsIO:
             io = DatapointsIO(client)
 
             reader = MultiFileReader([data_file])
-            item_count = io.count_items(reader)
+            item_count = io.count_items(reader, selector)
             assert item_count == n_rows * n_columns
 
             actual_chunks = list(io.read_chunks(reader, selector))

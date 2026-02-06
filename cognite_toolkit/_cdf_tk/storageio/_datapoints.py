@@ -458,3 +458,10 @@ class DatapointsIO(
             last_row = row_no
         if any(batch.values()):
             yield [(f"rows {start_row} to{last_row}", batch)]  # type: ignore[list-item]
+
+    @classmethod
+    def count_items(cls, reader: MultiFileReader, selector: DataPointsSelector | None = None) -> int:
+        count = reader.count()
+        if isinstance(selector, DataPointsFileSelector):
+            return count * len(selector.columns)
+        return count

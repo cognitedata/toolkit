@@ -204,7 +204,7 @@ class UploadCommand(ToolkitCommand):
                 if reader.is_table and not isinstance(io, TableUploadableStorageIO):
                     raise ToolkitValueError(f"{selector.display_name} does not support {reader.format!r} files.")
 
-                item_count = io.count_items(reader)
+                item_count = io.count_items(reader, selector)
                 iteration_count = item_count // io.CHUNK_SIZE + (1 if item_count % io.CHUNK_SIZE > 0 else 0)
 
                 tracker = ProgressTracker[str]([self._UPLOAD])
