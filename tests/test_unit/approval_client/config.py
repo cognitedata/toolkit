@@ -150,10 +150,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models 
     GraphQLDataModelList,
     GraphQLDataModelWrite,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
-    ResourceViewMapping,
-    ResourceViewMappingApply,
-)
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawDatabase
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import (
     SearchConfig,
@@ -167,6 +163,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseResponse,
     RAWTableResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
+    ResourceViewMappingRequest,
+    ResourceViewMappingResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotCapabilityRequest,
@@ -724,15 +724,12 @@ API_RESOURCES = [
     ),
     APIResource(
         api_name="migration.resource_view_mapping",
-        resource_cls=ResourceViewMapping,
-        _list_cls=NodeList[ResourceViewMapping],
-        _write_cls=ResourceViewMappingApply,
+        resource_cls=ResourceViewMappingResponse,
+        _write_cls=ResourceViewMappingRequest,
         methods={
-            "create": [Method(api_class_method="upsert", mock_class_method="create_nodes")],
-            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
+            "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
-                Method(api_class_method="list", mock_class_method="return_values"),
-                Method(api_class_method="retrieve", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
             ],
         },
     ),
