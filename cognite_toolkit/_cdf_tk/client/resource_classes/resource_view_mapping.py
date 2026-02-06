@@ -25,7 +25,7 @@ class ResourceViewMappingRequest(WrappedInstanceRequest, ResourceViewMapping):
     instance_type: Literal["node"] = "node"
 
     def as_id(self) -> TypedNodeIdentifier:
-        return TypedNodeIdentifier(space=self.space, external_id=self.view_id.external_id)
+        return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
 
 
 class ResourceViewMappingResponse(WrappedInstanceResponse[ResourceViewMappingRequest], ResourceViewMapping):

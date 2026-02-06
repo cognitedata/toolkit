@@ -20,7 +20,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartSource,
     ChartTimeseries,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier, NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
+    InstanceIdentifier,
+    NodeReference,
+    TypedNodeIdentifier,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     ContainerReferenceApply,
     FdmInstanceContainerReferenceApply,
@@ -57,6 +61,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import CanvasSelector, ChartSel
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
 
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import RESOURCE_VIEW_MAPPING_SPACE
 from .data_classes import AssetCentricMapping
 from .selectors import AssetCentricMigrationSelector
 
@@ -101,7 +106,9 @@ class AssetCentricMapper(
 
     def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
         ingestion_view_ids = source_selector.get_ingestion_mappings()
-        ingestion_views = self.client.migration.resource_view_mapping.retrieve(ingestion_view_ids)
+        ingestion_views = self.client.migration.resource_view_mapping.retrieve(
+            TypedNodeIdentifier.from_str_ids(ingestion_view_ids, space=RESOURCE_VIEW_MAPPING_SPACE)
+        )
         defaults = {mapping.external_id: mapping for mapping in create_default_mappings()}
         # Custom mappings from CDF override the default mappings
         self._view_mapping_by_id = defaults | {view.external_id: view.as_write() for view in ingestion_views}
