@@ -137,7 +137,7 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionReque
         """
         body: dict[str, Any] = {}
         if workflow_external_id:
-            body["workflowExternalId"] = workflow_external_id
+            body["filter"] = {"workflowFilters": [{"externalId": workflow_external_id}]}
 
         return self._iterate(
             limit=limit,
