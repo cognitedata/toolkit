@@ -15,6 +15,11 @@
 
 import re
 import sys
+
+from cognite.client.data_classes.data_modeling import DataModelId
+from fastparquet.api import filter_in
+
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
 import time
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
@@ -23,49 +28,37 @@ from pathlib import Path
 from time import sleep
 from typing import Any, cast, final
 
-from cognite.client.data_classes import (
-    filters,
-)
+from cognite.client.data_classes import filters
 from cognite.client.data_classes.capabilities import (
     Capability,
     DataModelInstancesAcl,
     DataModelsAcl,
 )
-from cognite.client.data_classes.data_modeling import (
-    Container,
-    ContainerApply,
-    ContainerList,
-    DataModel,
-    DataModelApply,
-    DataModelList,
-    DirectRelation,
-    Edge,
-    EdgeApply,
-    EdgeApplyResultList,
-    EdgeList,
-    MappedProperty,
-    Node,
-    NodeApply,
-    NodeApplyResultList,
-    NodeList,
-    RequiresConstraint,
-    Space,
-    SpaceApply,
-    SpaceList,
-    View,
-    ViewApply,
-    ViewList,
-)
 from cognite.client.data_classes.data_modeling.graphql import DMLApplyResult
-from cognite.client.data_classes.data_modeling.ids import (
-    ContainerId,
-    DataModelId,
-    EdgeId,
-    NodeId,
-    ViewId,
-)
-from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ViewFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerReference,
+    ContainerRequest,
+    ContainerResponse,
+    DataModelReference,
+    DataModelRequest,
+    DataModelResponse,
+    EdgeRequest,
+    EdgeResponse,
+    NodeRequest,
+    NodeResponse,
+    SpaceReference,
+    SpaceRequest,
+    SpaceResponse,
+    ViewReference,
+    ViewRequest,
+    ViewResponse, RequiresConstraintDefinition, DirectNodeRelation, ViewCorePropertyResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedEdgeIdentifier, TypedNodeIdentifier, \
+    NodeReference, TypedViewReference
 from rich import print
 from rich.console import Console
 from rich.markup import escape
@@ -108,10 +101,13 @@ from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 
 from .auth import GroupAllScopedCRUD
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._references import EdgeReference
+from cognite_toolkit._cdf_tk.utils.collection import chunker
 
 
 @final
-class SpaceCRUD(ResourceContainerCRUD[str, SpaceApply, Space]):
+class SpaceCRUD(ResourceContainerCRUD[SpaceReference, SpaceRequest, SpaceResponse]):
     item_name = "nodes and edges"
     folder_name = "data_modeling"
     resource_cls = Space
@@ -240,7 +236,7 @@ class SpaceCRUD(ResourceContainerCRUD[str, SpaceApply, Space]):
             yield instances.as_ids()
 
 
-class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container]):
+class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, ContainerResponse]):
     item_name = "nodes and edges"
     folder_name = "data_modeling"
     resource_cls = Container
@@ -503,7 +499,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
-class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View]):
+class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
     folder_name = "data_modeling"
     resource_cls = View
     resource_write_cls = ViewApply
@@ -842,7 +838,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View]):
 
 
 @final
-class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel]):
+class DataModelCRUD(ResourceCRUD[DataModelReference, DataModelRequest, DataModelResponse]):
     folder_name = "data_modeling"
     resource_cls = DataModel
     resource_write_cls = DataModelApply
@@ -972,7 +968,7 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel]):
 
 
 @final
-class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node]):
+class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeResponse]):
     item_name = "nodes"
     folder_name = "data_modeling"
     resource_cls = Node
@@ -1322,7 +1318,7 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelWrite, Grap
 
 
 @final
-class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeApply, Edge]):
+class EdgeCRUD(ResourceContainerCRUD[TypedEdgeIdentifier, EdgeRequest, EdgeResponse]):
     item_name = "edges"
     folder_name = "data_modeling"
     resource_cls = Edge
