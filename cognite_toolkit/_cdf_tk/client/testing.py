@@ -68,6 +68,7 @@ from .api.migration import (
     ResourceViewMappingAPI,
 )
 from .api.project import ProjectAPI
+from .api.relationships import RelationshipsAPI
 from .api.search import SearchAPI
 from .api.security_categories import SecurityCategoriesAPI
 from .api.sequences import SequencesAPI
@@ -185,6 +186,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.robotics.locations = MagicMock(spec_set=LocationsAPI)
         self.tool.robotics.maps = MagicMock(spec_set=MapsAPI)
         self.tool.robotics.robots = MagicMock(spec_set=RobotsAPI)
+        self.tool.relationships = MagicMock(spec_set=RelationshipsAPI)
         self.tool.security_categories = MagicMock(spec_set=SecurityCategoriesAPI)
         self.tool.sequences = MagicMock(spec_set=SequencesAPI)
         self.tool.transformations = MagicMock(spec_set=TransformationsAPI)

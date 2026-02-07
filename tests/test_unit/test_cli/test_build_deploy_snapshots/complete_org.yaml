@@ -597,7 +597,7 @@ RAWDatabaseResponse:
 - name: db_complete_org
 RAWTableResponse:
 - name: asset
-Relationship:
+RelationshipResponse:
 - confidence: 0.42
   dataSetId: 7982613576047462211
   externalId: MyRelationship
