@@ -22,6 +22,7 @@ from cognite.client.data_classes.capabilities import Capability, DataSetsAcl
 from cognite.client.exceptions import CogniteDuplicatedError
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
@@ -202,7 +203,16 @@ class LabelCRUD(ResourceCRUD[ExternalId, LabelRequest, LabelResponse]):
     def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
         if not ids:
             return 0
-        self.client.tool.labels.delete(list(ids))
+        try:
+            self.client.tool.labels.delete(list(ids))
+        except ToolkitAPIError as e:
+            if missing := {ExternalId.model_validate(item) for item in e.missing or []}:
+                if existing := (set(ids) - missing):
+                    self.client.tool.labels.delete(list(existing))
+                    return len(existing)
+                else:
+                    return 0
+            raise
         return len(ids)
 
     def _iterate(
