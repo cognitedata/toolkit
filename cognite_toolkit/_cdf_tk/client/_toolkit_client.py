@@ -27,6 +27,7 @@ from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
 from .api.project import ProjectAPI
 from .api.raw import RawAPI
+from .api.relationships import RelationshipsAPI
 from .api.robotics import RoboticsAPI
 from .api.search import SearchAPI
 from .api.security_categories import SecurityCategoriesAPI
@@ -59,6 +60,7 @@ class ToolAPI:
         self.raw = RawAPI(http_client)
         self.robotics = RoboticsAPI(http_client)
         self.security_categories = SecurityCategoriesAPI(http_client)
+        self.relationships = RelationshipsAPI(http_client)
         self.sequences = SequencesAPI(http_client)
         self.simulators = SimulatorsAPI(http_client)
         self.three_d = ThreeDAPI(http_client)
