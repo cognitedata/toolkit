@@ -85,7 +85,7 @@ class RelationshipCRUD(ResourceCRUD[ExternalId, RelationshipRequest, Relationshi
         except ToolkitAPIError as e:
             if missing := {ExternalId.model_validate(item) for item in e.missing or []}:
                 if existing := (set(ids) - missing):
-                    self.client.tool.labels.delete(list(existing))
+                    self.client.tool.relationships.delete(list(existing))
                     return len(existing)
                 else:
                     return 0
