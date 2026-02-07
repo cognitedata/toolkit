@@ -30,18 +30,17 @@ from cognite.client.data_classes.iam import (
     Group,
     GroupList,
     GroupWrite,
-    SecurityCategory,
-    SecurityCategoryList,
-    SecurityCategoryWrite,
 )
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
+from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import SecurityCategoryRequest, \
+    SecurityCategoryResponse
 from rich import print
 from rich.console import Console
 from rich.markup import escape
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawDatabaseId, RawTableId, NameId
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.resource_classes import GroupYAML, SecurityCategoriesYAML
@@ -477,9 +476,9 @@ class GroupAllScopedCRUD(GroupCRUD):
 
 
 @final
-class SecurityCategoryCRUD(ResourceCRUD[str, SecurityCategoryWrite, SecurityCategory]):
-    resource_cls = SecurityCategory
-    resource_write_cls = SecurityCategoryWrite
+class SecurityCategoryCRUD(ResourceCRUD[NameId, SecurityCategoryRequest, SecurityCategoryResponse]):
+    resource_cls = SecurityCategoryResponse
+    resource_write_cls = SecurityCategoryRequest
     kind = "SecurityCategory"
     yaml_cls = SecurityCategoriesYAML
     folder_name = "auth"
@@ -491,7 +490,7 @@ class SecurityCategoryCRUD(ResourceCRUD[str, SecurityCategoryWrite, SecurityCate
         return "security categories"
 
     @classmethod
-    def get_id(cls, item: SecurityCategoryWrite | SecurityCategory | dict) -> str:
+    def get_id(cls, item: SecurityCategoryRequest | SecurityCategoryResponse | dict) -> str:
         if isinstance(item, dict):
             return item["name"]
         return cast(str, item.name)
@@ -502,7 +501,7 @@ class SecurityCategoryCRUD(ResourceCRUD[str, SecurityCategoryWrite, SecurityCate
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[SecurityCategoryWrite] | None, read_only: bool
+        cls, items: Sequence[SecurityCategoryRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -527,15 +526,15 @@ class SecurityCategoryCRUD(ResourceCRUD[str, SecurityCategoryWrite, SecurityCate
             SecurityCategoriesAcl.Scope.All(),
         )
 
-    def create(self, items: Sequence[SecurityCategoryWrite]) -> SecurityCategoryList:
+    def create(self, items: Sequence[SecurityCategoryRequest]) -> list[SecurityCategoryResponse]:
         return self.client.iam.security_categories.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> SecurityCategoryList:
+    def retrieve(self, ids: SequenceNotStr[NameId]) -> list[SecurityCategoryResponse]:
         names = set(ids)
         categories = self.client.iam.security_categories.list(limit=-1)
         return SecurityCategoryList([c for c in categories if c.name in names])
 
-    def update(self, items: Sequence[SecurityCategoryWrite]) -> SecurityCategoryList:
+    def update(self, items: Sequence[SecurityCategoryRequest]) -> list[SecurityCategoryResponse]:
         items_by_name = {item.name: item for item in items}
         retrieved = self.retrieve(list(items_by_name.keys()))
         retrieved_by_name = {item.name: item for item in retrieved}
@@ -543,7 +542,7 @@ class SecurityCategoryCRUD(ResourceCRUD[str, SecurityCategoryWrite, SecurityCate
         if new_items_by_name:
             created = self.client.iam.security_categories.create(list(new_items_by_name.values()))
             retrieved_by_name.update({item.name: item for item in created})
-        return SecurityCategoryList([retrieved_by_name[name] for name in items_by_name])
+        return [retrieved_by_name[name] for name in items_by_name]
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         retrieved = self.retrieve(ids)
@@ -556,5 +555,5 @@ class SecurityCategoryCRUD(ResourceCRUD[str, SecurityCategoryWrite, SecurityCate
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[SecurityCategory]:
+    ) -> Iterable[SecurityCategoryResponse]:
         return self.client.iam.security_categories.list(limit=-1)
