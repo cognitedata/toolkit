@@ -330,6 +330,21 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
                 "properties": {
                     "name": {"type": {"type": "text"}},
                 },
+                "constraints": {
+                    "nameUnique": {
+                        "constraintType": "uniqueness",
+                        "properties": ["name"],
+                        "bySpace": True,
+                    }
+                },
+                "indexes": {
+                    "nameIndex": {
+                        "indexType": "btree",
+                        "properties": ["name"],
+                        "bySpace": True,
+                        "cursorable": True,
+                    }
+                },
             }
         ],
         ViewRequest: [
