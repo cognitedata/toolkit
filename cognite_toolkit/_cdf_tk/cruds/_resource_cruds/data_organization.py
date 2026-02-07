@@ -23,9 +23,8 @@ from cognite.client.exceptions import CogniteDuplicatedError
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
-
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
@@ -214,11 +213,9 @@ class LabelCRUD(ResourceCRUD[ExternalId, LabelRequest, LabelResponse]):
     ) -> Iterable[LabelResponse]:
         filter: ClassicFilter | None = None
         if data_set_external_id is not None:
-            data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
-            if data_set is None or data_set.id is None:
-                raise ToolkitRequiredValueError(f"DataSet {data_set_external_id!r} does not exist")
-            filter = ClassicFilter(data_set_ids=[InternalId(id=data_set.id)])
-
+            filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
+        for items in self.client.tool.labels.iterate(filter=filter):
+            yield from items
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -230,13 +227,13 @@ class LabelCRUD(ResourceCRUD[ExternalId, LabelRequest, LabelResponse]):
         if "dataSetExternalId" in item:
             yield DataSetsCRUD, item["dataSetExternalId"]
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LabelDefinitionWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LabelRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
-        return LabelRequest.model_validate(resource)
+        return LabelRequest._load(resource)
 
     def dump_resource(self, resource: LabelResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_request_resource().dump()
+        dumped = resource.as_write().dump()
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         return dumped

@@ -69,7 +69,7 @@ class SecurityCategoriesAPI(CDFResourceAPI[InternalIdUnwrapped, SecurityCategory
     def iterate(
         self,
         sort: Literal["ASC", "DESC"] = "ASC",
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[list[SecurityCategoryResponse]]:
         """Iterate over all security categories in CDF.
 
