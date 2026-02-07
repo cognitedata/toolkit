@@ -199,6 +199,8 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group]):
                             for id_ in ids["ids"]:
                                 if loader in {TimeSeriesCRUD, LocationFilterCRUD}:
                                     yield loader, ExternalId(external_id=id_)
+                                elif loader is SecurityCategoryCRUD:
+                                    yield loader, NameId(name=id_)
                                 else:
                                     yield loader, id_
 
