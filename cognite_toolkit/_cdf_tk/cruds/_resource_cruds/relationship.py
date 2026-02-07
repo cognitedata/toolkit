@@ -19,10 +19,11 @@ from .classic import AssetCRUD, EventCRUD, SequenceCRUD
 from .data_organization import DataSetsCRUD, LabelCRUD
 from .file import FileMetadataCRUD
 from .timeseries import TimeSeriesCRUD
+from ...client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
 
 
 @final
-class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship]):
+class RelationshipCRUD(ResourceCRUD[ExternalId, RelationshipRequest, RelationshipResponse]):
     folder_name = "classic"
     resource_cls = Relationship
     resource_write_cls = RelationshipWrite
