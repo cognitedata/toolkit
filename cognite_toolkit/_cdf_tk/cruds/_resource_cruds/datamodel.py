@@ -40,7 +40,12 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter, InstanceFilter, ViewFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import (
+    ContainerFilter,
+    DataModelFilter,
+    InstanceFilter,
+    ViewFilter,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerReference,
     ContainerRequest,
@@ -970,8 +975,6 @@ class DataModelCRUD(ResourceCRUD[DataModelReference, DataModelRequest, DataModel
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[DataModelResponse]:
-        from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter
-
         for batch in self.client.tool.data_models.iterate(filter=DataModelFilter(space=space, include_global=False)):
             yield from batch
 
