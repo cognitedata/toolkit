@@ -6,11 +6,14 @@ import pytest
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes import Transformation, TransformationWrite
-from cognite.client.data_classes import data_modeling as dm
 from cognite.client.data_classes.transformations import NonceCredentials
 from cognite.client.exceptions import CogniteAPIError
 
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    DataModelReference,
+    SpaceReference,
+    ViewReference,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import (
@@ -168,7 +171,7 @@ authentication:
                 [
                     (DataSetsCRUD, "ds_my_dataset"),
                     (SpaceCRUD, SpaceReference(space="sp_data_space")),
-                    (DataModelCRUD, dm.DataModelId(space="sp_model_space", external_id="my_model", version="v1")),
+                    (DataModelCRUD, DataModelReference(space="sp_model_space", external_id="my_model", version="v1")),
                 ],
                 id="Transformation to data model",
             ),
@@ -182,7 +185,7 @@ authentication:
                 },
                 [
                     (SpaceCRUD, SpaceReference(space="sp_data_space")),
-                    (ViewCRUD, dm.ViewId(space="sp_space", external_id="my_view", version="v1")),
+                    (ViewCRUD, ViewReference(space="sp_space", external_id="my_view", version="v1")),
                 ],
                 id="Transformation to nodes ",
             ),

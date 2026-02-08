@@ -4,10 +4,13 @@ from pathlib import Path
 from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, LocationFiltersAcl
-from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    DataModelReference,
+    SpaceReference,
+    ViewReference,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
@@ -246,9 +249,17 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
                         yield AssetCRUD, ExternalId(external_id=asset["externalId"])
         for view in item.get("views", []):
             if in_dict(["space", "externalId", "version"], view):
-                yield ViewCRUD, ViewId(view["space"], view["externalId"], view["version"])
+                yield (
+                    ViewCRUD,
+                    ViewReference(space=view["space"], external_id=view["externalId"], version=view["version"]),
+                )
         for space in item.get("instanceSpaces", []):
             yield SpaceCRUD, SpaceReference(space=space)
         for data_model in item.get("dataModels", []):
             if in_dict(["space", "externalId", "version"], data_model):
-                yield DataModelCRUD, DataModelId(data_model["space"], data_model["externalId"], data_model["version"])
+                yield (
+                    DataModelCRUD,
+                    DataModelReference(
+                        space=data_model["space"], external_id=data_model["externalId"], version=data_model["version"]
+                    ),
+                )

@@ -5,7 +5,11 @@ from unittest.mock import MagicMock
 import pytest
 from cognite.client.data_classes import data_modeling as dm
 
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerReference,
+    SpaceReference,
+    ViewReference,
+)
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, ResourceCRUD, ResourceWorker, SpaceCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -116,7 +120,7 @@ class TestViewLoader:
                 },
                 [
                     (SpaceCRUD, SpaceReference(space="sp_my_space")),
-                    (ContainerCRUD, dm.ContainerId(space="my_container_space", external_id="my_container")),
+                    (ContainerCRUD, ContainerReference(space="my_container_space", external_id="my_container")),
                 ],
                 id="View with one container property",
             ),
@@ -142,8 +146,8 @@ class TestViewLoader:
                 },
                 [
                     (SpaceCRUD, SpaceReference(space="sp_my_space")),
-                    (ViewCRUD, dm.ViewId(space="my_view_space", external_id="my_view", version="1")),
-                    (ViewCRUD, dm.ViewId(space="my_other_view_space", external_id="my_edge_view", version="42")),
+                    (ViewCRUD, ViewReference(space="my_view_space", external_id="my_view", version="1")),
+                    (ViewCRUD, ViewReference(space="my_other_view_space", external_id="my_edge_view", version="42")),
                 ],
                 id="View with one container property",
             ),
