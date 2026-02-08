@@ -29,8 +29,6 @@ from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.functions import (
     Function,
-    FunctionList,
-    FunctionSchedulesList,
 )
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils import ms_to_datetime
@@ -41,6 +39,7 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
     ExternalId,
     WorkflowVersionId,
@@ -106,7 +105,7 @@ class ResourceFinder(Iterable, ABC, Generic[T_ID]):
     @abstractmethod
     def __iter__(
         self,
-    ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         raise NotImplementedError
 
     @abstractmethod
@@ -194,7 +193,7 @@ class DataModelFinder(ResourceFinder[DataModelId]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         model_loader = DataModelCRUD.create_loader(self.client)
         if self.data_model:
@@ -275,7 +274,7 @@ class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         workflow_id = ExternalId(external_id=self.identifier.workflow_external_id)
         if self._workflow:
@@ -328,7 +327,7 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         if self.transformations:
             yield (
@@ -377,7 +376,7 @@ class GroupFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         if self.groups:
             yield [], GroupList(self.groups), GroupCRUD.create_loader(self.client), None
@@ -412,7 +411,7 @@ class AgentFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         loader = AgentCRUD.create_loader(self.client)
         if self.agents:
@@ -453,7 +452,7 @@ class NodeFinder(ResourceFinder[dm.ViewId]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         loader = NodeCRUD(self.client, None, None, self.identifier)
         if self.is_interactive:
@@ -501,7 +500,7 @@ class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self.identifier or self._interactive_select()
         filters = self._get_filters(self.identifier)
         yield [], filters, LocationFilterCRUD.create_loader(self.client), None
@@ -532,7 +531,7 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         pipeline_loader = ExtractionPipelineCRUD.create_loader(self.client)
         if self.extraction_pipelines:
@@ -574,7 +573,7 @@ class DataSetFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         loader = DataSetsCRUD.create_loader(self.client)
         if self.datasets:
@@ -591,16 +590,16 @@ class DataSetFinder(ResourceFinder[tuple[str, ...]]):
 class FunctionFinder(ResourceFinder[tuple[str, ...]]):
     def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
         super().__init__(client, identifier)
-        self.functions: FunctionList | None = None
+        self.functions: list[FunctionResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        self.functions = self.client.functions.list(limit=-1)
+        self.functions = self.client.tool.functions.list(limit=-1)
         if not self.functions:
             raise ToolkitMissingResourceError("No functions found")
         choices = [
             Choice(f"{function.name} ({function.external_id})", value=function.external_id)
-            for function in sorted(self.functions, key=lambda f: f.name or "")
-            if function.name and function.external_id
+            for function in sorted(self.functions, key=lambda f: f.name)
+            if function.external_id
         ]
         selected_function_ids: tuple[str, ...] | None = questionary.checkbox(
             "Which function(s) would you like to dump?",
@@ -613,18 +612,22 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         loader = FunctionCRUD.create_loader(self.client)
         if self.functions:
-            selected_functions = FunctionList([f for f in self.functions if f.external_id in self.identifier])
+            selected_functions = [f for f in self.functions if f.external_id in self.identifier]
             yield [], selected_functions, loader, None
         else:
-            yield list(self.identifier), None, loader, None
+            # Convert string identifiers to ExternalId objects
+            external_ids = [ExternalId(external_id=ext_id) for ext_id in self.identifier]
+            yield external_ids, None, loader, None
 
         schedule_loader = FunctionScheduleCRUD.create_loader(self.client)
-        schedules = schedule_loader.iterate(parent_ids=list(self.identifier))
-        yield [], FunctionSchedulesList(list(schedules)), schedule_loader, None
+        # Pass ExternalId objects as parent_ids
+        parent_external_ids = [ExternalId(external_id=ext_id) for ext_id in self.identifier]
+        schedules = schedule_loader.iterate(parent_ids=parent_external_ids)
+        yield [], list(schedules), schedule_loader, None
 
     def dump_function_code(self, function: Function, folder: Path) -> None:
         try:
@@ -695,7 +698,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         identifier = self.identifier or self._interactive_select()
         loader = StreamlitCRUD.create_loader(self.client)
         # If the user used interactive select, we have already downloaded the streamlit apps,
@@ -789,7 +792,7 @@ class SpaceFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         loader = SpaceCRUD.create_loader(self.client)
         yield list(self.identifier), None, loader, None
@@ -819,7 +822,7 @@ class SearchConfigFinder(ResourceFinder[tuple[SearchConfigViewId, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         loader = SearchConfigCRUD.create_loader(self.client)
         if self.search_configs:
@@ -856,7 +859,7 @@ class ResourceViewMappingFinder(ResourceFinder[tuple[str, ...]]):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
+    ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         loader = ResourceViewMappingCRUD.create_loader(self.client)
         if self.resource_view_mappings:
@@ -893,7 +896,7 @@ class DumpResourceCommand(ToolkitCommand):
                 continue
             if resources is None:
                 try:
-                    resources = loader.retrieve(identifiers)
+                    resources = loader.retrieve(list(identifiers))
                 except (CogniteAPIError, ToolkitAPIError) as e:
                     raise ResourceRetrievalError(f"Failed to retrieve {humanize_collection(identifiers)}: {e!s}") from e
                 if len(resources) == 0:

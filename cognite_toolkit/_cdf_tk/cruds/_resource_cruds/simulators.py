@@ -100,7 +100,7 @@ class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, Simulat
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[SimulatorModelResponse]:
         # Note: The SimulatorModelsAPI doesn't support data_set_external_id filtering directly,
         # so we iterate and filter in memory if needed.
@@ -212,7 +212,7 @@ class SimulatorModelRevisionCRUD(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[SimulatorModelRevisionResponse]:
         model_external_ids: list[str] | None = None
         if parent_ids:
@@ -308,7 +308,7 @@ class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, Sim
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[SimulatorRoutineResponse]:
         model_external_ids: list[str] | None = None
         if parent_ids:
@@ -396,7 +396,7 @@ class SimulatorRoutineRevisionCRUD(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[SimulatorRoutineRevisionResponse]:
         routine_external_ids: list[str] | None = None
         if parent_ids:

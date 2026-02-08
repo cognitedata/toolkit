@@ -148,7 +148,7 @@ class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DataSet]:
         return iter(self.client.data_sets)
 
@@ -223,7 +223,7 @@ class LabelCRUD(ResourceCRUD[str, LabelDefinitionWrite, LabelDefinition]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[LabelDefinition]:
         return iter(self.client.labels(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
 

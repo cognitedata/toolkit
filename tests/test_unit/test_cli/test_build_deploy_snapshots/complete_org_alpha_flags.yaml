@@ -74,11 +74,10 @@ FileMetadataResponse:
   mimeType: application/yaml
   name: config_shop.yaml
   source: doctrino
-Function:
+FunctionResponse:
 - description: Uses multiple modules.
   externalId: fn_multi_file_function
   fileId: 64
-  functionPath: handler.py
   metadata:
     cognite-toolkit-hash: /=7cf06c9d;handler.py=6596f06a;other_module.py=9bf3de91;requirements.txt=c7e9925f
     version: '1'

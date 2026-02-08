@@ -69,7 +69,7 @@ class AgentCRUD(ResourceCRUD[str, AgentUpsert, Agent]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[Agent]:
         return self.client.agents.list()
 

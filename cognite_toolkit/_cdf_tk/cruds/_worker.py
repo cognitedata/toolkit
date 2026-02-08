@@ -6,12 +6,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, cast
 
-from cognite.client.data_classes import FunctionWrite
 from cognite.client.data_classes.capabilities import Capability
 from rich import print
 from rich.panel import Panel
 from yaml import YAMLError
 
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
 from cognite_toolkit._cdf_tk.constants import TABLE_FORMATS
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -146,7 +146,7 @@ class ResourceWorker(Generic[T_ID, T_ResourceRequest, T_ResourceResponse]):
         capabilities: Capability | list[Capability]
         if isinstance(self.loader, FunctionCRUD):
             function_loader: FunctionCRUD = self.loader
-            function_items = cast(list[FunctionWrite], [item for _, item in local_by_id.values()])
+            function_items = cast(list[FunctionRequest], [item for _, item in local_by_id.values()])
             capabilities = function_loader.get_function_required_capabilities(function_items, read_only=is_dry_run)
         else:
             capabilities = self.loader.get_required_capability(

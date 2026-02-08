@@ -30,6 +30,8 @@ from rich.progress import Progress
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.functions import FunctionScheduleID
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.cruds import FunctionCRUD, FunctionScheduleCRUD, WorkflowVersionCRUD
@@ -143,7 +145,7 @@ if __name__ == "__main__":
 
         resources = ModuleResources(organization_dir, build_env_name)
         is_interactive = external_id is None
-        external_id = self._get_function(external_id, resources).identifier
+        external_id = self._get_function(external_id, resources).identifier.external_id
         call_args = self._get_call_args(data_source, external_id, resources, env_vars.dump(), is_interactive)
         client = env_vars.get_client()
         function = client.functions.retrieve(external_id=external_id)
@@ -206,9 +208,10 @@ if __name__ == "__main__":
         return True
 
     @staticmethod
-    def _get_function(external_id: str | None, resources: ModuleResources) -> BuiltResourceFull[str]:
-        function_builds_by_identifier = {
-            build.identifier: build for build in resources.list_resources(str, "functions", FunctionCRUD.kind)
+    def _get_function(external_id: str | None, resources: ModuleResources) -> BuiltResourceFull[ExternalId]:
+        function_builds_by_identifier: dict[str, BuiltResourceFull[ExternalId]] = {
+            build.identifier.external_id: build
+            for build in resources.list_resources(ExternalId, "functions", FunctionCRUD.kind)
         }
 
         if len(function_builds_by_identifier) == 0:
@@ -380,7 +383,7 @@ if __name__ == "__main__":
         if not isinstance(data_source, str):
             raise ToolkitValueError(f"Data source {data_source} is not a valid workflow external id.")
 
-        for schedule in resources.list_resources(FunctionScheduleID, "functions", FunctionScheduleCRUD.kind):
+        for schedule in resources.list_resources(FunctionScheduleId, "functions", FunctionScheduleCRUD.kind):
             if (
                 schedule.identifier.function_external_id == function_external_id
                 and schedule.identifier.name == data_source
@@ -415,7 +418,7 @@ if __name__ == "__main__":
         resources = ModuleResources(organization_dir, build_env_name)
         function_build = self._get_function(external_id, resources)
 
-        function_external_id = function_build.identifier
+        function_external_id = function_build.identifier.external_id
 
         virtual_envs_dir = organization_dir / virtual_env_folder_name
         virtual_envs_dir.mkdir(exist_ok=True)
@@ -493,7 +496,7 @@ if __name__ == "__main__":
         is_interactive = external_id is None
         call_args = self._get_call_args(
             data_source,
-            function_build.identifier,
+            function_external_id,
             resources,
             env_vars.dump(),
             is_interactive,

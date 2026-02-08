@@ -154,7 +154,7 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[WorkflowResponse]:
         if data_set_external_id is None:
             for workflows in self.client.tool.workflows.iterate(limit=100):
@@ -408,7 +408,7 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[WorkflowVersionResponse]:
         # Note: The new API doesn't support filtering by workflow_ids in list, so we iterate over all
         for versions in self.client.tool.workflows.versions.iterate(limit=100):
@@ -557,7 +557,7 @@ class WorkflowTriggerCRUD(ResourceCRUD[ExternalId, WorkflowTriggerRequest, Workf
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[WorkflowTriggerResponse]:
         triggers = self.client.tool.workflows.triggers.list(limit=None)
         if parent_ids is not None:

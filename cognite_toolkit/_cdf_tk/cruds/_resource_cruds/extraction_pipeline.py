@@ -192,7 +192,7 @@ class ExtractionPipelineCRUD(ResourceCRUD[str, ExtractionPipelineWrite, Extracti
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ExtractionPipeline]:
         if data_set_external_id is None:
             yield from iter(self.client.extraction_pipelines)
@@ -388,7 +388,7 @@ class ExtractionPipelineConfigCRUD(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ExtractionPipelineConfig]:
         parent_iterable = parent_ids or iter(self.client.extraction_pipelines)
         for parent_id in parent_iterable or []:

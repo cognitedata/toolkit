@@ -5,15 +5,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Literal, cast, final
 
-from cognite.client.data_classes import (
-    ClientCredentials,
-    Function,
-    FunctionList,
-    FunctionSchedule,
-    FunctionSchedulesList,
-    FunctionScheduleWrite,
-    FunctionWrite,
-)
+from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes.capabilities import (
     AllScope,
     Capability,
@@ -31,7 +23,13 @@ from rich import print
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.functions import FunctionScheduleID
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
+    FunctionScheduleId,
+    FunctionScheduleRequest,
+    FunctionScheduleResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
@@ -55,11 +53,11 @@ from .group_scoped import GroupResourceScopedCRUD
 
 
 @final
-class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
+class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
     support_drop = True
     folder_name = "functions"
-    resource_cls = Function
-    resource_write_cls = FunctionWrite
+    resource_cls = FunctionResponse
+    resource_write_cls = FunctionRequest
     kind = "Function"
     yaml_cls = FunctionsYAML
     dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD})
@@ -88,7 +86,7 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[FunctionWrite] | None, read_only: bool
+        cls, items: Sequence[FunctionRequest] | None, read_only: bool
     ) -> list[Capability] | list[Capability]:
         if not items and items is not None:
             return []
@@ -104,16 +102,20 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
         ]
 
     @classmethod
-    def get_id(cls, item: Function | FunctionWrite | dict) -> str:
+    def get_id(cls, item: FunctionResponse | FunctionRequest | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
+            return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
             raise ToolkitRequiredValueError("Function must have external_id set.")
-        return item.external_id
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
+
+    @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -133,8 +135,9 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
         raw_list = super().load_resource_file(filepath, environment_variables)
         for item in raw_list:
             item_id = self.get_id(item)
-            function_rootdir = Path(self.resource_build_path / item_id)
-            self.function_dir_by_external_id[item_id] = function_rootdir
+            external_id = item_id.external_id
+            function_rootdir = Path(self.resource_build_path / external_id)
+            self.function_dir_by_external_id[external_id] = function_rootdir
             if "metadata" not in item:
                 item["metadata"] = {}
             value = self._create_hash_values(function_rootdir)
@@ -169,7 +172,7 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
         return hash_value
 
     def get_function_required_capabilities(
-        self, items: Sequence[FunctionWrite] | None, read_only: bool
+        self, items: Sequence[FunctionRequest] | None, read_only: bool
     ) -> list[Capability]:
         """
         Get required capabilities for working with CDF Functions and their associated files.
@@ -203,30 +206,31 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
             FilesAcl(file_actions, file_scope),  # Needed for uploading function artifacts
         ]
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionRequest:
         item_id = self.get_id(resource)
+        external_id = item_id.external_id
         if ds_external_id := resource.pop("dataSetExternalId", None):
-            self.data_set_id_by_external_id[item_id] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+            self.data_set_id_by_external_id[external_id] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         if space := resource.pop("space", None):
-            self.space_by_external_id[item_id] = space
-        if "fileId" not in resource:
-            # The fileID is required for the function to be created, but in the `.create` method
-            # we first create that file and then set the fileID.
-            resource["fileId"] = "<will_be_generated>"
-        return FunctionWrite._load(resource)
+            self.space_by_external_id[external_id] = space
+        # The fileID is required for the function to be created, but in the `.create` method
+        # we first create that file and then set the fileID.
+        if "fileId" not in resource or not isinstance(resource.get("fileId"), int):
+            resource["fileId"] = -1  # Placeholder, will be set in create()
+        return FunctionRequest.model_validate(resource)
 
-    def dump_resource(self, resource: Function, local: dict[str, Any] | None = None) -> dict[str, Any]:
+    def dump_resource(self, resource: FunctionResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         if resource.status == "Failed":
-            dumped = self.dump_id(resource.external_id or resource.name)
+            dumped = self.dump_id(ExternalId(external_id=resource.external_id or resource.name))
             dumped["status"] = "Failed"
             return dumped
-        dumped = resource.as_write().dump()
+        dumped = resource.as_request_resource().dump()
         local = local or {}
         for key in ["cpu", "memory", "runtime"]:
             if key not in local:
                 # Server set default values
                 dumped.pop(key, None)
-            elif isinstance(local.get(key), float) and local[key] < dumped[key]:
+            elif isinstance(local.get(key), float) and local[key] < dumped.get(key, 0):
                 # On Azure and AWS, the server sets the CPU and Memory to the default values if the user
                 # pass in lower values. We set this to match the local to avoid triggering a redeploy.
                 # Note the user will get a warning about this when the function is created.
@@ -273,6 +277,10 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
             if key in local and local[key] in {None, ""} and key not in dumped:
                 dumped[key] = local[key]
 
+        if dumped.get("runtime") == "py312" and "runtime" not in local:
+            # Remove the default value of the runtime for Python 3.12, as it is the default runtime and does not need to be specified.
+            dumped.pop("runtime", None)
+
         return dumped
 
     def _is_activated(self, action: str) -> bool:
@@ -295,8 +303,8 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
             self.client.functions.activate()
         return False
 
-    def create(self, items: Sequence[FunctionWrite]) -> FunctionList:
-        created = FunctionList([], cognite_client=self.client)
+    def create(self, items: Sequence[FunctionRequest]) -> list[FunctionResponse]:
+        created: list[FunctionResponse] = []
         if not self._is_activated("create"):
             return created
         if self.resource_build_path is None:
@@ -320,13 +328,16 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
                     "seconds while waiting for the function code to be uploaded. Wait and try again.\nIf the"
                     " problem persists, please contact Cognite support."
                 )
-            item.file_id = file_id
-            created_item = self.client.functions.create_with_429_retry(item)
-            self._warn_if_cpu_or_memory_changed(created_item, item)
-            created.append(created_item)
+            # Create a copy with the file_id set
+            item_to_create = FunctionRequest.model_validate({**item.dump(), "fileId": file_id})
+            result = self.client.tool.functions.create([item_to_create])
+            if result:
+                created_item = result[0]
+                self._warn_if_cpu_or_memory_changed(created_item, item)
+                created.append(created_item)
         return created
 
-    def _upload_function_code(self, external_id: str, item: FunctionWrite) -> int:
+    def _upload_function_code(self, external_id: str, item: FunctionRequest) -> int:
         """Uploads the function code to CDF.
 
         It will either upload the code to a CogniteFile if a space is provided and the feature flag is enabled,
@@ -371,7 +382,7 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
         return upload_file.id
 
     @staticmethod
-    def _warn_if_cpu_or_memory_changed(created_item: Function, item: FunctionWrite) -> None:
+    def _warn_if_cpu_or_memory_changed(created_item: FunctionResponse, item: FunctionRequest) -> None:
         is_cpu_increased = (
             isinstance(item.cpu, float) and isinstance(created_item.cpu, float) and item.cpu < created_item.cpu
         )
@@ -397,15 +408,15 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
             f"Function {prefix} is not configurable. Function {item.external_id!r} set {suffix}"
         ).print_warning()
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> FunctionList:
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[FunctionResponse]:
         if not self._is_activated("retrieve"):
-            return FunctionList([])
-        return self.client.functions.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+            return []
+        return self.client.tool.functions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
         functions = self.retrieve(ids)
 
-        self.client.functions.delete_with_429_retry(external_id=ids, ignore_unknown_ids=True)
+        self.client.tool.functions.delete(list(ids), ignore_unknown_ids=True)
         file_ids = {func.file_id for func in functions if func.file_id}
         files = self.client.files.retrieve_multiple(list(file_ids), ignore_unknown_ids=True)
         dm_file_nodes: set[NodeId] = set()
@@ -425,16 +436,17 @@ class FunctionCRUD(ResourceCRUD[str, FunctionWrite, Function]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[Function]:
-        return iter(self.client.functions)
+        parent_ids: Sequence[Hashable] | None = None,
+    ) -> Iterable[FunctionResponse]:
+        for functions in self.client.tool.functions.iterate():
+            yield from functions
 
 
 @final
-class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleID, FunctionScheduleWrite, FunctionSchedule]):
+class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequest, FunctionScheduleResponse]):
     folder_name = "functions"
-    resource_cls = FunctionSchedule
-    resource_write_cls = FunctionScheduleWrite
+    resource_cls = FunctionScheduleResponse
+    resource_write_cls = FunctionScheduleRequest
     kind = "Schedule"
     yaml_cls = FunctionScheduleYAML
     dependencies = frozenset({FunctionCRUD, GroupResourceScopedCRUD, GroupAllScopedCRUD})
@@ -447,7 +459,7 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleID, FunctionScheduleWrit
 
     def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
         super().__init__(client, build_path, console)
-        self.authentication_by_id: dict[FunctionScheduleID, ClientCredentials] = {}
+        self.authentication_by_id: dict[FunctionScheduleId, ClientCredentials] = {}
 
     @property
     def display_name(self) -> str:
@@ -455,7 +467,7 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleID, FunctionScheduleWrit
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[FunctionScheduleWrite] | None, read_only: bool
+        cls, items: Sequence[FunctionScheduleRequest] | None, read_only: bool
     ) -> list[Capability]:
         if not items and items is not None:
             return []
@@ -471,29 +483,29 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleID, FunctionScheduleWrit
         return required_capabilities
 
     @classmethod
-    def dump_id(cls, id: FunctionScheduleID) -> dict[str, Any]:
-        return id.dump(camel_case=True)
+    def dump_id(cls, id: FunctionScheduleId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
-    def get_id(cls, item: FunctionScheduleWrite | FunctionSchedule | dict) -> FunctionScheduleID:
+    def get_id(cls, item: FunctionScheduleRequest | FunctionScheduleResponse | dict) -> FunctionScheduleId:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"functionExternalId", "name"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return FunctionScheduleID(item["functionExternalId"], item["name"])
+            return FunctionScheduleId(function_external_id=item["functionExternalId"], name=item["name"])
 
         if item.function_external_id is None or item.name is None:
             raise ToolkitRequiredValueError("FunctionSchedule must have functionExternalId and Name set.")
-        return FunctionScheduleID(item.function_external_id, item.name)
+        return FunctionScheduleId(function_external_id=item.function_external_id, name=item.name)
 
     @classmethod
-    def as_str(cls, id: FunctionScheduleID) -> str:
+    def as_str(cls, id: FunctionScheduleId) -> str:
         return sanitize_filename(f"{id.function_external_id}-{id.name}")
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "functionExternalId" in item:
-            yield FunctionCRUD, item["functionExternalId"]
+            yield FunctionCRUD, ExternalId(external_id=item["functionExternalId"])
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
@@ -523,18 +535,23 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleID, FunctionScheduleWrit
             )
         return resources
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionScheduleWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionScheduleRequest:
         if "functionId" in resource:
             identifier = self.get_id(resource)
             LowSeverityWarning(f"FunctionId will be ignored in the schedule {identifier!r}").print_warning(
                 console=self.console
             )
             resource.pop("functionId", None)
+        # Remove authentication from resource dict as it contains clientId/clientSecret
+        # which are stored separately in _authentication_by_id and converted to nonce at creation time
+        resource.pop("authentication", None)
+        return FunctionScheduleRequest.model_validate(resource)
 
-        return FunctionScheduleWrite._load(resource)
-
-    def dump_resource(self, resource: FunctionSchedule, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+    def dump_resource(self, resource: FunctionScheduleResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        # Dump the response fields directly since as_request_resource() is not supported
+        dumped = resource.as_request_resource().dump()
+        # Add functionExternalId to the dumped resource for comparison and retrieval purposes, even though it is not part of the API response.
+        dumped["functionExternalId"] = resource.function_external_id
         local = local or {}
         if "functionId" in dumped and "functionId" not in local:
             dumped.pop("functionId")
@@ -543,24 +560,25 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleID, FunctionScheduleWrit
             dumped["authentication"] = local["authentication"]
         return dumped
 
-    def retrieve(self, ids: SequenceNotStr[FunctionScheduleID]) -> FunctionSchedulesList:
+    def retrieve(self, ids: SequenceNotStr[FunctionScheduleId]) -> list[FunctionScheduleResponse]:
         names_by_function: dict[str, set[str]] = defaultdict(set)
         for id_ in ids:
             names_by_function[id_.function_external_id].add(id_.name)
-        functions = FunctionCRUD(self.client, None, None).retrieve(list(names_by_function))
-        schedules = FunctionSchedulesList([])
+        function_external_ids = [ExternalId(external_id=ext_id) for ext_id in names_by_function]
+        functions = FunctionCRUD(self.client, None, None).retrieve(function_external_ids)
+        schedules: list[FunctionScheduleResponse] = []
         for func in functions:
             func_external_id = cast(str, func.external_id)
-            function_schedules = self.client.functions.schedules.list(function_id=func.id, limit=-1)
+            function_schedules = self.client.tool.functions.schedules.list()
             for schedule in function_schedules:
-                schedule.function_external_id = func_external_id
-            schedules.extend(
-                [schedule for schedule in function_schedules if schedule.name in names_by_function[func_external_id]]
-            )
+                if schedule.function_id == func.id:
+                    schedule.function_external_id = func_external_id
+                    if schedule.name in names_by_function[func_external_id]:
+                        schedules.append(schedule)
         return schedules
 
-    def create(self, items: Sequence[FunctionScheduleWrite]) -> FunctionSchedulesList:
-        created_list = FunctionSchedulesList([], cognite_client=self.client)
+    def create(self, items: Sequence[FunctionScheduleRequest]) -> list[FunctionScheduleResponse]:
+        created_list: list[FunctionScheduleResponse] = []
         function_id_by_external_id = self._get_function_ids_by_external_id(items)
 
         for item in items:
@@ -575,20 +593,23 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleID, FunctionScheduleWrit
                     raise ResourceCreationError(f"Failed to create Function Schedule {id_}: {hint}") from e
                 raise e
 
-            # Serialization to create a copy as we are mutating the object.
-            to_create = FunctionScheduleWrite._load(item.dump())
-            to_create.nonce = session.nonce
-            to_create.function_id = function_id_by_external_id[id_.function_external_id]
-            to_create.function_external_id = None
+            # Create a new request with the function_id and nonce set
+            to_create = FunctionScheduleRequest.model_validate(
+                {
+                    **item.dump(),
+                    "functionId": function_id_by_external_id[id_.function_external_id],
+                    "nonce": session.nonce,
+                }
+            )
 
-            created = self.client.functions.schedules.create(to_create)
-
-            created.function_external_id = id_.function_external_id
-
-            created_list.append(created)
+            result = self.client.tool.functions.schedules.create([to_create])
+            if result:
+                created = result[0]
+                created.function_external_id = id_.function_external_id
+                created_list.append(created)
         return created_list
 
-    def _get_function_ids_by_external_id(self, items: Sequence[FunctionScheduleWrite]) -> dict[str, int]:
+    def _get_function_ids_by_external_id(self, items: Sequence[FunctionScheduleRequest]) -> dict[str, int]:
         functions_to_lookup = list({item.function_external_id for item in items if item.function_external_id})
         if not functions_to_lookup:
             return {}
@@ -610,37 +631,31 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleID, FunctionScheduleWrit
             f"Could not find function{plural_fun} {humanize_collection(missing_functions)!r}"
         )
 
-    def delete(self, ids: SequenceNotStr[FunctionScheduleID]) -> int:
+    def delete(self, ids: SequenceNotStr[FunctionScheduleId]) -> int:
         schedules = self.retrieve(ids)
-        count = 0
-        for schedule in schedules:
-            if schedule.id:
-                self.client.functions.schedules.delete(id=schedule.id)
-                count += 1
-        return count
+        ids = [InternalId(id=schedule.id) for schedule in schedules if schedule.id]
+        self.client.tool.functions.schedules.delete(ids)
+        return len(ids)
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[FunctionSchedule]:
+        parent_ids: Sequence[Hashable] | None = None,
+    ) -> Iterable[FunctionScheduleResponse]:
         if parent_ids is None:
-            yield from self.client.functions.schedules
+            for schedules in self.client.tool.functions.schedules.iterate():
+                yield from schedules
         else:
-            external_ids = [external_id for external_id in parent_ids if isinstance(external_id, str)]
+            external_ids = [parent_id.external_id for parent_id in parent_ids if isinstance(parent_id, ExternalId)]
             if not external_ids:
                 return
             internal_ids = self.client.lookup.functions.id(external_ids)
-            for func_id in internal_ids:
-                funct_external_id = self.client.lookup.functions.external_id(func_id)
-                for schedule in self.client.functions.schedules(function_id=func_id):
-                    # FunctionExternalId is not set in the schedule object returned from the API,
-                    # so we need to set it here.
-                    schedule.function_external_id = funct_external_id
-                    yield schedule
+            for function_id in internal_ids:
+                for schedules in self.client.tool.functions.schedules.iterate(function_id=function_id):
+                    yield from schedules
 
-    def sensitive_strings(self, item: FunctionScheduleWrite) -> Iterable[str]:
+    def sensitive_strings(self, item: FunctionScheduleRequest) -> Iterable[str]:
         id_ = self.get_id(item)
         if id_ in self.authentication_by_id:
             yield self.authentication_by_id[id_].client_secret
