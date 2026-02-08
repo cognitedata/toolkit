@@ -118,7 +118,7 @@ class DataModelingToDelete(ToDelete):
     ) -> Callable[[list[ResourceResponseProtocol]], list[JsonVal]]:
         def as_id(chunk: list[ResourceResponseProtocol]) -> list[JsonVal]:
             # We know that all data modeling resources implement as_id
-            return [item.as_id().dump(include_type=False) for item in chunk]  # type: ignore[attr-defined]
+            return [item.as_id().dump() for item in chunk]  # type: ignore[attr-defined]
 
         return as_id
 
@@ -147,7 +147,10 @@ class NodesToDelete(ToDelete):
     ) -> Callable[[list[ResourceResponseProtocol]], list[JsonVal]]:
         def check_for_data(chunk: list[ResourceResponseProtocol]) -> list[JsonVal]:
             # We know that all node resources implement as_id
-            node_ids = [item.as_id() for item in chunk]  # type: ignore[attr-defined]
+            node_ids = [
+                NodeId(space=item.space, external_id=item.external_id)  # type: ignore[attr-defined]
+                for item in chunk
+            ]
             found_ids: set[InstanceId] = set()
             if not self.delete_datapoints:
                 timeseries = client.time_series.retrieve_multiple(instance_ids=node_ids, ignore_unknown_ids=True)
@@ -163,7 +166,7 @@ class NodesToDelete(ToDelete):
                 dumped = node_id.dump(include_instance_type=True)
                 # The delete endpoint expects "instanceType" instead of "type"
                 dumped["instanceType"] = dumped.pop("type")
-                result.append(dumped)
+                result.append(dumped)  # type: ignore[arg-type]
             return result
 
         return check_for_data
