@@ -89,7 +89,6 @@ class LabelsAPI(CDFResourceAPI[ExternalId, LabelRequest, LabelResponse]):
     def iterate(
         self,
         filter: ClassicFilter | None = None,
-        name: str | None = None,
         limit: int = 100,
     ) -> Iterable[list[LabelResponse]]:
         """Iterate over all labels in CDF.
@@ -102,10 +101,9 @@ class LabelsAPI(CDFResourceAPI[ExternalId, LabelRequest, LabelResponse]):
         Returns:
             Iterable of lists of LabelResponse objects.
         """
-        body: dict[str, Any] = filter.dump() if filter else {}
-        if name:
-            body["name"] = name
-
+        body: dict[str, Any] | None = None
+        if filter:
+            body = {"filter": filter.dump()}
         return self._iterate(
             limit=limit,
             body=body,

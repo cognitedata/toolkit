@@ -156,9 +156,9 @@ class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
             yield DataSetsCRUD, item["dataSetExternalId"]
         for label in item.get("labels", []):
             if isinstance(label, dict):
-                yield LabelCRUD, label["externalId"]
+                yield LabelCRUD, ExternalId(external_id=label["externalId"])
             elif isinstance(label, str):
-                yield LabelCRUD, label
+                yield LabelCRUD, ExternalId(external_id=label)
         if "parentExternalId" in item:
             yield cls, item["parentExternalId"]
 
