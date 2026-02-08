@@ -76,8 +76,9 @@ class View(BaseModelObject, ABC):
 
 
 class ViewRequest(View, RequestResource):
-    properties: dict[str, ViewRequestProperty] = Field(
-        description="View with included properties and expected edges, indexed by a unique space-local identifier."
+    properties: dict[str, ViewRequestProperty] | None = Field(
+        default=None,
+        description="View with included properties and expected edges, indexed by a unique space-local identifier.",
     )
 
     @property
@@ -98,7 +99,7 @@ class ViewResponse(View, ResponseResource[ViewRequest]):
     mapped_containers: list[ContainerReference]
 
     def as_request_resource(self) -> ViewRequest:
-        dumped = self.model_dump(by_alias=True, exclude={"properties"})
+        dumped = self.model_dump(by_alias=True, exclude={"properties"}, exclude_unset=True)
         properties: dict[str, Any] = {}
         for key, value in self.properties.items():
             if isinstance(value, ViewCorePropertyResponse) and isinstance(value.type, DirectNodeRelation):
