@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtra
 from cognite_toolkit._cdf_tk.client.api.infield import APMConfigAPI, InFieldCDMConfigAPI
 from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI, WrappedInstancesAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
+from cognite_toolkit._cdf_tk.client.api.migration import ResourceViewMappingsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_capabilities import CapabilitiesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_data_postprocessing import DataPostProcessingAPI
@@ -59,6 +60,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWTableRequest,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import SecurityCategoryRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest
@@ -116,6 +118,7 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # Created response cannot be made into a request.
         InFieldCDMConfigAPI,
         APMConfigAPI,
+        ResourceViewMappingsAPI,
         # Update and list have to be specially handled due to the way the API works.
         LocationFiltersAPI,
     }
@@ -257,6 +260,20 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         LocationFilterRequest: [{"externalId": "smoke-test-location-filter", "name": "smoke-test-location-filter"}],
         RAWDatabaseRequest: [{"name": "smoke-test-raw-database"}],
         RAWTableRequest: [{"name": "smoke-test-raw-table", "dbName": "smoke-test-raw-database"}],
+        ResourceViewMappingRequest: [
+            {
+                "externalId": "smoke-test-resource-view-mapping",
+                "resourceType": "asset",
+                "viewId": {
+                    "space": "cdf_cdm",
+                    "externalId": "CogniteAsset",
+                    "version": "v1",
+                },
+                "propertyMapping": {
+                    "name": "name",
+                },
+            }
+        ],
         SecurityCategoryRequest: [{"name": "smoke-test-security-category"}],
         SequenceRequest: [
             {"externalId": "smoke-test-sequence", "columns": [{"externalId": "smoke-test-sequence-column"}]}
@@ -794,6 +811,41 @@ class TestCDFResourceAPI:
         finally:
             # Clean up
             client.infield.cdm_config.delete([location_config_id])
+
+    def test_resource_view_mapping_crudl(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        mapping_example = get_examples_minimum_requests(ResourceViewMappingRequest)[0]
+        mapping_request = ResourceViewMappingRequest.model_validate(mapping_example)
+        mapping_id = mapping_request.as_id()
+
+        try:
+            # Create resource view mapping
+            create_endpoint = client.migration.resource_view_mapping._method_endpoint_map["upsert"]
+            try:
+                created = client.migration.resource_view_mapping.create([mapping_request])
+            except ToolkitAPIError:
+                raise EndpointAssertionError(create_endpoint.path, "Creating resource view mapping instance failed.")
+            if len(created) != 1:
+                raise EndpointAssertionError(
+                    create_endpoint.path, f"Expected 1 created resource view mapping, got {len(created)}"
+                )
+            if created[0].as_id() != mapping_id:
+                raise EndpointAssertionError(
+                    create_endpoint.path, "Created resource view mapping ID does not match requested ID."
+                )
+
+            # Retrieve resource view mapping
+            retrieve_endpoint = client.migration.resource_view_mapping._method_endpoint_map["retrieve"]
+            self.assert_endpoint_method(
+                lambda: client.migration.resource_view_mapping.retrieve([mapping_id]),
+                "retrieve",
+                retrieve_endpoint,
+                mapping_id,
+            )
+        finally:
+            # Clean up
+            client.migration.resource_view_mapping.delete([mapping_id])
 
     def test_apm_config_crudls(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client

@@ -65,7 +65,7 @@ from .api.migration import (
     LookupAPI,
     MigrationAPI,
     MigrationLookupAPI,
-    ResourceViewMappingAPI,
+    ResourceViewMappingsAPI,
 )
 from .api.project import ProjectAPI
 from .api.search import SearchAPI
@@ -139,7 +139,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.migration.lookup.events = MagicMock(spec_set=LookupAPI)
         self.migration.lookup.files = MagicMock(spec_set=LookupAPI)
         self.migration.lookup.time_series = MagicMock(spec_set=LookupAPI)
-        self.migration.resource_view_mapping = MagicMock(spec_set=ResourceViewMappingAPI)
+        self.migration.resource_view_mapping = MagicMock(spec_set=ResourceViewMappingsAPI)
         self.migration.created_source_system = MagicMock(spec_set=CreatedSourceSystemAPI)
         self.raw = MagicMock(spec=ExtendedRawAPI)
         self.raw.databases = MagicMock(spec_set=LegacyRawDatabasesAPI)
