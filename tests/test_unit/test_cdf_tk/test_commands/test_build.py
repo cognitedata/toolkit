@@ -7,8 +7,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
-from cognite.client.data_classes.data_modeling import DataModelId, Space
+from cognite.client.data_classes.data_modeling import DataModelId
 
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand
 from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, TransformationCRUD
@@ -130,7 +131,9 @@ capabilities:
         filepath.write_text(my_group)
 
         # Simulate that the space exists in CDF
-        toolkit_client_approval.append(Space, Space("existing-space", False, 1, 1, None, None))
+        toolkit_client_approval.append(
+            SpaceResponse, SpaceResponse(space="existing-space", is_global=False, created_time=1, last_updated_time=1)
+        )
         cmd = BuildCommand(silent=True, skip_tracking=True)
         with patch.dict(
             os.environ,

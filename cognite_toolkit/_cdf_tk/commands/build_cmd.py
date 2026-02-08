@@ -641,12 +641,8 @@ class BuildCommand(ToolkitCommand):
     @staticmethod
     def _is_system_resource(resource_cls: type[ResourceCRUD], id_: Hashable) -> bool:
         """System resources are deployed to all CDF project and should not be checked for dependencies."""
-        if resource_cls is SpaceCRUD and isinstance(id_, str) and id_.startswith("cdf_"):
-            return True
-        elif (
-            resource_cls in {ContainerCRUD, ViewCRUD, DataModelCRUD, NodeCRUD}
+        return (
+            resource_cls in {ContainerCRUD, ViewCRUD, DataModelCRUD, NodeCRUD, SpaceCRUD}
             and hasattr(id_, "space")
             and id_.space.startswith("cdf_")
-        ):
-            return True
-        return False
+        )

@@ -12,10 +12,11 @@ import yaml
 from cognite.client import global_config
 from cognite.client.credentials import Token
 from cognite.client.data_classes import CreatedSession
-from cognite.client.data_classes.data_modeling import ContainerList, NodeList, View, ViewId
+from cognite.client.data_classes.data_modeling import NodeList, ViewId
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource
@@ -455,21 +456,24 @@ def cognite_core_no_3D() -> DataModelResponseWithViews:
 
 
 @pytest.fixture(scope="session")
-def cognite_core_containers_no_3D() -> ContainerList:
+def cognite_core_containers_no_3D() -> list[ContainerResponse]:
     """This is a simplified list of containers from the cdf_cdm space without CogniteVisualizable.
     In addition, the CogniteAsset container does not require CogniteVisualizable.
 
     Note if you use this fixture in a test, ensure that you do not modify the returned
     containers, as it is shared between tests.
     """
-    return ContainerList.load(CORE_CONTAINERS_NO_3D_YAML.read_text(encoding="utf-8"))
+    raw_data = read_yaml_file(CORE_CONTAINERS_NO_3D_YAML.read_text(encoding="utf-8"))
+    return [ContainerResponse.model_validate(item) for item in raw_data]
 
 
 @pytest.fixture(scope="session")
-def cognite_extractor_views() -> list[View]:
+def cognite_extractor_views() -> list[ViewResponse]:
     """This is a simplified data model containing only the views used by the extractor.
 
     Note if you use this fixture in a test, ensure that you do not modify the returned
     data model, as it is shared between tests.
     """
-    return [View._load(view) for view in yaml.safe_load(EXTRACTOR_VIEWS_YAML.read_text(encoding="utf-8"))]
+    return [
+        ViewResponse.model_validate(view) for view in yaml.safe_load(EXTRACTOR_VIEWS_YAML.read_text(encoding="utf-8"))
+    ]
