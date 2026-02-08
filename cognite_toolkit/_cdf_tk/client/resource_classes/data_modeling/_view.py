@@ -5,6 +5,7 @@ from pydantic import Field, JsonValue, field_serializer, model_validator
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
 
 from ._data_types import DirectNodeRelation
 from ._references import ContainerReference, ViewReference
@@ -29,6 +30,9 @@ class View(BaseModelObject, ABC):
 
     def as_id(self) -> ViewReference:
         return ViewReference(space=self.space, external_id=self.external_id, version=self.version)
+
+    def as_typed_id(self) -> TypedViewReference:
+        return TypedViewReference(space=self.space, external_id=self.external_id, version=self.version)
 
     @model_validator(mode="before")
     def set_connection_type_on_primary_properties(cls, data: dict[str, Any]) -> dict[str, Any]:

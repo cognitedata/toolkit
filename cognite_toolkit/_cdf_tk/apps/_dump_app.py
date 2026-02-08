@@ -2,10 +2,11 @@ from pathlib import Path
 from typing import Annotated, Any, Union
 
 import typer
-from cognite.client.data_classes.data_modeling import DataModelId, ViewId
+from cognite.client.data_classes.data_modeling import DataModelId
 from rich import print
 
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import ViewId as SearchConfigViewId
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
@@ -402,13 +403,11 @@ class DumpConfigApp(typer.Typer):
         large amounts of data.
         """
         client = EnvironmentVariables.create_from_environment().get_client()
-        selected_view_id: Union[None, ViewId] = None
+        selected_view_id: TypedViewReference | None = None
         if view_id is not None:
-            if len(view_id) <= 2:
-                raise ToolkitRequiredValueError(
-                    "View ID must have at least 2 parts: space, external_id and, optionally, version."
-                )
-            selected_view_id = ViewId(*view_id)
+            if len(view_id) <= 3:
+                raise ToolkitRequiredValueError("View ID must have 3 parts: space, external_id and, version.")
+            selected_view_id = TypedViewReference(space=view_id[0], external_id=view_id[1], version=view_id[2])
 
         cmd = DumpResourceCommand(client=client)
         cmd.run(

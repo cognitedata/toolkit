@@ -2,12 +2,13 @@ from collections import Counter
 from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
+from typing import cast
 
-from cognite.client.data_classes.data_modeling import ViewId
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsResultMessage, ItemsSuccessResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.cruds import ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
@@ -106,10 +107,16 @@ class UploadCommand(ToolkitCommand):
         if counts[InstanceSpaceSelector] <= 1:
             return data_files_by_selector
 
-        selector_by_view_id: dict[ViewId, Selector] = {}
+        selector_by_view_id: dict[ViewReference, Selector] = {}
         for selector in data_files_by_selector:
             if isinstance(selector, InstanceSpaceSelector) and selector.view is not None:
-                selector_by_view_id[selector.view.as_id()] = selector
+                view_legacy_id = selector.view.as_id()
+                view_ref = ViewReference(
+                    space=view_legacy_id.space,
+                    external_id=view_legacy_id.external_id,
+                    version=cast(str, view_legacy_id.version),
+                )
+                selector_by_view_id[view_ref] = selector
 
         view_dependencies = ViewCRUD.create_loader(client).topological_sort_container_constraints(
             list(selector_by_view_id.keys())

@@ -24,7 +24,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.agents import (
     AgentList,
 )
-from cognite.client.data_classes.data_modeling import DataModelId, NodeList
+from cognite.client.data_classes.data_modeling import DataModelId, NodeList, ViewId
 from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.functions import (
@@ -41,10 +41,12 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
     ExternalId,
     WorkflowVersionId,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import SearchConfigList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import ViewId as SearchConfigViewId
@@ -426,28 +428,28 @@ class AgentFinder(ResourceFinder[tuple[str, ...]]):
             yield list(self.identifier), None, loader, None
 
 
-class NodeFinder(ResourceFinder[dm.ViewId]):
-    def __init__(self, client: ToolkitClient, identifier: dm.ViewId | None = None):
+class NodeFinder(ResourceFinder[TypedViewReference]):
+    def __init__(self, client: ToolkitClient, identifier: TypedViewReference | None = None):
         super().__init__(client, identifier)
         self.is_interactive = False
 
-    def _interactive_select(self) -> dm.ViewId:
+    def _interactive_select(self) -> TypedViewReference:
         self.is_interactive = True
-        spaces = self.client.data_modeling.spaces.list(limit=-1)
+        spaces = self.client.tool.spaces.list(limit=None)
         if not spaces:
             raise ToolkitMissingResourceError("No spaces found")
         selected_space: str = questionary.select(
             "In which space is your node property view located?", [space.space for space in spaces]
         ).unsafe_ask()
 
-        views = self.client.data_modeling.views.list(space=selected_space, limit=-1, all_versions=False)
+        views = self.client.tool.views.list(ViewFilter(space=selected_space), limit=None)
         if not views:
             raise ToolkitMissingResourceError(f"No views found in {selected_space}")
         if len(views) == 1:
-            return views[0].as_id()
-        selected_view_id: dm.ViewId = questionary.select(
+            return views[0].as_typed_id()
+        selected_view_id: TypedViewReference = questionary.select(
             "Which node property view would you like to dump?",
-            [Choice(repr(view), value=view) for view in views.as_ids()],
+            [Choice(repr(view.as_id()), value=view.as_typed_id()) for view in views],
         ).unsafe_ask()
         return selected_view_id
 
@@ -458,7 +460,9 @@ class NodeFinder(ResourceFinder[dm.ViewId]):
         loader = NodeCRUD(self.client, None, None, self.identifier)
         if self.is_interactive:
             count = self.client.data_modeling.instances.aggregate(
-                self.identifier, dm.aggregations.Count("externalId"), instance_type="node"
+                ViewId(self.identifier.space, self.identifier.external_id, self.identifier.version),
+                dm.aggregations.Count("externalId"),
+                instance_type="node",
             ).value
             if count == 0 or count is None:
                 raise ToolkitMissingResourceError(f"No nodes found in {self.identifier}")
