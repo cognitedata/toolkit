@@ -6,6 +6,7 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.data_classes.data_modeling import NodeList, ViewId
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
     ResourceViewMapping,
     ResourceViewMappingApply,
@@ -92,7 +93,7 @@ class ResourceViewMappingCRUD(ResourceCRUD[str, ResourceViewMappingApply, Resour
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceCRUD], Hashable]]":
-        yield SpaceCRUD, COGNITE_MIGRATION_SPACE
+        yield SpaceCRUD, SpaceReference(space=COGNITE_MIGRATION_SPACE)
 
         yield ViewCRUD, ResourceViewMapping.get_source()
 

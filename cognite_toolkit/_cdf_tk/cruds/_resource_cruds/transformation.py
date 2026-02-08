@@ -65,6 +65,7 @@ from rich import print
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
@@ -190,13 +191,13 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
                 yield RawTableCRUD, RawTableId(db_name=destination["database"], name=destination["table"])
             elif destination.get("type") in ("nodes", "edges") and (view := destination.get("view", {})):
                 if space := destination.get("instanceSpace"):
-                    yield SpaceCRUD, space
+                    yield SpaceCRUD, SpaceReference(space=space)
                 if in_dict(("space", "externalId", "version"), view):
                     view["version"] = str(view["version"])
                     yield ViewCRUD, ViewId.load(view)
             elif destination.get("type") == "instances":
                 if space := destination.get("instanceSpace"):
-                    yield SpaceCRUD, space
+                    yield SpaceCRUD, SpaceReference(space=space)
                 if data_model := destination.get("dataModel"):
                     if in_dict(("space", "externalId", "version"), data_model):
                         data_model["version"] = str(data_model["version"])

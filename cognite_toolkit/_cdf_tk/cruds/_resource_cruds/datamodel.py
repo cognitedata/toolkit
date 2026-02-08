@@ -285,7 +285,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
-            yield SpaceCRUD, item["space"]
+            yield SpaceCRUD, SpaceReference(space=item["space"])
         # Note that we are very careful in the code below to not raise an exception if the
         # item is not properly formed. If that is the case, an appropriate warning will be given elsewhere.
         for prop in item.get("properties", {}).values():
@@ -554,7 +554,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
-            yield SpaceCRUD, item["space"]
+            yield SpaceCRUD, SpaceReference(space=item["space"])
         if isinstance(implements := item.get("implements", []), list):
             for parent in implements:
                 if not isinstance(parent, dict):
@@ -887,7 +887,7 @@ class DataModelCRUD(ResourceCRUD[DataModelReference, DataModelRequest, DataModel
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
-            yield SpaceCRUD, item["space"]
+            yield SpaceCRUD, SpaceReference(space=item["space"])
         for view in item.get("views", []):
             if in_dict(("space", "externalId"), view):
                 yield (
@@ -1202,7 +1202,7 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelWrite, Grap
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
-            yield SpaceCRUD, item["space"]
+            yield SpaceCRUD, SpaceReference(space=item["space"])
 
     def safe_read(self, filepath: Path | str) -> str:
         # The version is a string, but the user often writes it as an int.
@@ -1401,7 +1401,7 @@ class EdgeCRUD(ResourceContainerCRUD[TypedEdgeIdentifier, EdgeRequest, EdgeRespo
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
-            yield SpaceCRUD, item["space"]
+            yield SpaceCRUD, SpaceReference(space=item["space"])
         for source in item.get("sources", []):
             if (identifier := source.get("source")) and isinstance(identifier, dict):
                 if identifier.get("type") == "view" and in_dict(("space", "externalId", "version"), identifier):

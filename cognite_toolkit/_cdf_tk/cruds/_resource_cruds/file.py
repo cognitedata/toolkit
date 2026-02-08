@@ -28,6 +28,7 @@ from cognite.client.utils._time import convert_data_modelling_timestamp
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import (
@@ -328,7 +329,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, 
         DatasetLoader and identifier of that dataset.
         """
         if "space" in item:
-            yield SpaceCRUD, item["space"]
+            yield SpaceCRUD, SpaceReference(space=item["space"])
         if "nodeSource" in item:
             if in_dict(("space", "externalId", "type"), item["nodeSource"]):
                 yield ViewCRUD, ViewId.load(item["nodeSource"])
