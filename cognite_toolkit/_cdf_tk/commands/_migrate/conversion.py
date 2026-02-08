@@ -235,7 +235,16 @@ def asset_centric_to_dm(
         }
         if preferred_consumer_view:
             instance_source_properties["preferredConsumerViewId"] = preferred_consumer_view.dump()
-        sources.append(NodeOrEdgeData(source=INSTANCE_SOURCE_VIEW_ID, properties=instance_source_properties))
+        sources.append(
+            NodeOrEdgeData(
+                source=ViewId(
+                    INSTANCE_SOURCE_VIEW_ID.space,
+                    INSTANCE_SOURCE_VIEW_ID.external_id,
+                    version=view_source.view_id.version,
+                ),
+                properties=instance_source_properties,
+            )
+        )
 
     instance: NodeApply | EdgeApply
     if isinstance(instance_id, EdgeId):

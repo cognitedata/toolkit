@@ -84,7 +84,9 @@ class ViewRequest(View, RequestResource):
     @property
     def used_containers(self) -> set[ContainerReference]:
         """Get all containers referenced by this view."""
-        return {prop.container for prop in self.properties.values() if isinstance(prop, ViewCorePropertyRequest)}
+        return {
+            prop.container for prop in (self.properties or {}).values() if isinstance(prop, ViewCorePropertyRequest)
+        }
 
 
 class ViewResponse(View, ResponseResource[ViewRequest]):

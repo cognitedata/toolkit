@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Generic, cast
+from typing import Any, Generic
 
 from cognite.client.data_classes import DataSetList, filters
 from cognite.client.data_classes.aggregations import UniqueResult
@@ -22,7 +22,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
     NodeReference,
     NodeRequest,
-    ViewReference,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
@@ -97,11 +96,7 @@ class InstanceSpaceCreator(MigrationCreator):
                 external_id=space.space,
                 sources=[
                     InstanceSource(
-                        source=ViewReference(
-                            space=SPACE_SOURCE_VIEW_ID.space,
-                            external_id=SPACE_SOURCE_VIEW_ID.external_id,
-                            version=cast(str, SPACE_SOURCE_VIEW_ID.version),
-                        ),
+                        source=SPACE_SOURCE_VIEW_ID,
                         properties={
                             "instanceSpace": space.space,
                             "dataSetId": data_set_by_external_id[space.space].id,
@@ -160,7 +155,14 @@ class SourceSystemCreator(MigrationCreator):
                 self.client.console.print(f"Skipping {source_str} as it already exists in {existing_id!r}.")
                 continue
             data_source = NodeOrEdgeData(source=self.COGNITE_SOURCE_SYSTEM_VIEW_ID, properties={"name": source_str})
-            linage_source = NodeOrEdgeData(source=CREATED_SOURCE_SYSTEM_VIEW_ID, properties={"source": source_str})
+            linage_source = NodeOrEdgeData(
+                source=ViewId(
+                    CREATED_SOURCE_SYSTEM_VIEW_ID.space,
+                    CREATED_SOURCE_SYSTEM_VIEW_ID.external_id,
+                    CREATED_SOURCE_SYSTEM_VIEW_ID.version,
+                ),
+                properties={"source": source_str},
+            )
             to_create.append(
                 CreatedResource[NodeApply](
                     resource=NodeApply(

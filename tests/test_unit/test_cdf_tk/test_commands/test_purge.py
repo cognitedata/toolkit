@@ -13,21 +13,23 @@ from cognite.client.data_classes.capabilities import (
     TimeSeriesAcl,
 )
 from cognite.client.data_classes.data_modeling import (
-    Container,
-    DataModel,
-    Edge,
     Node,
     NodeId,
     NodeList,
     Space,
-    View,
 )
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, CogniteTimeSeries
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewResponse, \
-    DataModelResponse, EdgeResponse, NodeResponse, SpaceResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerResponse,
+    DataModelResponse,
+    EdgeResponse,
+    NodeResponse,
+    SpaceResponse,
+    ViewResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extended_filemetadata import (
     ExtendedFileMetadata,
 )
@@ -315,10 +317,8 @@ class TestPurgeSpace:
                 if issubclass(cls_, Node):
                     nodes.extend(items)
                 respx_mock.request(method=method, url=url).respond(
-                    status_code=200,
-                    json={"items": [item.dump() for item in items]}
+                    status_code=200, json={"items": [item.dump() for item in items]}
                 )
-
 
             retrieve_calls = []
             if not delete_datapoints:

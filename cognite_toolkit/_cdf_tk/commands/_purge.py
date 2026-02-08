@@ -11,7 +11,6 @@ from cognite.client.data_classes.data_modeling import Edge, NodeId
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._identifier import InstanceId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from pydantic import JsonValue
 from rich import print
 from rich.console import Console
@@ -24,6 +23,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsRequest,
     ItemsSuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedInstanceIdentifier
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
