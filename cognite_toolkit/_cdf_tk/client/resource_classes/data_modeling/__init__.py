@@ -59,10 +59,12 @@ from ._references import (
     ContainerIndexReference,
     ContainerReference,
     DataModelReference,
+    DataModelReferenceNoVersion,
     NodeReference,
     SpaceReference,
     ViewDirectReference,
     ViewReference,
+    ViewReferenceNoVersion,
 )
 from ._space import Space, SpaceRequest, SpaceResponse
 from ._view import View, ViewRequest, ViewResponse
@@ -103,6 +105,7 @@ __all__ = [
     "ContainerRequest",
     "ContainerResponse",
     "DataModelReference",
+    "DataModelReferenceNoVersion",
     "DataModelRequest",
     "DataModelResponse",
     "DataType",
@@ -160,6 +163,7 @@ __all__ = [
     "ViewDirectReference",
     "ViewPropertyDefinition",
     "ViewReference",
+    "ViewReferenceNoVersion",
     "ViewRequest",
     "ViewRequestProperty",
     "ViewRequestPropertyAdapter",

@@ -21,6 +21,7 @@ class DataModel(BaseModelObject, ABC):
     space: str
     external_id: str
     version: str
+    name: str | None = None
     description: str | None = None
 
     def as_id(self) -> DataModelReference:

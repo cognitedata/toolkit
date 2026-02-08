@@ -357,7 +357,6 @@ class FakeCogniteResourceGenerator:
             else:
                 value = self.create_value(field.annotation, var_name=field_id)
             keyword_arguments[name] = value
-
         return model_cls(**keyword_arguments)
 
     def create_value(self, type_: Any, var_name: str | None = None) -> Any:

@@ -32,61 +32,44 @@ AssetResponse:
     key2: value2
   name: RootAsset
   source: doctrino
-Container:
-- constraints: {}
-  description: Container with a description property
+ContainerResponse:
+- description: Container with a description property
   externalId: DescriptionContainer
-  indexes: {}
   properties:
     description:
-      immutable: false
       type:
-        collation: ucs_basic
         list: false
         type: text
   space: sp_schema
   usedFor: node
-- constraints: {}
-  externalId: MyFileExtension
-  indexes: {}
+- externalId: MyFileExtension
   properties:
     fileCategory:
-      immutable: false
       nullable: true
       type:
-        collation: ucs_basic
         list: false
         type: text
     status:
-      immutable: false
       nullable: true
       type:
-        collation: ucs_basic
         list: false
         type: text
   space: sp_schema
   usedFor: node
-- constraints: {}
-  description: Container with a name property
+- description: Container with a name property
   externalId: NameContainer
-  indexes: {}
   properties:
     direct:
-      immutable: false
       type:
         list: false
         type: direct
     name:
-      immutable: false
       type:
-        collation: ucs_basic
         list: false
         type: text
   space: sp_schema
   usedFor: node
-- constraints: {}
-  externalId: PrimitiveNullable
-  indexes: {}
+- externalId: PrimitiveNullable
   name: PrimitiveNullable
   properties:
     boolean:
@@ -189,19 +172,15 @@ Container:
         type: timestamp
   space: population_model
   usedFor: node
-- constraints: {}
-  externalId: myContainer
-  indexes: {}
+- externalId: myContainer
   properties:
     myContainerProperty:
-      immutable: false
       type:
-        collation: ucs_basic
         list: false
         type: text
   space: sp_schema
   usedFor: edge
-DataModel:
+DataModelResponse:
 - externalId: DataModelLocation
   space: DataModelSpace
   version: '1_0_0'
@@ -253,27 +232,6 @@ Datapoints:
     shape: 5x2
   kwargs: {}
   name: missing
-Edge:
-- endNode:
-    externalId: endNode
-    space: sp_instance
-  externalId: MyEdge
-  instanceType: edge
-  sources:
-  - properties:
-      myProperty: myValue
-    source:
-      externalId: MyView
-      space: sp_schema
-      type: view
-      version: v1
-  space: sp_instance
-  startNode:
-    externalId: startNode
-    space: sp_instance
-  type:
-    externalId: AnEdgeType
-    space: sp_schema
 EventResponse:
 - assetIds:
   - 13458544937205513867
@@ -459,6 +417,35 @@ HostedExtractorMappingRequest:
       "%Y-%m-%dT%H:%M:%S"), "value": try_float(input.value, null), "externalId": input.tag
       }].filter(datapoint => datapoint.value is not null)'
   published: true
+InstanceDefinition:
+- externalId: AnEdgeType
+  space: sp_schema
+- endNode:
+    externalId: endNode
+    space: sp_instance
+  externalId: MyEdge
+  sources:
+  - properties:
+      myProperty: myValue
+    source:
+      externalId: MyView
+      space: sp_schema
+      version: v1
+  space: sp_instance
+  startNode:
+    externalId: startNode
+    space: sp_instance
+  type:
+    externalId: AnEdgeType
+    space: sp_schema
+- externalId: MyNodeType
+  space: sp_schema
+- externalId: MyOtherNodeType
+  space: sp_schema
+- externalId: endNode
+  space: sp_instance
+- externalId: startNode
+  space: sp_instance
 LabelDefinition:
 - dataSetId: 7982613576047462211
   description: Labels used for relationships that represent flows
@@ -499,15 +486,6 @@ LocationFilterResponse:
   externalId: main-location
   name: Main location name
 Node:
-- externalId: AnEdgeType
-  instanceType: node
-  space: sp_schema
-- externalId: MyNodeType
-  instanceType: node
-  space: sp_schema
-- externalId: MyOtherNodeType
-  instanceType: node
-  space: sp_schema
 - externalId: MyVanillaFile
   instanceType: node
   sources:
@@ -535,9 +513,6 @@ Node:
       type: view
       version: v1
   space: sp_nodes
-- externalId: endNode
-  instanceType: node
-  space: sp_instance
 - externalId: fn_data_modeling_only_function
   instanceType: node
   sources:
@@ -590,9 +565,6 @@ Node:
       type: view
       version: v1
   space: sp_complete_org_files
-- externalId: startNode
-  instanceType: node
-  space: sp_instance
 RAWDatabaseResponse:
 - name: db_complete_org
 RAWTableResponse:
@@ -840,7 +812,7 @@ SourceRequestDefinition:
   keyName: The name of the key
   keyValue: SuperSecretKeyValue
   type: eventhub
-Space:
+SpaceResponse:
 - space: DataModelSpace
 - space: population_instance_space
 - space: population_model
@@ -911,7 +883,7 @@ TransformationSchedule:
 - externalId: tr_first_transformation
   interval: 7 * * * *
   isPaused: true
-View:
+ViewResponse:
 - externalId: ChildView
   implements:
   - externalId: ParentView
@@ -971,7 +943,6 @@ View:
   space: sp_schema
   version: v1
 - externalId: MyView
-  implements: []
   properties:
     myProperty:
       container:
@@ -982,7 +953,6 @@ View:
   space: sp_schema
   version: v1
 - externalId: ParentView
-  implements: []
   properties:
     directFile:
       container:
@@ -1015,7 +985,6 @@ View:
   space: sp_schema
   version: v1
 - externalId: PrimitiveNullable
-  implements: []
   name: PrimitiveNullable
   properties:
     boolean:

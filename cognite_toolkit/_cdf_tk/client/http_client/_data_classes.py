@@ -52,6 +52,7 @@ class HTTPResult(BaseModel):
                     message=self.error.message,
                     missing=self.error.missing,
                     duplicated=self.error.duplicated,
+                    is_auto_retryable=self.error.is_auto_retryable,
                 ),
             )
         elif isinstance(self, FailedRequest):

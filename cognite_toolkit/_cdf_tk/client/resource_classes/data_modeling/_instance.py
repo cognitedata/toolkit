@@ -45,6 +45,9 @@ class InstanceResponseDefinition(InstanceDefinition, ResponseResource, Generic[T
             return value
         parsed: dict[ViewReference | ContainerReference, dict[str, Any]] = {}
         for space, inner_dict in value.items():
+            if isinstance(space, ViewReference | ContainerReference):
+                parsed[space] = inner_dict
+                continue
             if not isinstance(inner_dict, dict) or not isinstance(space, str):
                 raise ValueError(
                     f"Invalid properties format expected dict[str, dict[...]], got: dict[{type(space).__name__}, {type(inner_dict).__name__}]"

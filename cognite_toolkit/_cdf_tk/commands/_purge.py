@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsRequest,
     ItemsSuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedInstanceIdentifier
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
@@ -290,7 +291,7 @@ class PurgeCommand(ToolkitCommand):
     def _delete_space(self, client: ToolkitClient, selected_space: str, results: DeployResults) -> None:
         space_loader = SpaceCRUD.create_loader(client)
         try:
-            space_loader.delete([selected_space])
+            space_loader.delete([SpaceReference(space=selected_space)])
             print(f"Space {selected_space} deleted")
         except CogniteAPIError as e:
             self.warn(HighSeverityWarning(f"Failed to delete space {selected_space!r}: {e}"))

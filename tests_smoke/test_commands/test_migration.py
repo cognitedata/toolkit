@@ -195,7 +195,11 @@ def three_d_model_instance_space(toolkit_client: ToolkitClient, smoke_space: Spa
             external_id=space,
             sources=[
                 NodeOrEdgeData(
-                    source=SPACE_SOURCE_VIEW_ID,
+                    source=ViewId(
+                        space=SPACE_SOURCE_VIEW_ID.space,
+                        external_id=SPACE_SOURCE_VIEW_ID.external_id,
+                        version=SPACE_SOURCE_VIEW_ID.version,
+                    ),
                     properties={
                         "instanceSpace": space,
                         "dataSetId": smoke_dataset.id,

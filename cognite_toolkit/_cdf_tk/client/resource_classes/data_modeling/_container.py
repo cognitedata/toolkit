@@ -47,4 +47,4 @@ class ContainerResponse(Container, ResponseResource[ContainerRequest]):
     is_global: bool
 
     def as_request_resource(self) -> "ContainerRequest":
-        return ContainerRequest.model_validate(self.model_dump(by_alias=True))
+        return ContainerRequest.model_validate(self.model_dump(by_alias=True), extra="ignore")

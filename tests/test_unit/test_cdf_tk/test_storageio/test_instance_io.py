@@ -5,8 +5,7 @@ import httpx
 import pytest
 import responses
 import respx
-from cognite.client.data_classes import View
-from cognite.client.data_classes.data_modeling import DataModel, EdgeApply, Node, NodeApply
+from cognite.client.data_classes.data_modeling import EdgeApply, Node, NodeApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -14,6 +13,8 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsFailedResponse,
     ItemsSuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceList
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import InstanceIO, UploadItem
@@ -187,14 +188,14 @@ class TestInstanceIO:
             status=200,
         )
         # Space
-        rsps.post(
-            config.create_api_url("/models/spaces/byids"),
+        respx_mock.post(config.create_api_url("/models/spaces/byids")).respond(
             json={"items": [{"space": "my_insta_space", "createdTime": 0, "lastUpdatedTime": 0, "isGlobal": False}]},
-            status=200,
+            status_code=200,
         )
         # View
-        rsps.post(
+        respx_mock.post(
             config.create_api_url("/models/views/byids"),
+        ).respond(
             json={
                 "items": [
                     {
@@ -208,6 +209,8 @@ class TestInstanceIO:
                         "writable": True,
                         "usedFor": "node",
                         "isGlobal": False,
+                        "mappedContainers": [],
+                        "queryable": True,
                         "properties": {
                             "name": {
                                 "container": {
@@ -222,6 +225,7 @@ class TestInstanceIO:
                                 "nullable": True,
                                 "immutable": False,
                                 "autoIncrement": False,
+                                "constraintState": {},
                             }
                         },
                     }
@@ -229,8 +233,9 @@ class TestInstanceIO:
             },
         )
         # Container
-        rsps.post(
+        respx_mock.post(
             config.create_api_url("/models/containers/byids"),
+        ).respond(
             json={
                 "items": [
                     {
@@ -266,7 +271,7 @@ class TestInstanceIO:
         selector = InstanceSpaceSelector(
             instance_space="my_insta_space",
             instance_type="node",
-            view=SelectedView(space="my_schema_space", external_id="my_view"),
+            view=SelectedView(space="my_schema_space", external_id="my_view", version="v1"),
         )
         download_command = DownloadCommand(silent=True, skip_tracking=True)
         upload_command = UploadCommand(silent=True, skip_tracking=True)
@@ -290,7 +295,7 @@ class TestInstanceIO:
             kind=InstanceIO.KIND,
         )
 
-        assert len(respx_mock.calls) == 1
+        assert len(respx_mock.calls) == 3
 
     @pytest.mark.parametrize(
         "item_json,expected_properties",
@@ -361,10 +366,10 @@ class TestInstanceIO:
         toolkit_client_approval: ApprovalToolkitClient,
         item_json: dict,
         expected_properties: dict,
-        cognite_core_no_3D: DataModel,
+        cognite_core_no_3D: DataModelResponseWithViews,
     ) -> None:
         """Test that json_to_resource filters out read-only properties from containers."""
-        toolkit_client_approval.append(View, cognite_core_no_3D.views)
+        toolkit_client_approval.append(ViewResponse, cognite_core_no_3D.views)
         instance_io = InstanceIO(toolkit_client_approval.mock_client)
         instance = instance_io.json_to_resource(item_json)
 

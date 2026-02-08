@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
     APMConfigResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
@@ -118,18 +119,18 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if isinstance(app_data_space_id := item.get("appDataSpaceId"), str):
-            yield SpaceCRUD, app_data_space_id
+            yield SpaceCRUD, SpaceReference(space=app_data_space_id)
         if isinstance(customer_data_space_id := item.get("customerDataSpaceId"), str):
-            yield SpaceCRUD, customer_data_space_id
+            yield SpaceCRUD, SpaceReference(space=customer_data_space_id)
         for config in cls._get_root_location_configurations(item) or []:
             if isinstance(asset_external_id := config.get("assetExternalId"), str):
                 yield AssetCRUD, ExternalId(external_id=asset_external_id)
             if isinstance(data_set_external_id := config.get("dataSetExternalId"), str):
                 yield DataSetsCRUD, data_set_external_id
             if isinstance(app_data_instance_space := config.get("appDataInstanceSpace"), str):
-                yield SpaceCRUD, app_data_instance_space
+                yield SpaceCRUD, SpaceReference(space=app_data_instance_space)
             if isinstance(source_data_instance_space := config.get("sourceDataInstanceSpace"), str):
-                yield SpaceCRUD, source_data_instance_space
+                yield SpaceCRUD, SpaceReference(space=source_data_instance_space)
             for key in cls._group_keys:
                 for group in config.get(key, []):
                     if isinstance(group, str):
@@ -149,7 +150,7 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
                         yield AssetCRUD, ExternalId(external_id=asset_external_id)
                 if app_data_instance_space := filter_.get("appDataInstanceSpace"):
                     if isinstance(app_data_instance_space, str):
-                        yield SpaceCRUD, app_data_instance_space
+                        yield SpaceCRUD, SpaceReference(space=app_data_instance_space)
 
     def safe_read(self, filepath: Path | str) -> str:
         # The customerDataSpaceVersion is a string, but the user often writes it as an int.
