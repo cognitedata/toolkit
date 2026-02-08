@@ -26,6 +26,8 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, Cognit
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewResponse, \
+    DataModelResponse, EdgeResponse, NodeResponse, SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extended_filemetadata import (
     ExtendedFileMetadata,
 )
@@ -296,31 +298,27 @@ class TestPurgeSpace:
             for url in delete_urls:
                 respx_mock.post(config.create_api_url(url)).mock(side_effect=delete_callback)
             if include_space:
-                rsps.add_callback(
-                    method=responses.POST,
-                    url=config.create_api_url("/models/spaces/delete"),
-                    callback=delete_space_callback,
-                )
+                respx_mock.post(config.create_api_url("/models/spaces/delete")).mock(side_effect=delete_callback)
 
             list_calls = [
-                ("/models/containers", responses.GET, Container, container_count),
-                ("/models/views", responses.GET, View, view_count),
-                ("/models/datamodels", responses.GET, DataModel, data_model_count),
-                ("/models/instances/list", responses.POST, Edge, edge_count),
-                ("/models/instances/list", responses.POST, Node, node_count),
+                ("/models/containers", "GET", ContainerResponse, container_count),
+                ("/models/views", "GET", ViewResponse, view_count),
+                ("/models/datamodels", "GET", DataModelResponse, data_model_count),
+                ("/models/instances/list", "POST", EdgeResponse, edge_count),
+                ("/models/instances/list", "POST", NodeResponse, node_count),
             ]
             if include_space:
-                list_calls.append(("/models/spaces/byids", responses.POST, Space, 1))
+                list_calls.append(("/models/spaces/byids", "POST", SpaceResponse, 1))
             nodes: list[Node] = []
             for url, method, cls_, count in list_calls:
                 items = [gen.create_instance(cls_) for _ in range(count)]
                 if issubclass(cls_, Node):
                     nodes.extend(items)
-                rsps.add(
-                    method=method,
-                    url=config.create_api_url(url),
-                    json={"items": [item.dump() for item in items]},
+                respx_mock.request(method=method, url=url).respond(
+                    status_code=200,
+                    json={"items": [item.dump() for item in items]}
                 )
+
 
             retrieve_calls = []
             if not delete_datapoints:

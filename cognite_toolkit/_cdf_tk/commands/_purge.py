@@ -11,6 +11,7 @@ from cognite.client.data_classes.data_modeling import Edge, NodeId
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._identifier import InstanceId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from pydantic import JsonValue
 from rich import print
 from rich.console import Console
@@ -290,7 +291,7 @@ class PurgeCommand(ToolkitCommand):
     def _delete_space(self, client: ToolkitClient, selected_space: str, results: DeployResults) -> None:
         space_loader = SpaceCRUD.create_loader(client)
         try:
-            space_loader.delete([selected_space])
+            space_loader.delete([SpaceReference(space=selected_space)])
             print(f"Space {selected_space} deleted")
         except CogniteAPIError as e:
             self.warn(HighSeverityWarning(f"Failed to delete space {selected_space!r}: {e}"))
