@@ -50,6 +50,10 @@ class Flags(Enum):
         visible=True,
         description="Enables the migrate command",
     )
+    INFIELD_MIGRATE = FlagMetadata(
+        visible=False,
+        description="Enables the infield-migrate command for migrating Infield configs to regular Toolkit configs",
+    )
     STREAMS = FlagMetadata(
         visible=True,
         description="Enables the support for the streams resources",

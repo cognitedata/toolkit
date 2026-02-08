@@ -156,6 +156,7 @@ class FeatureConfiguration(BaseModelObject):
     documents: Documents | None = None
     disciplines: list[Discipline] | None = None
     notifications: Notification | None = None
+    observations: JsonValue | None = None
     psn_configuration: EnabledToggle | DisabledToggle | None = None
     canvas_configuration: EnabledToggle | DisabledToggle | None = None
     cabinet_configuration: CabinetConfiguration | None = None

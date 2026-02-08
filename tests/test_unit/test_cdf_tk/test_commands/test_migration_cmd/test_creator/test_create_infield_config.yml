@@ -1,0 +1,78 @@
+InField CDM Location Configs:
+- externalId: WMT:VAL_0
+  instanceType: node
+  sources:
+  - properties:
+      accessManagement:
+        checklistAdmins:
+        - gp_infield_oid_checklist_admins
+        templateAdmins:
+        - gp_infield_oid_template_admins
+      dataExplorationConfig: null
+      dataFilters:
+        assets:
+          instanceSpaces:
+          - sp_asset_oid_source
+        files:
+          instanceSpaces:
+          - sp_asset_oid_source
+        maintenanceOrders:
+          instanceSpaces:
+          - sp_asset_oid_source
+        notifications:
+          instanceSpaces:
+          - sp_asset_oid_source
+        operations:
+          instanceSpaces:
+          - sp_asset_oid_source
+        timeseries:
+          instanceSpaces:
+          - sp_asset_oid_source
+      dataStorage:
+        appDataInstanceSpace: sp_infield_oid_app_data
+        rootLocation:
+          externalId: WMT:VAL
+          space: migrated
+      description: Migrated InField Location Configuration
+      disciplines: null
+      featureToggles: null
+      name: InField Location Config
+      viewMappings:
+        asset:
+          externalId: CogniteAsset
+          space: cdf_cdm
+          version: v1
+        file:
+          externalId: CogniteFile
+          space: cdf_cdm
+          version: v1
+        maintenanceOrder:
+          externalId: CogniteMaintenanceOrder
+          space: cdf_idm
+          version: v1
+        notification:
+          externalId: CogniteNotification
+          space: cdf_idm
+          version: v1
+        operation:
+          externalId: CogniteOperation
+          space: cdf_idm
+          version: v1
+    source:
+      externalId: InFieldCDMLocationConfig
+      space: infield_cdm_source_desc_sche_asset_file_ts
+      type: view
+      version: v1
+  space: sp_asset_oid_source
+Location Filters:
+- dataModelingType: DATA_MODELING_ONLY
+  dataModels:
+  - externalId: InFieldOnCDM
+    space: infield_cdm_source_desc_sche_asset_file_ts
+    version: v1
+  description: InField location, migrated from old location configuration
+  externalId: location_filter_WMT:VAL
+  instanceSpaces:
+  - sp_infield_oid_app_data
+  - sp_asset_oid_source
+  name: WMT:VAL

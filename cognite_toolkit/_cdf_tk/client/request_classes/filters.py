@@ -4,8 +4,9 @@ from typing import Any, Literal
 from pydantic import ConfigDict, Field
 
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationStatus, AnnotationType
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, ViewReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
 
 from .base import BaseModelRequest
 
@@ -64,7 +65,7 @@ class DataModelFilter(DataModelingFilter):
 
 class InstanceFilter(Filter):
     instance_type: Literal["node", "edge"] | None = None
-    source: ViewReference | None = None
+    source: TypedViewReference | None = None
     space: list[str] | None = None
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
