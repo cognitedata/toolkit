@@ -60,11 +60,13 @@ from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.data_classes.iam import CreatedSession, GroupWrite, ProjectSpec, TokenInspection
 from cognite.client.utils._text import to_camel_case
 from cognite.client.utils.useful_types import SequenceNotStr
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from requests import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source._base import SourceRequestDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceDefinition, InstanceRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import GraphQLDataModelWrite
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.project import ProjectStatus, ProjectStatusList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawDatabase
@@ -772,6 +774,18 @@ class ApprovalToolkitClient:
             created_resources[SourceRequestDefinition.__name__].extend(items)
             return []
 
+        def create_instances_pydantic(items: Sequence[InstanceRequest]) -> list[InstanceSlimDefinition]:
+            created_resources[InstanceDefinition.__name__].extend(items)
+            return [InstanceSlimDefinition(
+                instance_type=item.instance_type,
+                space=item.space,
+                external_id=item.external_id,
+                was_modified=True,
+                created_time=1,
+                last_updated_time=2,
+                version=1,
+            ) for item in items]
+
         available_create_methods = {
             fn.__name__: fn
             for fn in [
@@ -792,6 +806,7 @@ class ApprovalToolkitClient:
                 create_nodes,
                 create,
                 create_hosted_extractor_source,
+                create_instances_pydantic,
             ]
         }
         if mock_method not in available_create_methods:
@@ -919,6 +934,9 @@ class ApprovalToolkitClient:
         def retrieve_hosted_extractor_source(items: Sequence, *_, **__) -> list:
             return existing_resources[SourceRequestDefinition.__name__]
 
+        def retrieve_instances_pydantic(items: Sequence[InstanceRequest], *_, **__) -> list:
+            return existing_resources[InstanceDefinition.__name__]
+
         def list(*_, **__) -> list:
             return existing_resources[resource_cls.__name__]
 
@@ -950,6 +968,7 @@ class ApprovalToolkitClient:
                 list_raw_db,
                 list_raw_table,
                 list,
+                retrieve_instances_pydantic,
             ]
         }
         if mock_method not in available_retrieve_methods:
