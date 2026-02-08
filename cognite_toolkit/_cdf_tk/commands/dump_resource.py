@@ -34,15 +34,6 @@ from cognite.client.data_classes.functions import (
 )
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils import ms_to_datetime
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    ContainerReference,
-    DataModelReference,
-    DataModelResponse,
-    SpaceReference,
-    SpaceResponse,
-    ViewReference,
-    ViewResponse,
-)
 from questionary import Choice
 from rich import print
 from rich.console import Console
@@ -51,6 +42,17 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter, ViewFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerReference,
+    DataModelReference,
+    DataModelReferenceNoVersion,
+    DataModelResponse,
+    SpaceReference,
+    SpaceResponse,
+    ViewReference,
+    ViewReferenceNoVersion,
+    ViewResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
     ExternalId,
     WorkflowVersionId,
@@ -128,8 +130,10 @@ class ResourceFinder(Iterable, ABC, Generic[T_ID]):
     def update(self, resources: Sequence[ResourceResponseProtocol]) -> None: ...
 
 
-class DataModelFinder(ResourceFinder[DataModelReference]):
-    def __init__(self, client: ToolkitClient, identifier: DataModelReference | None = None, include_global: bool = False):
+class DataModelFinder(ResourceFinder[DataModelReferenceNoVersion]):
+    def __init__(
+        self, client: ToolkitClient, identifier: DataModelReferenceNoVersion | None = None, include_global: bool = False
+    ):
         super().__init__(client, identifier)
         self._include_global = include_global
         self.data_model: DataModelResponse | None = None
@@ -138,9 +142,7 @@ class DataModelFinder(ResourceFinder[DataModelReference]):
         self.space_ids: set[SpaceReference] = set()
 
     def _interactive_select(self) -> DataModelReference:
-        all_models = self.client.tool.data_models.list(
-            filter=DataModelFilter(all_versions=False, include_global=False)
-        )
+        all_models = self.client.tool.data_models.list(filter=DataModelFilter(all_versions=False, include_global=False))
         data_model_ids = [model.as_id() for model in all_models]
         available_spaces = sorted({model.space for model in data_model_ids})
         if not available_spaces:
@@ -169,9 +171,7 @@ class DataModelFinder(ResourceFinder[DataModelReference]):
         all_versions = self.client.tool.data_models.list(
             filter=DataModelFilter(all_versions=True, space=selected_data_model.space, include_global=False)
         )
-        retrieved_models = [
-            m for m in all_versions if m.external_id == selected_data_model.external_id
-        ]
+        retrieved_models = [m for m in all_versions if m.external_id == selected_data_model.external_id]
         if not retrieved_models:
             # This happens if the data model is removed after the list call above.
             raise ToolkitMissingResourceError(f"Data model {selected_data_model} not found")
@@ -445,12 +445,12 @@ class AgentFinder(ResourceFinder[tuple[str, ...]]):
             yield list(self.identifier), None, loader, None
 
 
-class NodeFinder(ResourceFinder[TypedViewReference]):
-    def __init__(self, client: ToolkitClient, identifier: TypedViewReference | None = None):
+class NodeFinder(ResourceFinder[ViewReferenceNoVersion]):
+    def __init__(self, client: ToolkitClient, identifier: ViewReferenceNoVersion | None = None):
         super().__init__(client, identifier)
         self.is_interactive = False
 
-    def _interactive_select(self) -> TypedViewReference:
+    def _interactive_select(self) -> ViewReferenceNoVersion:
         self.is_interactive = True
         spaces = self.client.tool.spaces.list(limit=None)
         if not spaces:
@@ -463,10 +463,10 @@ class NodeFinder(ResourceFinder[TypedViewReference]):
         if not views:
             raise ToolkitMissingResourceError(f"No views found in {selected_space}")
         if len(views) == 1:
-            return views[0].as_typed_id()
-        selected_view_id: TypedViewReference = questionary.select(
+            return views[0].as_id()
+        selected_view_id: ViewReference = questionary.select(
             "Which node property view would you like to dump?",
-            [Choice(repr(view.as_id()), value=view.as_typed_id()) for view in views],
+            [Choice(repr(view.as_id()), value=view.as_id()) for view in views],
         ).unsafe_ask()
         return selected_view_id
 
@@ -474,10 +474,30 @@ class NodeFinder(ResourceFinder[TypedViewReference]):
         self,
     ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
-        loader = NodeCRUD(self.client, None, None, self.identifier)
+        view_id: TypedViewReference
+        identifier = self._selected()
+
+        if isinstance(identifier, ViewReference):
+            view_id = TypedViewReference(
+                space=identifier.space,
+                external_id=identifier.external_id,
+                version=identifier.version,
+            )
+        else:
+            # Find latest version of view.
+            view = self.client.tool.views.retrieve([self.identifier])
+            if not view:
+                raise ToolkitResourceMissingError(f"View {identifier} not found", str(identifier))
+            view_id = view[0].as_typed_id()
+
+        loader = NodeCRUD(self.client, None, None, view_id)
         if self.is_interactive:
             count = self.client.data_modeling.instances.aggregate(
-                ViewId(self.identifier.space, self.identifier.external_id, self.identifier.version),
+                ViewId(
+                    self.identifier.space,
+                    self.identifier.external_id,
+                    self.identifier.version if isinstance(self.identifier, ViewReference) else None,
+                ),
                 dm.aggregations.Count("externalId"),
                 instance_type="node",
             ).value

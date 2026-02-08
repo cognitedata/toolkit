@@ -11,10 +11,11 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessR
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReference,
+    ViewReferenceNoVersion,
     ViewRequest,
     ViewResponse,
-    ViewReferenceNoVersion,
 )
+
 
 class ViewsAPI(CDFResourceAPI[ViewReference, ViewRequest, ViewResponse]):
     """API for managing CDF data modeling views.
@@ -57,7 +58,9 @@ class ViewsAPI(CDFResourceAPI[ViewReference, ViewRequest, ViewResponse]):
         """
         return self._request_item_response(items, "upsert")
 
-    def retrieve(self, items: Sequence[ViewReferenceNoVersion], include_inherited_properties: bool = True) -> list[ViewResponse]:
+    def retrieve(
+        self, items: Sequence[ViewReferenceNoVersion], include_inherited_properties: bool = True
+    ) -> list[ViewResponse]:
         """Retrieve views from CDF.
 
         Args:

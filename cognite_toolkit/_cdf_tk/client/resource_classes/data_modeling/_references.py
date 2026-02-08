@@ -23,6 +23,7 @@ class ContainerReference(Identifier):
     def as_tuple(self) -> tuple[str, str]:
         return self.space, self.external_id
 
+
 class ViewReferenceNoVersion(Identifier):
     type: Literal["view"] = Field("view", exclude=True)
     space: str
@@ -31,11 +32,13 @@ class ViewReferenceNoVersion(Identifier):
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}"
 
+
 class ViewReference(ViewReferenceNoVersion):
     version: str
 
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}(version={self.version})"
+
 
 class DataModelReferenceNoVersion(Identifier):
     space: str
@@ -44,11 +47,13 @@ class DataModelReferenceNoVersion(Identifier):
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}"
 
+
 class DataModelReference(DataModelReferenceNoVersion):
     version: str
 
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}(version={self.version})"
+
 
 class NodeReference(Identifier):
     space: str

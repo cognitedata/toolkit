@@ -60,7 +60,9 @@ class DataModelsAPI(CDFResourceAPI[DataModelReference, DataModelRequest, DataMod
         """
         return self._request_item_response(items, "upsert")
 
-    def retrieve(self, items: Sequence[DataModelReferenceNoVersion], inline_views: bool = False) -> list[DataModelResponse]:
+    def retrieve(
+        self, items: Sequence[DataModelReferenceNoVersion], inline_views: bool = False
+    ) -> list[DataModelResponse]:
         """Retrieve data models from CDF.
 
         Args:
