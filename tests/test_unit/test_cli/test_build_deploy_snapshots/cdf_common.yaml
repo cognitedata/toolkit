@@ -60,7 +60,7 @@ RAWDatabaseResponse:
 - name: ingestion
 RAWTableResponse:
 - name: diagramParsing
-Space:
+SpaceResponse:
 - description: This space contains data
   name: Instance space
   space: springfield_instances

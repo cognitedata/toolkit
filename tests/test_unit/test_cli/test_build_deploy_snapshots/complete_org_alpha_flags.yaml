@@ -394,7 +394,7 @@ SimulatorRoutineRevisionResponse:
         referenceId: ST
       order: 1
       stepType: Get
-Space:
+SpaceResponse:
 - space: sp_instance
 - space: sp_schema
 StreamResponse:
