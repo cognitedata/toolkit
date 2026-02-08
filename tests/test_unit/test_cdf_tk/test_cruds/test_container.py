@@ -40,7 +40,10 @@ indexes: {}
             is_global=False,
             properties={
                 "UUID": ContainerPropertyDefinition(
-                    type=TextProperty(list=False, collation="ucs_basic"), immutable=False, nullable=False
+                    type=TextProperty(list=False, collation="ucs_basic"),
+                    immutable=False,
+                    nullable=True,
+                    auto_increment=False,
                 )
             },
             indexes={},

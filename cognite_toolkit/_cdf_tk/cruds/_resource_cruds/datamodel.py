@@ -310,6 +310,11 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
         dumped = resource.as_request_resource().dump()
         has_local = local is not None
         local = local or {}
+        for key in ["description", "name"]:
+            if has_local and dumped.get(key) is None and key not in local:
+                # Set to null by server.
+                dumped.pop(key, None)
+
         for key in ["constraints", "indexes"]:
             if not dumped.get(key) and key not in local:
                 # Set to empty dict by server.
