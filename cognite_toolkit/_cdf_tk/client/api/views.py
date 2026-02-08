@@ -13,8 +13,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReference,
     ViewRequest,
     ViewResponse,
+    ViewReferenceNoVersion,
 )
-
 
 class ViewsAPI(CDFResourceAPI[ViewReference, ViewRequest, ViewResponse]):
     """API for managing CDF data modeling views.
@@ -57,7 +57,7 @@ class ViewsAPI(CDFResourceAPI[ViewReference, ViewRequest, ViewResponse]):
         """
         return self._request_item_response(items, "upsert")
 
-    def retrieve(self, items: Sequence[ViewReference], include_inherited_properties: bool = True) -> list[ViewResponse]:
+    def retrieve(self, items: Sequence[ViewReferenceNoVersion], include_inherited_properties: bool = True) -> list[ViewResponse]:
         """Retrieve views from CDF.
 
         Args:

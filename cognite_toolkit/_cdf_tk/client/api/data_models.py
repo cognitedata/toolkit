@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessR
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelReference,
+    DataModelReferenceNoVersion,
     DataModelRequest,
     DataModelResponse,
 )
@@ -59,7 +60,7 @@ class DataModelsAPI(CDFResourceAPI[DataModelReference, DataModelRequest, DataMod
         """
         return self._request_item_response(items, "upsert")
 
-    def retrieve(self, items: Sequence[DataModelReference], inline_views: bool = False) -> list[DataModelResponse]:
+    def retrieve(self, items: Sequence[DataModelReferenceNoVersion], inline_views: bool = False) -> list[DataModelResponse]:
         """Retrieve data models from CDF.
 
         Args:
