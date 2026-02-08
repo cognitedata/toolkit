@@ -1,4 +1,5 @@
 import itertools
+import json
 from collections.abc import Iterator
 
 import httpx
@@ -12,12 +13,7 @@ from cognite.client.data_classes.capabilities import (
     FilesAcl,
     TimeSeriesAcl,
 )
-from cognite.client.data_classes.data_modeling import (
-    Node,
-    NodeId,
-    NodeList,
-    Space,
-)
+from cognite.client.data_classes.data_modeling import NodeId, NodeList, Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, CogniteTimeSeries
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 
@@ -306,20 +302,26 @@ class TestPurgeSpace:
                 ("/models/containers", "GET", ContainerResponse, container_count),
                 ("/models/views", "GET", ViewResponse, view_count),
                 ("/models/datamodels", "GET", DataModelResponse, data_model_count),
-                ("/models/instances/list", "POST", EdgeResponse, edge_count),
-                ("/models/instances/list", "POST", NodeResponse, node_count),
             ]
             if include_space:
                 list_calls.append(("/models/spaces/byids", "POST", SpaceResponse, 1))
-            nodes: list[Node] = []
             for url, method, cls_, count in list_calls:
                 items = [gen.create_instance(cls_) for _ in range(count)]
-                if issubclass(cls_, Node):
-                    nodes.extend(items)
                 respx_mock.request(method=method, url=config.create_api_url(url)).respond(
                     status_code=200, json={"items": [item.dump() for item in items]}
                 )
+            edge_items = [gen.create_instance(EdgeResponse) for _ in range(edge_count)]
+            node_items = [gen.create_instance(NodeResponse) for _ in range(node_count)]
 
+            def list_instances_callback(request: httpx.Request) -> httpx.Response:
+                body = json.loads(request.content.decode("utf-8"))
+                instance_type = body.get("instanceType", "node")
+                items = edge_items if instance_type == "edge" else node_items
+                return httpx.Response(200, json={"items": [item.dump() for item in items]})
+
+            respx_mock.post(config.create_api_url("/models/instances/list")).mock(side_effect=list_instances_callback)
+
+            nodes = node_items
             retrieve_calls = []
             if not delete_datapoints:
                 retrieve_calls.append(("/timeseries/byids", ExtendedTimeSeries, ts_count, nodes[:ts_count]))
@@ -331,7 +333,10 @@ class TestPurgeSpace:
             for url, cls_, count, resource_nodes in retrieve_calls:
                 resource_list = [gen.create_instance(cls_).dump() for _ in range(count)]
                 for ts, node in zip(resource_list, resource_nodes):
-                    ts["instanceId"] = node.as_id().dump(include_instance_type=False)
+                    try:
+                        ts["instanceId"] = node.as_id().dump(include_type=False)
+                    except TypeError:
+                        ts["instanceId"] = node.as_id().dump(camel_case=True)
                 rsps.add(
                     method=responses.POST,
                     url=config.create_api_url(url),

@@ -170,10 +170,8 @@ class DataModelFinder(ResourceFinder[DataModelReferenceNoVersion]):
             ],
         ).unsafe_ask()
 
-        all_versions = self.client.tool.data_models.list(
-            filter=DataModelFilter(
-                all_versions=True, space=selected_data_model.space, include_global=self._include_global
-            )
+        all_versions = self.client.tool.data_models.retrieve(
+            [DataModelReferenceNoVersion(space=selected_space, external_id=selected_data_model.external_id)]
         )
         retrieved_models = [m for m in all_versions if m.external_id == selected_data_model.external_id]
         if not retrieved_models:
