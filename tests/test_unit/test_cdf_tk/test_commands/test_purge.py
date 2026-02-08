@@ -316,7 +316,7 @@ class TestPurgeSpace:
                 items = [gen.create_instance(cls_) for _ in range(count)]
                 if issubclass(cls_, Node):
                     nodes.extend(items)
-                respx_mock.request(method=method, url=url).respond(
+                respx_mock.request(method=method, url=config.create_api_url(url)).respond(
                     status_code=200, json={"items": [item.dump() for item in items]}
                 )
 
