@@ -23,6 +23,7 @@ class ContainerReference(Identifier):
     def as_tuple(self) -> tuple[str, str]:
         return self.space, self.external_id
 
+
 class ViewReference(Identifier):
     type: Literal["view"] = Field("view", exclude=True)
     space: str

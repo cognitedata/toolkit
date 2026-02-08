@@ -126,12 +126,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerResponse,
     DataModelRequest,
     DataModelResponse,
+    InstanceRequest,
+    InstanceResponse,
     SpaceRequest,
     SpaceResponse,
     ViewRequest,
     ViewResponse,
-    InstanceRequest,
-    InstanceResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse

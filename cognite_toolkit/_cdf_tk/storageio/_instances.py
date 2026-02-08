@@ -1,22 +1,20 @@
 from collections.abc import Iterable, Mapping, Sequence
 from types import MappingProxyType
-from typing import ClassVar
+from typing import ClassVar, cast
 
 from cognite.client.data_classes.aggregations import Count
 from cognite.client.data_classes.data_modeling import (
     ContainerId,
-    ContainerList,
     EdgeApply,
     NodeApply,
-    SpaceList,
     ViewId,
-    ViewList,
 )
 from cognite.client.data_classes.data_modeling.instances import Instance, InstanceApply
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceList
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
@@ -77,12 +75,18 @@ class InstanceIO(
             if isinstance(source.source, ViewId):
                 if source.source not in self._view_readonly_properties_cache:
                     self._view_readonly_properties_cache[source.source] = self._view_crud.get_readonly_properties(
-                        source.source
+                        ViewReference(
+                            space=source.source.space,
+                            external_id=source.source.external_id,
+                            version=cast(str, source.source.version),
+                        )
                     )
                 readonly_properties = self._view_readonly_properties_cache[source.source]
             elif isinstance(source.source, ContainerId):
                 if (source.source.space, source.source.external_id) in constants.READONLY_CONTAINER_PROPERTIES:
-                    readonly_properties = constants.READONLY_CONTAINER_PROPERTIES[(source.source.space, source.source.external_id)]
+                    readonly_properties = constants.READONLY_CONTAINER_PROPERTIES[
+                        (source.source.space, source.source.external_id)
+                    ]
 
             source.properties = {k: v for k, v in source.properties.items() if k not in readonly_properties}
 
@@ -179,8 +183,8 @@ class InstanceIO(
         if not spaces:
             return
         space_crud = SpaceCRUD.create_loader(self.client)
-        retrieved_spaces = space_crud.retrieve(spaces)
-        retrieved_spaces = SpaceList([space for space in retrieved_spaces if not space.is_global])
+        retrieved_spaces = space_crud.retrieve([SpaceReference(space=space) for space in spaces])
+        retrieved_spaces = [space for space in retrieved_spaces if not space.is_global]
         if not retrieved_spaces:
             return
         for space in retrieved_spaces:
@@ -194,8 +198,10 @@ class InstanceIO(
             return
         view_id = selector.view.as_id()
         view_crud = ViewCRUD(self.client, None, None, topological_sort_implements=True)
-        views = view_crud.retrieve([view_id])
-        views = ViewList([view for view in views if not view.is_global])
+        views = view_crud.retrieve(
+            [ViewReference(space=view_id.space, external_id=view_id.external_id, version=cast(str, view_id.version))]
+        )
+        views = [view for view in views if not view.is_global]
         if not views:
             return
         for view in views:
@@ -208,12 +214,12 @@ class InstanceIO(
                 value=view_crud.dump_resource(view),
                 filename=sanitize_filename(filename),
             )
-        container_ids = list({container for view in views for container in view.referenced_containers() or []})
+        container_ids = list({container for view in views for container in view.mapped_containers})
         if not container_ids:
             return
         container_crud = ContainerCRUD.create_loader(self.client)
         containers = container_crud.retrieve(container_ids)
-        containers = ContainerList([container for container in containers if not container.is_global])
+        containers = [container for container in containers if not container.is_global]
         if not containers:
             return
         for container in containers:

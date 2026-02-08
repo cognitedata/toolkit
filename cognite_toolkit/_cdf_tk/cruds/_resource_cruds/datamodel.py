@@ -1064,12 +1064,14 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
     def dump_resource(self, resource: NodeResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
         local = local or {}
-        sources = [TypedViewReference._load(source["source"]) for source in local.get("sources", []) if "source" in source]
+        sources = [
+            TypedViewReference._load(source["source"]) for source in local.get("sources", []) if "source" in source
+        ]
 
         if sources:
             try:
                 node_id = resource.as_id()
-                res = self.client.tool.instances.retrieve([node_id], source=source_ref)
+                res = self.client.tool.instances.retrieve([node_id], source=sources[0])
             except ToolkitAPIError:
                 # View does not exist
                 dumped = resource.as_request_resource().dump()
