@@ -142,7 +142,9 @@ class DataModelFinder(ResourceFinder[DataModelReferenceNoVersion]):
         self.space_ids: set[SpaceReference] = set()
 
     def _interactive_select(self) -> DataModelReference:
-        all_models = self.client.tool.data_models.list(filter=DataModelFilter(all_versions=False, include_global=False))
+        all_models = self.client.tool.data_models.list(
+            filter=DataModelFilter(all_versions=False, include_global=self._include_global)
+        )
         data_model_ids = [model.as_id() for model in all_models]
         available_spaces = sorted({model.space for model in data_model_ids})
         if not available_spaces:
@@ -169,7 +171,9 @@ class DataModelFinder(ResourceFinder[DataModelReferenceNoVersion]):
         ).unsafe_ask()
 
         all_versions = self.client.tool.data_models.list(
-            filter=DataModelFilter(all_versions=True, space=selected_data_model.space, include_global=False)
+            filter=DataModelFilter(
+                all_versions=True, space=selected_data_model.space, include_global=self._include_global
+            )
         )
         retrieved_models = [m for m in all_versions if m.external_id == selected_data_model.external_id]
         if not retrieved_models:
@@ -224,7 +228,7 @@ class DataModelFinder(ResourceFinder[DataModelReferenceNoVersion]):
             is_global_model = self.data_model.is_global
             yield [], [self.data_model], model_loader, None
         else:
-            model_list = model_loader.retrieve([self.identifier])
+            model_list = self.client.tool.data_models.retrieve([self.identifier])
             if not model_list:
                 raise ToolkitResourceMissingError(f"Data model {self.identifier} not found", str(self.identifier))
             is_global_model = model_list[0].is_global
