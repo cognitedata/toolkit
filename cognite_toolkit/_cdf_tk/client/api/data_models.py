@@ -87,14 +87,14 @@ class DataModelsAPI(CDFResourceAPI[DataModelReference, DataModelRequest, DataMod
         if inline_views:
             response_items: list[DataModelResponseWithViews] = []
             for response in self._chunk_requests(
-                items, "retrieve", self._serialize_items, extra_body={"inlineViews": True}
+                items, "retrieve", self._serialize_items, params={"inlineViews": True}
             ):
                 response_items.extend(
                     PagedResponse[DataModelResponseWithViews].model_validate_json(response.body).items
                 )
             return response_items
         else:
-            return self._request_item_response(items, method="retrieve", extra_body={"inlineViews": False})
+            return self._request_item_response(items, method="retrieve", params={"inlineViews": False})
 
     def delete(self, items: Sequence[DataModelReference]) -> None:
         """Delete data models from CDF.
