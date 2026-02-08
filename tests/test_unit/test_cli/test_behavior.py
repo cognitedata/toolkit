@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
-from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     DataSet,
     Group,
@@ -18,6 +17,21 @@ from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk import cdf_toml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerPropertyDefinition,
+    ContainerReference,
+    ContainerResponse,
+    DataModelReference,
+    DataModelResponse,
+    Float64Property,
+    SpaceReference,
+    SpaceResponse,
+    TextProperty,
+    ViewCorePropertyResponse,
+    ViewRequest,
+    ViewResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import ConstraintOrIndexState
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterResponse,
@@ -334,87 +348,87 @@ def test_dump_datamodel(
     env_vars_with_client: EnvironmentVariables,
 ) -> None:
     # Create a datamodel and append it to the approval client
-    space = dm.Space("my_space", is_global=False, last_updated_time=0, created_time=0)
-    container = dm.Container(
+    container_ref = ContainerReference(space="my_space", external_id="my_container")
+    space = SpaceResponse(space="my_space", is_global=False, last_updated_time=0, created_time=0)
+    container = ContainerResponse(
         space="my_space",
         external_id="my_container",
-        name=None,
-        description=None,
-        properties={"prop1": dm.ContainerProperty(type=dm.Text()), "prop2": dm.ContainerProperty(type=dm.Float64())},
+        properties={
+            "prop1": ContainerPropertyDefinition(type=TextProperty()),
+            "prop2": ContainerPropertyDefinition(type=Float64Property()),
+        },
         is_global=False,
         last_updated_time=0,
         created_time=0,
         used_for="node",
-        constraints=None,
-        indexes=None,
     )
-    parent_view = dm.View(
+    parent_view = ViewResponse(
         space="my_space",
         external_id="parent_view",
         version="1",
         properties={
-            "prop2": dm.MappedProperty(
-                container=container.as_id(),
+            "prop2": ViewCorePropertyResponse(
+                container=container_ref,
                 container_property_identifier="prop2",
-                type=dm.Float64(),
+                type=Float64Property(),
                 nullable=True,
                 auto_increment=False,
                 immutable=False,
+                constraint_state=ConstraintOrIndexState(),
             )
         },
         last_updated_time=0,
         created_time=0,
-        description=None,
-        name=None,
-        filter=None,
-        implements=None,
         writable=True,
+        queryable=True,
         used_for="node",
         is_global=False,
+        mapped_containers=[container_ref],
     )
 
-    view = dm.View(
+    view = ViewResponse(
         space="my_space",
         external_id="my_view",
         version="1",
         properties={
-            "prop1": dm.MappedProperty(
-                container=container.as_id(),
+            "prop1": ViewCorePropertyResponse(
+                container=container_ref,
                 container_property_identifier="prop1",
-                type=dm.Text(),
+                type=TextProperty(),
                 nullable=True,
                 auto_increment=False,
                 immutable=False,
+                constraint_state=ConstraintOrIndexState(),
             ),
         },
         last_updated_time=0,
         created_time=0,
-        description=None,
-        name=None,
-        filter=None,
         implements=[parent_view.as_id()],
         writable=True,
+        queryable=True,
         used_for="node",
         is_global=False,
+        mapped_containers=[container_ref],
     )
-    data_model = dm.DataModel(
+    data_model = DataModelResponse(
         space="my_space",
         external_id="my_data_model",
         version="1",
         views=[view.as_id(), parent_view.as_id()],
         created_time=0,
         last_updated_time=0,
-        description=None,
-        name=None,
         is_global=False,
     )
-    toolkit_client_approval.append(dm.Space, space)
-    toolkit_client_approval.append(dm.Container, container)
-    toolkit_client_approval.append(dm.DataModel, data_model)
-    toolkit_client_approval.append(dm.View, [parent_view, view])
+    toolkit_client_approval.append(SpaceResponse, space)
+    toolkit_client_approval.append(ContainerResponse, container)
+    toolkit_client_approval.append(DataModelResponse, data_model)
+    toolkit_client_approval.append(ViewResponse, [parent_view, view])
     cmd = DumpResourceCommand(silent=True)
     cmd.dump_to_yamls(
-        DataModelFinder(env_vars_with_client.get_client(), dm.DataModelId.load(("my_space", "my_data_model", "1"))),
+        DataModelFinder(
+            env_vars_with_client.get_client(),
+            DataModelReference(space="my_space", external_id="my_data_model", version="1"),
+        ),
         clean=True,
         output_dir=build_tmp_path,
         verbose=False,
@@ -425,7 +439,7 @@ def test_dump_datamodel(
     assert len(list(build_tmp_path.glob("**/*.Space.yaml"))) == 1
     view_files = list(build_tmp_path.glob("**/*.View.yaml"))
     assert len(view_files) == 2
-    loaded_views = [dm.ViewApply.load(f.read_text()) for f in view_files]
+    loaded_views = [ViewRequest.model_validate(yaml.safe_load(f.read_text())) for f in view_files]
     child_loaded = next(v for v in loaded_views if v.external_id == "my_view")
     assert child_loaded.implements[0] == parent_view.as_id()
     # The parent property should have been removed from the child view.
@@ -440,75 +454,70 @@ def test_dump_datamodel_skip_global(
     default_view_args = dict(
         last_updated_time=1,
         created_time=1,
-        name=None,
-        description=None,
-        implements=None,
         writable=True,
+        queryable=True,
         used_for="node",
         is_global=False,
-        filter=None,
     )
     default_prop_args = dict(
         nullable=True,
         immutable=False,
         auto_increment=False,
-        default_value=None,
-        name=None,
-        description=None,
+        constraint_state=ConstraintOrIndexState(),
     )
     default_container_args = dict(
-        name=None,
-        description=None,
         is_global=False,
         last_updated_time=0,
         created_time=0,
-        constraints=None,
-        indexes=None,
         used_for="node",
     )
-    local_space = dm.Space("my_space", **default_space_args)
-    global_space = dm.Space("cdf_cdm", **{**default_space_args, "is_global": True})
-    toolkit_client_approval.append(dm.Space, [local_space, global_space])
-    local_container = dm.Container(
+    local_space = SpaceResponse(space="my_space", **default_space_args)
+    global_space = SpaceResponse(space="cdf_cdm", **{**default_space_args, "is_global": True})
+    toolkit_client_approval.append(SpaceResponse, [local_space, global_space])
+    local_container_ref = ContainerReference(space=local_space.space, external_id="MyAsset")
+    local_container = ContainerResponse(
         space=local_space.space, external_id="MyAsset", properties={}, **default_container_args
     )
-    global_container = dm.Container(
+    global_container_ref = ContainerReference(space=global_space.space, external_id="CogniteAsset")
+    global_container = ContainerResponse(
         space=global_space.space,
         external_id="CogniteAsset",
         properties={},
         **{**default_container_args, "is_global": True},
     )
-    toolkit_client_approval.append(dm.Container, [local_container, global_container])
-    local_view = dm.View(
+    toolkit_client_approval.append(ContainerResponse, [local_container, global_container])
+    local_view = ViewResponse(
         space=local_space.space,
         external_id="my_view",
         version="1",
         properties={
-            "prop1": dm.MappedProperty(
-                container=local_container.as_id(),
+            "prop1": ViewCorePropertyResponse(
+                container=local_container_ref,
                 container_property_identifier="prop1",
-                type=dm.Text(),
+                type=TextProperty(),
                 **default_prop_args,
             ),
         },
+        mapped_containers=[local_container_ref],
         **{**default_view_args, "is_global": False},
     )
-    global_view = dm.View(
+    global_view = ViewResponse(
         space=global_space.space,
         external_id="global_view",
         version="1",
         properties={
-            "prop1": dm.MappedProperty(
-                container=global_container.as_id(),
+            "prop1": ViewCorePropertyResponse(
+                container=global_container_ref,
                 container_property_identifier="prop1",
-                type=dm.Text(),
+                type=TextProperty(),
                 **default_prop_args,
             ),
         },
+        mapped_containers=[global_container_ref],
         **{**default_view_args, "is_global": True},
     )
-    toolkit_client_approval.append(dm.View, [local_view, global_view])
-    data_model = dm.DataModel(
+    toolkit_client_approval.append(ViewResponse, [local_view, global_view])
+    data_model = DataModelResponse(
         space=local_space.space,
         external_id="my_data_model",
         version="1",
@@ -516,16 +525,14 @@ def test_dump_datamodel_skip_global(
         is_global=False,
         last_updated_time=0,
         created_time=0,
-        name=None,
-        description=None,
     )
-    toolkit_client_approval.append(dm.DataModel, data_model)
+    toolkit_client_approval.append(DataModelResponse, data_model)
 
     cmd = DumpResourceCommand(silent=True, skip_tracking=True)
     cmd.dump_to_yamls(
         finder=DataModelFinder(
             env_vars_with_client.get_client(),
-            dm.DataModelId.load(("my_space", "my_data_model", "1")),
+            DataModelReference(space="my_space", external_id="my_data_model", version="1"),
             include_global=False,
         ),
         clean=True,
@@ -985,5 +992,5 @@ capabilities:
     assert len(cmd.warning_list) == 1
     warning = cmd.warning_list[0]
     assert isinstance(warning, MissingDependencyWarning)
-    assert warning.identifier == "my_non_existent_space"
+    assert warning.identifier == SpaceReference(space="my_non_existent_space")
     assert warning.required_by == {("scoped_group", yaml_filepath.relative_to(my_org))}

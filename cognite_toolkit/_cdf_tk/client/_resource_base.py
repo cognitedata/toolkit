@@ -8,6 +8,8 @@ from typing import Any, ClassVar, Generic, Literal, TypeVar, Union, get_args, ge
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
+
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
@@ -36,6 +38,16 @@ class BaseModelObject(BaseModel):
                 exclude=set(self.__pydantic_extra__) if self.__pydantic_extra__ else None,
             )
         return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True)
+
+    def dump_yaml(self, camel_case: bool = True, exclude_extra: bool = False) -> str:
+        """Dump the resource to a YAML string.
+
+        Args:
+            camel_case (bool): Whether to use camelCase for the keys. Default is True.
+            exclude_extra (bool): Whether to exclude extra fields not defined in the model. Default is False.
+
+        """
+        return yaml_safe_dump(self.dump(camel_case=camel_case, exclude_extra=exclude_extra))
 
     @classmethod
     def _load(cls, resource: dict[str, Any]) -> Self:

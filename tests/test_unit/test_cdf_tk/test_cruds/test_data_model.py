@@ -4,8 +4,13 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from cognite.client.data_classes import data_modeling as dm
 
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    DataModelRequest,
+    DataModelResponse,
+    ViewReference,
+    ViewResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import (
     GraphQLDataModel,
     GraphQLDataModelWriteList,
@@ -22,13 +27,13 @@ class TestDataModelLoader:
     def test_update_data_model_random_view_order(
         self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient
     ):
-        cdf_data_model = dm.DataModel(
+        cdf_data_model = DataModelResponse(
             space="sp_space",
             external_id="my_model",
             version="1",
             views=[
-                dm.ViewId(space="sp_space", external_id="first", version="1"),
-                dm.ViewId(space="sp_space", external_id="second", version="1"),
+                ViewReference(space="sp_space", external_id="first", version="1"),
+                ViewReference(space="sp_space", external_id="second", version="1"),
             ],
             last_updated_time=1,
             created_time=1,
@@ -37,15 +42,15 @@ class TestDataModelLoader:
             is_global=False,
         )
         # Simulating that the data model is available in CDF
-        toolkit_client_approval.append(dm.DataModel, cdf_data_model)
+        toolkit_client_approval.append(DataModelResponse, cdf_data_model)
 
-        local_data_model = dm.DataModelApply(
+        local_data_model = DataModelRequest(
             space="sp_space",
             external_id="my_model",
             version="1",
             views=[
-                dm.ViewId(space="sp_space", external_id="second", version="1"),
-                dm.ViewId(space="sp_space", external_id="first", version="1"),
+                ViewReference(space="sp_space", external_id="second", version="1"),
+                ViewReference(space="sp_space", external_id="first", version="1"),
             ],
             description=None,
             name=None,
@@ -77,11 +82,11 @@ views:
     version: 1
     type: view
         """
-        cdf_data_model = dm.DataModel(
+        cdf_data_model = DataModelResponse(
             space="sp_space",
             external_id="my_model",
             version="1",
-            views=[dm.ViewId(space="sp_space", external_id="first", version="1")],
+            views=[ViewReference(space="sp_space", external_id="first", version="1")],
             last_updated_time=1,
             created_time=1,
             description=None,
@@ -201,62 +206,76 @@ dml: model.graphql
 
 
 @pytest.fixture()
-def parent_grandparent_view() -> dm.ViewList:
-    return dm.ViewList(
-        [
-            dm.View(
-                space="space",
-                external_id="Parent",
-                version="v1",
-                name="Parent",
-                description=None,
-                implements=[dm.ViewId("space", "GrandParent", "v1")],
-                properties={},
-                last_updated_time=1,
-                created_time=1,
-                filter=None,
-                writable=True,
-                used_for="node",
-                is_global=False,
-            ),
-            dm.View(
-                space="space",
-                external_id="GrandParent",
-                version="v1",
-                name="GrandParent",
-                description=None,
-                implements=[],
-                properties={},
-                last_updated_time=1,
-                created_time=1,
-                filter=None,
-                writable=True,
-                used_for="node",
-                is_global=False,
-            ),
-        ]
-    )
+def parent_grandparent_view() -> list[ViewResponse]:
+    return [
+        ViewResponse(
+            space="space",
+            external_id="Parent",
+            version="v1",
+            name="Parent",
+            description=None,
+            implements=[ViewReference(space="space", external_id="GrandParent", version="v1")],
+            properties={},
+            last_updated_time=1,
+            created_time=1,
+            filter=None,
+            writable=True,
+            used_for="node",
+            is_global=False,
+            mapped_containers=[],
+            queryable=False,
+        ),
+        ViewResponse(
+            space="space",
+            external_id="GrandParent",
+            version="v1",
+            name="GrandParent",
+            description=None,
+            implements=[],
+            properties={},
+            last_updated_time=1,
+            created_time=1,
+            filter=None,
+            writable=True,
+            used_for="node",
+            is_global=False,
+            mapped_containers=[],
+            queryable=False,
+        ),
+    ]
 
 
 class TestViewLoader:
-    def test_topological_sorting(self, parent_grandparent_view: dm.ViewList) -> None:
+    def test_topological_sorting(self, parent_grandparent_view: list[ViewResponse]) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.data_modeling.views.retrieve.return_value = parent_grandparent_view
+            client.tool.views.retrieve.return_value = parent_grandparent_view
+            parent = ViewReference(space="space", external_id="Parent", version="v1")
+            grandparent = ViewReference(space="space", external_id="GrandParent", version="v1")
             loader = ViewCRUD(client, Path("build_dir"), None, topological_sort_implements=True)
             actual = loader.topological_sort_implements(
-                [dm.ViewId("space", "Parent", "v1"), dm.ViewId("space", "GrandParent", "v1")]
+                [
+                    parent,
+                    grandparent,
+                ]
             )
 
-        assert actual == [dm.ViewId("space", "GrandParent", "v1"), dm.ViewId("space", "Parent", "v1")]
+        assert actual == [grandparent, parent]
 
-    def test_topological_sorting_cycle(self, parent_grandparent_view: dm.ViewList) -> None:
-        parent_grandparent_view[1].implements = [parent_grandparent_view[0].as_id()]
+    def test_topological_sorting_cycle(self, parent_grandparent_view: list[ViewResponse]) -> None:
+        parent_grandparent_view[1] = parent_grandparent_view[1].model_copy(
+            update={"implements": [parent_grandparent_view[0].as_id()]}
+        )
+        parent = ViewReference(space="space", external_id="Parent", version="v1")
+        grandparent = ViewReference(space="space", external_id="GrandParent", version="v1")
 
         with monkeypatch_toolkit_client() as client, pytest.raises(ToolkitCycleError) as exc_info:
-            client.data_modeling.views.retrieve.return_value = parent_grandparent_view
+            client.tool.views.retrieve.return_value = parent_grandparent_view
             loader = ViewCRUD(client, Path("build_dir"), None, topological_sort_implements=True)
             loader.topological_sort_implements(
-                [dm.ViewId("space", "Parent", "v1"), dm.ViewId("space", "GrandParent", "v1")]
+                [
+                    parent,
+                    grandparent,
+                ]
             )
 
         assert "cycle in implements" in str(exc_info.value)

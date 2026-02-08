@@ -912,6 +912,10 @@ class DataModelCRUD(ResourceCRUD[DataModelReference, DataModelRequest, DataModel
         local = local or {}
         if "views" not in dumped:
             return dumped
+        for key in ["name", "description"]:
+            if dumped.get(key) is None and key not in local:
+                # Set to null by server.
+                dumped.pop(key, None)
         # Sorting in the same order as the local file.
         view_order_by_id = {ViewReference._load(v): no for no, v in enumerate(local.get("views", []))}
         end_of_list = len(view_order_by_id)
