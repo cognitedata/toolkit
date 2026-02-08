@@ -1066,17 +1066,18 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
             TypedViewReference._load(source["source"]) for source in local.get("sources", []) if "source" in source
         ]
 
+        # Default dump
+        dumped = resource.as_request_resource().dump()
         if sources:
             try:
                 node_id = resource.as_id()
                 res = self.client.tool.instances.retrieve([node_id], source=sources[0])
             except ToolkitAPIError:
-                # View does not exist
-                dumped = resource.as_request_resource().dump()
+                ...
             else:
-                dumped = res[0].as_request_resource().dump() if res else resource.as_request_resource().dump()
-        else:
-            dumped = resource.as_request_resource().dump()
+                if res:
+                    # Dump with properties populated.
+                    dumped = res[0].as_request_resource().dump()
 
         if "existingVersion" not in local:
             # Existing version is typically not set when creating nodes, but we get it back
@@ -1425,26 +1426,22 @@ class EdgeCRUD(ResourceContainerCRUD[TypedEdgeIdentifier, EdgeRequest, EdgeRespo
     def dump_resource(self, resource: EdgeResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
         local = local or {}
-        sources = [ViewReference._load(source["source"]) for source in local.get("sources", []) if "source" in source]
+        sources = [
+            TypedViewReference._load(source["source"]) for source in local.get("sources", []) if "source" in source
+        ]
+
+        # Default dump
+        dumped = resource.as_request_resource().dump()
         if sources:
             try:
-                source_ref = TypedViewReference(
-                    space=sources[0].space, external_id=sources[0].external_id, version=sources[0].version
-                )
-                edge_id = resource.as_id()
-                res = self.client.tool.instances.retrieve([edge_id], source=source_ref)
-                cdf_resource_with_properties = next((r for r in res if isinstance(r, EdgeResponse)), None)
-            except (ToolkitAPIError, StopIteration):
-                # View or Edge does not exist
-                dumped = resource.as_request_resource().dump()
+                node_id = resource.as_id()
+                res = self.client.tool.instances.retrieve([node_id], source=sources[0])
+            except ToolkitAPIError:
+                ...
             else:
-                dumped = (
-                    cdf_resource_with_properties.as_request_resource().dump()
-                    if cdf_resource_with_properties
-                    else resource.as_request_resource().dump()
-                )
-        else:
-            dumped = resource.as_request_resource().dump()
+                if res:
+                    # Dump again with properties from the source view.
+                    dumped = res[0].as_request_resource().dump()
 
         if "existingVersion" not in local:
             # Existing version is typically not set when creating nodes, but we get it back
