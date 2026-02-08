@@ -20,6 +20,8 @@ class ContainerReference(Identifier):
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}"
 
+    def as_tuple(self) -> tuple[str, str]:
+        return self.space, self.external_id
 
 class ViewReference(Identifier):
     type: Literal["view"] = Field("view", exclude=True)

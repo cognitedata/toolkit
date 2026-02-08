@@ -81,8 +81,8 @@ class InstanceIO(
                     )
                 readonly_properties = self._view_readonly_properties_cache[source.source]
             elif isinstance(source.source, ContainerId):
-                if source.source in constants.READONLY_CONTAINER_PROPERTIES:
-                    readonly_properties = constants.READONLY_CONTAINER_PROPERTIES[source.source]
+                if (source.source.space, source.source.external_id) in constants.READONLY_CONTAINER_PROPERTIES:
+                    readonly_properties = constants.READONLY_CONTAINER_PROPERTIES[(source.source.space, source.source.external_id)]
 
             source.properties = {k: v for k, v in source.properties.items() if k not in readonly_properties}
 

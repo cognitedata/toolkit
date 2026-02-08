@@ -15,18 +15,13 @@
 
 import re
 import sys
-
-from cognite.client.data_classes.data_modeling import DataModelId
-from fastparquet.api import filter_in
-
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
 import time
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from time import sleep
-from typing import Any, cast, final
+from typing import Any, final
 
 from cognite.client.data_classes import filters
 from cognite.client.data_classes.capabilities import (
@@ -34,31 +29,9 @@ from cognite.client.data_classes.capabilities import (
     DataModelInstancesAcl,
     DataModelsAcl,
 )
+from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from cognite.client.data_classes.data_modeling.graphql import DMLApplyResult
 from cognite.client.utils.useful_types import SequenceNotStr
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ViewFilter
-from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    ContainerReference,
-    ContainerRequest,
-    ContainerResponse,
-    DataModelReference,
-    DataModelRequest,
-    DataModelResponse,
-    EdgeRequest,
-    EdgeResponse,
-    NodeRequest,
-    NodeResponse,
-    SpaceReference,
-    SpaceRequest,
-    SpaceResponse,
-    ViewReference,
-    ViewRequest,
-    ViewResponse, RequiresConstraintDefinition, DirectNodeRelation, ViewCorePropertyResponse,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedEdgeIdentifier, TypedNodeIdentifier, \
-    NodeReference, TypedViewReference
 from rich import print
 from rich.console import Console
 from rich.markup import escape
@@ -66,6 +39,35 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter, InstanceFilter, ViewFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerReference,
+    ContainerRequest,
+    ContainerResponse,
+    DataModelReference,
+    DataModelRequest,
+    DataModelResponse,
+    DirectNodeRelation,
+    EdgeRequest,
+    EdgeResponse,
+    NodeRequest,
+    NodeResponse,
+    RequiresConstraintDefinition,
+    SpaceReference,
+    SpaceRequest,
+    SpaceResponse,
+    ViewCorePropertyResponse,
+    ViewReference,
+    ViewRequest,
+    ViewResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
+    TypedEdgeIdentifier,
+    TypedNodeIdentifier,
+    TypedViewReference,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import (
     GraphQLDataModel,
     GraphQLDataModelList,
@@ -97,13 +99,9 @@ from cognite_toolkit._cdf_tk.utils import (
     sanitize_filename,
     to_diff,
 )
-from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 
 from .auth import GroupAllScopedCRUD
-from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._references import EdgeReference
-from cognite_toolkit._cdf_tk.utils.collection import chunker
 
 
 @final
@@ -419,7 +417,9 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
             ):
                 yield [TypedEdgeIdentifier(space=eid.space, external_id=eid.external_id) for eid in instances.as_ids()]
 
-    def _lookup_containers(self, container_ids: Sequence[ContainerReference]) -> dict[ContainerReference, ContainerResponse]:
+    def _lookup_containers(
+        self, container_ids: Sequence[ContainerReference]
+    ) -> dict[ContainerReference, ContainerResponse]:
         ids_to_lookup = [container_id for container_id in container_ids if container_id not in self._container_by_id]
         if ids_to_lookup:
             retrieved_containers = self.client.tool.containers.retrieve(ids_to_lookup)
@@ -452,7 +452,9 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
         return container_dependencies
 
     def _propagate_indirect_container_dependencies(
-        self, container_dependencies_by_id: dict[ContainerReference, set[ContainerReference]], dependants: Sequence[ContainerReference]
+        self,
+        container_dependencies_by_id: dict[ContainerReference, set[ContainerReference]],
+        dependants: Sequence[ContainerReference],
     ) -> dict[ContainerReference, set[ContainerReference]]:
         """Propagate indirect container dependencies using a recursive approach.
 
@@ -560,19 +562,28 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                 if parent.get("type") == "view" and in_dict(["space", "externalId", "version"], parent):
                     yield (
                         ViewCRUD,
-                        ViewReference(space=parent["space"], external_id=parent["externalId"], version=str(v) if (v := parent.get("version")) else ""),
+                        ViewReference(
+                            space=parent["space"],
+                            external_id=parent["externalId"],
+                            version=str(v) if (v := parent.get("version")) else "",
+                        ),
                     )
         for prop in item.get("properties", {}).values():
             if (container := prop.get("container", {})) and container.get("type") == "container":
                 if in_dict(("space", "externalId"), container):
-                    yield ContainerCRUD, ContainerReference(space=container["space"], external_id=container["externalId"])
+                    yield (
+                        ContainerCRUD,
+                        ContainerReference(space=container["space"], external_id=container["externalId"]),
+                    )
             for key, dct_ in [("source", prop), ("edgeSource", prop), ("source", prop.get("through", {}))]:
                 if source := dct_.get(key, {}):
                     if source.get("type") == "view" and in_dict(("space", "externalId", "version"), source):
                         yield (
                             ViewCRUD,
                             ViewReference(
-                                space=source["space"], external_id=source["externalId"], version=str(v) if (v := source.get("version")) else ""
+                                space=source["space"],
+                                external_id=source["externalId"],
+                                version=str(v) if (v := source.get("version")) else "",
                             ),
                         )
                     elif source.get("type") == "container" and in_dict(("space", "externalId"), source):
@@ -741,7 +752,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
             if isinstance(
                 property, ViewCorePropertyResponse
             ) and property.container_property_identifier in constants.READONLY_CONTAINER_PROPERTIES.get(
-                property.container, set()
+                property.container.as_tuple(), set()
             ):
                 readonly_properties.add(property_identifier)
         return readonly_properties
@@ -881,7 +892,11 @@ class DataModelCRUD(ResourceCRUD[DataModelReference, DataModelRequest, DataModel
             if in_dict(("space", "externalId"), view):
                 yield (
                     ViewCRUD,
-                    ViewReference(space=view["space"], external_id=view["externalId"], version=str(v) if (v := view.get("version")) else ""),
+                    ViewReference(
+                        space=view["space"],
+                        external_id=view["externalId"],
+                        version=str(v) if (v := view.get("version")) else "",
+                    ),
                 )
 
     def safe_read(self, filepath: Path | str) -> str:
@@ -900,7 +915,9 @@ class DataModelCRUD(ResourceCRUD[DataModelReference, DataModelRequest, DataModel
         # Sorting in the same order as the local file.
         view_order_by_id = {ViewReference._load(v): no for no, v in enumerate(local.get("views", []))}
         end_of_list = len(view_order_by_id)
-        dumped["views"] = sorted(dumped["views"], key=lambda v: view_order_by_id.get(ViewReference._load(v), end_of_list))
+        dumped["views"] = sorted(
+            dumped["views"], key=lambda v: view_order_by_id.get(ViewReference._load(v), end_of_list)
+        )
         return dumped
 
     def diff_list(
@@ -980,7 +997,7 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
         client: ToolkitClient,
         build_dir: Path | None,
         console: Console | None = None,
-        view_id: ViewReference | None = None,
+        view_id: TypedViewReference | None = None,
     ) -> None:
         super().__init__(client, build_dir, console)
         # View ID is used to retrieve nodes with properties.
@@ -1026,7 +1043,7 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
-            yield SpaceCRUD, item["space"]
+            yield SpaceCRUD, SpaceReference(space=item["space"])
         for source in item.get("sources", []):
             if (identifier := source.get("source")) and isinstance(identifier, dict):
                 if identifier.get("type") == "view" and in_dict(("space", "externalId", "version"), identifier):
@@ -1039,16 +1056,18 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
                         ),
                     )
                 elif identifier.get("type") == "container" and in_dict(("space", "externalId"), identifier):
-                    yield ContainerCRUD, ContainerReference(space=identifier["space"], external_id=identifier["externalId"])
+                    yield (
+                        ContainerCRUD,
+                        ContainerReference(space=identifier["space"], external_id=identifier["externalId"]),
+                    )
 
     def dump_resource(self, resource: NodeResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
         local = local or {}
-        sources = [ViewReference._load(source["source"]) for source in local.get("sources", []) if "source" in source]
+        sources = [TypedViewReference._load(source["source"]) for source in local.get("sources", []) if "source" in source]
 
         if sources:
             try:
-                source_ref = TypedViewReference(space=sources[0].space, external_id=sources[0].external_id, version=sources[0].version)
                 node_id = resource.as_id()
                 res = self.client.tool.instances.retrieve([node_id], source=source_ref)
             except ToolkitAPIError:
@@ -1075,7 +1094,13 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
         return self.client.tool.instances.create(list(items))
 
     def retrieve(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> list[NodeResponse]:
-        source_ref = TypedViewReference(space=self.view_id.space, external_id=self.view_id.external_id, version=self.view_id.version) if self.view_id else None
+        source_ref = (
+            TypedViewReference(
+                space=self.view_id.space, external_id=self.view_id.external_id, version=self.view_id.version
+            )
+            if self.view_id
+            else None
+        )
         results = self.client.tool.instances.retrieve(list(ids), source=source_ref)
         return [r for r in results if isinstance(r, NodeResponse)]
 
@@ -1097,7 +1122,11 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[NodeResponse]:
-        source_ref = ViewReference(space=self.view_id.space, external_id=self.view_id.external_id, version=self.view_id.version) if self.view_id else None
+        source_ref = (
+            ViewReference(space=self.view_id.space, external_id=self.view_id.external_id, version=self.view_id.version)
+            if self.view_id
+            else None
+        )
         filter_ = InstanceFilter(
             instance_type="node",
             space=[space] if space else None,
@@ -1383,7 +1412,10 @@ class EdgeCRUD(ResourceContainerCRUD[TypedEdgeIdentifier, EdgeRequest, EdgeRespo
                         ),
                     )
                 elif identifier.get("type") == "container" and in_dict(("space", "externalId"), identifier):
-                    yield ContainerCRUD, ContainerReference(space=identifier["space"], external_id=identifier["externalId"])
+                    yield (
+                        ContainerCRUD,
+                        ContainerReference(space=identifier["space"], external_id=identifier["externalId"]),
+                    )
 
         for key in ["startNode", "endNode", "type"]:
             if node_ref := item.get(key):
@@ -1396,7 +1428,9 @@ class EdgeCRUD(ResourceContainerCRUD[TypedEdgeIdentifier, EdgeRequest, EdgeRespo
         sources = [ViewReference._load(source["source"]) for source in local.get("sources", []) if "source" in source]
         if sources:
             try:
-                source_ref = TypedViewReference(space=sources[0].space, external_id=sources[0].external_id, version=sources[0].version)
+                source_ref = TypedViewReference(
+                    space=sources[0].space, external_id=sources[0].external_id, version=sources[0].version
+                )
                 edge_id = resource.as_id()
                 res = self.client.tool.instances.retrieve([edge_id], source=source_ref)
                 cdf_resource_with_properties = next((r for r in res if isinstance(r, EdgeResponse)), None)
@@ -1404,7 +1438,11 @@ class EdgeCRUD(ResourceContainerCRUD[TypedEdgeIdentifier, EdgeRequest, EdgeRespo
                 # View or Edge does not exist
                 dumped = resource.as_request_resource().dump()
             else:
-                dumped = cdf_resource_with_properties.as_request_resource().dump() if cdf_resource_with_properties else resource.as_request_resource().dump()
+                dumped = (
+                    cdf_resource_with_properties.as_request_resource().dump()
+                    if cdf_resource_with_properties
+                    else resource.as_request_resource().dump()
+                )
         else:
             dumped = resource.as_request_resource().dump()
 

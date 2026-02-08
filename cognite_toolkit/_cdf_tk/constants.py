@@ -2,7 +2,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, Mapping, Set
 
 from cognite.client.data_classes.data_modeling import ContainerId
 
@@ -163,13 +163,13 @@ CDF_UNIT_SPACE = "cdf_cdm_units"
 
 
 # Container properties that are read-only in DMS needs to be handled with extra care, as this aspect is not currently exposed by the API.
-READONLY_CONTAINER_PROPERTIES = {
-    ContainerId(space="cdf_cdm", external_id="CogniteAsset"): {
+READONLY_CONTAINER_PROPERTIES: Mapping[tuple[str, str], Set[str]] = {
+    ("cdf_cdm", "CogniteAsset"): {
         "assetHierarchy_path_last_updated_time",
         "assetHierarchy_path",
         "assetHierarchy_root",
     },
-    ContainerId(space="cdf_cdm", external_id="CogniteFile"): {"isUploaded", "uploadedTime"},
+    ("cdf_cdm", "CogniteFile"): {"isUploaded", "uploadedTime"},
 }
 
 # Data Plugin Constants
