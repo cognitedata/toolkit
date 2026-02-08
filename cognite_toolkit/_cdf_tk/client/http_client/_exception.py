@@ -1,4 +1,5 @@
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
 
 
 class ToolkitAPIError(Exception):
@@ -10,9 +11,11 @@ class ToolkitAPIError(Exception):
         missing: list[dict[str, Any]] | None = None,
         duplicated: list[dict[str, Any]] | None = None,
         code: int | None = None,
+        is_auto_retryable: bool | None = None,
     ) -> None:
         super().__init__(message)
         self.message = message
         self.missing = missing
         self.duplicated = duplicated
         self.code = code
+        self.is_auto_retryable = is_auto_retryable

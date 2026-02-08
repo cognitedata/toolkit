@@ -667,15 +667,10 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
         try:
             return self.client.tool.views.create(items)
         except ToolkitAPIError as e1:
-            if self._is_auto_retryable(e1):
+            if e1.is_auto_retryable:
                 # Fallback to creating one by one if the error is auto-retryable.
                 return self._fallback_create_one_by_one(items, e1)
             raise
-
-    @staticmethod
-    def _is_auto_retryable(e: ToolkitAPIError) -> bool:
-        extra = getattr(e, "extra", None)
-        return isinstance(extra, dict) and "isAutoRetryable" in extra and extra["isAutoRetryable"]
 
     def _fallback_create_one_by_one(
         self, items: Sequence[ViewRequest], e1: ToolkitAPIError, warn: bool = True
