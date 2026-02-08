@@ -105,7 +105,7 @@ class TestDeployResources:
             dry_run=False,
         )
 
-        views = toolkit_client_approval.dump(sort=False)["View"]
+        views = toolkit_client_approval.dump(sort=False)["ViewResponse"]
 
         actual_order = [view["externalId"] for view in views]
 
