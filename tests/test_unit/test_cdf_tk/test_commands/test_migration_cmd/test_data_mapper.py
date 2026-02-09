@@ -3,7 +3,6 @@ from typing import Any, ClassVar
 from unittest.mock import MagicMock
 
 import pytest
-from cognite.client.data_classes import Asset
 from cognite.client.data_classes.data_modeling import (
     DirectRelationReference,
     InstanceApply,
@@ -132,15 +131,18 @@ class TestAssetCentricMapper:
         """Test that calling map_chunk before prepare raises a RuntimeError."""
         source = AssetCentricMapping(
             mapping=MigrationMapping(
-                resourceType="asset",
-                instanceId=NodeId(space="my_space", external_id="asset_1"),
+                resource_type="asset",
+                instance_id=NodeId(space="my_space", external_id="asset_1"),
                 id=1001,
-                ingestionView="cdf_asset_mapping",
+                ingestion_view="cdf_asset_mapping",
             ),
-            resource=Asset(
+            resource=AssetResponse(
                 id=1001,
                 name="Asset 1",
                 description="Description 1",
+                created_time=1,
+                last_updated_time=0,
+                root_id=0,
             ),
         )
 

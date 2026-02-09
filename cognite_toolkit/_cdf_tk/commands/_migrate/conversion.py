@@ -2,22 +2,18 @@ from collections.abc import Iterable, Mapping, Set
 from typing import Any, ClassVar, cast
 
 from cognite.client.data_classes import Annotation
-from cognite.client.data_classes.data_modeling import (
-    DirectRelation,
-    DirectRelationReference,
-    EdgeId,
-    NodeApply,
-    NodeId,
-    ViewId,
-)
-from cognite.client.data_classes.data_modeling.instances import EdgeApply, NodeOrEdgeData, PropertyValueWrite
-from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    DirectNodeRelation,
+    EdgeReference,
+    EdgeRequest,
+    InstanceSource,
     NodeReference,
+    NodeRequest,
     ViewCorePropertyResponse,
+    ViewReference,
     ViewResponseProperty,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
@@ -29,6 +25,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
+    PropertyValueWrite,
     asset_centric_convert_to_primary_property,
     convert_to_primary_property,
 )
@@ -74,9 +71,7 @@ class DirectRelationCache:
 
     def __init__(self, client: ToolkitClient) -> None:
         self._client = client
-        self._cache_map: dict[
-            tuple[str, str] | str, dict[str, DirectRelationReference] | dict[int, DirectRelationReference]
-        ] = {}
+        self._cache_map: dict[tuple[str, str] | str, dict[str, NodeReference] | dict[int, NodeReference]] = {}
         # Constructing the cache map to be accessed by both table name and property id
         for table_name, properties in [
             (self.TableName.ASSET_ID, self.ASSET_ID_PROPERTIES),
@@ -85,7 +80,7 @@ class DirectRelationCache:
             (self.TableName.ASSET_EXTERNAL_ID, self.ASSET_EXTERNAL_ID_PROPERTIES),
             (self.TableName.FILE_EXTERNAL_ID, self.FILE_EXTERNAL_ID_PROPERTIES),
         ]:
-            cache: dict[str, DirectRelationReference] | dict[int, DirectRelationReference] = {}
+            cache: dict[str, NodeReference] | dict[int, NodeReference] = {}
             self._cache_map[table_name] = cache
             for key in properties:
                 self._cache_map[key] = cache
@@ -138,7 +133,7 @@ class DirectRelationCache:
             self._update_cache(self._client.migration.lookup.assets(id=list(asset_ids)), self.TableName.ASSET_ID)
         if source_ids:
             # SourceSystems are not cached in the client, so we have to handle the caching ourselves.
-            cache = cast(dict[str, DirectRelationReference], self._cache_map[self.TableName.SOURCE_NAME])
+            cache = cast(dict[str, NodeReference], self._cache_map[self.TableName.SOURCE_NAME])
             missing: dict[str, str] = {}
             for source_id in source_ids:
                 if source_id.casefold() not in cache:
@@ -165,26 +160,28 @@ class DirectRelationCache:
                 self.TableName.FILE_EXTERNAL_ID,
             )
 
-    def _update_cache(self, instance_id_by_id: dict[int, NodeId] | dict[str, NodeId], table_name: str) -> None:
+    def _update_cache(
+        self, instance_id_by_id: dict[int, NodeReference] | dict[str, NodeReference], table_name: str
+    ) -> None:
         cache = self._cache_map[table_name]
         for identifier, instance_id in instance_id_by_id.items():
-            cache[identifier] = DirectRelationReference(space=instance_id.space, external_id=instance_id.external_id)  # type: ignore[index]
+            cache[identifier] = NodeReference(space=instance_id.space, external_id=instance_id.external_id)  # type: ignore[index]
 
     def get_cache(
         self, resource_type: AssetCentricTypeExtended, property_id: str
-    ) -> Mapping[str | int, DirectRelationReference] | None:
+    ) -> Mapping[str | int, NodeReference] | None:
         """Get the cache for the given resource type and property ID."""
         return self._cache_map.get((resource_type, property_id))  # type: ignore[return-value]
 
 
 def asset_centric_to_dm(
     resource: AssetCentricResourceExtended,
-    instance_id: InstanceId,
+    instance_id: NodeReference | EdgeReference,
     view_source: ResourceViewMappingApply,
     view_properties: dict[str, ViewResponseProperty],
     direct_relation_cache: DirectRelationCache,
-    preferred_consumer_view: ViewId | None = None,
-) -> tuple[NodeApply | EdgeApply | None, ConversionIssue]:
+    preferred_consumer_view: ViewReference | None = None,
+) -> tuple[NodeRequest | EdgeRequest | None, ConversionIssue]:
     """Convert an asset-centric resource to a data model instance.
 
     Args:
@@ -223,9 +220,9 @@ def asset_centric_to_dm(
         issue=issue,
         direct_relation_cache=direct_relation_cache,
     )
-    sources: list[NodeOrEdgeData] = []
+    sources: list[InstanceSource] = []
     if properties:
-        sources.append(NodeOrEdgeData(source=view_source.view_id, properties=properties))
+        sources.append(InstanceSource(source=view_source.view_id, properties=properties))
 
     if resource_type != "annotation":
         instance_source_properties = {
@@ -238,32 +235,32 @@ def asset_centric_to_dm(
         if preferred_consumer_view:
             instance_source_properties["preferredConsumerViewId"] = preferred_consumer_view.dump()
         sources.append(
-            NodeOrEdgeData(
-                source=ViewId(
-                    INSTANCE_SOURCE_VIEW_ID.space,
-                    INSTANCE_SOURCE_VIEW_ID.external_id,
+            InstanceSource(
+                source=ViewReference(
+                    space=INSTANCE_SOURCE_VIEW_ID.space,
+                    external_id=INSTANCE_SOURCE_VIEW_ID.external_id,
                     version=view_source.view_id.version,
                 ),
                 properties=instance_source_properties,
             )
         )
 
-    instance: NodeApply | EdgeApply
-    if isinstance(instance_id, EdgeId):
+    instance: NodeRequest | EdgeRequest
+    if isinstance(instance_id, EdgeReference):
         edge_properties = create_edge_properties(
             dumped, view_source.property_mapping, resource_type, issue, direct_relation_cache, instance_id.space
         )
         if any(key not in edge_properties for key in ("start_node", "end_node", "type")):
             # Failed conversion of edge properties
             return None, issue
-        instance = EdgeApply(
+        instance = EdgeRequest(
             space=instance_id.space,
             external_id=instance_id.external_id,
             sources=sources,
             **edge_properties,  # type: ignore[arg-type]
         )
-    elif isinstance(instance_id, NodeId):
-        instance = NodeApply(space=instance_id.space, external_id=instance_id.external_id, sources=sources)
+    elif isinstance(instance_id, NodeReference):
+        instance = NodeRequest(space=instance_id.space, external_id=instance_id.external_id, sources=sources)
     else:
         raise RuntimeError(f"Unexpected instance_id type {type(instance_id)}")
 
@@ -367,9 +364,9 @@ def create_edge_properties(
     issue: ConversionIssue,
     direct_relation_cache: DirectRelationCache,
     default_instance_space: str,
-) -> dict[str, DirectRelationReference]:
+) -> dict[str, NodeReference]:
     flatten_dump = flatten_dict_json_path(dumped)
-    edge_properties: dict[str, DirectRelationReference] = {}
+    edge_properties: dict[str, NodeReference] = {}
     for prop_json_path, prop_id in property_mapping.items():
         if not prop_id.startswith("edge."):
             continue
@@ -381,7 +378,7 @@ def create_edge_properties(
             try:
                 value = convert_to_primary_property(
                     flatten_dump[prop_json_path],
-                    DirectRelation(),
+                    DirectNodeRelation(),
                     False,
                     direct_relation_lookup=direct_relation_cache.get_cache(resource_type, prop_json_path),
                 )
@@ -393,7 +390,7 @@ def create_edge_properties(
         elif edge_prop_id.endswith(".externalId"):
             # Just an external ID string.
             edge_prop_id = edge_prop_id.removesuffix(".externalId")
-            value = DirectRelationReference(default_instance_space, str(flatten_dump[prop_json_path]))
+            value = NodeReference(space=default_instance_space, external_id=str(flatten_dump[prop_json_path]))
         else:
             issue.invalid_instance_property_types.append(
                 InvalidPropertyDataType(property_id=prop_id, expected_type="EdgeProperty")
