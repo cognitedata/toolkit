@@ -31,7 +31,7 @@ class SpacesAPI(CDFResourceAPI[SpaceReference, SpaceRequest, SpaceResponse]):
     def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[SpaceResponse]:
         return PagedResponse[SpaceResponse].model_validate_json(response.body)
 
-    def apply(self, items: Sequence[SpaceRequest]) -> list[SpaceResponse]:
+    def create(self, items: Sequence[SpaceRequest]) -> list[SpaceResponse]:
         """Apply (create or update) spaces in CDF.
 
         Args:

@@ -458,7 +458,7 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[Group]:
         return self.client.iam.groups.list(all=True)
 
@@ -555,7 +555,7 @@ class SecurityCategoryCRUD(ResourceCRUD[NameId, SecurityCategoryRequest, Securit
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[SecurityCategoryResponse]:
         for items in self.client.tool.security_categories.iterate(limit=None):
             yield from items

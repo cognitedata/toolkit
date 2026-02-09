@@ -141,7 +141,7 @@ class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DataSet]:
         return iter(self.client.data_sets)
 
@@ -219,7 +219,7 @@ class LabelCRUD(ResourceCRUD[ExternalId, LabelRequest, LabelResponse]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[LabelResponse]:
         filter: ClassicFilter | None = None
         if data_set_external_id is not None:

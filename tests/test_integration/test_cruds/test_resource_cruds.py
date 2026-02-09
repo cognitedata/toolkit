@@ -19,7 +19,6 @@ from cognite.client.data_classes import (
     FunctionSchedulesList,
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
-    FunctionWrite,
     GroupWrite,
     TimeSeriesList,
     TimeSeriesWrite,
@@ -34,11 +33,12 @@ from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionProperty,
     DatapointSubscriptionWriteList,
 )
-from cognite.client.exceptions import CogniteAPIError, CogniteException
+from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import (
@@ -103,7 +103,7 @@ class TestFunctionScheduleLoader:
 
         # Function schedules cannot be updated, they must be deleted and recreated.
         loader.delete([identifier])
-        loader.create(FunctionScheduleWriteList([function_schedule]))
+        loader.create([function_schedule])
 
         retrieved = loader.retrieve([identifier])
         if not retrieved or retrieved[0].description != function_schedule.description:
@@ -152,7 +152,7 @@ class TestFunctionScheduleLoader:
             _ = client.functions.schedules.create(schedule)
         crud = FunctionScheduleCRUD(client, None, None)
 
-        schedules = list(crud.iterate(parent_ids=[dummy_function.external_id]))
+        schedules = list(crud.iterate(parent_ids=[ExternalId(external_id=dummy_function.external_id)]))
         assert len(schedules) >= 1
         assert any(s.name == schedule.name for s in schedules)
 
@@ -1157,8 +1157,8 @@ description: ""
         resource_dict = loader.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
         resource = loader.load_resource(resource_dict[0])
-        assert isinstance(resource, FunctionWrite)
-        if not loader.retrieve([resource.external_id]):
+        assert isinstance(resource, FunctionRequest)
+        if not loader.retrieve([resource.as_id()]):
             _ = loader.create([resource])
         worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([filepath])
@@ -1194,17 +1194,17 @@ description: ""
         assert len(resource_dict) == 1
 
         resource = crud.load_resource(resource_dict[0])
-        assert isinstance(resource, FunctionWrite)
-        created: Function | None = None
+        assert isinstance(resource, FunctionRequest)
+        created: FunctionResponse | None = None
         try:
             created_list = crud.create([resource])
             assert len(created_list) == 1
             created = created_list[0]
 
-            crud.delete([external_id])
+            crud.delete([ExternalId(external_id=external_id)])
         finally:
             if created is not None:
-                with contextlib.suppress(CogniteException):
-                    client.functions.delete(external_id=external_id)
+                with contextlib.suppress(ToolkitAPIError):
+                    client.tool.functions.delete([ExternalId(external_id=external_id)])
 
                 client.data_modeling.instances.delete((toolkit_space.space, external_id))

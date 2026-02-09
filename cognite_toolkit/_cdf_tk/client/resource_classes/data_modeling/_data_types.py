@@ -1,7 +1,8 @@
 from abc import ABC
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import Field, TypeAdapter
+from pydantic import Field, TypeAdapter, model_serializer
+from pydantic_core.core_schema import SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 
@@ -10,6 +11,12 @@ from ._references import ContainerReference, ViewReference
 
 class PropertyTypeDefinition(BaseModelObject, ABC):
     type: str
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        # Always serialize as {"type": self.type}, even if model_dump(exclude_unset=True)
+        serialized = handler(self)
+        return {"type": self.type, **serialized}
 
 
 class ListablePropertyTypeDefinition(PropertyTypeDefinition, ABC):

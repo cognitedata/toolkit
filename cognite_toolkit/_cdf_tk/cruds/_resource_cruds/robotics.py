@@ -95,7 +95,7 @@ class RoboticFrameCRUD(ResourceCRUD[ExternalId, RobotFrameRequest, RobotFrameRes
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[RobotFrameResponse]:
         for frames in self.client.tool.robotics.frames.iterate(limit=None):
             yield from frames
@@ -163,7 +163,7 @@ class RoboticLocationCRUD(ResourceCRUD[ExternalId, RobotLocationRequest, RobotLo
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[RobotLocationResponse]:
         for locations in self.client.tool.robotics.locations.iterate(limit=None):
             yield from locations
@@ -251,7 +251,7 @@ class RoboticsDataPostProcessingCRUD(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[RobotDataPostProcessingResponse]:
         for items in self.client.tool.robotics.data_postprocessing.iterate(limit=None):
             yield from items
@@ -341,7 +341,7 @@ class RobotCapabilityCRUD(ResourceCRUD[ExternalId, RobotCapabilityRequest, Robot
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[RobotCapabilityResponse]:
         for items in self.client.tool.robotics.capabilities.iterate(limit=None):
             yield from items
@@ -437,7 +437,7 @@ class RoboticMapCRUD(ResourceCRUD[ExternalId, RobotMapRequest, RobotMapResponse]
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[RobotMapResponse]:
         for maps in self.client.tool.robotics.maps.iterate(limit=None):
             yield from maps

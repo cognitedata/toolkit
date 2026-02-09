@@ -12,7 +12,6 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilte
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceRequest,
     InstanceResponse,
-    ViewReference,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
@@ -226,7 +225,7 @@ class WrappedInstancesAPI(
         filter_ = InstanceFilter(
             instance_type=instance_type,
             space=spaces,
-            source=ViewReference(
+            source=TypedViewReference(
                 space=self._view_id.space,
                 external_id=self._view_id.external_id,
                 version=self._view_id.version,
