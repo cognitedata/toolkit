@@ -229,12 +229,6 @@ class AnnotationMapping(MigrationMapping):
         else:
             raise ToolkitValueError("Cannot determine default ingestion view for annotation without annotation_type")
 
-    @field_validator("instance_id", mode="before")
-    def _validate_instance_id(cls, v: Any) -> Any:
-        if isinstance(v, dict):
-            return EdgeId.load(v)
-        return v
-
 
 class AssetMigrationMappingList(MigrationMappingList):
     @classmethod

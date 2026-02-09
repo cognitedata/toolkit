@@ -8,6 +8,7 @@ from cognite.client.data_classes import Annotation
 from cognite.client.data_classes.data_modeling import ContainerId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerReference
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.creators import (
@@ -372,7 +373,7 @@ class MigrateApp(typer.Typer):
         verbose: bool,
         kind: AssetCentricKind,
         resource_type: str,
-        container_id: ContainerId,
+        container_id: ContainerReference,
     ) -> tuple[AssetCentricMigrationSelector, bool, bool]:
         if data_set_id is not None and mapping_file is not None:
             raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")

@@ -2,8 +2,8 @@ from collections.abc import Set
 from typing import Any
 
 import pytest
-from cognite.client.data_classes.data_modeling import NodeId
 
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import MigrationMapping, MigrationMappingList
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence, flatten_dict_json_path
 
@@ -36,10 +36,16 @@ class TestChunkSequence:
         sequence = MigrationMappingList(
             [
                 MigrationMapping(
-                    resourceType="timeseries", id=1, dataSetId=123, instanceId=NodeId("sp_full_ts", "full_ts_id")
+                    resource_type="timeseries",
+                    id=1,
+                    data_set_id=123,
+                    instance_id=NodeReference(space="sp_full_ts", external_id="full_ts_id"),
                 ),
                 MigrationMapping(
-                    resourceType="timeseries", id=2, dataSetId=None, instanceId=NodeId("sp_step_ts", "step_ts_id")
+                    resource_type="timeseries",
+                    id=2,
+                    data_set_id=None,
+                    instance_id=NodeReference(space="sp_step_ts", external_id="step_ts_id"),
                 ),
             ]
         )
