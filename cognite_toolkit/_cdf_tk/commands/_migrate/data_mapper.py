@@ -5,9 +5,7 @@ from typing import Generic, Literal, cast
 from uuid import uuid4
 
 from cognite.client.data_classes.data_modeling import (
-    EdgeApply,
     InstanceApply,
-    NodeApply,
     NodeId,
     ViewId,
 )
@@ -19,7 +17,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartSource,
     ChartTimeseries,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference, ViewResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    EdgeRequest,
+    NodeRequest,
+    ViewReference,
+    ViewResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier, NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     ContainerReferenceApply,
@@ -166,7 +169,7 @@ class AssetCentricMapper(
 
     def _map_single_item(
         self, item: AssetCentricMapping[T_AssetCentricResourceExtended]
-    ) -> tuple[NodeApply | EdgeApply | None, ConversionIssue]:
+    ) -> tuple[NodeRequest | EdgeRequest | None, ConversionIssue]:
         mapping = item.mapping
         ingestion_view = mapping.get_ingestion_view()
         try:

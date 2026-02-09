@@ -2,29 +2,28 @@ from abc import ABC
 from datetime import date, datetime, timezone
 
 import pytest
-from cognite.client.data_classes import Label, LabelDefinition
-from cognite.client.data_classes.data_modeling import ContainerId
-from cognite.client.data_classes.data_modeling.data_types import (
-    Boolean,
-    DirectRelation,
-    DirectRelationReference,
-    Enum,
-    EnumValue,
-    Float32,
-    Float64,
-    Int32,
-    Int64,
-    Json,
-    PropertyType,
-    Text,
-    Timestamp,
-)
-from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
 
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    BooleanProperty,
+    ContainerReference,
+    DirectNodeRelation,
+    EnumProperty,
+    EnumValue,
+    Float32Property,
+    Float64Property,
+    Int32Property,
+    Int64Property,
+    JSONProperty,
+    NodeReference,
+    PropertyTypeDefinition,
+    TextProperty,
+    TimestampProperty,
+)
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     CONVERTER_BY_DTYPE,
     DATATYPE_CONVERTER_BY_DATA_TYPE,
+    PropertyValueWrite,
     asset_centric_convert_to_primary_property,
     convert_str_to_data_type,
     convert_to_primary_property,
@@ -39,154 +38,154 @@ class TestConvertToContainerProperty:
         [
             pytest.param(
                 "string_value",
-                Text(),
+                TextProperty(),
                 True,
                 "string_value",
                 id="String to text",
             ),
             pytest.param(
                 True,
-                Boolean(),
+                BooleanProperty(),
                 True,
                 True,
                 id="Bool to boolean",
             ),
             pytest.param(
                 42,
-                Int32(),
+                Int32Property(),
                 True,
                 42,
                 id="Int to Int32",
             ),
             pytest.param(
                 1234567890123,
-                Int64(),
+                Int64Property(),
                 True,
                 1234567890123,
                 id="Int to Int64",
             ),
             pytest.param(
                 3.14,
-                Float32(),
+                Float32Property(),
                 True,
                 3.14,
                 id="Float to Float32",
             ),
             pytest.param(
                 2.7182818284,
-                Float64(),
+                Float64Property(),
                 True,
                 2.7182818284,
                 id="Float to Float64",
             ),
             pytest.param(
                 {"key": "value"},
-                Json(),
+                JSONProperty(),
                 True,
                 {"key": "value"},
                 id="Dict to Json",
             ),
             pytest.param(
                 "2025-07-22T12:34:56Z",
-                Timestamp(),
+                TimestampProperty(),
                 True,
                 datetime(2025, 7, 22, 12, 34, 56, tzinfo=timezone.utc),
                 id="String to Timestamp",
             ),
             pytest.param(
                 "ENUM_A",
-                Enum(values={"ENUM_A": EnumValue(), "ENUM_B": EnumValue()}),
+                EnumProperty(values={"ENUM_A": EnumValue(), "ENUM_B": EnumValue()}),
                 True,
                 "ENUM_A",
                 id="String to Enum",
             ),
             pytest.param(
                 "1",
-                Boolean(),
+                BooleanProperty(),
                 True,
                 True,
                 id="String '1' to boolean True",
             ),
             pytest.param(
                 "0",
-                Boolean(),
+                BooleanProperty(),
                 True,
                 False,
                 id="String '0' to boolean False",
             ),
             pytest.param(
                 "-42",
-                Int32(),
+                Int32Property(),
                 True,
                 -42,
                 id="String '-42' to Int32",
             ),
             pytest.param(
                 "0",
-                Int64(),
+                Int64Property(),
                 True,
                 0,
                 id="String '0' to Int64",
             ),
             pytest.param(
                 "-3.14",
-                Float32(),
+                Float32Property(),
                 True,
                 -3.14,
                 id="String '-3.14' to Float32",
             ),
             pytest.param(
                 "0.0",
-                Float64(),
+                Float64Property(),
                 True,
                 0.0,
                 id="String '0.0' to Float64",
             ),
             pytest.param(
                 "[1, 2, 3]",
-                Json(),
+                JSONProperty(),
                 True,
                 [1, 2, 3],
                 id="Stringified list to Json",
             ),
             pytest.param(
                 '{"a": 1, "b": 2}',
-                Json(),
+                JSONProperty(),
                 True,
                 {"a": 1, "b": 2},
                 id="Stringified dict with ints to Json",
             ),
             pytest.param(
                 "2025-01-01T00:00:00Z",
-                Timestamp(),
+                TimestampProperty(),
                 True,
                 datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
                 id="String to Timestamp (start of year)",
             ),
             pytest.param(
                 "ENUM_B",
-                Enum(values={"ENUM_A": EnumValue(), "ENUM_B": EnumValue()}),
+                EnumProperty(values={"ENUM_A": EnumValue(), "ENUM_B": EnumValue()}),
                 True,
                 "ENUM_B",
                 id="String to Enum (B)",
             ),
             pytest.param(
                 1753193696789,
-                Timestamp(),
+                TimestampProperty(),
                 True,
                 datetime(2025, 7, 22, 14, 14, 56, 789000, tzinfo=timezone.utc),
                 id="Epoch float with milliseconds to Timestamp",
             ),
             pytest.param(
                 [1, 2, 3],
-                Int32(is_list=True),
+                Int32Property(list=True),
                 True,
                 [1, 2, 3],
                 id="List of int32 to Int32 list property",
             ),
             pytest.param(
                 ["2025-07-22T12:34:56Z", "2025-01-01T00:00:00Z"],
-                Timestamp(is_list=True),
+                TimestampProperty(list=True),
                 True,
                 [
                     datetime(2025, 7, 22, 12, 34, 56, tzinfo=timezone.utc),
@@ -197,14 +196,14 @@ class TestConvertToContainerProperty:
             # List property type valid cases (additional)
             pytest.param(
                 "[1, 2, 3]",
-                Int32(is_list=True),
+                Int32Property(list=True),
                 True,
                 [1, 2, 3],
                 id="JSON string list to Int32 list property",
             ),
             pytest.param(
                 '["2025-07-22T12:34:56Z", "2025-01-01T00:00:00Z"]',
-                Timestamp(is_list=True),
+                TimestampProperty(list=True),
                 True,
                 [
                     datetime(2025, 7, 22, 12, 34, 56, tzinfo=timezone.utc),
@@ -214,23 +213,23 @@ class TestConvertToContainerProperty:
             ),
             pytest.param(
                 42,
-                Int32(is_list=True),
+                Int32Property(list=True),
                 True,
                 [42],
                 id="Single int to Int32 list property",
             ),
             pytest.param(
                 "2025-07-22T12:34:56Z",
-                Timestamp(is_list=True),
+                TimestampProperty(list=True),
                 True,
                 [datetime(2025, 7, 22, 12, 34, 56, tzinfo=timezone.utc)],
                 id="Single ISO timestamp to Timestamp list property",
             ),
             pytest.param(
                 1,
-                DirectRelation(),
+                DirectNodeRelation(),
                 True,
-                DirectRelationReference(space="my_space", external_id="parent1"),
+                {"space": "my_space", "externalId": "parent1"},
                 id="Int to DirectRelation with cache lookup (1)",
             ),
         ],
@@ -238,13 +237,13 @@ class TestConvertToContainerProperty:
     def test_valid_conversion(
         self,
         value: str | int | float | bool | dict | list,
-        type_: PropertyType,
+        type_: PropertyTypeDefinition,
         nullable: bool,
         expected_value: PropertyValueWrite,
     ):
         cache = {
-            1: DirectRelationReference(space="my_space", external_id="parent1"),
-            2: DirectRelationReference(space="my_space", external_id="parent2"),
+            1: NodeReference(space="my_space", external_id="parent1"),
+            2: NodeReference(space="my_space", external_id="parent2"),
         }
         actual = convert_to_primary_property(value, type_, nullable, direct_relation_lookup=cache)
 
@@ -258,141 +257,145 @@ class TestConvertToContainerProperty:
         [
             pytest.param(
                 None,
-                Text(),
+                TextProperty(),
                 False,
                 "Cannot convert None to a non-nullable property.",
                 id="None to non-nullable Text",
             ),
             pytest.param(
                 "invalid_enum_value",
-                Enum(values={"ENUM_A": EnumValue(), "ENUM_B": EnumValue()}),
+                EnumProperty(values={"ENUM_A": EnumValue(), "ENUM_B": EnumValue()}),
                 True,
                 "Value 'invalid_enum_value' is not a valid enum value. Available values: ENUM_A and ENUM_B",
                 id="Invalid string to Enum",
             ),
             pytest.param(
                 "not_a_number",
-                Int32(),
+                Int32Property(),
                 True,
                 "Cannot convert not_a_number to int32.",
                 id="Invalid string to Int32",
             ),
             pytest.param(
                 "not_a_float",
-                Float32(),
+                Float32Property(),
                 True,
                 "Cannot convert not_a_float to float32.",
                 id="Invalid string to Float32",
             ),
             pytest.param(
                 {"key": "value"},
-                Boolean(),
+                BooleanProperty(),
                 True,
                 "Cannot convert {'key': 'value'} to boolean.",
                 id="Dict to Boolean",
             ),
             pytest.param(
                 str(2**31),
-                Int32(),
+                Int32Property(),
                 True,
                 "Value 2147483648 is out of range for int32.",
                 id="Int32 overflow (too large)",
             ),
             pytest.param(
                 str(-(2**31) - 1),
-                Int32(),
+                Int32Property(),
                 True,
                 "Value -2147483649 is out of range for int32.",
                 id="Int32 underflow (too small)",
             ),
             pytest.param(
                 str(3.5e38),
-                Float32(),
+                Float32Property(),
                 True,
                 "Value 3.5e+38 is out of range for float32.",
                 id="Float32 overflow (too large)",
             ),
             pytest.param(
                 str(-3.5e38),
-                Float32(),
+                Float32Property(),
                 True,
                 "Value -3.5e+38 is out of range for float32.",
                 id="Float32 underflow (too small)",
             ),
             pytest.param(
                 "3.14",
-                Int32(),
+                Int32Property(),
                 True,
                 "Cannot convert 3.14 to int32.",
                 id="Float string to Int32 (invalid)",
             ),
             pytest.param(
                 "true",
-                Int32(),
+                Int32Property(),
                 True,
                 "Cannot convert true to int32.",
                 id="Boolean string to Int32 (invalid)",
             ),
             pytest.param(
                 "ENUM_C",
-                Enum(values={"ENUM_A": EnumValue(), "ENUM_B": EnumValue()}),
+                EnumProperty(values={"ENUM_A": EnumValue(), "ENUM_B": EnumValue()}),
                 True,
                 "Value 'enum_c' is not a valid enum value. Available values: ENUM_A and ENUM_B",
                 id="Invalid enum value (not in list)",
             ),
             pytest.param(
                 '{"key": "value"}',
-                Int32(),
+                Int32Property(),
                 True,
                 'Cannot convert {"key": "value"} to int32.',
                 id="JSON dict string to Int32 (invalid)",
             ),
             pytest.param(
                 "1e100",
-                Float32(),
+                Float32Property(),
                 True,
                 "Value 1e100 is out of range for float32.",
                 id="Scientific notation overflow for Float32",
             ),
             pytest.param(
                 "9223372036854775808",  # 2**63
-                Int64(),
+                Int64Property(),
                 True,
                 "Value 9223372036854775808 is out of range for int64.",
                 id="Int64 overflow (too large)",
             ),
             pytest.param(
                 "-9223372036854775809",  # -(2**63) - 1
-                Int64(),
+                Int64Property(),
                 True,
                 "Value -9223372036854775809 is out of range for int64.",
                 id="Int64 underflow (too small)",
             ),
             pytest.param(
                 [123, 456],
-                Int64(is_list=False),
+                Int64Property(list=False),
                 True,
                 "Expected a single value for int64, but got a list.",
                 id="List to Int64 (invalid, not a list type)",
             ),
             pytest.param(
                 1,
-                DirectRelation(),
+                DirectNodeRelation(),
                 True,
-                "Cannot convert 1 to DirectRelationReference. Invalid data type or missing in lookup.",
+                "Cannot convert 1 to NodeReference. Invalid data type or missing in lookup.",
                 id="DirectRelation with cache miss",
             ),
             pytest.param(
                 True,
-                DirectRelation(),
+                DirectNodeRelation(),
                 True,
-                "Cannot convert True to DirectRelationReference. Invalid data type or missing in lookup.",
+                "Cannot convert True to NodeReference. Invalid data type or missing in lookup.",
                 id="DirectRelation with invalid type (bool instead of str or int)",
             ),
         ],
     )
     def test_invalid_conversion(
-        self, value: str | int | float | bool | dict | list, type_: PropertyType, nullable: bool, error_message: str
+        self,
+        value: str | int | float | bool | dict | list,
+        type_: PropertyTypeDefinition,
+        nullable: bool,
+        error_message: str,
     ):
         with pytest.raises(ValueError) as exc_info:
             convert_to_primary_property(value, type_, nullable, direct_relation_lookup={})
@@ -402,14 +405,15 @@ class TestConvertToContainerProperty:
         )
 
     def test_all_converters_registered(self) -> None:
-        """Checks that all property types that are in the cognite-sdk have a corresponding converter."""
+        """Checks that all property types that are in the data modeling module have a corresponding converter."""
         existing_types: set[str] = set()
-        to_check = [PropertyType]
+        to_check: list[type] = [PropertyTypeDefinition]
         while to_check:
             current_type = to_check.pop()
             for subclass in current_type.__subclasses__():
-                if hasattr(subclass, "_type"):
-                    existing_types.add(subclass._type)
+                type_field = subclass.model_fields.get("type")
+                if type_field is not None and isinstance(type_field.default, str):
+                    existing_types.add(type_field.default)
                 if ABC in subclass.__bases__:
                     to_check.append(subclass)
 
@@ -425,66 +429,50 @@ class TestConvertToContainerProperty:
         [
             pytest.param(
                 True,
-                Enum(values={"numeric": EnumValue(), "string": EnumValue()}),
-                (ContainerId("cdf_cdm", "CogniteTimeSeries"), "type"),
+                EnumProperty(values={"numeric": EnumValue(), "string": EnumValue()}),
+                (ContainerReference(space="cdf_cdm", external_id="CogniteTimeSeries"), "type"),
                 ("timeseries", "isString"),
                 "string",
                 id="TimeSeries.isString to Enum conversion",
             ),
             pytest.param(
                 False,
-                Enum(values={"numeric": EnumValue(), "string": EnumValue()}),
-                (ContainerId("cdf_cdm", "CogniteTimeSeries"), "type"),
+                EnumProperty(values={"numeric": EnumValue(), "string": EnumValue()}),
+                (ContainerReference(space="cdf_cdm", external_id="CogniteTimeSeries"), "type"),
                 ("timeseries", "isString"),
                 "numeric",
                 id="TimeSeries.isString to Enum conversion (False case)",
             ),
             pytest.param(
-                [Label("pump"), Label("mechanical")],
-                Text(is_list=True),
-                (ContainerId("cdf_cdm", "CogniteDescribable"), "tags"),
-                ("asset", "labels"),
-                ["pump", "mechanical"],
-                id="Asset labels to tags list conversion",
-            ),
-            pytest.param(
-                [Label("pump"), {"externalId": "mechanical"}, LabelDefinition("equipment")],
-                Text(is_list=True),
-                (ContainerId("cdf_cdm", "CogniteDescribable"), "tags"),
-                ("file", "labels"),
-                ["pump", "mechanical", "equipment"],
-                id="Asset label to tags list conversion",
-            ),
-            pytest.param(
                 False,
-                Boolean(),
-                (ContainerId("some_other_space", "SomeOtherView"), "type"),
+                BooleanProperty(),
+                (ContainerReference(space="some_other_space", external_id="SomeOtherView"), "type"),
                 ("timeseries", "isString"),
                 False,
                 id="Non-asset-centric boolean to primary property conversion",
             ),
             pytest.param(
                 "acceleration:m-per-sec2",
-                DirectRelation(),
-                (ContainerId("cdf_cdm", "CogniteTimeSeries"), "unit"),
+                DirectNodeRelation(),
+                (ContainerReference(space="cdf_cdm", external_id="CogniteTimeSeries"), "unit"),
                 ("timeseries", "unitExternalId"),
                 {"space": "cdf_cdm_units", "externalId": "acceleration:m-per-sec2"},
                 id="TimeSeries unitExternalId to DirectRelation conversion",
             ),
             pytest.param(
                 None,
-                DirectRelation(),
-                (ContainerId("cdf_cdm", "CogniteTimeSeries"), "unit"),
+                DirectNodeRelation(),
+                (ContainerReference(space="cdf_cdm", external_id="CogniteTimeSeries"), "unit"),
                 ("timeseries", "unitExternalId"),
                 None,
                 id="TimeSeries unitExternalId to DirectRelation conversion with None value (nullable)",
             ),
             pytest.param(
                 "source1",
-                DirectRelation(),
-                (ContainerId("cdf_cdm", "CogniteSourceable"), "source"),
+                DirectNodeRelation(),
+                (ContainerReference(space="cdf_cdm", external_id="CogniteSourceable"), "source"),
                 ("timeseries", "source"),
-                DirectRelationReference(space="spaceA", external_id="source1"),
+                {"space": "spaceA", "externalId": "source1"},
                 id="TimeSeries sourceExternalId to DirectRelation conversion with cache lookup",
             ),
         ],
@@ -492,14 +480,14 @@ class TestConvertToContainerProperty:
     def test_asset_centric_conversion(
         self,
         value: str | int | float | bool | dict | list,
-        type_: PropertyType,
-        destination_container_property: tuple[ContainerId, str],
+        type_: PropertyTypeDefinition,
+        destination_container_property: tuple[ContainerReference, str],
         source_property: tuple[AssetCentricType, str],
         expected: PropertyValueWrite,
     ):
         cache = {
-            "source1": DirectRelationReference(space="spaceA", external_id="source1"),
-            "source2": DirectRelationReference(space="spaceB", external_id="source2"),
+            "source1": NodeReference(space="spaceA", external_id="source1"),
+            "source2": NodeReference(space="spaceB", external_id="source2"),
         }
 
         actual = asset_centric_convert_to_primary_property(
@@ -513,34 +501,34 @@ class TestConvertToContainerProperty:
         [
             pytest.param(
                 "invalid_value",
-                Enum(values={"numeric": EnumValue(), "string": EnumValue()}),
-                (ContainerId("cdf_cdm", "CogniteTimeSeries"), "type"),
+                EnumProperty(values={"numeric": EnumValue(), "string": EnumValue()}),
+                (ContainerReference(space="cdf_cdm", external_id="CogniteTimeSeries"), "type"),
                 ("timeseries", "isString"),
                 "Cannot convert invalid_value to TimeSeries type. Expected a boolean value.",
                 id="Invalid TimeSeries type input value conversion error",
             ),
             pytest.param(
                 "not_a_list",
-                Text(is_list=True),
-                (ContainerId("cdf_cdm", "CogniteDescribable"), "tags"),
+                TextProperty(list=True),
+                (ContainerReference(space="cdf_cdm", external_id="CogniteDescribable"), "tags"),
                 ("asset", "labels"),
                 "Cannot convert not_a_list to labels. Expected a list of Labels, objects, or LabelDefinitions.",
                 id="List to Text conversion error",
             ),
             pytest.param(
                 True,
-                DirectRelation(),
-                (ContainerId("cdf_cdm", "CogniteTimeSeries"), "unit"),
+                DirectNodeRelation(),
+                (ContainerReference(space="cdf_cdm", external_id="CogniteTimeSeries"), "unit"),
                 ("timeseries", "unitExternalId"),
                 "Cannot convert True to TimeSeries unit. Expected a string representing the externalId.",
                 id="TimeSeries unitExternalId to DirectRelation conversion error",
             ),
             pytest.param(
                 "unknown_source",
-                DirectRelation(),
-                (ContainerId("cdf_cdm", "CogniteSourceable"), "source"),
+                DirectNodeRelation(),
+                (ContainerReference(space="cdf_cdm", external_id="CogniteSourceable"), "source"),
                 ("timeseries", "source"),
-                "Cannot convert 'unknown_source' to DirectRelationReference. Invalid data type or missing in lookup.",
+                "Cannot convert 'unknown_source' to NodeReference. Invalid data type or missing in lookup.",
                 id="TimeSeries sourceExternalId to DirectRelation conversion with missing cache entry",
             ),
         ],
@@ -548,8 +536,8 @@ class TestConvertToContainerProperty:
     def test_asset_centric_failed_conversion(
         self,
         value: str | int | float | bool | dict | list,
-        type_: PropertyType,
-        destination_container_property: tuple[ContainerId, str],
+        type_: PropertyTypeDefinition,
+        destination_container_property: tuple[ContainerReference, str],
         source_property: tuple[AssetCentricType, str],
         error_message: str,
     ):

@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Generic
+from typing import Any, Generic, cast
 
 from cognite.client.data_classes import DataSetList, filters
 from cognite.client.data_classes.aggregations import UniqueResult

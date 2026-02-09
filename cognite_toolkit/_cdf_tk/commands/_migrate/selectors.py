@@ -3,8 +3,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Literal
 
-from cognite.client.data_classes.data_modeling import ViewId
-
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import MigrationMappingList
 from cognite_toolkit._cdf_tk.storageio import DataSelector
 from cognite_toolkit._cdf_tk.storageio.selectors import DataSetSelector
@@ -44,7 +43,7 @@ class MigrateDataSetSelector(AssetCentricMigrationSelector):
     kind: AssetCentricKindExtended
     data_set_external_id: str
     ingestion_mapping: str | None = None
-    preferred_consumer_view: ViewId | None = None
+    preferred_consumer_view: ViewReference | None = None
 
     @property
     def group(self) -> str:

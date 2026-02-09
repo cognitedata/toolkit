@@ -1133,7 +1133,9 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[NodeResponse]:
         source_ref = (
-            ViewReference(space=self.view_id.space, external_id=self.view_id.external_id, version=self.view_id.version)
+            TypedViewReference(
+                space=self.view_id.space, external_id=self.view_id.external_id, version=self.view_id.version
+            )
             if self.view_id
             else None
         )
