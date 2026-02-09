@@ -60,7 +60,7 @@ def cognite_migration_model(
     respx_mock: respx.MockRouter,
     cognite_core_no_3D: DataModel[View],
     cognite_extractor_views: list[View],
-) -> Iterator[responses.RequestsMock]:
+) -> Iterator[respx.MockRouter]:
     """Mock the Cognite Migration Model in the CDF project."""
     config = toolkit_config
     # Migration model
@@ -71,7 +71,6 @@ def cognite_migration_model(
     respx_mock.post(
         config.create_api_url("models/dataModels/byids"),
     ).respond(
-        status_code=200,
         json={"items": [migration_model]},
     )
     yield respx_mock
@@ -80,10 +79,10 @@ def cognite_migration_model(
 @pytest.fixture
 def resource_view_mappings(
     toolkit_config: ToolkitClientConfig,
-    cognite_migration_model: responses.RequestsMock,
+    cognite_migration_model: respx.MockRouter,
     cognite_core_no_3D: DataModel[View],
     cognite_extractor_views: list[View],
-) -> Iterator[responses.RequestsMock]:
+) -> Iterator[respx.MockRouter]:
     """Mock all the default Resource View Mappings in the Cognite Migration Model."""
     respx_mock = cognite_migration_model
     config = toolkit_config
@@ -170,24 +169,25 @@ def mock_statistics(
 
 @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
 class TestMigrationCommand:
-    @pytest.mark.usefixtures("mock_statistics", "resource_view_mappings")
+    @pytest.mark.usefixtures("mock_statistics")
     def test_migrate_assets(
         self,
         toolkit_config: ToolkitClientConfig,
         tmp_path: Path,
-        respx_mock: respx.MockRouter,
+        resource_view_mappings: respx.MockRouter,
     ) -> None:
+        respx_mock = resource_view_mappings
         config = toolkit_config
         assets = [
             AssetResponse(
                 id=1000 + i,
-                externalId=f"asset_{i}",
+                external_id=f"asset_{i}",
                 name=f"Asset {i}",
                 description=f"This is Asset {i}",
-                lastUpdatedTime=1,
-                createdTime=0,
-                parentExternalId="asset_0" if i > 0 else None,
-                rootId=1,
+                last_updated_time=1,
+                created_time=0,
+                parent_external_id="asset_0" if i > 0 else None,
+                root_id=1,
             )
             for i in range(2)
         ]

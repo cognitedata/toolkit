@@ -6,19 +6,20 @@ from cognite.client.data_classes.data_modeling import (
     DirectRelation,
     DirectRelationReference,
     EdgeId,
-    MappedProperty,
     NodeApply,
     NodeId,
     ViewId,
 )
 from cognite.client.data_classes.data_modeling.instances import EdgeApply, NodeOrEdgeData, PropertyValueWrite
-from cognite.client.data_classes.data_modeling.views import ViewProperty
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, ViewResponseProperty, \
-    ViewCorePropertyResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    NodeReference,
+    ViewCorePropertyResponse,
+    ViewResponseProperty,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
@@ -331,7 +332,7 @@ def create_properties(
             value = asset_centric_convert_to_primary_property(
                 flatten_dump[prop_json_path],
                 dm_prop.type,
-                dm_prop.nullable,
+                dm_prop.nullable or False,
                 destination_container_property=(dm_prop.container, dm_prop.container_property_identifier),
                 source_property=(resource_type, prop_json_path),
                 direct_relation_lookup=direct_relation_cache.get_cache(resource_type, prop_json_path),
