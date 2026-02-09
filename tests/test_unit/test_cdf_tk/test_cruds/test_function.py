@@ -3,12 +3,11 @@ from unittest.mock import MagicMock
 
 import pytest
 import responses
+import respx
 import yaml
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     ClientCredentials,
-    Function,
-    FunctionSchedule,
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
     FunctionWrite,
@@ -17,6 +16,11 @@ from cognite.client.data_classes.capabilities import FilesAcl, FunctionsAcl
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
+    FunctionScheduleRequest,
+    FunctionScheduleResponse,
+)
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import FunctionCRUD, FunctionScheduleCRUD, ResourceWorker
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError, ToolkitRequiredValueError
@@ -44,7 +48,7 @@ class TestFunctionLoader:
         )
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
 
-        assert isinstance(loaded, FunctionWrite)
+        assert isinstance(loaded, FunctionRequest)
 
     def test_update_secrets(
         self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
@@ -55,10 +59,12 @@ secrets:
     secret1: value1
     secret2: value2
         """
-        cdf_function = Function(
+        cdf_function = FunctionResponse(
+            id=123,
             name="my_function",
             external_id="my_function",
             file_id=123,
+            created_time=0,
             status="Ready",
             metadata={
                 FunctionCRUD._MetadataKey.function_hash: FunctionCRUD._create_hash_values(tmp_path / "my_function"),
@@ -75,7 +81,7 @@ secrets:
                 "secret2": "***",
             },
         )
-        toolkit_client_approval.append(Function, cdf_function)
+        toolkit_client_approval.append(FunctionResponse, cdf_function)
 
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_yaml
@@ -91,14 +97,29 @@ secrets:
             "unchanged": len(resources.unchanged),
         } == {"create": 0, "update": 0, "delete": 0, "unchanged": 1}
 
-        toolkit_client_approval.clear_cdf_resources(Function)
-        cdf_function.metadata[FunctionCRUD._MetadataKey.secret_hash] = calculate_secure_hash(
-            {
-                "secret1": "value1",
-                "secret2": "updated_value2",
-            }
+        toolkit_client_approval.clear_cdf_resources(FunctionResponse)
+        cdf_function = FunctionResponse(
+            id=123,
+            name="my_function",
+            external_id="my_function",
+            file_id=123,
+            created_time=0,
+            status="Ready",
+            metadata={
+                FunctionCRUD._MetadataKey.function_hash: FunctionCRUD._create_hash_values(tmp_path / "my_function"),
+                FunctionCRUD._MetadataKey.secret_hash: calculate_secure_hash(
+                    {
+                        "secret1": "value1",
+                        "secret2": "updated_value2",
+                    }
+                ),
+            },
+            secrets={
+                "secret1": "***",
+                "secret2": "***",
+            },
         )
-        toolkit_client_approval.append(Function, cdf_function)
+        toolkit_client_approval.append(FunctionResponse, cdf_function)
         resources = worker.prepare_resources([filepath])
 
         assert {
@@ -115,10 +136,12 @@ secrets:
             external_id="my_function",
             index_url="http://my-index-url",
         ).dump()
-        cdf_function = Function(
+        cdf_function = FunctionResponse(
+            id=123,
             name="my_function",
             file_id=123,
             external_id="my_function",
+            created_time=0,
             metadata={
                 FunctionCRUD._MetadataKey.function_hash: calculate_directory_hash(
                     tmp_path / "my_function", exclude_prefixes={".DS_Store"}
@@ -221,13 +244,14 @@ authentication:
         auth_hash = calculate_secure_hash(auth_dict, shorten=True)
 
         with monkeypatch_toolkit_client() as client:
-            cdf_schedule = FunctionSchedule(
+            cdf_schedule = FunctionScheduleResponse(
                 id=123,
                 name="daily-8am-utc",
                 function_external_id="fn_example_repeater",
                 cron_expression="0 8 * * *",
                 description=f"Run the function every day at 8am UTC {FunctionScheduleCRUD._hash_key}: {auth_hash}",
-                cognite_client=client,
+                created_time=1,
+                when="2024-01-01T08:00:00Z",
             )
             # The as_write method looks up the input data.
             client.functions.schedules.get_input_data.return_value = None
@@ -260,14 +284,20 @@ authentication:
                 "123789109801",
                 "${MY_SUPER_SECRET}",
                 ResourceCreationError(
-                    "Failed to create Function Schedule FunctionScheduleID(function_external_id='fn_example_repeater', name='daily-8am-utc'): The environment variable is not set: MY_SUPER_SECRET"
+                    "Failed to create Function Schedule functionExternalId='fn_example_repeater', "
+                    "name='daily-8am-utc': The environment variable is not set: MY_SUPER_SECRET."
                 ),
                 id="Invalid credentials missing envrionment variable",
             ),
         ],
     )
     def test_create_error_message_invalid_credentials(
-        self, client_id: str, client_secret: str, expected_error: Exception, toolkit_config: ToolkitClientConfig
+        self,
+        client_id: str,
+        client_secret: str,
+        expected_error: Exception,
+        toolkit_config: ToolkitClientConfig,
+        respx_mock: respx.MockRouter,
     ) -> None:
         config = toolkit_config
         with responses.RequestsMock() as rsps:
@@ -295,7 +325,7 @@ authentication:
             )
             client = ToolkitClient(toolkit_config)
             loader = FunctionScheduleCRUD(client, None, None)
-            schedule = FunctionScheduleWrite(
+            schedule = FunctionScheduleRequest(
                 name="daily-8am-utc",
                 function_external_id="fn_example_repeater",
                 cron_expression="0 8 * * *",
@@ -306,7 +336,7 @@ authentication:
                 client_secret=client_secret,
             )
             with pytest.raises(type(expected_error)) as exc_val:
-                loader.create(FunctionScheduleWriteList([schedule]))
+                loader.create([schedule])
 
             assert str(expected_error) in str(exc_val.value)
 
@@ -331,6 +361,6 @@ authentication:
 
             assert (
                 "Failed to create function schedule "
-                "FunctionScheduleID(function_external_id='fn_non_existent_function', name='daily-8am-utc'). "
-                "Could not find function 'fn_non_existent_function'"
+                "functionExternalId='fn_non_existent_function', name='daily-8am-utc'. Could "
+                "not find function 'fn_non_existent_function'"
             ) in str(exc_val.value)

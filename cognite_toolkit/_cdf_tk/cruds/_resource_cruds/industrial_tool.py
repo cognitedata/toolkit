@@ -187,7 +187,7 @@ class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[Streamlit]:
         for file in self.client.files:
             if file.directory == "/streamlit-apps/":

@@ -187,7 +187,7 @@ class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceRespo
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[T_ResourceResponse]:
         if sum([1 for x in [data_set_external_id, space, parent_ids] if x is not None]) > 1:
             raise ValueError("At most one of data_set_external_id, space, or parent_ids must be set.")
@@ -210,7 +210,7 @@ class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceRespo
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[T_ResourceResponse]:
         raise NotImplementedError
 

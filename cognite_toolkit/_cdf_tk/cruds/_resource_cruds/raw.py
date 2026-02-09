@@ -125,7 +125,7 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabaseId, RAWDatabaseRequest, R
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[RAWDatabaseResponse]:
         for databases in self.client.tool.raw.databases.iterate():
             yield from databases
@@ -265,7 +265,7 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[RAWTableResponse]:
         if parent_ids is None:
             dbs = self.client.tool.raw.databases.list(limit=None)

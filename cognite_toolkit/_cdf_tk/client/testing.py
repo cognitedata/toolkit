@@ -5,7 +5,8 @@ from unittest.mock import MagicMock
 
 from cognite.client._api.datapoints import DatapointsAPI
 from cognite.client._api.datapoints_subscriptions import DatapointsSubscriptionAPI
-from cognite.client._api.functions import FunctionCallsAPI, FunctionSchedulesAPI
+from cognite.client._api.functions import FunctionCallsAPI
+from cognite.client._api.functions import FunctionSchedulesAPI as LegacyFunctionSchedulesAPI
 from cognite.client._api.raw import RawDatabasesAPI as LegacyRawDatabasesAPI
 from cognite.client._api.raw import RawRowsAPI
 from cognite.client._api.raw import RawTablesAPI as LegacyRawTablesAPI
@@ -39,6 +40,8 @@ from .api.datasets import DataSetsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
 from .api.filemetadata import FileMetadataAPI
+from .api.function_schedules import FunctionSchedulesAPI
+from .api.functions import FunctionsAPI
 from .api.hosted_extractor_destinations import HostedExtractorDestinationsAPI
 from .api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from .api.hosted_extractor_mappings import HostedExtractorMappingsAPI
@@ -111,7 +114,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.files = MagicMock(spec_set=ExtendedFileMetadataAPI)
         self.functions = MagicMock(spec=ExtendedFunctionsAPI)
         self.functions.calls = MagicMock(spec_set=FunctionCallsAPI)
-        self.functions.schedules = MagicMock(spec_set=FunctionSchedulesAPI)
+        self.functions.schedules = MagicMock(spec_set=LegacyFunctionSchedulesAPI)
         self.infield = MagicMock(spec=InfieldAPI)
         self.infield.apm_config = MagicMock(spec_set=APMConfigAPI)
         self.infield.config = MagicMock(spec_set=InfieldConfigAPI)
@@ -162,6 +165,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.instances = MagicMock(spec=InstancesAPI)
         self.tool.location_filters = MagicMock(spec=LocationFiltersAPI)
         self.tool.events = MagicMock(spec_set=EventsAPI)
+        self.tool.functions = MagicMock(spec=FunctionsAPI)
+        self.tool.functions.schedules = MagicMock(spec_set=FunctionSchedulesAPI)
         self.tool.simulators = MagicMock(spec=SimulatorsAPI)
         self.tool.simulators.models = MagicMock(spec_set=SimulatorModelsAPI)
         self.tool.simulators.model_revisions = MagicMock(spec_set=SimulatorModelRevisionsAPI)

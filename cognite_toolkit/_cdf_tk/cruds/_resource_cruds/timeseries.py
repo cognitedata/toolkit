@@ -148,7 +148,7 @@ class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSe
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[TimeSeriesResponse]:
         filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
         for timeseries in self.client.tool.timeseries.iterate(filter=filter_, limit=None):
@@ -296,7 +296,7 @@ class DatapointSubscriptionCRUD(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DatapointSubscription]:
         return iter(self.client.time_series.subscriptions)
 
