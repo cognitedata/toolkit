@@ -3,6 +3,7 @@ from typing import Any, ClassVar, Literal
 from pydantic import JsonValue, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataModelReference
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 
 from .instance_api import (
@@ -18,6 +19,11 @@ from .instance_api import (
 
 INFIELD_LOCATION_CONFIG_VIEW_ID = TypedViewReference(
     space="cdf_infield", external_id="InFieldLocationConfig", version="v1"
+)
+INFIELD_ON_CDM_DATA_MODEL = DataModelReference(
+    space="infield_cdm_source_desc_sche_asset_file_ts",
+    external_id="InFieldOnCDM",
+    version="v1",
 )
 INFIELD_CDM_LOCATION_CONFIG_VIEW_ID = TypedViewReference(
     space="infield_cdm_source_desc_sche_asset_file_ts", external_id="InFieldCDMLocationConfig", version="v1"
