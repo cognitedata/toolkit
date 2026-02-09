@@ -183,7 +183,7 @@ class SpaceCRUD(ResourceContainerCRUD[str, SpaceApply, Space]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[Space]:
         if space:
             return self.client.data_modeling.spaces.retrieve([space])
@@ -383,7 +383,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerApply, Container
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[Container]:
         return iter(self.client.data_modeling.containers(space=space))
 
@@ -721,7 +721,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewApply, View]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[View]:
         return iter(self.client.data_modeling.views(space=space))
 
@@ -962,7 +962,7 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelApply, DataModel]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DataModel]:
         return iter(self.client.data_modeling.data_models(space=space, include_global=False))
 
@@ -1108,7 +1108,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeApply, Node]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[Node]:
         return iter(
             iterate_instances(self.client, space=space, instance_type="node", source=self.view_id, console=self.console)
@@ -1288,7 +1288,7 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelWrite, Grap
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[GraphQLDataModel]:
         return iter(GraphQLDataModel._load(d.dump()) for d in self.client.data_modeling.data_models)
 
@@ -1445,7 +1445,7 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeApply, Edge]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[Edge]:
         return iter(iterate_instances(self.client, space=space, instance_type="edge"))
 
