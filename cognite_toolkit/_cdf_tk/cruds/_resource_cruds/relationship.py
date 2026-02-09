@@ -115,9 +115,9 @@ class RelationshipCRUD(ResourceCRUD[ExternalId, RelationshipRequest, Relationshi
             yield DataSetsCRUD, item["dataSetExternalId"]
         for label in item.get("labels", []):
             if isinstance(label, dict):
-                yield LabelCRUD, label["externalId"]
+                yield LabelCRUD, ExternalId(external_id=label["externalId"])
             elif isinstance(label, str):
-                yield LabelCRUD, label
+                yield LabelCRUD, ExternalId(external_id=label)
         for connection in ["source", "target"]:
             type_key = f"{connection}Type"
             id_key = f"{connection}ExternalId"

@@ -18,7 +18,7 @@ from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, cast, final
+from typing import Any, Literal, final
 
 from cognite.client.data_classes import capabilities as cap
 from cognite.client.data_classes.capabilities import (
@@ -30,9 +30,6 @@ from cognite.client.data_classes.iam import (
     Group,
     GroupList,
     GroupWrite,
-    SecurityCategory,
-    SecurityCategoryList,
-    SecurityCategoryWrite,
 )
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -41,7 +38,17 @@ from rich.console import Console
 from rich.markup import escape
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
+    ExternalId,
+    InternalIdUnwrapped,
+    NameId,
+    RawDatabaseId,
+    RawTableId,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
+    SecurityCategoryRequest,
+    SecurityCategoryResponse,
+)
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.resource_classes import GroupYAML, SecurityCategoriesYAML
@@ -192,6 +199,8 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group]):
                             for id_ in ids["ids"]:
                                 if loader in {TimeSeriesCRUD, LocationFilterCRUD}:
                                     yield loader, ExternalId(external_id=id_)
+                                elif loader is SecurityCategoryCRUD:
+                                    yield loader, NameId(name=id_)
                                 else:
                                     yield loader, id_
 
@@ -477,32 +486,33 @@ class GroupAllScopedCRUD(GroupCRUD):
 
 
 @final
-class SecurityCategoryCRUD(ResourceCRUD[str, SecurityCategoryWrite, SecurityCategory]):
-    resource_cls = SecurityCategory
-    resource_write_cls = SecurityCategoryWrite
+class SecurityCategoryCRUD(ResourceCRUD[NameId, SecurityCategoryRequest, SecurityCategoryResponse]):
+    resource_cls = SecurityCategoryResponse
+    resource_write_cls = SecurityCategoryRequest
     kind = "SecurityCategory"
     yaml_cls = SecurityCategoriesYAML
     folder_name = "auth"
     dependencies = frozenset({GroupAllScopedCRUD})
     _doc_url = "Security-categories/operation/createSecurityCategories"
+    support_update = False
 
     @property
     def display_name(self) -> str:
         return "security categories"
 
     @classmethod
-    def get_id(cls, item: SecurityCategoryWrite | SecurityCategory | dict) -> str:
+    def get_id(cls, item: SecurityCategoryRequest | SecurityCategoryResponse | dict) -> NameId:
         if isinstance(item, dict):
-            return item["name"]
-        return cast(str, item.name)
+            return NameId(name=item["name"])
+        return NameId(name=item.name)
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"name": id}
+    def dump_id(cls, id: NameId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[SecurityCategoryWrite] | None, read_only: bool
+        cls, items: Sequence[SecurityCategoryRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -527,28 +537,18 @@ class SecurityCategoryCRUD(ResourceCRUD[str, SecurityCategoryWrite, SecurityCate
             SecurityCategoriesAcl.Scope.All(),
         )
 
-    def create(self, items: Sequence[SecurityCategoryWrite]) -> SecurityCategoryList:
-        return self.client.iam.security_categories.create(items)
+    def create(self, items: Sequence[SecurityCategoryRequest]) -> list[SecurityCategoryResponse]:
+        return self.client.tool.security_categories.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> SecurityCategoryList:
-        names = set(ids)
-        categories = self.client.iam.security_categories.list(limit=-1)
-        return SecurityCategoryList([c for c in categories if c.name in names])
+    def retrieve(self, ids: SequenceNotStr[NameId]) -> list[SecurityCategoryResponse]:
+        names = {id.name for id in ids}
+        categories = self.client.tool.security_categories.list(limit=None)
+        return [c for c in categories if c.name in names]
 
-    def update(self, items: Sequence[SecurityCategoryWrite]) -> SecurityCategoryList:
-        items_by_name = {item.name: item for item in items}
-        retrieved = self.retrieve(list(items_by_name.keys()))
-        retrieved_by_name = {item.name: item for item in retrieved}
-        new_items_by_name = {item.name: item for item in items if item.name not in retrieved_by_name}
-        if new_items_by_name:
-            created = self.client.iam.security_categories.create(list(new_items_by_name.values()))
-            retrieved_by_name.update({item.name: item for item in created})
-        return SecurityCategoryList([retrieved_by_name[name] for name in items_by_name])
-
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: SequenceNotStr[NameId]) -> int:
         retrieved = self.retrieve(ids)
         if retrieved:
-            self.client.iam.security_categories.delete([item.id for item in retrieved if item.id])
+            self.client.tool.security_categories.delete([InternalIdUnwrapped(id=cat.id) for cat in retrieved])
         return len(retrieved)
 
     def _iterate(
@@ -556,5 +556,6 @@ class SecurityCategoryCRUD(ResourceCRUD[str, SecurityCategoryWrite, SecurityCate
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[SecurityCategory]:
-        return self.client.iam.security_categories.list(limit=-1)
+    ) -> Iterable[SecurityCategoryResponse]:
+        for items in self.client.tool.security_categories.iterate(limit=None):
+            yield from items
