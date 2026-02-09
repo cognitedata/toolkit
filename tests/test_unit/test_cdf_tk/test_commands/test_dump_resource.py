@@ -31,7 +31,11 @@ from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataModelResponse, ViewReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    DataModelResponse,
+    SpaceResponse,
+    ViewReference,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import SearchConfig, SearchConfigList, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
@@ -867,12 +871,15 @@ class TestSpaceFinder:
 
 class TestDumpSpaces:
     def test_dump_spaces(self, three_spaces: dm.SpaceList, tmp_path: Path) -> None:
-        with monkeypatch_toolkit_client() as client:
-            client.data_modeling.spaces.retrieve.return_value = three_spaces[1:]
+        # Todo Remove adaption once we have fully removed our dependency of Cognite-SDK.
+        adapted_spaces = [SpaceResponse.model_validate(space.dump()) for space in three_spaces]
 
+        with monkeypatch_toolkit_client() as client:
+            client.tool.spaces.retrieve.return_value = adapted_spaces[1:]
+            identifier: tuple[str, ...] = "spaceB", "spaceC"
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
-                SpaceFinder(client, ("spaceB", "spaceC")),
+                SpaceFinder(client, identifier),
                 output_dir=tmp_path,
                 clean=False,
                 verbose=False,
@@ -882,7 +889,7 @@ class TestDumpSpaces:
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
         items = sorted([read_yaml_file(filepath) for filepath in filepaths], key=lambda d: d["space"])
-        expected = sorted([loader.dump_resource(s) for s in three_spaces[1:]], key=lambda d: d["space"])
+        expected = [loader.dump_resource(space) for space in adapted_spaces[1:]]
         assert items == expected
 
 

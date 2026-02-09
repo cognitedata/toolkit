@@ -835,7 +835,7 @@ class SpaceFinder(ResourceFinder[tuple[str, ...]]):
     ) -> Iterator[tuple[list[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         loader = SpaceCRUD.create_loader(self.client)
-        yield list(self.identifier), None, loader, None
+        yield [SpaceReference(space=space) for space in self.identifier], None, loader, None
 
 
 class SearchConfigFinder(ResourceFinder[tuple[SearchConfigViewId, ...]]):
