@@ -158,7 +158,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[FileMetadataResponse]:
         filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
         for files in self.client.tool.filemetadata.iterate(filter=filter_, limit=None):
@@ -298,7 +298,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, 
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ExtendableCogniteFile]:
         # We do not have a way to know the source of the file, so we cannot filter on that.
         return []

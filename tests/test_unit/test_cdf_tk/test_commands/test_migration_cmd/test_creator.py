@@ -2,10 +2,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 from cognite.client.data_classes import DataSet, DataSetList
 from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
-from cognite.client.data_classes.data_modeling import NodeList
+from cognite.client.data_classes.data_modeling import NodeId, NodeList
+from pytest_regressions.data_regression import DataRegressionFixture
 
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
     NodeRequest,
@@ -13,10 +16,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import CreatedSourceSystem
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
-from cognite_toolkit._cdf_tk.commands._migrate.creators import InstanceSpaceCreator, SourceSystemCreator
+from cognite_toolkit._cdf_tk.commands._migrate.creators import (
+    InfieldV2ConfigCreator,
+    InstanceSpaceCreator,
+    SourceSystemCreator,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATION_MODEL, VIEWS
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from tests.data import MIGRATION_DIR
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -129,3 +138,18 @@ class TestCreator:
         created_nodes = toolkit_client_approval.created_resources["InstanceDefinition"]
         assert all(isinstance(node, NodeRequest) for node in created_nodes)
         assert {node.external_id for node in created_nodes} == expected_external_ids
+
+    def test_create_infield_config(self, data_regression: DataRegressionFixture, tmp_path: Path) -> None:
+        apm_config_path = MIGRATION_DIR / "infield_config" / "default_infield_config_minimal.yaml"
+        apm_config = APMConfigResponse.model_validate(yaml.safe_load(apm_config_path.read_text()))
+
+        output: dict[str, Any] = {}
+        with monkeypatch_toolkit_client() as client:
+            asset_external_id = apm_config.feature_configuration.root_location_configurations[0].asset_external_id
+            client.migration.lookup.assets.return_value = NodeId(space="migrated", external_id=asset_external_id)
+            creator = InfieldV2ConfigCreator(client, apm_configs=[apm_config])
+            for to_create in creator.create_resources():
+                for resource in to_create.resources:
+                    output.setdefault(to_create.display_name, []).append(resource.config_data)
+
+        data_regression.check(output)

@@ -139,7 +139,7 @@ class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[AssetResponse]:
         filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
         for assets in self.client.tool.assets.iterate(aggregated_properties=True, filter=filter_, limit=None):
@@ -347,7 +347,7 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, CDFSequence]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[CDFSequence]:
         return iter(
             self.client.sequences(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
@@ -428,7 +428,7 @@ class SequenceRowCRUD(ResourceCRUD[str, ToolkitSequenceRowsWrite, ToolkitSequenc
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ToolkitSequenceRows]:
         if parent_ids is None:
             sequence_iterable = self.client.sequences(
@@ -560,7 +560,7 @@ class EventCRUD(ResourceCRUD[ExternalId, EventRequest, EventResponse]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[EventResponse]:
         filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
         for events in self.client.tool.events.iterate(filter=filter_, limit=None):

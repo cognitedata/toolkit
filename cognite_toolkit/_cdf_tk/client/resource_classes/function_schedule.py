@@ -41,9 +41,11 @@ class FunctionScheduleRequest(FunctionSchedule, RequestResource):
     # The 'id' field is not part of the request when creating a new resource,
     # but is needed when deleting an existing resource.
     id: int | None = Field(default=None, exclude=True)
-    function_id: int
+    # function_id is set at creation time after looking up the function by external_id
+    function_id: int | None = None
     function_external_id: str | None = Field(None, exclude=True)
-    nonce: str
+    # nonce is set at creation time after creating a session
+    nonce: str | None = None
 
     def as_id(self) -> InternalId:
         if self.id is None:
@@ -62,4 +64,4 @@ class FunctionScheduleResponse(FunctionSchedule, ResponseResource[FunctionSchedu
     session_id: int | None = None
 
     def as_request_resource(self) -> FunctionScheduleRequest:
-        raise NotImplementedError("Cannot convert to request resource as 'nonce' is missing.")
+        return FunctionScheduleRequest.model_validate(self.dump(), extra="ignore")

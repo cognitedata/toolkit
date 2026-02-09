@@ -514,7 +514,7 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[Transformation]:
         return iter(
             self.client.transformations(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
@@ -609,7 +609,7 @@ class TransformationScheduleCRUD(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[TransformationSchedule]:
         if parent_ids is None:
             yield from iter(self.client.transformations.schedules)
@@ -755,7 +755,7 @@ class TransformationNotificationCRUD(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[TransformationNotification]:
         if parent_ids is None:
             yield from iter(self.client.transformations.notifications)

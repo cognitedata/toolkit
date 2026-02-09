@@ -1,3 +1,4 @@
+import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
@@ -9,9 +10,17 @@ from cognite.client.data_classes.aggregations import UniqueResult
 from cognite.client.data_classes.assets import AssetProperty
 from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.events import EventProperty
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APM_CONFIG_SPACE, APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
+    APM_CONFIG_SPACE,
+    APMConfigResponse,
+    Discipline,
+    FeatureConfiguration,
+    RootLocationConfiguration,
+    RootLocationFeatureToggles,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
     NodeReference,
@@ -19,11 +28,24 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     SpaceRequest,
     ViewReference,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
+    INFIELD_ON_CDM_DATA_MODEL,
+    InFieldCDMLocationConfigRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterRequest
-from cognite_toolkit._cdf_tk.cruds import NodeCRUD, ResourceCRUD, SpaceCRUD
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.cruds import (
+    InFieldCDMLocationConfigCRUD,
+    LocationFilterCRUD,
+    NodeCRUD,
+    ResourceCRUD,
+    SpaceCRUD,
+)
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitMigrationError,
+    ToolkitMissingResourceError,
+    ToolkitRequiredValueError,
+)
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
@@ -207,6 +229,8 @@ class SourceSystemCreator(MigrationCreator):
 
 
 class InfieldV2ConfigCreator(MigrationCreator):
+    TARGET_SPACE = "APM_Config"
+
     def __init__(
         self,
         client: ToolkitClient,
@@ -224,15 +248,179 @@ class InfieldV2ConfigCreator(MigrationCreator):
             apm_configs = self.client.infield.apm_config.retrieve(
                 TypedNodeIdentifier.from_str_ids(self.external_ids, space=APM_CONFIG_SPACE)
             )
-        elif self.apm_configs is not None:
-            apm_configs = list(self.apm_configs)
         else:
-            raise NotImplementedError("This should not happen.")
-        raise NotImplementedError(
-            f"To be implemented converting {len(apm_configs)} APM configs to InField CDM Location Configs."
+            # We know this is not None from the check in __init__
+            apm_configs = list(cast(Sequence[APMConfigResponse], self.apm_configs))
+
+        all_location_configs: list[CreatedResource[InFieldCDMLocationConfigRequest]] = []
+        all_location_filters: list[CreatedResource[LocationFilterRequest]] = []
+        for apm_config in apm_configs:
+            location_configs, location_filters = self._create_infield_v2_config(apm_config)
+            all_location_configs.extend(
+                CreatedResource(
+                    resource=loc_config,
+                    config_data=loc_config.dump(),
+                    filestem=f"{apm_config.external_id}_location_{loc_config.name}",
+                )
+                for idx, loc_config in enumerate(location_configs)
+            )
+            all_location_filters.extend(
+                CreatedResource(
+                    resource=loc_filter,
+                    config_data=loc_filter.dump(),
+                    filestem=f"{apm_config.external_id}_filter_{loc_filter.name}",
+                )
+                for idx, loc_filter in enumerate(location_filters)
+            )
+        yield ToCreateResources(
+            resources=all_location_filters,
+            crud_cls=LocationFilterCRUD,
+            display_name="Location Filters",
+        )
+        yield ToCreateResources(
+            resources=all_location_configs,
+            crud_cls=InFieldCDMLocationConfigCRUD,
+            display_name="InField CDM Location Configs",
         )
 
     def _create_infield_v2_config(
         self, config: APMConfigResponse
-    ) -> tuple[InFieldCDMLocationConfigRequest, LocationFilterRequest]:
-        raise NotImplementedError("To be implemented")
+    ) -> tuple[list[InFieldCDMLocationConfigRequest], list[LocationFilterRequest]]:
+        location_configs: list[InFieldCDMLocationConfigRequest] = []
+        location_filters: list[LocationFilterRequest] = []
+        if not config.feature_configuration:
+            return location_configs, location_filters
+
+        data_exploration = self._create_data_exploration(config.feature_configuration)
+
+        for index, root_location_config in enumerate(config.feature_configuration.root_location_configurations or []):
+            location_filter = self._create_location_filter(root_location_config)
+            location_filters.append(location_filter)
+            location_configs.append(
+                self._create_location_config(
+                    root_location_config,
+                    config.feature_configuration.disciplines,
+                    data_exploration,
+                    index,
+                )
+            )
+
+        return location_configs, location_filters
+
+    def _create_location_filter(self, config: RootLocationConfiguration) -> LocationFilterRequest:
+        original_external_id = config.external_id or config.asset_external_id or str(uuid.uuid4())
+        external_id = f"location_filter_{original_external_id}"
+        name = config.display_name or config.asset_external_id or external_id
+
+        instance_spaces = [
+            space
+            for space in [config.app_data_instance_space, config.source_data_instance_space]
+            if space is not None and space != ""
+        ]
+
+        # Todo: Scene and views
+        return LocationFilterRequest(
+            external_id=external_id,
+            name=name,
+            description="InField location, migrated from old location configuration",
+            instance_spaces=instance_spaces or None,
+            data_models=[INFIELD_ON_CDM_DATA_MODEL],
+            data_modeling_type="DATA_MODELING_ONLY",
+        )
+
+    def _create_location_config(
+        self,
+        config: RootLocationConfiguration,
+        disciplines: list[Discipline] | None,
+        data_exploration: dict[str, JsonValue],
+        index: int,
+    ) -> InFieldCDMLocationConfigRequest:
+        if (
+            config.asset_external_id is None
+            or config.app_data_instance_space is None
+            or config.source_data_instance_space is None
+        ):
+            raise ToolkitMigrationError(
+                f"Root location configuration with external ID '{config.external_id}' is missing required fields for migration. "
+            )
+        root_node = self.client.migration.lookup.assets(external_id=config.asset_external_id)
+        if not root_node:
+            raise ToolkitMissingResourceError(
+                f"Root asset with external ID '{config.asset_external_id}' not migrated. Cannot create location config for root location configuration with external ID '{config.external_id}'."
+            )
+
+        if config.external_id:
+            external_id = config.external_id
+        else:
+            external_id = f"{config.asset_external_id}_{index}"
+
+        feature_toggles: dict[str, Any] | None = None
+        if isinstance(config.feature_toggles, RootLocationFeatureToggles):
+            feature_toggles = config.feature_toggles.dump()
+            if config.feature_toggles.observations:
+                feature_toggles["observations"] = config.feature_toggles.observations.is_enabled
+
+        access_management: dict[str, JsonValue] = {}
+        if config.template_admins:
+            # Todo Fetch and update groups. Jira ticket: CDF-27033
+            # list[str] is a valid JsonValue
+            access_management["templateAdmins"] = config.template_admins  # type: ignore[assignment]
+        if config.checklist_admins:
+            access_management["checklistAdmins"] = config.checklist_admins  # type: ignore[assignment]
+
+        data_filters: dict[str, JsonValue] = {}
+        for key in ["assets", "files", "timeseries", "maintenanceOrders", "operations", "notifications"]:
+            # Todo Assets does not support multiple instanceSpaces.
+            #    add to Validation in cdf build.
+            data_filters[key] = {"instanceSpaces": [config.source_data_instance_space]}
+
+        data_storage: dict[str, JsonValue] = {
+            # dict[str, str] is a valid JsonValue
+            "rootLocation": root_node.dump(include_instance_type=False),  # type: ignore[dict-item]
+            "appDataInstanceSpace": config.app_data_instance_space,
+        }
+        view_mappings: dict[str, JsonValue] = {}
+        for key, default_view in [
+            ("asset", ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1")),
+            ("operation", ViewReference(space="cdf_idm", external_id="CogniteOperation", version="v1")),
+            ("notification", ViewReference(space="cdf_idm", external_id="CogniteNotification", version="v1")),
+            ("maintenanceOrder", ViewReference(space="cdf_idm", external_id="CogniteMaintenanceOrder", version="v1")),
+            ("file", ViewReference(space="cdf_cdm", external_id="CogniteFile", version="v1")),
+        ]:
+            view_mappings[key] = default_view.dump()
+
+        return InFieldCDMLocationConfigRequest(
+            space=config.source_data_instance_space or "<Please fill in the source data instance space>",
+            external_id=external_id,
+            name="InField Location Config",
+            description="Migrated InField Location Configuration",
+            feature_toggles=feature_toggles,
+            access_management=access_management or None,
+            data_filters=data_filters,
+            disciplines=[discipline.dump() for discipline in disciplines] if disciplines else None,
+            data_storage=data_storage,
+            view_mappings=view_mappings,
+            data_exploration_config=data_exploration or None,
+        )
+
+    def _create_data_exploration(self, config: FeatureConfiguration) -> dict[str, JsonValue]:
+        data_exploration: dict[str, JsonValue] = {}
+        if config.observations:
+            data_exploration["observations"] = config.observations
+        if config.documents:
+            documents: dict[str, JsonValue] = {}
+            if config.documents.type:
+                documents["type"] = config.documents.type.removeprefix("metadata.")
+            if config.documents.title:
+                documents["title"] = config.documents.title
+            if config.documents.description:
+                documents["description"] = config.documents.description.removeprefix("metadata.")
+            data_exploration["documents"] = documents
+        if config.notifications:
+            data_exploration["notifications"] = config.notifications.dump()
+        if config.asset_page_configuration:
+            dumped = config.asset_page_configuration.dump()
+            # Linkable Asset Key is used for implicit connections in the old Asset.metaadata.
+            dumped.pop("linkableAssetKeys", None)
+            data_exploration["assets"] = dumped
+        return data_exploration

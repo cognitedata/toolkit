@@ -1,0 +1,19 @@
+createdTime: 1770108564649
+customerDataSpaceId: APM_SourceData
+customerDataSpaceVersion: '1'
+externalId: default_infield_config_minimal
+featureConfiguration:
+  rootLocationConfigurations:
+  - appDataInstanceSpace: sp_infield_oid_app_data
+    assetExternalId: WMT:VAL
+    checklistAdmins:
+    - gp_infield_oid_checklist_admins
+    dataSetId: 5816056366346276
+    sourceDataInstanceSpace: sp_asset_oid_source
+    templateAdmins:
+    - gp_infield_oid_template_admins
+instanceType: node
+lastUpdatedTime: 1770108564649
+name: Infield APM App Config
+space: APM_Config
+version: 1

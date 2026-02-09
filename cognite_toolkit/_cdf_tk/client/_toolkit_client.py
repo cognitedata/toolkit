@@ -21,6 +21,7 @@ from .api.datasets import DataSetsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
 from .api.filemetadata import FileMetadataAPI
+from .api.functions import FunctionsAPI
 from .api.hosted_extractors import HostedExtractorsAPI
 from .api.infield import InfieldAPI
 from .api.instances import InstancesAPI
@@ -55,6 +56,7 @@ class ToolAPI:
         self.datasets = DataSetsAPI(http_client)
         self.events = EventsAPI(http_client)
         self.extraction_pipelines = ExtractionPipelinesAPI(http_client)
+        self.functions = FunctionsAPI(http_client)
         self.hosted_extractors = HostedExtractorsAPI(http_client)
         self.instances = InstancesAPI(http_client)
         self.spaces = SpacesAPI(http_client)

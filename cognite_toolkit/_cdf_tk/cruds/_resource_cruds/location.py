@@ -221,7 +221,7 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[LocationFilterResponse]:
         for chunk in self.client.tool.location_filters.iterate(flat=True):
             yield from chunk

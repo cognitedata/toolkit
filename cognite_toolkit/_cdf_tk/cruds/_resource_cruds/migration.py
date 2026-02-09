@@ -84,7 +84,7 @@ class ResourceViewMappingCRUD(ResourceCRUD[str, ResourceViewMappingApply, Resour
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ResourceViewMapping]:
         if space == COGNITE_MIGRATION_SPACE:
             return self.client.migration.resource_view_mapping.list(limit=-1)

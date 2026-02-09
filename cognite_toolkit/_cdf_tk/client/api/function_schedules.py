@@ -5,6 +5,7 @@ https://api-docs.cognite.com/20230101/tag/Function-schedules/operation/postFunct
 """
 
 from collections.abc import Iterable, Sequence
+from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
@@ -70,8 +71,15 @@ class FunctionSchedulesAPI(CDFResourceAPI[InternalId, FunctionScheduleRequest, F
         """
         self._request_no_response(items, "delete")
 
+    def _create_list_request_body(self, function_id: int | None) -> dict[str, Any] | None:
+        body: dict[str, Any] = {}
+        if function_id is not None:
+            body["filter"] = {"functionId": function_id}
+        return body or None
+
     def paginate(
         self,
+        function_id: int | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[FunctionScheduleResponse]:
@@ -87,10 +95,12 @@ class FunctionSchedulesAPI(CDFResourceAPI[InternalId, FunctionScheduleRequest, F
         return self._paginate(
             cursor=cursor,
             limit=limit,
+            body=self._create_list_request_body(function_id=function_id),
         )
 
     def iterate(
         self,
+        function_id: int | None = None,
         limit: int | None = None,
     ) -> Iterable[list[FunctionScheduleResponse]]:
         """Iterate over all function schedules in CDF.
@@ -101,9 +111,9 @@ class FunctionSchedulesAPI(CDFResourceAPI[InternalId, FunctionScheduleRequest, F
         Returns:
             Iterable of lists of FunctionScheduleResponse objects.
         """
-        return self._iterate(limit=limit)
+        return self._iterate(limit=limit, body=self._create_list_request_body(function_id=function_id))
 
-    def list(self, limit: int | None = None) -> list[FunctionScheduleResponse]:
+    def list(self, function_id: int | None = None, limit: int | None = None) -> list[FunctionScheduleResponse]:
         """List all function schedules in CDF.
 
         Args:
@@ -112,4 +122,4 @@ class FunctionSchedulesAPI(CDFResourceAPI[InternalId, FunctionScheduleRequest, F
         Returns:
             List of FunctionScheduleResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=limit, body=self._create_list_request_body(function_id=function_id))

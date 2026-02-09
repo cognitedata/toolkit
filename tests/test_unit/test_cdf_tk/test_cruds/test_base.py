@@ -147,7 +147,7 @@ class TestFormatConsistency:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires scoped capabilities")
         elif Loader in [LocationFilterCRUD]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires special handling")
-        elif Loader in [WorkflowTriggerCRUD]:
+        elif Loader in [WorkflowTriggerCRUD, FunctionScheduleCRUD]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires authentication handling")
 
         instance = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_write_cls)
@@ -187,7 +187,7 @@ class TestFormatConsistency:
             pytest.skip(
                 f"Skipping {loader.resource_cls} because FakeCogniteResourceGenerator doesn't generate cls properties correctly"
             )
-        elif Loader in [WorkflowTriggerCRUD]:
+        elif Loader in [WorkflowTriggerCRUD, FunctionScheduleCRUD]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires authentication handling")
 
         instances = [
