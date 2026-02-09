@@ -24,7 +24,7 @@ class View(BaseModelObject, ABC):
     version: str
     name: str | None = None
     description: str | None = None
-    filter: JsonValue | None
+    filter: JsonValue | None = None
     implements: list[ViewReference] | None = None
 
     def as_id(self) -> ViewReference:

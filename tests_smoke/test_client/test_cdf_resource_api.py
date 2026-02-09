@@ -39,7 +39,14 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoi
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeRequest, NodeRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerRequest,
+    DataModelRequest,
+    EdgeRequest,
+    NodeRequest,
+    SpaceRequest,
+    ViewRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineRequest
@@ -81,7 +88,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import Non
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionRequest
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
-from tests_smoke.constants import SMOKE_SPACE
+from tests_smoke.constants import SMOKE_SPACE, SMOKE_TEST_CONTAINER_EXTERNAL_ID, SMOKE_TEST_VIEW_EXTERNAL_ID
 from tests_smoke.exceptions import EndpointAssertionError
 
 NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
@@ -329,6 +336,61 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
                         }
                     ]
                 },
+            }
+        ],
+        SpaceRequest: [{"space": "smoke_test_space"}],
+        ContainerRequest: [
+            {
+                "externalId": "smoke_test_container",
+                "space": SMOKE_SPACE,
+                "properties": {
+                    "name": {"type": {"type": "text"}},
+                },
+                "constraints": {
+                    "nameUnique": {
+                        "constraintType": "uniqueness",
+                        "properties": ["name"],
+                        "bySpace": True,
+                    }
+                },
+                "indexes": {
+                    "nameIndex": {
+                        "indexType": "btree",
+                        "properties": ["name"],
+                        "bySpace": True,
+                        "cursorable": True,
+                    }
+                },
+            }
+        ],
+        ViewRequest: [
+            {
+                "externalId": "smoke_test_view",
+                "space": SMOKE_SPACE,
+                "version": "v1",
+                "properties": {
+                    "name": {
+                        "container": {
+                            "space": SMOKE_SPACE,
+                            "externalId": SMOKE_TEST_CONTAINER_EXTERNAL_ID,
+                        },
+                        "containerPropertyIdentifier": "name",
+                    },
+                },
+            }
+        ],
+        DataModelRequest: [
+            {
+                "externalId": "smoke_test_data_model",
+                "space": SMOKE_SPACE,
+                "version": "v1",
+                "views": [
+                    {
+                        "space": SMOKE_SPACE,
+                        "externalId": SMOKE_TEST_VIEW_EXTERNAL_ID,
+                        "version": "v1",
+                    }
+                ],
             }
         ],
     }
