@@ -15,10 +15,13 @@ from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersA
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 
 from .api.assets import AssetsAPI
+from .api.containers import ContainersAPI
+from .api.data_models import DataModelsAPI
 from .api.datasets import DataSetsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
 from .api.filemetadata import FileMetadataAPI
+from .api.functions import FunctionsAPI
 from .api.hosted_extractors import HostedExtractorsAPI
 from .api.infield import InfieldAPI
 from .api.instances import InstancesAPI
@@ -33,12 +36,14 @@ from .api.search import SearchAPI
 from .api.security_categories import SecurityCategoriesAPI
 from .api.sequences import SequencesAPI
 from .api.simulators import SimulatorsAPI
+from .api.spaces import SpacesAPI
 from .api.streams import StreamsAPI
 from .api.three_d import ThreeDAPI
 from .api.timeseries import TimeSeriesAPI
 from .api.token import TokenAPI
 from .api.transformations import TransformationsAPI
 from .api.verify import VerifyAPI
+from .api.views import ViewsAPI
 from .api.workflows import WorkflowsAPI
 from .config import ToolkitClientConfig
 
@@ -52,8 +57,13 @@ class ToolAPI:
         self.datasets = DataSetsAPI(http_client)
         self.events = EventsAPI(http_client)
         self.extraction_pipelines = ExtractionPipelinesAPI(http_client)
+        self.functions = FunctionsAPI(http_client)
         self.hosted_extractors = HostedExtractorsAPI(http_client)
         self.instances = InstancesAPI(http_client)
+        self.spaces = SpacesAPI(http_client)
+        self.views = ViewsAPI(http_client)
+        self.containers = ContainersAPI(http_client)
+        self.data_models = DataModelsAPI(http_client)
         self.labels = LabelsAPI(http_client)
         self.location_filters = LocationFiltersAPI(http_client)
         self.filemetadata = FileMetadataAPI(http_client)

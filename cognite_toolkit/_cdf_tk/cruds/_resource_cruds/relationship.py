@@ -96,7 +96,7 @@ class RelationshipCRUD(ResourceCRUD[ExternalId, RelationshipRequest, Relationshi
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[RelationshipResponse]:
         filter: ClassicFilter | None = None
         if data_set_external_id:

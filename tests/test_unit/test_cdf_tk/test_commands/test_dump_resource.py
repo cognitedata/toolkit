@@ -12,8 +12,6 @@ from cognite.client.data_classes import (
     ExtractionPipeline,
     ExtractionPipelineList,
     FileMetadataList,
-    Function,
-    FunctionList,
     Group,
     GroupList,
     Transformation,
@@ -31,6 +29,7 @@ from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import SearchConfig, SearchConfigList, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
@@ -469,38 +468,39 @@ class TestDumpGroups:
 
 
 @pytest.fixture()
-def three_functions() -> FunctionList:
-    return FunctionList(
-        [
-            Function(
-                external_id="functionA",
-                name="Function A",
-                description="This is Function A",
-                created_time=1,
-                file_id=123,
-            ),
-            Function(
-                external_id="functionB",
-                name="Function B",
-                description="This is Function B",
-                created_time=1,
-                file_id=456,
-            ),
-            Function(
-                external_id="functionC",
-                name="Function C",
-                description="This is Function C",
-                created_time=1,
-                file_id=789,
-            ),
-        ]
-    )
+def three_functions() -> list[FunctionResponse]:
+    return [
+        FunctionResponse(
+            id=1,
+            external_id="functionA",
+            name="Function A",
+            description="This is Function A",
+            created_time=1,
+            file_id=123,
+        ),
+        FunctionResponse(
+            id=2,
+            external_id="functionB",
+            name="Function B",
+            description="This is Function B",
+            created_time=1,
+            file_id=456,
+        ),
+        FunctionResponse(
+            id=3,
+            external_id="functionC",
+            name="Function C",
+            description="This is Function C",
+            created_time=1,
+            file_id=789,
+        ),
+    ]
 
 
 class TestDumpFunctions:
-    def test_dump_functions(self, three_functions: FunctionList, tmp_path: Path) -> None:
+    def test_dump_functions(self, three_functions: list[FunctionResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.functions.retrieve_multiple.return_value = three_functions[1:]
+            client.tool.functions.retrieve.return_value = three_functions[1:]
             client.functions.status.return_value = FunctionsStatus("activated")
             client.files.retrieve.return_value = None
             client.files.download_bytes.side_effect = CogniteAPIError(
@@ -523,7 +523,9 @@ class TestDumpFunctions:
         expected = sorted([loader.dump_resource(func) for func in three_functions[1:]], key=lambda d: d["externalId"])
         assert items == expected
 
-    def test_interactive_select_functions(self, three_functions: FunctionList, monkeypatch: MonkeyPatch) -> None:
+    def test_interactive_select_functions(
+        self, monkeypatch: MonkeyPatch, three_functions: list[FunctionResponse]
+    ) -> None:
         def select_functions(choices: list[Choice]) -> list[str]:
             assert len(choices) == len(three_functions)
             return [choices[1].value, choices[2].value]
@@ -534,7 +536,7 @@ class TestDumpFunctions:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(FunctionFinder.__module__, monkeypatch, answers),
         ):
-            client.functions.list.return_value = three_functions
+            client.tool.functions.list.return_value = three_functions
             finder = FunctionFinder(client, None)
             selected = finder._interactive_select()
 
