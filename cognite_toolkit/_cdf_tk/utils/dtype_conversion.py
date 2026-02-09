@@ -29,6 +29,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
 )
 
 from .collection import humanize_collection
+from cognite_toolkit._cdf_tk.client.resource_classes import data_modeling
 
 INT32_MIN = -2_147_483_648
 INT32_MAX = 2_147_483_647
@@ -40,7 +41,7 @@ def asset_centric_convert_to_primary_property(
     value: str | int | float | bool | dict | list | None,
     type_: PropertyType,
     nullable: bool,
-    destination_container_property: tuple[ContainerId, str],
+    destination_container_property: tuple[data_modeling.ContainerReference, str],
     source_property: tuple[AssetCentricTypeExtended, str],
     direct_relation_lookup: Mapping[str | int, DirectRelationReference] | None = None,
 ) -> PropertyValueWrite:

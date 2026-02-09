@@ -17,7 +17,8 @@ from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, ViewResponseProperty, \
+    ViewCorePropertyResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
@@ -179,7 +180,7 @@ def asset_centric_to_dm(
     resource: AssetCentricResourceExtended,
     instance_id: InstanceId,
     view_source: ResourceViewMappingApply,
-    view_properties: dict[str, ViewProperty],
+    view_properties: dict[str, ViewResponseProperty],
     direct_relation_cache: DirectRelationCache,
     preferred_consumer_view: ViewId | None = None,
 ) -> tuple[NodeApply | EdgeApply | None, ConversionIssue]:
@@ -288,7 +289,7 @@ def _lookup_resource_type(resource_type: AssetCentricResourceExtended) -> AssetC
 
 def create_properties(
     dumped: dict[str, Any],
-    view_properties: dict[str, ViewProperty],
+    view_properties: dict[str, ViewResponseProperty],
     property_mapping: dict[str, str],
     resource_type: AssetCentricTypeExtended,
     issue: ConversionIssue,
@@ -321,9 +322,9 @@ def create_properties(
             ignored_asset_centric_properties.add(prop_json_path)
             continue
         dm_prop = view_properties[prop_id]
-        if not isinstance(dm_prop, MappedProperty):
+        if not isinstance(dm_prop, ViewCorePropertyResponse):
             issue.invalid_instance_property_types.append(
-                InvalidPropertyDataType(property_id=prop_id, expected_type=MappedProperty.__name__)
+                InvalidPropertyDataType(property_id=prop_id, expected_type=ViewCorePropertyResponse.__name__)
             )
             continue
         try:
