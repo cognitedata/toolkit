@@ -5,16 +5,16 @@ from unittest.mock import MagicMock
 import pytest
 from cognite.client.data_classes import Asset
 from cognite.client.data_classes.data_modeling import (
-    DataModel,
     DirectRelationReference,
     InstanceApply,
     NodeId,
     NodeList,
-    View,
     ViewId,
 )
 
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import CreatedSourceSystem, ResourceViewMapping
@@ -37,7 +37,10 @@ from tests.data import MIGRATION_DIR
 
 class TestAssetCentricMapper:
     def test_map_assets(
-        self, tmp_path: Path, cognite_core_no_3D: DataModel[View], cognite_extractor_views: list[View]
+        self,
+        tmp_path: Path,
+        cognite_core_no_3D: DataModelResponseWithViews,
+        cognite_extractor_views: list[ViewResponse],
     ) -> None:
         asset_count = 10
         source = AssetCentricMappingList(
@@ -100,7 +103,7 @@ class TestAssetCentricMapper:
                     ),
                 ]
             )
-            client.data_modeling.views.retrieve.return_value = cognite_core_no_3D.views + cognite_extractor_views
+            client.tool.views.retrieve.return_value = cognite_core_no_3D.views + cognite_extractor_views
 
             mapper = AssetCentricMapper(client)
 
@@ -120,7 +123,7 @@ class TestAssetCentricMapper:
             assert client.migration.resource_view_mapping.retrieve.call_count == 1
             client.migration.resource_view_mapping.retrieve.assert_called_with(["cdf_asset_mapping"])
             assert client.migration.created_source_system.retrieve.call_count == 1
-            assert client.data_modeling.views.retrieve.call_count == 1
+            assert client.tool.views.retrieve.call_count == 1
 
             assert client.migration.created_source_system.retrieve.call_count == 1
             client.migration.created_source_system.retrieve.assert_called_with(["sap"])

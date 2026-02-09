@@ -9,7 +9,6 @@ from cognite.client.data_classes.data_modeling import (
     InstanceApply,
     NodeApply,
     NodeId,
-    View,
     ViewId,
 )
 from cognite.client.exceptions import CogniteException
@@ -20,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartSource,
     ChartTimeseries,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference, ViewResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier, NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     ContainerReferenceApply,
@@ -95,7 +95,7 @@ class AssetCentricMapper(
 ):
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
-        self._ingestion_view_by_id: dict[ViewId, View] = {}
+        self._ingestion_view_by_id: dict[ViewReference, ViewResponse] = {}
         self._view_mapping_by_id: dict[str, ResourceViewMappingApply] = {}
         self._direct_relation_cache = DirectRelationCache(client)
 
@@ -111,8 +111,17 @@ class AssetCentricMapper(
                 f"The following ingestion views were not found: {humanize_collection(missing_mappings)}"
             )
 
-        view_ids = list({mapping.view_id for mapping in self._view_mapping_by_id.values()})
-        views = self.client.data_modeling.views.retrieve(view_ids)
+        view_ids = list(
+            {
+                ViewReference(
+                    space=mapping.view_id.space,
+                    external_id=mapping.view_id.external_id,
+                    version=mapping.view_id.version,
+                )
+                for mapping in self._view_mapping_by_id.values()
+            }
+        )
+        views = self.client.tool.views.retrieve(view_ids)
         self._ingestion_view_by_id = {view.as_id(): view for view in views}
         missing_views = set(view_ids) - set(self._ingestion_view_by_id.keys())
         if missing_views:
@@ -162,7 +171,12 @@ class AssetCentricMapper(
         ingestion_view = mapping.get_ingestion_view()
         try:
             view_source = self._view_mapping_by_id[ingestion_view]
-            view_properties = self._ingestion_view_by_id[view_source.view_id].properties
+            view_ref = ViewReference(
+                space=view_source.view_id.space,
+                external_id=view_source.view_id.external_id,
+                version=view_source.view_id.version,
+            )
+            view_properties = self._ingestion_view_by_id[view_ref].properties
         except KeyError as e:
             raise RuntimeError(
                 f"Failed to lookup mapping or view for ingestion view '{ingestion_view}'. Did you forget to call .prepare()?"
