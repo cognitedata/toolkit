@@ -1,6 +1,6 @@
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any, cast
+from typing import Annotated, Any
 
 import questionary
 import typer
@@ -344,9 +344,7 @@ class PurgeApp(typer.Typer):
         elif view is not None:
             view_id = parse_view_str(view)
             selector = InstanceViewSelector(
-                view=SelectedView(
-                    space=view_id.space, external_id=view_id.external_id, version=cast(str, view_id.version)
-                ),
+                view=SelectedView(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
                 instance_type=instance_type.value,
                 instance_spaces=tuple(instance_space) if instance_space is not None else None,
             )
