@@ -222,7 +222,16 @@ def asset_centric_to_dm(
     )
     sources: list[InstanceSource] = []
     if properties:
-        sources.append(InstanceSource(source=view_source.view_id, properties=properties))
+        sources.append(
+            InstanceSource(
+                source=ViewReference(
+                    space=view_source.view_id.space,
+                    external_id=view_source.view_id.external_id,
+                    version=view_source.view_id.version,
+                ),
+                properties=properties,
+            )
+        )
 
     if resource_type != "annotation":
         instance_source_properties = {

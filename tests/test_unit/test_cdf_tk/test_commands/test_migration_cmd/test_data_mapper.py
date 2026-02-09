@@ -12,9 +12,11 @@ from cognite.client.data_classes.data_modeling import (
 )
 
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    DataModelResponseWithViews,
+    NodeReference,
+    ViewResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import CreatedSourceSystem, ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -46,19 +48,19 @@ class TestAssetCentricMapper:
             [
                 AssetCentricMapping(
                     mapping=MigrationMapping(
-                        resourceType="asset",
-                        instanceId=NodeId(space="my_space", external_id=f"asset_{i}"),
+                        resource_type="asset",
+                        instance_id=NodeReference(space="my_space", external_id=f"asset_{i}"),
                         id=1000 + i,
-                        ingestionView="cdf_asset_mapping",
+                        ingestion_view="cdf_asset_mapping",
                     ),
                     resource=AssetResponse(
                         id=1000 + i,
                         name=f"Asset {i}",
                         source="SAP",
                         description=f"Description {i}",
-                        createdTime=1,
-                        lastUpdatedTime=1,
-                        rootId=0,
+                        created_time=1,
+                        last_updated_time=1,
+                        root_id=0,
                     ),
                 )
                 for i in range(asset_count)
@@ -132,7 +134,7 @@ class TestAssetCentricMapper:
         source = AssetCentricMapping(
             mapping=MigrationMapping(
                 resource_type="asset",
-                instance_id=NodeId(space="my_space", external_id="asset_1"),
+                instance_id=NodeReference(space="my_space", external_id="asset_1"),
                 id=1001,
                 ingestion_view="cdf_asset_mapping",
             ),
