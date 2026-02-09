@@ -174,6 +174,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseResponse,
     RAWTableResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotCapabilityRequest,
     RobotCapabilityResponse,
@@ -850,6 +851,17 @@ API_RESOURCES = [
         api_name="tool.filemetadata",
         resource_cls=FileMetadataResponse,
         _write_cls=FileMetadataRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.relationships",
+        resource_cls=RelationshipResponse,
+        _write_cls=RelationshipRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [

@@ -38,7 +38,7 @@ from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersion
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerRequest,
     DataModelRequest,
@@ -48,7 +48,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
@@ -72,6 +72,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWTableRequest,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import SecurityCategoryRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest
@@ -88,7 +89,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import Non
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionRequest
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
-from tests_smoke.constants import SMOKE_SPACE, SMOKE_TEST_CONTAINER_EXTERNAL_ID, SMOKE_TEST_VIEW_EXTERNAL_ID
+from tests_smoke.constants import (
+    ASSET_EXTERNAL_ID,
+    EVENT_EXTERNAL_ID,
+    SMOKE_SPACE,
+    SMOKE_TEST_CONTAINER_EXTERNAL_ID,
+    SMOKE_TEST_VIEW_EXTERNAL_ID,
+)
 from tests_smoke.exceptions import EndpointAssertionError
 
 NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
@@ -297,6 +304,15 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
                 "nodeId": "smoke-test-node",
             }
         ],
+        RelationshipRequest: [
+            {
+                "externalId": "smoke-test-relationship",
+                "sourceExternalId": ASSET_EXTERNAL_ID,
+                "sourceType": "asset",
+                "targetExternalId": EVENT_EXTERNAL_ID,
+                "targetType": "event",
+            }
+        ],
         TimeSeriesRequest: [{"externalId": "smoke-test-timeseries"}],
         TransformationRequest: [
             {
@@ -456,6 +472,25 @@ def function_code(toolkit_client: ToolkitClient) -> FileMetadataResponse:
 
 
 @pytest.mark.usefixtures("smoke_space")
+@pytest.fixture(scope="session")
+def smoke_asset(toolkit_client: ToolkitClient) -> AssetResponse:
+    asset_request = AssetRequest(name="smoke-test-asset", external_id=ASSET_EXTERNAL_ID)
+    retrieved = toolkit_client.tool.assets.retrieve([asset_request.as_id()], ignore_unknown_ids=True)
+    if len(retrieved) == 0:
+        return toolkit_client.tool.assets.create([asset_request])[0]
+    return retrieved[0]
+
+
+@pytest.fixture(scope="session")
+def smoke_event(toolkit_client: ToolkitClient) -> EventResponse:
+    event_request = EventRequest(external_id=EVENT_EXTERNAL_ID, source="smoke-test")
+    retrieved = toolkit_client.tool.events.retrieve([event_request.as_id()], ignore_unknown_ids=True)
+    if len(retrieved) == 0:
+        return toolkit_client.tool.events.create([event_request])[0]
+    return retrieved[0]
+
+
+@pytest.mark.usefixtures("smoke_space", "smoke_asset", "smoke_event")
 class TestCDFResourceAPI:
     def assert_endpoint_method(
         self, method: Callable[[], list[T_ResponseResource]], name: str, endpoint: Endpoint, id: Hashable | None = None
