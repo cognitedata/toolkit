@@ -17,22 +17,15 @@ import json
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, final
 
-from cognite.client.data_classes import (
-    DataSet,
-    DataSetList,
-    DataSetWrite,
-    LabelDefinition,
-    LabelDefinitionList,
-    LabelDefinitionWrite,
-    capabilities,
-)
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    DataSetsAcl,
-)
-from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
+from cognite.client.data_classes import DataSet, DataSetList, DataSetWrite, capabilities
+from cognite.client.data_classes.capabilities import Capability, DataSetsAcl
+from cognite.client.exceptions import CogniteDuplicatedError
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
@@ -154,10 +147,10 @@ class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet]):
 
 
 @final
-class LabelCRUD(ResourceCRUD[str, LabelDefinitionWrite, LabelDefinition]):
+class LabelCRUD(ResourceCRUD[ExternalId, LabelRequest, LabelResponse]):
     folder_name = "classic"
-    resource_cls = LabelDefinition
-    resource_write_cls = LabelDefinitionWrite
+    resource_cls = LabelResponse
+    resource_write_cls = LabelRequest
     yaml_cls = LabelsYAML
     kind = "Label"
     dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD})
@@ -169,20 +162,20 @@ class LabelCRUD(ResourceCRUD[str, LabelDefinitionWrite, LabelDefinition]):
         return "labels"
 
     @classmethod
-    def get_id(cls, item: LabelDefinition | LabelDefinitionWrite | dict) -> str:
+    def get_id(cls, item: LabelRequest | LabelResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
+            return ExternalId(external_id=item["externalId"])
         if not item.external_id:
-            raise ToolkitRequiredValueError("LabelDefinition must have external_id set.")
-        return item.external_id
+            raise ToolkitRequiredValueError("Label must have external_id set.")
+        return item.as_id()
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[LabelDefinitionWrite] | None, read_only: bool
+        cls, items: Sequence[LabelRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -201,31 +194,38 @@ class LabelCRUD(ResourceCRUD[str, LabelDefinitionWrite, LabelDefinition]):
 
         return capabilities.LabelsAcl(actions, scope)
 
-    def create(self, items: Sequence[LabelDefinitionWrite]) -> LabelDefinitionList:
-        return self.client.labels.create(items)
+    def create(self, items: Sequence[LabelRequest]) -> list[LabelResponse]:
+        return self.client.tool.labels.create(list(items))
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> LabelDefinitionList:
-        return self.client.labels.retrieve(ids, ignore_unknown_ids=True)
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[LabelResponse]:
+        return self.client.tool.labels.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+        if not ids:
+            return 0
         try:
-            self.client.labels.delete(ids)
-        except (CogniteAPIError, CogniteNotFoundError) as e:
-            non_existing = set(e.failed or [])
-            if existing := [id_ for id_ in ids if id_ not in non_existing]:
-                self.client.labels.delete(existing)
-            return len(existing)
-        else:
-            # All deleted successfully
-            return len(ids)
+            self.client.tool.labels.delete(list(ids))
+        except ToolkitAPIError as e:
+            if missing := {ExternalId.model_validate(item) for item in e.missing or []}:
+                if existing := (set(ids) - missing):
+                    self.client.tool.labels.delete(list(existing))
+                    return len(existing)
+                else:
+                    return 0
+            raise
+        return len(ids)
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[LabelDefinition]:
-        return iter(self.client.labels(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
+    ) -> Iterable[LabelResponse]:
+        filter: ClassicFilter | None = None
+        if data_set_external_id is not None:
+            filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
+        for items in self.client.tool.labels.iterate(filter=filter):
+            yield from items
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -237,12 +237,12 @@ class LabelCRUD(ResourceCRUD[str, LabelDefinitionWrite, LabelDefinition]):
         if "dataSetExternalId" in item:
             yield DataSetsCRUD, item["dataSetExternalId"]
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LabelDefinitionWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LabelRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
-        return LabelDefinitionWrite._load(resource)
+        return LabelRequest._load(resource)
 
-    def dump_resource(self, resource: LabelDefinition, local: dict[str, Any] | None = None) -> dict[str, Any]:
+    def dump_resource(self, resource: LabelResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)

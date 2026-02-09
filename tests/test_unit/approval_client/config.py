@@ -150,6 +150,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldLocationConfigRequest,
     InFieldLocationConfigResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import (
     GraphQLDataModel,
     GraphQLDataModelList,
@@ -184,6 +185,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotLocationResponse,
     RobotMapRequest,
     RobotMapResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
+    SecurityCategoryRequest,
+    SecurityCategoryResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelRequest,
@@ -790,6 +795,28 @@ API_RESOURCES = [
         api_name="streams",
         resource_cls=StreamResponse,
         _write_cls=StreamRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.security_categories",
+        resource_cls=SecurityCategoryResponse,
+        _write_cls=SecurityCategoryRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="list", mock_class_method="list"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.labels",
+        resource_cls=LabelResponse,
+        _write_cls=LabelRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [

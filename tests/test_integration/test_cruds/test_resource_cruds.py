@@ -20,7 +20,6 @@ from cognite.client.data_classes import (
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
     GroupWrite,
-    LabelDefinitionWrite,
     TimeSeriesList,
     TimeSeriesWrite,
     TimeSeriesWriteList,
@@ -34,7 +33,6 @@ from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionProperty,
     DatapointSubscriptionWriteList,
 )
-from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
@@ -42,6 +40,7 @@ from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import (
     ExtendableCogniteFileApply,
     ExtendableCogniteFileApplyList,
@@ -363,23 +362,20 @@ timeSeriesIds:
 
 
 class TestLabelLoader:
-    def test_delete_non_existing(self, cognite_client: CogniteClient) -> None:
-        loader = LabelCRUD(cognite_client, None)
-        delete_count = loader.delete(["non_existing"])
+    def test_delete_non_existing(self, toolkit_client: ToolkitClient) -> None:
+        loader = LabelCRUD(toolkit_client, None)
+        delete_count = loader.delete([ExternalId(external_id="non_existing")])
         assert delete_count == 0
 
     def test_create_delete_label(self, toolkit_client: ToolkitClient) -> None:
-        label = LabelDefinitionWrite(
-            external_id=f"tmp_test_create_update_delete_label_{RUN_UNIQUE_ID}",
-            name="Initial name",
-        )
+        label = LabelRequest(external_id=f"tmp_test_create_update_delete_label_{RUN_UNIQUE_ID}", name="Initial name")
         loader = LabelCRUD(toolkit_client, None)
 
         try:
-            created = loader.create(LabelDefinitionWriteList([label]))
+            created = loader.create([label])
             assert len(created) == 1
         finally:
-            loader.delete([label.external_id])
+            loader.delete([label.as_id()])
 
 
 class TestAssetLoader:

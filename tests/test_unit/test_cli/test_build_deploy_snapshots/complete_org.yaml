@@ -459,7 +459,7 @@ HostedExtractorMappingRequest:
       "%Y-%m-%dT%H:%M:%S"), "value": try_float(input.value, null), "externalId": input.tag
       }].filter(datapoint => datapoint.value is not null)'
   published: true
-LabelDefinition:
+LabelResponse:
 - dataSetId: 7982613576047462211
   description: Labels used for relationships that represent flows
   externalId: label_flow
@@ -772,7 +772,7 @@ SearchConfig:
   view:
     externalId: test-view
     space: test-space
-SecurityCategory:
+SecurityCategoryResponse:
 - name: sc_demo_category
 Sequence:
 - columns:
