@@ -7,12 +7,6 @@ from typing import Any, Generic
 from cognite.client.data_classes import DataSetList, filters
 from cognite.client.data_classes.aggregations import UniqueResult
 from cognite.client.data_classes.assets import AssetProperty
-from cognite.client.data_classes.data_modeling import (
-    NodeApply,
-    NodeOrEdgeData,
-    SpaceApply,
-    ViewId,
-)
 from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.events import EventProperty
 
@@ -22,6 +16,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
     NodeReference,
     NodeRequest,
+    SpaceRequest,
+    ViewReference,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
@@ -82,10 +78,10 @@ class InstanceSpaceCreator(MigrationCreator):
                 f"Cannot create instance spaces for datasets with missing external IDs: {humanize_collection(missing_external_ids)}"
             )
         data_set_by_external_id = {ds.external_id: ds for ds in self.datasets}
-        created_resources: list[CreatedResource[SpaceApply]] = []
+        created_resources: list[CreatedResource[SpaceRequest]] = []
         linage_nodes: list[NodeRequest] = []
         for dataset in self.datasets:
-            space = SpaceApply(
+            space = SpaceRequest(
                 # This is checked above
                 space=dataset.external_id,  # type: ignore[arg-type]
                 name=dataset.name,
@@ -126,7 +122,7 @@ class InstanceSpaceCreator(MigrationCreator):
 
 
 class SourceSystemCreator(MigrationCreator):
-    COGNITE_SOURCE_SYSTEM_VIEW_ID = ViewId("cdf_cdm", "CogniteSourceSystem", "v1")
+    COGNITE_SOURCE_SYSTEM_VIEW_ID = ViewReference(space="cdf_cdm", external_id="CogniteSourceSystem", version="v1")
 
     def __init__(
         self,
@@ -145,7 +141,7 @@ class SourceSystemCreator(MigrationCreator):
     def create_resources(self) -> Iterable[ToCreateResources]:
         existing_resources = self._get_existing_source_systems()
         seen: set[str] = set()
-        to_create: list[CreatedResource[NodeApply]] = []
+        to_create: list[CreatedResource[NodeRequest]] = []
         for source in self._lookup_sources():
             source_str = source.value
             if not isinstance(source_str, str) or source_str in seen:
@@ -154,23 +150,16 @@ class SourceSystemCreator(MigrationCreator):
             if existing_id := existing_resources.get(source_str):
                 self.client.console.print(f"Skipping {source_str} as it already exists in {existing_id!r}.")
                 continue
-            data_source = NodeOrEdgeData(source=self.COGNITE_SOURCE_SYSTEM_VIEW_ID, properties={"name": source_str})
-            linage_source = NodeOrEdgeData(
-                source=ViewId(
-                    CREATED_SOURCE_SYSTEM_VIEW_ID.space,
-                    CREATED_SOURCE_SYSTEM_VIEW_ID.external_id,
-                    CREATED_SOURCE_SYSTEM_VIEW_ID.version,
-                ),
-                properties={"source": source_str},
-            )
+            data_source = InstanceSource(source=self.COGNITE_SOURCE_SYSTEM_VIEW_ID, properties={"name": source_str})
+            linage_source = InstanceSource(source=CREATED_SOURCE_SYSTEM_VIEW_ID, properties={"source": source_str})
             to_create.append(
-                CreatedResource[NodeApply](
-                    resource=NodeApply(
+                CreatedResource[NodeRequest](
+                    resource=NodeRequest(
                         space=self._instance_space,
                         external_id=source_str,
                         sources=[data_source, linage_source],
                     ),
-                    config_data=NodeApply(
+                    config_data=NodeRequest(
                         space=self._instance_space,
                         external_id=source_str,
                         sources=[data_source],
