@@ -17,7 +17,7 @@ def file_folder(tmp_path: Path) -> Path:
     file_folder = tmp_path / "files"
     file_folder.mkdir(parents=True, exist_ok=True)
     for i in range(5):
-        file_path = file_folder / f"file_{i}.txt"
+        file_path = file_folder / f"file_{i}.csv"
         file_path.write_text(f"This is the content of file {i}.", encoding="utf-8")
     return file_folder
 

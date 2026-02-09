@@ -33,6 +33,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     MigrateDataSetSelector,
     MigrationCSVFileSelector,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasExternalIdSelector,
@@ -72,7 +73,8 @@ class MigrateApp(typer.Typer):
         self.command("charts")(self.charts)
         self.command("3d")(self.three_d)
         self.command("3d-mappings")(self.three_d_asset_mapping)
-        # self.command("infield-configs")(self.infield_configs)
+        if Flags.INFIELD_MIGRATE.is_enabled():
+            self.command("infield-configs")(self.infield_configs)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
@@ -1215,14 +1217,6 @@ class MigrateApp(typer.Typer):
                 "to govern these configurations in a git repository.",
             ),
         ] = Path("tmp"),
-        dry_run: Annotated[
-            bool,
-            typer.Option(
-                "--dry-run",
-                "-d",
-                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
-            ),
-        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -1243,7 +1237,6 @@ class MigrateApp(typer.Typer):
                     "Specify output directory for Infield V2 configuration definitions:", default=str(output_dir)
                 ).unsafe_ask()
             )
-            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
         else:
             apm_configs = None
@@ -1253,7 +1246,8 @@ class MigrateApp(typer.Typer):
                 client,
                 creator=InfieldV2ConfigCreator(client, external_id, apm_configs),
                 output_dir=output_dir,
-                dry_run=dry_run,
+                dry_run=False,
+                deploy=False,
                 verbose=verbose,
             )
         )

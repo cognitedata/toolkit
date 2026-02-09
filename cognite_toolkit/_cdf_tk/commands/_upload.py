@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.cruds import ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio import (
+    FileContentIO,
     T_Selector,
     UploadableStorageIO,
     get_upload_io,
@@ -201,11 +202,12 @@ class UploadCommand(ToolkitCommand):
                 if io is None:
                     continue
                 reader = MultiFileReader(datafiles)
-                if reader.is_table and not isinstance(io, TableUploadableStorageIO):
+                # FileContentIO supports uploading any file format.
+                if reader.is_table and not isinstance(io, TableUploadableStorageIO | FileContentIO):
                     raise ToolkitValueError(f"{selector.display_name} does not support {reader.format!r} files.")
 
-                chunk_count = io.count_chunks(reader)
-                iteration_count = chunk_count // io.CHUNK_SIZE + (1 if chunk_count % io.CHUNK_SIZE > 0 else 0)
+                item_count = io.count_items(reader, selector)
+                iteration_count = item_count // io.CHUNK_SIZE + (1 if item_count % io.CHUNK_SIZE > 0 else 0)
 
                 tracker = ProgressTracker[str]([self._UPLOAD])
                 executor = ProducerWorkerExecutor[list[tuple[str, dict[str, JsonVal]]], Sequence[UploadItem]](
