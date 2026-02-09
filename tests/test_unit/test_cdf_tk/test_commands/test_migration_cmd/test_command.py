@@ -57,7 +57,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
 @pytest.fixture
 def cognite_migration_model(
     toolkit_config: ToolkitClientConfig,
-    rsps: responses.RequestsMock,
+    respx_mock: respx.MockRouter,
     cognite_core_no_3D: DataModel[View],
     cognite_extractor_views: list[View],
 ) -> Iterator[responses.RequestsMock]:
@@ -68,8 +68,13 @@ def cognite_migration_model(
     migration_model["createdTime"] = 1
     migration_model["lastUpdatedTime"] = 1
     migration_model["isGlobal"] = False
-    rsps.post(config.create_api_url("models/datamodels/byids"), json={"items": migration_model})
-    yield rsps
+    respx_mock.post(
+        config.create_api_url("models/dataModels/byids"),
+    ).respond(
+        status_code=200,
+        json={"items": [migration_model]},
+    )
+    yield respx_mock
 
 
 @pytest.fixture
@@ -80,7 +85,7 @@ def resource_view_mappings(
     cognite_extractor_views: list[View],
 ) -> Iterator[responses.RequestsMock]:
     """Mock all the default Resource View Mappings in the Cognite Migration Model."""
-    rsps = cognite_migration_model
+    respx_mock = cognite_migration_model
     config = toolkit_config
     mapping_by_id = {mapping.external_id: mapping for mapping in create_default_mappings()}
     node_items: list[dict] = []
@@ -97,19 +102,21 @@ def resource_view_mappings(
                 }
             }
         node_items.append(mapping_node_response)
-    rsps.post(
+    respx_mock.post(
         config.create_api_url("models/instances/byids"),
+    ).respond(
         json={"items": node_items},
-        status=200,
+        status_code=200,
     )
-    rsps.post(
+    respx_mock.post(
         config.create_api_url("models/views/byids"),
+    ).respond(
         json={
             "items": [view.dump() for view in cognite_core_no_3D.views]
             + [view.dump() for view in cognite_extractor_views]
         },
     )
-    yield rsps
+    yield respx_mock
 
 
 @pytest.fixture
