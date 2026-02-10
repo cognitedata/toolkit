@@ -16,15 +16,18 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ResourceType,
 )
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
-from cognite_toolkit._cdf_tk.utils import read_yaml_file
+from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_write
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 
 class BuildV2Command(ToolkitCommand):
     def build_folder(self, parameters: BuildParameters, client: ToolkitClient | None = None) -> BuiltResult:
+        self._validate_ready(parameters)
         modules = self.find_modules(parameters)
 
-        results = self._build_and_validate_modules(modules)
+        results = self._build_and_validate_modules(modules, parameters.build_dir)
 
         # Todo: Some mixpanel tracking.
         # Can be parallelized with number of plugins.
@@ -36,7 +39,16 @@ class BuildV2Command(ToolkitCommand):
         self.write_results(parameters.build_dir, built_results)
         return built_results
 
-    def _build_and_validate_modules(self, modules: ModuleList, max_workers: int = 1) -> list[ModuleResult]:
+    def _validate_ready(self, parameters: BuildParameters) -> None:
+        if not parameters.organization_dir.exists():
+            raise ToolkitNotADirectoryError(
+                f"Organization directory '{parameters.organization_dir.as_posix()}' not found"
+            )
+        # Todo Clean build directory if it exists, or at least check if it's empty.
+
+    def _build_and_validate_modules(
+        self, modules: ModuleList, build_dir: Path, max_workers: int = 1
+    ) -> list[ModuleResult]:
         results: list[ModuleResult] = []
         for module in modules:
             # Inside this loop, do not raise exceptions.
@@ -45,7 +57,7 @@ class BuildV2Command(ToolkitCommand):
             built_module: BuiltModule | None = None
             validation_insights: InsightList | None = None
             if read_module.is_success:
-                built_module = self.build_module(read_module)
+                built_module = self.build_module(read_module, build_dir)
                 validation_insights = self.validate_module(read_module)
 
             results.append(self.compile(module, read_module, built_module, validation_insights))
@@ -81,8 +93,17 @@ class BuildV2Command(ToolkitCommand):
     def validate_module(self, module: ReadModule) -> InsightList:
         return InsightList()
 
-    def build_module(self, module: ReadModule) -> BuiltModule:
-        raise NotImplementedError
+    def build_module(self, module: ReadModule, build_dir: Path) -> BuiltModule:
+        build_dir.mkdir(parents=True, exist_ok=True)
+        for resource_type, resources in module.resources_by_type.items():
+            folder = build_dir / resource_type.resource_folder
+            folder.mkdir(parents=True, exist_ok=True)
+            for index, resource in enumerate(resources, start=1):
+                resource_file = folder / f"resource_{index}.{resource_type.kind}.yaml"
+                # Todo Move into Toolkit resource.
+                safe_write(resource_file, yaml_safe_dump(resource.model_dump(by_alias=True, exclude_unset=True)))
+        # Todo: Store source path, source hash, ID, and so on for build_linage
+        return BuiltModule()
 
     def compile(
         self,
