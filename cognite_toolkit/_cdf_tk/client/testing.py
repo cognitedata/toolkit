@@ -39,6 +39,7 @@ from cognite_toolkit._cdf_tk.client.api.spaces import SpacesAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 
 from ._toolkit_client import ToolAPI
+from .api.agents import AgentsAPI
 from .api.assets import AssetsAPI
 from .api.datasets import DataSetsAPI
 from .api.events import EventsAPI
@@ -162,6 +163,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.time_series.subscriptions = MagicMock(spec_set=DatapointsSubscriptionAPI)
 
         self.tool = MagicMock(spec=ToolAPI)
+        self.tool.agents = MagicMock(spec=AgentsAPI)
         self.tool.three_d = MagicMock(spec=ThreeDAPI)
         self.tool.three_d.models_classic = MagicMock(spec_set=ThreeDClassicModelsAPI)
         self.tool.assets = MagicMock(spec_set=AssetsAPI)

@@ -18,7 +18,6 @@ from cognite.client.data_classes import (
     TransformationList,
     TransformationScheduleList,
 )
-from cognite.client.data_classes.agents import Agent, AgentList, AskDocumentAgentTool
 from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
 from cognite.client.data_classes.capabilities import (
     TimeSeriesAcl,
@@ -29,6 +28,7 @@ from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse, AskDocument
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
     SpaceResponse,
@@ -286,30 +286,32 @@ class TestDumpLocationFilter:
 
 
 @pytest.fixture()
-def three_agents() -> AgentList:
-    return AgentList(
-        [
-            Agent(
-                external_id=f"agent{character}",
-                name=f"Agent {character}",
-                description=f"This is Agent {character}",
-                model="gpt-3.5-turbo",
-                tools=[
-                    AskDocumentAgentTool(
-                        name=f"tool{character}",
-                        description=f"This is tool {character}",
-                    )
-                ],
-            )
-            for character in ["A", "B", "C"]
-        ]
-    )
+def three_agents() -> list[AgentResponse]:
+    return [
+        AgentResponse(
+            external_id=f"agent{character}",
+            name=f"Agent {character}",
+            description=f"This is Agent {character}",
+            model="gpt-3.5-turbo",
+            tools=[
+                AskDocument(
+                    name=f"tool{character}",
+                    description=f"This is tool {character}",
+                )
+            ],
+            created_time=1,
+            last_updated_time=1,
+            owner_id="test",
+            runtime_version="1.0",
+        )
+        for character in ["A", "B", "C"]
+    ]
 
 
 class TestDumpAgents:
-    def test_dump_agents(self, three_agents: AgentList, tmp_path: Path) -> None:
+    def test_dump_agents(self, three_agents: list[AgentResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.agents.retrieve.return_value = three_agents[1:]
+            client.tool.agents.retrieve.return_value = three_agents[1:]
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
                 AgentFinder(client, tuple([agent.external_id for agent in three_agents[1:]])),
@@ -324,7 +326,7 @@ class TestDumpAgents:
         items = [read_yaml_file(filepath) for filepath in filepaths]
         assert items == [loader.dump_resource(agent) for agent in three_agents[1:]]
 
-    def test_interactive_select_agents(self, three_agents: AgentList, monkeypatch: MonkeyPatch) -> None:
+    def test_interactive_select_agents(self, three_agents: list[AgentResponse], monkeypatch: MonkeyPatch) -> None:
         def select_agents(choices: list[Choice]) -> list[str]:
             assert len(choices) == len(three_agents)
             return [choices[1].value, choices[2].value]
@@ -335,7 +337,7 @@ class TestDumpAgents:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(AgentFinder.__module__, monkeypatch, answers),
         ):
-            client.agents.list.return_value = three_agents
+            client.tool.agents.list.return_value = three_agents
             finder = AgentFinder(client, None)
             selected = finder._interactive_select()
 

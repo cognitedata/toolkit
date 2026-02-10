@@ -1,38 +1,43 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any
 
-from cognite.client.data_classes.agents import Agent, AgentList, AgentUpsert
 from cognite.client.data_classes.capabilities import AgentsAcl, Capability
-from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import AgentYAML
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
+from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 
 
-class AgentCRUD(ResourceCRUD[str, AgentUpsert, Agent]):
+class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):
     folder_name = "agents"
-    resource_cls = Agent
-    resource_write_cls = AgentUpsert
+    resource_cls = AgentResponse
+    resource_write_cls = AgentRequest
     kind = "Agent"
     yaml_cls = AgentYAML
     _doc_base_url = ""
     _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/main_ai_agents_post/"
 
     @classmethod
-    def get_id(cls, item: AgentUpsert | Agent | dict) -> str:
+    def get_id(cls, item: AgentRequest | AgentResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
-        return item.external_id
+            return ExternalId(external_id=item["externalId"])
+        return item.as_id()
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
+
+    @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[AgentUpsert] | None, read_only: bool
+        cls, items: Sequence[AgentRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -41,28 +46,17 @@ class AgentCRUD(ResourceCRUD[str, AgentUpsert, Agent]):
 
         return AgentsAcl(actions, AgentsAcl.Scope.All())
 
-    def create(self, items: Sequence[AgentUpsert]) -> AgentList:
-        return self.client.agents.upsert(items)
+    def create(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
+        return self.client.tool.agents.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> AgentList:
-        return self.client.agents.retrieve(ids, ignore_unknown_ids=True)
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[AgentResponse]:
+        return self.client.tool.agents.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[AgentUpsert]) -> AgentList:
-        return self.client.agents.upsert(items)
+    def update(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
+        return self.client.tool.agents.update(items)
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        try:
-            self.client.agents.delete(ids)
-        except CogniteAPIError:
-            deleted = 0
-            for id in ids:
-                try:
-                    self.client.agents.delete(id)
-                    deleted += 1
-                except CogniteAPIError:
-                    # accepted because the resource may not exist
-                    pass
-            return deleted
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+        self.client.tool.agents.delete(list(ids), ignore_unknown_ids=True)
         return len(ids)
 
     def _iterate(
@@ -70,17 +64,17 @@ class AgentCRUD(ResourceCRUD[str, AgentUpsert, Agent]):
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[Agent]:
-        return self.client.agents.list()
+    ) -> Iterable[AgentResponse]:
+        return self.client.tool.agents.list()
 
-    def dump_resource(self, resource: Agent, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+    def dump_resource(self, resource: AgentResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
         # The atlas endpoints are not yet full implemented. There are properties being added and removed that are
         # not part of the official API. For example, as of 31.July 2025, `labels` is not part of the API, however,
         # this is necessary to ensure that the agents are shown as published in the UI, so we cannot ignore it.
         # The below logic ensures that we keep the unknown properties returned by the API, such that when we run
         # `cdf dump agents` we will not lose any properties that are not part of the official API.
-        if (unknown_props := getattr(resource, "_unknown_properties", None)) and isinstance(unknown_props, dict):
+        if (unknown_props := getattr(resource, "__pydantic_extra__", None)) and isinstance(unknown_props, dict):
             dumped.update(unknown_props)
         if local is None:
             return dumped

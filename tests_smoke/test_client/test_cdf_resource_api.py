@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTrigger
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse, ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -182,6 +183,7 @@ def crud_cdf_resource_apis() -> Iterable[tuple]:
 def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[dict[str, Any]]:
     """Return an example with the only required and identifier fields for the given resource class."""
     requests: dict[type[RequestResource], list[dict[str, Any]]] = {
+        AgentRequest: [{"externalId": "smoke-test-agent", "name": "Smoke Test Agent"}],
         APMConfigRequest: [
             {
                 "externalId": "smoke-test-apm-config",
@@ -471,7 +473,6 @@ def function_code(toolkit_client: ToolkitClient) -> FileMetadataResponse:
     return file
 
 
-@pytest.mark.usefixtures("smoke_space")
 @pytest.fixture(scope="session")
 def smoke_asset(toolkit_client: ToolkitClient) -> AssetResponse:
     asset_request = AssetRequest(name="smoke-test-asset", external_id=ASSET_EXTERNAL_ID)

@@ -51,7 +51,11 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
     """
 
     def __init__(
-        self, http_client: HTTPClient, method_endpoint_map: dict[APIMethod, Endpoint], disable_gzip: bool = False
+        self,
+        http_client: HTTPClient,
+        method_endpoint_map: dict[APIMethod, Endpoint],
+        disable_gzip: bool = False,
+        api_version: str | None = None,
     ) -> None:
         """Initialize the resource API.
 
@@ -64,6 +68,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         self._http_client = http_client
         self._method_endpoint_map = method_endpoint_map
         self._disable_gzip = disable_gzip
+        self._api_version = api_version
 
     @classmethod
     def _serialize_items(cls, items: Sequence[RequestItem]) -> list[dict[str, JsonValue]]:
@@ -156,6 +161,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
                 body_content={"items": serialization(chunk), **(extra_body or {})},  # type: ignore[dict-item]
                 parameters=request_params,
                 disable_gzip=self._disable_gzip,
+                api_version=self._api_version,
             )
             response = self._http_client.request_single_retries(request)
             yield response.get_success_or_raise()
@@ -242,6 +248,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
                 items=chunk,
                 extra_body_fields=extra_body,
                 disable_gzip=self._disable_gzip,
+                api_version=self._api_version,
             )
             responses = self._http_client.request_items_retries(request)
             for response in responses:
@@ -315,6 +322,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
             parameters=request_params,
             body_content=body,
             disable_gzip=self._disable_gzip,
+            api_version=self._api_version,
         )
         result = self._http_client.request_single_retries(request)
         response = result.get_success_or_raise()
