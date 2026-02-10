@@ -1,170 +1,186 @@
-from cognite.client import data_modeling as dm
-from cognite.client.data_classes.data_modeling.containers import BTreeIndex
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    BtreeIndex,
+    ContainerPropertyDefinition,
+    ContainerRequest,
+    DataModelRequest,
+    DirectNodeRelation,
+    EnumProperty,
+    EnumValue,
+    Int64Property,
+    JSONProperty,
+    SpaceRequest,
+    TextProperty,
+    UniquenessConstraintDefinition,
+    ViewCorePropertyRequest,
+    ViewRequest,
+)
 
-SPACE = dm.SpaceApply(
-    "cognite_migration", description="Space for the asset-centric to data modeling migration", name="cdf_migration"
+SPACE = SpaceRequest(
+    space="cognite_migration",
+    description="Space for the asset-centric to data modeling migration",
+    name="cdf_migration",
 )
 COGNITE_MIGRATION_SPACE_ID = SPACE.space
 
-RESOURCE_VIEW_MAPPING = dm.ContainerApply(
+RESOURCE_VIEW_MAPPING = ContainerRequest(
     space=SPACE.space,
     external_id="ResourceViewMapping",
     used_for="node",
     properties={
-        "resourceType": dm.ContainerProperty(
-            type=dm.Text(max_text_size=255),
+        "resourceType": ContainerPropertyDefinition(
+            type=TextProperty(max_text_size=255),
             nullable=False,
         ),
-        "viewId": dm.ContainerProperty(
-            type=dm.data_types.Json(),
+        "viewId": ContainerPropertyDefinition(
+            type=JSONProperty(),
             nullable=False,
         ),
-        "propertyMapping": dm.ContainerProperty(
-            type=dm.data_types.Json(),
+        "propertyMapping": ContainerPropertyDefinition(
+            type=JSONProperty(),
             nullable=False,
         ),
     },
 )
 
-INSTANCE_SOURCE_CONTAINER = dm.ContainerApply(
+INSTANCE_SOURCE_CONTAINER = ContainerRequest(
     space=SPACE.space,
     external_id="InstanceSource",
     used_for="node",
     properties={
-        "resourceType": dm.ContainerProperty(
-            type=dm.data_types.Enum(
+        "resourceType": ContainerPropertyDefinition(
+            type=EnumProperty(
                 values={
-                    "timeseries": dm.data_types.EnumValue(),
-                    "asset": dm.data_types.EnumValue(),
-                    "file": dm.data_types.EnumValue(),
-                    "event": dm.data_types.EnumValue(),
-                    "sequence": dm.data_types.EnumValue(),
+                    "timeseries": EnumValue(),
+                    "asset": EnumValue(),
+                    "file": EnumValue(),
+                    "event": EnumValue(),
+                    "sequence": EnumValue(),
                 }
             ),
             nullable=False,
         ),
-        "id": dm.ContainerProperty(
-            type=dm.data_types.Int64(),
+        "id": ContainerPropertyDefinition(
+            type=Int64Property(),
             nullable=False,
         ),
-        "dataSetId": dm.ContainerProperty(
-            type=dm.data_types.Int64(),
+        "dataSetId": ContainerPropertyDefinition(
+            type=Int64Property(),
             nullable=True,
         ),
-        "classicExternalId": dm.ContainerProperty(
-            type=dm.data_types.Text(),
+        "classicExternalId": ContainerPropertyDefinition(
+            type=TextProperty(),
             nullable=True,
         ),
-        "preferredConsumerViewId": dm.ContainerProperty(
-            type=dm.data_types.Json(),
+        "preferredConsumerViewId": ContainerPropertyDefinition(
+            type=JSONProperty(),
             nullable=True,
         ),
-        "resourceViewMapping": dm.ContainerProperty(
-            type=dm.data_types.DirectRelation(container=RESOURCE_VIEW_MAPPING.as_id()), nullable=True
+        "resourceViewMapping": ContainerPropertyDefinition(
+            type=DirectNodeRelation(container=RESOURCE_VIEW_MAPPING.as_id()), nullable=True
         ),
     },
     indexes={
-        "id": BTreeIndex(["id"], cursorable=True),
-        "resourceType": BTreeIndex(["resourceType", "id"], cursorable=False),
+        "id": BtreeIndex(properties=["id"], cursorable=True),
+        "resourceType": BtreeIndex(properties=["resourceType", "id"], cursorable=False),
     },
 )
 
-CREATED_SOURCE_SYSTEM = dm.ContainerApply(
+CREATED_SOURCE_SYSTEM = ContainerRequest(
     space=SPACE.space,
     external_id="CreatedSourceSystem",
     used_for="node",
     properties={
-        "source": dm.ContainerProperty(
-            type=dm.Text(max_text_size=128),
+        "source": ContainerPropertyDefinition(
+            type=TextProperty(max_text_size=128),
             nullable=False,
         )
     },
-    constraints={"sourceUnique": dm.UniquenessConstraint(["source"])},
+    constraints={"sourceUnique": UniquenessConstraintDefinition(properties=["source"])},
     indexes={
-        "source": BTreeIndex(["source"], cursorable=True),
+        "source": BtreeIndex(properties=["source"], cursorable=True),
     },
 )
 
-SPACE_SOURCE = dm.ContainerApply(
+SPACE_SOURCE = ContainerRequest(
     space=SPACE.space,
     external_id="SpaceSource",
     used_for="node",
     properties={
-        "instanceSpace": dm.ContainerProperty(
-            type=dm.Text(max_text_size=64),
+        "instanceSpace": ContainerPropertyDefinition(
+            type=TextProperty(max_text_size=64),
             nullable=False,
         ),
-        "dataSetId": dm.ContainerProperty(
-            type=dm.data_types.Int64(),
+        "dataSetId": ContainerPropertyDefinition(
+            type=Int64Property(),
             nullable=False,
         ),
-        "dataSetExternalId": dm.ContainerProperty(
-            type=dm.Text(max_text_size=256),
+        "dataSetExternalId": ContainerPropertyDefinition(
+            type=TextProperty(max_text_size=256),
             nullable=True,
         ),
     },
     indexes={
-        "space": BTreeIndex(["instanceSpace"], cursorable=True),
-        "dataSetId": BTreeIndex(["dataSetId"], cursorable=True),
-        "dataSetExternalId": BTreeIndex(["dataSetExternalId"], cursorable=True),
+        "space": BtreeIndex(properties=["instanceSpace"], cursorable=True),
+        "dataSetId": BtreeIndex(properties=["dataSetId"], cursorable=True),
+        "dataSetExternalId": BtreeIndex(properties=["dataSetExternalId"], cursorable=True),
     },
     constraints={
-        "dataSetIdUnique": dm.UniquenessConstraint(["dataSetId"]),
+        "dataSetIdUnique": UniquenessConstraintDefinition(properties=["dataSetId"]),
     },
 )
 
 CONTAINERS = [RESOURCE_VIEW_MAPPING, INSTANCE_SOURCE_CONTAINER, CREATED_SOURCE_SYSTEM, SPACE_SOURCE]
 
-RESOURCE_VIEW_MAPPING_VIEW = dm.ViewApply(
+RESOURCE_VIEW_MAPPING_VIEW = ViewRequest(
     space=SPACE.space,
     external_id="ResourceViewMapping",
     version="v1",
     name="ResourceViewMapping",
     description="The mapping from asset-centric resources to data modeling view.",
     properties={
-        "resourceType": dm.MappedPropertyApply(
+        "resourceType": ViewCorePropertyRequest(
             container=RESOURCE_VIEW_MAPPING.as_id(),
             container_property_identifier="resourceType",
         ),
-        "viewId": dm.MappedPropertyApply(
+        "viewId": ViewCorePropertyRequest(
             container=RESOURCE_VIEW_MAPPING.as_id(),
             container_property_identifier="viewId",
         ),
-        "propertyMapping": dm.MappedPropertyApply(
+        "propertyMapping": ViewCorePropertyRequest(
             container=RESOURCE_VIEW_MAPPING.as_id(),
             container_property_identifier="propertyMapping",
         ),
     },
 )
 
-INSTANCE_SOURCE_VIEW = dm.ViewApply(
+INSTANCE_SOURCE_VIEW = ViewRequest(
     space=SPACE.space,
     external_id="InstanceSource",
     version="v1",
     name="InstanceSource",
     description="The source of the instance in asset-centric resources.",
     properties={
-        "resourceType": dm.MappedPropertyApply(
+        "resourceType": ViewCorePropertyRequest(
             container=INSTANCE_SOURCE_CONTAINER.as_id(),
             container_property_identifier="resourceType",
         ),
-        "id": dm.MappedPropertyApply(
+        "id": ViewCorePropertyRequest(
             container=INSTANCE_SOURCE_CONTAINER.as_id(),
             container_property_identifier="id",
         ),
-        "dataSetId": dm.MappedPropertyApply(
+        "dataSetId": ViewCorePropertyRequest(
             container=INSTANCE_SOURCE_CONTAINER.as_id(),
             container_property_identifier="dataSetId",
         ),
-        "classicExternalId": dm.MappedPropertyApply(
+        "classicExternalId": ViewCorePropertyRequest(
             container=INSTANCE_SOURCE_CONTAINER.as_id(),
             container_property_identifier="classicExternalId",
         ),
-        "preferredConsumerViewId": dm.MappedPropertyApply(
+        "preferredConsumerViewId": ViewCorePropertyRequest(
             container=INSTANCE_SOURCE_CONTAINER.as_id(),
             container_property_identifier="preferredConsumerViewId",
         ),
-        "resourceViewMapping": dm.MappedPropertyApply(
+        "resourceViewMapping": ViewCorePropertyRequest(
             container=INSTANCE_SOURCE_CONTAINER.as_id(),
             container_property_identifier="resourceViewMapping",
             source=RESOURCE_VIEW_MAPPING_VIEW.as_id(),
@@ -172,38 +188,38 @@ INSTANCE_SOURCE_VIEW = dm.ViewApply(
     },
 )
 
-CREATED_SOURCE_SYSTEM_VIEW = dm.ViewApply(
+CREATED_SOURCE_SYSTEM_VIEW = ViewRequest(
     space=SPACE.space,
     external_id="CreatedSourceSystem",
     version="v1",
     name="CreatedSourceSystem",
     description="The source string the SourceSystem was created from.",
     properties={
-        "source": dm.MappedPropertyApply(
+        "source": ViewCorePropertyRequest(
             container=CREATED_SOURCE_SYSTEM.as_id(),
             container_property_identifier="source",
         ),
     },
 )
 
-SPACE_SOURCE_VIEW = dm.ViewApply(
+SPACE_SOURCE_VIEW = ViewRequest(
     space=SPACE.space,
     external_id="SpaceSource",
     version="v1",
     name="SpaceSource",
     description="The mapping from CDF spaces to data sets.",
     properties={
-        "instanceSpace": dm.MappedPropertyApply(
+        "instanceSpace": ViewCorePropertyRequest(
             container=SPACE_SOURCE.as_id(),
             container_property_identifier="instanceSpace",
             description="The identifier of the created instances space.",
         ),
-        "dataSetId": dm.MappedPropertyApply(
+        "dataSetId": ViewCorePropertyRequest(
             container=SPACE_SOURCE.as_id(),
             container_property_identifier="dataSetId",
             description="The dataSetId the space was created from.",
         ),
-        "dataSetExternalId": dm.MappedPropertyApply(
+        "dataSetExternalId": ViewCorePropertyRequest(
             container=SPACE_SOURCE.as_id(),
             container_property_identifier="dataSetExternalId",
             description="The externalId of the dataSet (if present) the space was created from.",
@@ -218,7 +234,7 @@ SPACE_SOURCE_VIEW_ID = SPACE_SOURCE_VIEW.as_id()
 
 VIEWS = [RESOURCE_VIEW_MAPPING_VIEW, INSTANCE_SOURCE_VIEW, CREATED_SOURCE_SYSTEM_VIEW, SPACE_SOURCE_VIEW]
 
-COGNITE_MIGRATION_MODEL = dm.DataModelApply(
+COGNITE_MIGRATION_MODEL = DataModelRequest(
     space=SPACE.space,
     external_id="CogniteMigration",
     version="v1",

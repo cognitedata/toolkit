@@ -6,7 +6,7 @@ from collections import defaultdict
 from collections.abc import Hashable, Iterable, Iterator, Sequence
 from functools import cached_property
 from pathlib import Path
-from typing import Generic, cast
+from typing import Generic
 
 import questionary
 import typer
@@ -24,7 +24,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.agents import (
     AgentList,
 )
-from cognite.client.data_classes.data_modeling import DataModelId, NodeList
+from cognite.client.data_classes.data_modeling import NodeList, ViewId
 from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.functions import (
@@ -39,11 +39,24 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter, ViewFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerReference,
+    DataModelReference,
+    DataModelReferenceNoVersion,
+    DataModelResponse,
+    SpaceReference,
+    SpaceResponse,
+    ViewReference,
+    ViewReferenceNoVersion,
+    ViewResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
     ExternalId,
     WorkflowVersionId,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import SearchConfigList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import ViewId as SearchConfigViewId
@@ -116,19 +129,22 @@ class ResourceFinder(Iterable, ABC, Generic[T_ID]):
     def update(self, resources: Sequence[ResourceResponseProtocol]) -> None: ...
 
 
-class DataModelFinder(ResourceFinder[DataModelId]):
-    def __init__(self, client: ToolkitClient, identifier: DataModelId | None = None, include_global: bool = False):
+class DataModelFinder(ResourceFinder[DataModelReferenceNoVersion]):
+    def __init__(
+        self, client: ToolkitClient, identifier: DataModelReferenceNoVersion | None = None, include_global: bool = False
+    ):
         super().__init__(client, identifier)
         self._include_global = include_global
-        self.data_model: dm.DataModel[dm.ViewId] | None = None
-        self.view_ids: set[dm.ViewId] = set()
-        self.container_ids: set[dm.ContainerId] = set()
-        self.space_ids: set[str] = set()
+        self.data_model: DataModelResponse | None = None
+        self.view_ids: set[ViewReference] = set()
+        self.container_ids: set[ContainerReference] = set()
+        self.space_ids: set[SpaceReference] = set()
 
-    def _interactive_select(self) -> DataModelId:
-        data_model_ids = self.client.data_modeling.data_models.list(
-            all_versions=False, limit=-1, include_global=False
-        ).as_ids()
+    def _interactive_select(self) -> DataModelReference:
+        all_models = self.client.tool.data_models.list(
+            filter=DataModelFilter(all_versions=False, include_global=self._include_global)
+        )
+        data_model_ids = [model.as_id() for model in all_models]
         available_spaces = sorted({model.space for model in data_model_ids})
         if not available_spaces:
             raise ToolkitMissingResourceError("No data models found")
@@ -139,27 +155,31 @@ class DataModelFinder(ResourceFinder[DataModelId]):
                 "In which space is your data model located?", available_spaces
             ).unsafe_ask()
         data_model_ids = sorted(
-            [model for model in data_model_ids if model.space == selected_space], key=lambda model: model.as_tuple()
+            [model for model in data_model_ids if model.space == selected_space],
+            key=lambda model: (model.space, model.external_id, model.version),
         )
 
-        selected_data_model: DataModelId = questionary.select(
+        selected_data_model: DataModelReference = questionary.select(
             "Which data model would you like to dump?",
             [
                 Choice(f"{model_id!r}", value=model_id)
-                for model_id in sorted(data_model_ids, key=lambda model: model.as_tuple())
+                for model_id in sorted(
+                    data_model_ids, key=lambda model: (model.space, model.external_id, model.version)
+                )
             ],
         ).unsafe_ask()
 
-        retrieved_models = self.client.data_modeling.data_models.retrieve(
-            (selected_data_model.space, selected_data_model.external_id), inline_views=False
+        all_versions = self.client.tool.data_models.retrieve(
+            [DataModelReferenceNoVersion(space=selected_space, external_id=selected_data_model.external_id)]
         )
+        retrieved_models = [m for m in all_versions if m.external_id == selected_data_model.external_id]
         if not retrieved_models:
             # This happens if the data model is removed after the list call above.
             raise ToolkitMissingResourceError(f"Data model {selected_data_model} not found")
         if len(retrieved_models) == 1:
             self.data_model = retrieved_models[0]
             return selected_data_model
-        models_by_version = {model.version: model for model in retrieved_models if model.version is not None}
+        models_by_version = {model.version: model for model in retrieved_models}
         if len(models_by_version) == 1:
             self.data_model = retrieved_models[0]
             return selected_data_model
@@ -167,13 +187,13 @@ class DataModelFinder(ResourceFinder[DataModelId]):
             f"Would you like to select a different version than {selected_data_model.version} of the data model",
             default=False,
         ).unsafe_ask():
-            self.data_model = models_by_version[cast(str, selected_data_model.version)]
+            self.data_model = models_by_version[selected_data_model.version]
             return selected_data_model
 
         selected_model = questionary.select(
             "Which version would you like to dump?",
             [
-                Choice(f"{version} ({len(model.views)} views)", value=version)
+                Choice(f"{version} ({len(model.views or [])} views)", value=version)
                 for version, model in models_by_version.items()
             ],
         ).unsafe_ask()
@@ -181,15 +201,20 @@ class DataModelFinder(ResourceFinder[DataModelId]):
         return self.data_model.as_id()
 
     def update(self, resources: Sequence[ResourceResponseProtocol]) -> None:
-        if isinstance(resources, dm.DataModelList):
-            self.view_ids |= {
-                view.as_id() if isinstance(view, dm.View) else view for item in resources for view in item.views
-            }
-        elif isinstance(resources, dm.ViewList):
-            self.container_ids |= resources.referenced_containers()
-        elif isinstance(resources, dm.SpaceList):
+        if not resources:
             return
-        self.space_ids |= {item.space for item in resources if hasattr(item, "space")}
+        first = resources[0]
+        if isinstance(first, DataModelResponse):
+            for item in resources:
+                if isinstance(item, DataModelResponse):
+                    self.view_ids |= set(item.views or [])
+        elif isinstance(first, ViewResponse):
+            for item in resources:
+                if isinstance(item, ViewResponse):
+                    self.container_ids |= set(item.mapped_containers)
+        elif isinstance(first, SpaceResponse):
+            return
+        self.space_ids |= {SpaceReference(space=item.space) for item in resources if hasattr(item, "space")}
 
     def __iter__(
         self,
@@ -198,9 +223,9 @@ class DataModelFinder(ResourceFinder[DataModelId]):
         model_loader = DataModelCRUD.create_loader(self.client)
         if self.data_model:
             is_global_model = self.data_model.is_global
-            yield [], dm.DataModelList([self.data_model]), model_loader, None
+            yield [], [self.data_model], model_loader, None
         else:
-            model_list = model_loader.retrieve([self.identifier])
+            model_list = self.client.tool.data_models.retrieve([self.identifier])
             if not model_list:
                 raise ToolkitResourceMissingError(f"Data model {self.identifier} not found", str(self.identifier))
             is_global_model = model_list[0].is_global
@@ -211,22 +236,18 @@ class DataModelFinder(ResourceFinder[DataModelId]):
             yield list(self.space_ids), None, SpaceCRUD.create_loader(self.client), None
         else:
             view_loader = ViewCRUD(self.client, None, None, topological_sort_implements=True)
-            views = dm.ViewList([view for view in view_loader.retrieve(list(self.view_ids)) if not view.is_global])
+            views = [view for view in view_loader.retrieve(list(self.view_ids)) if not view.is_global]
             yield [], views, view_loader, "views"
             container_loader = ContainerCRUD.create_loader(self.client)
-            containers = dm.ContainerList(
-                [
-                    container
-                    for container in container_loader.retrieve(list(self.container_ids))
-                    if not container.is_global
-                ]
-            )
+            containers = [
+                container
+                for container in container_loader.retrieve(list(self.container_ids))
+                if not container.is_global
+            ]
             yield [], containers, container_loader, "containers"
 
             space_loader = SpaceCRUD.create_loader(self.client)
-            spaces = dm.SpaceList(
-                [space for space in space_loader.retrieve(list(self.space_ids)) if not space.is_global]
-            )
+            spaces = [space for space in space_loader.retrieve(list(self.space_ids)) if not space.is_global]
             yield [], spaces, space_loader, None
 
 
@@ -425,28 +446,28 @@ class AgentFinder(ResourceFinder[tuple[str, ...]]):
             yield list(self.identifier), None, loader, None
 
 
-class NodeFinder(ResourceFinder[dm.ViewId]):
-    def __init__(self, client: ToolkitClient, identifier: dm.ViewId | None = None):
+class NodeFinder(ResourceFinder[ViewReferenceNoVersion]):
+    def __init__(self, client: ToolkitClient, identifier: ViewReferenceNoVersion | None = None):
         super().__init__(client, identifier)
         self.is_interactive = False
 
-    def _interactive_select(self) -> dm.ViewId:
+    def _interactive_select(self) -> ViewReferenceNoVersion:
         self.is_interactive = True
-        spaces = self.client.data_modeling.spaces.list(limit=-1)
+        spaces = self.client.tool.spaces.list(limit=None)
         if not spaces:
             raise ToolkitMissingResourceError("No spaces found")
         selected_space: str = questionary.select(
             "In which space is your node property view located?", [space.space for space in spaces]
         ).unsafe_ask()
 
-        views = self.client.data_modeling.views.list(space=selected_space, limit=-1, all_versions=False)
+        views = self.client.tool.views.list(ViewFilter(space=selected_space), limit=None)
         if not views:
             raise ToolkitMissingResourceError(f"No views found in {selected_space}")
         if len(views) == 1:
             return views[0].as_id()
-        selected_view_id: dm.ViewId = questionary.select(
+        selected_view_id: ViewReference = questionary.select(
             "Which node property view would you like to dump?",
-            [Choice(repr(view), value=view) for view in views.as_ids()],
+            [Choice(repr(view.as_id()), value=view.as_id()) for view in views],
         ).unsafe_ask()
         return selected_view_id
 
@@ -454,10 +475,32 @@ class NodeFinder(ResourceFinder[dm.ViewId]):
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
-        loader = NodeCRUD(self.client, None, None, self.identifier)
+        view_id: TypedViewReference
+        identifier = self._selected()
+
+        if isinstance(identifier, ViewReference):
+            view_id = TypedViewReference(
+                space=identifier.space,
+                external_id=identifier.external_id,
+                version=identifier.version,
+            )
+        else:
+            # Find latest version of view.
+            view = self.client.tool.views.retrieve([self.identifier])
+            if not view:
+                raise ToolkitResourceMissingError(f"View {identifier} not found", str(identifier))
+            view_id = view[0].as_typed_id()
+
+        loader = NodeCRUD(self.client, None, None, view_id)
         if self.is_interactive:
             count = self.client.data_modeling.instances.aggregate(
-                self.identifier, dm.aggregations.Count("externalId"), instance_type="node"
+                ViewId(
+                    self.identifier.space,
+                    self.identifier.external_id,
+                    self.identifier.version if isinstance(self.identifier, ViewReference) else None,
+                ),
+                dm.aggregations.Count("externalId"),
+                instance_type="node",
             ).value
             if count == 0 or count is None:
                 raise ToolkitMissingResourceError(f"No nodes found in {self.identifier}")
@@ -795,7 +838,7 @@ class SpaceFinder(ResourceFinder[tuple[str, ...]]):
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         loader = SpaceCRUD.create_loader(self.client)
-        yield list(self.identifier), None, loader, None
+        yield [SpaceReference(space=space) for space in self.identifier], None, loader, None
 
 
 class SearchConfigFinder(ResourceFinder[tuple[SearchConfigViewId, ...]]):

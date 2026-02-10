@@ -5,9 +5,9 @@ from typing import Annotated, Any
 import questionary
 import typer
 from cognite.client.data_classes import Annotation
-from cognite.client.data_classes.data_modeling import ContainerId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerReference
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.creators import (
@@ -345,7 +345,7 @@ class MigrateApp(typer.Typer):
             verbose=verbose,
             kind="Assets",
             resource_type="asset",
-            container_id=ContainerId("cdf_cdm", "CogniteAsset"),
+            container_id=ContainerReference(space="cdf_cdm", external_id="CogniteAsset"),
         )
 
         cmd = MigrationCommand(client=client)
@@ -372,7 +372,7 @@ class MigrateApp(typer.Typer):
         verbose: bool,
         kind: AssetCentricKind,
         resource_type: str,
-        container_id: ContainerId,
+        container_id: ContainerReference,
     ) -> tuple[AssetCentricMigrationSelector, bool, bool]:
         if data_set_id is not None and mapping_file is not None:
             raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
@@ -514,7 +514,7 @@ class MigrateApp(typer.Typer):
             verbose=verbose,
             kind="Events",
             resource_type="event",
-            container_id=ContainerId("cdf_cdm", "CogniteActivity"),
+            container_id=ContainerReference(space="cdf_cdm", external_id="CogniteActivity"),
         )
 
         cmd = MigrationCommand(client=client)
@@ -627,7 +627,7 @@ class MigrateApp(typer.Typer):
             verbose=verbose,
             kind="TimeSeries",
             resource_type="timeseries",
-            container_id=ContainerId("cdf_cdm", "CogniteTimeSeries"),
+            container_id=ContainerReference(space="cdf_cdm", external_id="CogniteTimeSeries"),
         )
         if data_set_id is None and mapping_file is None:
             skip_linking = not questionary.confirm(
@@ -743,7 +743,7 @@ class MigrateApp(typer.Typer):
             verbose=verbose,
             kind="FileMetadata",
             resource_type="file",
-            container_id=ContainerId("cdf_cdm", "CogniteFile"),
+            container_id=ContainerReference(space="cdf_cdm", external_id="CogniteFile"),
         )
         cmd = MigrationCommand(client=client)
 

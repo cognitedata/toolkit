@@ -5,15 +5,18 @@ https://api-docs.cognite.com/20230101/tag/Data-models/operation/createDataModels
 """
 
 from collections.abc import Iterable, Sequence
+from typing import Literal, overload
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelReference,
+    DataModelReferenceNoVersion,
     DataModelRequest,
     DataModelResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 
 
 class DataModelsAPI(CDFResourceAPI[DataModelReference, DataModelRequest, DataModelResponse]):
@@ -59,7 +62,19 @@ class DataModelsAPI(CDFResourceAPI[DataModelReference, DataModelRequest, DataMod
         """
         return self._request_item_response(items, "upsert")
 
-    def retrieve(self, items: Sequence[DataModelReference], inline_views: bool = False) -> list[DataModelResponse]:
+    @overload
+    def retrieve(
+        self, items: Sequence[DataModelReferenceNoVersion], inline_views: Literal[True]
+    ) -> list[DataModelResponseWithViews]: ...
+
+    @overload
+    def retrieve(
+        self, items: Sequence[DataModelReferenceNoVersion], inline_views: Literal[False] = False
+    ) -> list[DataModelResponse]: ...
+
+    def retrieve(
+        self, items: Sequence[DataModelReferenceNoVersion], inline_views: bool = False
+    ) -> list[DataModelResponse] | list[DataModelResponseWithViews]:
         """Retrieve data models from CDF.
 
         Args:
@@ -69,7 +84,17 @@ class DataModelsAPI(CDFResourceAPI[DataModelReference, DataModelRequest, DataMod
         Returns:
             List of retrieved DataModelResponse objects.
         """
-        return self._request_item_response(items, method="retrieve", extra_body={"inlineViews": inline_views})
+        if inline_views:
+            response_items: list[DataModelResponseWithViews] = []
+            for response in self._chunk_requests(
+                items, "retrieve", self._serialize_items, params={"inlineViews": True}
+            ):
+                response_items.extend(
+                    PagedResponse[DataModelResponseWithViews].model_validate_json(response.body).items
+                )
+            return response_items
+        else:
+            return self._request_item_response(items, method="retrieve", params={"inlineViews": False})
 
     def delete(self, items: Sequence[DataModelReference]) -> None:
         """Delete data models from CDF.

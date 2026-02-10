@@ -121,6 +121,18 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerRequest,
+    ContainerResponse,
+    DataModelRequest,
+    DataModelResponse,
+    InstanceRequest,
+    InstanceResponse,
+    SpaceRequest,
+    SpaceResponse,
+    ViewRequest,
+    ViewResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
@@ -877,6 +889,62 @@ API_RESOURCES = [
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
                 Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.spaces",
+        resource_cls=SpaceResponse,
+        _write_cls=SpaceRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.containers",
+        resource_cls=ContainerResponse,
+        _write_cls=ContainerRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.views",
+        resource_cls=ViewResponse,
+        _write_cls=ViewRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.data_models",
+        resource_cls=DataModelResponse,
+        _write_cls=DataModelRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+                Method(api_class_method="list", mock_class_method="list"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.instances",
+        resource_cls=InstanceResponse,
+        _write_cls=InstanceRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create_instances_pydantic")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve_instances_pydantic"),
             ],
         },
     ),

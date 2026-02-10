@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessR
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReference,
+    ViewReferenceNoVersion,
     ViewRequest,
     ViewResponse,
 )
@@ -57,7 +58,9 @@ class ViewsAPI(CDFResourceAPI[ViewReference, ViewRequest, ViewResponse]):
         """
         return self._request_item_response(items, "upsert")
 
-    def retrieve(self, items: Sequence[ViewReference], include_inherited_properties: bool = True) -> list[ViewResponse]:
+    def retrieve(
+        self, items: Sequence[ViewReferenceNoVersion], include_inherited_properties: bool = True
+    ) -> list[ViewResponse]:
         """Retrieve views from CDF.
 
         Args:
@@ -68,7 +71,7 @@ class ViewsAPI(CDFResourceAPI[ViewReference, ViewRequest, ViewResponse]):
             List of retrieved ViewResponse objects.
         """
         return self._request_item_response(
-            items, method="retrieve", extra_body={"includeInheritedProperties": include_inherited_properties}
+            items, method="retrieve", params={"includeInheritedProperties": include_inherited_properties}
         )
 
     def delete(self, items: Sequence[ViewReference]) -> None:

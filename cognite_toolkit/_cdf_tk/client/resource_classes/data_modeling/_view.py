@@ -5,6 +5,7 @@ from pydantic import Field, JsonValue, field_serializer, model_validator
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
 
 from ._data_types import DirectNodeRelation
 from ._references import ContainerReference, ViewReference
@@ -29,6 +30,9 @@ class View(BaseModelObject, ABC):
 
     def as_id(self) -> ViewReference:
         return ViewReference(space=self.space, external_id=self.external_id, version=self.version)
+
+    def as_typed_id(self) -> TypedViewReference:
+        return TypedViewReference(space=self.space, external_id=self.external_id, version=self.version)
 
     @model_validator(mode="before")
     def set_connection_type_on_primary_properties(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -72,14 +76,17 @@ class View(BaseModelObject, ABC):
 
 
 class ViewRequest(View, RequestResource):
-    properties: dict[str, ViewRequestProperty] = Field(
-        description="View with included properties and expected edges, indexed by a unique space-local identifier."
+    properties: dict[str, ViewRequestProperty] | None = Field(
+        default=None,
+        description="View with included properties and expected edges, indexed by a unique space-local identifier.",
     )
 
     @property
     def used_containers(self) -> set[ContainerReference]:
         """Get all containers referenced by this view."""
-        return {prop.container for prop in self.properties.values() if isinstance(prop, ViewCorePropertyRequest)}
+        return {
+            prop.container for prop in (self.properties or {}).values() if isinstance(prop, ViewCorePropertyRequest)
+        }
 
 
 class ViewResponse(View, ResponseResource[ViewRequest]):
@@ -94,7 +101,7 @@ class ViewResponse(View, ResponseResource[ViewRequest]):
     mapped_containers: list[ContainerReference]
 
     def as_request_resource(self) -> ViewRequest:
-        dumped = self.model_dump(by_alias=True, exclude={"properties"})
+        dumped = self.model_dump(by_alias=True, exclude={"properties"}, exclude_unset=True)
         properties: dict[str, Any] = {}
         for key, value in self.properties.items():
             if isinstance(value, ViewCorePropertyResponse) and isinstance(value.type, DirectNodeRelation):

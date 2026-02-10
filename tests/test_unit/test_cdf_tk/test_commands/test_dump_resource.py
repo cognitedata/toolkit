@@ -29,6 +29,11 @@ from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    DataModelResponse,
+    SpaceResponse,
+    ViewReference,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import SearchConfig, SearchConfigList, ViewId
@@ -141,7 +146,7 @@ class TestDumpTransformations:
 
 
 @pytest.fixture()
-def three_data_models() -> dm.DataModelList[dm.ViewId]:
+def three_data_models() -> list[DataModelResponse]:
     """Three data models in one space. The first two are different versions of the same model."""
     default_args = dict(
         is_global=False,
@@ -150,26 +155,32 @@ def three_data_models() -> dm.DataModelList[dm.ViewId]:
         description=None,
         name=None,
     )
-    return dm.DataModelList[dm.ViewId](
-        [
-            dm.DataModel[dm.ViewId](
-                "my_space", "my_model", "v1", views=[dm.ViewId("my_space", "firstView", "v1")], **default_args
-            ),
-            dm.DataModel[dm.ViewId](
-                "my_space",
-                "my_model",
-                "v2",
-                views=[
-                    dm.ViewId("my_space", "firstView", "v2"),
-                    dm.ViewId("my_space2", "secondView", "v2"),
-                ],
-                **default_args,
-            ),
-            dm.DataModel[dm.ViewId](
-                "my_space", "other_model", "v1", views=[dm.ViewId("my_space", "otherView", "v1")], **default_args
-            ),
-        ]
-    )
+    return [
+        DataModelResponse(
+            space="my_space",
+            external_id="my_model",
+            version="v1",
+            views=[ViewReference(space="my_space", external_id="firstView", version="v1")],
+            **default_args,
+        ),
+        DataModelResponse(
+            space="my_space",
+            external_id="my_model",
+            version="v2",
+            views=[
+                ViewReference(space="my_space", external_id="firstView", version="v2"),
+                ViewReference(space="my_space2", external_id="secondView", version="v2"),
+            ],
+            **default_args,
+        ),
+        DataModelResponse(
+            space="my_space",
+            external_id="other_model",
+            version="v1",
+            views=[ViewReference(space="my_space", external_id="otherView", version="v1")],
+            **default_args,
+        ),
+    ]
 
 
 class TestDataModelFinder:
@@ -183,10 +194,10 @@ class TestDataModelFinder:
             views=[],
         )
         models = [
-            dm.DataModel("my_space", "first_model", "v1", **default_args),
-            dm.DataModel("my_space2", "second_model", "v1", **default_args),
+            DataModelResponse(space="my_space", external_id="first_model", version="v1", **default_args),
+            DataModelResponse(space="my_space2", external_id="second_model", version="v1", **default_args),
         ]
-        toolkit_client_approval.append(dm.DataModel, models)
+        toolkit_client_approval.append(DataModelResponse, models)
         selected = models[1].as_id()
         finder = DataModelFinder(toolkit_client_approval.mock_client, None)
         answers = ["my_space2", selected, False]
@@ -197,7 +208,7 @@ class TestDataModelFinder:
         assert finder.data_model.as_id() == selected
 
     def test_select_data_model_multiple_versions(
-        self, three_data_models: dm.DataModelList[dm.ViewId], monkeypatch: MonkeyPatch
+        self, three_data_models: list[DataModelResponse], monkeypatch: MonkeyPatch
     ) -> None:
         def select_data_model(choices: list[Choice]) -> dm.DataModelId:
             assert len(choices) == 2
@@ -215,9 +226,9 @@ class TestDataModelFinder:
             MockQuestionary(DataModelFinder.__module__, monkeypatch, answers),
         ):
             # Last two are different models
-            client.data_modeling.data_models.list.return_value = three_data_models[1:]
+            client.tool.data_models.list.return_value = three_data_models[1:]
             # First two are different versions of the same model
-            client.data_modeling.data_models.retrieve.return_value = three_data_models[:2]
+            client.tool.data_models.retrieve.return_value = three_data_models[:2]
 
             finder = DataModelFinder(client, None)
             selected = finder._interactive_select()
@@ -862,12 +873,15 @@ class TestSpaceFinder:
 
 class TestDumpSpaces:
     def test_dump_spaces(self, three_spaces: dm.SpaceList, tmp_path: Path) -> None:
-        with monkeypatch_toolkit_client() as client:
-            client.data_modeling.spaces.retrieve.return_value = three_spaces[1:]
+        # Todo Remove adaption once we have fully removed our dependency of Cognite-SDK.
+        adapted_spaces = [SpaceResponse.model_validate(space.dump()) for space in three_spaces]
 
+        with monkeypatch_toolkit_client() as client:
+            client.tool.spaces.retrieve.return_value = adapted_spaces[1:]
+            identifier: tuple[str, ...] = "spaceB", "spaceC"
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
-                SpaceFinder(client, ("spaceB", "spaceC")),
+                SpaceFinder(client, identifier),
                 output_dir=tmp_path,
                 clean=False,
                 verbose=False,
@@ -877,7 +891,7 @@ class TestDumpSpaces:
         filepaths = list(loader.find_files(tmp_path))
         assert len(filepaths) == 2
         items = sorted([read_yaml_file(filepath) for filepath in filepaths], key=lambda d: d["space"])
-        expected = sorted([loader.dump_resource(s) for s in three_spaces[1:]], key=lambda d: d["space"])
+        expected = [loader.dump_resource(space) for space in adapted_spaces[1:]]
         assert items == expected
 
 

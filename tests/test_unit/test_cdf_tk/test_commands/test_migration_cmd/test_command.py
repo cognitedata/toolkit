@@ -14,7 +14,6 @@ from cognite.client.data_classes.data_modeling import (
     DataModel,
     DataModelList,
     EdgeApply,
-    NodeApply,
     NodeList,
     NodeOrEdgeData,
     View,
@@ -25,9 +24,10 @@ from cognite.client.data_classes.data_modeling.statistics import InstanceStatist
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData, ChartSource, ChartTimeseries
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import ContainerReference, IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource as LegacyInstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, CanvasMapper, ChartMapper
@@ -57,10 +57,10 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
 @pytest.fixture
 def cognite_migration_model(
     toolkit_config: ToolkitClientConfig,
-    rsps: responses.RequestsMock,
+    respx_mock: respx.MockRouter,
     cognite_core_no_3D: DataModel[View],
     cognite_extractor_views: list[View],
-) -> Iterator[responses.RequestsMock]:
+) -> Iterator[respx.MockRouter]:
     """Mock the Cognite Migration Model in the CDF project."""
     config = toolkit_config
     # Migration model
@@ -68,19 +68,23 @@ def cognite_migration_model(
     migration_model["createdTime"] = 1
     migration_model["lastUpdatedTime"] = 1
     migration_model["isGlobal"] = False
-    rsps.post(config.create_api_url("models/datamodels/byids"), json={"items": migration_model})
-    yield rsps
+    respx_mock.post(
+        config.create_api_url("models/datamodels/byids"),
+    ).respond(
+        json={"items": [migration_model]},
+    )
+    yield respx_mock
 
 
 @pytest.fixture
 def resource_view_mappings(
     toolkit_config: ToolkitClientConfig,
-    cognite_migration_model: responses.RequestsMock,
+    rsps: responses.RequestsMock,
+    respx_mock: cognite_migration_model,
     cognite_core_no_3D: DataModel[View],
     cognite_extractor_views: list[View],
-) -> Iterator[responses.RequestsMock]:
+) -> Iterator[respx.MockRouter]:
     """Mock all the default Resource View Mappings in the Cognite Migration Model."""
-    rsps = cognite_migration_model
     config = toolkit_config
     mapping_by_id = {mapping.external_id: mapping for mapping in create_default_mappings()}
     node_items: list[dict] = []
@@ -102,14 +106,15 @@ def resource_view_mappings(
         json={"items": node_items},
         status=200,
     )
-    rsps.post(
+    respx_mock.post(
         config.create_api_url("models/views/byids"),
+    ).respond(
         json={
             "items": [view.dump() for view in cognite_core_no_3D.views]
             + [view.dump() for view in cognite_extractor_views]
         },
     )
-    yield rsps
+    yield respx_mock
 
 
 @pytest.fixture
@@ -168,19 +173,20 @@ class TestMigrationCommand:
         self,
         toolkit_config: ToolkitClientConfig,
         tmp_path: Path,
-        respx_mock: respx.MockRouter,
+        cognite_migration_model: respx.MockRouter,
     ) -> None:
+        respx_mock = cognite_migration_model
         config = toolkit_config
         assets = [
             AssetResponse(
                 id=1000 + i,
-                externalId=f"asset_{i}",
+                external_id=f"asset_{i}",
                 name=f"Asset {i}",
                 description=f"This is Asset {i}",
-                lastUpdatedTime=1,
-                createdTime=0,
-                parentExternalId="asset_0" if i > 0 else None,
-                rootId=1,
+                last_updated_time=1,
+                created_time=0,
+                parent_external_id="asset_0" if i > 0 else None,
+                root_id=1,
             )
             for i in range(2)
         ]
@@ -227,11 +233,10 @@ class TestMigrationCommand:
 
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)
-        mapper = AssetCentricMapper(client)
         result = command.migrate(
             selected=MigrationCSVFileSelector(datafile=csv_file, kind="Assets"),
             data=AssetCentricMigrationIO(client),
-            mapper=mapper,
+            mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
             dry_run=False,
             verbose=False,
@@ -243,18 +248,18 @@ class TestMigrationCommand:
         assert last_call.request.method == "POST"
         actual_instances = json.loads(last_call.request.content)["items"]
         expected_instance = [
-            NodeApply(
+            NodeRequest(
                 space=space,
                 external_id=asset.external_id,
                 sources=[
-                    NodeOrEdgeData(
-                        source=ViewId("cdf_cdm", "CogniteAsset", "v1"),
+                    InstanceSource(
+                        source=ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
                         properties={
                             "name": asset.name,
                             "description": asset.description,
                         },
                     ),
-                    NodeOrEdgeData(
+                    InstanceSource(
                         source=INSTANCE_SOURCE_VIEW_ID,
                         properties={
                             "id": asset.id,
@@ -278,15 +283,15 @@ class TestMigrationCommand:
         actual_results = {status.status: status.count for status in result}
         assert actual_results == {"failure": 0, "pending": 0, "success": len(assets), "unchanged": 0}
 
-    @pytest.mark.usefixtures("mock_statistics")
+    @pytest.mark.usefixtures("mock_statistics", "resource_view_mappings")
     def test_migrate_annotations(
         self,
         toolkit_config: ToolkitClientConfig,
-        resource_view_mappings: responses.RequestsMock,
+        cognite_migration_model: respx.MockRouter,
+        rsps: responses.RequestsMock,
         tmp_path: Path,
-        respx_mock: respx.MockRouter,
     ) -> None:
-        rsps = resource_view_mappings
+        respx_mock = cognite_migration_model
         config = toolkit_config
         asset_annotation = Annotation(
             id=2000,
@@ -459,11 +464,11 @@ class TestMigrationCommand:
     def test_migrate_charts(
         self,
         toolkit_config: ToolkitClientConfig,
-        cognite_migration_model: responses.RequestsMock,
+        cognite_migration_model: respx.MockRouter,
         tmp_path: Path,
-        respx_mock: respx.MockRouter,
+        rsps: responses.RequestsMock,
     ) -> None:
-        rsps = cognite_migration_model
+        respx_mock = cognite_migration_model
         config = toolkit_config
         charts = [
             Chart(
@@ -473,13 +478,13 @@ class TestMigrationCommand:
                 visibility="PUBLIC",
                 data=ChartData(
                     name="My Chart",
-                    timeSeriesCollection=[
+                    time_series_collection=[
                         ChartTimeseries(
                             tsExternalId="ts_1", type="timeseries", id="87654321-4321-8765-4321-876543218765"
                         ),
                         ChartTimeseries(tsId=1, type="timeseries", id="12345678-1234-5678-1234-567812345678"),
                     ],
-                    sourceCollection=[
+                    source_collection=[
                         ChartSource(type="timeseries", id="87654321-4321-8765-4321-876543218765"),
                         ChartSource(type="timeseries", id="12345678-1234-5678-1234-567812345678"),
                     ],
@@ -503,7 +508,7 @@ class TestMigrationCommand:
             json={
                 "items": {
                     "instanceSource": [
-                        InstanceSource(
+                        LegacyInstanceSource(
                             space="my_space",
                             external_id="node_123",
                             version=1,
@@ -512,9 +517,11 @@ class TestMigrationCommand:
                             resource_type="timeseries",
                             id_=1,
                             classic_external_id=None,
-                            preferred_consumer_view_id=ViewId("cdf_cdm", "CogniteTimeSeries", "v1"),
+                            preferred_consumer_view_id=ViewReference(
+                                space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
+                            ),
                         ).dump(),
-                        InstanceSource(
+                        LegacyInstanceSource(
                             space="my_space",
                             external_id="node_ts_1",
                             version=1,
@@ -523,7 +530,9 @@ class TestMigrationCommand:
                             resource_type="timeseries",
                             id_=2,
                             classic_external_id="ts_1",
-                            preferred_consumer_view_id=ViewId("my_schema_space", "MyTimeSeries", "v1"),
+                            preferred_consumer_view_id=ViewReference(
+                                space="my_schema_space", external_id="MyTimeSeries", version="v1"
+                            ),
                         ).dump(),
                     ]
                 },
@@ -556,7 +565,7 @@ class TestMigrationCommand:
         assert actual_results == {"failure": 0, "pending": 0, "success": len(charts), "unchanged": 0}
 
         calls = respx_mock.calls
-        assert len(calls) == 1
+        assert len(calls) == 2
         last_call = calls[-1]
         assert last_call.request.url == config.create_app_url("/storage/charts/charts")
         assert last_call.request.method == "PUT"
@@ -605,12 +614,13 @@ class TestMigrationCommand:
     def test_migrate_canvas(
         self,
         toolkit_config: ToolkitClientConfig,
-        cognite_migration_model: responses.RequestsMock,
+        cognite_migration_model: respx.MockRouter,
         tmp_path: Path,
         respx_mock: respx.MockRouter,
         asset_centric_canvas: tuple[IndustrialCanvas, NodeList[InstanceSource]],
+        rsps: responses.RequestsMock,
     ) -> None:
-        rsps = cognite_migration_model
+        respx_mock = cognite_migration_model
         config = toolkit_config
         canvas, instance_sources = asset_centric_canvas
         id_ = uuid.uuid4()
@@ -715,8 +725,8 @@ class TestMigrationCommand:
         actual_results = {status.status: status.count for status in result}
         assert actual_results == {"failure": 0, "pending": 0, "success": 1, "unchanged": 0}
 
-        assert len(respx_mock.calls) == 1
-        call = respx_mock.calls[0]
+        assert len(respx_mock.calls) == 2
+        call = respx_mock.calls[-1]
         assert call.request.url == config.create_api_url("/models/instances")
         assert call.request.method == "POST"
         created_instance = json.loads(call.request.content.decode("utf-8"))["items"]
@@ -752,7 +762,7 @@ class TestMigrationCommand:
             model2 = MagicMock(spec=DataModel)
             model2.as_id.return_value = MODEL_ID
 
-            client.data_modeling.data_models.retrieve.return_value = DataModelList([model1, model2])
+            client.tool.data_models.retrieve.return_value = DataModelList([model1, model2])
 
             with pytest.raises(ToolkitMigrationError) as exc_info:
                 MigrationCommand.validate_migration_model_available(client)
@@ -783,12 +793,12 @@ class TestMigrationCommand:
             # Model has all required views
             model.views = [INSTANCE_SOURCE_VIEW_ID, RESOURCE_VIEW_MAPPING_VIEW_ID]
 
-            client.data_modeling.data_models.retrieve.return_value = DataModelList([model])
+            client.tool.data_models.retrieve.return_value = DataModelList([model])
 
             # Should not raise any exception
             MigrationCommand.validate_migration_model_available(client)
 
-            client.data_modeling.data_models.retrieve.assert_called_once_with([MODEL_ID], inline_views=False)
+            client.tool.data_models.retrieve.assert_called_once_with([MODEL_ID], inline_views=False)
 
     def test_validate_available_capacity_missing_capacity(self) -> None:
         cmd = MigrationCommand(silent=True)

@@ -38,6 +38,7 @@ from rich.console import Console
 from rich.markup import escape
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
     ExternalId,
     InternalIdUnwrapped,
@@ -160,7 +161,7 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group]):
                     if space_ids := scope.get(cap.SpaceIDScope._scope_name, []):
                         if isinstance(space_ids, dict) and "spaceIds" in space_ids:
                             for space_id in space_ids["spaceIds"]:
-                                yield SpaceCRUD, space_id
+                                yield SpaceCRUD, SpaceReference(space=space_id)
                     if data_set_ids := scope.get(cap.DataSetScope._scope_name, []):
                         if isinstance(data_set_ids, dict) and "ids" in data_set_ids:
                             for data_set_id in data_set_ids["ids"]:

@@ -2,7 +2,7 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import ClassVar, Literal, cast
 
 from cognite.client.data_classes import Annotation
-from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, NodeId
+from cognite.client.data_classes.data_modeling import NodeId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsResultList,
     ItemsSuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeReference, InstanceRequest, NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
@@ -60,7 +61,7 @@ from .selectors import AssetCentricMigrationSelector, MigrateDataSetSelector, Mi
 
 
 class AssetCentricMigrationIO(
-    UploadableStorageIO[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResource], InstanceApply]
+    UploadableStorageIO[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResource], InstanceRequest]
 ):
     KIND = "AssetCentricMigration"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
@@ -132,7 +133,7 @@ class AssetCentricMigrationIO(
                     external_id = MISSING_EXTERNAL_ID.format(project=self.client.config.project, id=resource.id)
                 mapping = MigrationMapping(
                     resource_type=self._kind_to_resource_type(selector.kind),
-                    instance_id=NodeId(
+                    instance_id=NodeReference(
                         space=instance_space,
                         external_id=external_id,
                     ),
@@ -164,12 +165,12 @@ class AssetCentricMigrationIO(
     ) -> list[dict[str, JsonVal]]:
         return [item.dump() for item in data_chunk]
 
-    def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceApply:
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceRequest:
         raise NotImplementedError()
 
     def upload_items(
         self,
-        data_chunk: Sequence[UploadItem[InstanceApply]],
+        data_chunk: Sequence[UploadItem[InstanceRequest]],
         http_client: HTTPClient,
         selector: AssetCentricMigrationSelector | None = None,
     ) -> ItemsResultList:
@@ -191,10 +192,10 @@ class AssetCentricMigrationIO(
     @classmethod
     def link_asset_centric(
         cls,
-        data_chunk: Sequence[UploadItem[InstanceApply]],
+        data_chunk: Sequence[UploadItem[InstanceRequest]],
         http_client: HTTPClient,
         pending_instance_id_endpoint: str,
-    ) -> Sequence[UploadItem[InstanceApply]]:
+    ) -> Sequence[UploadItem[InstanceRequest]]:
         """Links asset-centric resources to their (uncreated) instances using the pending-instance-ids endpoint."""
         config = http_client.config
         successful_linked: set[str] = set()
@@ -217,11 +218,13 @@ class AssetCentricMigrationIO(
         return to_upload
 
     @staticmethod
-    def as_pending_instance_id(item: InstanceApply) -> PendingInstanceId:
+    def as_pending_instance_id(item: InstanceRequest) -> PendingInstanceId:
         """Convert an InstanceApply to a PendingInstanceId for linking."""
-        source = next((source for source in item.sources if source.source == INSTANCE_SOURCE_VIEW_ID), None)
+        source = next((source for source in item.sources or [] if source.source == INSTANCE_SOURCE_VIEW_ID), None)
         if source is None:
             raise ValueError(f"Cannot extract ID from item of type {type(item).__name__!r}")
+        if source.properties is None:
+            raise ValueError("Source properties cannot be None when linking asset-centric resources.")
         if not isinstance(source.properties["id"], int):
             raise ValueError(f"Unexpected ID type: {type(source.properties['id']).__name__!r}")
         id_ = source.properties["id"]
@@ -232,7 +235,7 @@ class AssetCentricMigrationIO(
 
 
 class AnnotationMigrationIO(
-    UploadableStorageIO[AssetCentricMigrationSelector, AssetCentricMapping[Annotation], InstanceApply]
+    UploadableStorageIO[AssetCentricMigrationSelector, AssetCentricMapping[Annotation], InstanceRequest]
 ):
     """IO class for migrating Annotations.
 
@@ -299,7 +302,7 @@ class AnnotationMigrationIO(
                     # This is just in case.
                     continue
                 mapping = AnnotationMapping(
-                    instance_id=EdgeId(space=self.instance_space, external_id=f"annotation_{resource.id!r}"),
+                    instance_id=EdgeReference(space=self.instance_space, external_id=f"annotation_{resource.id!r}"),
                     id=resource.id,
                     ingestion_view=self._get_mapping(selector.ingestion_mapping, resource),
                     preferred_consumer_view=selector.preferred_consumer_view,
@@ -359,7 +362,7 @@ class AnnotationMigrationIO(
                 "Please specify the ingestion view explicitly in the CSV file."
             ) from e
 
-    def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceApply:
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceRequest:
         raise NotImplementedError("Deserializing Annotation Migrations from JSON is not supported.")
 
     def data_to_json_chunk(

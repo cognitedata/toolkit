@@ -15,6 +15,8 @@ from cognite.client.testing import CogniteClientMock
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.api.containers import ContainersAPI
+from cognite_toolkit._cdf_tk.client.api.data_models import DataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractors import HostedExtractorsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI, IndustrialCanvasAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
@@ -33,6 +35,8 @@ from cognite_toolkit._cdf_tk.client.api.robotics_frames import FramesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_locations import LocationsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
+from cognite_toolkit._cdf_tk.client.api.spaces import SpacesAPI
+from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 
 from ._toolkit_client import ToolAPI
 from .api.assets import AssetsAPI
@@ -164,6 +168,10 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.timeseries = MagicMock(spec_set=TimeSeriesAPI)
         self.tool.filemetadata = MagicMock(spec_set=FileMetadataAPI)
         self.tool.instances = MagicMock(spec=InstancesAPI)
+        self.tool.spaces = MagicMock(spec=SpacesAPI)
+        self.tool.views = MagicMock(spec=ViewsAPI)
+        self.tool.containers = MagicMock(spec=ContainersAPI)
+        self.tool.data_models = MagicMock(spec=DataModelsAPI)
         self.tool.location_filters = MagicMock(spec=LocationFiltersAPI)
         self.tool.events = MagicMock(spec_set=EventsAPI)
         self.tool.functions = MagicMock(spec=FunctionsAPI)

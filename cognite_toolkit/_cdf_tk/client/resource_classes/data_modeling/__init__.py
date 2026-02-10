@@ -11,7 +11,7 @@ from ._container import (
     ContainerRequest,
     ContainerResponse,
 )
-from ._data_model import DataModelRequest, DataModelResponse
+from ._data_model import DataModelRequest, DataModelResponse, DataModelResponseWithViews
 from ._data_types import (
     BooleanProperty,
     DataType,
@@ -59,10 +59,13 @@ from ._references import (
     ContainerIndexReference,
     ContainerReference,
     DataModelReference,
+    DataModelReferenceNoVersion,
+    EdgeReference,
     NodeReference,
     SpaceReference,
     ViewDirectReference,
     ViewReference,
+    ViewReferenceNoVersion,
 )
 from ._space import Space, SpaceRequest, SpaceResponse
 from ._view import View, ViewRequest, ViewResponse
@@ -103,13 +106,16 @@ __all__ = [
     "ContainerRequest",
     "ContainerResponse",
     "DataModelReference",
+    "DataModelReferenceNoVersion",
     "DataModelRequest",
     "DataModelResponse",
+    "DataModelResponseWithViews",
     "DataType",
     "DataTypeAdapter",
     "DateProperty",
     "DirectNodeRelation",
     "EdgeProperty",
+    "EdgeReference",
     "EdgeRequest",
     "EdgeResponse",
     "EnumProperty",
@@ -160,6 +166,7 @@ __all__ = [
     "ViewDirectReference",
     "ViewPropertyDefinition",
     "ViewReference",
+    "ViewReferenceNoVersion",
     "ViewRequest",
     "ViewRequestProperty",
     "ViewRequestPropertyAdapter",

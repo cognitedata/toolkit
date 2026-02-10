@@ -210,7 +210,7 @@ class MigrationCommand(ToolkitCommand):
 
     @staticmethod
     def validate_migration_model_available(client: ToolkitClient) -> None:
-        models = client.data_modeling.data_models.retrieve([MODEL_ID], inline_views=False)
+        models = client.tool.data_models.retrieve([MODEL_ID], inline_views=False)
         if not models:
             raise ToolkitMigrationError(
                 f"The migration data model {MODEL_ID!r} does not exist. "

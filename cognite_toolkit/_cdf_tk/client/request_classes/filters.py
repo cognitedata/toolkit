@@ -50,7 +50,7 @@ class DataModelingFilter(Filter):
 
 
 class ContainerFilter(DataModelingFilter):
-    used_for: Literal["node", "edge", "record", "all"] | None
+    used_for: Literal["node", "edge", "record", "all"] | None = None
 
 
 class ViewFilter(DataModelingFilter):

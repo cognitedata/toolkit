@@ -22,12 +22,13 @@ from cognite.client.data_classes.capabilities import (
     DataModelInstancesAcl,
     FilesAcl,
 )
-from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeId, ViewId
+from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeId
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._time import convert_data_modelling_timestamp
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import (
@@ -328,7 +329,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, 
         DatasetLoader and identifier of that dataset.
         """
         if "space" in item:
-            yield SpaceCRUD, item["space"]
+            yield SpaceCRUD, SpaceReference(space=item["space"])
         if "nodeSource" in item:
-            if in_dict(("space", "externalId", "type"), item["nodeSource"]):
-                yield ViewCRUD, ViewId.load(item["nodeSource"])
+            if in_dict(("space", "externalId", "version", "type"), item["nodeSource"]):
+                yield ViewCRUD, ViewReference.model_validate(item["nodeSource"])

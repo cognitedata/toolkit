@@ -109,7 +109,7 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
     @classmethod
     def _create_body(cls, filter: InstanceFilter | None) -> dict[str, Any]:
         return {
-            **(filter.model_dump(exclude_none=True) if filter else {}),
+            **(filter.dump() if filter else {}),
             "sort": cls._create_sort_body(filter.instance_type if filter else "node"),
         }
 

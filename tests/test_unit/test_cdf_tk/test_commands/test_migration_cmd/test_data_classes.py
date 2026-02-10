@@ -1,8 +1,8 @@
 from pathlib import Path
 
 import pytest
-from cognite.client.data_classes.data_modeling import EdgeId, NodeId, ViewId
 
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeReference, NodeReference, ViewReference
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     AnnotationMapping,
     MigrationMappingList,
@@ -23,13 +23,13 @@ class TestMigrationMappingList:
                     [
                         TimeSeriesMapping(
                             id=123,
-                            dataSetId=123,
-                            instanceId=NodeId("sp_full_ts", "full_ts_id"),
+                            data_set_id=123,
+                            instance_id=NodeReference(space="sp_full_ts", external_id="full_ts_id"),
                         ),
                         TimeSeriesMapping(
                             id=3231,
-                            dataSetId=None,
-                            instanceId=NodeId("sp_step_ts", "step_ts_id"),
+                            data_set_id=None,
+                            instance_id=NodeReference(space="sp_step_ts", external_id="step_ts_id"),
                         ),
                     ]
                 ),
@@ -42,8 +42,8 @@ class TestMigrationMappingList:
                     [
                         TimeSeriesMapping(
                             id=230,
-                            dataSetId=None,
-                            instanceId=NodeId("my_space", "target_external_id"),
+                            data_set_id=None,
+                            instance_id=NodeReference(space="my_space", external_id="target_external_id"),
                         )
                     ]
                 ),
@@ -56,8 +56,8 @@ class TestMigrationMappingList:
                     [
                         TimeSeriesMapping(
                             id=42,
-                            dataSetId=123,
-                            instanceId=NodeId("sp_full_ts", "full_ts_id"),
+                            data_set_id=123,
+                            instance_id=NodeReference(space="sp_full_ts", external_id="full_ts_id"),
                         )
                     ]
                 ),
@@ -72,19 +72,19 @@ class TestMigrationMappingList:
                     [
                         TimeSeriesMapping(
                             id=123,
-                            dataSetId=123,
-                            instanceId=NodeId("sp_full_ts", "full_ts_id"),
-                            ingestionView="ingestion_view_id",
-                            preferredConsumerView=ViewId(
+                            data_set_id=123,
+                            instance_id=NodeReference(space="sp_full_ts", external_id="full_ts_id"),
+                            ingestion_view="ingestion_view_id",
+                            preferred_consumer_view=ViewReference(
                                 space="consumer_view_space", external_id="consumer_view_external_id", version="1.0"
                             ),
                         ),
                         TimeSeriesMapping(
                             id=3231,
-                            dataSetId=None,
-                            instanceId=NodeId("sp_step_ts", "step_ts_id"),
-                            ingestionView="ingestion_view_id_2",
-                            preferredConsumerView=ViewId(
+                            data_set_id=None,
+                            instance_id=NodeReference(space="sp_step_ts", external_id="step_ts_id"),
+                            ingestion_view="ingestion_view_id_2",
+                            preferred_consumer_view=ViewReference(
                                 space="consumer_view_space_2", external_id="consumer_view_external_id_2", version="2.0"
                             ),
                         ),
@@ -99,7 +99,7 @@ class TestMigrationMappingList:
                     [
                         AnnotationMapping(
                             id=555,
-                            instanceId=EdgeId("annotation_space", "annotation_external_id"),
+                            instance_id=EdgeReference(space="annotation_space", external_id="annotation_external_id"),
                         )
                     ]
                 ),

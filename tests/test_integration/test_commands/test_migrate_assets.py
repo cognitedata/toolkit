@@ -7,11 +7,12 @@ from cognite.client.data_classes import (
     AssetWrite,
     AssetWriteList,
 )
-from cognite.client.data_classes.data_modeling import NodeId, Space, ViewId
+from cognite.client.data_classes.data_modeling import NodeId, Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
@@ -101,7 +102,7 @@ class TestMigrateAssetsCommand:
                 kind="Assets",
                 data_set_external_id=hierarchy.dataset.external_id,
                 ingestion_mapping=ASSET_ID,
-                preferred_consumer_view=ViewId("cdf_cdm", "CogniteAsset", "v1"),
+                preferred_consumer_view=ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
             ),
             data=AssetCentricMigrationIO(client),
             mapper=AssetCentricMapper(client),
@@ -124,7 +125,7 @@ class TestMigrateEventsCommand:
                 kind="Events",
                 data_set_external_id=hierarchy.dataset.external_id,
                 ingestion_mapping=EVENT_ID,
-                preferred_consumer_view=ViewId("cdf_cdm", "CogniteActivity", "v1"),
+                preferred_consumer_view=ViewReference(space="cdf_cdm", external_id="CogniteActivity", version="v1"),
             ),
             data=AssetCentricMigrationIO(client),
             mapper=AssetCentricMapper(client),
@@ -147,7 +148,7 @@ class TestMigrateTimeSeriesCommand:
                 kind="TimeSeries",
                 data_set_external_id=hierarchy.dataset.external_id,
                 ingestion_mapping=TIME_SERIES_ID,
-                preferred_consumer_view=ViewId("cdf_cdm", "CogniteTimeSeries", "v1"),
+                preferred_consumer_view=ViewReference(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"),
             ),
             data=AssetCentricMigrationIO(client, skip_linking=True),
             mapper=AssetCentricMapper(client),
@@ -170,7 +171,7 @@ class TestMigrateFileMetadataCommand:
                 kind="FileMetadata",
                 data_set_external_id=hierarchy.dataset.external_id,
                 ingestion_mapping=FILE_METADATA_ID,
-                preferred_consumer_view=ViewId("cdf_cdm", "CogniteFile", "v1"),
+                preferred_consumer_view=ViewReference(space="cdf_cdm", external_id="CogniteFile", version="v1"),
             ),
             data=AssetCentricMigrationIO(client, skip_linking=False),
             mapper=AssetCentricMapper(client),

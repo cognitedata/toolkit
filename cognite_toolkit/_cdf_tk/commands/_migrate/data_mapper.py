@@ -5,11 +5,7 @@ from typing import Generic, Literal, cast
 from uuid import uuid4
 
 from cognite.client.data_classes.data_modeling import (
-    EdgeApply,
-    InstanceApply,
-    NodeApply,
     NodeId,
-    View,
     ViewId,
 )
 from cognite.client.exceptions import CogniteException
@@ -20,7 +16,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartSource,
     ChartTimeseries,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier, NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    EdgeRequest,
+    InstanceRequest,
+    NodeReference,
+    NodeRequest,
+    ViewReference,
+    ViewResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     ContainerReferenceApply,
     FdmInstanceContainerReferenceApply,
@@ -91,11 +95,11 @@ class DataMapper(Generic[T_Selector, T_ResourceResponse, T_ResourceRequest], ABC
 
 
 class AssetCentricMapper(
-    DataMapper[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResourceExtended], InstanceApply]
+    DataMapper[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResourceExtended], InstanceRequest]
 ):
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
-        self._ingestion_view_by_id: dict[ViewId, View] = {}
+        self._ingestion_view_by_id: dict[ViewReference, ViewResponse] = {}
         self._view_mapping_by_id: dict[str, ResourceViewMappingApply] = {}
         self._direct_relation_cache = DirectRelationCache(client)
 
@@ -111,8 +115,17 @@ class AssetCentricMapper(
                 f"The following ingestion views were not found: {humanize_collection(missing_mappings)}"
             )
 
-        view_ids = list({mapping.view_id for mapping in self._view_mapping_by_id.values()})
-        views = self.client.data_modeling.views.retrieve(view_ids)
+        view_ids = list(
+            {
+                ViewReference(
+                    space=mapping.view_id.space,
+                    external_id=mapping.view_id.external_id,
+                    version=mapping.view_id.version,
+                )
+                for mapping in self._view_mapping_by_id.values()
+            }
+        )
+        views = self.client.tool.views.retrieve(view_ids)
         self._ingestion_view_by_id = {view.as_id(): view for view in views}
         missing_views = set(view_ids) - set(self._ingestion_view_by_id.keys())
         if missing_views:
@@ -122,11 +135,11 @@ class AssetCentricMapper(
 
     def map(
         self, source: Sequence[AssetCentricMapping[T_AssetCentricResourceExtended]]
-    ) -> Sequence[InstanceApply | None]:
+    ) -> Sequence[InstanceRequest | None]:
         """Map a chunk of asset-centric data to InstanceApplyList format."""
         # We update the direct relation cache in bulk for all resources in the chunk.
         self._direct_relation_cache.update(item.resource for item in source)
-        output: list[InstanceApply | None] = []
+        output: list[InstanceRequest | None] = []
         issues: list[ConversionIssue] = []
         for item in source:
             instance, conversion_issue = self._map_single_item(item)
@@ -157,12 +170,17 @@ class AssetCentricMapper(
 
     def _map_single_item(
         self, item: AssetCentricMapping[T_AssetCentricResourceExtended]
-    ) -> tuple[NodeApply | EdgeApply | None, ConversionIssue]:
+    ) -> tuple[NodeRequest | EdgeRequest | None, ConversionIssue]:
         mapping = item.mapping
         ingestion_view = mapping.get_ingestion_view()
         try:
             view_source = self._view_mapping_by_id[ingestion_view]
-            view_properties = self._ingestion_view_by_id[view_source.view_id].properties
+            view_ref = ViewReference(
+                space=view_source.view_id.space,
+                external_id=view_source.view_id.external_id,
+                version=view_source.view_id.version,
+            )
+            view_properties = self._ingestion_view_by_id[view_ref].properties
         except KeyError as e:
             raise RuntimeError(
                 f"Failed to lookup mapping or view for ingestion view '{ingestion_view}'. Did you forget to call .prepare()?"
@@ -262,11 +280,17 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
         return timeseries_core_collection
 
     def _create_new_timeseries_core(
-        self, ts_item: ChartTimeseries, node_id: NodeId, consumer_view_id: ViewId | None
+        self, ts_item: ChartTimeseries, node_id: NodeReference, consumer_view_id: ViewReference | None
     ) -> ChartCoreTimeseries:
         dumped = ts_item.model_dump(mode="json", by_alias=True, exclude_unset=True)
-        dumped["nodeReference"] = node_id
-        dumped["viewReference"] = consumer_view_id
+        dumped["nodeReference"] = NodeId(space=node_id.space, external_id=node_id.external_id)
+        dumped["viewReference"] = (
+            ViewId(
+                space=consumer_view_id.space, external_id=consumer_view_id.external_id, version=consumer_view_id.version
+            )
+            if consumer_view_id
+            else None
+        )
         new_uuid = str(uuid4())
         dumped["id"] = new_uuid
         dumped["type"] = "coreTimeseries"
@@ -274,7 +298,9 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
         core_timeseries = ChartCoreTimeseries.model_validate(dumped, extra="ignore")
         return core_timeseries
 
-    def _get_node_id_consumer_view_id(self, ts_item: ChartTimeseries) -> tuple[NodeId | None, ViewId | None]:
+    def _get_node_id_consumer_view_id(
+        self, ts_item: ChartTimeseries
+    ) -> tuple[NodeReference | None, ViewReference | None]:
         """Look up the node ID and consumer view ID for a given timeseries item.
 
         Prioritizes lookup by internal ID, then by external ID.
@@ -285,8 +311,8 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
         Returns:
             A tuple containing the consumer view ID and node ID, or None if not found.
         """
-        node_id: NodeId | None = None
-        consumer_view_id: ViewId | None = None
+        node_id: NodeReference | None = None
+        consumer_view_id: ViewReference | None = None
         for id_name, id_value in [("id", ts_item.ts_id), ("external_id", ts_item.ts_external_id)]:
             if id_value is None:
                 continue
@@ -315,10 +341,10 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
 class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvasApply]):
     # Note sequences are not supported in Canvas, so we do not include them here.
     asset_centric_resource_types = tuple(("asset", "event", "timeseries", "file"))
-    DEFAULT_ASSET_VIEW = ViewId("cdf_cdm", "CogniteAsset", "v1")
-    DEFAULT_EVENT_VIEW = ViewId("cdf_cdm", "CogniteActivity", "v1")
-    DEFAULT_FILE_VIEW = ViewId("cdf_cdm", "CogniteFile", "v1")
-    DEFAULT_TIMESERIES_VIEW = ViewId("cdf_cdm", "CogniteTimeSeries", "v1")
+    DEFAULT_ASSET_VIEW = ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1")
+    DEFAULT_EVENT_VIEW = ViewReference(space="cdf_cdm", external_id="CogniteActivity", version="v1")
+    DEFAULT_FILE_VIEW = ViewReference(space="cdf_cdm", external_id="CogniteFile", version="v1")
+    DEFAULT_TIMESERIES_VIEW = ViewReference(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1")
 
     def __init__(self, client: ToolkitClient, dry_run: bool, skip_on_missing_ref: bool = False) -> None:
         super().__init__(client)
@@ -372,14 +398,14 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
             if ids:
                 lookup_method(list(ids))
 
-    def _get_node_id(self, resource_id: int, resource_type: str) -> NodeId | None:
+    def _get_node_id(self, resource_id: int, resource_type: str) -> NodeReference | None:
         """Look up the node ID for a given resource ID and type."""
         try:
             return self.lookup_methods[resource_type](resource_id)
         except KeyError:
             raise ToolkitValueError(f"Unsupported resource type '{resource_type}' for container reference migration.")
 
-    def _get_consumer_view_id(self, resource_id: int, resource_type: str) -> ViewId:
+    def _get_consumer_view_id(self, resource_id: int, resource_type: str) -> ViewReference:
         """Look up the consumer view ID for a given resource ID and type."""
         lookup_map = {
             "asset": (self.client.migration.lookup.assets.consumer_view, self.DEFAULT_ASSET_VIEW),
@@ -439,8 +465,8 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
         cls,
         reference: ContainerReferenceApply,
         canvas_external_id: str,
-        instance_id: NodeId,
-        consumer_view: ViewId,
+        instance_id: NodeReference,
+        consumer_view: ViewReference,
         uuid_generator: dict[str, str],
     ) -> FdmInstanceContainerReferenceApply:
         """Migrate a single container reference by replacing the asset-centric ID with the data model instance ID."""

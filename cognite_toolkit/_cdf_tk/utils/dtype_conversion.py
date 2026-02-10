@@ -2,21 +2,20 @@ import ctypes
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import date, datetime
 from typing import ClassVar, Literal, overload
 
-from cognite.client.data_classes import Label, LabelDefinition
-from cognite.client.data_classes.data_modeling import ContainerId
-from cognite.client.data_classes.data_modeling.data_types import (
-    DirectRelationReference,
-    Enum,
-    ListablePropertyType,
-    PropertyType,
-)
-from cognite.client.data_classes.data_modeling.instances import PropertyValueWrite
 from cognite.client.utils import ms_to_datetime
 from dateutil import parser
 
+from cognite_toolkit._cdf_tk.client.resource_classes import data_modeling
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerReference,
+    EnumProperty,
+    ListablePropertyTypeDefinition,
+    NodeReference,
+    PropertyTypeDefinition,
+)
 from cognite_toolkit._cdf_tk.constants import CDF_UNIT_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
@@ -30,6 +29,9 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
 
 from .collection import humanize_collection
 
+# Type alias for property values that can be written to data modeling instances.
+PropertyValueWrite = str | int | float | bool | dict | list | datetime | date | None
+
 INT32_MIN = -2_147_483_648
 INT32_MAX = 2_147_483_647
 INT64_MIN = -9_223_372_036_854_775_808
@@ -38,17 +40,17 @@ INT64_MAX = 9_223_372_036_854_775_807
 
 def asset_centric_convert_to_primary_property(
     value: str | int | float | bool | dict | list | None,
-    type_: PropertyType,
+    type_: PropertyTypeDefinition,
     nullable: bool,
-    destination_container_property: tuple[ContainerId, str],
+    destination_container_property: tuple[data_modeling.ContainerReference, str],
     source_property: tuple[AssetCentricTypeExtended, str],
-    direct_relation_lookup: Mapping[str | int, DirectRelationReference] | None = None,
+    direct_relation_lookup: Mapping[str | int, NodeReference] | None = None,
 ) -> PropertyValueWrite:
     if (source_property, destination_container_property) in SPECIAL_CONVERTER_BY_SOURCE_DESTINATION:
         converter_cls = SPECIAL_CONVERTER_BY_SOURCE_DESTINATION[(source_property, destination_container_property)]
         if issubclass(converter_cls, _SourceConverter):
             if direct_relation_lookup is None:
-                raise TypeError("Direct relation lookup must be provided for DirectRelationReference conversion")
+                raise TypeError("Direct relation lookup must be provided for NodeReference conversion")
             return converter_cls(direct_relation_lookup=direct_relation_lookup).convert(value)
         else:
             return converter_cls().convert(value)
@@ -59,47 +61,46 @@ def asset_centric_convert_to_primary_property(
 
 def convert_to_primary_property(
     value: str | int | float | bool | dict | list | None,
-    type_: PropertyType,
+    type_: PropertyTypeDefinition,
     nullable: bool,
-    direct_relation_lookup: Mapping[str | int, DirectRelationReference] | None = None,
+    direct_relation_lookup: Mapping[str | int, NodeReference] | None = None,
 ) -> PropertyValueWrite:
     """Convert a string value to the appropriate type based on the provided property type.
 
     Args:
         value (str | int | float | bool): The value to convert.
-        type_ (PropertyType): The type of the property to convert to.
+        type_ (PropertyTypeDefinition): The type of the property to convert to.
         nullable (bool): Whether the property can be null.
-        direct_relation_lookup (Mapping[str | int, DirectRelationReference] | None): A mapping from external/internal
-            IDs to DirectRelationReference objects,
+        direct_relation_lookup (Mapping[str | int, NodeReference] | None): A mapping from external/internal
+            IDs to NodeReference objects,
 
     Returns:
         PropertyValueWrite: The converted value as a PropertyValue, or None if is_nullable is True and the value is empty.
     """
-    dtype = type_._type
+    dtype = type_.type
     if dtype in CONVERTER_BY_DTYPE:
         converter_cls = CONVERTER_BY_DTYPE[dtype]
     else:
         raise TypeError(f"Unsupported property type {dtype}")
-    if issubclass(converter_cls, _EnumConverter) and isinstance(type_, Enum):
+    if issubclass(converter_cls, _EnumConverter) and isinstance(type_, EnumProperty):
         converter: _ValueConverter = _EnumConverter(type_=type_, nullable=nullable)
     elif issubclass(converter_cls, _EnumConverter):
         raise TypeError(f"Unsupported property type {type_} for enum conversion")
     elif issubclass(converter_cls, _DirectRelationshipConverter):
         if direct_relation_lookup is None:
-            raise TypeError("Direct relation lookup must be provided for DirectRelationReference conversion")
+            raise TypeError("Direct relation lookup must be provided for NodeReference conversion")
         converter = _DirectRelationshipConverter(direct_relation_lookup=direct_relation_lookup)
     else:
         converter = converter_cls(nullable)
 
-    if isinstance(type_, ListablePropertyType) and type_.is_list:
+    if isinstance(type_, ListablePropertyTypeDefinition) and type_.list:
         values = _as_list(value)
         output: list[PropertyValueWrite] = []
         for item in values:
             converted = converter.convert(item)  # type: ignore[arg-type]
             if converted is not None:
                 output.append(converted)
-        # MyPy gets confused by the SequenceNotStr used in the PropertyValueWrite
-        return output  # type: ignore[return-value]
+        return output
     else:
         return converter.convert(value)
 
@@ -134,11 +135,10 @@ def convert_str_to_data_type(
         for item in values:
             converted = converter.convert(item)  # type: ignore[arg-type]
             if converted is not None:
-                output.append(converted)  # type: ignore[arg-type]
-        # MyPy gets confused by the SequenceNotStr used in the PropertyValueWrite
+                output.append(converted)
         return output
     else:
-        return converter.convert(value)  # type: ignore[return-value]
+        return converter.convert(value)
 
 
 @overload
@@ -190,7 +190,7 @@ def infer_data_type_from_value(value: str, dtype: Literal["Json", "Python"]) -> 
             # If the converted value is a datetime with no time component, return it as a date
             return _DateConverter.schema_type, converted_value.date()
         else:
-            return converter_cls.schema_type, converted_value  # type: ignore[return-value]
+            return converter_cls.schema_type, converted_value
 
     raise ValueError(
         f"Failed to infer data type from value: {value!r}. Supported types are: "
@@ -258,12 +258,12 @@ class _SpecialCaseConverter(_Converter, ABC):
     """Abstract base class for converters handling special cases."""
 
     source_property: ClassVar[tuple[AssetCentricType, str]]
-    destination_container_property: ClassVar[tuple[ContainerId, str]]
+    destination_container_property: ClassVar[tuple[ContainerReference, str]]
 
 
 class _TimeSeriesTypeConverter(_SpecialCaseConverter):
     source_property = ("timeseries", "isString")
-    destination_container_property = (ContainerId("cdf_cdm", "CogniteTimeSeries"), "type")
+    destination_container_property = (ContainerReference(space="cdf_cdm", external_id="CogniteTimeSeries"), "type")
 
     def convert(self, value: str | int | float | bool | dict | list | None) -> str:
         if isinstance(value, bool):
@@ -273,7 +273,7 @@ class _TimeSeriesTypeConverter(_SpecialCaseConverter):
 
 class _TimeSeriesUnitConverter(_SpecialCaseConverter):
     source_property = ("timeseries", "unitExternalId")
-    destination_container_property = (ContainerId("cdf_cdm", "CogniteTimeSeries"), "unit")
+    destination_container_property = (ContainerReference(space="cdf_cdm", external_id="CogniteTimeSeries"), "unit")
 
     def convert(self, value: str | int | float | bool | dict | list | None) -> dict[str, str] | None:
         if value is None:
@@ -284,7 +284,7 @@ class _TimeSeriesUnitConverter(_SpecialCaseConverter):
 
 
 class _LabelConverter(_SpecialCaseConverter, ABC):
-    destination_container_property = (ContainerId("cdf_cdm", "CogniteDescribable"), "tags")
+    destination_container_property = (ContainerReference(space="cdf_cdm", external_id="CogniteDescribable"), "tags")
 
     def convert(self, value: str | int | float | bool | dict | list | None) -> list[str]:
         if not isinstance(value, list):
@@ -298,9 +298,6 @@ class _LabelConverter(_SpecialCaseConverter, ABC):
                     tags.append(tag)
                 # Matches a dict with the key "externalId" whose value is a string
                 case {"externalId": str() as tag}:
-                    tags.append(tag)
-                # Matches Label or LabelDefinition objects with a truthy external_id
-                case Label(external_id=tag) | LabelDefinition(external_id=tag) if tag:
                     tags.append(tag)
                 case _:
                     raise ValueError(
@@ -318,22 +315,20 @@ class _FileLabelConverter(_LabelConverter):
 
 
 class _SourceConverter(_SpecialCaseConverter, ABC):
-    destination_container_property = (ContainerId("cdf_cdm", "CogniteSourceable"), "source")
+    destination_container_property = (ContainerReference(space="cdf_cdm", external_id="CogniteSourceable"), "source")
 
-    def __init__(self, direct_relation_lookup: Mapping[str | int, DirectRelationReference]) -> None:
+    def __init__(self, direct_relation_lookup: Mapping[str | int, NodeReference]) -> None:
         self.direct_relation_lookup = direct_relation_lookup
 
-    def convert(self, value: str | int | float | bool | dict | list | None) -> DirectRelationReference:
+    def convert(self, value: str | int | float | bool | dict | list | None) -> PropertyValueWrite:
         if isinstance(value, str | int):
             if value in self.direct_relation_lookup:
-                return self.direct_relation_lookup[value]
+                return self.direct_relation_lookup[value].dump(exclude_extra=True)
             elif isinstance(value, str) and value.casefold() in self.direct_relation_lookup:
                 # The aggregate endpoint used to create source system lowercases all sources, thus
                 # we do a case-insensitive lookup as a fallback.
-                return self.direct_relation_lookup[value.casefold()]
-        raise ValueError(
-            f"Cannot convert {value!r} to DirectRelationReference. Invalid data type or missing in lookup."
-        )
+                return self.direct_relation_lookup[value.casefold()].dump(exclude_extra=True)
+        raise ValueError(f"Cannot convert {value!r} to NodeReference. Invalid data type or missing in lookup.")
 
 
 class _AssetSourceConverter(_SourceConverter):
@@ -526,7 +521,7 @@ class _DateConverter(_ValueConverter):
 class _EnumConverter(_ValueConverter):
     type_str = "enum"
 
-    def __init__(self, type_: Enum, nullable: bool) -> None:
+    def __init__(self, type_: EnumProperty, nullable: bool) -> None:
         super().__init__(nullable)
         self.available_types = {enum_value.casefold(): enum_value for enum_value in type_.values.keys()}
 
@@ -542,16 +537,14 @@ class _EnumConverter(_ValueConverter):
 class _DirectRelationshipConverter(_ValueConverter):
     type_str = "direct"
 
-    def __init__(self, direct_relation_lookup: Mapping[str | int, DirectRelationReference]) -> None:
+    def __init__(self, direct_relation_lookup: Mapping[str | int, NodeReference]) -> None:
         super().__init__(nullable=True)
         self.direct_relation_lookup = direct_relation_lookup
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, str | int) and value in self.direct_relation_lookup:
-            return self.direct_relation_lookup[value]
-        raise ValueError(
-            f"Cannot convert {value!r} to DirectRelationReference. Invalid data type or missing in lookup."
-        )
+            return self.direct_relation_lookup[value].dump(exclude_extra=True)
+        raise ValueError(f"Cannot convert {value!r} to NodeReference. Invalid data type or missing in lookup.")
 
 
 class _TimeSeriesReferenceConverter(_ValueConverter):
@@ -580,7 +573,7 @@ CONVERTER_BY_DTYPE: Mapping[str, type[_ValueConverter]] = {
     for cls_ in _ValueConverter.__subclasses__()
 }
 SPECIAL_CONVERTER_BY_SOURCE_DESTINATION: Mapping[
-    tuple[tuple[AssetCentricTypeExtended, str], tuple[ContainerId, str]],
+    tuple[tuple[AssetCentricTypeExtended, str], tuple[ContainerReference, str]],
     type[_SpecialCaseConverter],
 ] = {
     (subclass.source_property, subclass.destination_container_property): subclass

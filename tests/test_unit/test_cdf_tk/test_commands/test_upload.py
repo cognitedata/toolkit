@@ -4,10 +4,11 @@ from pathlib import Path
 
 import pytest
 import respx
-from cognite.client.data_classes import data_modeling as dm
 from cognite.client.data_classes.raw import RowWrite, Table, TableList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable, RawTableList
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
@@ -154,13 +155,13 @@ class TestUploadCommand:
     def test_instance_selector_topological_sorts_and_preserves_selectors(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cognite_core_no_3D: dm.DataModel,
-        cognite_core_containers_no_3D: dm.ContainerList,
+        cognite_core_no_3D: DataModelResponseWithViews,
+        cognite_core_containers_no_3D: list[ContainerResponse],
     ) -> None:
         """Test that _topological_sort_if_instance_selector sorts instance selectors by dependencies and preserves non-instance selectors."""
         cmd = UploadCommand(silent=True, skip_tracking=True)
-        toolkit_client_approval.append(dm.View, cognite_core_no_3D.views)
-        toolkit_client_approval.append(dm.Container, cognite_core_containers_no_3D)
+        toolkit_client_approval.append(ViewResponse, cognite_core_no_3D.views)
+        toolkit_client_approval.append(ContainerResponse, cognite_core_containers_no_3D)
 
         data_files_by_selector: dict[Selector, list[Path]] = {}
         selector_by_view_external_id: dict[str, Selector] = {}

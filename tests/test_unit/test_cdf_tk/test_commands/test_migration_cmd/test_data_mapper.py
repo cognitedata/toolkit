@@ -3,19 +3,19 @@ from typing import Any, ClassVar
 from unittest.mock import MagicMock
 
 import pytest
-from cognite.client.data_classes import Asset
 from cognite.client.data_classes.data_modeling import (
-    DataModel,
-    DirectRelationReference,
     InstanceApply,
     NodeId,
     NodeList,
-    View,
     ViewId,
 )
 
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    DataModelResponseWithViews,
+    NodeReference,
+    ViewResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import CreatedSourceSystem, ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -37,26 +37,29 @@ from tests.data import MIGRATION_DIR
 
 class TestAssetCentricMapper:
     def test_map_assets(
-        self, tmp_path: Path, cognite_core_no_3D: DataModel[View], cognite_extractor_views: list[View]
+        self,
+        tmp_path: Path,
+        cognite_core_no_3D: DataModelResponseWithViews,
+        cognite_extractor_views: list[ViewResponse],
     ) -> None:
         asset_count = 10
         source = AssetCentricMappingList(
             [
                 AssetCentricMapping(
                     mapping=MigrationMapping(
-                        resourceType="asset",
-                        instanceId=NodeId(space="my_space", external_id=f"asset_{i}"),
+                        resource_type="asset",
+                        instance_id=NodeReference(space="my_space", external_id=f"asset_{i}"),
                         id=1000 + i,
-                        ingestionView="cdf_asset_mapping",
+                        ingestion_view="cdf_asset_mapping",
                     ),
                     resource=AssetResponse(
                         id=1000 + i,
                         name=f"Asset {i}",
                         source="SAP",
                         description=f"Description {i}",
-                        createdTime=1,
-                        lastUpdatedTime=1,
-                        rootId=0,
+                        created_time=1,
+                        last_updated_time=1,
+                        root_id=0,
                     ),
                 )
                 for i in range(asset_count)
@@ -100,7 +103,7 @@ class TestAssetCentricMapper:
                     ),
                 ]
             )
-            client.data_modeling.views.retrieve.return_value = cognite_core_no_3D.views + cognite_extractor_views
+            client.tool.views.retrieve.return_value = cognite_core_no_3D.views + cognite_extractor_views
 
             mapper = AssetCentricMapper(client)
 
@@ -114,13 +117,13 @@ class TestAssetCentricMapper:
             # tests for the asset_centric_to_dm function.
             assert len(mapped) == asset_count
             first_asset = mapped[0]
-            assert first_asset.sources[0].properties["source"] == DirectRelationReference("source_systems", "SAP")
+            assert first_asset.sources[0].properties["source"] == {"space": "source_systems", "externalId": "SAP"}
 
             # Check lookup calls
             assert client.migration.resource_view_mapping.retrieve.call_count == 1
             client.migration.resource_view_mapping.retrieve.assert_called_with(["cdf_asset_mapping"])
             assert client.migration.created_source_system.retrieve.call_count == 1
-            assert client.data_modeling.views.retrieve.call_count == 1
+            assert client.tool.views.retrieve.call_count == 1
 
             assert client.migration.created_source_system.retrieve.call_count == 1
             client.migration.created_source_system.retrieve.assert_called_with(["sap"])
@@ -129,15 +132,18 @@ class TestAssetCentricMapper:
         """Test that calling map_chunk before prepare raises a RuntimeError."""
         source = AssetCentricMapping(
             mapping=MigrationMapping(
-                resourceType="asset",
-                instanceId=NodeId(space="my_space", external_id="asset_1"),
+                resource_type="asset",
+                instance_id=NodeReference(space="my_space", external_id="asset_1"),
                 id=1001,
-                ingestionView="cdf_asset_mapping",
+                ingestion_view="cdf_asset_mapping",
             ),
-            resource=Asset(
+            resource=AssetResponse(
                 id=1001,
                 name="Asset 1",
                 description="Description 1",
+                created_time=1,
+                last_updated_time=0,
+                root_id=0,
             ),
         )
 

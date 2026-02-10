@@ -8,6 +8,8 @@ from typing import Any, ClassVar, Generic, Literal, TypeVar, Union, get_args, ge
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
+from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, yaml_safe_dump
+
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
@@ -37,10 +39,28 @@ class BaseModelObject(BaseModel):
             )
         return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True)
 
+    def dump_yaml(self, camel_case: bool = True, exclude_extra: bool = False) -> str:
+        """Dump the resource to a YAML string.
+
+        Args:
+            camel_case (bool): Whether to use camelCase for the keys. Default is True.
+            exclude_extra (bool): Whether to exclude extra fields not defined in the model. Default is False.
+
+        """
+        return yaml_safe_dump(self.dump(camel_case=camel_case, exclude_extra=exclude_extra))
+
     @classmethod
     def _load(cls, resource: dict[str, Any]) -> Self:
         """Load method to match CogniteResource signature."""
         return cls.model_validate(resource, by_alias=True)
+
+    @classmethod
+    def load_yaml(cls, yaml_content: str) -> Self:
+        """Load the resource from a YAML string."""
+        content = read_yaml_content(yaml_content)
+        if not isinstance(content, dict):
+            raise ValueError(f"YAML content must be a dictionary to load into {cls}, got {type(content)}")
+        return cls._load(content)
 
 
 class RequestItem(BaseModelObject, ABC):

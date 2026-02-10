@@ -1,19 +1,19 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any, Generic, Literal
+from typing import Any, Generic, Literal
 
 from cognite.client.data_classes._base import (
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
-from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, NodeId, ViewId
-from cognite.client.utils._identifier import InstanceId
+from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, NodeId
 from cognite.client.utils._text import to_camel_case
-from pydantic import BaseModel, BeforeValidator, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from rich.panel import Panel
 from rich.text import Text
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeReference, NodeReference, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceApplyList
@@ -48,11 +48,11 @@ class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore",
     """
 
     resource_type: str
-    instance_id: InstanceId
+    instance_id: NodeReference | EdgeReference
     id: int
     data_set_id: int | None = None
     ingestion_view: str | None = None
-    preferred_consumer_view: ViewId | None = None
+    preferred_consumer_view: ViewReference | None = None
 
     def get_ingestion_view(self) -> str:
         """Get the ingestion view for the mapping. If not specified, return the default ingestion view."""
@@ -90,12 +90,6 @@ class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore",
     def _empty_string_to_none(cls, v: Any) -> Any:
         if isinstance(v, str) and not v.strip():
             return None
-        return v
-
-    @field_validator("preferred_consumer_view", mode="before")
-    def _validate_preferred_consumer_view(cls, v: Any) -> Any:
-        if isinstance(v, dict):
-            return ViewId.load(v)
         return v
 
 
@@ -199,35 +193,29 @@ class MigrationMappingList(ModelList[MigrationMapping]):
         return Panel(text, title="Ready for migration", expand=False)
 
 
-def _validate_node_id(value: Any) -> Any:
-    if isinstance(value, dict):
-        return NodeId.load(value)
-    return value
-
-
 class AssetMapping(MigrationMapping):
     resource_type: Literal["asset"] = "asset"
-    instance_id: Annotated[NodeId, BeforeValidator(_validate_node_id)]
+    instance_id: NodeReference
 
 
 class EventMapping(MigrationMapping):
     resource_type: Literal["event"] = "event"
-    instance_id: Annotated[NodeId, BeforeValidator(_validate_node_id)]
+    instance_id: NodeReference
 
 
 class TimeSeriesMapping(MigrationMapping):
     resource_type: Literal["timeseries"] = "timeseries"
-    instance_id: Annotated[NodeId, BeforeValidator(_validate_node_id)]
+    instance_id: NodeReference
 
 
 class FileMapping(MigrationMapping):
     resource_type: Literal["file"] = "file"
-    instance_id: Annotated[NodeId, BeforeValidator(_validate_node_id)]
+    instance_id: NodeReference
 
 
 class AnnotationMapping(MigrationMapping):
     resource_type: Literal["annotation"] = "annotation"
-    instance_id: EdgeId
+    instance_id: EdgeReference
     annotation_type: Literal["diagrams.AssetLink", "diagrams.FileLink"] | None = None
 
     def get_ingestion_view(self) -> str:
@@ -240,12 +228,6 @@ class AnnotationMapping(MigrationMapping):
             return FILE_ANNOTATIONS_ID
         else:
             raise ToolkitValueError("Cannot determine default ingestion view for annotation without annotation_type")
-
-    @field_validator("instance_id", mode="before")
-    def _validate_instance_id(cls, v: Any) -> Any:
-        if isinstance(v, dict):
-            return EdgeId.load(v)
-        return v
 
 
 class AssetMigrationMappingList(MigrationMappingList):

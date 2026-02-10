@@ -1,8 +1,11 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from cognite.client.data_classes.data_modeling import Container, ContainerProperty, Text
-
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerPropertyDefinition,
+    ContainerResponse,
+    TextProperty,
+)
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, ResourceWorker
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -26,7 +29,7 @@ indexes: {}
 """
         file = MagicMock(spec=Path)
         file.read_text.return_value = raw_file
-        cdf_container = Container(
+        cdf_container = ContainerResponse(
             space="sp_enterprise_process_industry_full",
             external_id="Toolkit360Image",
             last_updated_time=1739469813633,
@@ -35,12 +38,19 @@ indexes: {}
             name=None,
             used_for="node",
             is_global=False,
-            properties={"UUID": ContainerProperty(type=Text())},
+            properties={
+                "UUID": ContainerPropertyDefinition(
+                    type=TextProperty(list=False, collation="ucs_basic"),
+                    immutable=False,
+                    nullable=True,
+                    auto_increment=False,
+                )
+            },
             indexes={},
             constraints={},
         )
 
-        toolkit_client_approval.append(Container, [cdf_container])
+        toolkit_client_approval.append(ContainerResponse, [cdf_container])
 
         worker = ResourceWorker(crud, "deploy")
         resources = worker.prepare_resources([file])

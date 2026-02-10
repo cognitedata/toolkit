@@ -11,8 +11,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     UpdatableRequestResource,
 )
 
+from .data_modeling import NodeReference
 from .identifiers import InternalId
-from .instance_api import NodeReference
 
 if sys.version_info >= (3, 11):
     from typing import Self

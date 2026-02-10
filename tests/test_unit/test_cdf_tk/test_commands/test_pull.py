@@ -5,8 +5,8 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from cognite.client.data_classes.data_modeling import ViewId
 
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference
 from cognite_toolkit._cdf_tk.commands.pull import PullCommand, ResourceYAMLDifference, TextFileDifference
 from cognite_toolkit._cdf_tk.cruds import DataSetsCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -530,7 +530,7 @@ filter:
     externalId: another_data_external_id
 """
     to_write_view = {
-        ViewId(space="my_space", external_id="my_external_id", version="v1"): {
+        ViewReference(space="my_space", external_id="my_external_id", version="v1"): {
             "space": "my_space",
             "externalId": "my_external_id",
             "version": "v1",
@@ -558,7 +558,7 @@ filter:
     )
     view_resource = MagicMock(spec=BuiltResourceFull)
     view_resource.build_variables = BuildVariables([variable_view])
-    view_resource.identifier = ViewId(space="my_space", external_id="my_external_id", version="v1")
+    view_resource.identifier = ViewReference(space="my_space", external_id="my_external_id", version="v1")
     view_resource.extra_sources = []
 
     resources_view = BuiltFullResourceList([view_resource])
