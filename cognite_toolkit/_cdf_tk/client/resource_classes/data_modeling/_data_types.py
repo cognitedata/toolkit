@@ -1,8 +1,8 @@
 from abc import ABC
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, TypeAdapter, model_serializer
-from pydantic_core.core_schema import SerializerFunctionWrapHandler
+from pydantic import Field, TypeAdapter, field_serializer, model_serializer
+from pydantic_core.core_schema import FieldSerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 
@@ -89,6 +89,11 @@ class DirectNodeRelation(ListablePropertyTypeDefinition):
     # This property is only available in the response object. It will be ignored in the request object.
     # In the request object, use ViewCoreProperty.source instead.
     source: ViewReference | None = Field(None, exclude=True)
+
+    @field_serializer("container", mode="plain")
+    @classmethod
+    def serialize_require(cls, container: ContainerReference, info: FieldSerializationInfo) -> dict[str, Any]:
+        return {**container.model_dump(**vars(info)), "type": "container"}
 
 
 class EnumValue(BaseModelObject):
