@@ -14,7 +14,6 @@ from cognite.client.data_classes.data_modeling import (
     DataModel,
     DataModelList,
     EdgeApply,
-    NodeApply,
     NodeList,
     NodeOrEdgeData,
     View,
@@ -25,9 +24,9 @@ from cognite.client.data_classes.data_modeling.statistics import InstanceStatist
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData, ChartSource, ChartTimeseries
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import ContainerReference, IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, CanvasMapper, ChartMapper
@@ -69,7 +68,7 @@ def cognite_migration_model(
     migration_model["lastUpdatedTime"] = 1
     migration_model["isGlobal"] = False
     respx_mock.post(
-        config.create_api_url("models/dataModels/byids"),
+        config.create_api_url("models/datamodels/byids"),
     ).respond(
         json={"items": [migration_model]},
     )
@@ -79,12 +78,12 @@ def cognite_migration_model(
 @pytest.fixture
 def resource_view_mappings(
     toolkit_config: ToolkitClientConfig,
-    cognite_migration_model: respx.MockRouter,
+    rsps: responses.RequestsMock,
+    respx_mock: cognite_migration_model,
     cognite_core_no_3D: DataModel[View],
     cognite_extractor_views: list[View],
 ) -> Iterator[respx.MockRouter]:
     """Mock all the default Resource View Mappings in the Cognite Migration Model."""
-    respx_mock = cognite_migration_model
     config = toolkit_config
     mapping_by_id = {mapping.external_id: mapping for mapping in create_default_mappings()}
     node_items: list[dict] = []
@@ -101,11 +100,10 @@ def resource_view_mappings(
                 }
             }
         node_items.append(mapping_node_response)
-    respx_mock.post(
+    rsps.post(
         config.create_api_url("models/instances/byids"),
-    ).respond(
         json={"items": node_items},
-        status_code=200,
+        status=200,
     )
     respx_mock.post(
         config.create_api_url("models/views/byids"),
@@ -169,14 +167,14 @@ def mock_statistics(
 
 @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
 class TestMigrationCommand:
-    @pytest.mark.usefixtures("mock_statistics")
+    @pytest.mark.usefixtures("mock_statistics", "resource_view_mappings")
     def test_migrate_assets(
         self,
         toolkit_config: ToolkitClientConfig,
         tmp_path: Path,
-        resource_view_mappings: respx.MockRouter,
+        cognite_migration_model: respx.MockRouter,
     ) -> None:
-        respx_mock = resource_view_mappings
+        respx_mock = cognite_migration_model
         config = toolkit_config
         assets = [
             AssetResponse(
@@ -250,18 +248,18 @@ class TestMigrationCommand:
         assert last_call.request.method == "POST"
         actual_instances = json.loads(last_call.request.content)["items"]
         expected_instance = [
-            NodeApply(
+            NodeRequest(
                 space=space,
                 external_id=asset.external_id,
                 sources=[
-                    NodeOrEdgeData(
-                        source=ViewId("cdf_cdm", "CogniteAsset", "v1"),
+                    InstanceSource(
+                        source=ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
                         properties={
                             "name": asset.name,
                             "description": asset.description,
                         },
                     ),
-                    NodeOrEdgeData(
+                    InstanceSource(
                         source=INSTANCE_SOURCE_VIEW_ID,
                         properties={
                             "id": asset.id,
@@ -759,7 +757,7 @@ class TestMigrationCommand:
             model2 = MagicMock(spec=DataModel)
             model2.as_id.return_value = MODEL_ID
 
-            client.data_modeling.data_models.retrieve.return_value = DataModelList([model1, model2])
+            client.tool.data_models.retrieve.return_value = DataModelList([model1, model2])
 
             with pytest.raises(ToolkitMigrationError) as exc_info:
                 MigrationCommand.validate_migration_model_available(client)
@@ -790,12 +788,12 @@ class TestMigrationCommand:
             # Model has all required views
             model.views = [INSTANCE_SOURCE_VIEW_ID, RESOURCE_VIEW_MAPPING_VIEW_ID]
 
-            client.data_modeling.data_models.retrieve.return_value = DataModelList([model])
+            client.tool.data_models.retrieve.return_value = DataModelList([model])
 
             # Should not raise any exception
             MigrationCommand.validate_migration_model_available(client)
 
-            client.data_modeling.data_models.retrieve.assert_called_once_with([MODEL_ID], inline_views=False)
+            client.tool.data_models.retrieve.assert_called_once_with([MODEL_ID], inline_views=False)
 
     def test_validate_available_capacity_missing_capacity(self) -> None:
         cmd = MigrationCommand(silent=True)

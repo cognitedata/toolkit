@@ -1,23 +1,33 @@
 import json
 from collections.abc import Mapping
-from datetime import datetime, timezone
 from typing import Any, ClassVar
 
 import pytest
 from cognite.client.data_classes import Annotation, Sequence
-from cognite.client.data_classes.data_modeling import (
-    EdgeApply,
-    NodeId,
-    NodeOrEdgeData,
-)
-from cognite.client.data_classes.data_modeling import data_types as dt
-from cognite.client.data_classes.data_modeling.data_types import DirectRelationReference, EnumValue
-from cognite.client.data_classes.data_modeling.ids import ContainerId, EdgeId, ViewId
-from cognite.client.data_classes.data_modeling.instances import NodeList, PropertyValueWrite
-from cognite.client.data_classes.data_modeling.views import MappedProperty, MultiEdgeConnection, ViewProperty
+from cognite.client.data_classes.data_modeling.ids import ViewId
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    BooleanProperty,
+    ConstraintOrIndexState,
+    ContainerReference,
+    DirectNodeRelation,
+    EdgeReference,
+    EdgeRequest,
+    EnumProperty,
+    EnumValue,
+    InstanceSource,
+    Int64Property,
+    JSONProperty,
+    MultiEdgeProperty,
+    NodeReference,
+    TextProperty,
+    TimestampProperty,
+    ViewCorePropertyResponse,
+    ViewReference,
+    ViewResponseProperty,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
@@ -43,30 +53,30 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
 def direct_relation_cache() -> DirectRelationCache:
     with monkeypatch_toolkit_client() as client:
         client.migration.lookup.assets.return_value = {
-            123: NodeId("test_space", "asset_123_instance"),
-            1: NodeId("instance_space", "MyFirstAsset"),
+            123: NodeReference(space="test_space", external_id="asset_123_instance"),
+            1: NodeReference(space="instance_space", external_id="MyFirstAsset"),
         }
-        client.migration.lookup.files.return_value = {42: NodeId("test_space", "file_456_instance")}
-        client.migration.created_source_system.retrieve.return_value = NodeList[CreatedSourceSystem](
-            [
-                CreatedSourceSystem(
-                    space="test_space",
-                    external_id="source_system_1_instance",
-                    version=1,
-                    last_updated_time=1,
-                    created_time=1,
-                    source="source_system_1",
-                ),
-                CreatedSourceSystem(
-                    space="instance_space",
-                    external_id="TheSourceA",
-                    version=1,
-                    last_updated_time=1,
-                    created_time=1,
-                    source="sourceA",
-                ),
-            ]
-        )
+        client.migration.lookup.files.return_value = {
+            42: NodeReference(space="test_space", external_id="file_456_instance")
+        }
+        client.migration.created_source_system.retrieve.return_value = [
+            CreatedSourceSystem(
+                space="test_space",
+                external_id="source_system_1_instance",
+                version=1,
+                last_updated_time=1,
+                created_time=1,
+                source="source_system_1",
+            ),
+            CreatedSourceSystem(
+                space="instance_space",
+                external_id="TheSourceA",
+                version=1,
+                last_updated_time=1,
+                created_time=1,
+                source="sourceA",
+            ),
+        ]
         cache = DirectRelationCache(client)
         cache.update(
             [
@@ -80,8 +90,10 @@ def direct_relation_cache() -> DirectRelationCache:
 
 class TestCreateProperties:
     INSTANCE_ID = NodeReference(space="test_space", external_id="test_instance")
-    CONTAINER_ID = ContainerId("test_space", "test_container")
-    DEFAULT_CONTAINER_ARGS: ClassVar = dict(nullable=True, immutable=False, auto_increment=False)
+    CONTAINER_ID = ContainerReference(space="test_space", external_id="test_container")
+    DEFAULT_CONTAINER_ARGS: ClassVar = dict(
+        nullable=True, immutable=False, auto_increment=False, constraint_state=ConstraintOrIndexState()
+    )
     ASSET_CENTRIC_ID = AssetCentricId(resource_type="asset", id_=123)
     EVENT_CENTRIC_ID = AssetCentricId(resource_type="event", id_=456)
 
@@ -91,9 +103,24 @@ class TestCreateProperties:
             pytest.param(
                 {"name": "MyAsset", "description": "An asset,", "metadata": {"categoryNo": "1"}},
                 {
-                    "nameId": MappedProperty(CONTAINER_ID, "nameId", dt.Text(), **DEFAULT_CONTAINER_ARGS),
-                    "descriptionId": MappedProperty(CONTAINER_ID, "descriptionId", dt.Text(), **DEFAULT_CONTAINER_ARGS),
-                    "categoryNoId": MappedProperty(CONTAINER_ID, "categoryNoId", dt.Int64(), **DEFAULT_CONTAINER_ARGS),
+                    "nameId": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="nameId",
+                        type=TextProperty(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
+                    "descriptionId": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="descriptionId",
+                        type=TextProperty(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
+                    "categoryNoId": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="categoryNoId",
+                        type=Int64Property(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
                 },
                 {"name": "nameId", "description": "descriptionId", "metadata.categoryNo": "categoryNoId"},
                 {"nameId": "MyAsset", "descriptionId": "An asset,", "categoryNoId": 1},
@@ -103,14 +130,29 @@ class TestCreateProperties:
             pytest.param(
                 {"name": "MyAsset", "created": "2023-01-01T12:00:00Z", "active": True},
                 {
-                    "nameId": MappedProperty(CONTAINER_ID, "nameId", dt.Text(), **DEFAULT_CONTAINER_ARGS),
-                    "createdId": MappedProperty(CONTAINER_ID, "createdId", dt.Timestamp(), **DEFAULT_CONTAINER_ARGS),
-                    "activeId": MappedProperty(CONTAINER_ID, "activeId", dt.Boolean(), **DEFAULT_CONTAINER_ARGS),
+                    "nameId": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="nameId",
+                        type=TextProperty(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
+                    "createdId": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="createdId",
+                        type=TimestampProperty(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
+                    "activeId": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="activeId",
+                        type=BooleanProperty(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
                 },
                 {"name": "nameId", "created": "createdId", "active": "activeId"},
                 {
                     "nameId": "MyAsset",
-                    "createdId": datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+                    "createdId": "2023-01-01T12:00:00+00:00",
                     "activeId": True,
                 },
                 ConversionIssue(id=str(ASSET_CENTRIC_ID), asset_centric_id=ASSET_CENTRIC_ID, instance_id=INSTANCE_ID),
@@ -119,8 +161,18 @@ class TestCreateProperties:
             pytest.param(
                 {"name": "MyAsset"},
                 {
-                    "nameId": MappedProperty(CONTAINER_ID, "nameId", dt.Text(), **DEFAULT_CONTAINER_ARGS),
-                    "descriptionId": MappedProperty(CONTAINER_ID, "descriptionId", dt.Text(), **DEFAULT_CONTAINER_ARGS),
+                    "nameId": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="nameId",
+                        type=TextProperty(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
+                    "descriptionId": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="descriptionId",
+                        type=TextProperty(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
                 },
                 {"name": "nameId", "description": "descriptionId"},
                 {"nameId": "MyAsset"},
@@ -135,7 +187,12 @@ class TestCreateProperties:
             pytest.param(
                 {"name": "MyAsset", "description": "Test"},
                 {
-                    "nameId": MappedProperty(CONTAINER_ID, "nameId", dt.Text(), **DEFAULT_CONTAINER_ARGS),
+                    "nameId": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="nameId",
+                        type=TextProperty(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
                 },
                 {"name": "nameId", "description": "descriptionId"},
                 {"nameId": "MyAsset"},
@@ -150,9 +207,9 @@ class TestCreateProperties:
             pytest.param(
                 {"name": "MyAsset"},
                 {
-                    "nameId": MultiEdgeConnection(
-                        type=DirectRelationReference("space", "Other"),
-                        source=ViewId("space", "view"),
+                    "nameId": MultiEdgeProperty(
+                        type=NodeReference(space="space", external_id="Other"),
+                        source=ViewReference(space="space", external_id="view", version="v1"),
                         name=None,
                         description=None,
                         edge_source=None,
@@ -166,7 +223,7 @@ class TestCreateProperties:
                     asset_centric_id=ASSET_CENTRIC_ID,
                     instance_id=INSTANCE_ID,
                     invalid_instance_property_types=[
-                        InvalidPropertyDataType(property_id="nameId", expected_type="MappedProperty")
+                        InvalidPropertyDataType(property_id="nameId", expected_type="ViewCorePropertyResponse")
                     ],
                 ),
                 id="Invalid property type",
@@ -174,7 +231,12 @@ class TestCreateProperties:
             pytest.param(
                 {"number": "not-a-number"},
                 {
-                    "numberId": MappedProperty(CONTAINER_ID, "numberId", dt.Int64(), **DEFAULT_CONTAINER_ARGS),
+                    "numberId": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="numberId",
+                        type=Int64Property(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
                 },
                 {"number": "numberId"},
                 {},
@@ -193,7 +255,12 @@ class TestCreateProperties:
             pytest.param(
                 {},
                 {
-                    "nameId": MappedProperty(CONTAINER_ID, "nameId", dt.Text(), **DEFAULT_CONTAINER_ARGS),
+                    "nameId": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="nameId",
+                        type=TextProperty(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
                 },
                 {"name": "nameId"},
                 {},
@@ -208,11 +275,16 @@ class TestCreateProperties:
             pytest.param(
                 {"name": "MyAsset", "labels": [{"externalId": "tag1"}, {"externalId": "tag2"}]},
                 {
-                    "nameId": MappedProperty(CONTAINER_ID, "nameId", dt.Text(), **DEFAULT_CONTAINER_ARGS),
-                    "tags": MappedProperty(
-                        ContainerId("cdf_cdm", "CogniteDescribable"),
-                        "tags",
-                        dt.Text(is_list=True),
+                    "nameId": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="nameId",
+                        type=TextProperty(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
+                    "tags": ViewCorePropertyResponse(
+                        container=ContainerReference(space="cdf_cdm", external_id="CogniteDescribable"),
+                        container_property_identifier="tags",
+                        type=TextProperty(list=True),
                         **DEFAULT_CONTAINER_ARGS,
                     ),
                 },
@@ -232,9 +304,24 @@ class TestCreateProperties:
                     "metadata": {"key": "value"},
                 },
                 {
-                    "nameId": MappedProperty(CONTAINER_ID, "tags", dt.Text(), **DEFAULT_CONTAINER_ARGS),
-                    "tag": MappedProperty(CONTAINER_ID, "tag", dt.Text(is_list=False), **DEFAULT_CONTAINER_ARGS),
-                    "metadata": MappedProperty(CONTAINER_ID, "metadata", dt.Json(), **DEFAULT_CONTAINER_ARGS),
+                    "nameId": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="tags",
+                        type=TextProperty(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
+                    "tag": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="tag",
+                        type=TextProperty(list=False),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
+                    "metadata": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="metadata",
+                        type=JSONProperty(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
                 },
                 {"name": "nameId", "labels[0].externalId": "tag", "metadata": "metadata"},
                 {"nameId": "MyAsset", "tag": "tag1", "metadata": {"key": "value"}},
@@ -253,8 +340,18 @@ class TestCreateProperties:
                     "metadata": {"category": "TypeB"},
                 },
                 {
-                    "nameId": MappedProperty(CONTAINER_ID, "tags", dt.Text(), **DEFAULT_CONTAINER_ARGS),
-                    "tag": MappedProperty(CONTAINER_ID, "tag", dt.Text(is_list=False), **DEFAULT_CONTAINER_ARGS),
+                    "nameId": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="tags",
+                        type=TextProperty(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
+                    "tag": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="tag",
+                        type=TextProperty(list=False),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
                 },
                 {"name": "nameId", "type": "tag", "metadata.category": "tag"},
                 {"nameId": "MyAsset", "tag": "TypeA"},
@@ -272,8 +369,18 @@ class TestCreateProperties:
                     "metadata": {"雪ヘ罪約べげド. [10] SNL": "値テスト"},
                 },
                 {
-                    "name": MappedProperty(CONTAINER_ID, "name", dt.Text(), **DEFAULT_CONTAINER_ARGS),
-                    "property10": MappedProperty(CONTAINER_ID, "property10", dt.Text(), **DEFAULT_CONTAINER_ARGS),
+                    "name": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="name",
+                        type=TextProperty(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
+                    "property10": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="property10",
+                        type=TextProperty(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
                 },
                 {"name": "name", "metadata.雪ヘ罪約べげド. [10] SNL": "property10"},
                 {"name": "MyAsset", "property10": "値テスト"},
@@ -289,9 +396,9 @@ class TestCreateProperties:
     def test_create_properties(
         self,
         dumped: dict[str, Any],
-        view_properties: dict[str, ViewProperty],
+        view_properties: dict[str, ViewResponseProperty],
         property_mapping: dict[str, str],
-        expected_properties: dict[str, PropertyValueWrite],
+        expected_properties: dict[str, JsonValue],
         expected_issue: ConversionIssue,
         direct_relation_cache: DirectRelationCache,
     ) -> None:
@@ -311,19 +418,35 @@ class TestCreateProperties:
             pytest.param(
                 {"startTime": 123, "endTime": 321, "description": "An event", "source": "sourceA", "assetIds": [1]},
                 {
-                    "startTimeId": MappedProperty(
-                        CONTAINER_ID, "startTimeId", dt.Timestamp(), **DEFAULT_CONTAINER_ARGS
-                    ),
-                    "endTimeId": MappedProperty(CONTAINER_ID, "endTimeId", dt.Timestamp(), **DEFAULT_CONTAINER_ARGS),
-                    "descriptionId": MappedProperty(CONTAINER_ID, "descriptionId", dt.Text(), **DEFAULT_CONTAINER_ARGS),
-                    "source": MappedProperty(
-                        ContainerId("cdf_cdm", "CogniteSourceable"),
-                        "source",
-                        dt.DirectRelation(),
+                    "startTimeId": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="startTimeId",
+                        type=TimestampProperty(),
                         **DEFAULT_CONTAINER_ARGS,
                     ),
-                    "assets": MappedProperty(
-                        CONTAINER_ID, "assets", dt.DirectRelation(is_list=True), **DEFAULT_CONTAINER_ARGS
+                    "endTimeId": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="endTimeId",
+                        type=TimestampProperty(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
+                    "descriptionId": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="descriptionId",
+                        type=TextProperty(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
+                    "source": ViewCorePropertyResponse(
+                        container=ContainerReference(space="cdf_cdm", external_id="CogniteSourceable"),
+                        container_property_identifier="source",
+                        type=DirectNodeRelation(),
+                        **DEFAULT_CONTAINER_ARGS,
+                    ),
+                    "assets": ViewCorePropertyResponse(
+                        container=CONTAINER_ID,
+                        container_property_identifier="assets",
+                        type=DirectNodeRelation(list=True),
+                        **DEFAULT_CONTAINER_ARGS,
                     ),
                 },
                 {
@@ -334,11 +457,11 @@ class TestCreateProperties:
                     "assetIds": "assets",
                 },
                 {
-                    "startTimeId": datetime(1970, 1, 1, 0, 0, 0, 123000, tzinfo=timezone.utc),
-                    "endTimeId": datetime(1970, 1, 1, 0, 0, 0, 321000, tzinfo=timezone.utc),
+                    "startTimeId": "1970-01-01T00:00:00.123000+00:00",
+                    "endTimeId": "1970-01-01T00:00:00.321000+00:00",
                     "descriptionId": "An event",
-                    "source": DirectRelationReference("instance_space", "TheSourceA"),
-                    "assets": [DirectRelationReference("instance_space", "MyFirstAsset")],
+                    "source": {"space": "instance_space", "externalId": "TheSourceA"},
+                    "assets": [{"space": "instance_space", "externalId": "MyFirstAsset"}],
                 },
                 ConversionIssue(id=str(EVENT_CENTRIC_ID), asset_centric_id=EVENT_CENTRIC_ID, instance_id=INSTANCE_ID),
                 id="Basic event property mapping with direct relations",
@@ -348,9 +471,9 @@ class TestCreateProperties:
     def test_create_properties_events(
         self,
         dumped: dict[str, Any],
-        view_properties: dict[str, ViewProperty],
+        view_properties: dict[str, ViewResponseProperty],
         property_mapping: dict[str, str],
-        expected_properties: dict[str, PropertyValueWrite],
+        expected_properties: dict[str, JsonValue],
         expected_issue: ConversionIssue,
         direct_relation_cache: DirectRelationCache,
     ) -> None:
@@ -365,16 +488,16 @@ class TestCreateProperties:
 
 
 class TestAssetCentricConversion:
-    INSTANCE_ID = NodeId(space="test_space", external_id="test_instance")
+    INSTANCE_ID = NodeReference(space="test_space", external_id="test_instance")
     INSTANCE_REF = NodeReference(space="test_space", external_id="test_instance")
-    CONTAINER_ID = ContainerId("test_space", "test_container")
-    VIEW_ID = ViewId("test_space", "test_view", "v1")
-    INSTANCE_SOURCE_VIEW_ID = ViewId("cognite_migration", "InstanceSource", "v1")
-    ASSET_INSTANCE_ID_BY_ID: ClassVar[Mapping[int, DirectRelationReference]] = {
-        123: DirectRelationReference("test_space", "asset_123_instance")
+    CONTAINER_ID = ContainerReference(space="test_space", external_id="test_container")
+    VIEW_ID = ViewReference(space="test_space", external_id="test_view", version="v1")
+    INSTANCE_SOURCE_VIEW_ID = ViewReference(space="cognite_migration", external_id="InstanceSource", version="v1")
+    ASSET_INSTANCE_ID_BY_ID: ClassVar[Mapping[int, NodeReference]] = {
+        123: NodeReference(space="test_space", external_id="asset_123_instance")
     }
-    SOURCE_SYSTEM_INSTANCE_ID_BY_EXTERNAL_ID: ClassVar[Mapping[str, DirectRelationReference]] = {
-        "source_system_1": DirectRelationReference("test_space", "source_system_1_instance")
+    SOURCE_SYSTEM_INSTANCE_ID_BY_EXTERNAL_ID: ClassVar[Mapping[str, NodeReference]] = {
+        "source_system_1": NodeReference(space="test_space", external_id="source_system_1_instance")
     }
 
     @pytest.mark.parametrize(
@@ -401,21 +524,23 @@ class TestAssetCentricConversion:
                     property_mapping={"name": "assetName", "description": "assetDescription"},
                 ),
                 {
-                    "assetName": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "assetName",
-                        dt.Text(),
+                    "assetName": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="assetName",
+                        type=TextProperty(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
-                    "assetDescription": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "assetDescription",
-                        dt.Text(),
+                    "assetDescription": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="assetDescription",
+                        type=TextProperty(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
                 },
                 {"assetName": "Test Asset", "assetDescription": "A test asset"},
@@ -456,37 +581,41 @@ class TestAssetCentricConversion:
                     },
                 ),
                 {
-                    "timeseriesName": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "timeseriesName",
-                        dt.Text(),
+                    "timeseriesName": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="timeseriesName",
+                        type=TextProperty(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
-                    "measurementUnit": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "measurementUnit",
-                        dt.Text(),
+                    "measurementUnit": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="measurementUnit",
+                        type=TextProperty(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
-                    "sensorType": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "sensorType",
-                        dt.Text(),
+                    "sensorType": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="sensorType",
+                        type=TextProperty(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
-                    "deviceLocation": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "deviceLocation",
-                        dt.Text(),
+                    "deviceLocation": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="deviceLocation",
+                        type=TextProperty(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
                 },
                 {
@@ -551,57 +680,63 @@ class TestAssetCentricConversion:
                     },
                 ),
                 {
-                    "source": MappedProperty(
-                        ContainerId("cdf_cdm", "CogniteSourceable"),
-                        "source",
-                        dt.DirectRelation(),
+                    "source": ViewCorePropertyResponse(
+                        container=ContainerReference(space="cdf_cdm", external_id="CogniteSourceable"),
+                        container_property_identifier="source",
+                        type=DirectNodeRelation(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
-                    "assets": MappedProperty(
-                        ContainerId("cdf_cdm", "CogniteFile"),
-                        "assets",
-                        dt.DirectRelation(is_list=True, max_list_size=1200),
+                    "assets": ViewCorePropertyResponse(
+                        container=ContainerReference(space="cdf_cdm", external_id="CogniteFile"),
+                        container_property_identifier="assets",
+                        type=DirectNodeRelation(list=True, max_list_size=1200),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
-                    "eventStart": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "eventStart",
-                        dt.Timestamp(),
+                    "eventStart": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="eventStart",
+                        type=TimestampProperty(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
-                    "eventEnd": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "eventEnd",
-                        dt.Timestamp(),
+                    "eventEnd": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="eventEnd",
+                        type=TimestampProperty(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
-                    "eventSeverity": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "eventSeverity",
-                        dt.Enum({"high": EnumValue(), "low": EnumValue(), "medium": EnumValue()}),
+                    "eventSeverity": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="eventSeverity",
+                        type=EnumProperty(values={"high": EnumValue(), "low": EnumValue(), "medium": EnumValue()}),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
-                    "eventValue": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "eventValue",
-                        dt.Int64(),
+                    "eventValue": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="eventValue",
+                        type=Int64Property(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
-                    "some_other_event": MultiEdgeConnection(
-                        type=DirectRelationReference("schema_space", "Operation"),
-                        source=ViewId("test_space", "test_view", "v1"),
+                    "some_other_event": MultiEdgeProperty(
+                        type=NodeReference(space="schema_space", external_id="Operation"),
+                        source=ViewReference(space="test_space", external_id="test_view", version="v1"),
                         name=None,
                         description=None,
                         edge_source=None,
@@ -609,11 +744,11 @@ class TestAssetCentricConversion:
                     ),
                 },
                 {
-                    "eventStart": datetime(2025, 8, 28, 5, 38, 9, 386000, tzinfo=timezone.utc),
-                    "eventEnd": datetime(2025, 8, 28, 5, 38, 19, 880000, tzinfo=timezone.utc),
+                    "eventStart": "2025-08-28T05:38:09.386000+00:00",
+                    "eventEnd": "2025-08-28T05:38:19.880000+00:00",
                     "eventSeverity": "high",
-                    "source": DirectRelationReference("test_space", "source_system_1_instance"),
-                    "assets": [DirectRelationReference("test_space", "asset_123_instance")],
+                    "source": {"space": "test_space", "externalId": "source_system_1_instance"},
+                    "assets": [{"space": "test_space", "externalId": "asset_123_instance"}],
                 },
                 ConversionIssue(
                     id=str(AssetCentricId("event", 789)),
@@ -623,7 +758,9 @@ class TestAssetCentricConversion:
                     missing_asset_centric_properties=["metadata.missingMetaProp", "missing_prop"],
                     missing_instance_properties=["anotherMissingDMProp", "missingDMProp", "targetProp"],
                     invalid_instance_property_types=[
-                        InvalidPropertyDataType(property_id="some_other_event", expected_type="MappedProperty")
+                        InvalidPropertyDataType(
+                            property_id="some_other_event", expected_type="ViewCorePropertyResponse"
+                        )
                     ],
                     failed_conversions=[
                         FailedConversion(
@@ -656,37 +793,41 @@ class TestAssetCentricConversion:
                     property_mapping={},
                 ),
                 {
-                    "fileName": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "fileName",
-                        dt.Text(),
+                    "fileName": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="fileName",
+                        type=TextProperty(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
-                    "fileDescription": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "fileDescription",
-                        dt.Text(),
+                    "fileDescription": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="fileDescription",
+                        type=TextProperty(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
-                    "fileType": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "fileType",
-                        dt.Text(),
+                    "fileType": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="fileType",
+                        type=TextProperty(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
-                    "isConfidential": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "isConfidential",
-                        dt.Boolean(),
+                    "isConfidential": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="isConfidential",
+                        type=BooleanProperty(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
                 },
                 {},
@@ -730,21 +871,23 @@ class TestAssetCentricConversion:
                     property_mapping={"name": "timeSeriesName", "metadata.category": "timeSeriesCategory"},
                 ),
                 {
-                    "timeSeriesName": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "timeSeriesName",
-                        dt.Text(),
+                    "timeSeriesName": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="timeSeriesName",
+                        type=TextProperty(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
-                    "timeSeriesCategory": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "timeSeriesCategory",
-                        dt.Text(),
+                    "timeSeriesCategory": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="timeSeriesCategory",
+                        type=TextProperty(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
                 },
                 {"timeSeriesName": "Test TimeSeries"},
@@ -780,21 +923,23 @@ class TestAssetCentricConversion:
                     property_mapping={"name": "assetName", "description": "assetDescription"},
                 ),
                 {
-                    "assetName": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "assetName",
-                        dt.Text(),
+                    "assetName": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="assetName",
+                        type=TextProperty(),
                         nullable=False,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
-                    "assetDescription": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "assetDescription",
-                        dt.Text(),
+                    "assetDescription": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="assetDescription",
+                        type=TextProperty(),
                         nullable=False,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
                 },
                 {"assetName": "The name"},
@@ -828,21 +973,23 @@ class TestAssetCentricConversion:
                     property_mapping={"type": "category", "metadata.category": "category", "source": "source"},
                 ),
                 {
-                    "category": MappedProperty(
-                        ContainerId("test_space", "test_container"),
-                        "category",
-                        dt.Text(),
+                    "category": ViewCorePropertyResponse(
+                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container_property_identifier="category",
+                        type=TextProperty(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
-                    "source": MappedProperty(
-                        ContainerId("cdf_cdm", "CogniteSourceable"),
-                        "source",
-                        dt.DirectRelation(),
+                    "source": ViewCorePropertyResponse(
+                        container=ContainerReference(space="cdf_cdm", external_id="CogniteSourceable"),
+                        container_property_identifier="source",
+                        type=DirectNodeRelation(),
                         nullable=True,
                         immutable=False,
                         auto_increment=False,
+                        constraint_state=ConstraintOrIndexState(),
                     ),
                 },
                 {
@@ -858,7 +1005,7 @@ class TestAssetCentricConversion:
                             property_id="source",
                             value="not_existing",
                             error="Cannot convert 'not_existing' to "
-                            "DirectRelationReference. Invalid data type "
+                            "NodeReference. Invalid data type "
                             "or missing in lookup.",
                         )
                     ],
@@ -871,8 +1018,8 @@ class TestAssetCentricConversion:
         self,
         resource: AssetResponse | FileMetadataResponse | EventResponse | TimeSeriesResponse | Sequence,
         view_source: ResourceViewMapping,
-        view_properties: dict[str, ViewProperty],
-        expected_properties: dict[str, str],
+        view_properties: dict[str, ViewResponseProperty],
+        expected_properties: dict[str, Any],
         expected_issue: ConversionIssue,
         direct_relation_cache: DirectRelationCache,
     ) -> None:
@@ -909,14 +1056,16 @@ class TestAssetCentricConversion:
 
         assert expected_issue.dump() == issue.dump()
 
-    ANNOTATION_ID = EdgeId(space="test_space", external_id="annotation_37")
-    DEFAULT_PROPERTIES: ClassVar[dict[str, Any]] = dict(nullable=True, immutable=False, auto_increment=False)
+    ANNOTATION_ID = EdgeReference(space="test_space", external_id="annotation_37")
+    DEFAULT_PROPERTIES: ClassVar[dict[str, Any]] = dict(
+        nullable=True, immutable=False, auto_increment=False, constraint_state=ConstraintOrIndexState()
+    )
 
-    DIAGRAM_ANNOTATION_PROPERTIES: ClassVar[dict[str, ViewProperty]] = {
-        "status": MappedProperty(
+    DIAGRAM_ANNOTATION_PROPERTIES: ClassVar[dict[str, ViewResponseProperty]] = {
+        "status": ViewCorePropertyResponse(
             container=CONTAINER_ID,
             container_property_identifier="status",
-            type=dt.Enum({"Suggested": EnumValue(), "Approved": EnumValue(), "Rejected": EnumValue()}),
+            type=EnumProperty(values={"Suggested": EnumValue(), "Approved": EnumValue(), "Rejected": EnumValue()}),
             **DEFAULT_PROPERTIES,
         ),
     }
@@ -936,8 +1085,8 @@ class TestAssetCentricConversion:
         created_time=1000000,
         resource_type="annotation",
     )
-    FILE_INSTANCE_BY_ID: ClassVar[Mapping[int, DirectRelationReference]] = {
-        42: DirectRelationReference("test_space", "file_456_instance")
+    FILE_INSTANCE_BY_ID: ClassVar[Mapping[int, NodeReference]] = {
+        42: NodeReference(space="test_space", external_id="file_456_instance")
     }
 
     @pytest.mark.parametrize(
@@ -956,15 +1105,15 @@ class TestAssetCentricConversion:
                     data=dict(assetRef=dict(id=123)),
                 ),
                 ANNOTATION_MAPPING,
-                EdgeApply(
+                EdgeRequest(
                     space=ANNOTATION_ID.space,
                     external_id=ANNOTATION_ID.external_id,
-                    start_node=DirectRelationReference("test_space", "file_456_instance"),
-                    end_node=DirectRelationReference("test_space", "asset_123_instance"),
-                    type=DirectRelationReference("test_space", "diagrams.FileLink"),
+                    start_node=NodeReference(space="test_space", external_id="file_456_instance"),
+                    end_node=NodeReference(space="test_space", external_id="asset_123_instance"),
+                    type=NodeReference(space="test_space", external_id="diagrams.FileLink"),
                     sources=[
-                        NodeOrEdgeData(
-                            source=ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
+                        InstanceSource(
+                            source=ViewReference(space="cdf_cdm", external_id="CogniteDiagramAnnotation", version="v1"),
                             properties={"status": "Approved"},
                         )
                     ],
@@ -989,7 +1138,7 @@ class TestAssetCentricConversion:
         self,
         resource: Annotation,
         mapping: ResourceViewMapping,
-        expected_edge: EdgeApply,
+        expected_edge: EdgeRequest,
         expected_issue: ConversionIssue,
         direct_relation_cache: DirectRelationCache,
     ) -> None:
@@ -1024,7 +1173,7 @@ class TestAssetCentricConversion:
 
         edge, issue = asset_centric_to_dm(
             resource,
-            EdgeId(space="test_space", external_id="annotation_38"),
+            EdgeReference(space="test_space", external_id="annotation_38"),
             self.ANNOTATION_MAPPING,
             self.DIAGRAM_ANNOTATION_PROPERTIES,
             direct_relation_cache,
@@ -1049,7 +1198,7 @@ class TestAssetCentricConversion:
                 FailedConversion(
                     property_id="annotatedResourceId",
                     value=999,
-                    error="Cannot convert 999 to DirectRelationReference. Invalid data type or missing in lookup.",
+                    error="Cannot convert 999 to NodeReference. Invalid data type or missing in lookup.",
                 )
             ],
         )
