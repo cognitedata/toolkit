@@ -6,7 +6,10 @@
   ],
   "permissions": {
     "allow": [
-      "Bash(safe_command*)",
+      "Bash(cdf*)",
+      "Bash(ls*)",
+      "Bash(pytest*)",
+      "Bash(ruff*)"
     ],
     "deny": [
       "Read(./data/**)",
