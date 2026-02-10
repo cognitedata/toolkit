@@ -114,10 +114,10 @@ class BuildV2Command(ToolkitCommand):
     ) -> ModuleResult:
         # ModuleResults should not contain the resource in memory, just their ID,
         # paths, and on.
-        raise NotImplementedError
+        return ModuleResult()
 
     def global_validation(self, modules: list[ModuleResult], client: ToolkitClient | None) -> InsightList:
-        raise NotImplementedError
+        return InsightList()
 
     def write_results(self, build_dir: Path, built_results: BuiltResult) -> None:
-        raise NotImplementedError()
+        return None
