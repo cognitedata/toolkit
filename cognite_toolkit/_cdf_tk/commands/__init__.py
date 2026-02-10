@@ -10,6 +10,7 @@ from ._upload import UploadCommand
 from .about import AboutCommand
 from .auth import AuthCommand
 from .build_cmd import BuildCommand
+from .build_v2.build_v2 import BuildV2Command
 from .clean import CleanCommand
 from .collect import CollectCommand
 from .deploy import DeployCommand
@@ -25,7 +26,7 @@ __all__ = [
     "AboutCommand",
     "AuthCommand",
     "BuildCommand",
-    "BuildCommandV2",
+    "BuildV2Command",
     "CleanCommand",
     "CollectCommand",
     "DeployCommand",
