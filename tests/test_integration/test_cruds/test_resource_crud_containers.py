@@ -13,6 +13,7 @@ from cognite.client.data_classes import (
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerReference, ContainerRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, TimeSeriesCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.three_d_model import ThreeDModelCRUD
@@ -89,7 +90,7 @@ def edge_container(cognite_client: CogniteClient, integration_space: dm.Space) -
 
 class TestContainerLoader:
     # The DMS service is fairly unstable, so we need to rerun the tests if they fail.
-    @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError", "CogniteAPIError"])
+    @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError", "ToolkitAPIError"])
     def test_populate_count_drop_data_node_container(
         self, node_container: dm.Container, toolkit_client: ToolkitClient
     ) -> None:
@@ -98,7 +99,7 @@ class TestContainerLoader:
             external_id=f"test_create_populate_count_drop_data{RUN_UNIQUE_ID}",
             sources=[dm.NodeOrEdgeData(source=node_container.as_id(), properties={"name": "Anders"})],
         )
-        container_id = [node_container.as_id()]
+        container_id = [ContainerReference(space=node_container.space, external_id=node_container.external_id)]
 
         loader = ContainerCRUD(toolkit_client, None)
 
@@ -112,21 +113,21 @@ class TestContainerLoader:
             loader.drop_data(container_id)
             assert loader.count(container_id) == 0
 
-            write_container = node_container.as_write()
+            write_container = ContainerRequest.model_validate(node_container.as_write().dump())
             write_container.description = "Updated description"
-            updated = loader.update(dm.ContainerApplyList([write_container]))
+            updated = loader.update([write_container])
             assert len(updated) == 1
             if updated[0].description != write_container.description:
                 # The API is not always consistent in returning the updated description,
                 # so we need to retrieve the container to verify the update
                 sleep(1)
-                updated = loader.retrieve([node_container.as_id()])
+                updated = loader.retrieve(container_id)
             assert updated[0].description == write_container.description
         finally:
             loader.drop_data(container_id)
 
     # The DMS service is fairly unstable, so we need to rerun the tests if they fail.
-    @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError", "CogniteAPIError"])
+    @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError", "ToolkitAPIError"])
     def test_populate_count_drop_data_edge_container(
         self, edge_container: dm.Container, toolkit_client: ToolkitClient
     ) -> None:
@@ -153,7 +154,7 @@ class TestContainerLoader:
             end_node=(nodes[1].space, nodes[1].external_id),
             sources=[dm.NodeOrEdgeData(source=edge_container.as_id(), properties={"name": "Anders"})],
         )
-        container_id = [edge_container.as_id()]
+        container_id = [ContainerReference(space=edge_container.space, external_id=edge_container.external_id)]
 
         loader = ContainerCRUD(toolkit_client, None)
 
@@ -167,9 +168,9 @@ class TestContainerLoader:
             loader.drop_data(container_id)
             assert loader.count(container_id) == 0
 
-            write_container = edge_container.as_write()
+            write_container = ContainerRequest.model_validate(edge_container.as_write().dump())
             write_container.description = "Updated description"
-            updated = loader.update(dm.ContainerApplyList([write_container]))
+            updated = loader.update([write_container])
             assert len(updated) == 1
             if updated[0].description != write_container.description:
                 # The API is not always consistent in returning the updated description,

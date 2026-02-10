@@ -39,6 +39,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    DataModelRequest,
     InstanceSource,
     NodeRequest,
     ViewReference,
@@ -630,30 +631,35 @@ class TestDataModelLoader:
         loader = DataModelCRUD(toolkit_client, None)
         view_list = two_views.as_ids()
         assert len(view_list) == 2, "Expected 2 views in the test data model"
-        my_model = dm.DataModelApply(
+        my_model = DataModelRequest(
             name="My model",
             description="Original description",
-            views=view_list,
+            views=[
+                ViewReference(space=view.space, external_id=view.external_id, version=view.version)
+                for view in two_views
+            ],
             space=toolkit_space.space,
             external_id=f"tmp_test_create_update_delete_data_model_{RUN_UNIQUE_ID}",
             version="1",
         )
-        update = dm.DataModelApply.load(my_model.dump())
+        update = my_model.model_copy(
+            update={
+                "views": [my_model.views[0]],  # Keep only the first view in the update to test that the update works
+            }
+        )
 
         try:
-            created = loader.create(dm.DataModelApplyList([my_model]))
+            created = loader.create([my_model])
             assert len(created) == 1
 
-            update.views = [view_list[0]]
-
-            with pytest.raises(CogniteAPIError):
-                loader.update(dm.DataModelApplyList([update]))
+            with pytest.raises(ToolkitAPIError):
+                loader.update([update])
             # You need to update the version to update the model
             update.version = "2"
 
-            updated = loader.update(dm.DataModelApplyList([update]))
+            updated = loader.update([update])
             assert len(updated) == 1
-            assert updated[0].views == [view_list[0]]
+            assert updated[0].views == [my_model.views[0]]
         finally:
             loader.delete([my_model.as_id(), update.as_id()])
 

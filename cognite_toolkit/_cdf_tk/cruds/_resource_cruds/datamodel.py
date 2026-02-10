@@ -29,7 +29,7 @@ from cognite.client.data_classes.capabilities import (
     DataModelInstancesAcl,
     DataModelsAcl,
 )
-from cognite.client.data_classes.data_modeling import DataModelId, ViewId
+from cognite.client.data_classes.data_modeling import ContainerId, DataModelId, ViewId
 from cognite.client.data_classes.data_modeling.graphql import DMLApplyResult
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -409,7 +409,9 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
         if not container_ids:
             return
         for container_id_chunk in self._chunker(container_ids, HAS_DATA_FILTER_LIMIT):
-            is_container = filters.HasData(containers=container_id_chunk)
+            is_container = filters.HasData(
+                containers=[ContainerId(space=cid.space, external_id=cid.external_id) for cid in container_id_chunk]
+            )
             for instances in self.client.data_modeling.instances(
                 chunk_size=1000, instance_type="node", filter=is_container, limit=-1
             ):
@@ -421,7 +423,9 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
             return
 
         for container_id_chunk in self._chunker(container_ids, HAS_DATA_FILTER_LIMIT):
-            is_container = filters.HasData(containers=container_id_chunk)
+            is_container = filters.HasData(
+                containers=[ContainerId(space=cid.space, external_id=cid.external_id) for cid in container_id_chunk]
+            )
             for instances in self.client.data_modeling.instances(
                 chunk_size=1000, instance_type="edge", limit=-1, filter=is_container
             ):
