@@ -27,6 +27,7 @@ class ConsistencyError(Insight):
 
     ...
 
+
 class ConsistencyWarning(Insight):
     """Typically handles validations with extras=True, where internal representation might be off sync with
     CDF API definition.
