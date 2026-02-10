@@ -8,7 +8,14 @@ class TestBuildCommand:
     def test_end_to_end(self, tmp_path: Path) -> None:
         cmd = BuildV2Command()
 
-        parameters = BuildParameters()
+        org = tmp_path / "org"
+        org.mkdir()
+
+        parameters = BuildParameters(
+            organization_dir=org,
+            build_dir=tmp_path / "build",
+            build_env_name="dev",
+        )
 
         result = cmd.build_folder(parameters)
 

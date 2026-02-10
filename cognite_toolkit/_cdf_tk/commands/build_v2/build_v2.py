@@ -2,8 +2,8 @@ from pathlib import Path
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.commands.build_v2.build_parameters import BuildParameters
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
+    BuildParameters,
     BuiltModule,
     BuiltResult,
     InsightList,
