@@ -1,6 +1,17 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "fileIgnorePatterns": [
     "**/*.env",
     "**/.env*"
-  ]
+  ],
+  "permissions": {
+    "allow": [
+      "Bash(safe_command*)",
+    ],
+    "deny": [
+      "Read(./data/**)",
+      "Read(**/*.env)",
+      "Read(**/.env*)"
+    ]
+  }
 }
