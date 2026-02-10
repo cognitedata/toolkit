@@ -329,6 +329,17 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
             if not dumped.get(key) and key not in local:
                 # Set to empty dict by server.
                 dumped.pop(key, None)
+                continue
+            if isinstance((cdf_value := dumped.get(key)), dict) and isinstance((local_value := local.get(key)), dict):
+                for cdf_id, cdf_item in cdf_value.items():
+                    local_item = local_value.get(cdf_id)
+                    if (
+                        isinstance(local_item, dict)
+                        and "bySpace" not in local_item
+                        and isinstance(cdf_item, dict)
+                        and cdf_item.get("bySpace") is False
+                    ):
+                        cdf_item.pop("bySpace", None)
         local_prop_by_id = local.get("properties", {})
         for prop_id, cdf_prop in dumped.get("properties", {}).items():
             if prop_id not in local_prop_by_id:
