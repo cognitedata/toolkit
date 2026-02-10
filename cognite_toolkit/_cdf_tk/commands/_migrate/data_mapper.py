@@ -285,7 +285,11 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
         dumped = ts_item.model_dump(mode="json", by_alias=True, exclude_unset=True)
         dumped["nodeReference"] = NodeId(space=node_id.space, external_id=node_id.external_id)
         dumped["viewReference"] = (
-            ViewId(space=node_id.space, external_id=node_id.external_id) if consumer_view_id else None
+            ViewId(
+                space=consumer_view_id.space, external_id=consumer_view_id.external_id, version=consumer_view_id.version
+            )
+            if consumer_view_id
+            else None
         )
         new_uuid = str(uuid4())
         dumped["id"] = new_uuid

@@ -243,7 +243,10 @@ def asset_centric_to_dm(
             "resourceViewMapping": {"space": COGNITE_MIGRATION_SPACE_ID, "externalId": view_source.external_id},
         }
         if preferred_consumer_view:
-            instance_source_properties["preferredConsumerViewId"] = preferred_consumer_view.dump()
+            instance_source_properties["preferredConsumerViewId"] = {
+                **preferred_consumer_view.dump(),
+                "type": "view",
+            }
         sources.append(
             InstanceSource(
                 source=ViewReference(
