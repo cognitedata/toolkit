@@ -30,7 +30,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import (
     ExtendableCogniteFile,
     ExtendableCogniteFileApply,
@@ -108,13 +108,13 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
             yield DataSetsCRUD, item["dataSetExternalId"]
         if "securityCategoryNames" in item:
             for security_category in item["securityCategoryNames"]:
-                yield SecurityCategoryCRUD, security_category
+                yield SecurityCategoryCRUD, NameId(name=security_category)
         if "labels" in item:
             for label in item["labels"]:
                 if isinstance(label, dict):
-                    yield LabelCRUD, label["externalId"]
+                    yield LabelCRUD, ExternalId(external_id=label["externalId"])
                 elif isinstance(label, str):
-                    yield LabelCRUD, label
+                    yield LabelCRUD, ExternalId(external_id=label)
         for asset_external_id in item.get("assetExternalIds", []):
             yield AssetCRUD, ExternalId(external_id=asset_external_id)
 

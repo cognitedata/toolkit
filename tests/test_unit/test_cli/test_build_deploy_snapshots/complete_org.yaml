@@ -454,6 +454,7 @@ InstanceDefinition:
   instanceType: node
   space: sp_instance
 LabelDefinition:
+LabelResponse:
 - dataSetId: 7982613576047462211
   description: Labels used for relationships that represent flows
   externalId: label_flow
@@ -576,7 +577,7 @@ RAWDatabaseResponse:
 - name: db_complete_org
 RAWTableResponse:
 - name: asset
-Relationship:
+RelationshipResponse:
 - confidence: 0.42
   dataSetId: 7982613576047462211
   externalId: MyRelationship
@@ -751,7 +752,7 @@ SearchConfig:
   view:
     externalId: test-view
     space: test-space
-SecurityCategory:
+SecurityCategoryResponse:
 - name: sc_demo_category
 Sequence:
 - columns:

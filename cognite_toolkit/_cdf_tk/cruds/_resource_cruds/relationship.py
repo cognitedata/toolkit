@@ -1,17 +1,14 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, final
 
-from cognite.client.data_classes import (
-    Relationship,
-    RelationshipList,
-    RelationshipWrite,
-    capabilities,
-)
+from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import RelationshipYAML
 
@@ -22,10 +19,10 @@ from .timeseries import TimeSeriesCRUD
 
 
 @final
-class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship]):
+class RelationshipCRUD(ResourceCRUD[ExternalId, RelationshipRequest, RelationshipResponse]):
     folder_name = "classic"
-    resource_cls = Relationship
-    resource_write_cls = RelationshipWrite
+    resource_cls = RelationshipResponse
+    resource_write_cls = RelationshipRequest
     kind = "Relationship"
     yaml_cls = RelationshipYAML
     dependencies = frozenset(
@@ -38,20 +35,20 @@ class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship]):
         return "relationships"
 
     @classmethod
-    def get_id(cls, item: Relationship | RelationshipWrite | dict) -> str:
+    def get_id(cls, item: RelationshipRequest | RelationshipResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
+            return ExternalId(external_id=item["externalId"])
         if not item.external_id:
             raise KeyError("Relationship must have external_id")
-        return item.external_id
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[RelationshipWrite] | None, read_only: bool
+        cls, items: Sequence[RelationshipRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -71,35 +68,41 @@ class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship]):
 
         return capabilities.RelationshipsAcl(actions, scope)
 
-    def create(self, items: Sequence[RelationshipWrite]) -> RelationshipList:
-        return self.client.relationships.create(items)
+    def create(self, items: Sequence[RelationshipRequest]) -> list[RelationshipResponse]:
+        return self.client.tool.relationships.create(list(items))
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> RelationshipList:
-        return self.client.relationships.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[RelationshipResponse]:
+        return self.client.tool.relationships.retrieve(list(ids))
 
-    def update(self, items: Sequence[RelationshipWrite]) -> RelationshipList:
-        return self.client.relationships.update(items)
+    def update(self, items: Sequence[RelationshipRequest]) -> list[RelationshipResponse]:
+        return self.client.tool.relationships.update(list(items))
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+        if not ids:
+            return 0
         try:
-            self.client.relationships.delete(external_id=ids)
-        except (CogniteAPIError, CogniteNotFoundError) as e:
-            non_existing = set(e.failed or [])
-            if existing := [id_ for id_ in ids if id_ not in non_existing]:
-                self.client.relationships.delete(external_id=existing)
-            return len(existing)
-        else:
-            return len(ids)
+            self.client.tool.relationships.delete(list(ids))
+        except ToolkitAPIError as e:
+            if missing := {ExternalId.model_validate(item) for item in e.missing or []}:
+                if existing := (set(ids) - missing):
+                    self.client.tool.relationships.delete(list(existing))
+                    return len(existing)
+                else:
+                    return 0
+            raise
+        return len(ids)
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[Relationship]:
-        return iter(
-            self.client.relationships(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
-        )
+    ) -> Iterable[RelationshipResponse]:
+        filter: ClassicFilter | None = None
+        if data_set_external_id:
+            filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
+        for items in self.client.tool.relationships.iterate(filter=filter):
+            yield from items
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -112,9 +115,9 @@ class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship]):
             yield DataSetsCRUD, item["dataSetExternalId"]
         for label in item.get("labels", []):
             if isinstance(label, dict):
-                yield LabelCRUD, label["externalId"]
+                yield LabelCRUD, ExternalId(external_id=label["externalId"])
             elif isinstance(label, str):
-                yield LabelCRUD, label
+                yield LabelCRUD, ExternalId(external_id=label)
         for connection in ["source", "target"]:
             type_key = f"{connection}Type"
             id_key = f"{connection}ExternalId"
@@ -134,13 +137,13 @@ class RelationshipCRUD(ResourceCRUD[str, RelationshipWrite, Relationship]):
                     elif type_value == "event":
                         yield EventCRUD, ExternalId(external_id=id_value)
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> RelationshipWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> RelationshipRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
-        return RelationshipWrite._load(resource)
+        return RelationshipRequest.model_validate(resource)
 
-    def dump_resource(self, resource: Relationship, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+    def dump_resource(self, resource: RelationshipResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
         local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
