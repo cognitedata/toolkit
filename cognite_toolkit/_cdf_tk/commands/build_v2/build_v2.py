@@ -1,17 +1,23 @@
+from collections import defaultdict
 from pathlib import Path
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands.build_v2._modules_parser import ModulesParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildParameters,
     BuiltModule,
     BuiltResult,
     InsightList,
+    Module,
     ModuleList,
     ModuleResult,
     ReadModule,
-    SelectedModule,
+    ResourceType,
 )
+from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
+from cognite_toolkit._cdf_tk.utils import read_yaml_file
 
 
 class BuildV2Command(ToolkitCommand):
@@ -39,27 +45,48 @@ class BuildV2Command(ToolkitCommand):
             built_module: BuiltModule | None = None
             validation_insights: InsightList | None = None
             if read_module.is_success:
-                built_module = self.build_module(module)
-                validation_insights = self.validate_module(module)
+                built_module = self.build_module(read_module)
+                validation_insights = self.validate_module(read_module)
 
             results.append(self.compile(module, read_module, built_module, validation_insights))
         return results
 
     def find_modules(self, parameters: BuildParameters) -> ModuleList:
-        raise NotImplementedError
+        module_paths = ModulesParser(organization_dir=parameters.organization_dir).parse()
+        return ModuleList([Module(path=module_path) for module_path in module_paths])
 
-    def read_module(self, module: SelectedModule) -> ReadModule:
-        raise NotImplementedError
+    def read_module(self, module: Module) -> ReadModule:
+        resource_folder_paths = [resource_path for resource_path in module.path.iterdir() if resource_path.is_dir()]
 
-    def validate_module(self, module: SelectedModule) -> InsightList:
-        raise NotImplementedError
+        resource_by_type: dict[ResourceType, list[ToolkitResource]] = defaultdict(list)
+        for resource_folder_path in resource_folder_paths:
+            crud_classes = RESOURCE_CRUD_BY_FOLDER_NAME.get(resource_folder_path.name)
+            if not crud_classes:
+                # This is handled in the module parsing phase.
+                continue
+            for crud_class in crud_classes:
+                resource_type = ResourceType(
+                    resource_folder=resource_folder_path.name,
+                    kind=crud_class.kind,
+                )
+                resource_files = list(resource_folder_path.rglob(f"*.{crud_class.kind}.y*ml"))
+                for resource_file in resource_files:
+                    # Todo: Create a classmethod for ToolkitResource
+                    # Todo; Handle lists of resources in a single file
+                    resource = crud_class.yaml_cls.model_validate(read_yaml_file(resource_file))
+                    resource_by_type[resource_type].append(resource)
 
-    def build_module(self, module: SelectedModule) -> BuiltModule:
+        return ReadModule(resources_by_type=resource_by_type)
+
+    def validate_module(self, module: ReadModule) -> InsightList:
+        return InsightList()
+
+    def build_module(self, module: ReadModule) -> BuiltModule:
         raise NotImplementedError
 
     def compile(
         self,
-        module: SelectedModule,
+        module: Module,
         read_result: ReadModule,
         built_module: BuiltModule | None,
         validation_insights: InsightList | None,
