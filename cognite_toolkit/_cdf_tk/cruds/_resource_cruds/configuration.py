@@ -7,12 +7,8 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import (
-    SearchConfig,
-    SearchConfigList,
-    SearchConfigWrite,
-    ViewId,
-)
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReferenceNoVersion
+from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigRequest, SearchConfigResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import SearchConfigYAML
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
@@ -22,11 +18,11 @@ from .datamodel import ViewCRUD
 
 
 @final
-class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig]):
+class SearchConfigCRUD(ResourceCRUD[ViewReferenceNoVersion, SearchConfigRequest, SearchConfigResponse]):
     support_drop = False
     folder_name = "cdf_applications"
-    resource_cls = SearchConfig
-    resource_write_cls = SearchConfigWrite
+    resource_cls = SearchConfigResponse
+    resource_write_cls = SearchConfigRequest
     yaml_cls = SearchConfigYAML
     dependencies = frozenset({ViewCRUD})
     kind = "SearchConfig"
@@ -35,7 +31,7 @@ class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig]):
 
     def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
         super().__init__(client, build_path, console)
-        self._existing_configs_cache: dict[ViewId, int] | None = None
+        self._existing_configs_cache: dict[ViewReferenceNoVersion, int] | None = None
 
     @property
     def display_name(self) -> str:
@@ -43,7 +39,7 @@ class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig]):
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[SearchConfigWrite] | None, read_only: bool
+        cls, items: Sequence[SearchConfigRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -57,21 +53,22 @@ class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig]):
         )
 
     @classmethod
-    def get_id(cls, item: SearchConfig | SearchConfigWrite | dict) -> ViewId:
+    def get_id(cls, item: SearchConfigRequest | SearchConfigResponse | dict) -> ViewReferenceNoVersion:
         if isinstance(item, dict):
-            return ViewId.load(item.get("view", {}))
-        return item.view
+            view = item.get("view", {})
+            return ViewReferenceNoVersion(space=view.get("space", ""), external_id=view.get("externalId", ""))
+        return ViewReferenceNoVersion(space=item.view.space, external_id=item.view.external_id)
 
     @classmethod
-    def dump_id(cls, id: ViewId) -> dict[str, Any]:
+    def dump_id(cls, id: ViewReferenceNoVersion) -> dict[str, Any]:
         return {"view": id.dump()}
 
     @classmethod
-    def as_str(cls, id: ViewId) -> str:
+    def as_str(cls, id: ViewReferenceNoVersion) -> str:
         return sanitize_filename(f"{id.external_id}_{id.space}")
 
-    def dump_resource(self, resource: SearchConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+    def dump_resource(self, resource: SearchConfigResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
         local = local or {}
         dumped.pop("id", None)
         for key in ["columnsLayout", "filterLayout", "propertiesLayout"]:
@@ -79,15 +76,19 @@ class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig]):
                 dumped.pop(key, None)
         return dumped
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SearchConfigWrite:
-        loaded = SearchConfigWrite._load(resource)
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SearchConfigRequest:
+        loaded = SearchConfigRequest._load(resource)
 
         if self._existing_configs_cache is None:
-            all_configs = self.client.search.configurations.list()
-            self._existing_configs_cache = {config.view: config.id for config in all_configs if config.id is not None}
+            all_configs = self.client.tool.search_configurations.list()
+            self._existing_configs_cache = {
+                ViewReferenceNoVersion(space=config.view.space, external_id=config.view.external_id): config.id
+                for config in all_configs
+            }
 
-        if loaded.view in self._existing_configs_cache:
-            loaded.id = self._existing_configs_cache[loaded.view]
+        view_ref = ViewReferenceNoVersion(space=loaded.view.space, external_id=loaded.view.external_id)
+        if view_ref in self._existing_configs_cache:
+            loaded.id = self._existing_configs_cache[view_ref]
 
         return loaded
 
@@ -100,35 +101,30 @@ class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig]):
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
-    def _upsert(self, items: Sequence[SearchConfigWrite]) -> SearchConfigList:
+    def create(self, items: Sequence[SearchConfigRequest]) -> list[SearchConfigResponse]:
         """
-        Upsert search configurations using the upsert method
+        Create new search configurations using the create/upsert method
         """
-        result = SearchConfigList([])
-        for item in items:
-            created = self.client.search.configurations.upsert(item)
-            result.append(created)
-        return result
+        return self.client.tool.search_configurations.create(items)
 
-    def create(self, items: Sequence[SearchConfigWrite]) -> SearchConfigList:
-        """
-        Create new search configurations using the upsert method
-        """
-        return self._upsert(items)
-
-    def retrieve(self, ids: SequenceNotStr[ViewId]) -> SearchConfigList:
+    def retrieve(self, ids: SequenceNotStr[ViewReferenceNoVersion]) -> list[SearchConfigResponse]:
         """Retrieve search configurations by their IDs"""
-        all_configs = self.client.search.configurations.list()
+        all_configs = self.client.tool.search_configurations.list()
+        id_set = set(ids)
         # The API does not support server-side filtering, so we filter in memory.
-        return SearchConfigList([config for config in all_configs if config.view in ids])
+        return [
+            config
+            for config in all_configs
+            if ViewReferenceNoVersion(space=config.view.space, external_id=config.view.external_id) in id_set
+        ]
 
-    def update(self, items: Sequence[SearchConfigWrite]) -> SearchConfigList:
+    def update(self, items: Sequence[SearchConfigRequest]) -> list[SearchConfigResponse]:
         """
-        Update search configurations using the upsert method
+        Update search configurations using the update/upsert method
         """
-        return self._upsert(items)
+        return self.client.tool.search_configurations.update(items)
 
-    def delete(self, ids: SequenceNotStr[ViewId]) -> int:
+    def delete(self, ids: SequenceNotStr[ViewReferenceNoVersion]) -> int:
         """
         Delete is not implemented in the API client
         """
@@ -139,11 +135,11 @@ class SearchConfigCRUD(ResourceCRUD[ViewId, SearchConfigWrite, SearchConfig]):
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[SearchConfig]:
+    ) -> Iterable[SearchConfigResponse]:
         """Iterate through all search configurations"""
         if space or data_set_external_id or parent_ids:
             # These filters are not supported for SearchConfig
             return iter([])
 
-        all_configs = self.client.search.configurations.list()
+        all_configs = self.client.tool.search_configurations.list()
         return iter(all_configs)

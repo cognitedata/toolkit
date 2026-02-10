@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.api.robotics_frames import FramesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_locations import LocationsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
+from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
@@ -74,6 +75,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWTableRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import SecurityCategoryRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest
@@ -142,6 +144,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # Dependency between Functions and FunctionSchedules makes it hard to test them in a generic way.
         FunctionsAPI,
         FunctionSchedulesAPI,
+        # Does not support delete
+        SearchConfigurationsAPI,
     }
 )
 
@@ -289,6 +293,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         LocationFilterRequest: [{"externalId": "smoke-test-location-filter", "name": "smoke-test-location-filter"}],
         RAWDatabaseRequest: [{"name": "smoke-test-raw-database"}],
         RAWTableRequest: [{"name": "smoke-test-raw-table", "dbName": "smoke-test-raw-database"}],
+        SearchConfigRequest: [{"view": {"space": "cdf_cdm", "externalId": "CogniteAsset"}}],
         SecurityCategoryRequest: [{"name": "smoke-test-security-category"}],
         SequenceRequest: [
             {"externalId": "smoke-test-sequence", "columns": [{"externalId": "smoke-test-sequence-column"}]}
@@ -1128,3 +1133,31 @@ class TestCDFResourceAPI:
             if schedule_id is not None:
                 client.tool.functions.schedules.delete([schedule_id])
             client.tool.functions.delete([function_id], ignore_unknown_ids=True)
+
+    def test_search_config_crudls(self, toolkit_client: ToolkitClient) -> None:
+        # Search Config does not support delete.
+        client = toolkit_client
+        search_config_example = get_examples_minimum_requests(SearchConfigRequest)[0]
+        search_config_request = SearchConfigRequest.model_validate(search_config_example)
+        search_config_id = search_config_request.as_id()
+
+        # List existing search config
+        list_endpoint = client.tool.search_configurations._method_endpoint_map["list"]
+        try:
+            listed_configs = list(client.tool.search_configurations.list())
+        except ToolkitAPIError:
+            raise EndpointAssertionError(list_endpoint.path, "Listing search configs failed.")
+        for config in listed_configs:
+            if config.as_id() == search_config_id:
+                search_config_request.id = config.id
+
+        # Update existing or create new search config
+        create_endpoint = client.tool.search_configurations._method_endpoint_map["upsert"]
+        try:
+            created = client.tool.search_configurations.create([search_config_request])
+        except ToolkitAPIError:
+            raise EndpointAssertionError(create_endpoint.path, "Creating search config instance failed.")
+        if len(created) != 1:
+            raise EndpointAssertionError(create_endpoint.path, f"Expected 1 created search config, got {len(created)}")
+        if created[0].as_id() != search_config_id:
+            raise EndpointAssertionError(create_endpoint.path, "Created search config ID does not match requested ID.")
