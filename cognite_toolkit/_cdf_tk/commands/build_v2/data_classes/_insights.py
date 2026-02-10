@@ -23,9 +23,14 @@ class ModelSyntaxError(Insight):
 
 
 class ConsistencyError(Insight):
-    """If any consistency error is found, the deployment of the data model will fail. For example,
-    if a reverse direct relations points to a non-existing direct relation. This is only relevant for
-    DMS model.
+    """If any consistency error is found, the deployment of the CDF resource will fail."""
+
+    ...
+
+
+class ConsistencyWarning(Insight):
+    """Typically handles validations with extras=True, where internal representation might be off sync with
+    CDF API definition.
     """
 
     ...
