@@ -1,6 +1,6 @@
 from collections import defaultdict
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 from pydantic import ValidationError
 
@@ -131,7 +131,7 @@ class BuildV2Command(ToolkitCommand):
         return None
 
     @classmethod
-    def _create_syntax_errors(cls, resource_type : ResourceType, error: ValidationError) -> Iterable[ModelSyntaxError]:
+    def _create_syntax_errors(cls, resource_type: ResourceType, error: ValidationError) -> Iterable[ModelSyntaxError]:
 
         for error_details in error.errors(include_input=True, include_url=False):
             message = error_details.get("msg", "Unknown syntax error")

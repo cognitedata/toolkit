@@ -1,8 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 
-from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
-
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import InsightList
+from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
 
 
 class ResourceType(BaseModel):
