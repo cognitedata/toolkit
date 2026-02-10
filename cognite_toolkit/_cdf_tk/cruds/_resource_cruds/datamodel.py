@@ -154,6 +154,16 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceReference, SpaceRequest, SpaceRespons
     def as_str(cls, id: SpaceReference) -> str:
         return sanitize_filename(id.space)
 
+    def dump_resource(self, resource: SpaceResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
+        has_local = local is not None
+        local = local or {}
+        for key in ["description", "name"]:
+            if has_local and dumped.get(key) is None and key not in local:
+                # Set to null by server.
+                dumped.pop(key, None)
+        return dumped
+
     def create(self, items: Sequence[SpaceRequest]) -> list[SpaceResponse]:
         for item in items:
             item_id = self.get_id(item)
@@ -663,7 +673,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
             ):
                 # The API will set the direction to outwards by default, so we remove it from the dump.
                 prop.pop("direction", None)
-            for key, default in [("description", None), ("name", None), ("source", None)]:
+            for key, default in [("description", None), ("name", None), ("source", None), ("edgeSource", None)]:
                 if prop.get(key) == default and key not in local_prop:
                     prop.pop(key, None)
         return dumped

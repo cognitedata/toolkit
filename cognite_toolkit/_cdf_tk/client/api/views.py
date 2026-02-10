@@ -71,7 +71,7 @@ class ViewsAPI(CDFResourceAPI[ViewReference, ViewRequest, ViewResponse]):
             List of retrieved ViewResponse objects.
         """
         return self._request_item_response(
-            items, method="retrieve", extra_body={"includeInheritedProperties": include_inherited_properties}
+            items, method="retrieve", params={"includeInheritedProperties": include_inherited_properties}
         )
 
     def delete(self, items: Sequence[ViewReference]) -> None:
