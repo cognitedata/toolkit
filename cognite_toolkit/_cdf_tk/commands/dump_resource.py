@@ -21,9 +21,6 @@ from cognite.client.data_classes import (
     TransformationScheduleList,
     filters,
 )
-from cognite.client.data_classes.agents import (
-    AgentList,
-)
 from cognite.client.data_classes.data_modeling import NodeList, ViewId
 from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
@@ -40,6 +37,7 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter, ViewFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerReference,
     DataModelReference,
@@ -408,17 +406,19 @@ class GroupFinder(ResourceFinder[tuple[str, ...]]):
 class AgentFinder(ResourceFinder[tuple[str, ...]]):
     def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
         super().__init__(client, identifier)
-        self.agents: AgentList | None = None
+        self.agents: list[AgentResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        self.agents = self.client.agents.list()
+        self.agents = self.client.tool.agents.list()
         if not self.agents:
             raise ToolkitMissingResourceError("No agents found")
 
         choices = [
-            Choice(f"{agent.name} ({agent.external_id}) with {len(agent.tools)} tools", value=agent.external_id)
+            Choice(
+                f"{agent.name} ({agent.external_id}) with {len(agent.tools or [])} tools",
+                value=agent.external_id,
+            )
             for agent in sorted(self.agents, key=lambda a: a.name or a.external_id)
-            if agent.external_id
         ]
 
         selected_agent_ids: list[str] | None = questionary.checkbox(
@@ -438,12 +438,12 @@ class AgentFinder(ResourceFinder[tuple[str, ...]]):
         if self.agents:
             yield (
                 [],
-                AgentList([agent for agent in self.agents if agent.external_id in self.identifier]),
+                [agent for agent in self.agents if agent.external_id in self.identifier],
                 loader,
                 None,
             )
         else:
-            yield list(self.identifier), None, loader, None
+            yield [ExternalId(external_id=external_id) for external_id in self.identifier], None, loader, None
 
 
 class NodeFinder(ResourceFinder[ViewReferenceNoVersion]):
