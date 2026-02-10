@@ -453,7 +453,6 @@ InstanceDefinition:
 - externalId: startNode
   instanceType: node
   space: sp_instance
-LabelDefinition:
 LabelResponse:
 - dataSetId: 7982613576047462211
   description: Labels used for relationships that represent flows
