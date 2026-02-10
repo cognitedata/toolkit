@@ -90,7 +90,7 @@ class DirectNodeRelation(ListablePropertyTypeDefinition):
     # In the request object, use ViewCoreProperty.source instead.
     source: ViewReference | None = Field(None, exclude=True)
 
-    @field_serializer("container", mode="plain")
+    @field_serializer("container", mode="plain", when_used="unless-none")
     @classmethod
     def serialize_require(cls, container: ContainerReference, info: FieldSerializationInfo) -> dict[str, Any]:
         return {**container.model_dump(**vars(info)), "type": "container"}
