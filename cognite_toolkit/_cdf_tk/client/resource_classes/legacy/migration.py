@@ -199,7 +199,7 @@ class ResourceViewMappingApply(_ResourceViewMapping, TypedNodeApply):
         external_id: str,
         *,
         resource_type: str,
-        view_id: ViewId,
+        view_id: ViewReference,
         property_mapping: dict[str, str],
         existing_version: int | None = None,
         type: DirectRelationReference | tuple[str, str] | None = None,
@@ -271,7 +271,7 @@ class ResourceViewMappingApply(_ResourceViewMapping, TypedNodeApply):
         output = super().dump(camel_case)
         source = output["sources"][0]
         properties = source["properties"]
-        properties["viewId"] = self.view_id.dump(camel_case=camel_case, include_type=context == "api")
+        properties["viewId"] = self.view_id.dump(camel_case=camel_case)
 
         if context == "local":
             for key in ("space", "sources", "instanceType"):
@@ -320,7 +320,7 @@ class ResourceViewMapping(_ResourceViewMapping, TypedNode):
         created_time: int,
         *,
         resource_type: str,
-        view_id: ViewId,
+        view_id: ViewReference,
         property_mapping: dict[str, str],
         type: DirectRelationReference | None = None,
         deleted_time: int | None = None,
@@ -347,8 +347,8 @@ class ResourceViewMapping(_ResourceViewMapping, TypedNode):
         if "viewId" in resource:
             view_id = resource.pop("viewId")
             try:
-                resource["viewId"] = ViewId.load(view_id)
-            except (TypeError, KeyError) as e:
+                resource["viewId"] = ViewReference.model_validate(view_id)
+            except ValueError as e:
                 raise ValueError(f"Invalid viewId format. Expected 'space', 'externalId', 'version'. Error: {e!s}")
         return super()._load_properties(resource)
 

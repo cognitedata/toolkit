@@ -969,7 +969,7 @@ class TestAssetCentricConversion:
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="event",
-                    view_id=ViewId("test_space", "test_view", "v1"),
+                    view_id=ViewReference(space="test_space", external_id="test_view", version="v1"),
                     property_mapping={"type": "category", "metadata.category": "category", "source": "source"},
                 ),
                 {
