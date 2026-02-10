@@ -1162,7 +1162,7 @@ API_RESOURCES = [
         },
     ),
     APIResource(
-        api_name="tool.search_configurations ",
+        api_name="tool.search_configurations",
         resource_cls=SearchConfigResponse,
         _write_cls=SearchConfigResponse,
         methods={
