@@ -27,7 +27,7 @@ from cognite.client.data_classes import (
     filters,
 )
 from cognite.client.data_classes.capabilities import IDScopeLowerCase, TimeSeriesAcl
-from cognite.client.data_classes.data_modeling import NodeApplyList, NodeList, Space, ViewApply, ViewApplyList
+from cognite.client.data_classes.data_modeling import NodeApplyList, NodeList, Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply, CogniteTimeSeries, CogniteTimeSeriesApply
 from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionProperty,
@@ -38,8 +38,15 @@ from cognite.client.exceptions import CogniteAPIError
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    InstanceSource,
+    NodeRequest,
+    ViewReference,
+    ViewRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import (
     ExtendableCogniteFileApply,
@@ -1035,27 +1042,27 @@ ignoreNullFields: true
 class TestNodeLoader:
     def test_update_existing_node(self, toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> None:
         loader = NodeCRUD(toolkit_client, None)
-        view_id = dm.ViewId("cdf_cdm", "CogniteDescribable", "v1")
-        existing_node = dm.NodeApply(
+        view_id = ViewReference(space="cdf_cdm", external_id="CogniteDescribable", version="v1")
+        existing_node = NodeRequest(
             space=toolkit_space.space,
             external_id=f"toolkit_test_update_existing_node_{RUN_UNIQUE_ID}",
             sources=[
-                dm.NodeOrEdgeData(
-                    view_id,
-                    {
+                InstanceSource(
+                    source=view_id,
+                    properties={
                         "name": "existing name",
                         "description": "Existing description",
                     },
                 )
             ],
         )
-        updated_node = dm.NodeApply(
+        updated_node = NodeRequest(
             space=existing_node.space,
             external_id=existing_node.external_id,
             sources=[
-                dm.NodeOrEdgeData(
-                    view_id,
-                    {
+                InstanceSource(
+                    source=view_id,
+                    properties={
                         "name": "updated name",
                         "aliases": ["alias1", "alias2"],
                     },
@@ -1063,15 +1070,20 @@ class TestNodeLoader:
             ],
         )
         try:
-            created = loader.create(dm.NodeApplyList([existing_node]))
+            created = loader.create([existing_node])
             assert len(created) == 1
 
-            updated = loader.update(dm.NodeApplyList([updated_node]))
+            updated = loader.update([updated_node])
             assert len(updated) == 1
 
-            retrieved = toolkit_client.data_modeling.instances.retrieve(existing_node.as_id(), sources=[view_id])
-            assert len(retrieved.nodes) == 1
-            node = retrieved.nodes[0]
+            retrieved = toolkit_client.tool.instances.retrieve(
+                [existing_node.as_id()],
+                source=TypedViewReference(
+                    space=view_id.space, external_id=view_id.external_id, version=view_id.version
+                ),
+            )
+            assert len(retrieved) == 1
+            node = retrieved[0]
             assert node.properties[view_id] == {
                 "name": "updated name",  # Overwrite
                 "description": "Existing description",  # Keep existing description
@@ -1105,9 +1117,9 @@ properties:
         resource_dict = loader.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
         resource = loader.load_resource(resource_dict[0])
-        assert isinstance(resource, ViewApply)
+        assert isinstance(resource, ViewRequest)
         if not loader.retrieve([resource.as_id()]):
-            _ = loader.create(ViewApplyList([resource]))
+            _ = loader.create([resource])
 
         worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([filepath])

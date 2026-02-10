@@ -91,7 +91,7 @@ class TestContainerLoader:
     # The DMS service is fairly unstable, so we need to rerun the tests if they fail.
     @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError", "CogniteAPIError"])
     def test_populate_count_drop_data_node_container(
-        self, node_container: dm.Container, cognite_client: CogniteClient
+        self, node_container: dm.Container, toolkit_client: ToolkitClient
     ) -> None:
         node = dm.NodeApply(
             space=node_container.space,
@@ -100,12 +100,12 @@ class TestContainerLoader:
         )
         container_id = [node_container.as_id()]
 
-        loader = ContainerCRUD(cognite_client, None)
+        loader = ContainerCRUD(toolkit_client, None)
 
         try:
             assert loader.count(container_id) == 0
 
-            cognite_client.data_modeling.instances.apply(nodes=[node])
+            toolkit_client.data_modeling.instances.apply(nodes=[node])
 
             assert loader.count(container_id) == 1
 
@@ -128,7 +128,7 @@ class TestContainerLoader:
     # The DMS service is fairly unstable, so we need to rerun the tests if they fail.
     @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError", "CogniteAPIError"])
     def test_populate_count_drop_data_edge_container(
-        self, edge_container: dm.Container, cognite_client: CogniteClient
+        self, edge_container: dm.Container, toolkit_client: ToolkitClient
     ) -> None:
         space = edge_container.space
         nodes = dm.NodeApplyList(
@@ -155,12 +155,12 @@ class TestContainerLoader:
         )
         container_id = [edge_container.as_id()]
 
-        loader = ContainerCRUD(cognite_client, None)
+        loader = ContainerCRUD(toolkit_client, None)
 
         try:
             assert loader.count(container_id) == 0
 
-            cognite_client.data_modeling.instances.apply(edges=[edge], nodes=nodes)
+            toolkit_client.data_modeling.instances.apply(edges=[edge], nodes=nodes)
 
             assert loader.count(container_id) == 1
 
@@ -178,7 +178,7 @@ class TestContainerLoader:
                 updated = loader.retrieve([write_container.as_id()])
             assert updated[0].description == write_container.description
         finally:
-            cognite_client.data_modeling.instances.delete(nodes=nodes.as_ids(), edges=edge.as_id())
+            toolkit_client.data_modeling.instances.delete(nodes=nodes.as_ids(), edges=edge.as_id())
 
 
 class Test3DModelLoader:

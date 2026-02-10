@@ -659,6 +659,9 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
             ):
                 # The API will set the direction to outwards by default, so we remove it from the dump.
                 prop.pop("direction", None)
+            for key, default in [("description", None), ("name", None), ("source", None)]:
+                if prop.get(key) == default and key not in local_prop:
+                    prop.pop(key, None)
         return dumped
 
     def diff_list(
