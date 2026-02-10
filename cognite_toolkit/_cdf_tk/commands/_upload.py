@@ -2,7 +2,6 @@ from collections import Counter
 from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
-from typing import cast
 
 from rich.console import Console
 
@@ -111,10 +110,14 @@ class UploadCommand(ToolkitCommand):
         for selector in data_files_by_selector:
             if isinstance(selector, InstanceSpaceSelector) and selector.view is not None:
                 view_legacy_id = selector.view.as_id()
+                if view_legacy_id.version is None:
+                    raise RuntimeError(
+                        f"View {view_legacy_id} does not have a version, which is required for topological sorting."
+                    )
                 view_ref = ViewReference(
                     space=view_legacy_id.space,
                     external_id=view_legacy_id.external_id,
-                    version=cast(str, view_legacy_id.version),
+                    version=view_legacy_id.version,
                 )
                 selector_by_view_id[view_ref] = selector
 

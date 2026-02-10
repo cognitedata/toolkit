@@ -414,7 +414,7 @@ class DumpConfigApp(typer.Typer):
         client = EnvironmentVariables.create_from_environment().get_client()
         selected_view_id: ViewReferenceNoVersion | None = None
         if view_id is not None:
-            if len(view_id) <= 2:
+            if len(view_id) < 2:
                 raise ToolkitRequiredValueError(
                     "View ID must have at least 2 parts: space, external_id and, optionally, version."
                 )

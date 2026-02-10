@@ -223,9 +223,11 @@ class AssetCentricMigrationIO(
         source = next((source for source in item.sources or [] if source.source == INSTANCE_SOURCE_VIEW_ID), None)
         if source is None:
             raise ValueError(f"Cannot extract ID from item of type {type(item).__name__!r}")
-        if not isinstance(source.properties["id"], int):  # type: ignore [index]
-            raise ValueError(f"Unexpected ID type: {type(source.properties['id']).__name__!r}")  # type: ignore [index]
-        id_ = source.properties["id"]  # type: ignore [index]
+        if source.properties is None:
+            raise ValueError("Source properties cannot be None when linking asset-centric resources.")
+        if not isinstance(source.properties["id"], int):
+            raise ValueError(f"Unexpected ID type: {type(source.properties['id']).__name__!r}")
+        id_ = source.properties["id"]
         return PendingInstanceId(
             pending_instance_id=NodeId(item.space, item.external_id),
             id=id_,
