@@ -116,6 +116,7 @@ from cognite.client.data_classes.transformations.notifications import (
     TransformationNotificationWrite,
 )
 
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
     APMConfigResponse,
@@ -1177,6 +1178,15 @@ API_RESOURCES = [
             "retrieve": [
                 Method(api_class_method="list", mock_class_method="list"),
             ],
+        },
+    ),
+    APIResource(
+        api_name="tool.agents",
+        resource_cls=AgentResponse,
+        _write_cls=AgentRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [Method(api_class_method="retrieve", mock_class_method="retrieve")],
         },
     ),
 ]
