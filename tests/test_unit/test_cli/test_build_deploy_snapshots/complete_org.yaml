@@ -1,4 +1,4 @@
-Agent:
+AgentResponse:
 - description: This agent is designed to demonstrate that Toolkit can deploy agents
   externalId: toolkit_demo_agent
   model: azure/gpt-4o
