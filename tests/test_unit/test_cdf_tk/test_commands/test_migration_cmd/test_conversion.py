@@ -4,7 +4,6 @@ from typing import Any, ClassVar
 
 import pytest
 from cognite.client.data_classes import Annotation, Sequence
-from cognite.client.data_classes.data_modeling.ids import ViewId
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
@@ -520,7 +519,7 @@ class TestAssetCentricConversion:
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="asset",
-                    view_id=ViewId("test_space", "test_view", "v1"),
+                    view_id=ViewReference(space="test_space", external_id="test_view", version="v1"),
                     property_mapping={"name": "assetName", "description": "assetDescription"},
                 ),
                 {
@@ -572,7 +571,7 @@ class TestAssetCentricConversion:
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="timeseries",
-                    view_id=ViewId("test_space", "test_view", "v1"),
+                    view_id=ViewReference(space="test_space", external_id="test_view", version="v1"),
                     property_mapping={
                         "name": "timeseriesName",
                         "unit": "measurementUnit",
@@ -665,7 +664,7 @@ class TestAssetCentricConversion:
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="event",
-                    view_id=ViewId("test_space", "test_view", "v1"),
+                    view_id=ViewReference(space="test_space", external_id="test_view", version="v1"),
                     property_mapping={
                         "source": "source",
                         "assetIds": "assets",
@@ -789,7 +788,7 @@ class TestAssetCentricConversion:
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="file",
-                    view_id=ViewId("test_space", "test_view", "v1"),
+                    view_id=ViewReference(space="test_space", external_id="test_view", version="v1"),
                     property_mapping={},
                 ),
                 {
@@ -867,7 +866,7 @@ class TestAssetCentricConversion:
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="timeseries",
-                    view_id=ViewId("test_space", "test_view", "v1"),
+                    view_id=ViewReference(space="test_space", external_id="test_view", version="v1"),
                     property_mapping={"name": "timeSeriesName", "metadata.category": "timeSeriesCategory"},
                 ),
                 {
@@ -919,7 +918,7 @@ class TestAssetCentricConversion:
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="asset",
-                    view_id=ViewId("test_space", "test_view", "v1"),
+                    view_id=ViewReference(space="test_space", external_id="test_view", version="v1"),
                     property_mapping={"name": "assetName", "description": "assetDescription"},
                 ),
                 {
@@ -1071,7 +1070,7 @@ class TestAssetCentricConversion:
     }
     ANNOTATION_MAPPING = ResourceViewMapping(
         external_id="file_annotation_mapping",
-        view_id=ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
+        view_id=ViewReference(space="cdf_cdm", external_id="CogniteDiagramAnnotation", version="v1"),
         property_mapping={
             "annotatedResourceId": "edge.startNode",
             "annotationType": "edge.type.externalId",
