@@ -29,6 +29,7 @@ class AgentsAPI(CDFResourceAPI[ExternalId, AgentRequest, AgentResponse]):
                 "delete": Endpoint(method="POST", path="/ai/agents/delete", item_limit=1),
                 "list": Endpoint(method="GET", path="/ai/agents", item_limit=1000),
             },
+            api_version="beta",
         )
 
     def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[AgentResponse]:
