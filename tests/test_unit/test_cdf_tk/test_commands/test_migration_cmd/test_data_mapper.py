@@ -4,7 +4,6 @@ from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.data_classes.data_modeling import (
-    DirectRelationReference,
     InstanceApply,
     NodeId,
     NodeList,
@@ -118,7 +117,7 @@ class TestAssetCentricMapper:
             # tests for the asset_centric_to_dm function.
             assert len(mapped) == asset_count
             first_asset = mapped[0]
-            assert first_asset.sources[0].properties["source"] == DirectRelationReference("source_systems", "SAP")
+            assert first_asset.sources[0].properties["source"] == {"space": "source_systems", "externalId": "SAP"}
 
             # Check lookup calls
             assert client.migration.resource_view_mapping.retrieve.call_count == 1
