@@ -22,14 +22,15 @@ class ModelSyntaxError(Insight):
     ...
 
 
-class ConsistencyWarning(Insight):
-    """Typically handles Pydantic model extra fields for which we are not sure if they are intentional or not"""
+class ConsistencyError(Insight):
+    """If any consistency error is found, the deployment of the CDF resource will fail."""
 
     ...
 
-
-class ConsistencyError(Insight):
-    """If any consistency error is found, the deployment of the CDF resource will fail."""
+class ConsistencyWarning(Insight):
+    """Typically handles validations with extras=True, where internal representation might be off sync with
+    CDF API definition.
+    """
 
     ...
 
