@@ -14,6 +14,7 @@ from cognite.client.data_classes.data_modeling.instances import (
     TypedNodeApply,
 )
 
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, ViewReference
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType, AssetCentricTypeExtended
@@ -101,7 +102,7 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
         id_: int,
         data_set_id: int | None = None,
         classic_external_id: str | None = None,
-        preferred_consumer_view_id: ViewId | None = None,
+        preferred_consumer_view_id: ViewReference | None = None,
         ingestion_view: DirectRelationReference | None = None,
         type: DirectRelationReference | None = None,
         deleted_time: int | None = None,
@@ -127,8 +128,8 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
         if "preferredConsumerViewId" in resource:
             preferred_consumer_view_id = resource.pop("preferredConsumerViewId")
             try:
-                resource["preferredConsumerViewId"] = ViewId.load(preferred_consumer_view_id)
-            except (TypeError, KeyError) as e:
+                resource["preferredConsumerViewId"] = ViewReference.model_validate(preferred_consumer_view_id)
+            except ValueError as e:
                 warnings.warn(
                     IgnoredValueWarning(
                         name="InstanceSource.preferredConsumerViewId",
@@ -145,7 +146,7 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
             id_=self.id_,
         )
 
-    def consumer_view(self) -> ViewId:
+    def consumer_view(self) -> ViewReference:
         if self.preferred_consumer_view_id:
             return self.preferred_consumer_view_id
         if self.resource_type == "sequence":
@@ -157,7 +158,7 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
             "file": "CogniteFile",
             "timeseries": "CogniteTimeSeries",
         }[self.resource_type]
-        return ViewId("cdf_cdm", external_id, "v1")
+        return ViewReference(space="cdf_cdm", external_id=external_id, version="v1")
 
     def as_direct_relation_reference(self) -> DirectRelationReference:
         return DirectRelationReference(space=self.space, external_id=self.external_id)
@@ -401,8 +402,8 @@ class CreatedSourceSystem(TypedNode):
     def get_source(cls) -> ViewId:
         return ViewId("cognite_migration", "CreatedSourceSystem", "v1")
 
-    def as_direct_relation_reference(self) -> DirectRelationReference:
-        return DirectRelationReference(space=self.space, external_id=self.external_id)
+    def as_direct_relation_reference(self) -> NodeReference:
+        return NodeReference(space=self.space, external_id=self.external_id)
 
 
 class SpaceSource(TypedNode):

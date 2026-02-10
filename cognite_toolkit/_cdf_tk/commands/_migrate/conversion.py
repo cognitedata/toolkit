@@ -1,7 +1,9 @@
 from collections.abc import Iterable, Mapping, Set
+from datetime import date, datetime
 from typing import Any, ClassVar, cast
 
 from cognite.client.data_classes import Annotation
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
@@ -25,7 +27,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
-    PropertyValueWrite,
     asset_centric_convert_to_primary_property,
     convert_to_primary_property,
 )
@@ -301,7 +302,7 @@ def create_properties(
     resource_type: AssetCentricTypeExtended,
     issue: ConversionIssue,
     direct_relation_cache: DirectRelationCache,
-) -> dict[str, PropertyValueWrite]:
+) -> dict[str, JsonValue]:
     """
     Create properties for a data model instance from an asset-centric resource.
 
@@ -318,7 +319,7 @@ def create_properties(
 
     """
     flatten_dump = flatten_dict_json_path(dumped, keep_structured=set(property_mapping.keys()))
-    properties: dict[str, PropertyValueWrite] = {}
+    properties: dict[str, JsonValue] = {}
     ignored_asset_centric_properties: set[str] = set()
     for prop_json_path, prop_id in property_mapping.items():
         if prop_json_path not in flatten_dump:
@@ -348,7 +349,14 @@ def create_properties(
                 FailedConversion(property_id=prop_json_path, value=flatten_dump[prop_json_path], error=str(e))
             )
             continue
-        properties[prop_id] = value
+        if isinstance(value, date):
+            # Convert date to ISO format string, as the data model expects dates as strings in ISO format.
+            properties[prop_id] = value.isoformat()
+        elif isinstance(value, datetime):
+            # Convert datetime to ISO format string, as the data model expects datetimes as strings in ISO format.
+            properties[prop_id] = value.isoformat(timespec="milliseconds")
+        else:
+            properties[prop_id] = value
 
     issue.ignored_asset_centric_properties = sorted(
         (set(flatten_dump.keys()) - set(property_mapping.keys())) | ignored_asset_centric_properties
@@ -383,6 +391,7 @@ def create_edge_properties(
             continue
         edge_prop_id = prop_id.removeprefix("edge.")
         if edge_prop_id in ("startNode", "endNode", "type"):
+            value: NodeReference | Any
             # DirectRelation lookup.
             try:
                 value = convert_to_primary_property(

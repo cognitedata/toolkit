@@ -10,13 +10,13 @@ from cognite.client.data_classes.data_modeling import (
     NodeApplyResultList,
     NodeId,
     NodeList,
-    ViewId,
     filters,
     query,
 )
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_data_modeling import ExtendedInstancesAPI
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
     AssetCentricId,
     CreatedSourceSystem,
@@ -347,7 +347,7 @@ class SpaceSourceAPI:
         return results
 
 
-_T_Cached = TypeVar("_T_Cached", bound=NodeId | ViewId)
+_T_Cached = TypeVar("_T_Cached", bound=NodeReference | ViewReference)
 
 
 class LookupAPI:
@@ -355,27 +355,27 @@ class LookupAPI:
         self._instance_api = instance_api
         self._resource_type = resource_type
         self._view_id = InstanceSource.get_source()
-        self._node_id_by_id: dict[int, NodeId | None] = {}
-        self._node_id_by_external_id: dict[str, NodeId | None] = {}
-        self._consumer_view_id_by_id: dict[int, ViewId | None] = {}
-        self._consumer_view_id_by_external_id: dict[str, ViewId | None] = {}
+        self._node_id_by_id: dict[int, NodeReference | None] = {}
+        self._node_id_by_external_id: dict[str, NodeReference | None] = {}
+        self._consumer_view_id_by_id: dict[int, ViewReference | None] = {}
+        self._consumer_view_id_by_external_id: dict[str, ViewReference | None] = {}
         self._RETRIEVE_LIMIT = 1000
 
     @overload
-    def __call__(self, id: int, external_id: None = None) -> NodeId | None: ...
+    def __call__(self, id: int, external_id: None = None) -> NodeReference | None: ...
 
     @overload
-    def __call__(self, id: SequenceNotStr[int], external_id: None = None) -> dict[int, NodeId]: ...
+    def __call__(self, id: SequenceNotStr[int], external_id: None = None) -> dict[int, NodeReference]: ...
 
     @overload
-    def __call__(self, *, external_id: str) -> NodeId | None: ...
+    def __call__(self, *, external_id: str) -> NodeReference | None: ...
 
     @overload
-    def __call__(self, *, external_id: SequenceNotStr[str]) -> dict[str, NodeId]: ...
+    def __call__(self, *, external_id: SequenceNotStr[str]) -> dict[str, NodeReference]: ...
 
     def __call__(
         self, id: int | SequenceNotStr[int] | None = None, external_id: str | SequenceNotStr[str] | None = None
-    ) -> dict[int, NodeId] | dict[str, NodeId] | NodeId | None:
+    ) -> dict[int, NodeReference] | dict[str, NodeReference] | NodeReference | None:
         """Lookup NodeId by either internal ID or external ID.
 
         Args:
@@ -383,7 +383,7 @@ class LookupAPI:
             external_id (str | SequenceNotStr[str] | None): The external ID(s) to lookup.
 
         Returns:
-            NodeId | dict[int, NodeId] | dict[str, NodeId] | None: The corresponding NodeId(s) if found, otherwise None.
+            NodeReference | dict[int, NodeReference] | dict[str, NodeReference] | None: The corresponding NodeReference(s) if found, otherwise None.
 
         """
         if id is not None and external_id is None:
@@ -391,7 +391,7 @@ class LookupAPI:
                 identifier=id,
                 cache=self._node_id_by_id,
                 property_name="id",
-                return_type=NodeId,
+                return_type=NodeReference,
                 input_type=int,
             )
         elif external_id is not None and id is None:
@@ -399,41 +399,41 @@ class LookupAPI:
                 identifier=external_id,
                 cache=self._node_id_by_external_id,
                 property_name="classicExternalId",
-                return_type=NodeId,
+                return_type=NodeReference,
                 input_type=str,
             )
         else:
             raise TypeError("Either id or external_id must be provided, but not both.")
 
     @overload
-    def consumer_view(self, id: int, external_id: None = None) -> ViewId | None: ...
+    def consumer_view(self, id: int, external_id: None = None) -> ViewReference | None: ...
 
     @overload
-    def consumer_view(self, id: SequenceNotStr[int], external_id: None = None) -> dict[int, ViewId]: ...
+    def consumer_view(self, id: SequenceNotStr[int], external_id: None = None) -> dict[int, ViewReference]: ...
 
     @overload
-    def consumer_view(self, *, external_id: str) -> ViewId | None: ...
+    def consumer_view(self, *, external_id: str) -> ViewReference | None: ...
 
     @overload
-    def consumer_view(self, *, external_id: SequenceNotStr[str]) -> dict[str, ViewId]: ...
+    def consumer_view(self, *, external_id: SequenceNotStr[str]) -> dict[str, ViewReference]: ...
 
     def consumer_view(
         self, id: int | SequenceNotStr[int] | None = None, external_id: str | SequenceNotStr[str] | None = None
-    ) -> dict[int, ViewId] | dict[str, ViewId] | ViewId | None:
-        """Lookup Consumer ViewId by either internal ID or external ID.
+    ) -> dict[int, ViewReference] | dict[str, ViewReference] | ViewReference | None:
+        """Lookup Consumer ViewReference by either internal ID or external ID.
 
         Args:
             id (int | Sequence[int] | None): The internal ID(s) to lookup.
             external_id (str | SequenceNotStr[str] | None): The external ID(s) to lookup.
         Returns:
-            ViewId | dict[int, ViewId] | dict[str, ViewId] | None
+            ViewReference | dict[int, ViewReference] | dict[str, ViewReference] | None
         """
         if id is not None and external_id is None:
             return self._lookup(
                 identifier=id,
                 cache=self._consumer_view_id_by_id,
                 property_name="id",
-                return_type=ViewId,
+                return_type=ViewReference,
                 input_type=int,
             )
         elif external_id is not None and id is None:
@@ -441,7 +441,7 @@ class LookupAPI:
                 identifier=external_id,
                 cache=self._consumer_view_id_by_external_id,
                 property_name="classicExternalId",
-                return_type=ViewId,
+                return_type=ViewReference,
                 input_type=str,
             )
         else:
@@ -455,7 +455,7 @@ class LookupAPI:
         return_type: type[_T_Cached],
         input_type: type[_T],
     ) -> dict[_T, _T_Cached] | _T_Cached | None:
-        """Generic lookup method for both NodeId and ViewId by id or external_id."""
+        """Generic lookup method for both NodeId and ViewReference by id or external_id."""
         is_single = isinstance(identifier, input_type)
         # MyPy does not understand that if is_single is True, identifier is _T, else SequenceNotStr[_T].
         identifiers: list[_T] = [identifier] if is_single else list(identifier)  # type: ignore[arg-type, list-item]
@@ -488,7 +488,7 @@ class LookupAPI:
             items = chunk_response.get("instanceSource", [])
             for item in items:
                 instance_source = InstanceSource._load(item.dump())
-                node_id = instance_source.as_id()
+                node_id = NodeReference(space=instance_source.space, external_id=instance_source.external_id)
                 self._node_id_by_id[instance_source.id_] = node_id
                 self._consumer_view_id_by_id[instance_source.id_] = instance_source.consumer_view()
                 if instance_source.classic_external_id:
