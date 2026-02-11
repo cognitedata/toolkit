@@ -165,7 +165,7 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group]):
                     if data_set_ids := scope.get(cap.DataSetScope._scope_name, []):
                         if isinstance(data_set_ids, dict) and "ids" in data_set_ids:
                             for data_set_id in data_set_ids["ids"]:
-                                yield DataSetsCRUD, data_set_id
+                                yield DataSetsCRUD, ExternalId(external_id=data_set_id)
                     if table_ids := scope.get(cap.TableScope._scope_name, []):
                         for db_name, tables in table_ids.get("dbsToTables", {}).items():
                             yield RawDatabaseCRUD, RawDatabaseId(name=db_name)

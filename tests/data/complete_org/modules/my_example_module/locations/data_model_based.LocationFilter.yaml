@@ -6,5 +6,4 @@ dataModels:
   externalId: DataModelLocation
   version: '1_0_0'
 assetCentric:
-  dataSetExternalIds:
-  - ''
+  dataSetExternalIds: []
