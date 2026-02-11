@@ -92,7 +92,7 @@ class ToolkitClient(CogniteClient):
         http_client = HTTPClient(self.config)
         self.http_client = http_client
         toolkit_config = ToolkitClientConfig.from_client_config(self.config)
-        self.console = console or Console()
+        self.console = console or Console(markup=True)
         self.tool = ToolAPI(http_client, self.console)
         self.search = SearchAPI(self._config, self._API_VERSION, self)
         self.dml = DMLAPI(self._config, self._API_VERSION, self)

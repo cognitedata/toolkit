@@ -1,6 +1,7 @@
 from ._build_parameters import BuildParameters
 from ._built_module import BuiltModule
 from ._built_results import BuiltResult
+from ._config_yaml import ConfigYAML
 from ._insights import ConsistencyError, Insight, InsightList, ModelSyntaxError, Recommendation
 from ._module import Module
 from ._module_results import ModuleResult
@@ -12,6 +13,7 @@ __all__ = [
     "BuildParameters",
     "BuiltModule",
     "BuiltResult",
+    "ConfigYAML",
     "ConsistencyError",
     "Insight",
     "InsightList",
