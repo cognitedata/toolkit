@@ -12,8 +12,8 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
-from cognite_toolkit._cdf_tk.commands.build_v2.build_cmd import BuildCommand as BuildCommandV2
+from cognite_toolkit._cdf_tk.commands import BuildCommand, BuildV2Command, CleanCommand, DeployCommand
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.commands.clean import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -41,7 +41,10 @@ class CoreApp(typer.Typer):
     def __init__(self, *args, **kwargs) -> None:  # type: ignore
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.common)
-        self.command()(self.build)
+        if Flags.v08.is_enabled():
+            self.command()(self.build_v2)
+        else:
+            self.command()(self.build)
         self.command()(self.deploy)
         self.command()(self.clean)
 
@@ -209,11 +212,7 @@ class CoreApp(typer.Typer):
         if exit_on_warning:
             print_warning = False
 
-        cmd = (
-            BuildCommandV2(print_warning=print_warning, client=client)
-            if Flags.v08.is_enabled()
-            else BuildCommand(print_warning=print_warning, client=client)
-        )
+        cmd = BuildCommand(print_warning=print_warning, client=client)
         cmd.run(
             lambda: cmd.execute(
                 verbose,
@@ -235,6 +234,67 @@ class CoreApp(typer.Typer):
                 print(end="\n")
 
             raise typer.Exit(code=1)
+
+    def build_v2(
+        self,
+        ctx: typer.Context,
+        organization_dir: Annotated[
+            Path,
+            typer.Option(
+                "--organization-dir",
+                "-o",
+                help="Where to find the module templates to build from",
+                exists=True,
+                file_okay=False,
+            ),
+        ] = CDF_TOML.cdf.default_organization_dir,
+        build_dir: Annotated[
+            Path,
+            typer.Option(
+                "--build-dir",
+                "-b",
+                help="Where to save the built module files",
+            ),
+        ] = Path.cwd() / "build",
+        selected: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--modules",
+                "-m",
+                help="Specify paths or names to the modules to build",
+            ),
+        ] = None,
+        config_yaml: Annotated[
+            str | None,
+            typer.Option(
+                "--config-yaml",
+                "-c",
+                help="The name of the config YAML file to use. It expected to be named config.[name].yaml and be located in the organization directory.",
+            ),
+        ] = CDF_TOML.cdf.default_config_yaml,
+    ) -> None:
+        """Build configuration files from the modules to the build directory."""
+        client: ToolkitClient | None = None
+        with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
+            # Remove the Error message from failing to load the config
+            # This is verified in check_auth
+            client = EnvironmentVariables.create_from_environment().get_client()
+
+        cmd = BuildV2Command(print_warning=True, client=client)
+
+        parameter = BuildParameters(
+            organization_dir=organization_dir,
+            build_dir=build_dir,
+            config_yaml_name=config_yaml,
+            user_selected_modules=selected,
+        )
+
+        cmd.run(
+            lambda: cmd.build(
+                parameters=parameter,
+                client=client,
+            )
+        )
 
     def deploy(
         self,
