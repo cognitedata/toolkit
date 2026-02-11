@@ -114,7 +114,7 @@ def test_inject_custom_environmental_variables(
         force_update=False,
     )
 
-    dataset = toolkit_client_approval.created_resources_of_type(DataSet)[0]
+    dataset = toolkit_client_approval.created_resources_of_type(DataSetResponse)[0]
     assert dataset.external_id == "my_environment_variable_value"
 
 
