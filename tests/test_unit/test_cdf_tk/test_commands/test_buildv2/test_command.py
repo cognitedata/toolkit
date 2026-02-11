@@ -35,7 +35,7 @@ name: My Space
         org = tmp_path / "org"
         resource_file = org / "modules" / "my_module" / SpaceCRUD.folder_name / f"my_space.{SpaceCRUD.kind}.yaml"
         resource_file.parent.mkdir(parents=True)
-        space_yaml = """space: my space
+        space_yaml = """space: my#space
 name: My Space
 """
         resource_file.write_text(space_yaml)
