@@ -172,7 +172,7 @@ class BuildV2Command(ToolkitCommand):
                     except ValidationError as e:
                         insights.extend(self._create_syntax_errors(resource_type, e))
 
-        return ReadModule(name=module.name, resources_by_type=resource_by_type, insights=insights)
+        return ReadModule(path=module.path, resources_by_type=resource_by_type, insights=insights)
 
     def validate_module(self, module: ReadModule) -> InsightList:
         return InsightList()
@@ -180,7 +180,7 @@ class BuildV2Command(ToolkitCommand):
     def build_module(self, module: ReadModule, build_dir: Path) -> BuiltModule:
         build_dir.mkdir(parents=True, exist_ok=True)
 
-        built_module = BuiltModule(name=module.name)
+        built_module = BuiltModule(path=module.path)
         for resource_type, resources in module.resources_by_type.items():
             folder = build_dir / resource_type.resource_folder
             folder.mkdir(parents=True, exist_ok=True)
@@ -202,7 +202,7 @@ class BuildV2Command(ToolkitCommand):
         """Compiles the results from the different steps of the build process into a single result object for the module."""
 
         return ModuleResult(
-            name=module.name,
+            path=module.path,
             built_files=built_module.built_files if built_module else [],
             insights=validation_insights + read_result.insights if validation_insights else read_result.insights,
         )

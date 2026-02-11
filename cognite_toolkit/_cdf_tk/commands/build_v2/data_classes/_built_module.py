@@ -1,10 +1,11 @@
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
+
+from ._module import Module
 
 
-class BuiltModule(BaseModel):
+class BuiltModule(Module):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    name: str = Field(..., description="Name of the module, typically the name of the folder containing the module.")
     built_files: list[Path] = Field(default_factory=list)

@@ -3,6 +3,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import InsightList
 from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
 
+from ._module import Module
+
 
 class ResourceType(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -11,10 +13,9 @@ class ResourceType(BaseModel):
     kind: str
 
 
-class ReadModule(BaseModel):
+class ReadModule(Module):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    name: str = Field(..., description="Name of the module, typically the name of the folder containing the module.")
     resources_by_type: dict[ResourceType, list[ToolkitResource]]
     insights: InsightList = Field(default_factory=InsightList)
 
