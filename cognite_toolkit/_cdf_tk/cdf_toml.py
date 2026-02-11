@@ -32,6 +32,7 @@ else:
 class CLIConfig:
     default_organization_dir: Path
     default_env: str = "dev"
+    default_config_yaml = "dev"
     file_encoding: str | None = None
     has_user_set_default_org: bool = False
     has_user_set_default_env: bool = False
