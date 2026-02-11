@@ -73,6 +73,7 @@ dev = [
     "pytest-json-report>=1.5.0", # For generating JSON reports from tests, this is used in the smoke tests
 ]
 
+
 [project.optional-dependencies]
 table = [
     "pyarrow>=20.0.0",
@@ -80,6 +81,9 @@ table = [
 ]
 sql = [
     "sqlparse >=0.5.3",
+]
+v08 = [
+    "cognite-neat>=1.0.37",
 ]
 
 [project.scripts]
