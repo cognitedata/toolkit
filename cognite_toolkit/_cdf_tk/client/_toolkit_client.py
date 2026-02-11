@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import Extend
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 
+from .api.agents import AgentsAPI
 from .api.assets import AssetsAPI
 from .api.containers import ContainersAPI
 from .api.data_models import DataModelsAPI
@@ -53,6 +54,7 @@ class ToolAPI:
 
     def __init__(self, http_client: HTTPClient, console: Console) -> None:
         self.http_client = http_client
+        self.agents = AgentsAPI(http_client)
         self.assets = AssetsAPI(http_client)
         self.datasets = DataSetsAPI(http_client)
         self.events = EventsAPI(http_client)
