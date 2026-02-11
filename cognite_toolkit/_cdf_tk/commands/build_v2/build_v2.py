@@ -143,7 +143,7 @@ class BuildV2Command(ToolkitCommand):
                 built_module = self.build_module(read_module, build_dir)
                 validation_insights = self.validate_module(read_module)
 
-            results.append(self.compile(module, read_module, built_module, validation_insights))
+            results.append(self._compile(module, read_module, built_module, validation_insights))
         return results
 
     def find_modules(self, parameters: BuildParameters) -> ModuleList:
@@ -172,13 +172,15 @@ class BuildV2Command(ToolkitCommand):
                     except ValidationError as e:
                         insights.extend(self._create_syntax_errors(resource_type, e))
 
-        return ReadModule(resources_by_type=resource_by_type, insights=insights)
+        return ReadModule(path=module.path, resources_by_type=resource_by_type, insights=insights)
 
     def validate_module(self, module: ReadModule) -> InsightList:
         return InsightList()
 
     def build_module(self, module: ReadModule, build_dir: Path) -> BuiltModule:
         build_dir.mkdir(parents=True, exist_ok=True)
+
+        built_module = BuiltModule(path=module.path)
         for resource_type, resources in module.resources_by_type.items():
             folder = build_dir / resource_type.resource_folder
             folder.mkdir(parents=True, exist_ok=True)
@@ -186,19 +188,24 @@ class BuildV2Command(ToolkitCommand):
                 resource_file = folder / f"resource_{index}.{resource_type.kind}.yaml"
                 # Todo Move into Toolkit resource.
                 safe_write(resource_file, yaml_safe_dump(resource.model_dump(by_alias=True, exclude_unset=True)))
+                built_module.built_files.append(resource_file)
         # Todo: Store source path, source hash, ID, and so on for build_linage
-        return BuiltModule()
+        return built_module
 
-    def compile(
+    def _compile(
         self,
         module: Module,
         read_result: ReadModule,
         built_module: BuiltModule | None,
         validation_insights: InsightList | None,
     ) -> ModuleResult:
-        # ModuleResults should not contain the resource in memory, just their ID,
-        # paths, and on.
-        return ModuleResult()
+        """Compiles the results from the different steps of the build process into a single result object for the module."""
+
+        return ModuleResult(
+            path=module.path,
+            built_files=built_module.built_files if built_module else [],
+            insights=validation_insights + read_result.insights if validation_insights else read_result.insights,
+        )
 
     def global_validation(self, modules: list[ModuleResult], client: ToolkitClient | None) -> InsightList:
         return InsightList()
