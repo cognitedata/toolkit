@@ -42,7 +42,7 @@ class CoreApp(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.common)
         if Flags.v08.is_enabled():
-            self.command()(self.build_v2)
+            self.command("build")(self.build_v2)
         else:
             self.command()(self.build)
         self.command()(self.deploy)
@@ -269,7 +269,7 @@ class CoreApp(typer.Typer):
             typer.Option(
                 "--config-yaml",
                 "-c",
-                help="The name of the config YAML file to use. It expected to be named config.[name].yaml and be located in the organization directory.",
+                help="The name of the config YAML file to use. It expected to be named config.<name>.yaml and be located in the organization directory.",
             ),
         ] = CDF_TOML.cdf.default_config_yaml,
     ) -> None:
