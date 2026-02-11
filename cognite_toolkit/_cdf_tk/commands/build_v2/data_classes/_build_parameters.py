@@ -1,11 +1,11 @@
 from pathlib import Path
 
-from pydantic import BaseModel, DirectoryPath, Field
+from pydantic import BaseModel, Field
 
 
 class BuildParameters(BaseModel):
-    organization_dir: DirectoryPath
-    build_dir: DirectoryPath = Field(default_factory=lambda: Path.cwd() / "build")
+    organization_dir: Path
+    build_dir: Path = Field(default_factory=lambda: Path.cwd() / "build")
     config_yaml_name: str | None = Field(
         None,
         description="The name of the configuration YAML file to use. It expected to be"
