@@ -243,8 +243,7 @@ class CoreApp(typer.Typer):
             typer.Option(
                 "--organization-dir",
                 "-o",
-                help="Where to find the module templates to build from",
-                exists=True,
+                help="Where to find the configuration YAMLs files inside a /modules structure to build from. Defaults to the value of 'default_organization_dir' in cdf.toml if set, otherwise current directory.",
                 file_okay=False,
             ),
         ] = CDF_TOML.cdf.default_organization_dir,
