@@ -198,7 +198,7 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group]):
                             loader = LocationFilterCRUD
                         if loader is not None and isinstance(ids, dict) and "ids" in ids:
                             for id_ in ids["ids"]:
-                                if loader in {TimeSeriesCRUD, LocationFilterCRUD}:
+                                if loader in {TimeSeriesCRUD, LocationFilterCRUD, DataSetsCRUD}:
                                     yield loader, ExternalId(external_id=id_)
                                 elif loader is SecurityCategoryCRUD:
                                     yield loader, NameId(name=id_)
