@@ -24,6 +24,9 @@ name: My Space
 
         assert result
 
+        assert len(result.module_results) == 1
+        assert len(result.module_results[0].built_files) == 1
+
         built_space = list(build_dir.rglob(f"*.{SpaceCRUD.kind}.yaml"))
         assert len(built_space) == 1
         assert built_space[0].read_text() == space_yaml
@@ -45,6 +48,5 @@ name: My Space
         result = cmd.build_folder(parameters)
 
         assert result
-
-        built_space = list(build_dir.rglob(f"*.{SpaceCRUD.kind}.yaml"))
-        assert len(built_space) == 0
+        assert len(result.module_results) == 1
+        assert len(result.module_results[0].built_files) == 0
