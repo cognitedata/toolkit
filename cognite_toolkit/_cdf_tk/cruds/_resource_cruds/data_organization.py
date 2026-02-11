@@ -24,6 +24,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
@@ -36,7 +37,7 @@ from .auth import GroupAllScopedCRUD
 
 
 @final
-class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet]):
+class DataSetsCRUD(ResourceCRUD[ExternalId, DataSetRequest, DataSetResponse]):
     support_drop = False
     folder_name = "data_sets"
     resource_cls = DataSet
