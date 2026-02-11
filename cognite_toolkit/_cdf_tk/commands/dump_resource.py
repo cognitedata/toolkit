@@ -12,7 +12,6 @@ import questionary
 import typer
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
-    DataSetList,
     ExtractionPipelineList,
     Group,
     GroupList,
@@ -49,6 +48,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReferenceNoVersion,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
     ExternalId,
@@ -594,10 +594,10 @@ class DataSetFinder(ResourceFinder[tuple[str, ...]]):
 
     def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
         super().__init__(client, identifier)
-        self.datasets: DataSetList | None = None
+        self.datasets: list[DataSetResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        self.datasets = self.client.data_sets.list(limit=-1)
+        self.datasets = self.client.tool.datasets.list(limit=None)
         if not self.datasets:
             raise ToolkitMissingResourceError("No datasets found")
         choices = [
@@ -622,7 +622,7 @@ class DataSetFinder(ResourceFinder[tuple[str, ...]]):
         if self.datasets:
             yield (
                 [],
-                DataSetList([d for d in self.datasets if d.external_id in set(self.identifier)]),
+                [d for d in self.datasets if d.external_id in set(self.identifier)],
                 loader,
                 None,
             )

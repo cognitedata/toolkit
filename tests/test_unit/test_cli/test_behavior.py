@@ -32,6 +32,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import ConstraintOrIndexState
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterResponse,
@@ -145,9 +146,11 @@ def test_pull_dataset(
 ) -> None:
     # Loading a selected dataset to be pulled
     dataset_yaml = buildable_modules_mutable / MODULES / "cdf_common" / "data_sets" / "demo.DataSet.yaml"
-    dataset = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
+    raw = yaml.safe_load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
+    raw.update({"id": 42, "createdTime": 0, "lastUpdatedTime": 0})
+    dataset = DataSetResponse._load(raw)
     dataset.description = "New description"
-    toolkit_client_approval.append(DataSet, dataset)
+    toolkit_client_approval.append(DataSetResponse, dataset)
 
     cmd = PullCommand(silent=True)
     cmd.pull_module(
@@ -171,9 +174,11 @@ def test_pull_dataset_relative_path(
 ) -> None:
     # Loading a selected dataset to be pulled
     dataset_yaml = buildable_modules_mutable / MODULES / "cdf_common" / "data_sets" / "demo.DataSet.yaml"
-    dataset = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
+    raw = yaml.safe_load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
+    raw.update({"id": 42, "createdTime": 0, "lastUpdatedTime": 0})
+    dataset = DataSetResponse._load(raw)
     dataset.description = "New description"
-    toolkit_client_approval.append(DataSet, dataset)
+    toolkit_client_approval.append(DataSetResponse, dataset)
 
     with chdir(buildable_modules_mutable):
         cmd = PullCommand(silent=True)

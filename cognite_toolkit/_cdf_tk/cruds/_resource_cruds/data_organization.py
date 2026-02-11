@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.resource_classes import DataSetYAML, LabelsYAML
+from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 
 from .auth import GroupAllScopedCRUD
 
@@ -79,6 +80,10 @@ class DataSetsCRUD(ResourceCRUD[ExternalId, DataSetRequest, DataSetResponse]):
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
+
+    @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return sanitize_filename(id.external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DataSetRequest:
         if resource.get("metadata"):

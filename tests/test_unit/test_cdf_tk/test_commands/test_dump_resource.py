@@ -7,8 +7,6 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
-    DataSet,
-    DataSetList,
     ExtractionPipeline,
     ExtractionPipelineList,
     FileMetadataList,
@@ -34,6 +32,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     SpaceResponse,
     ViewReference,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import SearchConfig, SearchConfigList, ViewId
@@ -557,18 +556,16 @@ class TestDumpFunctions:
 
 
 @pytest.fixture()
-def three_datasets() -> DataSetList:
-    return DataSetList(
-        [
-            DataSet(external_id="datasetA", name="Dataset A", created_time=1, last_updated_time=2),
-            DataSet(external_id="datasetB", name="Dataset B", created_time=1, last_updated_time=2),
-            DataSet(external_id="datasetC", name="Dataset C", created_time=1, last_updated_time=2),
-        ]
-    )
+def three_datasets() -> list[DataSetResponse]:
+    return [
+        DataSetResponse(id=1, external_id="datasetA", name="Dataset A", created_time=1, last_updated_time=2),
+        DataSetResponse(id=2, external_id="datasetB", name="Dataset B", created_time=1, last_updated_time=2),
+        DataSetResponse(id=3, external_id="datasetC", name="Dataset C", created_time=1, last_updated_time=2),
+    ]
 
 
 class TestDataSetFinder:
-    def test_select_datasets(self, three_datasets: DataSetList, monkeypatch: MonkeyPatch) -> None:
+    def test_select_datasets(self, three_datasets: list[DataSetResponse], monkeypatch: MonkeyPatch) -> None:
         def select_datasets(choices: list[Choice]) -> list[str]:
             assert len(choices) == len(three_datasets)
             return [choices[1].value, choices[2].value]
@@ -579,7 +576,7 @@ class TestDataSetFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataSetFinder.__module__, monkeypatch, answers),
         ):
-            client.data_sets.list.return_value = three_datasets
+            client.tool.datasets.list.return_value = three_datasets
             finder = DataSetFinder(client, None)
             selected = finder._interactive_select()
 
@@ -587,9 +584,9 @@ class TestDataSetFinder:
 
 
 class TestDumpDataSets:
-    def test_dump_datasets(self, three_datasets: DataSetList, tmp_path: Path) -> None:
+    def test_dump_datasets(self, three_datasets: list[DataSetResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.data_sets.retrieve_multiple.return_value = three_datasets[1:]
+            client.tool.datasets.retrieve.return_value = three_datasets[1:]
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
