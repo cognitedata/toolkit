@@ -1,32 +1,32 @@
-import warnings
 from collections.abc import Sequence
 from itertools import groupby
 from typing import Literal, TypeVar, cast, overload
 
 from cognite.client._constants import DEFAULT_LIMIT_READ
 from cognite.client.data_classes.data_modeling import (
-    Node,
-    NodeApplyResult,
-    NodeApplyResultList,
-    NodeId,
     NodeList,
     filters,
     query,
 )
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.api.instances import WrappedInstancesAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_data_modeling import ExtendedInstancesAPI
+from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse, ResponseItems
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, ViewReference
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
     AssetCentricId,
     CreatedSourceSystem,
     InstanceSource,
-    ResourceViewMapping,
-    ResourceViewMappingApply,
     SpaceSource,
 )
-from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
+    RESOURCE_VIEW_MAPPING_SPACE,
+    ResourceViewMappingRequest,
+    ResourceViewMappingResponse,
+)
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType
 
@@ -83,104 +83,22 @@ class InstanceSourceAPI:
         return NodeList[InstanceSource]([InstanceSource._load(node.dump()) for node in nodes])
 
 
-class ResourceViewMappingAPI:
-    """API for retrieving resource view mapping from the data model."""
+class ResourceViewMappingsAPI(
+    WrappedInstancesAPI[TypedNodeIdentifier, ResourceViewMappingRequest, ResourceViewMappingResponse]
+):
+    def __init__(self, http_client: HTTPClient) -> None:
+        super().__init__(http_client, ResourceViewMappingRequest.VIEW_ID)
 
-    def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
-        self._instance_api = instance_api
-        self._view_id = ResourceViewMapping.get_source()
+    def _validate_response(self, response: SuccessResponse) -> ResponseItems[TypedNodeIdentifier]:
+        return ResponseItems[TypedNodeIdentifier].model_validate_json(response.body)
 
-    @overload
-    def upsert(
-        self,
-        item: ResourceViewMappingApply,
-        skip_on_version_conflict: bool = False,
-        replace: bool = False,
-    ) -> NodeApplyResult: ...
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[ResourceViewMappingResponse]:
+        return PagedResponse[ResourceViewMappingResponse].model_validate_json(response.body)
 
-    @overload
-    def upsert(
-        self,
-        item: Sequence[ResourceViewMappingApply],
-        skip_on_version_conflict: bool = False,
-        replace: bool = False,
-    ) -> NodeApplyResultList: ...
-
-    def upsert(
-        self,
-        item: ResourceViewMappingApply | Sequence[ResourceViewMappingApply],
-        skip_on_version_conflict: bool = False,
-        replace: bool = False,
-    ) -> NodeApplyResult | NodeApplyResultList:
-        """Upsert one or more view sources."""
-        result = self._instance_api.apply(
-            item, skip_on_version_conflict=skip_on_version_conflict, replace=replace
-        ).nodes
-        if isinstance(item, ResourceViewMappingApply):
-            return result[0]
-        return NodeApplyResultList(result)
-
-    @overload
-    def retrieve(self, external_id: str) -> ResourceViewMapping | None: ...
-
-    @overload
-    def retrieve(self, external_id: SequenceNotStr[str]) -> NodeList[ResourceViewMapping]: ...
-
-    def retrieve(
-        self, external_id: str | SequenceNotStr[str]
-    ) -> ResourceViewMapping | NodeList[ResourceViewMapping] | None:
-        """Retrieve one or more view sources by their external IDs."""
-        if isinstance(external_id, str):
-            return self._instance_api.retrieve_nodes(
-                NodeId(COGNITE_MIGRATION_SPACE, external_id), node_cls=ResourceViewMapping
-            )
-        else:
-            nodes = self._instance_api.retrieve(
-                nodes=[NodeId(COGNITE_MIGRATION_SPACE, ext_id) for ext_id in external_id], sources=[self._view_id]
-            ).nodes
-            return self._safe_convert(nodes)
-
-    @overload
-    def delete(self, external_id: str) -> NodeId: ...
-
-    @overload
-    def delete(self, external_id: SequenceNotStr[str]) -> list[NodeId]: ...
-
-    def delete(self, external_id: str | SequenceNotStr[str]) -> NodeId | list[NodeId]:
-        """Delete a view source or a list of view sources by their external IDs."""
-        if isinstance(external_id, str):
-            return self._instance_api.delete(NodeId(COGNITE_MIGRATION_SPACE, external_id)).nodes[0]
-        else:
-            return self._instance_api.delete([NodeId(COGNITE_MIGRATION_SPACE, ext_id) for ext_id in external_id]).nodes
-
-    def list(
-        self, resource_type: str | None = None, limit: int | None = DEFAULT_LIMIT_READ
-    ) -> NodeList[ResourceViewMapping]:
-        """List view sources optionally filtered by resource type"""
-        is_selected: filters.Filter | None = None
-        if resource_type:
-            is_selected = filters.Equals(self._view_id.as_property_ref("resourceType"), resource_type)
-
-        nodes = self._instance_api.list(
-            instance_type="node", filter=is_selected, limit=limit, space=COGNITE_MIGRATION_SPACE, sources=self._view_id
-        )
-        return self._safe_convert(nodes)
-
-    @classmethod
-    def _safe_convert(cls, nodes: NodeList[Node]) -> NodeList[ResourceViewMapping]:
-        results = NodeList[ResourceViewMapping]([])
-        for node in nodes:
-            try:
-                loaded = ResourceViewMapping._load(node.dump())
-            except ValueError as e:
-                warnings.warn(
-                    HighSeverityWarning(
-                        f"Node {node.as_id()!r} is in an invalid format. Skipping it. Error: {e!s}",
-                    )
-                )
-                continue
-            results.append(loaded)
-        return results
+    def list(self, resource_type: str | None = None, limit: int | None = 100) -> list[ResourceViewMappingResponse]:
+        return super()._list_instances(spaces=[RESOURCE_VIEW_MAPPING_SPACE], instance_type="node", limit=limit)
 
 
 class CreatedSourceSystemAPI:
@@ -520,9 +438,9 @@ class MigrationLookupAPI:
 
 
 class MigrationAPI:
-    def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
+    def __init__(self, instance_api: ExtendedInstancesAPI, http_client: HTTPClient) -> None:
         self.instance_source = InstanceSourceAPI(instance_api)
-        self.resource_view_mapping = ResourceViewMappingAPI(instance_api)
+        self.resource_view_mapping = ResourceViewMappingsAPI(http_client)
         self.created_source_system = CreatedSourceSystemAPI(instance_api)
         self.space_source = SpaceSourceAPI(instance_api)
         self.lookup = MigrationLookupAPI(instance_api)

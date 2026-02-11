@@ -7,9 +7,14 @@ from cognite.client.data_classes.data_modeling import NodeList, ViewId
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference, ViewReference
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
     ResourceViewMapping,
     ResourceViewMappingApply,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
+    ResourceViewMappingRequest,
+    ResourceViewMappingResponse,
 )
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
@@ -20,7 +25,7 @@ from .datamodel import SpaceCRUD, ViewCRUD
 
 
 @final
-class ResourceViewMappingCRUD(ResourceCRUD[str, ResourceViewMappingApply, ResourceViewMapping]):
+class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingRequest, ResourceViewMappingResponse]):
     folder_name = "migration"
     resource_cls = ResourceViewMapping
     resource_write_cls = ResourceViewMappingApply
