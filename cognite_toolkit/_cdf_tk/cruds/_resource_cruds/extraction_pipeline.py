@@ -118,7 +118,7 @@ class ExtractionPipelineCRUD(ResourceCRUD[str, ExtractionPipelineWrite, Extracti
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         seen_databases: set[str] = set()
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, item["dataSetExternalId"]
+            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
         if "rawTables" in item:
             for entry in item["rawTables"]:
                 if db := entry.get("dbName"):

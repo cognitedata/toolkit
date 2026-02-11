@@ -9,7 +9,7 @@ from cognite.client.data_classes import ExtractionPipelineConfig, ExtractionPipe
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.commands import CleanCommand
 from cognite_toolkit._cdf_tk.cruds import (
     DataSetsCRUD,
@@ -101,7 +101,7 @@ class TestExtractionPipelineLoader:
                     ],
                 },
                 [
-                    (DataSetsCRUD, "ds_my_dataset"),
+                    (DataSetsCRUD, ExternalId(external_id="ds_my_dataset")),
                     (RawDatabaseCRUD, RawDatabaseId(name="my_db")),
                     (RawTableCRUD, RawTableId(db_name="my_db", name="my_table")),
                     (RawTableCRUD, RawTableId(db_name="my_db", name="my_table2")),

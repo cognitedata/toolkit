@@ -167,7 +167,7 @@ class ThreeDModelCRUD(ResourceContainerCRUD[str, ThreeDModelWrite, ThreeDModel])
         DatasetLoader and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, item["dataSetExternalId"]
+            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ThreeDModelWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):
