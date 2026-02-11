@@ -480,7 +480,7 @@ def create_temporary_zip(directory: Path, zipname: str) -> typing.Generator[Path
         yield zip_path
 
 
-def relative_to_if_possible(path: Path, base: Path) -> Path:
+def relative_to_if_possible(path: Path, base: Path = Path.cwd()) -> Path:
     """Return the relative path if possible, otherwise return the absolute path."""
     try:
         return path.relative_to(base)

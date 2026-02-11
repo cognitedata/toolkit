@@ -53,6 +53,7 @@ class BuildV2Command(ToolkitCommand):
 
         # Set up the variables
         organization_dir = parameters.organization_dir
+        organization_dir_display = relative_to_if_possible(organization_dir)
         config_yaml_path: Path | None = None
         if parameters.config_yaml_name:
             config_yaml_path = organization_dir / ConfigYAML.get_filename(parameters.config_yaml_name)
@@ -60,7 +61,7 @@ class BuildV2Command(ToolkitCommand):
         else:
             content = f"  ┗ {MODULES}\n"
         expected_panel = Panel(
-            f"Toolkit expects the following structure:\n{organization_dir.as_posix()!r}/\n{content}",
+            f"Toolkit expects the following structure:\n{organization_dir_display.as_posix()!r}/\n{content}",
             expand=False,
         )
         module_directory = parameters.organization_dir / MODULES
@@ -72,29 +73,33 @@ class BuildV2Command(ToolkitCommand):
 
         console.print(expected_panel)
         if not organization_dir.exists():
-            raise ToolkitNotADirectoryError(
-                f"Organization directory '{parameters.organization_dir.as_posix()}' not found"
-            )
+            raise ToolkitNotADirectoryError(f"Organization directory '{organization_dir_display.as_posix()}' not found")
         elif module_directory.exists() and config_yaml_path is not None and not config_yaml_path.exists():
-            raise ToolkitFileNotFoundError(f"Config YAML file '{config_yaml_path.as_posix()}' not found")
+            raise ToolkitFileNotFoundError(
+                f"Config YAML file '{relative_to_if_possible(config_yaml_path).as_posix()}' not found"
+            )
         elif not module_directory.exists():
             # This is likely the most common error. The user pass in Path.cwd() as the organization directory,
             # but the actual organization directory is a subdirectory.
             candidate_org = next(
-                subdir for subdir in organization_dir.iterdir() if subdir.iterdir() and (subdir / MODULES).exists()
+                (subdir for subdir in Path.cwd().iterdir() if subdir.is_dir() and (subdir / MODULES).exists()), None
             )
             if candidate_org:
-                display_path = relative_to_if_possible(candidate_org, Path.cwd())
+                display_path = relative_to_if_possible(candidate_org)
                 suggested_command = cls._create_suggested_command(display_path, user_args)
-                console.print(f"{HINT_LEAD_TEXT}: Did you mean to use the command {suggested_command}")
+                console.print(
+                    f"\n{HINT_LEAD_TEXT}Did [red]you[/red] mean to use the command {suggested_command}?\n",
+                    markup=True,
+                )
                 cdf_toml = CDFToml.load()
                 if not cdf_toml.cdf.has_user_set_default_org:
-                    print(
+                    console.print(
                         f"{HINT_LEAD_TEXT} You can specify a 'default_organization_dir = ...' in the 'cdf' section of your "
-                        f"'{CDFToml.file_name}' file to avoid using the -o/--organization-dir argument"
+                        f"'{CDFToml.file_name}' file to avoid using the -o/--organization-dir argument",
+                        markup=True,
                     )
             raise ToolkitNotADirectoryError(
-                f"Could not find the modules directory.{module_directory.as_posix()!r} directory."
+                f"Could not find the modules directory.{relative_to_if_possible(module_directory).as_posix()!r} directory."
             )
         else:
             raise NotImplementedError("Unhandled case. Please report this.")
