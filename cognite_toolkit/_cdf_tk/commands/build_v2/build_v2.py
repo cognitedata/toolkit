@@ -102,7 +102,7 @@ class BuildV2Command(ToolkitCommand):
                         markup=True,
                     )
             raise ToolkitNotADirectoryError(
-                f"Could not find the modules directory.{relative_to_if_possible(module_directory).as_posix()!r} directory."
+                f"Could not find the modules directory at '{relative_to_if_possible(module_directory).as_posix()}'"
             )
         else:
             raise NotImplementedError("Unhandled case. Please report this.")
@@ -113,13 +113,16 @@ class BuildV2Command(ToolkitCommand):
         skip_next = False
         found = False
         for arg in user_args[1:]:
-            if arg in ("-o", "--organization-dir"):
-                suggestion.append(f"{arg} {display_path}")
-                skip_next = True
-                found = True
-                continue
             if skip_next:
                 skip_next = False
+                continue
+
+            arg_name = arg.split("=")[0]
+            if arg_name in ("-o", "--organization-dir"):
+                suggestion.append(f"{arg_name} {display_path}")
+                found = True
+                if "=" not in arg:
+                    skip_next = True
                 continue
             suggestion.append(arg)
         if not found:
