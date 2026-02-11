@@ -31,6 +31,18 @@ wheels = [
 ]
 
 [[package]]
+name = "asgiref"
+version = "3.11.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/63/40/f03da1264ae8f7cfdbf9146542e5e7e8100a4c66ab48e791df9a03d3f6c0/asgiref-3.11.1.tar.gz", hash = "sha256:5f184dc43b7e763efe848065441eac62229c9f7b0475f41f80e207a114eda4ce", size = 38550, upload-time = "2026-02-03T13:30:14.33Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5c/0a/a72d10ed65068e115044937873362e6e32fab1b7dce0046aeb224682c989/asgiref-3.11.1-py3-none-any.whl", hash = "sha256:e8667a091e69529631969fd45dc268fa79b99c92c5fcdda727757e52146ec133", size = 24345, upload-time = "2026-02-03T13:30:13.039Z" },
+]
+
+[[package]]
 name = "backports-tarfile"
 version = "1.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1057,14 +1069,17 @@ wheels = [
 
 [[package]]
 name = "mixpanel"
-version = "4.11.1"
+version = "5.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "asgiref" },
+    { name = "httpx" },
+    { name = "pydantic" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/41/d9/9d02602a65d6d6874ee938e66beeefa52689f52a9ffd19ceb3fed501a123/mixpanel-4.11.1.tar.gz", hash = "sha256:96440d36c30ce9a845141302b6249ac1c6dccc097ce20d480100c6a1041ce78e", size = 11976, upload-time = "2025-08-26T01:17:09.053Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2c/1e/d2a733cb35b380942e0f1791427d23afa1bc1c37b8ce7089b2c691176d0f/mixpanel-5.0.0.tar.gz", hash = "sha256:ef78b7b36150fbf24796972bf44871515c6d1381a69be683eb26a65d44b84bb5", size = 21083, upload-time = "2025-11-04T22:10:23.502Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/37/de/1de316b634b0ac5eafab086d6a6bd60b69e3ff7df1634bd3996a772db4f8/mixpanel-4.11.1-py3-none-any.whl", hash = "sha256:130633fb7d65f1fea10a9b6a6d3b8239121f2039ff2280ceb97cb9a73a711f29", size = 10026, upload-time = "2025-08-26T01:17:07.125Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/05/248580e987b203c24e4cce53f5e5d60ea749550af5c756c770196d549f96/mixpanel-5.0.0-py3-none-any.whl", hash = "sha256:5c5fee75a304bd2940828a08a31f74fae7f02d5fe81914a851ed87e8884096ec", size = 23848, upload-time = "2025-11-04T22:10:22.233Z" },
 ]
 
 [[package]]
