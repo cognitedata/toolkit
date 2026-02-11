@@ -23,8 +23,8 @@ from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 
 class BuildV2Command(ToolkitCommand):
-    def build_folder(self, parameters: BuildParameters, client: ToolkitClient | None = None) -> BuiltResult:
-        self._validate_ready(parameters)
+    def build(self, parameters: BuildParameters, client: ToolkitClient | None = None) -> BuiltResult:
+        self._validate_user_input(parameters)
         modules = self.find_modules(parameters)
 
         results = self._build_and_validate_modules(modules, parameters.build_dir)
@@ -39,7 +39,7 @@ class BuildV2Command(ToolkitCommand):
         self.write_results(parameters.build_dir, built_results)
         return built_results
 
-    def _validate_ready(self, parameters: BuildParameters) -> None:
+    def _validate_user_input(self, parameters: BuildParameters) -> None:
         if not parameters.organization_dir.exists():
             raise ToolkitNotADirectoryError(
                 f"Organization directory '{parameters.organization_dir.as_posix()}' not found"
@@ -77,10 +77,7 @@ class BuildV2Command(ToolkitCommand):
                 # This is handled in the module parsing phase.
                 continue
             for crud_class in crud_classes:
-                resource_type = ResourceType(
-                    resource_folder=resource_folder_path.name,
-                    kind=crud_class.kind,
-                )
+                resource_type = ResourceType(resource_folder=resource_folder_path.name, kind=crud_class.kind)
                 resource_files = list(resource_folder_path.rglob(f"*.{crud_class.kind}.y*ml"))
                 for resource_file in resource_files:
                     # Todo: Create a classmethod for ToolkitResource
