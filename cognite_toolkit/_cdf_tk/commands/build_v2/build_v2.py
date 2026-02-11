@@ -23,9 +23,10 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ReadModule,
     ResourceType,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxError
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxError, Recommendation
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, MODULES
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_write
@@ -207,8 +208,17 @@ class BuildV2Command(ToolkitCommand):
             insights=validation_insights + read_result.insights if validation_insights else read_result.insights,
         )
 
-    def global_validation(self, modules: list[ModuleResult], client: ToolkitClient | None) -> InsightList:
-        return InsightList()
+    def global_validation(self, module_results: list[ModuleResult], client: ToolkitClient | None) -> InsightList:
+
+        # can be parallelized
+        insights = InsightList()
+
+        for results in module_results:
+            for resource_type, files in results.built_files_per_resource_type.items():
+                if resource_type == DataModelCRUD.folder_name:
+                    insights.extend(self._validate_with_neat(files, client))
+
+        return insights
 
     def write_results(self, build_dir: Path, built_results: BuiltResult) -> None:
         return None
@@ -220,3 +230,26 @@ class BuildV2Command(ToolkitCommand):
         for error_details in error.errors(include_input=True, include_url=False):
             message = error_details.get("msg", "Unknown syntax error")
             yield ModelSyntaxError(code=f"{resource_type}-SYNTAX-ERROR", message=message)
+
+    def _validate_with_neat(self, files: list[Path], client: ToolkitClient | None) -> InsightList:
+        """Placeholder for NEAT validation."""
+
+        insights = InsightList()
+
+        try:
+            from cognite.neat._issues import Recommendation as NeatRecommendation
+
+            neat_insight = NeatRecommendation(
+                message="Good job! You are using Neat!",
+                code="NEAT-USER",
+            )
+            insights.append(Recommendation.model_validate(neat_insight.model_dump()))
+        except ImportError:
+            local_insight = Recommendation(
+                message="It is always a good idea to use Neat!",
+                code="NEAT-EVANGELISM",
+                fix="pip install cognite-toolkit[v08]",
+            )
+            insights.append(local_insight)
+
+        return insights

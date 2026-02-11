@@ -2,6 +2,7 @@ from pathlib import Path
 
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
 from cognite_toolkit._cdf_tk.cruds import SpaceCRUD
 
 
@@ -26,6 +27,8 @@ name: My Space
 
         assert len(result.module_results) == 1
         assert len(result.module_results[0].built_files) == 1
+        assert len(result.insights) == 1
+        assert isinstance(result.insights[0], Recommendation)
 
         built_space = list(build_dir.rglob(f"*.{SpaceCRUD.kind}.yaml"))
         assert len(built_space) == 1

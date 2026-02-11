@@ -12,3 +12,14 @@ class ModuleResult(Module):
 
     built_files: list[Path] = Field(default_factory=list)
     insights: InsightList = Field(default_factory=InsightList)
+
+    @property
+    def built_files_per_resource_type(self) -> dict[str, list[Path]]:
+        """Returns a dictionary of built files sorted by their resource type."""
+        result: dict[str, list[Path]] = {}
+        for file in self.built_files:
+            resource_type = file.parent.name
+            if resource_type not in result:
+                result[resource_type] = []
+            result[resource_type].append(file)
+        return result
