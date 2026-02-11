@@ -18,8 +18,5 @@ class ModuleResult(Module):
         """Returns a dictionary of built files sorted by their resource type."""
         result: dict[str, list[Path]] = {}
         for file in self.built_files:
-            resource_type = file.parent.name
-            if resource_type not in result:
-                result[resource_type] = []
-            result[resource_type].append(file)
+            result.setdefault(file.parent.name, []).append(file)
         return result
