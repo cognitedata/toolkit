@@ -31,8 +31,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import Canvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList, Visibility
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
@@ -802,7 +802,7 @@ class ResourceViewMappingInteractiveSelect:
         self.client = client
         self.operation = operation
 
-    def select_resource_view_mapping(self, resource_type: str) -> ResourceViewMapping:
+    def select_resource_view_mapping(self, resource_type: str) -> ResourceViewMappingResponse:
         """Select a Resource View Mapping interactively.
 
         Args:
@@ -824,9 +824,9 @@ class ResourceViewMappingInteractiveSelect:
             f"Which Resource View Mapping do you want to use to {self.operation}? [identifier] (ingestion view)",
             choices=choices,
         ).unsafe_ask()
-        if not isinstance(selected_mapping, ResourceViewMapping):
+        if not isinstance(selected_mapping, ResourceViewMappingResponse):
             raise ToolkitValueError(
-                f"Selected Resource View Mapping is not a valid ResourceViewMapping object: {selected_mapping!r}"
+                f"Selected Resource View Mapping is not a valid ResourceViewMappingResponse object: {selected_mapping!r}"
             )
         return selected_mapping
 

@@ -21,7 +21,7 @@ from cognite.client.data_classes import (
     TransformationScheduleList,
     filters,
 )
-from cognite.client.data_classes.data_modeling import NodeList, ViewId
+from cognite.client.data_classes.data_modeling import ViewId
 from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.functions import (
@@ -55,9 +55,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
     WorkflowVersionId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import SearchConfigList
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import ViewId as SearchConfigViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
@@ -876,7 +878,7 @@ class SearchConfigFinder(ResourceFinder[tuple[ViewReferenceNoVersion, ...]]):
 class ResourceViewMappingFinder(ResourceFinder[tuple[str, ...]]):
     def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
         super().__init__(client, identifier)
-        self.resource_view_mappings: list[ResourceViewMapping] | None = None
+        self.resource_view_mappings: list[ResourceViewMappingResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
         mappings = self.client.migration.resource_view_mapping.list(limit=-1)
@@ -905,9 +907,7 @@ class ResourceViewMappingFinder(ResourceFinder[tuple[str, ...]]):
         self.identifier = self._selected()
         loader = ResourceViewMappingCRUD.create_loader(self.client)
         if self.resource_view_mappings:
-            selected_mappings = NodeList[ResourceViewMapping](
-                [m for m in self.resource_view_mappings if m.external_id in self.identifier]
-            )
+            selected_mappings = [m for m in self.resource_view_mappings if m.external_id in self.identifier]
             yield [], selected_mappings, loader, None
         else:
             yield list(self.identifier), None, loader, None

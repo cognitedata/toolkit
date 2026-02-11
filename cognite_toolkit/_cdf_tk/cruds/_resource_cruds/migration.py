@@ -110,7 +110,14 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
         if "viewId" in item:
             view_id_dict = item["viewId"]
             if isinstance(view_id_dict, dict) and in_dict(("space", "externalId", "version"), view_id_dict):
-                yield ViewCRUD, ViewReference(space=view_id_dict["space"], external_id=view_id_dict["externalId"], version=view_id_dict["version"])
+                yield (
+                    ViewCRUD,
+                    ViewReference(
+                        space=view_id_dict["space"],
+                        external_id=view_id_dict["externalId"],
+                        version=view_id_dict["version"],
+                    ),
+                )
 
     def dump_resource(
         self, resource: ResourceViewMappingResponse, local: dict[str, Any] | None = None

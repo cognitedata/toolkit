@@ -36,10 +36,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReferenceNoVersion,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
     AgentFinder,
@@ -976,9 +976,9 @@ class TestDumpSearchConfigs:
 
 
 @pytest.fixture()
-def three_resource_view_mappings() -> list[ResourceViewMapping]:
+def three_resource_view_mappings() -> list[ResourceViewMappingResponse]:
     return [
-        ResourceViewMapping(
+        ResourceViewMappingResponse(
             external_id="mappingA",
             version=1,
             last_updated_time=1,
@@ -987,7 +987,7 @@ def three_resource_view_mappings() -> list[ResourceViewMapping]:
             view_id=dm.ViewId("my_space", "CogniteAsset", "v1"),
             property_mapping={"name": "name", "description": "description"},
         ),
-        ResourceViewMapping(
+        ResourceViewMappingResponse(
             external_id="mappingB",
             version=1,
             last_updated_time=1,
@@ -996,7 +996,7 @@ def three_resource_view_mappings() -> list[ResourceViewMapping]:
             view_id=dm.ViewId("my_space", "CogniteEvent", "v1"),
             property_mapping={"type": "type", "subtype": "subtype"},
         ),
-        ResourceViewMapping(
+        ResourceViewMappingResponse(
             external_id="mappingC",
             version=1,
             last_updated_time=1,
@@ -1010,7 +1010,7 @@ def three_resource_view_mappings() -> list[ResourceViewMapping]:
 
 class TestResourceViewMappingFinder:
     def test_select_resource_view_mappings(
-        self, three_resource_view_mappings: list[ResourceViewMapping], monkeypatch: MonkeyPatch
+        self, three_resource_view_mappings: list[ResourceViewMappingResponse], monkeypatch: MonkeyPatch
     ) -> None:
         def select_mappings(choices: list[Choice]) -> list[str]:
             assert len(choices) == len(three_resource_view_mappings)
@@ -1031,7 +1031,7 @@ class TestResourceViewMappingFinder:
 
 class TestDumpResourceViewMappings:
     def test_dump_resource_view_mappings(
-        self, three_resource_view_mappings: list[ResourceViewMapping], tmp_path: Path
+        self, three_resource_view_mappings: list[ResourceViewMappingResponse], tmp_path: Path
     ) -> None:
         with monkeypatch_toolkit_client() as client:
             client.migration.resource_view_mapping.retrieve.return_value = dm.NodeList(three_resource_view_mappings[1:])

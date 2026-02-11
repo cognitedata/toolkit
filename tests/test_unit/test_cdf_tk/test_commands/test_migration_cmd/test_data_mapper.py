@@ -14,10 +14,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponseWithViews,
     NodeReference,
+    ViewReference,
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import IndustrialCanvas
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import CreatedSourceSystem, ResourceViewMapping
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import CreatedSourceSystem
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
     AssetMappingDMRequest,
@@ -74,9 +76,9 @@ class TestAssetCentricMapper:
         selected = MigrationCSVFileSelector(datafile=mapping_file, kind="Assets")
 
         with monkeypatch_toolkit_client() as client:
-            client.migration.resource_view_mapping.retrieve.return_value = NodeList[ResourceViewMapping](
+            client.migration.resource_view_mapping.retrieve.return_value = NodeList[ResourceViewMappingResponse](
                 [
-                    ResourceViewMapping(
+                    ResourceViewMappingResponse(
                         external_id="cdf_asset_mapping",
                         resource_type="asset",
                         view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
@@ -166,7 +168,7 @@ class TestAssetCentricMapper:
 
         with monkeypatch_toolkit_client() as client:
             # Return empty list to simulate missing view source
-            client.migration.resource_view_mapping.retrieve.return_value = NodeList[ResourceViewMapping]([])
+            client.migration.resource_view_mapping.retrieve.return_value = NodeList[ResourceViewMappingResponse]([])
 
             mapper = AssetCentricMapper(client)
 
@@ -184,22 +186,21 @@ class TestAssetCentricMapper:
 
         with monkeypatch_toolkit_client() as client:
             # Return view source but empty view list to simulate missing view in Data Modeling
-            client.migration.resource_view_mapping.retrieve.return_value = NodeList[ResourceViewMapping](
-                [
-                    ResourceViewMapping(
-                        external_id="cdf_asset_mapping",
-                        resource_type="asset",
-                        view_id=ViewId("my_space", "MyAsset", "v1"),
-                        property_mapping={
-                            "name": "name",
-                            "description": "description",
-                        },
-                        last_updated_time=1,
-                        created_time=0,
-                        version=1,
-                    )
-                ]
-            )
+            client.migration.resource_view_mapping.retrieve.return_value = [
+                ResourceViewMappingResponse(
+                    external_id="cdf_asset_mapping",
+                    resource_type="asset",
+                    view_id=ViewReference(space="my_space", external_id="MyAsset", version="v1"),
+                    property_mapping={
+                        "name": "name",
+                        "description": "description",
+                    },
+                    last_updated_time=1,
+                    created_time=0,
+                    version=1,
+                )
+            ]
+
             # Return empty list to simulate missing view in Data Modeling
             client.data_modeling.views.retrieve.return_value = []
 
