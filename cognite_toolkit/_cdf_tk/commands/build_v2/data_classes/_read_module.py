@@ -14,6 +14,7 @@ class ResourceType(BaseModel):
 class ReadModule(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    name: str = Field(..., description="Name of the module, typically the name of the folder containing the module.")
     resources_by_type: dict[ResourceType, list[ToolkitResource]]
     insights: InsightList = Field(default_factory=InsightList)
 
