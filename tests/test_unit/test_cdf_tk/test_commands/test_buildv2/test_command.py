@@ -18,7 +18,7 @@ name: My Space
 """
         resource_file.write_text(space_yaml)
         build_dir = tmp_path / "build"
-        parameters = BuildParameters(organization_dir=org, build_dir=build_dir, build_env_name="dev")
+        parameters = BuildParameters(organization_dir=org, build_dir=build_dir, config_yaml_name="dev")
 
         result = cmd.build(parameters)
 

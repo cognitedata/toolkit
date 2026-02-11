@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 class BuildV2Command(ToolkitCommand):
     def build(self, parameters: BuildParameters, client: ToolkitClient | None = None) -> BuiltResult:
-        self._validate_user_input(parameters)
+        self.validate_user_input(parameters)
         modules = self.find_modules(parameters)
 
         results = self._build_and_validate_modules(modules, parameters.build_dir)
@@ -39,7 +39,8 @@ class BuildV2Command(ToolkitCommand):
         self.write_results(parameters.build_dir, built_results)
         return built_results
 
-    def _validate_user_input(self, parameters: BuildParameters) -> None:
+    @classmethod
+    def validate_user_input(cls, parameters: BuildParameters) -> None:
         if not parameters.organization_dir.exists():
             raise ToolkitNotADirectoryError(
                 f"Organization directory '{parameters.organization_dir.as_posix()}' not found"
