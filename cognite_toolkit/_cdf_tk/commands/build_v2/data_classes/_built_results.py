@@ -13,8 +13,6 @@ class BuiltResult(BaseModel):
     @property
     def insights(self) -> Sequence[Insight]:
         """Returns all insights from the module results and global insights."""
-        all_insights: list[Insight] = []
-        for module_result in self.module_results:
-            all_insights.extend(module_result.insights)
+        all_insights = [insight for module_result in self.module_results for insight in module_result.insights]
         all_insights.extend(self.global_insights)
         return all_insights
