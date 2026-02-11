@@ -16,7 +16,7 @@ create = true
 extend-download = true
 extend-upload = true
 simulators = true
-v08 = true
+v08 = false
 
 [plugins]
 run = true
