@@ -64,3 +64,8 @@ class InsightList(UserList[Insight]):
             else:
                 result["UNDEFINED"].append(insight)
         return dict(result)
+
+    @property
+    def has_model_syntax_errors(self) -> bool:
+        """Returns True if there are any model syntax errors in the insights."""
+        return any(isinstance(insight, ModelSyntaxError) for insight in self.data)

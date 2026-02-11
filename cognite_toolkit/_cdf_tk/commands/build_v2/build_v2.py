@@ -1,7 +1,9 @@
 import sys
 from collections import defaultdict
+from collections.abc import Iterable
 from pathlib import Path
 
+from pydantic import ValidationError
 from rich.console import Console
 from rich.panel import Panel
 
@@ -21,6 +23,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ReadModule,
     ResourceType,
 )
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxError
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, MODULES
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError
@@ -145,6 +148,7 @@ class BuildV2Command(ToolkitCommand):
         return ModuleList([Module(path=module_path) for module_path in module_paths])
 
     def read_module(self, module: Module) -> ReadModule:
+        insights: InsightList = InsightList()
         resource_folder_paths = [resource_path for resource_path in module.path.iterdir() if resource_path.is_dir()]
 
         resource_by_type: dict[ResourceType, list[ToolkitResource]] = defaultdict(list)
@@ -159,10 +163,13 @@ class BuildV2Command(ToolkitCommand):
                 for resource_file in resource_files:
                     # Todo: Create a classmethod for ToolkitResource
                     # Todo; Handle lists of resources in a single file
-                    resource = crud_class.yaml_cls.model_validate(read_yaml_file(resource_file))
-                    resource_by_type[resource_type].append(resource)
+                    try:
+                        resource = crud_class.yaml_cls.model_validate(read_yaml_file(resource_file))
+                        resource_by_type[resource_type].append(resource)
+                    except ValidationError as e:
+                        insights.extend(self._create_syntax_errors(resource_type, e))
 
-        return ReadModule(resources_by_type=resource_by_type)
+        return ReadModule(resources_by_type=resource_by_type, insights=insights)
 
     def validate_module(self, module: ReadModule) -> InsightList:
         return InsightList()
@@ -195,3 +202,11 @@ class BuildV2Command(ToolkitCommand):
 
     def write_results(self, build_dir: Path, built_results: BuiltResult) -> None:
         return None
+
+    @classmethod
+    def _create_syntax_errors(cls, resource_type: ResourceType, error: ValidationError) -> Iterable[ModelSyntaxError]:
+        # TODO: should be extended with humanizing of errors, this is a quick solution.
+
+        for error_details in error.errors(include_input=True, include_url=False):
+            message = error_details.get("msg", "Unknown syntax error")
+            yield ModelSyntaxError(code=f"{resource_type}-SYNTAX-ERROR", message=message)
