@@ -31,7 +31,7 @@ class SearchConfigCRUD(ResourceCRUD[ViewReferenceNoVersion, SearchConfigRequest,
 
     def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
         super().__init__(client, build_path, console)
-        self._existing_configs_cache: dict[ViewReferenceNoVersion, int] | None = None
+        self._internal_id_by_view: dict[ViewReferenceNoVersion, int] | None = None
 
     @property
     def display_name(self) -> str:
@@ -79,16 +79,12 @@ class SearchConfigCRUD(ResourceCRUD[ViewReferenceNoVersion, SearchConfigRequest,
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SearchConfigRequest:
         loaded = SearchConfigRequest._load(resource)
 
-        if self._existing_configs_cache is None:
+        if self._internal_id_by_view is None:
             all_configs = self.client.tool.search_configurations.list()
-            self._existing_configs_cache = {
-                ViewReferenceNoVersion(space=config.view.space, external_id=config.view.external_id): config.id
-                for config in all_configs
-            }
+            self._internal_id_by_view = {config.view: config.id for config in all_configs}
 
-        view_ref = ViewReferenceNoVersion(space=loaded.view.space, external_id=loaded.view.external_id)
-        if view_ref in self._existing_configs_cache:
-            loaded.id = self._existing_configs_cache[view_ref]
+        if loaded.view in self._internal_id_by_view:
+            loaded.id = self._internal_id_by_view[loaded.view]
 
         return loaded
 
@@ -112,11 +108,7 @@ class SearchConfigCRUD(ResourceCRUD[ViewReferenceNoVersion, SearchConfigRequest,
         all_configs = self.client.tool.search_configurations.list()
         id_set = set(ids)
         # The API does not support server-side filtering, so we filter in memory.
-        return [
-            config
-            for config in all_configs
-            if ViewReferenceNoVersion(space=config.view.space, external_id=config.view.external_id) in id_set
-        ]
+        return [config for config in all_configs if config.view in id_set]
 
     def update(self, items: Sequence[SearchConfigRequest]) -> list[SearchConfigResponse]:
         """
