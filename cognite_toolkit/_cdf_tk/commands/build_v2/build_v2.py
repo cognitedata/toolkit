@@ -36,7 +36,6 @@ class BuildV2Command(ToolkitCommand):
     def build(self, parameters: BuildParameters, client: ToolkitClient | None = None) -> BuildFolder:
         console = client.console if client else Console()
         self.validate_build_parameters(parameters, console, sys.argv)
-
         module_sources = self.parse_module_sources(parameters)
 
         build_folder = self._create_build_folder(module_sources, parameters.build_dir)
