@@ -43,7 +43,7 @@ class MigrationPrepareCommand(ToolkitCommand):
                 continue
             worker = ResourceWorker(crud, "deploy")
             # MyPy does not understand that `loader` has a `get_id` method.
-            dump_arg = {"context": "local"} if crud_cls is ResourceViewMappingCRUD else {}
+            dump_arg = {"context": "toolkit"} if crud_cls is ResourceViewMappingCRUD else {}
             local_by_id = {crud.get_id(item): (item.dump(**dump_arg), item) for item in resource_list}  # type: ignore[attr-defined]
             worker.validate_access(local_by_id, is_dry_run=dry_run)
             cdf_resources = crud.retrieve(list(local_by_id.keys()))

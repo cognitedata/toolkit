@@ -646,23 +646,30 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
         },
         ResourceViewMappingResponse: {
             "externalId": "mapping_001",
-            "resourceType": "asset",
-            "viewId": {
-                "space": "cdf_cdm",
-                "externalId": "CogniteAsset",
-                "version": "v1",
+            "properties": {
+                "cognite_migration": {
+                    "ResourceViewMapping/v1": {
+                        "resourceType": "asset",
+                        "viewId": {
+                            "space": "cdf_cdm",
+                            "externalId": "CogniteAsset",
+                            "type": "view",
+                            "version": "v1",
+                        },
+                        "propertyMapping": {"name": "name"},
+                    }
+                }
             },
-            "propertyMapping": {"name": "name"},
             "version": 1,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
         APMConfigResponse: {
             "externalId": "apm_config_001",
-            "name": "Example APM Config",
             "version": 1,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
+            "properties": {"APM_Config": {"APM_Config/1": {"name": "Example APM Config"}}},
         },
         StreamResponse: {
             "externalId": "stream_001",

@@ -17,13 +17,13 @@ import json
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, final
 
-from cognite.client.data_classes import DataSet, DataSetList, DataSetWrite, capabilities
+from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability, DataSetsAcl
-from cognite.client.exceptions import CogniteDuplicatedError
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
@@ -31,16 +31,17 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.resource_classes import DataSetYAML, LabelsYAML
+from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 
 from .auth import GroupAllScopedCRUD
 
 
 @final
-class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet]):
+class DataSetsCRUD(ResourceCRUD[ExternalId, DataSetRequest, DataSetResponse]):
     support_drop = False
     folder_name = "data_sets"
-    resource_cls = DataSet
-    resource_write_cls = DataSetWrite
+    resource_cls = DataSetResponse
+    resource_write_cls = DataSetRequest
     yaml_cls = DataSetYAML
     kind = "DataSet"
     dependencies = frozenset({GroupAllScopedCRUD})
@@ -52,7 +53,7 @@ class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet]):
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[DataSetWrite] | None, read_only: bool
+        cls, items: Sequence[DataSetRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -69,25 +70,29 @@ class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet]):
         )
 
     @classmethod
-    def get_id(cls, item: DataSet | DataSetWrite | dict) -> str:
+    def get_id(cls, item: DataSetRequest | DataSetResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
-        if item.external_id is None:
+            return ExternalId(external_id=item["externalId"])
+        if not item.external_id:
             raise ToolkitRequiredValueError("DataSet must have external_id set.")
-        return item.external_id
+        return item.as_id()
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DataSetWrite:
+    @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return sanitize_filename(id.external_id)
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DataSetRequest:
         if resource.get("metadata"):
             for key, value in list(resource["metadata"].items()):
                 if isinstance(value, dict | list):
                     resource["metadata"][key] = json.dumps(value)
-        return DataSetWrite._load(resource)
+        return DataSetRequest._load(resource)
 
-    def dump_resource(self, resource: DataSet, local: dict[str, Any] | None = None) -> dict[str, Any]:
+    def dump_resource(self, resource: DataSetResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
         local = local or {}
         if "writeProtected" not in local and dumped.get("writeProtected") is False:
@@ -108,33 +113,16 @@ class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet]):
 
         return dumped
 
-    def create(self, items: Sequence[DataSetWrite]) -> DataSetList:
-        items = list(items)
-        created = DataSetList([], cognite_client=self.client)
-        # There is a bug in the data set API, so only one duplicated data set is returned at the time,
-        # so we need to iterate.
-        while len(items) > 0:
-            try:
-                created.extend(DataSetList(self.client.data_sets.create(items)))
-                return created
-            except CogniteDuplicatedError as e:
-                if len(e.duplicated) < len(items):
-                    for dup in e.duplicated:
-                        ext_id = dup.get("externalId", None)
-                        for item in items:
-                            if item.external_id == ext_id:
-                                items.remove(item)
-                else:
-                    items = []
-        return created
+    def create(self, items: Sequence[DataSetRequest]) -> list[DataSetResponse]:
+        return self.client.tool.datasets.create(list(items))
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> DataSetList:
-        return self.client.data_sets.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[DataSetResponse]:
+        return self.client.tool.datasets.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[DataSetWrite]) -> DataSetList:
-        return self.client.data_sets.update(items, mode="replace")
+    def update(self, items: Sequence[DataSetRequest]) -> list[DataSetResponse]:
+        return self.client.tool.datasets.update(list(items), mode="replace")
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
     def _iterate(
@@ -142,8 +130,9 @@ class DataSetsCRUD(ResourceCRUD[str, DataSetWrite, DataSet]):
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[DataSet]:
-        return iter(self.client.data_sets)
+    ) -> Iterable[DataSetResponse]:
+        for items in self.client.tool.datasets.iterate(limit=None):
+            yield from items
 
 
 @final
@@ -235,7 +224,7 @@ class LabelCRUD(ResourceCRUD[ExternalId, LabelRequest, LabelResponse]):
         DatasetLoader and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, item["dataSetExternalId"]
+            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LabelRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):

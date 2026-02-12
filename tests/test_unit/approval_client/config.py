@@ -134,6 +134,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewRequest,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
@@ -169,10 +170,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models 
     GraphQLDataModelList,
     GraphQLDataModelWrite,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
-    ResourceViewMapping,
-    ResourceViewMappingApply,
-)
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawDatabase
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import (
     SearchConfig,
@@ -188,6 +185,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWTableResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
+    ResourceViewMappingRequest,
+    ResourceViewMappingResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotCapabilityRequest,
     RobotCapabilityResponse,
@@ -200,10 +201,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotMapRequest,
     RobotMapResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.search_config import (
+    SearchConfigResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryRequest,
     SecurityCategoryResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelRequest,
     SimulatorModelResponse,
@@ -748,15 +753,12 @@ API_RESOURCES = [
     ),
     APIResource(
         api_name="migration.resource_view_mapping",
-        resource_cls=ResourceViewMapping,
-        _list_cls=NodeList[ResourceViewMapping],
-        _write_cls=ResourceViewMappingApply,
+        resource_cls=ResourceViewMappingResponse,
+        _write_cls=ResourceViewMappingRequest,
         methods={
-            "create": [Method(api_class_method="upsert", mock_class_method="create_nodes")],
-            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
+            "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
-                Method(api_class_method="list", mock_class_method="return_values"),
-                Method(api_class_method="retrieve", mock_class_method="return_values"),
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
             ],
         },
     ),
@@ -886,6 +888,17 @@ API_RESOURCES = [
         api_name="tool.timeseries",
         resource_cls=TimeSeriesResponse,
         _write_cls=TimeSeriesRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.sequences",
+        resource_cls=SequenceResponse,
+        _write_cls=SequenceRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
@@ -1159,6 +1172,17 @@ API_RESOURCES = [
         },
     ),
     APIResource(
+        api_name="tool.search_configurations",
+        resource_cls=SearchConfigResponse,
+        _write_cls=SearchConfigResponse,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="list", mock_class_method="list"),
+            ],
+        },
+    ),
+    APIResource(
         api_name="tool.functions",
         resource_cls=FunctionResponse,
         _write_cls=FunctionRequest,
@@ -1187,6 +1211,19 @@ API_RESOURCES = [
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [Method(api_class_method="retrieve", mock_class_method="retrieve")],
+        },
+    ),
+    APIResource(
+        api_name="tool.datasets",
+        resource_cls=DataSetResponse,
+        _write_cls=DataSetRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+                Method(api_class_method="iterate", mock_class_method="iterate"),
+                Method(api_class_method="list", mock_class_method="list"),
+            ],
         },
     ),
 ]

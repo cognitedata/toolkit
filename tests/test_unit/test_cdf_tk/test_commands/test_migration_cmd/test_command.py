@@ -79,8 +79,7 @@ def cognite_migration_model(
 @pytest.fixture
 def resource_view_mappings(
     toolkit_config: ToolkitClientConfig,
-    rsps: responses.RequestsMock,
-    respx_mock: cognite_migration_model,
+    respx_mock: respx.MockRouter,
     cognite_core_no_3D: DataModel[View],
     cognite_extractor_views: list[View],
 ) -> Iterator[respx.MockRouter]:
@@ -94,18 +93,16 @@ def resource_view_mappings(
         mapping_node_response.update({"createdTime": 0, "lastUpdatedTime": 0, "version": 1})
         sources = mapping_node_response.pop("sources", [])
         if sources:
-            mapping_view_id = mapping.sources[0].source
+            mapping_view_id = mapping.VIEW_ID
             mapping_node_response["properties"] = {
                 mapping_view_id.space: {
                     f"{mapping_view_id.external_id}/{mapping_view_id.version}": sources[0]["properties"]
                 }
             }
         node_items.append(mapping_node_response)
-    rsps.post(
+    respx_mock.post(
         config.create_api_url("models/instances/byids"),
-        json={"items": node_items},
-        status=200,
-    )
+    ).respond(json={"items": node_items})
     respx_mock.post(
         config.create_api_url("models/views/byids"),
     ).respond(

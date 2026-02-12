@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, Generic, cast
 
-from cognite.client.data_classes import DataSetList, filters
+from cognite.client.data_classes import filters
 from cognite.client.data_classes.aggregations import UniqueResult
 from cognite.client.data_classes.assets import AssetProperty
 from cognite.client.data_classes.documents import SourceFileProperty
@@ -28,6 +28,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     SpaceRequest,
     ViewReference,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     INFIELD_ON_CDM_DATA_MODEL,
     InFieldCDMLocationConfigRequest,
@@ -83,17 +85,20 @@ class InstanceSpaceCreator(MigrationCreator):
     """Creates instance spaces for migration."""
 
     def __init__(
-        self, client: ToolkitClient, datasets: DataSetList | None = None, data_set_external_ids: list[str] | None = None
+        self,
+        client: ToolkitClient,
+        datasets: list[DataSetResponse] | None = None,
+        data_set_external_ids: list[str] | None = None,
     ) -> None:
         super().__init__(client)
         if sum([datasets is not None, data_set_external_ids is not None]) != 1:
             raise ValueError("Exactly one of datasets or data_set_external_ids must be provided.")
         self.data_set_external_ids = data_set_external_ids
-        self.datasets = datasets or DataSetList([])
+        self.datasets = datasets or []
 
     def create_resources(self) -> Iterable[ToCreateResources]:
         if self.data_set_external_ids is not None:
-            self.datasets = self.client.data_sets.retrieve_multiple(external_ids=self.data_set_external_ids)
+            self.datasets = self.client.tool.datasets.retrieve(ExternalId.from_external_ids(self.data_set_external_ids))
 
         if missing_external_ids := [ds.id for ds in self.datasets if ds.external_id is None]:
             raise ToolkitRequiredValueError(

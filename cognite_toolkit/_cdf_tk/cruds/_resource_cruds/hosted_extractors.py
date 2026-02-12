@@ -257,7 +257,7 @@ class HostedExtractorDestinationCRUD(
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "targetDataSetId" in item:
-            yield DataSetsCRUD, item["targetDataSetId"]
+            yield DataSetsCRUD, ExternalId(external_id=item["targetDataSetId"])
 
     def sensitive_strings(self, item: HostedExtractorDestinationRequest) -> Iterable[str]:
         if item.credentials:

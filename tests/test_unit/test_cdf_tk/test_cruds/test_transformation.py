@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     SpaceReference,
     ViewReference,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import (
     DataModelCRUD,
@@ -169,7 +169,7 @@ authentication:
                     },
                 },
                 [
-                    (DataSetsCRUD, "ds_my_dataset"),
+                    (DataSetsCRUD, ExternalId(external_id="ds_my_dataset")),
                     (SpaceCRUD, SpaceReference(space="sp_data_space")),
                     (DataModelCRUD, DataModelReference(space="sp_model_space", external_id="my_model", version="v1")),
                 ],

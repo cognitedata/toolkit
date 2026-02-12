@@ -7,7 +7,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes import Group, GroupWrite
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.cruds import (
     DataSetsCRUD,
     ExtractionPipelineCRUD,
@@ -174,7 +174,7 @@ class TestGroupLoader:
             pytest.param(
                 {"capabilities": [{"timeSeriesAcl": {"scope": {"datasetScope": {"ids": ["ds_dataset1"]}}}}]},
                 [
-                    (DataSetsCRUD, "ds_dataset1"),
+                    (DataSetsCRUD, ExternalId(external_id="ds_dataset1")),
                 ],
                 id="Dataset scope",
             ),
@@ -200,7 +200,7 @@ class TestGroupLoader:
             pytest.param(
                 {"capabilities": [{"datasetsAcl": {"scope": {"idscope": {"ids": ["ds_my_dataset"]}}}}]},
                 [
-                    (DataSetsCRUD, "ds_my_dataset"),
+                    (DataSetsCRUD, ExternalId(external_id="ds_my_dataset")),
                 ],
                 id="ID scope dataset",
             ),

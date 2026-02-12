@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtra
 from cognite_toolkit._cdf_tk.client.api.infield import APMConfigAPI, InFieldCDMConfigAPI
 from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI, WrappedInstancesAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
+from cognite_toolkit._cdf_tk.client.api.migration import ResourceViewMappingsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_capabilities import CapabilitiesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_data_postprocessing import DataPostProcessingAPI
@@ -22,6 +23,7 @@ from cognite_toolkit._cdf_tk.client.api.robotics_frames import FramesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_locations import LocationsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
+from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
@@ -74,6 +76,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWTableRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import SecurityCategoryRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest
@@ -137,11 +141,14 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # Created response cannot be made into a request.
         InFieldCDMConfigAPI,
         APMConfigAPI,
+        ResourceViewMappingsAPI,
         # Update and list have to be specially handled due to the way the API works.
         LocationFiltersAPI,
         # Dependency between Functions and FunctionSchedules makes it hard to test them in a generic way.
         FunctionsAPI,
         FunctionSchedulesAPI,
+        # Does not support delete
+        SearchConfigurationsAPI,
     }
 )
 
@@ -289,6 +296,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         LocationFilterRequest: [{"externalId": "smoke-test-location-filter", "name": "smoke-test-location-filter"}],
         RAWDatabaseRequest: [{"name": "smoke-test-raw-database"}],
         RAWTableRequest: [{"name": "smoke-test-raw-table", "dbName": "smoke-test-raw-database"}],
+        SearchConfigRequest: [{"view": {"space": "cdf_cdm", "externalId": "CogniteAsset"}}],
         SecurityCategoryRequest: [{"name": "smoke-test-security-category"}],
         SequenceRequest: [
             {"externalId": "smoke-test-sequence", "columns": [{"externalId": "smoke-test-sequence-column"}]}
@@ -313,6 +321,19 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
                 "sourceType": "asset",
                 "targetExternalId": EVENT_EXTERNAL_ID,
                 "targetType": "event",
+            }
+        ],
+        ResourceViewMappingRequest: [
+            {
+                "externalId": "my_mapping",
+                "resourceType": "asset",
+                "viewId": {
+                    "space": "cdf_cdm",
+                    "externalId": "CogniteAsset",
+                    "type": "view",
+                    "version": "v1",
+                },
+                "propertyMapping": {"name": "name"},
             }
         ],
         TimeSeriesRequest: [{"externalId": "smoke-test-timeseries"}],
@@ -491,7 +512,7 @@ def smoke_event(toolkit_client: ToolkitClient) -> EventResponse:
     return retrieved[0]
 
 
-@pytest.mark.usefixtures("smoke_space", "smoke_asset", "smoke_event")
+@pytest.mark.usefixtures("smoke_space", "smoke_asset", "smoke_event", "smoke_container", "smoke_view")
 class TestCDFResourceAPI:
     def assert_endpoint_method(
         self, method: Callable[[], list[T_ResponseResource]], name: str, endpoint: Endpoint, id: Hashable | None = None
@@ -996,6 +1017,55 @@ class TestCDFResourceAPI:
             # Clean up
             client.infield.apm_config.delete([apm_config_id])
 
+    def test_resource_view_mapping_crudls(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        mapping_example = get_examples_minimum_requests(ResourceViewMappingRequest)[0]
+        mapping_request = ResourceViewMappingRequest.model_validate(mapping_example)
+        mapping_id = mapping_request.as_id()
+
+        try:
+            # Create resource view mapping
+            create_endpoint = client.migration.resource_view_mapping._method_endpoint_map["upsert"]
+            try:
+                created = client.migration.resource_view_mapping.create([mapping_request])
+            except ToolkitAPIError:
+                raise EndpointAssertionError(create_endpoint.path, "Creating resource view mapping instance failed.")
+            if len(created) != 1:
+                raise EndpointAssertionError(
+                    create_endpoint.path, f"Expected 1 created resource view mapping, got {len(created)}"
+                )
+            if created[0].as_id() != mapping_id:
+                raise EndpointAssertionError(
+                    create_endpoint.path, "Created resource view mapping ID does not match requested ID."
+                )
+
+            # Retrieve resource view mapping
+            retrieve_endpoint = client.migration.resource_view_mapping._method_endpoint_map["retrieve"]
+            self.assert_endpoint_method(
+                lambda: client.migration.resource_view_mapping.retrieve([mapping_id]),
+                "retrieve",
+                retrieve_endpoint,
+                mapping_id,
+            )
+
+            # List resource view mappings
+            list_endpoint = client.migration.resource_view_mapping._method_endpoint_map["list"]
+            try:
+                listed_mappings = list(
+                    client.migration.resource_view_mapping.list(resource_type=mapping_request.resource_type, limit=1)
+                )
+            except ToolkitAPIError:
+                raise EndpointAssertionError(list_endpoint.path, "Listing resource view mappings failed.")
+            if len(listed_mappings) == 0:
+                raise EndpointAssertionError(
+                    list_endpoint.path, "Expected at least 1 listed resource view mapping, got 0"
+                )
+
+        finally:
+            # Clean up
+            client.migration.resource_view_mapping.delete([mapping_id])
+
     def test_location_filter_crudls(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
@@ -1128,3 +1198,31 @@ class TestCDFResourceAPI:
             if schedule_id is not None:
                 client.tool.functions.schedules.delete([schedule_id])
             client.tool.functions.delete([function_id], ignore_unknown_ids=True)
+
+    def test_search_config_crudls(self, toolkit_client: ToolkitClient) -> None:
+        # Search Config does not support delete.
+        client = toolkit_client
+        search_config_example = get_examples_minimum_requests(SearchConfigRequest)[0]
+        search_config_request = SearchConfigRequest.model_validate(search_config_example)
+        search_config_id = search_config_request.as_id()
+
+        # List existing search config
+        list_endpoint = client.tool.search_configurations._method_endpoint_map["list"]
+        try:
+            listed_configs = list(client.tool.search_configurations.list())
+        except ToolkitAPIError:
+            raise EndpointAssertionError(list_endpoint.path, "Listing search configs failed.")
+        for config in listed_configs:
+            if config.as_id() == search_config_id:
+                search_config_request.id = config.id
+
+        # Update existing or create new search config
+        create_endpoint = client.tool.search_configurations._method_endpoint_map["upsert"]
+        try:
+            created = client.tool.search_configurations.create([search_config_request])
+        except ToolkitAPIError:
+            raise EndpointAssertionError(create_endpoint.path, "Creating search config instance failed.")
+        if len(created) != 1:
+            raise EndpointAssertionError(create_endpoint.path, f"Expected 1 created search config, got {len(created)}")
+        if created[0].as_id() != search_config_id:
+            raise EndpointAssertionError(create_endpoint.path, "Created search config ID does not match requested ID.")
