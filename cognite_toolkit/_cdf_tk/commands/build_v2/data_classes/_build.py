@@ -1,10 +1,13 @@
 from functools import cached_property
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
+
+from cognite_toolkit._cdf_tk.constants import MODULES
 
 from ._insights import InsightList
 from ._module import ModuleSource
+from ._types import RelativeDirPath, ValidationType
 
 
 class BuildParameters(BaseModel):
@@ -20,6 +23,20 @@ class BuildParameters(BaseModel):
         description="List of module names or paths to build. If not provided, Toolkit will first attempt to find a config YAML "
         "and the modules specified there. If no config YAML is found, Toolkit will build all modules in the organization directory.",
     )
+
+    @property
+    def modules_directory(self) -> Path:
+        return self.organization_dir / MODULES
+
+
+class ParseInput(BaseModel):
+    """Intermediate format used when parsing modules"""
+
+    yaml_files: list[Path]
+    selected_modules: set[RelativeDirPath | str]
+    variables: dict[str, JsonValue] = Field(default_factory=dict)
+    validation_type: ValidationType = "prod"
+    cdf_project: str
 
 
 class BuiltModule(BaseModel):
