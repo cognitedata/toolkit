@@ -5,7 +5,7 @@ import pytest
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, RelativeDirPath
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import SpaceCRUD
@@ -193,3 +193,33 @@ class TestReadParameters:
         assert "In environment.validation-type input should be 'dev' or 'prod'. Got 'invalid_type'." in str(
             exc_info.value
         )
+
+    @pytest.mark.parametrize(
+        "paths, user_selection, selection, errors",
+        [
+            pytest.param(
+                ["modules/module1", "modules/module2"],
+                ["modules/"],
+                {Path("modules")},
+                [],
+                id="User selects module paths",
+            ),
+        ],
+    )
+    def test_parsing_user_selected_modules(
+        self,
+        paths: list[str],
+        user_selection: list[str],
+        selection: set[RelativeDirPath | str],
+        errors: list[str],
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        for path in paths:
+            (tmp_path / Path(path)).mkdir(parents=True, exist_ok=True)
+
+        actual_selection, actual_errors = BuildV2Command._parse_user_selection(user_selection, tmp_path)
+
+        assert actual_errors == errors
+        assert actual_selection == selection
