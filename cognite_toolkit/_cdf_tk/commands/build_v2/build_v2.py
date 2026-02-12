@@ -65,7 +65,7 @@ class BuildV2Command(ToolkitCommand):
             f"Toolkit expects the following structure:\n{organization_dir_display.as_posix()!r}/\n{content}",
             expand=False,
         )
-        module_directory = parameters.organization_dir / MODULES
+        module_directory = parameters.modules_directory
 
         # Execute the checks.
         if module_directory.exists() and (config_yaml_path is None or config_yaml_path.exists()):

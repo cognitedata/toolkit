@@ -2,6 +2,7 @@ from ._build import BuildFolder, BuildParameters, BuiltModule
 from ._config import ConfigYAML
 from ._insights import ConsistencyError, Insight, InsightList, ModelSyntaxError, Recommendation
 from ._module import Module, ModuleSource, ModuleSources, ResourceType
+from ._types import RelativeDirPath
 
 __all__ = [
     "BuildFolder",
@@ -16,5 +17,6 @@ __all__ = [
     "ModuleSource",
     "ModuleSources",
     "Recommendation",
+    "RelativeDirPath",
     "ResourceType",
 ]
