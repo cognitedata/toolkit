@@ -31,7 +31,7 @@ class BuiltModule(BaseModel):
     insights: InsightList = Field(default_factory=InsightList)
 
 
-class BuildLinage(BaseModel): ...
+class BuildLineage(BaseModel): ...
 
 
 class BuildFolder(BaseModel):
