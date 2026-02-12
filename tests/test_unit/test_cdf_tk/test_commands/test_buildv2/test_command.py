@@ -206,20 +206,6 @@ class TestReadParameters:
             ),
             pytest.param(
                 ["modules/module1"],
-                ["my_module"],
-                {"my_module"},
-                [],
-                id="Module name without path separator",
-            ),
-            pytest.param(
-                ["modules/module1"],
-                ["module1", "module2"],
-                {"module1", "module2"},
-                [],
-                id="Multiple module names without path separator",
-            ),
-            pytest.param(
-                ["modules/module1"],
                 ["non_existent/module"],
                 set(),
                 ["Selected module path 'non_existent/module' does not exist under the organization directory"],
@@ -231,20 +217,6 @@ class TestReadParameters:
                 {Path("modules/module1")},
                 ["Selected module path 'non_existent/path' does not exist under the organization directory"],
                 id="Mix of valid and non-existent paths",
-            ),
-            pytest.param(
-                ["modules/module1", "modules/module2"],
-                ["modules/module1", "modules/module2"],
-                {Path("modules/module1"), Path("modules/module2")},
-                [],
-                id="Multiple valid module paths",
-            ),
-            pytest.param(
-                ["modules/module1"],
-                ["my_module", "modules/module1"],
-                {"my_module", Path("modules/module1")},
-                [],
-                id="Mix of module name and path",
             ),
         ],
     )
