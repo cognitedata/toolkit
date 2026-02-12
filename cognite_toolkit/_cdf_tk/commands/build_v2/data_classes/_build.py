@@ -1,9 +1,11 @@
 from pathlib import Path
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.constants import MODULES
 
+from . import RelativeDirPath
 from ._insights import InsightList
 from ._module import ModuleSource
 
@@ -25,6 +27,16 @@ class BuildParameters(BaseModel):
     @property
     def modules_directory(self) -> Path:
         return self.organization_dir / MODULES
+
+
+class ParseInput(BaseModel):
+    """Intermediate format used when parsing modules"""
+
+    yaml_files: list[Path]
+    selected_modules: set[RelativeDirPath | str]
+    variables: dict[str, JsonValue]
+    validation_type: Literal["dev", "prod"] = "prod"
+    cdf_project: str
 
 
 class BuiltModule(BaseModel):
