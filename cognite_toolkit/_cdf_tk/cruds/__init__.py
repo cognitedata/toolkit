@@ -26,6 +26,7 @@ from ._resource_cruds import (
     ContainerCRUD,
     DataModelCRUD,
     DatapointSubscriptionCRUD,
+    DataProductCRUD,
     DataSetsCRUD,
     EdgeCRUD,
     EventCRUD,
@@ -144,6 +145,7 @@ ResourceTypes: TypeAlias = Literal[
     "classic",
     "data_modeling",
     "data_models",  # Todo: Remove in v1.0
+    "data_products",
     "data_sets",
     "hosted_extractors",
     "locations",
@@ -184,6 +186,7 @@ __all__ = [
     "ContainerCRUD",
     "DataCRUD",
     "DataModelCRUD",
+    "DataProductCRUD",
     "DataSetsCRUD",
     "DatapointSubscriptionCRUD",
     "DatapointsCRUD",
