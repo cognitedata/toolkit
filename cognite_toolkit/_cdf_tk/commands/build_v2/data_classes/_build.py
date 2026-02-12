@@ -43,10 +43,7 @@ class BuildFolder(BaseModel):
     def add_build_files(self, files: list[Path]) -> None:
         """Adds build files to resource_by_type, organizing them by type and folder."""
 
-        result: dict[str, dict[str, list[Path]]] = defaultdict(lambda: defaultdict(list))
         for file in files:
             resource_type = file.stem.split(".")[-1]
             resource_type_folder = file.parent.name
-            result[resource_type_folder][resource_type].append(file)
-
-        self.resource_by_type = self.resource_by_type | dict(result)
+            self.resource_by_type.setdefault(resource_type_folder, {}).setdefault(resource_type, []).append(file)
