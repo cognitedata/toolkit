@@ -9,13 +9,13 @@ def two_3d_models(toolkit_client: ToolkitClient) -> None:
     client = toolkit_client
     models = client.three_d.models.list(limit=2)
     if len(models) == 0:
-        client.three_d.models_classic.create(
+        client.three_d.models.create(
             name="integration_test_3d_model",
             data_set_id=None,
             metadata={"source": "integration_test"},
         )
     if len(models) == 1:
-        client.three_d.models_classic.create(
+        client.three_d.models.create(
             name="integration_test_3d_model_2",
             data_set_id=None,
             metadata={"source": "integration_test"},
