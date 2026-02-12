@@ -81,6 +81,10 @@ table = [
 sql = [
     "sqlparse >=0.5.3",
 ]
+v08 = [
+
+    "cognite-neat >=1.0.37"
+]
 
 [project.scripts]
 cdf-tk = "cognite_toolkit._cdf:app"

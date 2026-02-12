@@ -2,6 +2,7 @@ from pathlib import Path
 
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
 from cognite_toolkit._cdf_tk.cruds import SpaceCRUD
 
 
@@ -20,16 +21,18 @@ name: My Space
         build_dir = tmp_path / "build"
         parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
 
-        result = cmd.build(parameters)
+        folder = cmd.build(parameters)
 
-        assert result
-
-        assert len(result.module_results) == 1
-        assert len(result.module_results[0].built_files) == 1
+        assert folder
 
         built_space = list(build_dir.rglob(f"*.{SpaceCRUD.kind}.yaml"))
         assert len(built_space) == 1
         assert built_space[0].read_text() == space_yaml
+
+        assert SpaceCRUD.folder_name in folder.resource_by_type
+        assert str(folder.resource_by_type[SpaceCRUD.folder_name][SpaceCRUD.kind][0]) == str(built_space[0])
+        assert len(folder.insights) == 1
+        assert isinstance(folder.insights[0], Recommendation)
 
     def test_end_to_end_failed_build(self, tmp_path: Path) -> None:
         cmd = BuildV2Command()
@@ -45,8 +48,7 @@ name: My Space
         build_dir = tmp_path / "build"
         parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
 
-        result = cmd.build(parameters)
+        folder = cmd.build(parameters)
 
-        assert result
-        assert len(result.module_results) == 1
-        assert len(result.module_results[0].built_files) == 0
+        assert folder.resource_by_type == {}
+        assert len(folder.insights) == 1

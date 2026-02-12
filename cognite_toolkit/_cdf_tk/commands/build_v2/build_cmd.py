@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand as OldBuildCommand
 from cognite_toolkit._cdf_tk.commands.build_v2._modules_parser import ModulesParser
 from cognite_toolkit._cdf_tk.commands.build_v2.build_parameters import BuildParameters
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._modules import Module
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import ModuleSource
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, BuiltModuleList
 from cognite_toolkit._cdf_tk.data_classes._issues import Issue, IssueList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
@@ -187,7 +187,7 @@ class BuildCommand(ToolkitCommand):
     # Delegate to old BuildCommand for backward compatibility with tests
     def build_modules(
         self,
-        modules: list[Module],
+        modules: list[ModuleSource],
         build_dir: Path,
         variables: BuildVariables,
         verbose: bool = False,
