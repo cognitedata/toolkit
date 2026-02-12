@@ -1,16 +1,6 @@
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 
-from .identifiers import Identifier
-
-
-class SearchConfigViewId(Identifier):
-    """Identifier for a view in search configuration."""
-
-    space: str
-    external_id: str
-
-    def __str__(self) -> str:
-        return f"space='{self.space}', externalId='{self.external_id}'"
+from .data_modeling import ViewReferenceNoVersion
 
 
 class SearchConfigViewProperty(BaseModelObject):
@@ -25,14 +15,14 @@ class SearchConfigViewProperty(BaseModelObject):
 class SearchConfigBase(BaseModelObject):
     """Base class for search configuration with common fields."""
 
-    view: SearchConfigViewId
+    view: ViewReferenceNoVersion
     use_as_name: str | None = None
     use_as_description: str | None = None
     columns_layout: list[SearchConfigViewProperty] | None = None
     filter_layout: list[SearchConfigViewProperty] | None = None
     properties_layout: list[SearchConfigViewProperty] | None = None
 
-    def as_id(self) -> SearchConfigViewId:
+    def as_id(self) -> ViewReferenceNoVersion:
         return self.view
 
 

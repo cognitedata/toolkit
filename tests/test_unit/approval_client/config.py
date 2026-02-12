@@ -200,6 +200,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotMapRequest,
     RobotMapResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.search_config import (
+    SearchConfigResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryRequest,
     SecurityCategoryResponse,
@@ -1151,6 +1154,17 @@ API_RESOURCES = [
         api_name="tool.workflows.triggers",
         resource_cls=WorkflowTriggerResponse,
         _write_cls=WorkflowTriggerRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="list", mock_class_method="list"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.search_configurations",
+        resource_cls=SearchConfigResponse,
+        _write_cls=SearchConfigResponse,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
