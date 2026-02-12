@@ -206,6 +206,10 @@ class BuildV2Command(ToolkitCommand):
                 continue
 
             item_path = Path(item)
+            if not Path(item).resolve().is_relative_to(organization_dir):
+                errors.append(f"Selected module path {item_path.as_posix()!r} is not under the organization directory")
+                continue
+
             if item_path.is_absolute():
                 errors.append(
                     f"Selected module path {item_path.as_posix()!r} should be relative to the organization directory"

@@ -218,6 +218,13 @@ class TestReadParameters:
                 ["Selected module path 'non_existent/path' does not exist under the organization directory"],
                 id="Mix of valid and non-existent paths",
             ),
+            pytest.param(
+                ["modules/module1", "modules/module2"],
+                ["../../other_org/modules/module3"],
+                set(),
+                ["Selected module path '../../other_org/modules/module3' is not under the organization directory"],
+                id="Attack path outside of organization directory",
+            ),
         ],
     )
     def test_parsing_user_selected_modules(
