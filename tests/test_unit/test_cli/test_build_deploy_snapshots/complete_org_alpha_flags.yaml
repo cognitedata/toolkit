@@ -274,6 +274,7 @@ Node:
       type: view
       version: v1
   space: sp_nodes
+ResourceViewMappingResponse:
 - externalId: testing_default_asset_mapping
   instanceType: node
   sources:
