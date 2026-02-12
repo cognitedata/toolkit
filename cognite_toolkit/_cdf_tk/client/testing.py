@@ -26,9 +26,6 @@ from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFil
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_functions import ExtendedFunctionsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.search_config import (
-    SearchConfigurationsAPI as LegacySearchConfigurationsAPI,
-)
 from cognite_toolkit._cdf_tk.client.api.raw import RawAPI, RawDatabasesAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics import RoboticsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_capabilities import CapabilitiesAPI
@@ -80,7 +77,6 @@ from .api.migration import (
 )
 from .api.project import ProjectAPI
 from .api.relationships import RelationshipsAPI
-from .api.search import SearchAPI
 from .api.security_categories import SecurityCategoriesAPI
 from .api.sequences import SequencesAPI
 from .api.simulator_model_revisions import SimulatorModelRevisionsAPI
@@ -131,8 +127,6 @@ class ToolkitClientMock(CogniteClientMock):
 
         self.project = MagicMock(spec_set=ProjectAPI)
 
-        self.search = MagicMock(spec=SearchAPI)
-        self.search.configurations = MagicMock(spec_set=LegacySearchConfigurationsAPI)
         self.dml = MagicMock(spec_set=DMLAPI)
         self.lookup = MagicMock(spec=LookUpGroup)
         self.lookup.data_sets = MagicMock(spec_set=DataSetLookUpAPI)
