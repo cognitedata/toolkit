@@ -1049,6 +1049,19 @@ class TestCDFResourceAPI:
                 mapping_id,
             )
 
+            # List resource view mappings
+            list_endpoint = client.migration.resource_view_mapping._method_endpoint_map["list"]
+            try:
+                listed_mappings = list(
+                    client.migration.resource_view_mapping.list(resource_type=mapping_request.resource_type, limit=1)
+                )
+            except ToolkitAPIError:
+                raise EndpointAssertionError(list_endpoint.path, "Listing resource view mappings failed.")
+            if len(listed_mappings) == 0:
+                raise EndpointAssertionError(
+                    list_endpoint.path, "Expected at least 1 listed resource view mapping, got 0"
+                )
+
         finally:
             # Clean up
             client.migration.resource_view_mapping.delete([mapping_id])
