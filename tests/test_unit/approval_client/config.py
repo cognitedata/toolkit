@@ -171,11 +171,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models 
     GraphQLDataModelWrite,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawDatabase
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import (
-    SearchConfig,
-    SearchConfigList,
-    SearchConfigWrite,
-)
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
     LocationFilterResponse,
@@ -759,18 +754,6 @@ API_RESOURCES = [
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
                 Method(api_class_method="retrieve", mock_class_method="retrieve"),
-            ],
-        },
-    ),
-    APIResource(
-        api_name="search.configurations",
-        resource_cls=SearchConfig,
-        _list_cls=SearchConfigList,
-        _write_cls=SearchConfigWrite,
-        methods={
-            "create": [Method(api_class_method="upsert", mock_class_method="create_multiple")],
-            "retrieve": [
-                Method(api_class_method="list", mock_class_method="return_values"),
             ],
         },
     ),
