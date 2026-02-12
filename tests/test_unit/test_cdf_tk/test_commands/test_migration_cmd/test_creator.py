@@ -3,7 +3,6 @@ from typing import Any
 
 import pytest
 import yaml
-from cognite.client.data_classes import DataSet, DataSetList
 from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
 from cognite.client.data_classes.data_modeling import NodeList
 from pytest_regressions.data_regression import DataRegressionFixture
@@ -16,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     SpaceRequest,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import CreatedSourceSystem
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
@@ -37,17 +37,18 @@ class TestCreator:
     ) -> None:
         toolkit_client_approval.append(DataModelResponse, COGNITE_MIGRATION_MODEL)
         toolkit_client_approval.append(ViewResponse, VIEWS)
-        data_sets = DataSetList(
-            [
-                DataSet(
-                    external_id=f"dataset_{letter}",
-                    name=f"Dataset {letter}",
-                    description=f"This is dataset {letter}",
-                )
-                for letter in "ABC"
-            ]
-        )
-        toolkit_client_approval.append(DataSet, data_sets)
+        data_sets = [
+            DataSetResponse(
+                id=i,
+                external_id=f"dataset_{letter}",
+                name=f"Dataset {letter}",
+                description=f"This is dataset {letter}",
+                created_time=0,
+                last_updated_time=0,
+            )
+            for i, letter in enumerate("ABC", 1)
+        ]
+        toolkit_client_approval.append(DataSetResponse, data_sets)
 
         _ = MigrationCommand(silent=True).create(
             client=toolkit_client_approval.client,
@@ -70,16 +71,16 @@ class TestCreator:
     ) -> None:
         toolkit_client_approval.append(DataModelResponse, COGNITE_MIGRATION_MODEL)
         toolkit_client_approval.append(ViewResponse, VIEWS)
-        data_sets = DataSetList(
-            [
-                DataSet(
-                    id=i,
-                    name=f"Dataset {i}",
-                    description=f"This is dataset {i}",
-                )
-                for i in range(3)
-            ]
-        )
+        data_sets = [
+            DataSetResponse(
+                id=i,
+                name=f"Dataset {i}",
+                description=f"This is dataset {i}",
+                created_time=0,
+                last_updated_time=0,
+            )
+            for i in range(3)
+        ]
 
         with pytest.raises(
             ToolkitRequiredValueError,

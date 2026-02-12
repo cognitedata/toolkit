@@ -236,14 +236,14 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
         if "assetCentric" in item:
             asset_centric = item["assetCentric"]
             for data_set_external_id in asset_centric.get("dataSetExternalIds", []):
-                yield DataSetsCRUD, data_set_external_id
+                yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
             for asset in asset_centric.get("assetSubtreeIds", []):
                 if "externalId" in asset:
                     yield AssetCRUD, ExternalId(external_id=asset["externalId"])
             for subfilter_name in cls.subfilter_names:
                 subfilter = asset_centric.get(subfilter_name, {})
                 for data_set_external_id in subfilter.get("dataSetExternalIds", []):
-                    yield DataSetsCRUD, data_set_external_id
+                    yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
                 for asset in subfilter.get("assetSubtreeIds", []):
                     if "externalId" in asset:
                         yield AssetCRUD, ExternalId(external_id=asset["externalId"])

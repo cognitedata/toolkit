@@ -112,7 +112,7 @@ class RelationshipCRUD(ResourceCRUD[ExternalId, RelationshipRequest, Relationshi
         DatasetLoader and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, item["dataSetExternalId"]
+            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
         for label in item.get("labels", []):
             if isinstance(label, dict):
                 yield LabelCRUD, ExternalId(external_id=label["externalId"])

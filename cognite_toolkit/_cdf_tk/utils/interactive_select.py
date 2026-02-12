@@ -9,7 +9,6 @@ from typing import ClassVar, Literal, TypeVar, get_args, overload
 import questionary
 from cognite.client.data_classes import (
     Asset,
-    DataSet,
     UserProfileList,
     filters,
 )
@@ -29,6 +28,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReference,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import Canvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList, Visibility
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
@@ -46,7 +47,7 @@ from .aggregators import (
 )
 from .useful_types import AssetCentricDestinationType
 
-T_Type = TypeVar("T_Type", bound=Asset | DataSet)
+T_Type = TypeVar("T_Type", bound=Asset | DataSetResponse)
 
 
 class AssetCentricInteractiveSelect(ABC):
@@ -67,23 +68,23 @@ class AssetCentricInteractiveSelect(ABC):
         return self._aggregator.count(hierarchies, data_sets)
 
     @lru_cache
-    def _get_available_data_sets(self, hierarchy: str | None = None) -> list[DataSet]:
+    def _get_available_data_sets(self, hierarchy: str | None = None) -> list[DataSetResponse]:
         if hierarchy is not None:
             datasets = self._aggregator.used_data_sets(hierarchy)
-            return list(self.client.data_sets.retrieve_multiple(external_ids=datasets))
+            return self.client.tool.datasets.retrieve(ExternalId.from_external_ids(datasets), ignore_unknown_ids=True)
         else:
-            return list(self.client.data_sets.list(limit=-1))
+            return self.client.tool.datasets.list(limit=None)
 
     @lru_cache
     def _get_available_hierarchies(self, data_set: str | None = None) -> list[Asset]:
         data_set_external_ids = [data_set] if data_set else None
         return list(self.client.assets.list(root=True, limit=-1, data_set_external_ids=data_set_external_ids))
 
-    def _create_choice(self, item: Asset | DataSet) -> tuple[questionary.Choice, int]:
+    def _create_choice(self, item: Asset | DataSetResponse) -> tuple[questionary.Choice, int]:
         """Create a questionary choice for the given item."""
         if item.external_id is None:
             item_count = -1  # No count available for DataSet/Assets without external_id
-        elif isinstance(item, DataSet):
+        elif isinstance(item, DataSetResponse):
             item_count = self.aggregate_count(tuple(), (item.external_id,))
         elif isinstance(item, Asset):
             item_count = self.aggregate_count((item.external_id,), tuple())
@@ -192,7 +193,7 @@ class AssetCentricInteractiveSelect(ABC):
     def _select(
         self,
         what: str,
-        options: Sequence[Asset | DataSet],
+        options: Sequence[Asset | DataSetResponse],
         allow_empty: Literal[True, False],
         plurality: Literal["single", "multiple"],
     ) -> str | list[str] | None:

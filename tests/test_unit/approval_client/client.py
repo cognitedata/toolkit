@@ -943,6 +943,9 @@ class ApprovalToolkitClient:
         def list(*_, **__) -> list:
             return existing_resources[resource_cls.__name__]
 
+        def iterate(*_, **__) -> list[list]:
+            return [existing_resources[resource_cls.__name__]]
+
         def list_raw_db(*_, **__) -> list[RAWDatabaseResponse]:
             return existing_resources[resource_cls.__name__]
 
@@ -971,6 +974,7 @@ class ApprovalToolkitClient:
                 list_raw_db,
                 list_raw_table,
                 list,
+                iterate,
                 retrieve_instances_pydantic,
             ]
         }
