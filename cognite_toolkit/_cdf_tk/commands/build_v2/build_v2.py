@@ -287,7 +287,7 @@ class BuildV2Command(ToolkitCommand):
             yield ModelSyntaxError(code=f"{resource_type}-SYNTAX-ERROR", message=message)
 
     def _local_validation(self, module: Module) -> InsightList:
-        """This validation is performed per individual resource locally"""
+        """This validation is performed locally per entire module"""
         return InsightList()
 
     def _global_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
