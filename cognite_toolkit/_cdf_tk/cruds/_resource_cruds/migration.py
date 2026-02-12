@@ -128,8 +128,8 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
     ) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump(context="toolkit")
         local = local or {}
-        if "existingVersion" not in local:
-            # Existing version is typically not set when creating nodes, but we get it back
-            # when we retrieve the node from the server.
-            dumped.pop("existingVersion", None)
+        # Instance type and space is hardcoded for ResourceViewMapping,
+        for key in ["existingVersion", "instanceType", "space"]:
+            if key not in local:
+                dumped.pop(key, None)
         return dumped
