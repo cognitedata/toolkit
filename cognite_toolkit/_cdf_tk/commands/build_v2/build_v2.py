@@ -206,6 +206,11 @@ class BuildV2Command(ToolkitCommand):
                 continue
 
             item_path = Path(item)
+            if item_path.is_absolute():
+                errors.append(
+                    f"Selected module path {item_path.as_posix()!r} should be relative to the organization directory"
+                )
+                continue
             if not (organization_dir / item_path).exists():
                 errors.append(
                     f"Selected module path {item_path.as_posix()!r} does not exist under the organization directory"
@@ -213,11 +218,6 @@ class BuildV2Command(ToolkitCommand):
                 continue
             if not item_path.is_dir():
                 errors.append(f"Selected module path {item_path.as_posix()!r} is not a directory")
-                continue
-            if item_path.is_absolute():
-                errors.append(
-                    f"Selected module path {item_path.as_posix()!r} should be relative to the organization directory"
-                )
                 continue
             selected.add(item_path)
         return selected, errors
