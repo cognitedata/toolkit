@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._references import ContainerReference
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
@@ -32,7 +33,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._references import ContainerReference
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest, RecordSource
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse

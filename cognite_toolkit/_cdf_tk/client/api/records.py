@@ -1,8 +1,8 @@
 from collections.abc import Sequence
 
-from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordIdentifier, RecordRequest, RecordResponse
 
 
@@ -22,6 +22,11 @@ class RecordsAPI(CDFResourceAPI[RecordIdentifier, RecordRequest, RecordResponse]
                 "delete": Endpoint(method="POST", path="/streams/{streamId}/records/delete", item_limit=1000),
             },
         )
+
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[RecordResponse]:
+        return PagedResponse[RecordResponse].model_validate_json(response.body)
 
     def ingest(self, stream_id: str, items: Sequence[RecordRequest]) -> None:
         """Ingest records into a stream.

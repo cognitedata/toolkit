@@ -31,6 +31,7 @@ from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
 from .api.project import ProjectAPI
 from .api.raw import RawAPI
+from .api.records import RecordsAPI
 from .api.relationships import RelationshipsAPI
 from .api.robotics import RoboticsAPI
 from .api.search import SearchAPI
@@ -39,7 +40,6 @@ from .api.security_categories import SecurityCategoriesAPI
 from .api.sequences import SequencesAPI
 from .api.simulators import SimulatorsAPI
 from .api.spaces import SpacesAPI
-from .api.records import RecordsAPI
 from .api.streams import StreamsAPI
 from .api.three_d import ThreeDAPI
 from .api.timeseries import TimeSeriesAPI
