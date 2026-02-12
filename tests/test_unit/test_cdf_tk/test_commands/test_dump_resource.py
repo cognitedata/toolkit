@@ -984,7 +984,7 @@ def three_resource_view_mappings() -> list[ResourceViewMappingResponse]:
             last_updated_time=1,
             created_time=1,
             resource_type="asset",
-            view_id=dm.ViewId("my_space", "CogniteAsset", "v1"),
+            view_id=ViewReference(space="my_space", external_id="CogniteAsset", version="v1"),
             property_mapping={"name": "name", "description": "description"},
         ),
         ResourceViewMappingResponse(
@@ -993,7 +993,7 @@ def three_resource_view_mappings() -> list[ResourceViewMappingResponse]:
             last_updated_time=1,
             created_time=1,
             resource_type="event",
-            view_id=dm.ViewId("my_space", "CogniteEvent", "v1"),
+            view_id=ViewReference(space="my_space", external_id="CogniteEvent", version="v1"),
             property_mapping={"type": "type", "subtype": "subtype"},
         ),
         ResourceViewMappingResponse(
@@ -1002,7 +1002,7 @@ def three_resource_view_mappings() -> list[ResourceViewMappingResponse]:
             last_updated_time=1,
             created_time=1,
             resource_type="timeseries",
-            view_id=dm.ViewId("my_space", "CogniteTimeSeries", "v1"),
+            view_id=ViewReference(space="my_space", external_id="CogniteTimeSeries", version="v1"),
             property_mapping={"name": "name", "unit": "unit"},
         ),
     ]

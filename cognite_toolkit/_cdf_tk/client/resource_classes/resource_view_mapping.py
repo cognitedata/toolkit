@@ -1,5 +1,7 @@
 from typing import ClassVar, Literal
 
+from pydantic import field_serializer
+
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
 )
@@ -17,6 +19,10 @@ class ResourceViewMapping(BaseModelObject):
     resource_type: str
     view_id: ViewReference
     property_mapping: dict[str, str]
+
+    @field_serializer("view_id")
+    def serialize_view_id(self, view_id: ViewReference) -> dict:
+        return {**view_id.dump(), "type": "view"}
 
 
 class ResourceViewMappingRequest(WrappedInstanceRequest, ResourceViewMapping):

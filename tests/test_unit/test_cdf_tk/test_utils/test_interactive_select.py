@@ -14,7 +14,6 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.aggregations import CountValue
 from cognite.client.data_classes.data_modeling import (
     NodeList,
-    ViewId,
 )
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics, SpaceStatisticsList
 from cognite.client.data_classes.raw import Database, DatabaseList, Table, TableList
@@ -1020,28 +1019,26 @@ class TestResourceViewMappingInteractiveSelect:
             MockQuestionary(ResourceViewMappingInteractiveSelect.__module__, monkeypatch, answers),
         ):
             selector = ResourceViewMappingInteractiveSelect(client, "test_operation")
-            client.migration.resource_view_mapping.list.return_value = NodeList[ResourceViewMappingResponse](
-                [
-                    ResourceViewMappingResponse(
-                        external_id="mapping1",
-                        resource_type="asset",
-                        view_id=ViewId("space1", "view1", "1"),
-                        property_mapping={},
-                        last_updated_time=1,
-                        created_time=0,
-                        version=1,
-                    ),
-                    ResourceViewMappingResponse(
-                        external_id="mapping2",
-                        resource_type="asset",
-                        view_id=ViewId("space2", "view2", "1"),
-                        property_mapping={},
-                        last_updated_time=1,
-                        created_time=0,
-                        version=1,
-                    ),
-                ]
-            )
+            client.migration.resource_view_mapping.list.return_value = [
+                ResourceViewMappingResponse(
+                    external_id="mapping1",
+                    resource_type="asset",
+                    view_id=ViewReference(space="space1", external_id="view1", version="1"),
+                    property_mapping={},
+                    last_updated_time=1,
+                    created_time=0,
+                    version=1,
+                ),
+                ResourceViewMappingResponse(
+                    external_id="mapping2",
+                    resource_type="asset",
+                    view_id=ViewReference(space="space2", external_id="view2", version="1"),
+                    property_mapping={},
+                    last_updated_time=1,
+                    created_time=0,
+                    version=1,
+                ),
+            ]
 
             result = selector.select_resource_view_mapping("asset")
         assert result.external_id == "mapping2"

@@ -76,23 +76,22 @@ class TestAssetCentricMapper:
         selected = MigrationCSVFileSelector(datafile=mapping_file, kind="Assets")
 
         with monkeypatch_toolkit_client() as client:
-            client.migration.resource_view_mapping.retrieve.return_value = NodeList[ResourceViewMappingResponse](
-                [
-                    ResourceViewMappingResponse(
-                        external_id="cdf_asset_mapping",
-                        resource_type="asset",
-                        view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
-                        property_mapping={
-                            "name": "name",
-                            "description": "description",
-                            "source": "source",
-                        },
-                        last_updated_time=1,
-                        created_time=0,
-                        version=1,
-                    )
-                ]
-            )
+            client.migration.resource_view_mapping.retrieve.return_value = [
+                ResourceViewMappingResponse(
+                    external_id="cdf_asset_mapping",
+                    resource_type="asset",
+                    view_id=ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
+                    property_mapping={
+                        "name": "name",
+                        "description": "description",
+                        "source": "source",
+                    },
+                    last_updated_time=1,
+                    created_time=0,
+                    version=1,
+                )
+            ]
+
             client.migration.created_source_system.retrieve.return_value = NodeList[CreatedSourceSystem](
                 [
                     CreatedSourceSystem(
