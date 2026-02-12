@@ -14,6 +14,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
+from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -234,7 +235,7 @@ class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
 
 
 @final
-class SequenceCRUD(ResourceCRUD[str, SequenceWrite, CDFSequence]):
+class SequenceCRUD(ResourceCRUD[ExternalId, SequenceRequest, SequenceResponse]):
     folder_name = "classic"
     resource_cls = CDFSequence
     resource_write_cls = SequenceWrite
