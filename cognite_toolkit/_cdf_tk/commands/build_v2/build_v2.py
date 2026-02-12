@@ -220,7 +220,12 @@ class BuildV2Command(ToolkitCommand):
     def parse_module_sources(self, parse_inputs: ParseInput, organization_dir: Path) -> ModuleSources:
         # Parse the variables.
         module_paths = ModulesParser(organization_dir=organization_dir).parse()
-        return ModuleSources([ModuleSource(path=module_path) for module_path in module_paths])
+        return ModuleSources(
+            [
+                ModuleSource(path=module_path, id=module_path.relative_to(organization_dir))
+                for module_path in module_paths
+            ]
+        )
 
     def import_module(self, module_source: ModuleSource) -> Module:
         insights: InsightList = InsightList()
