@@ -666,10 +666,10 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
         },
         APMConfigResponse: {
             "externalId": "apm_config_001",
-            "name": "Example APM Config",
             "version": 1,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
+            "properties": {"APM_Config": {"APM_Config/1": {"name": "Example APM Config"}}},
         },
         StreamResponse: {
             "externalId": "stream_001",
