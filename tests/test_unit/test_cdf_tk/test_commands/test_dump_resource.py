@@ -1022,7 +1022,7 @@ class TestResourceViewMappingFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(ResourceViewMappingFinder.__module__, monkeypatch, answers),
         ):
-            client.migration.resource_view_mapping.list.return_value = dm.NodeList(three_resource_view_mappings)
+            client.migration.resource_view_mapping.list.return_value = three_resource_view_mappings
             finder = ResourceViewMappingFinder(client, None)
             selected = finder._interactive_select()
 
@@ -1034,7 +1034,7 @@ class TestDumpResourceViewMappings:
         self, three_resource_view_mappings: list[ResourceViewMappingResponse], tmp_path: Path
     ) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.migration.resource_view_mapping.retrieve.return_value = dm.NodeList(three_resource_view_mappings[1:])
+            client.migration.resource_view_mapping.retrieve.return_value = three_resource_view_mappings[1:]
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(

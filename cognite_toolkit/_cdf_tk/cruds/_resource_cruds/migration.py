@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import ResourceViewMappingYAML
-from cognite_toolkit._cdf_tk.utils import in_dict
+from cognite_toolkit._cdf_tk.utils import in_dict, sanitize_filename
 
 from .datamodel import SpaceCRUD, ViewCRUD
 
@@ -45,6 +45,10 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return {"externalId": id.external_id}
+
+    @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_required_capability(

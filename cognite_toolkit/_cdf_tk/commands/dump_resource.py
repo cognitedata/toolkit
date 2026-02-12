@@ -910,7 +910,7 @@ class ResourceViewMappingFinder(ResourceFinder[tuple[str, ...]]):
             selected_mappings = [m for m in self.resource_view_mappings if m.external_id in self.identifier]
             yield [], selected_mappings, loader, None
         else:
-            yield list(self.identifier), None, loader, None
+            yield [ExternalId(external_id=external_id) for external_id in self.identifier], None, loader, None
 
 
 class DumpResourceCommand(ToolkitCommand):

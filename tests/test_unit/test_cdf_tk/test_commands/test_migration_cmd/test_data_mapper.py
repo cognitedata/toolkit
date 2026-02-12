@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReference,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import CreatedSourceSystem
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
@@ -122,7 +123,9 @@ class TestAssetCentricMapper:
 
             # Check lookup calls
             assert client.migration.resource_view_mapping.retrieve.call_count == 1
-            client.migration.resource_view_mapping.retrieve.assert_called_with(["cdf_asset_mapping"])
+            client.migration.resource_view_mapping.retrieve.assert_called_with(
+                [TypedNodeIdentifier(space="cognite_migration", external_id="cdf_asset_mapping")]
+            )
             assert client.migration.created_source_system.retrieve.call_count == 1
             assert client.tool.views.retrieve.call_count == 1
 
