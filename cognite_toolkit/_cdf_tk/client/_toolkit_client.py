@@ -33,7 +33,6 @@ from .api.project import ProjectAPI
 from .api.raw import RawAPI
 from .api.relationships import RelationshipsAPI
 from .api.robotics import RoboticsAPI
-from .api.search import SearchAPI
 from .api.search_config import SearchConfigurationsAPI
 from .api.security_categories import SecurityCategoriesAPI
 from .api.sequences import SequencesAPI
@@ -96,7 +95,6 @@ class ToolkitClient(CogniteClient):
         toolkit_config = ToolkitClientConfig.from_client_config(self.config)
         self.console = console or Console(markup=True)
         self.tool = ToolAPI(http_client, self.console)
-        self.search = SearchAPI(self._config, self._API_VERSION, self)
         self.dml = DMLAPI(self._config, self._API_VERSION, self)
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self, self.console)
