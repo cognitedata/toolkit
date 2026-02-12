@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated, TypeAlias
+from typing import Annotated, Literal, TypeAlias
 
 from pydantic import PlainValidator
 
@@ -13,3 +13,5 @@ def _is_relative_dir_path(p: Path) -> Path:
 
 
 RelativeDirPath: TypeAlias = Annotated[Path, PlainValidator(_is_relative_dir_path)]
+
+ValidationType: TypeAlias = Literal["dev", "prod"]

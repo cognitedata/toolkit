@@ -1,9 +1,10 @@
+import os
 import sys
 from collections import defaultdict
 from collections.abc import Iterable
 from pathlib import Path
 
-from pydantic import ValidationError
+from pydantic import JsonValue, ValidationError
 from rich.console import Console
 from rich.panel import Panel
 
@@ -20,23 +21,28 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     Module,
     ModuleSource,
     ModuleSources,
+    ParseInput,
+    RelativeDirPath,
     ResourceType,
+    ValidationType,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxError, Recommendation
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, MODULES
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_write
 from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible, yaml_safe_dump
+from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
 
 class BuildV2Command(ToolkitCommand):
     def build(self, parameters: BuildParameters, client: ToolkitClient | None = None) -> BuildFolder:
         console = client.console if client else Console()
         self.validate_build_parameters(parameters, console, sys.argv)
-        module_sources = self.parse_module_sources(parameters)
+        parse_inputs = self.read_parameters(parameters)
+        module_sources = self.parse_module_sources(parse_inputs, parameters.organization_dir)
 
         build_folder = self._create_build_folder(module_sources, parameters.build_dir)
 
@@ -146,27 +152,74 @@ class BuildV2Command(ToolkitCommand):
                 folder.add_build_files(built_module.built_files)
         return folder
 
-    def parse_module_sources(self, parameters: BuildParameters) -> ModuleSources:
-        # Todo Read the config.yaml file
-        # Validate selected/excluded paths from config.yaml and command line. Command line should override config.yaml.
-        # Need an intermediate steps that produces
-        # - All yaml file paths that are relevant for the build (based on selection and exclusion)
-        # - The variables from the config.yaml file (both global and module specific)
-        # - The module paths that should be built (based on the yaml file paths and the selection)
-        # - Validation type and CDF Project
+    def read_parameters(self, parameters: BuildParameters) -> ParseInput:
+        selected: set[RelativeDirPath | str] = {
+            parameters.modules_directory.relative_to(parameters.organization_dir)
+        }  # Default to everything under modules.
+        variables: dict[str, JsonValue] = {}
+        cdf_project: str = os.environ.get("CDF_PROJECT", "UNKNOWN")
+        validation_type: ValidationType = "prod"
+        if parameters.user_selected_modules:
+            selected = self._parse_user_selection(parameters.user_selected_modules, parameters.organization_dir)
 
-        # Inputs:
-        # - Above
-        # Produces Module
-        # Outputs:
-        # - List of ModuleInputs that consists of the path, the variables, iteration, module_id, package_id. Resource files.
+        if parameters.config_yaml_name:
+            try:
+                config = ConfigYAML.from_yaml_file(
+                    ConfigYAML.get_filepath(parameters.organization_dir, parameters.config_yaml_name)
+                )
+            except ValidationError as e:
+                errors = humanize_validation_error(e)
+                raise ToolkitValueError(
+                    f"Config YAML file '{parameters.config_yaml_name}' is invalid:\n{'- '.join(errors)}"
+                ) from e
+            if not parameters.user_selected_modules and config.environment.selected:
+                selected = self._parse_user_selection(config.environment.selected, parameters.organization_dir)
+            variables = config.variables or {}
+            cdf_project = config.environment.project
+            validation_type = config.environment.validation_type
 
-        # Find all yaml files any place. For performance, we can limit ot the selected modules paths if paths are provided
-        # If names directly, then, we must search everything.
-        #
+        # Todo optimize by only searching for yaml files in the selected modules paths if selection is provided.
+        yaml_files = list(parameters.modules_directory.rglob("*.y*ml"))
+        return ParseInput(
+            yaml_files=yaml_files,
+            selected_modules=selected,
+            variables=variables,
+            validation_type=validation_type,
+            cdf_project=cdf_project,
+        )
 
+    def _parse_user_selection(
+        self, user_selected_modules: list[str], organization_dir: Path
+    ) -> set[RelativeDirPath | str]:
+        selected: set[RelativeDirPath | str] = set()
+        errors: list[str] = []
+        for item in user_selected_modules:
+            if "/" not in item:
+                # Module name provided.
+                selected.add(item)
+
+            item_path = Path(item)
+            if not (organization_dir / item_path).exists():
+                errors.append(
+                    f"Selected module path {item_path.as_posix()!r} does not exist under the organization directory"
+                )
+                continue
+            if not item_path.is_dir():
+                errors.append(f"Selected module path {item_path.as_posix()!r} is not a directory")
+                continue
+            if item_path.is_absolute():
+                errors.append(
+                    f"Selected module path {item_path.as_posix()!r} should be relative to the organization directory"
+                )
+                continue
+            selected.add(item_path)
+        if errors:
+            raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
+        return selected
+
+    def parse_module_sources(self, parse_inputs: ParseInput, organization_dir: Path) -> ModuleSources:
         # Parse the variables.
-        module_paths = ModulesParser(organization_dir=parameters.organization_dir).parse()
+        module_paths = ModulesParser(organization_dir=organization_dir).parse()
         return ModuleSources([ModuleSource(path=module_path) for module_path in module_paths])
 
     def import_module(self, module_source: ModuleSource) -> Module:

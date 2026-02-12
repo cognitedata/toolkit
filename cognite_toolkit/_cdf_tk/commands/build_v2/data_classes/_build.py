@@ -1,11 +1,10 @@
 from pathlib import Path
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.constants import MODULES
 
-from . import RelativeDirPath
+from . import RelativeDirPath, ValidationType
 from ._insights import InsightList
 from ._module import ModuleSource
 
@@ -34,8 +33,8 @@ class ParseInput(BaseModel):
 
     yaml_files: list[Path]
     selected_modules: set[RelativeDirPath | str]
-    variables: dict[str, JsonValue]
-    validation_type: Literal["dev", "prod"] = "prod"
+    variables: dict[str, JsonValue] = Field(default_factory=dict)
+    validation_type: ValidationType = "prod"
     cdf_project: str
 
 
