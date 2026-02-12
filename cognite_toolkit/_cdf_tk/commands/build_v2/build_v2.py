@@ -145,9 +145,28 @@ class BuildV2Command(ToolkitCommand):
                 folder.insights.extend(validation_insights)
                 folder.add_build_files(built_module.built_files)
 
-        return folder
+    def parse_module_sources(self, parameters: BuildParameters) -> Iterable[ModuleInput]:
+        # Todo Read the config.yaml file
+        # Validate selected/excluded paths from config.yaml and command line. Command line should override config.yaml.
+        # Need an intermediate steps that produces
+        # - All yaml file paths that are relevant for the build (based on selection and exclusion)
+        # - The variables from the config.yaml file (both global and module specific)
+        # - The module paths that should be built (based on the yaml file paths and the selection)
+        # - Validation type and CDF Project
 
-    def parse_module_sources(self, parameters: BuildParameters) -> ModuleSources:
+
+        # Inputs:
+        # - Above
+        # Produces Module
+        # Outputs:
+        # - List of ModuleInputs that consists of the path, the variables, iteration, module_id, package_id. Resource files.
+
+        # Find all yaml files any place. For performance, we can limit ot the selected modules paths if paths are provided
+        # If names directly, then, we must search everything.
+        #
+
+
+        # Parse the variables.
         module_paths = ModulesParser(organization_dir=parameters.organization_dir).parse()
         return ModuleSources([ModuleSource(path=module_path) for module_path in module_paths])
 
