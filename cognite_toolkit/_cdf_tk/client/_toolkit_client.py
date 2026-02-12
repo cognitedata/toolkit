@@ -38,6 +38,7 @@ from .api.security_categories import SecurityCategoriesAPI
 from .api.sequences import SequencesAPI
 from .api.simulators import SimulatorsAPI
 from .api.spaces import SpacesAPI
+from .api.records import RecordsAPI
 from .api.streams import StreamsAPI
 from .api.three_d import ThreeDAPI
 from .api.timeseries import TimeSeriesAPI
@@ -113,6 +114,7 @@ class ToolkitClient(CogniteClient):
         self.project = ProjectAPI(config=toolkit_config, cognite_client=self)
         self.infield = InfieldAPI(http_client)
         self.streams = StreamsAPI(http_client)
+        self.records = RecordsAPI(http_client)
 
     @property
     def config(self) -> ToolkitClientConfig:

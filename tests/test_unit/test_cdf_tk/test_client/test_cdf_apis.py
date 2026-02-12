@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedu
 from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI
+from cognite_toolkit._cdf_tk.client.api.records import RecordsAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
@@ -31,7 +32,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._references import ContainerReference
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest, RecordSource
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
@@ -170,6 +173,45 @@ class TestCDFResourceAPI:
         page = api.paginate(db_name=instance.db_name, limit=10)
         assert len(page.items) == 1
         assert page.items[0] == instance
+
+    def test_records_api_crud(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        """Test RecordsAPI ingest, upsert, and delete methods.
+
+        This cannot be tested using the generic test as it requires custom mocking of the
+        api endpoints as stream_id is part of the URL.
+        """
+        config = toolkit_config
+        api = RecordsAPI(HTTPClient(config))
+
+        stream_id = "my_stream"
+        request = RecordRequest(
+            space="my_space",
+            external_id="record_001",
+            sources=[
+                RecordSource(
+                    source=ContainerReference(space="my_space", external_id="my_container"),
+                    properties={"name": "Example Record"},
+                )
+            ],
+        )
+
+        # Test ingest (API returns 202 Accepted)
+        respx_mock.post(config.create_api_url(f"/streams/{stream_id}/records")).mock(
+            return_value=httpx.Response(status_code=202)
+        )
+        api.ingest(stream_id, [request])
+
+        # Test upsert (API returns 202 Accepted)
+        respx_mock.post(config.create_api_url(f"/streams/{stream_id}/records/upsert")).mock(
+            return_value=httpx.Response(status_code=202)
+        )
+        api.upsert(stream_id, [request])
+
+        # Test delete
+        respx_mock.post(config.create_api_url(f"/streams/{stream_id}/records/delete")).mock(
+            return_value=httpx.Response(status_code=200)
+        )
+        api.delete(stream_id, [request.as_id()])
 
     def test_metadataapi_crud_iterate(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         resource = get_example_minimum_responses(FileMetadataResponse)
