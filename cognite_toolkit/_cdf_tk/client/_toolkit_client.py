@@ -89,7 +89,7 @@ class ToolkitClient(CogniteClient):
         console: Console | None = None,
     ) -> None:
         super().__init__(config=config)
-        http_client = HTTPClient(self.config)
+        http_client = HTTPClient(self.config, console=console)
         self.http_client = http_client
         toolkit_config = ToolkitClientConfig.from_client_config(self.config)
         self.console = console or Console(markup=True)
