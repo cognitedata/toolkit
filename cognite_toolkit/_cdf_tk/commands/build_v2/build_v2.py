@@ -152,7 +152,8 @@ class BuildV2Command(ToolkitCommand):
                 folder.add_build_files(built_module.built_files)
         return folder
 
-    def read_parameters(self, parameters: BuildParameters) -> ParseInput:
+    @classmethod
+    def read_parameters(cls, parameters: BuildParameters) -> ParseInput:
         selected: set[RelativeDirPath | str] = {
             parameters.modules_directory.relative_to(parameters.organization_dir)
         }  # Default to everything under modules.
@@ -160,7 +161,7 @@ class BuildV2Command(ToolkitCommand):
         cdf_project: str = os.environ.get("CDF_PROJECT", "UNKNOWN")
         validation_type: ValidationType = "prod"
         if parameters.user_selected_modules:
-            selected = self._parse_user_selection(parameters.user_selected_modules, parameters.organization_dir)
+            selected = cls._parse_user_selection(parameters.user_selected_modules, parameters.organization_dir)
 
         if parameters.config_yaml_name:
             try:
@@ -173,7 +174,7 @@ class BuildV2Command(ToolkitCommand):
                     f"Config YAML file '{parameters.config_yaml_name}' is invalid:\n{'- '.join(errors)}"
                 ) from e
             if not parameters.user_selected_modules and config.environment.selected:
-                selected = self._parse_user_selection(config.environment.selected, parameters.organization_dir)
+                selected = cls._parse_user_selection(config.environment.selected, parameters.organization_dir)
             variables = config.variables or {}
             cdf_project = config.environment.project
             validation_type = config.environment.validation_type
@@ -188,15 +189,17 @@ class BuildV2Command(ToolkitCommand):
             cdf_project=cdf_project,
         )
 
+    @classmethod
     def _parse_user_selection(
-        self, user_selected_modules: list[str], organization_dir: Path
+        cls, user_selected_modules: list[str], organization_dir: Path
     ) -> set[RelativeDirPath | str]:
         selected: set[RelativeDirPath | str] = set()
         errors: list[str] = []
         for item in user_selected_modules:
             if "/" not in item:
-                # Module name provided.
+                # Module name provided
                 selected.add(item)
+                continue
 
             item_path = Path(item)
             if not (organization_dir / item_path).exists():

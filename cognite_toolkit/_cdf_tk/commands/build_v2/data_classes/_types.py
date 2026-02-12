@@ -5,6 +5,9 @@ from pydantic import PlainValidator
 
 
 def _is_relative_dir_path(p: Path) -> Path:
+    if not isinstance(p, Path):
+        # Let pydantic handle the type error.
+        return p
     if p.suffix:
         raise ValueError(f"{p.as_posix()!r} is not a directory.")
     if p.is_absolute():
