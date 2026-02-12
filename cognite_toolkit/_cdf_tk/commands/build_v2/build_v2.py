@@ -161,7 +161,9 @@ class BuildV2Command(ToolkitCommand):
         cdf_project: str = os.environ.get("CDF_PROJECT", "UNKNOWN")
         validation_type: ValidationType = "prod"
         if parameters.user_selected_modules:
-            selected = cls._parse_user_selection(parameters.user_selected_modules, parameters.organization_dir)
+            selected, errors = cls._parse_user_selection(parameters.user_selected_modules, parameters.organization_dir)
+            if errors:
+                raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
 
         if parameters.config_yaml_name:
             try:
@@ -174,7 +176,9 @@ class BuildV2Command(ToolkitCommand):
                     f"Config YAML file '{parameters.config_yaml_name}' is invalid:\n{'- '.join(errors)}"
                 ) from e
             if not parameters.user_selected_modules and config.environment.selected:
-                selected = cls._parse_user_selection(config.environment.selected, parameters.organization_dir)
+                selected, errors = cls._parse_user_selection(config.environment.selected, parameters.organization_dir)
+                if errors:
+                    raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
             variables = config.variables or {}
             cdf_project = config.environment.project
             validation_type = config.environment.validation_type
@@ -192,7 +196,7 @@ class BuildV2Command(ToolkitCommand):
     @classmethod
     def _parse_user_selection(
         cls, user_selected_modules: list[str], organization_dir: Path
-    ) -> set[RelativeDirPath | str]:
+    ) -> tuple[set[RelativeDirPath | str], list[str]]:
         selected: set[RelativeDirPath | str] = set()
         errors: list[str] = []
         for item in user_selected_modules:
@@ -216,9 +220,7 @@ class BuildV2Command(ToolkitCommand):
                 )
                 continue
             selected.add(item_path)
-        if errors:
-            raise ToolkitValueError("Invalid module selection:\n" + "\n".join(f"- {error}" for error in errors))
-        return selected
+        return selected, errors
 
     def parse_module_sources(self, parse_inputs: ParseInput, organization_dir: Path) -> ModuleSources:
         # Parse the variables.

@@ -5,11 +5,21 @@ import pytest
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, RelativeDirPath
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import SpaceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
+
+
+def create_space_resource_file(organization_dir: Path) -> Path:
+    resource_file = organization_dir / MODULES / "my_module" / SpaceCRUD.folder_name / f"my_space.{SpaceCRUD.kind}.yaml"
+    resource_file.parent.mkdir(parents=True)
+    space_yaml = """space: my_space
+name: My Space
+"""
+    resource_file.write_text(space_yaml)
+    return resource_file
 
 
 class TestBuildCommand:
@@ -18,12 +28,8 @@ class TestBuildCommand:
 
         # Set up a simple organization with modules folder.
         org = tmp_path / "org"
-        resource_file = org / "modules" / "my_module" / SpaceCRUD.folder_name / f"my_space.{SpaceCRUD.kind}.yaml"
-        resource_file.parent.mkdir(parents=True)
-        space_yaml = """space: my_space
-name: My Space
-"""
-        resource_file.write_text(space_yaml)
+        resource_file = create_space_resource_file(org)
+
         build_dir = tmp_path / "build"
         parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
 
@@ -33,7 +39,7 @@ name: My Space
 
         built_space = list(build_dir.rglob(f"*.{SpaceCRUD.kind}.yaml"))
         assert len(built_space) == 1
-        assert built_space[0].read_text() == space_yaml
+        assert built_space[0].read_text() == resource_file.read_text()
 
         assert SpaceCRUD.folder_name in folder.resource_by_type
         assert str(folder.resource_by_type[SpaceCRUD.folder_name][SpaceCRUD.kind][0]) == str(built_space[0])
@@ -152,12 +158,7 @@ class TestReadParameters:
   selected:
   - modules/ignore_selection
 """)
-        resource_file = tmp_path / MODULES / "my_module" / SpaceCRUD.folder_name / f"my_space.{SpaceCRUD.kind}.yaml"
-        resource_file.parent.mkdir(parents=True)
-        space_yaml = """space: my_space
-        name: My Space
-        """
-        resource_file.write_text(space_yaml)
+        resource_file = create_space_resource_file(tmp_path)
 
         parameters = BuildParameters(
             organization_dir=tmp_path,
@@ -175,7 +176,6 @@ class TestReadParameters:
             "cdf_project": "my-project",
         }
 
-    @pytest.mark.skip("In development")
     def test_invalid_config_yaml(self, tmp_path: Path) -> None:
         config_yaml = tmp_path / "config.dev.yaml"
         config_yaml.write_text("""environment:
@@ -185,8 +185,83 @@ class TestReadParameters:
     selected:
     - modules/
 """)
+        _ = create_space_resource_file(tmp_path)
         parameters = BuildParameters(organization_dir=tmp_path, build_dir=Path("build"), config_yaml_name="dev")
         with pytest.raises(ToolkitValueError) as exc_info:
             BuildV2Command.read_parameters(parameters)
 
-        assert "Invalid validation type 'invalid_type' in config YAML" in str(exc_info.value)
+        assert "In environment.validation-type input should be 'dev' or 'prod'. Got 'invalid_type'." in str(
+            exc_info.value
+        )
+
+    @pytest.mark.parametrize(
+        "paths, user_selection, selection, errors",
+        [
+            pytest.param(
+                ["modules/module1", "modules/module2"],
+                ["modules/"],
+                {Path("modules")},
+                [],
+                id="User selects module paths",
+            ),
+            pytest.param(
+                ["modules/module1"],
+                ["my_module"],
+                {"my_module"},
+                [],
+                id="Module name without path separator",
+            ),
+            pytest.param(
+                ["modules/module1"],
+                ["module1", "module2"],
+                {"module1", "module2"},
+                [],
+                id="Multiple module names without path separator",
+            ),
+            pytest.param(
+                ["modules/module1"],
+                ["non_existent/module"],
+                set(),
+                ["Selected module path 'non_existent/module' does not exist under the organization directory"],
+                id="Path does not exist",
+            ),
+            pytest.param(
+                ["modules/module1"],
+                ["modules/module1", "non_existent/path"],
+                {Path("modules/module1")},
+                ["Selected module path 'non_existent/path' does not exist under the organization directory"],
+                id="Mix of valid and non-existent paths",
+            ),
+            pytest.param(
+                ["modules/module1", "modules/module2"],
+                ["modules/module1", "modules/module2"],
+                {Path("modules/module1"), Path("modules/module2")},
+                [],
+                id="Multiple valid module paths",
+            ),
+            pytest.param(
+                ["modules/module1"],
+                ["my_module", "modules/module1"],
+                {"my_module", Path("modules/module1")},
+                [],
+                id="Mix of module name and path",
+            ),
+        ],
+    )
+    def test_parsing_user_selected_modules(
+        self,
+        paths: list[str],
+        user_selection: list[str],
+        selection: set[RelativeDirPath | str],
+        errors: list[str],
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        for path in paths:
+            (tmp_path / Path(path)).mkdir(parents=True, exist_ok=True)
+
+        actual_selection, actual_errors = BuildV2Command._parse_user_selection(user_selection, tmp_path)
+
+        assert actual_errors == errors
+        assert actual_selection == selection
