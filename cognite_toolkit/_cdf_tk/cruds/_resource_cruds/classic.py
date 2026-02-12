@@ -5,14 +5,8 @@ from pathlib import Path
 from typing import Any, final
 
 import pandas as pd
-from cognite.client.data_classes import Sequence as CDFSequence
-from cognite.client.data_classes import (
-    SequenceList,
-    SequenceWrite,
-    capabilities,
-)
+from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
@@ -30,6 +24,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.sequences import (
     ToolkitSequenceRowsList,
     ToolkitSequenceRowsWrite,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
 from cognite_toolkit._cdf_tk.constants import TABLE_FORMATS, YAML_SUFFIX
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -234,10 +229,10 @@ class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
 
 
 @final
-class SequenceCRUD(ResourceCRUD[str, SequenceWrite, CDFSequence]):
+class SequenceCRUD(ResourceCRUD[ExternalId, SequenceRequest, SequenceResponse]):
     folder_name = "classic"
-    resource_cls = CDFSequence
-    resource_write_cls = SequenceWrite
+    resource_cls = SequenceResponse
+    resource_write_cls = SequenceRequest
     kind = "Sequence"
     dependencies = frozenset({DataSetsCRUD, AssetCRUD})
     yaml_cls = SequenceYAML
@@ -248,15 +243,15 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, CDFSequence]):
         return "sequences"
 
     @classmethod
-    def get_id(cls, item: CDFSequence | SequenceWrite | dict) -> str:
+    def get_id(cls, item: SequenceRequest | SequenceResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
+            return ExternalId(external_id=item["externalId"])
         if not item.external_id:
             raise KeyError("Sequence must have external_id")
-        return item.external_id
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def get_internal_id(cls, item: CDFSequence | dict) -> int:
+    def get_internal_id(cls, item: SequenceResponse | dict) -> int:
         if isinstance(item, dict):
             return item["id"]
         if not item.id:
@@ -264,12 +259,12 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, CDFSequence]):
         return item.id
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[SequenceWrite] | None, read_only: bool
+        cls, items: collections.abc.Sequence[SequenceRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -286,15 +281,15 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, CDFSequence]):
 
         return capabilities.SequencesAcl(actions, scope)
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SequenceWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SequenceRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         if asset_external_id := resource.pop("assetExternalId", None):
             resource["assetId"] = self.client.lookup.assets.id(asset_external_id, is_dry_run)
-        return SequenceWrite._load(resource)
+        return SequenceRequest.model_validate(resource)
 
-    def dump_resource(self, resource: CDFSequence, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+    def dump_resource(self, resource: SequenceResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
         local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
@@ -321,37 +316,30 @@ class SequenceCRUD(ResourceCRUD[str, SequenceWrite, CDFSequence]):
             return super().diff_list(local, cdf, json_path)
         return diff_list_identifiable(local, cdf, get_identifier=lambda col: col["externalId"])
 
-    def create(self, items: Sequence[SequenceWrite]) -> SequenceList:
-        return self.client.sequences.create(items)
+    def create(self, items: collections.abc.Sequence[SequenceRequest]) -> list[SequenceResponse]:
+        return self.client.tool.sequences.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> SequenceList:
-        return self.client.sequences.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[SequenceResponse]:
+        return self.client.tool.sequences.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[SequenceWrite]) -> SequenceList:
-        return self.client.sequences.upsert(items, mode="replace")
+    def update(self, items: collections.abc.Sequence[SequenceRequest]) -> list[SequenceResponse]:
+        return self.client.tool.sequences.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[str | int]) -> int:
-        internal_ids, external_ids = self._split_ids(ids)
-        try:
-            self.client.sequences.delete(id=internal_ids, external_id=external_ids)
-        except (CogniteAPIError, CogniteNotFoundError) as e:
-            non_existing = set(e.failed or [])
-            if existing := [id_ for id_ in ids if id_ not in non_existing]:
-                internal_ids, external_ids = self._split_ids(existing)
-                self.client.sequences.delete(id=internal_ids, external_id=external_ids)
-            return len(existing)
-        else:
-            return len(ids)
+    def delete(self, ids: SequenceNotStr[InternalOrExternalId]) -> int:
+        if not ids:
+            return 0
+        self.client.tool.sequences.delete(list(ids), ignore_unknown_ids=True)
+        return len(ids)
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[CDFSequence]:
-        return iter(
-            self.client.sequences(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
-        )
+    ) -> Iterable[SequenceResponse]:
+        filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
+        for sequences in self.client.tool.sequences.iterate(filter=filter_):
+            yield from sequences
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -452,7 +440,7 @@ class SequenceRowCRUD(ResourceCRUD[str, ToolkitSequenceRowsWrite, ToolkitSequenc
         For example, a TimeSeries requires a DataSet, so this method would return the
         DatasetLoader and identifier of that dataset.
         """
-        yield SequenceCRUD, item["externalId"]
+        yield SequenceCRUD, ExternalId(external_id=item["externalId"])
 
     def dump_resource(self, resource: ToolkitSequenceRows, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()

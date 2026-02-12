@@ -208,6 +208,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryRequest,
     SecurityCategoryResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelRequest,
     SimulatorModelResponse,
@@ -887,6 +888,17 @@ API_RESOURCES = [
         api_name="tool.timeseries",
         resource_cls=TimeSeriesResponse,
         _write_cls=TimeSeriesRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.sequences",
+        resource_cls=SequenceResponse,
+        _write_cls=SequenceRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [

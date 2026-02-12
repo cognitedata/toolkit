@@ -751,7 +751,7 @@ SearchConfigResponse:
     space: test-space
 SecurityCategoryResponse:
 - name: sc_demo_category
-Sequence:
+SequenceResponse:
 - columns:
   - description: The wind speed
     externalId: wind_speed
