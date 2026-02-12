@@ -29,11 +29,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
-    AssetCentricId,
-    CreatedSourceSystem,
-    ResourceViewMapping,
-)
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId, CreatedSourceSystem
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
@@ -513,7 +510,7 @@ class TestAssetCentricConversion:
                     lastUpdatedTime=1,
                     rootId=0,
                 ),
-                ResourceViewMapping(
+                ResourceViewMappingResponse(
                     external_id="asset_mapping",
                     version=1,
                     last_updated_time=1000000,
@@ -565,7 +562,7 @@ class TestAssetCentricConversion:
                     last_updated_time=0,
                     type="numeric",
                 ),
-                ResourceViewMapping(
+                ResourceViewMappingResponse(
                     external_id="timeseries_mapping",
                     version=1,
                     last_updated_time=1000000,
@@ -658,7 +655,7 @@ class TestAssetCentricConversion:
                     created_time=1,
                     last_updated_time=1,
                 ),
-                ResourceViewMapping(
+                ResourceViewMappingResponse(
                     external_id="incomplete_mapping",
                     version=1,
                     last_updated_time=1000000,
@@ -782,7 +779,7 @@ class TestAssetCentricConversion:
                     last_updated_time=0,
                     uploaded=True,
                 ),
-                ResourceViewMapping(
+                ResourceViewMappingResponse(
                     external_id="file_mapping",
                     version=1,
                     last_updated_time=1000000,
@@ -860,7 +857,7 @@ class TestAssetCentricConversion:
                     last_updated_time=0,
                     type="numeric",
                 ),
-                ResourceViewMapping(
+                ResourceViewMappingResponse(
                     external_id="timeseries_mapping",
                     version=1,
                     last_updated_time=1000000,
@@ -912,7 +909,7 @@ class TestAssetCentricConversion:
                 AssetResponse(
                     id=999, externalId="asset_999", name="The name", createdTime=1, lastUpdatedTime=1, rootId=0
                 ),
-                ResourceViewMapping(
+                ResourceViewMappingResponse(
                     external_id="empty_mapping",
                     version=1,
                     last_updated_time=1000000,
@@ -962,7 +959,7 @@ class TestAssetCentricConversion:
                     created_time=0,
                     last_updated_time=1,
                 ),
-                ResourceViewMapping(
+                ResourceViewMappingResponse(
                     external_id="event_mapping",
                     version=1,
                     last_updated_time=1000000,
@@ -1016,7 +1013,7 @@ class TestAssetCentricConversion:
     def test_asset_centric_to_dm(
         self,
         resource: AssetResponse | FileMetadataResponse | EventResponse | TimeSeriesResponse | Sequence,
-        view_source: ResourceViewMapping,
+        view_source: ResourceViewMappingResponse,
         view_properties: dict[str, ViewResponseProperty],
         expected_properties: dict[str, Any],
         expected_issue: ConversionIssue,
@@ -1068,7 +1065,7 @@ class TestAssetCentricConversion:
             **DEFAULT_PROPERTIES,
         ),
     }
-    ANNOTATION_MAPPING = ResourceViewMapping(
+    ANNOTATION_MAPPING = ResourceViewMappingResponse(
         external_id="file_annotation_mapping",
         view_id=ViewReference(space="cdf_cdm", external_id="CogniteDiagramAnnotation", version="v1"),
         property_mapping={
@@ -1136,7 +1133,7 @@ class TestAssetCentricConversion:
     def test_asset_centric_to_annotation(
         self,
         resource: Annotation,
-        mapping: ResourceViewMapping,
+        mapping: ResourceViewMappingResponse,
         expected_edge: EdgeRequest,
         expected_issue: ConversionIssue,
         direct_relation_cache: DirectRelationCache,

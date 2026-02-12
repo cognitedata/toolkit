@@ -148,7 +148,7 @@ class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
         DatasetLoader and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, item["dataSetExternalId"]
+            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
         for label in item.get("labels", []):
             if isinstance(label, dict):
                 yield LabelCRUD, ExternalId(external_id=label["externalId"])
@@ -344,7 +344,7 @@ class SequenceCRUD(ResourceCRUD[ExternalId, SequenceRequest, SequenceResponse]):
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, item["dataSetExternalId"]
+            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
         if "assetExternalId" in item:
             yield AssetCRUD, ExternalId(external_id=item["assetExternalId"])
 
@@ -562,7 +562,7 @@ class EventCRUD(ResourceCRUD[ExternalId, EventRequest, EventResponse]):
         DatasetLoader and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, item["dataSetExternalId"]
+            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
         for asset_id in item.get("assetExternalIds", []):
             if isinstance(asset_id, str):
                 yield AssetCRUD, ExternalId(external_id=asset_id)

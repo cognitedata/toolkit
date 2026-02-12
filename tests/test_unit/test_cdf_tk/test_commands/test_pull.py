@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.commands.pull import PullCommand, ResourceYAMLDifference, TextFileDifference
 from cognite_toolkit._cdf_tk.cruds import DataSetsCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -435,7 +436,13 @@ def to_write_content_use_cases() -> Iterable:
 externalId: {{ dataset }}
 description: This dataset contains Transformations, Functions, and Workflows for ingesting data into Cognite Data Fusion.
 """
-    to_write = {"ingestion": {"name": "Ingestion", "externalId": "ingestion", "description": "New description"}}
+    to_write = {
+        ExternalId(external_id="ingestion"): {
+            "name": "Ingestion",
+            "externalId": "ingestion",
+            "description": "New description",
+        }
+    }
     variable = BuildVariable(
         key="dataset",
         value="ingestion",
@@ -444,7 +451,7 @@ description: This dataset contains Transformations, Functions, and Workflows for
     )
     ingestion = MagicMock(spec=BuiltResourceFull)
     ingestion.build_variables = BuildVariables([variable])
-    ingestion.identifier = "ingestion"
+    ingestion.identifier = ExternalId(external_id="ingestion")
     ingestion.extra_sources = []
 
     resources = BuiltFullResourceList([ingestion])
@@ -499,11 +506,15 @@ description: New description
 """
     to_write_multi = {
         **to_write,
-        "unique_dataset": {"name": "Another", "externalId": "unique_dataset", "description": "also new description"},
+        ExternalId(external_id="unique_dataset"): {
+            "name": "Another",
+            "externalId": "unique_dataset",
+            "description": "also new description",
+        },
     }
     unique_dataset = MagicMock(spec=BuiltResourceFull)
     unique_dataset.build_variables = BuildVariables([])
-    unique_dataset.identifier = "unique_dataset"
+    unique_dataset.identifier = ExternalId(external_id="unique_dataset")
     unique_dataset.extra_sources = []
     resources = BuiltFullResourceList([ingestion, unique_dataset])
 

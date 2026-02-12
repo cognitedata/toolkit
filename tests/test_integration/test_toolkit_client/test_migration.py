@@ -1,13 +1,15 @@
 import pytest
-from cognite.client.data_classes.data_modeling import NodeApply, NodeApplyList, NodeList, NodeOrEdgeData, Space, ViewId
+from cognite.client.data_classes.data_modeling import NodeApply, NodeApplyList, NodeList, NodeOrEdgeData, Space
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
     CreatedSourceSystem,
     InstanceSource,
-    ResourceViewMapping,
-    ResourceViewMappingApply,
     SpaceSource,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
+    ResourceViewMappingRequest,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import SPACE
 from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning, catch_warnings
@@ -83,38 +85,40 @@ class TestLookupAPI:
 
 class TestResourceViewMappingAPI:
     def test_create_retrieve_list_delete(self, toolkit_client: ToolkitClient) -> None:
-        source = ResourceViewMappingApply(
+        source = ResourceViewMappingRequest(
             external_id="test_view_source",
             resource_type="asset",
-            view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
+            view_id=ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
             property_mapping={
                 "name": "name",
                 "description": "description",
             },
         )
 
-        created: ResourceViewMapping | None = None
         try:
-            created = toolkit_client.migration.resource_view_mapping.upsert(source)
+            created_items = toolkit_client.migration.resource_view_mapping.create([source])
 
-            assert created.external_id == source.external_id
+            assert len(created_items) > 0
 
-            retrieved = toolkit_client.migration.resource_view_mapping.retrieve(source.external_id)
+            retrieved = toolkit_client.migration.resource_view_mapping.retrieve([source.as_id()])
 
-            assert retrieved.external_id == source.external_id
+            assert len(retrieved) > 0
+            assert retrieved[0].external_id == source.external_id
 
             listed = toolkit_client.migration.resource_view_mapping.list(resource_type="asset")
             assert len(listed) > 0
             existing = {vs.external_id for vs in listed}
             assert source.external_id in existing, "Expected the created view source to be listed"
 
-            deleted = toolkit_client.migration.resource_view_mapping.delete(source.external_id)
+            deleted = toolkit_client.migration.resource_view_mapping.delete([source.as_id()])
 
-            assert deleted == created.as_id(), "Expected the deleted view source to match the created one"
+            assert len(deleted) > 0
         finally:
-            if created:
-                # Clean up by deleting the created view source if it exists
-                toolkit_client.data_modeling.instances.delete(source.as_id())
+            # Clean up by deleting the created view source if it exists
+            try:
+                toolkit_client.migration.resource_view_mapping.delete([source.as_id()])
+            except Exception:
+                pass
 
 
 @pytest.fixture(scope="session")

@@ -126,7 +126,7 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
             if isinstance(asset_external_id := config.get("assetExternalId"), str):
                 yield AssetCRUD, ExternalId(external_id=asset_external_id)
             if isinstance(data_set_external_id := config.get("dataSetExternalId"), str):
-                yield DataSetsCRUD, data_set_external_id
+                yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
             if isinstance(app_data_instance_space := config.get("appDataInstanceSpace"), str):
                 yield SpaceCRUD, SpaceReference(space=app_data_instance_space)
             if isinstance(source_data_instance_space := config.get("sourceDataInstanceSpace"), str):
@@ -144,7 +144,7 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
                     continue
                 for data_set_external_id in filter_.get("dataSetExternalIds", []):
                     if isinstance(data_set_external_id, str):
-                        yield DataSetsCRUD, data_set_external_id
+                        yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
                 for asset_external_id in filter_.get("assetSubtreeExternalIds", []):
                     if isinstance(asset_external_id, str):
                         yield AssetCRUD, ExternalId(external_id=asset_external_id)

@@ -11,6 +11,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.resource_classes import ThreeDModelYAML
@@ -133,9 +134,12 @@ class ThreeDModelCRUD(ResourceContainerCRUD[str, ThreeDModelWrite, ThreeDModel])
     ) -> Iterable[ThreeDModel]:
         if data_set_external_id is None:
             return iter(self.client.three_d.models)
-        data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
-        if data_set is None:
+        data_sets = self.client.tool.datasets.retrieve(
+            [ExternalId(external_id=data_set_external_id)], ignore_unknown_ids=True
+        )
+        if not data_sets:
             raise ToolkitMissingResourceError(f"DataSet {data_set_external_id!r} does not exist")
+        data_set = data_sets[0]
         return (model for model in self.client.three_d.models if model.data_set_id == data_set.id)
 
     def drop_data(self, ids: SequenceNotStr[str]) -> int:
@@ -163,7 +167,7 @@ class ThreeDModelCRUD(ResourceContainerCRUD[str, ThreeDModelWrite, ThreeDModel])
         DatasetLoader and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, item["dataSetExternalId"]
+            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ThreeDModelWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):

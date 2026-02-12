@@ -7,8 +7,6 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
-    DataSet,
-    DataSetList,
     ExtractionPipeline,
     ExtractionPipelineList,
     FileMetadataList,
@@ -35,10 +33,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReference,
     ViewReferenceNoVersion,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
@@ -558,18 +557,16 @@ class TestDumpFunctions:
 
 
 @pytest.fixture()
-def three_datasets() -> DataSetList:
-    return DataSetList(
-        [
-            DataSet(external_id="datasetA", name="Dataset A", created_time=1, last_updated_time=2),
-            DataSet(external_id="datasetB", name="Dataset B", created_time=1, last_updated_time=2),
-            DataSet(external_id="datasetC", name="Dataset C", created_time=1, last_updated_time=2),
-        ]
-    )
+def three_datasets() -> list[DataSetResponse]:
+    return [
+        DataSetResponse(id=1, external_id="datasetA", name="Dataset A", created_time=1, last_updated_time=2),
+        DataSetResponse(id=2, external_id="datasetB", name="Dataset B", created_time=1, last_updated_time=2),
+        DataSetResponse(id=3, external_id="datasetC", name="Dataset C", created_time=1, last_updated_time=2),
+    ]
 
 
 class TestDataSetFinder:
-    def test_select_datasets(self, three_datasets: DataSetList, monkeypatch: MonkeyPatch) -> None:
+    def test_select_datasets(self, three_datasets: list[DataSetResponse], monkeypatch: MonkeyPatch) -> None:
         def select_datasets(choices: list[Choice]) -> list[str]:
             assert len(choices) == len(three_datasets)
             return [choices[1].value, choices[2].value]
@@ -580,7 +577,7 @@ class TestDataSetFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(DataSetFinder.__module__, monkeypatch, answers),
         ):
-            client.data_sets.list.return_value = three_datasets
+            client.tool.datasets.list.return_value = three_datasets
             finder = DataSetFinder(client, None)
             selected = finder._interactive_select()
 
@@ -588,9 +585,9 @@ class TestDataSetFinder:
 
 
 class TestDumpDataSets:
-    def test_dump_datasets(self, three_datasets: DataSetList, tmp_path: Path) -> None:
+    def test_dump_datasets(self, three_datasets: list[DataSetResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.data_sets.retrieve_multiple.return_value = three_datasets[1:]
+            client.tool.datasets.retrieve.return_value = three_datasets[1:]
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
@@ -976,33 +973,33 @@ class TestDumpSearchConfigs:
 
 
 @pytest.fixture()
-def three_resource_view_mappings() -> list[ResourceViewMapping]:
+def three_resource_view_mappings() -> list[ResourceViewMappingResponse]:
     return [
-        ResourceViewMapping(
+        ResourceViewMappingResponse(
             external_id="mappingA",
             version=1,
             last_updated_time=1,
             created_time=1,
             resource_type="asset",
-            view_id=dm.ViewId("my_space", "CogniteAsset", "v1"),
+            view_id=ViewReference(space="my_space", external_id="CogniteAsset", version="v1"),
             property_mapping={"name": "name", "description": "description"},
         ),
-        ResourceViewMapping(
+        ResourceViewMappingResponse(
             external_id="mappingB",
             version=1,
             last_updated_time=1,
             created_time=1,
             resource_type="event",
-            view_id=dm.ViewId("my_space", "CogniteEvent", "v1"),
+            view_id=ViewReference(space="my_space", external_id="CogniteEvent", version="v1"),
             property_mapping={"type": "type", "subtype": "subtype"},
         ),
-        ResourceViewMapping(
+        ResourceViewMappingResponse(
             external_id="mappingC",
             version=1,
             last_updated_time=1,
             created_time=1,
             resource_type="timeseries",
-            view_id=dm.ViewId("my_space", "CogniteTimeSeries", "v1"),
+            view_id=ViewReference(space="my_space", external_id="CogniteTimeSeries", version="v1"),
             property_mapping={"name": "name", "unit": "unit"},
         ),
     ]
@@ -1010,7 +1007,7 @@ def three_resource_view_mappings() -> list[ResourceViewMapping]:
 
 class TestResourceViewMappingFinder:
     def test_select_resource_view_mappings(
-        self, three_resource_view_mappings: list[ResourceViewMapping], monkeypatch: MonkeyPatch
+        self, three_resource_view_mappings: list[ResourceViewMappingResponse], monkeypatch: MonkeyPatch
     ) -> None:
         def select_mappings(choices: list[Choice]) -> list[str]:
             assert len(choices) == len(three_resource_view_mappings)
@@ -1022,7 +1019,7 @@ class TestResourceViewMappingFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(ResourceViewMappingFinder.__module__, monkeypatch, answers),
         ):
-            client.migration.resource_view_mapping.list.return_value = dm.NodeList(three_resource_view_mappings)
+            client.migration.resource_view_mapping.list.return_value = three_resource_view_mappings
             finder = ResourceViewMappingFinder(client, None)
             selected = finder._interactive_select()
 
@@ -1031,10 +1028,10 @@ class TestResourceViewMappingFinder:
 
 class TestDumpResourceViewMappings:
     def test_dump_resource_view_mappings(
-        self, three_resource_view_mappings: list[ResourceViewMapping], tmp_path: Path
+        self, three_resource_view_mappings: list[ResourceViewMappingResponse], tmp_path: Path
     ) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.migration.resource_view_mapping.retrieve.return_value = dm.NodeList(three_resource_view_mappings[1:])
+            client.migration.resource_view_mapping.retrieve.return_value = three_resource_view_mappings[1:]
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(

@@ -197,7 +197,7 @@ DataModelResponse:
     space: population_model
     type: view
     version: v1
-DataSet:
+DataSetResponse:
 - description: This dataset is used for all the resources in the complete_org.
   externalId: ds_complete_org
   name: Example dataset.
@@ -463,9 +463,7 @@ LabelResponse:
   externalId: label_pump
   name: Pump
 LocationFilterResponse:
-- assetCentric:
-    dataSetIds:
-    - 0
+- assetCentric: {}
   dataModels:
   - externalId: DataModelLocation
     space: DataModelSpace

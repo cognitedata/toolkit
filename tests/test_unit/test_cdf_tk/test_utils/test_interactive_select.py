@@ -7,14 +7,12 @@ import pytest
 from cognite.client.data_classes import (
     Asset,
     CountAggregate,
-    DataSet,
     UserProfile,
     UserProfileList,
 )
 from cognite.client.data_classes.aggregations import CountValue
 from cognite.client.data_classes.data_modeling import (
     NodeList,
-    ViewId,
 )
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics, SpaceStatisticsList
 from cognite.client.data_classes.raw import Database, DatabaseList, Table, TableList
@@ -31,10 +29,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReference,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import CANVAS_INSTANCE_SPACE, Canvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
@@ -77,10 +76,10 @@ class TestInteractiveSelect:
             aggregator.count.return_value = 1000
             aggregator.used_data_sets.return_value = ["dataset1", "dataset2", "dataset3"]
             selector._aggregator = aggregator
-            client.data_sets.retrieve_multiple.return_value = [
-                DataSet(id=1, external_id="dataset1"),
-                DataSet(id=2, external_id="dataset2"),
-                DataSet(id=3, external_id="dataset3"),
+            client.tool.datasets.retrieve.return_value = [
+                DataSetResponse(id=1, external_id="dataset1", created_time=0, last_updated_time=0),
+                DataSetResponse(id=2, external_id="dataset2", created_time=0, last_updated_time=0),
+                DataSetResponse(id=3, external_id="dataset3", created_time=0, last_updated_time=0),
             ]
 
             selected_hierarchy, selected_dataset = selector.select_hierarchies_and_data_sets()
@@ -102,10 +101,10 @@ class TestInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(FileMetadataInteractiveSelect.__module__, monkeypatch, answers),
         ):
-            client.data_sets.list.return_value = [
-                DataSet(id=1, external_id="dataset1", name="Dataset 1"),
-                DataSet(id=2, external_id="dataset2", name="Dataset 2"),
-                DataSet(id=3, external_id="dataset3", name="Dataset 3"),
+            client.tool.datasets.list.return_value = [
+                DataSetResponse(id=1, external_id="dataset1", name="Dataset 1", created_time=0, last_updated_time=0),
+                DataSetResponse(id=2, external_id="dataset2", name="Dataset 2", created_time=0, last_updated_time=0),
+                DataSetResponse(id=3, external_id="dataset3", name="Dataset 3", created_time=0, last_updated_time=0),
             ]
             client.assets.list.return_value = [
                 Asset(id=1, external_id="Root1", name="Root 1"),
@@ -132,7 +131,7 @@ class TestInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(FileMetadataInteractiveSelect.__module__, monkeypatch, answers),
         ):
-            client.data_sets.list.return_value = []
+            client.tool.datasets.list.return_value = []
             client.assets.list.return_value = []
             client.files.aggregate.return_value = [CountAggregate(100)]
             selector = FileMetadataInteractiveSelect(client, "test_operation")
@@ -155,10 +154,10 @@ class TestInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(TimeSeriesInteractiveSelect.__module__, monkeypatch, answers),
         ):
-            client.data_sets.list.return_value = [
-                DataSet(id=1, external_id="dataset1", name="Dataset 1"),
-                DataSet(id=2, external_id="dataset2", name="Dataset 2"),
-                DataSet(id=3, external_id="dataset3", name="Dataset 3"),
+            client.tool.datasets.list.return_value = [
+                DataSetResponse(id=1, external_id="dataset1", name="Dataset 1", created_time=0, last_updated_time=0),
+                DataSetResponse(id=2, external_id="dataset2", name="Dataset 2", created_time=0, last_updated_time=0),
+                DataSetResponse(id=3, external_id="dataset3", name="Dataset 3", created_time=0, last_updated_time=0),
             ]
             client.assets.list.return_value = [
                 Asset(id=1, external_id="Root1", name="Root 1"),
@@ -185,10 +184,10 @@ class TestInteractiveSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(EventInteractiveSelect.__module__, monkeypatch, answers),
         ):
-            client.data_sets.list.return_value = [
-                DataSet(id=1, external_id="dataset1", name="Dataset 1"),
-                DataSet(id=2, external_id="dataset2", name="Dataset 2"),
-                DataSet(id=3, external_id="dataset3", name="Dataset 3"),
+            client.tool.datasets.list.return_value = [
+                DataSetResponse(id=1, external_id="dataset1", name="Dataset 1", created_time=0, last_updated_time=0),
+                DataSetResponse(id=2, external_id="dataset2", name="Dataset 2", created_time=0, last_updated_time=0),
+                DataSetResponse(id=3, external_id="dataset3", name="Dataset 3", created_time=0, last_updated_time=0),
             ]
             client.assets.list.return_value = [
                 Asset(id=1, external_id="Root1", name="Root 1"),
@@ -235,9 +234,9 @@ class TestInteractiveSelect:
             aggregator.count.return_value = 1000
             selector._aggregator = aggregator
 
-            client.data_sets.list.return_value = [
-                DataSet(id=1, external_id="ds1", name="DataSet 1"),
-                DataSet(id=2, external_id="ds2", name="DataSet 2"),
+            client.tool.datasets.list.return_value = [
+                DataSetResponse(id=1, external_id="ds1", name="DataSet 1", created_time=0, last_updated_time=0),
+                DataSetResponse(id=2, external_id="ds2", name="DataSet 2", created_time=0, last_updated_time=0),
             ]
             result = selector.select_data_set()
         assert result == "ds2"
@@ -258,9 +257,9 @@ class TestInteractiveSelect:
             aggregator.count.return_value = 1000
             selector._aggregator = aggregator
 
-            client.data_sets.list.return_value = [
-                DataSet(id=1, external_id="ds1", name="DataSet 1"),
-                DataSet(id=2, external_id="ds2", name="DataSet 2"),
+            client.tool.datasets.list.return_value = [
+                DataSetResponse(id=1, external_id="ds1", name="DataSet 1", created_time=0, last_updated_time=0),
+                DataSetResponse(id=2, external_id="ds2", name="DataSet 2", created_time=0, last_updated_time=0),
             ]
 
             result = selector.select_data_set(allow_empty=True)
@@ -283,9 +282,9 @@ class TestInteractiveSelect:
             aggregator.count.return_value = 1000
             selector._aggregator = aggregator
 
-            client.data_sets.list.return_value = [
-                DataSet(id=1, external_id="ds1", name="DataSet 1"),
-                DataSet(id=2, external_id="ds2", name="DataSet 2"),
+            client.tool.datasets.list.return_value = [
+                DataSetResponse(id=1, external_id="ds1", name="DataSet 1", created_time=0, last_updated_time=0),
+                DataSetResponse(id=2, external_id="ds2", name="DataSet 2", created_time=0, last_updated_time=0),
             ]
 
             result = selector.select_data_sets()
@@ -1009,7 +1008,7 @@ class TestDataModelingInteractiveSelect:
 
 class TestResourceViewMappingInteractiveSelect:
     def test_interactive_select_resource_view_mapping(self, monkeypatch) -> None:
-        def select_resource_view_mapping(choices: list[Choice]) -> ResourceViewMapping:
+        def select_resource_view_mapping(choices: list[Choice]) -> ResourceViewMappingResponse:
             assert len(choices) == 2
             selection = choices[1].value
             return selection
@@ -1020,28 +1019,26 @@ class TestResourceViewMappingInteractiveSelect:
             MockQuestionary(ResourceViewMappingInteractiveSelect.__module__, monkeypatch, answers),
         ):
             selector = ResourceViewMappingInteractiveSelect(client, "test_operation")
-            client.migration.resource_view_mapping.list.return_value = NodeList[ResourceViewMapping](
-                [
-                    ResourceViewMapping(
-                        external_id="mapping1",
-                        resource_type="asset",
-                        view_id=ViewId("space1", "view1", "1"),
-                        property_mapping={},
-                        last_updated_time=1,
-                        created_time=0,
-                        version=1,
-                    ),
-                    ResourceViewMapping(
-                        external_id="mapping2",
-                        resource_type="asset",
-                        view_id=ViewId("space2", "view2", "1"),
-                        property_mapping={},
-                        last_updated_time=1,
-                        created_time=0,
-                        version=1,
-                    ),
-                ]
-            )
+            client.migration.resource_view_mapping.list.return_value = [
+                ResourceViewMappingResponse(
+                    external_id="mapping1",
+                    resource_type="asset",
+                    view_id=ViewReference(space="space1", external_id="view1", version="1"),
+                    property_mapping={},
+                    last_updated_time=1,
+                    created_time=0,
+                    version=1,
+                ),
+                ResourceViewMappingResponse(
+                    external_id="mapping2",
+                    resource_type="asset",
+                    view_id=ViewReference(space="space2", external_id="view2", version="1"),
+                    property_mapping={},
+                    last_updated_time=1,
+                    created_time=0,
+                    version=1,
+                ),
+            ]
 
             result = selector.select_resource_view_mapping("asset")
         assert result.external_id == "mapping2"

@@ -1,4 +1,4 @@
-DataSet:
+DataSetResponse:
 - description: This dataset contains Transformations, Functions, and Workflows for
     ingesting data into Cognite Data Fusion.
   externalId: ingestion

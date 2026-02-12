@@ -210,6 +210,7 @@ class WrappedInstancesAPI(
         self,
         instance_type: Literal["node", "edge"] = "node",
         spaces: list[str] | None = None,
+        filter: dict[str, JsonValue] | None = None,
         limit: int | None = 100,
     ) -> list[T_WrappedInstanceResponse]:
         """List all wrapped instances in CDF.
@@ -230,6 +231,7 @@ class WrappedInstancesAPI(
                 external_id=self._view_id.external_id,
                 version=self._view_id.version,
             ),
+            filter=filter,
         )
         body = {
             **filter_.dump(),
