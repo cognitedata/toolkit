@@ -2,6 +2,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from cognite_toolkit._cdf_tk.constants import MODULES
+
 from ._insights import InsightList
 from ._module import ModuleSource
 
@@ -19,6 +21,10 @@ class BuildParameters(BaseModel):
         description="List of module names or paths to build. If not provided, Toolkit will first attempt to find a config YAML "
         "and the modules specified there. If no config YAML is found, Toolkit will build all modules in the organization directory.",
     )
+
+    @property
+    def modules_directory(self) -> Path:
+        return self.organization_dir / MODULES
 
 
 class BuiltModule(BaseModel):

@@ -144,8 +144,9 @@ class BuildV2Command(ToolkitCommand):
 
                 folder.insights.extend(validation_insights)
                 folder.add_build_files(built_module.built_files)
+        return folder
 
-    def parse_module_sources(self, parameters: BuildParameters) -> Iterable[ModuleInput]:
+    def parse_module_sources(self, parameters: BuildParameters) -> ModuleSources:
         # Todo Read the config.yaml file
         # Validate selected/excluded paths from config.yaml and command line. Command line should override config.yaml.
         # Need an intermediate steps that produces

@@ -1,28 +1,22 @@
 from collections import UserList
-from pathlib import Path
-from typing import Annotated, TypeAlias
-from pydantic import BaseModel, Field
-from pydantic import ConfigDict, Field
-from pydantic import DirectoryPath
 
-
-from pydantic import BaseModel, PlainValidator
-from pydantic import ConfigDict, Field
-from pydantic import DirectoryPath
+from pydantic import BaseModel, ConfigDict, Field
 
 from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
+
 from ._insights import InsightList
 from ._types import RelativeDirPath
-from ._types import RelativeDirPath
+
 
 class BuildVariable(BaseModel): ...
+
 
 class ModuleSource(BaseModel):
     """Class used to describe source for module"""
 
-class Module(BaseModel):
     path: RelativeDirPath
     iteration: int = 0
+    resource_files: list[RelativeDirPath] = Field(default_factory=list)
     variables: list[BuildVariable] = Field(default_factory=list)
 
     @property
