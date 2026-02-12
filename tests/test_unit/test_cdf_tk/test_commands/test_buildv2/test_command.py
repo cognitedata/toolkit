@@ -6,7 +6,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, RelativeDirPath
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxError, Recommendation
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import SpaceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
@@ -35,14 +35,16 @@ class TestBuildCommand:
 
         folder = cmd.build(parameters)
 
-        assert folder
+        assert "my_module" in folder.built_modules_by_success[True]
 
         built_space = list(build_dir.rglob(f"*.{SpaceCRUD.kind}.yaml"))
         assert len(built_space) == 1
         assert built_space[0].read_text() == resource_file.read_text()
 
-        assert SpaceCRUD.folder_name in folder.resource_by_type
-        assert str(folder.resource_by_type[SpaceCRUD.folder_name][SpaceCRUD.kind][0]) == str(built_space[0])
+        assert SpaceCRUD.folder_name in folder.built_modules[0].resource_by_type
+        assert str(folder.built_modules[0].resource_by_type[SpaceCRUD.folder_name][SpaceCRUD.kind][0]) == str(
+            built_space[0]
+        )
         assert len(folder.insights) == 1
         assert isinstance(folder.insights[0], Recommendation)
 
@@ -62,8 +64,9 @@ name: My Space
 
         folder = cmd.build(parameters)
 
-        assert folder.resource_by_type == {}
+        assert "my_module" in folder.built_modules_by_success[False]
         assert len(folder.insights) == 1
+        assert isinstance(folder.insights[0], ModelSyntaxError)
 
 
 class TestValidateBuildParameters:
@@ -141,11 +144,11 @@ class TestValidateBuildParameters:
         console = MagicMock(spec=Console)
         if expected_error:
             with pytest.raises(ToolkitError) as exc_info:
-                BuildV2Command.validate_build_parameters(parameters, console, user_args)
+                BuildV2Command._validate_build_parameters(parameters, console, user_args)
 
             assert expected_error in str(exc_info.value).replace("\\", "/")  # Normalize paths for windows
         else:
-            BuildV2Command.validate_build_parameters(parameters, console, user_args)
+            BuildV2Command._validate_build_parameters(parameters, console, user_args)
 
 
 class TestReadParameters:
@@ -166,7 +169,7 @@ class TestReadParameters:
             config_yaml_name="dev",
             user_selected_modules=["module1", "module2"],
         )
-        parse_input = BuildV2Command.read_parameters(parameters)
+        parse_input = BuildV2Command._read_parameters(parameters)
         assert parse_input.model_dump() == {
             "yaml_files": [resource_file],
             # Since user_selected_modules are provided, they should be used instead of config selected modules.
@@ -188,7 +191,7 @@ class TestReadParameters:
         _ = create_space_resource_file(tmp_path)
         parameters = BuildParameters(organization_dir=tmp_path, build_dir=Path("build"), config_yaml_name="dev")
         with pytest.raises(ToolkitValueError) as exc_info:
-            BuildV2Command.read_parameters(parameters)
+            BuildV2Command._read_parameters(parameters)
 
         assert "In environment.validation-type input should be 'dev' or 'prod'. Got 'invalid_type'." in str(
             exc_info.value

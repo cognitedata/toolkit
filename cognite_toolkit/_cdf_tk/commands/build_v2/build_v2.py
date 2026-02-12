@@ -40,22 +40,23 @@ from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 class BuildV2Command(ToolkitCommand):
     def build(self, parameters: BuildParameters, client: ToolkitClient | None = None) -> BuildFolder:
         console = client.console if client else Console()
-        self.validate_build_parameters(parameters, console, sys.argv)
-        parse_inputs = self.read_parameters(parameters)
-        module_sources = self.parse_module_sources(parse_inputs, parameters.organization_dir)
 
-        build_folder = self._create_build_folder(module_sources, parameters.build_dir)
+        self._validate_build_parameters(parameters, console, sys.argv)
+        parse_inputs = self._read_parameters(parameters)
+        module_sources = self._parse_module_sources(parse_inputs, parameters.organization_dir)
+
+        build_folder = self._build_modules(module_sources, parameters.build_dir)
 
         # Todo: Some mixpanel tracking.
         # Can be parallelized with number of plugins.
         # Neat is done inside the global validation.
-        build_folder.insights.extend(self.global_validation(build_folder, client))
+        self._global_validation(build_folder, client)
 
-        self.write_results(build_folder)
+        self._write_results(build_folder)
         return build_folder
 
     @classmethod
-    def validate_build_parameters(cls, parameters: BuildParameters, console: Console, user_args: list[str]) -> None:
+    def _validate_build_parameters(cls, parameters: BuildParameters, console: Console, user_args: list[str]) -> None:
         """Checks that the user has the correct folders set up and that the config file (if provided) exists."""
 
         # Set up the variables
@@ -133,27 +134,18 @@ class BuildV2Command(ToolkitCommand):
             suggestion.append(f"-o {display_path}")
         return f"'{' '.join(suggestion)}'"
 
-    def _create_build_folder(self, module_sources: ModuleSources, build_dir: Path, max_workers: int = 1) -> BuildFolder:
-        folder: BuildFolder = BuildFolder()
-
-        for source in module_sources:
-            # Inside this loop, do not raise exceptions.
-            module = self.import_module(source)  # Syntax validation
-
-            folder.insights.extend(module.insights)
-
-            built_module: BuiltModule | None = None
-            validation_insights: InsightList | None = None
-            if module.is_success:
-                validation_insights = self.validate_module(module)
-                built_module = self.export_module(module, build_dir)
-
-                folder.insights.extend(validation_insights)
-                folder.add_build_files(built_module.built_files)
-        return folder
+    def _parse_module_sources(self, parse_inputs: ParseInput, organization_dir: Path) -> ModuleSources:
+        # Parse the variables.
+        module_paths = ModulesParser(organization_dir=organization_dir).parse()
+        return ModuleSources(
+            [
+                ModuleSource(path=module_path, id=module_path.relative_to(organization_dir))
+                for module_path in module_paths
+            ]
+        )
 
     @classmethod
-    def read_parameters(cls, parameters: BuildParameters) -> ParseInput:
+    def _read_parameters(cls, parameters: BuildParameters) -> ParseInput:
         selected: set[RelativeDirPath | str] = {
             parameters.modules_directory.relative_to(parameters.organization_dir)
         }  # Default to everything under modules.
@@ -226,17 +218,25 @@ class BuildV2Command(ToolkitCommand):
             selected.add(item_path)
         return selected, errors
 
-    def parse_module_sources(self, parse_inputs: ParseInput, organization_dir: Path) -> ModuleSources:
-        # Parse the variables.
-        module_paths = ModulesParser(organization_dir=organization_dir).parse()
-        return ModuleSources(
-            [
-                ModuleSource(path=module_path, id=module_path.relative_to(organization_dir))
-                for module_path in module_paths
-            ]
-        )
+    def _build_modules(self, module_sources: ModuleSources, build_dir: Path, max_workers: int = 1) -> BuildFolder:
+        folder: BuildFolder = BuildFolder(path=build_dir)
 
-    def import_module(self, module_source: ModuleSource) -> Module:
+        for source in module_sources:
+            # Inside this loop, do not raise exceptions.
+            module = self._import_module(source)  # Syntax validation
+
+            # init built_module, add syntax errors if there are any,
+            built_module = BuiltModule(source=module.source, insights=module.insights)
+
+            if module.is_success:
+                built_module.insights.extend(self._local_validation(module))
+                built_module.built_files = self._export_module(module, build_dir)
+
+            folder.built_modules.append(built_module)
+
+        return folder
+
+    def _import_module(self, module_source: ModuleSource) -> Module:
         insights: InsightList = InsightList()
         resource_folder_paths = [
             resource_path for resource_path in module_source.path.iterdir() if resource_path.is_dir()
@@ -262,13 +262,10 @@ class BuildV2Command(ToolkitCommand):
 
         return Module(source=module_source, resources_by_type=resource_by_type, insights=insights)
 
-    def validate_module(self, module: Module) -> InsightList:
-        return InsightList()
-
-    def export_module(self, module: Module, build_dir: Path) -> BuiltModule:
+    def _export_module(self, module: Module, build_dir: Path) -> list[Path]:
         build_dir.mkdir(parents=True, exist_ok=True)
 
-        built_module = BuiltModule(source=module.source)
+        built_files: list[Path] = []
         for resource_type, resources in module.resources_by_type.items():
             folder = build_dir / resource_type.resource_folder
             folder.mkdir(parents=True, exist_ok=True)
@@ -276,22 +273,10 @@ class BuildV2Command(ToolkitCommand):
                 resource_file = folder / f"resource_{index}.{resource_type.kind}.yaml"
                 # Todo Move into Toolkit resource.
                 safe_write(resource_file, yaml_safe_dump(resource.model_dump(by_alias=True, exclude_unset=True)))
-                built_module.built_files.append(resource_file)
+                built_files.append(resource_file)
+
         # Todo: Store source path, source hash, ID, and so on for build_linage
-        return built_module
-
-    def global_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> InsightList:
-
-        # can be parallelized
-        insights = InsightList()
-
-        if files_by_resource_type := build_folder.resource_by_type.get(DataModelCRUD.folder_name):
-            insights.extend(self._validate_with_neat(files_by_resource_type, client))
-
-        return insights
-
-    def write_results(self, build_folder: BuildFolder) -> None:
-        return None
+        return built_files
 
     @classmethod
     def _create_syntax_errors(cls, resource_type: ResourceType, error: ValidationError) -> Iterable[ModelSyntaxError]:
@@ -300,6 +285,23 @@ class BuildV2Command(ToolkitCommand):
         for error_details in error.errors(include_input=True, include_url=False):
             message = error_details.get("msg", "Unknown syntax error")
             yield ModelSyntaxError(code=f"{resource_type}-SYNTAX-ERROR", message=message)
+
+    def _local_validation(self, module: Module) -> InsightList:
+        """This validation is performed locally per entire module"""
+        return InsightList()
+
+    def _global_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
+        """This validation is performed per resource type and not per individual resource and against CDF
+        for all modules. This validation will leverage external plugins such as NEAT.
+        """
+
+        # Can be parallelized if needed
+        for built_module in build_folder.built_modules:
+            if not built_module.is_success:
+                continue
+
+            if files_by_resource_type := built_module.resource_by_type.get(DataModelCRUD.folder_name):
+                built_module.insights.extend(self._validate_with_neat(files_by_resource_type, client))
 
     def _validate_with_neat(
         self, files_by_resource_type: dict[str, list[Path]], client: ToolkitClient | None
@@ -325,3 +327,6 @@ class BuildV2Command(ToolkitCommand):
             insights.append(local_insight)
 
         return insights
+
+    def _write_results(self, build_folder: BuildFolder) -> None:
+        return None
