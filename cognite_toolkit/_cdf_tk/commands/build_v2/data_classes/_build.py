@@ -64,7 +64,6 @@ class BuildFolder(BaseModel):
         return insights
 
     @property
-    @property
     def lineage(self) -> BuildLineage:
         """Lineage should be generated based on the built modules, but for now it is just a placeholder."""
         return BuildLineage()
