@@ -132,4 +132,7 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
         for key in ["existingVersion", "instanceType", "space"]:
             if key not in local:
                 dumped.pop(key, None)
+        if "viewId" in dumped and "viewId" in local:
+            if "type" in dumped["viewId"] and "type" not in local["viewId"]:
+                dumped["viewId"].pop("type", None)
         return dumped
