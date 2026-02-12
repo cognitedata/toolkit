@@ -18,7 +18,8 @@ class BuildVariable(BaseModel): ...
 class ModuleSource(BaseModel):
     """Class used to describe source for module"""
 
-    path: DirectoryPath
+class Module(BaseModel):
+    path: RelativeDirPath
     iteration: int = 0
     variables: list[BuildVariable]
 
