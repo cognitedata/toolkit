@@ -5,10 +5,10 @@ import pytest
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.commands.build_v2.build_v2 import BuildV2Command
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, RelativeDirPath
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
-
+from pydantic import TypeAdapter
 
 class TestBuildParameters:
     @pytest.mark.parametrize(
@@ -90,3 +90,32 @@ class TestBuildParameters:
             assert expected_error in str(exc_info.value).replace("\\", "/")  # Normalize paths for windows
         else:
             BuildV2Command.validate_build_parameters(parameters, console, user_args)
+
+
+@pytest.fixture(scope="session")
+def relative_path_adapter() -> TypeAdapter[RelativeDirPath]:
+    return TypeAdapter(RelativeDirPath)
+class TestRelativeDirPath:
+    @pytest.mark.parametrize(
+        "input_path, create, is_error",
+        [
+            pytest.param("org/modules", True, False, id="Path with trailing slash"),
+            pytest.param("org/modules", True, False, id="Path without trailing slash"),
+            pytest.param("org/file.yaml", True, True, id="Path with file suffix"),
+        ]
+    )
+    def test_relative_dir_path(self, input_path: str, is_error: bool, tmp_path: Path, relative_path_adapter: TypeAdapter[RelativeDirPath]) -> None:
+        test_path = tmp_path / input_path
+        if create:
+            test_path.parent.mkdir(parents=True, exist_ok=True)
+            test_path.touch()
+        else:
+            test_path.mkdir(parents=True, exist_ok=True)
+
+        if is_error:
+            with pytest.raises(ToolkitError) as exc_info:
+                relative_path_adapter.validate_python(test_path)
+            assert "Expected a relative directory path" in str(exc_info.value)
+        else:
+            result = relative_path_adapter.validate_python(test_path)
+            assert result == Path(input_path)
