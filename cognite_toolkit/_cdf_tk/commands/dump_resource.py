@@ -55,8 +55,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
     WorkflowVersionId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import SearchConfigList
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import ViewId as SearchConfigViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
