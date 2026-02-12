@@ -140,7 +140,7 @@ class BuildV2Command(ToolkitCommand):
             validation_insights: InsightList | None = None
             if module.is_success:
                 validation_insights = self.validate_module(module)
-                built_module = self.build_module(module, build_dir)
+                built_module = self.export_module(module, build_dir)
 
                 folder.insights.extend(validation_insights)
                 folder.add_build_files(built_module.built_files)
@@ -154,7 +154,6 @@ class BuildV2Command(ToolkitCommand):
         # - The module paths that should be built (based on the yaml file paths and the selection)
         # - Validation type and CDF Project
 
-
         # Inputs:
         # - Above
         # Produces Module
@@ -164,7 +163,6 @@ class BuildV2Command(ToolkitCommand):
         # Find all yaml files any place. For performance, we can limit ot the selected modules paths if paths are provided
         # If names directly, then, we must search everything.
         #
-
 
         # Parse the variables.
         module_paths = ModulesParser(organization_dir=parameters.organization_dir).parse()
@@ -199,7 +197,7 @@ class BuildV2Command(ToolkitCommand):
     def validate_module(self, module: Module) -> InsightList:
         return InsightList()
 
-    def build_module(self, module: Module, build_dir: Path) -> BuiltModule:
+    def export_module(self, module: Module, build_dir: Path) -> BuiltModule:
         build_dir.mkdir(parents=True, exist_ok=True)
 
         built_module = BuiltModule(source=module.source)

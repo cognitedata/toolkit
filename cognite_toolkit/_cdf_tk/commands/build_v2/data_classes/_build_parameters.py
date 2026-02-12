@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, JsonValue
 
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import RelativeDirPath
+
 
 class BuildParameters(BaseModel):
     organization_dir: Path
@@ -21,7 +23,7 @@ class BuildParameters(BaseModel):
 
 class ParseInput(BaseModel):
     yaml_files: list[Path]
-    selected_modules: set[RelativePath, str]
+    selected_modules: set[RelativeDirPath | str]
     variables: dict[str, JsonValue]
     validation_type: Literal["dev", "prod"] = "prod"
     cdf_project: str

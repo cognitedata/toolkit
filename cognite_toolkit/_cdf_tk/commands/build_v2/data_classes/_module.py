@@ -1,6 +1,10 @@
 from collections import UserList
 from pathlib import Path
 from typing import Annotated, TypeAlias
+from pydantic import BaseModel, Field
+from pydantic import ConfigDict, Field
+from pydantic import DirectoryPath
+
 
 from pydantic import BaseModel, PlainValidator
 from pydantic import ConfigDict, Field
@@ -8,10 +12,8 @@ from pydantic import DirectoryPath
 
 from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
 from ._insights import InsightList
-
-RelativeDirPath: TypeAlias = Annotated[
-    Path, PlainValidator(lambda p: p if p.is_dir() and p.is_relative() else ValueError(f"{p} is not a directory"))
-]
+from ._types import RelativeDirPath
+from ._types import RelativeDirPath
 
 class BuildVariable(BaseModel): ...
 
@@ -21,7 +23,7 @@ class ModuleSource(BaseModel):
 class Module(BaseModel):
     path: RelativeDirPath
     iteration: int = 0
-    variables: list[BuildVariable]
+    variables: list[BuildVariable] = Field(default_factory=list)
 
     @property
     def name(self) -> str:
