@@ -35,6 +35,9 @@ from cognite_toolkit._cdf_tk.client.api.three_d import (
     ThreeDClassicModelsAPI,
     ThreeDDMAssetMappingAPI,
 )
+from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
+from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
+from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
@@ -89,6 +92,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_notification import (
+    TransformationNotificationRequest,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule import TransformationScheduleRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import NonceCredentials, WorkflowTriggerRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionRequest
@@ -149,6 +156,10 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         FunctionSchedulesAPI,
         # Does not support delete
         SearchConfigurationsAPI,
+        # Dependencies betwwen APIs
+        TransformationsAPI,
+        TransformationSchedulesAPI,
+        TransformationNotificationsAPI,
     }
 )
 
@@ -343,6 +354,10 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
                 "externalId": "smoke-test-transformation",
                 "ignoreNullFields": True,
             }
+        ],
+        TransformationScheduleRequest: [{"externalId": "smoke-test-transformation", "interval": "0 0 * * *"}],
+        TransformationNotificationRequest: [
+            {"transformationExternalId": "smoke-test-transformation", "destination": "example@email.com"}
         ],
         WorkflowRequest: [{"externalId": "smoke-test-workflow"}],
         WorkflowTriggerRequest: [
@@ -1226,3 +1241,109 @@ class TestCDFResourceAPI:
             raise EndpointAssertionError(create_endpoint.path, f"Expected 1 created search config, got {len(created)}")
         if created[0].as_id() != search_config_id:
             raise EndpointAssertionError(create_endpoint.path, "Created search config ID does not match requested ID.")
+
+    def test_transformation_crudls(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        transformation_example = get_examples_minimum_requests(TransformationRequest)[0]
+        transformation_request = TransformationRequest.model_validate(transformation_example)
+        transformation_id = transformation_request.as_id()
+        schedule_example = get_examples_minimum_requests(TransformationScheduleRequest)[0]
+        schedule_request = TransformationScheduleRequest.model_validate(schedule_example)
+        notification = get_examples_minimum_requests(TransformationNotificationRequest)[0]
+        notification_request = TransformationNotificationRequest.model_validate(notification)
+
+        try:
+            # Create transformation
+            created_endpoint = client.tool.transformations._method_endpoint_map["create"]
+            self.assert_endpoint_method(
+                lambda: client.tool.transformations.create([transformation_request]),
+                "create",
+                created_endpoint,
+                transformation_id,
+            )
+
+            # Retrieve transformation
+            retrieve_endpoint = client.tool.transformations._method_endpoint_map["retrieve"]
+            self.assert_endpoint_method(
+                lambda: client.tool.transformations.retrieve([transformation_id]),
+                "retrieve",
+                retrieve_endpoint,
+                transformation_id,
+            )
+
+            # List transformations
+            list_endpoint = client.tool.transformations._method_endpoint_map["list"]
+            try:
+                listed = list(client.tool.transformations.list(limit=1))
+            except ToolkitAPIError:
+                raise EndpointAssertionError(list_endpoint.path, "Listing transformations failed.")
+            if len(listed) == 0:
+                raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed transformation, got 0")
+
+            ### Schedules ###
+            # Create transformation schedule (dependent on transformation)
+            schedule_create_endpoint = client.tool.transformations.schedules._method_endpoint_map["create"]
+            self.assert_endpoint_method(
+                lambda: client.tool.transformations.schedules.create([schedule_request]),
+                "create",
+                schedule_create_endpoint,
+                transformation_id,
+            )
+            # Retrieve transformation schedule
+            schedule_retrieve_endpoint = client.tool.transformations.schedules._method_endpoint_map["retrieve"]
+            self.assert_endpoint_method(
+                lambda: client.tool.transformations.schedules.retrieve([schedule_request.as_id()]),
+                "retrieve",
+                schedule_retrieve_endpoint,
+                schedule_request.as_id(),
+            )
+
+            # List transformation schedules
+            schedule_list_endpoint = client.tool.transformations.schedules._method_endpoint_map["list"]
+            try:
+                listed_schedules = list(
+                    client.tool.transformations.schedules.list(
+                        transformation_external_id=transformation_request.external_id, limit=1
+                    )
+                )
+            except ToolkitAPIError:
+                raise EndpointAssertionError(schedule_list_endpoint.path, "Listing transformation schedules failed.")
+            if len(listed_schedules) == 0:
+                raise EndpointAssertionError(
+                    schedule_list_endpoint.path, "Expected at least 1 listed transformation schedule, got 0"
+                )
+
+            ### Notifications ###
+
+            # Create transformation notification (dependent on transformation)
+            notification_create_endpoint = client.tool.transformations.notifications._method_endpoint_map["create"]
+            self.assert_endpoint_method(
+                lambda: client.tool.transformations.notifications.create([notification_request]),
+                "create",
+                notification_create_endpoint,
+                transformation_id,
+            )
+
+            # List transformation notifications
+            notification_list_endpoint = client.tool.transformations.notifications._method_endpoint_map["list"]
+            try:
+                listed_notifications = list(
+                    client.tool.transformations.notifications.list(
+                        transformation_external_id=transformation_request.external_id, limit=1
+                    )
+                )
+            except ToolkitAPIError:
+                raise EndpointAssertionError(
+                    notification_list_endpoint.path, "Listing transformation notifications failed."
+                )
+            if len(listed_notifications) == 0:
+                raise EndpointAssertionError(
+                    notification_list_endpoint.path, "Expected at least 1 listed transformation notification, got 0"
+                )
+
+        finally:
+            # Clean up
+            client.tool.transformations.notifications.delete([notification_request.as_id()], ignore_unknown_ids=True)
+            client.tool.transformations.schedules.delete([schedule_request.as_id()], ignore_unknown_ids=True)
+            client.tool.transformations.delete([transformation_id], ignore_unknown_ids=True)
