@@ -85,8 +85,8 @@ class TestBuildParameters:
         console = MagicMock(spec=Console)
         if expected_error:
             with pytest.raises(ToolkitError) as exc_info:
-                BuildV2Command.validate_build_parameters(parameters, console, user_args)
+                BuildV2Command._validate_build_parameters(parameters, console, user_args)
 
             assert expected_error in str(exc_info.value).replace("\\", "/")  # Normalize paths for windows
         else:
-            BuildV2Command.validate_build_parameters(parameters, console, user_args)
+            BuildV2Command._validate_build_parameters(parameters, console, user_args)

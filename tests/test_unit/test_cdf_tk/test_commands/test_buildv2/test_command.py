@@ -2,7 +2,7 @@ from pathlib import Path
 
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxError, Recommendation
 from cognite_toolkit._cdf_tk.cruds import SpaceCRUD
 
 
@@ -23,14 +23,16 @@ name: My Space
 
         folder = cmd.build(parameters)
 
-        assert folder
+        assert "my_module" in folder.built_modules_by_success[True]
 
         built_space = list(build_dir.rglob(f"*.{SpaceCRUD.kind}.yaml"))
         assert len(built_space) == 1
         assert built_space[0].read_text() == space_yaml
 
-        assert SpaceCRUD.folder_name in folder.resource_by_type
-        assert str(folder.resource_by_type[SpaceCRUD.folder_name][SpaceCRUD.kind][0]) == str(built_space[0])
+        assert SpaceCRUD.folder_name in folder.built_modules[0].resource_by_type
+        assert str(folder.built_modules[0].resource_by_type[SpaceCRUD.folder_name][SpaceCRUD.kind][0]) == str(
+            built_space[0]
+        )
         assert len(folder.insights) == 1
         assert isinstance(folder.insights[0], Recommendation)
 
@@ -50,5 +52,6 @@ name: My Space
 
         folder = cmd.build(parameters)
 
-        assert folder.resource_by_type == {}
+        assert "my_module" in folder.built_modules_by_success[False]
         assert len(folder.insights) == 1
+        assert isinstance(folder.insights[0], ModelSyntaxError)
