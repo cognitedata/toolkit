@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated, Any, Union
+from typing import Annotated, Any
 
 import typer
 from rich import print
@@ -11,7 +11,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReferenceNoVersion,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import WorkflowVersionId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import ViewId as SearchConfigViewId
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
     AgentFinder,
@@ -759,13 +758,13 @@ class DumpConfigApp(typer.Typer):
     ) -> None:
         """This command will dump the selected view's search configuration as yaml to the folder specified, defaults to /tmp."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        selected_view_id: Union[None, SearchConfigViewId] = None
+        selected_view_id: ViewReferenceNoVersion | None = None
         if view_id is not None:
             if len(view_id) != 2:
                 raise ToolkitRequiredValueError(
                     "View ID must be provided as exactly two arguments: externalId and space."
                 )
-            selected_view_id = SearchConfigViewId(*view_id)
+            selected_view_id = ViewReferenceNoVersion(space=view_id[0], external_id=view_id[1])
         cmd = DumpResourceCommand(client=client)
         cmd.run(
             lambda: cmd.dump_to_yamls(

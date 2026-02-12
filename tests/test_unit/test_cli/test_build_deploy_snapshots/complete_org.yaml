@@ -716,7 +716,7 @@ Row:
     ensure_parent: false
     table_name: asset
   name: db_complete_org_asset_False
-SearchConfig:
+SearchConfigResponse:
 - columnsLayout:
   - property: title
     selected: true

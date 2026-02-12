@@ -34,6 +34,7 @@ from .api.raw import RawAPI
 from .api.relationships import RelationshipsAPI
 from .api.robotics import RoboticsAPI
 from .api.search import SearchAPI
+from .api.search_config import SearchConfigurationsAPI
 from .api.security_categories import SecurityCategoriesAPI
 from .api.sequences import SequencesAPI
 from .api.simulators import SimulatorsAPI
@@ -74,6 +75,7 @@ class ToolAPI:
         self.security_categories = SecurityCategoriesAPI(http_client)
         self.relationships = RelationshipsAPI(http_client)
         self.sequences = SequencesAPI(http_client)
+        self.search_configurations = SearchConfigurationsAPI(http_client)
         self.simulators = SimulatorsAPI(http_client)
         self.three_d = ThreeDAPI(http_client)
         self.timeseries = TimeSeriesAPI(http_client)

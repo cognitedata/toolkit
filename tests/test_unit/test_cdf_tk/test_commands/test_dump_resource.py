@@ -33,12 +33,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
     SpaceResponse,
     ViewReference,
+    ViewReferenceNoVersion,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import SearchConfig, SearchConfigList, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
     AgentFinder,
@@ -898,24 +899,33 @@ class TestDumpSpaces:
 
 
 @pytest.fixture()
-def three_search_configs() -> SearchConfigList:
-    return SearchConfigList(
-        [
-            SearchConfig(
-                view=ViewId(external_id="searchConfigA", space="spaceA"), id=1, created_time=1, updated_time=2
-            ),
-            SearchConfig(
-                view=ViewId(external_id="searchConfigB", space="spaceB"), id=2, created_time=1, updated_time=2
-            ),
-            SearchConfig(
-                view=ViewId(external_id="searchConfigC", space="spaceC"), id=3, created_time=1, updated_time=2
-            ),
-        ]
-    )
+def three_search_configs() -> list[SearchConfigResponse]:
+    return [
+        SearchConfigResponse(
+            view=ViewReferenceNoVersion(external_id="searchConfigA", space="spaceA"),
+            id=1,
+            created_time=1,
+            last_updated_time=2,
+        ),
+        SearchConfigResponse(
+            view=ViewReferenceNoVersion(external_id="searchConfigB", space="spaceB"),
+            id=2,
+            created_time=1,
+            last_updated_time=2,
+        ),
+        SearchConfigResponse(
+            view=ViewReferenceNoVersion(external_id="searchConfigC", space="spaceC"),
+            id=3,
+            created_time=1,
+            last_updated_time=2,
+        ),
+    ]
 
 
 class TestSearchConfigFinder:
-    def test_select_search_configs(self, three_search_configs: SearchConfigList, monkeypatch: MonkeyPatch) -> None:
+    def test_select_search_configs(
+        self, three_search_configs: list[SearchConfigResponse], monkeypatch: MonkeyPatch
+    ) -> None:
         def select_search_configs(choices: list[Choice]) -> list[str]:
             assert len(choices) == len(three_search_configs)
             return [choices[1].value, choices[2].value]
@@ -926,28 +936,28 @@ class TestSearchConfigFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(SearchConfigFinder.__module__, monkeypatch, answers),
         ):
-            client.search.configurations.list.return_value = three_search_configs
+            client.tool.search_configurations.list.return_value = three_search_configs
             finder = SearchConfigFinder(client, None)
             selected = finder._interactive_select()
 
         assert selected == (
-            ViewId(external_id="searchConfigB", space="spaceB"),
-            ViewId(external_id="searchConfigC", space="spaceC"),
+            ViewReferenceNoVersion(external_id="searchConfigB", space="spaceB"),
+            ViewReferenceNoVersion(external_id="searchConfigC", space="spaceC"),
         )
 
 
 class TestDumpSearchConfigs:
-    def test_dump_search_configs(self, three_search_configs: SearchConfigList, tmp_path: Path) -> None:
+    def test_dump_search_configs(self, three_search_configs: list[SearchConfigResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.search.configurations.list.return_value = three_search_configs[1:]
+            client.tool.search_configurations.list.return_value = three_search_configs[1:]
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
                 SearchConfigFinder(
                     client,
                     (
-                        ViewId(external_id="searchConfigB", space="spaceB"),
-                        ViewId(external_id="searchConfigC", space="spaceC"),
+                        ViewReferenceNoVersion(external_id="searchConfigB", space="spaceB"),
+                        ViewReferenceNoVersion(external_id="searchConfigC", space="spaceC"),
                     ),
                 ),
                 output_dir=tmp_path,
