@@ -11,7 +11,7 @@ from ._types import ValidationType
 class Environment(BaseModel):
     name: str = "dev"
     project: str = Field(default_factory=lambda: os.environ.get("CDF_PROJECT", "UNKNOWN"))
-    validation_type: ValidationType = "dev"
+    validation_type: ValidationType = Field("dev", alias="validation-type")
     selected: list[str] | None = None
 
 

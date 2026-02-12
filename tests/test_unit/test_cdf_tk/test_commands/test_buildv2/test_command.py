@@ -12,18 +12,24 @@ from cognite_toolkit._cdf_tk.cruds import SpaceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
 
 
+def create_space_resource_file(organization_dir: Path) -> Path:
+    resource_file = organization_dir / MODULES / "my_module" / SpaceCRUD.folder_name / f"my_space.{SpaceCRUD.kind}.yaml"
+    resource_file.parent.mkdir(parents=True)
+    space_yaml = """space: my_space
+name: My Space
+"""
+    resource_file.write_text(space_yaml)
+    return resource_file
+
+
 class TestBuildCommand:
     def test_end_to_end(self, tmp_path: Path) -> None:
         cmd = BuildV2Command()
 
         # Set up a simple organization with modules folder.
         org = tmp_path / "org"
-        resource_file = org / "modules" / "my_module" / SpaceCRUD.folder_name / f"my_space.{SpaceCRUD.kind}.yaml"
-        resource_file.parent.mkdir(parents=True)
-        space_yaml = """space: my_space
-name: My Space
-"""
-        resource_file.write_text(space_yaml)
+        resource_file = create_space_resource_file(org)
+
         build_dir = tmp_path / "build"
         parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
 
@@ -33,7 +39,7 @@ name: My Space
 
         built_space = list(build_dir.rglob(f"*.{SpaceCRUD.kind}.yaml"))
         assert len(built_space) == 1
-        assert built_space[0].read_text() == space_yaml
+        assert built_space[0].read_text() == resource_file.read_text()
 
         assert SpaceCRUD.folder_name in folder.resource_by_type
         assert str(folder.resource_by_type[SpaceCRUD.folder_name][SpaceCRUD.kind][0]) == str(built_space[0])
@@ -152,12 +158,7 @@ class TestReadParameters:
   selected:
   - modules/ignore_selection
 """)
-        resource_file = tmp_path / MODULES / "my_module" / SpaceCRUD.folder_name / f"my_space.{SpaceCRUD.kind}.yaml"
-        resource_file.parent.mkdir(parents=True)
-        space_yaml = """space: my_space
-        name: My Space
-        """
-        resource_file.write_text(space_yaml)
+        resource_file = create_space_resource_file(tmp_path)
 
         parameters = BuildParameters(
             organization_dir=tmp_path,
@@ -175,7 +176,6 @@ class TestReadParameters:
             "cdf_project": "my-project",
         }
 
-    @pytest.mark.skip("In development")
     def test_invalid_config_yaml(self, tmp_path: Path) -> None:
         config_yaml = tmp_path / "config.dev.yaml"
         config_yaml.write_text("""environment:
@@ -185,8 +185,11 @@ class TestReadParameters:
     selected:
     - modules/
 """)
+        _ = create_space_resource_file(tmp_path)
         parameters = BuildParameters(organization_dir=tmp_path, build_dir=Path("build"), config_yaml_name="dev")
         with pytest.raises(ToolkitValueError) as exc_info:
             BuildV2Command.read_parameters(parameters)
 
-        assert "Invalid validation type 'invalid_type' in config YAML" in str(exc_info.value)
+        assert "In environment.validation-type input should be 'dev' or 'prod'. Got 'invalid_type'." in str(
+            exc_info.value
+        )
