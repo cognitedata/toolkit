@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParamete
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import SpaceCRUD
-from cognite_toolkit._cdf_tk.exceptions import ToolkitError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
 
 
 class TestBuildCommand:
@@ -60,39 +60,7 @@ name: My Space
         assert len(folder.insights) == 1
 
 
-class TestBuildFunctions:
-    def test_read_parameters_happy_path(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        config_yaml = tmp_path / "config.dev.yaml"
-        config_yaml.write_text("""environment:
-  name: dev
-  project: my-project
-  validation-type: dev
-  selected:
-  - modules/ignore_selection
-""")
-        resource_file = tmp_path / MODULES / "my_module" / SpaceCRUD.folder_name / f"my_space.{SpaceCRUD.kind}.yaml"
-        resource_file.parent.mkdir(parents=True)
-        space_yaml = """space: my_space
-        name: My Space
-        """
-        resource_file.write_text(space_yaml)
-
-        parameters = BuildParameters(
-            organization_dir=tmp_path,
-            build_dir=Path("build"),
-            config_yaml_name="dev",
-            user_selected_modules=["module1", "module2"],
-        )
-        parse_input = BuildV2Command.read_parameters(parameters)
-        assert parse_input.model_dump() == {
-            "yaml_files": [resource_file],
-            # Since user_selected_modules are provided, they should be used instead of config selected modules.
-            "selected_modules": {"module1", "module2"},
-            "variables": {},
-            "validation_type": "dev",
-            "cdf_project": "my-project",
-        }
-
+class TestValidateBuildParameters:
     @pytest.mark.parametrize(
         "paths, parameters, user_args, expected_error",
         [
@@ -172,3 +140,53 @@ class TestBuildFunctions:
             assert expected_error in str(exc_info.value).replace("\\", "/")  # Normalize paths for windows
         else:
             BuildV2Command.validate_build_parameters(parameters, console, user_args)
+
+
+class TestReadParameters:
+    def test_happy_path(self, tmp_path: Path) -> None:
+        config_yaml = tmp_path / "config.dev.yaml"
+        config_yaml.write_text("""environment:
+  name: dev
+  project: my-project
+  validation-type: dev
+  selected:
+  - modules/ignore_selection
+""")
+        resource_file = tmp_path / MODULES / "my_module" / SpaceCRUD.folder_name / f"my_space.{SpaceCRUD.kind}.yaml"
+        resource_file.parent.mkdir(parents=True)
+        space_yaml = """space: my_space
+        name: My Space
+        """
+        resource_file.write_text(space_yaml)
+
+        parameters = BuildParameters(
+            organization_dir=tmp_path,
+            build_dir=Path("build"),
+            config_yaml_name="dev",
+            user_selected_modules=["module1", "module2"],
+        )
+        parse_input = BuildV2Command.read_parameters(parameters)
+        assert parse_input.model_dump() == {
+            "yaml_files": [resource_file],
+            # Since user_selected_modules are provided, they should be used instead of config selected modules.
+            "selected_modules": {"module1", "module2"},
+            "variables": {},
+            "validation_type": "dev",
+            "cdf_project": "my-project",
+        }
+
+    @pytest.mark.skip("In development")
+    def test_invalid_config_yaml(self, tmp_path: Path) -> None:
+        config_yaml = tmp_path / "config.dev.yaml"
+        config_yaml.write_text("""environment:
+    name: dev
+    project: my-project
+    validation-type: invalid_type
+    selected:
+    - modules/
+""")
+        parameters = BuildParameters(organization_dir=tmp_path, build_dir=Path("build"), config_yaml_name="dev")
+        with pytest.raises(ToolkitValueError) as exc_info:
+            BuildV2Command.read_parameters(parameters)
+
+        assert "Invalid validation type 'invalid_type' in config YAML" in str(exc_info.value)
