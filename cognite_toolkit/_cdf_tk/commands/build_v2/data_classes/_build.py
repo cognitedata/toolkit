@@ -38,7 +38,7 @@ class BuildFolder(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     resource_by_type: dict[str, dict[str, list[Path]]] = Field(default_factory=dict)
     insights: InsightList = Field(default_factory=InsightList)
-    linage: BuildLinage = Field(default_factory=BuildLinage)
+    lineage: BuildLineage = Field(default_factory=BuildLineage)
 
     def add_build_files(self, files: list[Path]) -> None:
         """Adds build files to resource_by_type, organizing them by type and folder."""
