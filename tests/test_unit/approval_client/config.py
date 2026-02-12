@@ -135,6 +135,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
@@ -886,6 +887,17 @@ API_RESOURCES = [
         api_name="tool.timeseries",
         resource_cls=TimeSeriesResponse,
         _write_cls=TimeSeriesRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+APIResource(
+        api_name="tool.sequences",
+        resource_cls=SequenceResponse,
+        _write_cls=SequenceRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
