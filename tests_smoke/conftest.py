@@ -49,7 +49,7 @@ def toolkit_client(toolkit_client_config: ToolkitClientConfig) -> ToolkitClient:
 def smoke_dataset(toolkit_client: ToolkitClient) -> DataSetResponse:
     client = toolkit_client
     dataset_external_id = ExternalId(external_id="toolkit_smoke_test_dataset")
-    if dataset := client.tool.datasets.retrieve([dataset_external_id]):
+    if dataset := client.tool.datasets.retrieve([dataset_external_id], ignore_unknown_ids=True):
         return dataset[0]
     return client.tool.datasets.create(
         [

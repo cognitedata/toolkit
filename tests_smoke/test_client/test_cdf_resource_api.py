@@ -491,7 +491,7 @@ def smoke_event(toolkit_client: ToolkitClient) -> EventResponse:
     return retrieved[0]
 
 
-@pytest.mark.usefixtures("smoke_space", "smoke_asset", "smoke_event")
+@pytest.mark.usefixtures("smoke_space", "smoke_asset", "smoke_event", "smoke_container", "smoke_view")
 class TestCDFResourceAPI:
     def assert_endpoint_method(
         self, method: Callable[[], list[T_ResponseResource]], name: str, endpoint: Endpoint, id: Hashable | None = None
