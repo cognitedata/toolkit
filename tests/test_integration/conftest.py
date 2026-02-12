@@ -43,6 +43,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPResult, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, SpaceRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
     RawTable,
@@ -52,6 +53,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWTableRequest,
 )
 from cognite_toolkit._cdf_tk.commands import CollectCommand
+from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cdf import ThrottlerState, raw_row_count
@@ -731,6 +733,36 @@ def migration_hierarchy_minimal(toolkit_client: ToolkitClient) -> HierarchyMinim
     )
     if created_asset_annotation is None:
         created_asset_annotation = client.annotations.create(asset_annotation)
+
+    # Create destination space
+    client.tool.spaces.create([SpaceRequest(space=data_set.external_id)])
+
+    # Populate the InstanceSourceView such that Annotation can look up file and asset information during migration.
+    linage_nodes = [
+        NodeRequest(
+            space=data_set.external_id,
+            external_id=resource.external_id,
+            sources=[
+                InstanceSource(
+                    source=INSTANCE_SOURCE_VIEW_ID,
+                    properties={
+                        "resourceType": resource_type,
+                        "id": resource.id,
+                        "dataSetId": data_set.id,
+                        "classicExternalId": resource.external_id,
+                    },
+                )
+            ],
+        )
+        for resource_type, resource in [
+            ("asset", created_assets[0]),
+            ("asset", created_assets[1]),
+            ("event", created_event),
+            ("file", created_file),
+            ("timeseries", created_timeseries),
+        ]
+    ]
+    client.tool.instances.create(linage_nodes)
 
     return HierarchyMinimal(
         root_asset=created_assets[0],
