@@ -2,7 +2,7 @@ import io
 import types
 import zipfile
 from collections.abc import Callable, Hashable, Iterable, Set
-from typing import Annotated, Any, get_args, get_origin
+from typing import Annotated, Any, cast, get_args, get_origin
 
 import pytest
 
@@ -91,6 +91,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelDMSRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    NonceCredentials as TransformationNonceCredentials,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_notification import (
     TransformationNotificationRequest,
@@ -353,6 +356,8 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
                 "name": "smoke-test-transformation",
                 "externalId": "smoke-test-transformation",
                 "ignoreNullFields": True,
+                "query": "SELECT 1",
+                "destination": {"type": "assets"},
             }
         ],
         TransformationScheduleRequest: [{"externalId": "smoke-test-transformation", "interval": "0 0 * * *"}],
@@ -1252,6 +1257,23 @@ class TestCDFResourceAPI:
         schedule_request = TransformationScheduleRequest.model_validate(schedule_example)
         notification = get_examples_minimum_requests(TransformationNotificationRequest)[0]
         notification_request = TransformationNotificationRequest.model_validate(notification)
+        schedule_id: InternalId | None = None
+        notification_id: InternalId | None = None
+
+        session = toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
+        credentials = TransformationNonceCredentials(
+            session_id=session.id,
+            nonce=session.nonce,
+            cdf_project_name=toolkit_client.config.project,
+        )
+        transformation_request.source_nonce = credentials
+        transformation_request.destination_nonce = credentials
+
+        # Clean up any existing transformation with the same ID
+        try:
+            client.tool.transformations.delete([transformation_id], ignore_unknown_ids=True)
+        except ToolkitAPIError:
+            pass
 
         try:
             # Create transformation
@@ -1292,21 +1314,20 @@ class TestCDFResourceAPI:
             )
             # Retrieve transformation schedule
             schedule_retrieve_endpoint = client.tool.transformations.schedules._method_endpoint_map["retrieve"]
-            self.assert_endpoint_method(
-                lambda: client.tool.transformations.schedules.retrieve([schedule_request.as_id()]),
-                "retrieve",
-                schedule_retrieve_endpoint,
-                schedule_request.as_id(),
+            schedule_id = cast(
+                InternalId,
+                self.assert_endpoint_method(
+                    lambda: client.tool.transformations.schedules.retrieve([schedule_request.as_id()]),
+                    "retrieve",
+                    schedule_retrieve_endpoint,
+                    schedule_request.as_id(),
+                ),
             )
 
             # List transformation schedules
             schedule_list_endpoint = client.tool.transformations.schedules._method_endpoint_map["list"]
             try:
-                listed_schedules = list(
-                    client.tool.transformations.schedules.list(
-                        transformation_external_id=transformation_request.external_id, limit=1
-                    )
-                )
+                listed_schedules = client.tool.transformations.schedules.list(limit=1)
             except ToolkitAPIError:
                 raise EndpointAssertionError(schedule_list_endpoint.path, "Listing transformation schedules failed.")
             if len(listed_schedules) == 0:
@@ -1318,21 +1339,19 @@ class TestCDFResourceAPI:
 
             # Create transformation notification (dependent on transformation)
             notification_create_endpoint = client.tool.transformations.notifications._method_endpoint_map["create"]
-            self.assert_endpoint_method(
-                lambda: client.tool.transformations.notifications.create([notification_request]),
-                "create",
-                notification_create_endpoint,
-                transformation_id,
+            notification_id = cast(
+                InternalId,
+                self.assert_endpoint_method(
+                    lambda: client.tool.transformations.notifications.create([notification_request]),
+                    "create",
+                    notification_create_endpoint,
+                ),
             )
 
             # List transformation notifications
             notification_list_endpoint = client.tool.transformations.notifications._method_endpoint_map["list"]
             try:
-                listed_notifications = list(
-                    client.tool.transformations.notifications.list(
-                        transformation_external_id=transformation_request.external_id, limit=1
-                    )
-                )
+                listed_notifications = client.tool.transformations.notifications.list(limit=1)
             except ToolkitAPIError:
                 raise EndpointAssertionError(
                     notification_list_endpoint.path, "Listing transformation notifications failed."
@@ -1341,9 +1360,10 @@ class TestCDFResourceAPI:
                 raise EndpointAssertionError(
                     notification_list_endpoint.path, "Expected at least 1 listed transformation notification, got 0"
                 )
-
         finally:
             # Clean up
-            client.tool.transformations.notifications.delete([notification_request.as_id()], ignore_unknown_ids=True)
-            client.tool.transformations.schedules.delete([schedule_request.as_id()], ignore_unknown_ids=True)
+            if notification_id is not None:
+                client.tool.transformations.notifications.delete([notification_id])
+            if schedule_id is not None:
+                client.tool.transformations.schedules.delete([schedule_id], ignore_unknown_ids=True)
             client.tool.transformations.delete([transformation_id], ignore_unknown_ids=True)
