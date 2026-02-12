@@ -4,9 +4,9 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.constants import MODULES
 
-from . import RelativeDirPath, ValidationType
 from ._insights import InsightList
 from ._module import ModuleSource
+from ._types import RelativeDirPath, ValidationType
 
 
 class BuildParameters(BaseModel):

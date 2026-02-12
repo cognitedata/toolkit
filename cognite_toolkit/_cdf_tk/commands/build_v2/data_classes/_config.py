@@ -4,8 +4,8 @@ from typing import ClassVar
 
 from pydantic import BaseModel, Field, JsonValue
 
-from . import ValidationType
 from ._base import YAMLFile
+from ._types import ValidationType
 
 
 class Environment(BaseModel):
