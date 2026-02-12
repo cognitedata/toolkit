@@ -135,7 +135,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
@@ -205,6 +204,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryRequest,
     SecurityCategoryResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelRequest,
     SimulatorModelResponse,
@@ -894,7 +894,7 @@ API_RESOURCES = [
             ],
         },
     ),
-APIResource(
+    APIResource(
         api_name="tool.sequences",
         resource_cls=SequenceResponse,
         _write_cls=SequenceRequest,
