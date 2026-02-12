@@ -109,6 +109,9 @@ class TypedViewReference(Identifier):
         """
         return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=not include_type)
 
+    def as_property_reference(self, property_name: str) -> list[str]:
+        return [self.space, f"{self.external_id}/{self.version}", property_name]
+
 
 ######################################################
 # The classes below are helper classes for making instances request/responses.

@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from itertools import groupby
-from typing import Literal, TypeVar, cast, overload
+from typing import Any, Literal, TypeVar, cast, overload
 
 from cognite.client._constants import DEFAULT_LIMIT_READ
 from cognite.client.data_classes.data_modeling import (
@@ -98,7 +98,25 @@ class ResourceViewMappingsAPI(
         return PagedResponse[ResourceViewMappingResponse].model_validate_json(response.body)
 
     def list(self, resource_type: str | None = None, limit: int | None = 100) -> list[ResourceViewMappingResponse]:
-        return super()._list_instances(spaces=[RESOURCE_VIEW_MAPPING_SPACE], instance_type="node", limit=limit)
+        filter_: dict[str, Any] = {
+            "equals": {
+                "property": ["node", "space"],
+                "value": RESOURCE_VIEW_MAPPING_SPACE,
+            }
+        }
+        if resource_type:
+            filter_ = {
+                "and": [
+                    filter_,
+                    {
+                        "equals": {
+                            "property": ResourceViewMappingRequest.VIEW_ID.as_property_reference("resourceType"),
+                            "value": resource_type,
+                        }
+                    },
+                ]
+            }
+        return super()._list_instances(filter=filter_, instance_type="node", limit=limit)
 
 
 class CreatedSourceSystemAPI:
