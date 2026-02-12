@@ -14,7 +14,6 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.aggregations import CountValue
 from cognite.client.data_classes.data_modeling import (
     NodeList,
-    ViewId,
 )
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics, SpaceStatisticsList
 from cognite.client.data_classes.raw import Database, DatabaseList, Table, TableList
@@ -33,8 +32,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import CANVAS_INSTANCE_SPACE, Canvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
@@ -1009,7 +1008,7 @@ class TestDataModelingInteractiveSelect:
 
 class TestResourceViewMappingInteractiveSelect:
     def test_interactive_select_resource_view_mapping(self, monkeypatch) -> None:
-        def select_resource_view_mapping(choices: list[Choice]) -> ResourceViewMapping:
+        def select_resource_view_mapping(choices: list[Choice]) -> ResourceViewMappingResponse:
             assert len(choices) == 2
             selection = choices[1].value
             return selection
@@ -1020,28 +1019,26 @@ class TestResourceViewMappingInteractiveSelect:
             MockQuestionary(ResourceViewMappingInteractiveSelect.__module__, monkeypatch, answers),
         ):
             selector = ResourceViewMappingInteractiveSelect(client, "test_operation")
-            client.migration.resource_view_mapping.list.return_value = NodeList[ResourceViewMapping](
-                [
-                    ResourceViewMapping(
-                        external_id="mapping1",
-                        resource_type="asset",
-                        view_id=ViewId("space1", "view1", "1"),
-                        property_mapping={},
-                        last_updated_time=1,
-                        created_time=0,
-                        version=1,
-                    ),
-                    ResourceViewMapping(
-                        external_id="mapping2",
-                        resource_type="asset",
-                        view_id=ViewId("space2", "view2", "1"),
-                        property_mapping={},
-                        last_updated_time=1,
-                        created_time=0,
-                        version=1,
-                    ),
-                ]
-            )
+            client.migration.resource_view_mapping.list.return_value = [
+                ResourceViewMappingResponse(
+                    external_id="mapping1",
+                    resource_type="asset",
+                    view_id=ViewReference(space="space1", external_id="view1", version="1"),
+                    property_mapping={},
+                    last_updated_time=1,
+                    created_time=0,
+                    version=1,
+                ),
+                ResourceViewMappingResponse(
+                    external_id="mapping2",
+                    resource_type="asset",
+                    view_id=ViewReference(space="space2", external_id="view2", version="1"),
+                    property_mapping={},
+                    last_updated_time=1,
+                    created_time=0,
+                    version=1,
+                ),
+            ]
 
             result = selector.select_resource_view_mapping("asset")
         assert result.external_id == "mapping2"

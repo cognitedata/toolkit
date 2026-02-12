@@ -1,7 +1,8 @@
 import sys
 from typing import Any, Literal
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, JsonValue, field_validator
+from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationStatus, AnnotationType
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
@@ -67,6 +68,13 @@ class InstanceFilter(Filter):
     instance_type: Literal["node", "edge"] | None = None
     source: TypedViewReference | None = None
     space: list[str] | None = None
+    filter: dict[str, JsonValue] | None = None
+
+    @field_validator("filter")
+    def only_filter_or_space(cls, v: dict, info: ValidationInfo) -> dict:
+        if v is not None and info.data.get("space") is not None:
+            raise ValueError("Cannot specify both filter and space in InstanceFilter")
+        return v
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
         body: dict[str, Any] = {}
@@ -82,6 +90,8 @@ class InstanceFilter(Filter):
                     "values": self.space,
                 }
             }
+        elif self.filter is not None:
+            body["filter"] = self.filter
         return body
 
 

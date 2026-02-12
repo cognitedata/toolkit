@@ -109,7 +109,7 @@ class ToolkitClient(CogniteClient):
             self.files: ExtendedFileMetadataAPI = ExtendedFileMetadataAPI(self._config, self._API_VERSION, self)
         self.raw: ExtendedRawAPI = ExtendedRawAPI(self._config, self._API_VERSION, self)
         self.canvas = CanvasAPI(self.data_modeling.instances)
-        self.migration = MigrationAPI(self.data_modeling.instances)
+        self.migration = MigrationAPI(self.data_modeling.instances, http_client)
         self.token = TokenAPI(self)
         self.charts = ChartsAPI(self._config, self._API_VERSION, self)
         self.project = ProjectAPI(config=toolkit_config, cognite_client=self)
