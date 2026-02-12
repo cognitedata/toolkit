@@ -1,7 +1,9 @@
 import os
 import shutil
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -54,6 +56,7 @@ from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, RawTableCRUD
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cdf import ThrottlerState, raw_row_count
 from tests.constants import REPO_ROOT
+from tests.data import THREE_D_He2_FBX_ZIP
 from tests.test_integration.constants import (
     ASSET_COUNT,
     ASSET_DATASET,
@@ -829,6 +832,29 @@ def simulator_integration(simulator: str, toolkit_dataset: DataSet, toolkit_clie
         if item["externalId"] == external_id:
             return external_id
     raise ValueError("Failed to create or retrieve simulator integration.")
+
+
+@pytest.fixture(scope="session")
+def three_d_file(toolkit_client: ToolkitClient, toolkit_dataset: DataSet) -> FileMetadata:
+    client = toolkit_client
+    meta = FileMetadataWrite(
+        name="he2.fbx",
+        data_set_id=toolkit_dataset.id,
+        external_id="my_simulator_model_revision_file",
+        metadata={"source": "integration_test"},
+        mime_type="application/octet-stream",
+        source="3d-models",
+    )
+    read = cast(FileMetadata | None, client.files.retrieve(external_id=meta.external_id))
+    if read and read.uploaded is True:
+        return read
+    if read is None:
+        read, _ = client.files.create(meta)
+    with zipfile.ZipFile(THREE_D_He2_FBX_ZIP, mode="r") as zip_ref:
+        file_data = zip_ref.read("he2.fbx")
+        read = client.files.upload_content_bytes(file_data, external_id=meta.external_id)
+    assert read.uploaded is True
+    return read
 
 
 def _parse_simulator_response(response: HTTPResult) -> str | None:
