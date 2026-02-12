@@ -81,7 +81,7 @@ def persistent_robots_data_set(toolkit_client: ToolkitClient) -> DataSetResponse
         name="Robotics API Tests Persistent",
         description="Data set for testing the Robotics API with persistent data",
     )
-    retrieved = toolkit_client.tool.datasets.retrieve([data_set.as_id()])
+    retrieved = toolkit_client.tool.datasets.retrieve([data_set.as_id()], ignore_unknown_ids=True)
     if retrieved:
         return retrieved[0]
     else:

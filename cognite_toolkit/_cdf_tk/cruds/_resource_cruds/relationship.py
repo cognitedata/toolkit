@@ -72,7 +72,7 @@ class RelationshipCRUD(ResourceCRUD[ExternalId, RelationshipRequest, Relationshi
         return self.client.tool.relationships.create(list(items))
 
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[RelationshipResponse]:
-        return self.client.tool.relationships.retrieve(list(ids))
+        return self.client.tool.relationships.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[RelationshipRequest]) -> list[RelationshipResponse]:
         return self.client.tool.relationships.update(list(items))
