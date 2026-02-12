@@ -40,4 +40,4 @@ class ResourceViewMappingResponse(WrappedInstanceResponse[ResourceViewMappingReq
     instance_type: Literal["node"] = "node"
 
     def as_request_resource(self) -> ResourceViewMappingRequest:
-        return ResourceViewMappingRequest.model_validate(self.dump(), extra="ignore")
+        return ResourceViewMappingRequest.model_validate(self.dump(context="toolkit"), extra="ignore")

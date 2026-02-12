@@ -179,6 +179,44 @@ class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
         """Move properties from sources to the top level."""
         return move_properties(values, cls.VIEW_ID)
 
+    def dump(
+        self, camel_case: bool = True, exclude_extra: bool = False, context: Literal["api", "toolkit"] = "api"
+    ) -> dict[str, Any]:
+        """Dump the resource to a dictionary.
+
+        Args:
+            camel_case (bool): Whether to use camelCase for the keys. Default is True.
+            exclude_extra (bool): Whether to exclude extra fields not defined in the model. Default is False.
+
+        """
+        output = super().dump(camel_case=camel_case, exclude_extra=exclude_extra)
+        if context == "toolkit":
+            return output
+        properties: dict[str, Any] = {}
+        for key in list(output.keys()):
+            if key in {
+                "instanceType",
+                "space",
+                "externalId",
+                "version",
+                "createdTime",
+                "lastUpdatedTime",
+                "deletedTime",
+                "instance_type",
+                "external_id",
+                "created_time",
+                "last_updated_time",
+                "deleted_time",
+            }:
+                continue
+            properties[key] = output.pop(key)
+        output["properties"] = {
+            self.VIEW_ID.space: {
+                f"{self.VIEW_ID.external_id}/{self.VIEW_ID.version}": properties,
+            }
+        }
+        return output
+
 
 def move_properties(values: dict[str, Any], view_id: TypedViewReference) -> dict[str, Any]:
     """Help function to move properties from properties.space.externalId/version to the top level.
@@ -187,17 +225,15 @@ def move_properties(values: dict[str, Any], view_id: TypedViewReference) -> dict
     """
     if "properties" not in values:
         return values
-    values_copy = dict(values)
-    properties = values_copy.pop("properties")
+    properties = values["properties"]
     if not isinstance(properties, dict) or view_id.space not in properties:
         return values
-    view_properties = properties.pop(view_id.space)
+    view_properties = properties[view_id.space]
     identifier = f"{view_id.external_id}/{view_id.version}"
     if not isinstance(view_properties, dict) or identifier not in view_properties:
         return values
-    source_properties = view_properties.pop(identifier)
-    values_copy.update(source_properties)
-    return values_copy
+    source_properties = view_properties[identifier]
+    return {**{key: value for key, value in values.items() if key != "properties"}, **source_properties}
 
 
 T_WrappedInstanceResponse = TypeVar("T_WrappedInstanceResponse", bound=WrappedInstanceResponse)
