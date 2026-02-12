@@ -74,7 +74,7 @@ class TestProfileAssetCommand:
                         aggregator_assets,
                         ASSET_TABLE,
                         ASSET_COUNT - 1,
-                        4,
+                        3,
                     ),  # -1 root asset is not in the table
                     (
                         "Events",
@@ -202,7 +202,7 @@ class TestProfileRawCommand:
         assert actual_row == {
             columns.RAW: f"{aggregator_raw_db}.{ASSET_TABLE}",
             columns.Rows: ASSET_COUNT - 1,  # -1 root asset is not in the RAW table.
-            columns.Columns: 4,
+            columns.Columns: 3,
             columns.Transformation: f"{transformation.name} ({transformation.external_id})",
             columns.Destination: "assets",
             columns.ConflictMode: transformation.conflict_mode,
