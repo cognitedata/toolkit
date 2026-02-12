@@ -56,10 +56,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import SearchConfigList
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import ViewId as SearchConfigViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.cruds import (
@@ -841,20 +840,20 @@ class SpaceFinder(ResourceFinder[tuple[str, ...]]):
         yield [SpaceReference(space=space) for space in self.identifier], None, loader, None
 
 
-class SearchConfigFinder(ResourceFinder[tuple[SearchConfigViewId, ...]]):
-    def __init__(self, client: ToolkitClient, identifier: tuple[SearchConfigViewId, ...] | None = None):
+class SearchConfigFinder(ResourceFinder[tuple[ViewReferenceNoVersion, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[ViewReferenceNoVersion, ...] | None = None):
         super().__init__(client, identifier)
-        self.search_configs: SearchConfigList | None = None
+        self.search_configs: list[SearchConfigResponse] | None = None
 
-    def _interactive_select(self) -> tuple[SearchConfigViewId, ...]:
-        self.search_configs = self.client.search.configurations.list()
+    def _interactive_select(self) -> tuple[ViewReferenceNoVersion, ...]:
+        self.search_configs = self.client.tool.search_configurations.list()
         if not self.search_configs:
             raise ToolkitMissingResourceError("No search configurations found!")
         choices = [
             Choice(f"{config.view.external_id} {config.view.space}", value=config.view)
             for config in self.search_configs
         ]
-        selected_view_ids: list[SearchConfigViewId] | None = questionary.checkbox(
+        selected_view_ids: list[ViewReferenceNoVersion] | None = questionary.checkbox(
             "For which view would you like to dump the search configuration?",
             choices=choices,
             validate=lambda choices: True if choices else "You must select at least one view.",
@@ -869,7 +868,7 @@ class SearchConfigFinder(ResourceFinder[tuple[SearchConfigViewId, ...]]):
         self.identifier = self._selected()
         loader = SearchConfigCRUD.create_loader(self.client)
         if self.search_configs:
-            yield [], SearchConfigList([sc for sc in self.search_configs if sc.view in self.identifier]), loader, None
+            yield [], [sc for sc in self.search_configs if sc.view in self.identifier], loader, None
         else:
             yield list(self.identifier), None, loader, None
 

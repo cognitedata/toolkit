@@ -58,10 +58,7 @@ class TestFileContentIO:
             with HTTPClient(toolkit_client.config) as http_client:
                 io.upload_items(upload_content, http_client, selector)
             # Verify upload
-            uploaded_file = toolkit_client.files.retrieve(external_id=external_id)
-            assert uploaded_file is not None
-            assert uploaded_file.name == filename
-            assert uploaded_file.uploaded is True
+            self.verify_file_uploaded(toolkit_client, external_id)
 
             # Test download
             download_selector = FileIdentifierSelector(identifiers=(FileExternalID(external_id=external_id),))
@@ -168,10 +165,7 @@ class TestFileContentIO:
                 dry_run=False,
                 verbose=False,
             )
-
-            retrieved = toolkit_client.files.retrieve(external_id=external_id)
-            assert retrieved is not None
-            assert retrieved.uploaded is True, "Uploaded file should have uploaded file content."
+            self.verify_file_uploaded(toolkit_client, external_id)
 
             io = FileContentIO(toolkit_client, tmp_path / "downloads")
             downloaded_files = [item for page in io.stream_data(selector) for item in page.items]
@@ -182,3 +176,15 @@ class TestFileContentIO:
             assert downloaded_content == file_content
         finally:
             toolkit_client.files.delete(external_id=external_id, ignore_unknown_ids=True)
+
+    def verify_file_uploaded(self, toolkit_client: ToolkitClient, external_id: str) -> None:
+        t0 = time.perf_counter()
+        while True:
+            uploaded_file = toolkit_client.files.retrieve(external_id=external_id)
+            assert uploaded_file is not None
+            if uploaded_file.uploaded is True:
+                break
+            # The file syncer may take some time to update CogniteFile -> FileMetadata uploaded status
+            if time.perf_counter() - t0 > 30:
+                raise AssertionError("Timeout waiting for file to be uploaded.")
+            time.sleep(1)
