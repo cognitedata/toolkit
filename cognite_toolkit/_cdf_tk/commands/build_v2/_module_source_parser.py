@@ -80,7 +80,12 @@ class ModuleSourceParser:
         selection: set[RelativeDirPath | str],
         orphan_files: list[RelativeDirPath],
     ) -> list[ModelSyntaxError]:
-        raise NotImplementedError()
+        # Todo: Check the following
+        # 1) If any module is inside another module. -> Error.
+        # 2) If any selection by name is ambiguous (matches multiple found modules) -> Error.
+        # 3) Any selected module by name that does not match any found module -> Error.
+        # 4) If any orphan files that have a resource kind set are found -> Error.
+        return []
 
     @classmethod
     def _select_modules(
