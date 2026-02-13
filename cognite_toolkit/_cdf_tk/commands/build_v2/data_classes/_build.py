@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 
 from ._insights import InsightList
 from ._module import ModuleSource
-from ._types import RelativeDirPath, ValidationType
+from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath, ValidationType
 
 
 class BuildParameters(BaseModel):
@@ -29,14 +29,21 @@ class BuildParameters(BaseModel):
         return self.organization_dir / MODULES
 
 
-class ParseInput(BaseModel):
+class BuildFiles(BaseModel):
     """Intermediate format used when parsing modules"""
 
-    yaml_files: list[Path]
-    selected_modules: set[RelativeDirPath | str]
-    variables: dict[str, JsonValue] = Field(default_factory=dict)
+    yaml_files: list[RelativeFilePath] = Field(
+        description="List of all YAML files that are part of the build, with paths relative to the organization directory."
+    )
+    selected_modules: set[RelativeDirPath | str] = Field(
+        description="Set of modules to build. Either module names (folder names) or relative paths to the organization directory."
+    )
+    variables: dict[str, JsonValue] = Field(
+        default_factory=dict, description="Variables to be used during the build process."
+    )
     validation_type: ValidationType = "prod"
     cdf_project: str
+    organization_dir: AbsoluteDirPath
 
 
 class BuiltModule(BaseModel):
