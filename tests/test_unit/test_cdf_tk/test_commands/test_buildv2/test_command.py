@@ -169,8 +169,8 @@ class TestReadFileSystem:
             config_yaml_name="dev",
             user_selected_modules=["module1", "module2"],
         )
-        parse_input = BuildV2Command._read_file_system(parameters)
-        assert parse_input.model_dump() == {
+        build_files = BuildV2Command._read_file_system(parameters)
+        assert build_files.model_dump() == {
             "yaml_files": [resource_file.relative_to(tmp_path)],
             # Since user_selected_modules are provided, they should be used instead of config selected modules.
             "selected_modules": {"module1", "module2"},

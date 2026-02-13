@@ -1,7 +1,7 @@
 import os
 import sys
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 from pydantic import JsonValue, ValidationError
@@ -13,9 +13,9 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2._module_source_parser import ModuleSourceParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
-    BuildFiles,
     BuildFolder,
     BuildParameters,
+    BuildSourceFiles,
     BuiltModule,
     ConfigYAML,
     InsightList,
@@ -133,7 +133,7 @@ class BuildV2Command(ToolkitCommand):
             suggestion.append(f"-o {display_path}")
         return f"'{' '.join(suggestion)}'"
 
-    def _parse_module_sources(self, build: BuildFiles) -> list[ModuleSource]:
+    def _parse_module_sources(self, build: BuildSourceFiles) -> list[ModuleSource]:
         parser = ModuleSourceParser(
             build.selected_modules,
             build.organization_dir,
@@ -147,7 +147,7 @@ class BuildV2Command(ToolkitCommand):
         return module_sources
 
     @classmethod
-    def _read_file_system(cls, parameters: BuildParameters) -> BuildFiles:
+    def _read_file_system(cls, parameters: BuildParameters) -> BuildSourceFiles:
         """Reads the file system to find the YAML files to build along with config.<name>.yaml if it exists."""
         selected: set[RelativeDirPath | str] = {
             parameters.modules_directory.relative_to(parameters.organization_dir)
@@ -183,7 +183,7 @@ class BuildV2Command(ToolkitCommand):
             yaml_file.relative_to(parameters.organization_dir)
             for yaml_file in parameters.modules_directory.rglob("*.y*ml")
         ]
-        return BuildFiles(
+        return BuildSourceFiles(
             yaml_files=yaml_files,
             selected_modules=selected,
             variables=variables,
@@ -226,7 +226,7 @@ class BuildV2Command(ToolkitCommand):
         return selected, errors
 
     def _build_modules(
-        self, module_sources: Iterable[ModuleSource], build_dir: Path, max_workers: int = 1
+        self, module_sources: Sequence[ModuleSource], build_dir: Path, max_workers: int = 1
     ) -> BuildFolder:
         folder: BuildFolder = BuildFolder(path=build_dir)
 
