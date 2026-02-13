@@ -140,6 +140,7 @@ class BuildV2Command(ToolkitCommand):
         )
         module_sources = parser.parse(build.yaml_files, build.variables)
         if parser.errors:
+            # Todo: Nicer way of formatting errors.
             raise ToolkitValueError(
                 "Errors encountered while parsing modules:\n" + "\n".join(f"- {error!s}" for error in parser.errors)
             )
