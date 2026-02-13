@@ -1,6 +1,5 @@
 from typing import Any, Literal
 
-from cognite.client.data_classes import TransformationWrite
 from pydantic import Field, field_validator, model_serializer
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
@@ -10,7 +9,6 @@ from .transformation_destination import Destination
 
 
 class TransformationYAML(ToolkitResource):
-    _cdf_resource = TransformationWrite
     external_id: str = Field(description="The external ID provided by the client.")
     name: str = Field(description="Name of the transformation.")
     ignore_null_fields: bool = Field(
