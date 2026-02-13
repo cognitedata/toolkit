@@ -1,7 +1,7 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, final
 
-from cognite.client.data_classes.capabilities import AllScope, Capability, UnknownAcl
+from cognite.client.data_classes.capabilities import Capability
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
@@ -47,15 +47,10 @@ class DataProductCRUD(ResourceCRUD[str, DataProductRequest, DataProductResponse]
     def get_required_capability(
         cls, items: Sequence[DataProductRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
-        if not items and items is not None:
-            return []
 
-        return UnknownAcl(
-            actions=[],
-            scope=AllScope(),
-            capability_name="dataproductsAcl",
-            allow_unknown=True,
-        )
+        # dataproductsAcl is not yet in the SDK — return empty to skip capability verification.
+        # Cannot use UnknownACL due to bug in the SDK.
+        return []
 
     def dump_resource(self, resource: DataProductResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
