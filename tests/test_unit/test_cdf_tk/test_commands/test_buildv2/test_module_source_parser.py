@@ -19,5 +19,8 @@ class TestModuleSourceParser:
         ],
     )
     def test_find_modules(self, yaml_files: list[str], expected_modules: dict[str, list[str]]):
-        actual_modules = ModuleSourceParser._find_modules([Path(yaml_file) for yaml_file in yaml_files])
+        found_modules = ModuleSourceParser._find_modules([Path(yaml_file) for yaml_file in yaml_files])
+        actual_modules = {
+            module.as_posix(): [file.as_posix() for file in files] for module, files in found_modules.items()
+        }
         assert actual_modules == expected_modules

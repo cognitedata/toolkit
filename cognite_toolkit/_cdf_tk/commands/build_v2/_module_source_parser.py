@@ -1,3 +1,5 @@
+from collections import defaultdict
+from pathlib import Path
 from typing import Any
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
@@ -8,6 +10,8 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     RelativeDirPath,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
+from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA
 
 
 class ModuleSourceParser:
@@ -48,7 +52,22 @@ class ModuleSourceParser:
     @classmethod
     def _find_modules(cls, yaml_files: list[RelativeDirPath]) -> dict[RelativeDirPath, list[RelativeDirPath]]:
         """Organizes YAML files by their module (top-level folder in the modules directory)."""
-        raise NotImplementedError()
+        files_by_module: dict[RelativeDirPath, list[RelativeDirPath]] = defaultdict(list)
+        for yaml_file in yaml_files:
+            module_path = cls._get_module_path_from_resource_file_path(yaml_file)
+            if module_path:
+                files_by_module[module_path].append(yaml_file)
+        return dict(files_by_module)
+
+    @staticmethod
+    def _get_module_path_from_resource_file_path(resource_file: Path) -> Path | None:
+        for parent in resource_file.parents:
+            if parent.name in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA:
+                return parent.parent
+            if parent.name == MODULES:
+                # Search over.
+                return None
+        return None
 
     @classmethod
     def _validate_modules(
