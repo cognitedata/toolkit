@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     RelativeDirPath,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
-from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.constants import EXCL_FILES
 from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA
 
 
@@ -24,8 +24,8 @@ class ModuleSourceParser:
         self.errors = InsightList()
 
     def parse(self, yaml_files: list[RelativeDirPath], variables: dict[str, Any]) -> list[ModuleSource]:
-        files_by_module = self._find_modules(yaml_files)
-        errors = self._validate_modules(list(files_by_module.keys()), self.selected_modules)
+        files_by_module, orphans = self._find_modules(yaml_files)
+        errors = self._validate_modules(list(files_by_module.keys()), self.selected_modules, orphans)
         if errors:
             self.errors.extend(errors)
             return []
@@ -50,28 +50,35 @@ class ModuleSourceParser:
         return module_sources
 
     @classmethod
-    def _find_modules(cls, yaml_files: list[RelativeDirPath]) -> dict[RelativeDirPath, list[RelativeDirPath]]:
+    def _find_modules(
+        cls, yaml_files: list[RelativeDirPath]
+    ) -> tuple[dict[RelativeDirPath, list[RelativeDirPath]], list[RelativeDirPath]]:
         """Organizes YAML files by their module (top-level folder in the modules directory)."""
         files_by_module: dict[RelativeDirPath, list[RelativeDirPath]] = defaultdict(list)
+        orphan_files: list[RelativeDirPath] = []
         for yaml_file in yaml_files:
+            if yaml_file.name in EXCL_FILES:
+                continue
             module_path = cls._get_module_path_from_resource_file_path(yaml_file)
             if module_path:
                 files_by_module[module_path].append(yaml_file)
-        return dict(files_by_module)
+            else:
+                orphan_files.append(yaml_file)
+        return dict(files_by_module), orphan_files
 
     @staticmethod
     def _get_module_path_from_resource_file_path(resource_file: Path) -> Path | None:
         for parent in resource_file.parents:
             if parent.name in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA:
                 return parent.parent
-            if parent.name == MODULES:
-                # Search over.
-                return None
         return None
 
     @classmethod
     def _validate_modules(
-        cls, module_paths: list[RelativeDirPath], selection: set[RelativeDirPath | str]
+        cls,
+        module_paths: list[RelativeDirPath],
+        selection: set[RelativeDirPath | str],
+        orphan_files: list[RelativeDirPath],
     ) -> list[ModelSyntaxError]:
         raise NotImplementedError()
 
