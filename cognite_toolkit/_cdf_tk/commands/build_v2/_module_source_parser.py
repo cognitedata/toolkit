@@ -30,7 +30,7 @@ class ModuleSourceParser:
             self.errors.extend(errors)
             return []
         selected_modules = self._select_modules(files_by_module, self.selected_modules)
-        build_variables, errors = self._parse_variables(variables, set(files_by_module.keys()), set(selected_modules))
+        build_variables, errors = self._parse_module_variables(variables, set(files_by_module.keys()), set(selected_modules))
         if errors:
             self.errors.extend(errors)
             return []
@@ -115,10 +115,35 @@ class ModuleSourceParser:
         ]
 
     @classmethod
-    def _parse_variables(
+    def _parse_module_variables(
         cls,
         variables: dict[str, Any],
         available_modules: set[RelativeDirPath],
         selected_modules: set[RelativeDirPath],
     ) -> tuple[dict[RelativeDirPath, list[list[BuildVariable]]], list[ModelSyntaxError]]:
-        return {}, []
+        all_available_paths = {Path("")} | available_modules | {parent for module in available_modules for parent in
+                                                                module.parents}
+        selected_paths = {Path("")} | selected_modules | {parent for module in selected_modules for parent in module.parents}
+        parsed_variable, errors = cls._parse_ariables(variables, all_available_paths, selected_paths)
+        variable_by_module = cls._organize_variables_by_module(parsed_variable, selected_modules)
+
+        return {}, errors
+
+    @classmethod
+    def _parse_variables(cls, variables: dict[str, Any], available_paths: set[RelativeDirPath], selected_paths: set[RelativeDirPath]) -> tuple[dict[RelativeDirPath, list[BuildVariable]], list[ModelSyntaxError]]:
+        variables_by_path: dict[RelativeDirPath, list[BuildVariable]] = defaultdict(list)
+        errors: list[ModelSyntaxError] = []
+        to_check: list[tuple[RelativeDirPath, dict[str, Any]]] = [(Path(""), variables)]
+        while to_check:
+            raise NotImplementedError()
+
+    @classmethod
+    def _organize_variables_by_module(cls, variables_by_path: dict[RelativeDirPath, list[BuildVariable]], selected_modules: set[RelativeDirPath]) -> dict[RelativeDirPath, list[list[BuildVariable]]]:
+        variable_by_module: dict[RelativeDirPath, list[list[BuildVariable]]] = defaultdict(list)
+        for module in selected_modules:
+            module_variables = []
+            for path, variables in variables_by_path.items():
+                if path == Path("") or path in module.parents or path == module:
+                    module_variables.extend(variables)
+            variable_by_module[module].append(module_variables)
+        return variable_by_module

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, DirectoryPath, Field
+from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
 
@@ -6,7 +6,10 @@ from ._insights import InsightList
 from ._types import AbsoluteFilePath, RelativeDirPath
 
 
-class BuildVariable(BaseModel): ...
+class BuildVariable(BaseModel):
+    name: str
+    value: str | bool | int | float | list[str] | list[int] | list[float] | list[bool]
+
 
 
 class ModuleSource(BaseModel):
