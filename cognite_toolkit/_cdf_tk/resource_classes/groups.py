@@ -1,7 +1,6 @@
 import sys
 from typing import Any, Literal, cast
 
-from cognite.client.data_classes import GroupWrite
 from pydantic import ModelWrapValidatorHandler, model_serializer, model_validator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
@@ -15,7 +14,6 @@ else:
 
 
 class GroupYAML(ToolkitResource):
-    _cdf_resource = GroupWrite
     name: str
     capabilities: list[Capability] | None = None
     metadata: dict[str, str] | None = None

@@ -1,7 +1,6 @@
 from abc import ABC
 from typing import Annotated, Literal
 
-from cognite.client.data_classes import WorkflowVersionUpsert
 from pydantic import Field, JsonValue
 
 from .base import BaseModelResource, ToolkitResource
@@ -230,7 +229,6 @@ class WorkflowDefinition(BaseModelResource):
 
 
 class WorkflowVersionYAML(ToolkitResource):
-    _cdf_resource = WorkflowVersionUpsert
     workflow_external_id: str = Field(
         max_length=255,
         description="Identifier for a workflow. Must be unique for the project. No trailing or leading whitespace and no null characters allowed.",
