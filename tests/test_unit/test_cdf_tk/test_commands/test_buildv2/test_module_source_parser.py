@@ -8,7 +8,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
 from cognite_toolkit._cdf_tk.constants import DEFAULT_CONFIG_FILE
 
 
-
 class TestModuleSourceParser:
     @pytest.mark.parametrize(
         "yaml_files, expected_modules, expected_orphans",
@@ -76,15 +75,21 @@ class TestModuleSourceParser:
                 [],
                 id="Valid variables for selected module",
             )
-
-        ]
+        ],
     )
-    def test_parse_variables(self, variables: dict[str, Any], available_paths: set[str], selected_paths: set[str], expected_variables: dict[str, list[BuildVariable]], error_messages: list[str]) -> None:
+    def test_parse_variables(
+        self,
+        variables: dict[str, Any],
+        available_paths: set[str],
+        selected_paths: set[str],
+        expected_variables: dict[str, list[BuildVariable]],
+        error_messages: list[str],
+    ) -> None:
 
-        build_variables, errors = ModuleSourceParser._parse_variables(variables,
-                                                                      {Path(path) for path in available_paths},
-                                                                        {Path(path) for path in selected_paths})
+        build_variables, errors = ModuleSourceParser._parse_variables(
+            variables, {Path(path) for path in available_paths}, {Path(path) for path in selected_paths}
+        )
         actual_error_messages = [error.message for error in errors]
         assert actual_error_messages == error_messages
-        actual_variables = {path.as_posix(): var_list  for path, var_list in build_variables.items()}
+        actual_variables = {path.as_posix(): var_list for path, var_list in build_variables.items()}
         assert actual_variables == expected_variables

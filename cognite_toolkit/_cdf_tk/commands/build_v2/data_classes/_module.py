@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, DirectoryPath, Field
 
 from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
 
@@ -7,9 +7,14 @@ from ._types import AbsoluteFilePath, RelativeDirPath
 
 
 class BuildVariable(BaseModel):
-    name: str
+    id: RelativeDirPath
     value: str | bool | int | float | list[str] | list[int] | list[float] | list[bool]
+    is_selected: bool
+    iteration: int | None = None
 
+    @property
+    def name(self) -> str:
+        return self.id.name
 
 
 class ModuleSource(BaseModel):

@@ -1,7 +1,7 @@
 from ._build import BuildFolder, BuildParameters, BuildSourceFiles, BuiltModule
 from ._config import ConfigYAML
 from ._insights import ConsistencyError, Insight, InsightList, ModelSyntaxError, Recommendation
-from ._module import Module, ModuleSource, ResourceType, BuildVariable
+from ._module import BuildVariable, Module, ModuleSource, ResourceType
 from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath, ValidationType
 
 __all__ = [
@@ -9,6 +9,7 @@ __all__ = [
     "BuildFolder",
     "BuildParameters",
     "BuildSourceFiles",
+    "BuildVariable",
     "BuiltModule",
     "ConfigYAML",
     "ConsistencyError",
@@ -20,7 +21,6 @@ __all__ = [
     "Recommendation",
     "RelativeDirPath",
     "RelativeFilePath",
-    "BuildVariable",
     "ResourceType",
     "ValidationType",
 ]
