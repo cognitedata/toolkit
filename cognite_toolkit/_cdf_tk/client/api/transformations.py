@@ -1,6 +1,8 @@
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
+from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
+from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
@@ -20,6 +22,8 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
                 "list": Endpoint(method="POST", path="/transformations/filter", item_limit=1000),
             },
         )
+        self.schedules = TransformationSchedulesAPI(http_client)
+        self.notifications = TransformationNotificationsAPI(http_client)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse

@@ -38,6 +38,8 @@ from cognite_toolkit._cdf_tk.client.api.simulator_routines import SimulatorRouti
 from cognite_toolkit._cdf_tk.client.api.spaces import SpacesAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import ThreeDClassicModelsAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
+from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
+from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
@@ -158,6 +160,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamReques
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicRequest, ThreeDModelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest, TransformationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_notification import (
+    TransformationNotificationRequest,
+    TransformationNotificationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule import (
+    TransformationScheduleRequest,
+    TransformationScheduleResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     WorkflowTriggerRequest,
@@ -482,6 +492,21 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "ownerIsCurrentUser": True,
             "hasSourceOidcCredentials": False,
             "hasDestinationOidcCredentials": False,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        TransformationScheduleResponse: {
+            "id": 301,
+            "externalId": "transformation_schedule_001",
+            "interval": "0 0 * * *",
+            "isPaused": False,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        TransformationNotificationResponse: {
+            "id": 302,
+            "destination": "user@example.com",
+            "transformationId": 205,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
@@ -962,6 +987,24 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             api_class=TransformationsAPI,
         ),
         id="Transformation",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=TransformationScheduleResponse,
+            request_cls=TransformationScheduleRequest,
+            example_data=get_example_minimum_responses(TransformationScheduleResponse),
+            api_class=TransformationSchedulesAPI,
+        ),
+        id="TransformationSchedule",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=TransformationNotificationResponse,
+            request_cls=TransformationNotificationRequest,
+            example_data=get_example_minimum_responses(TransformationNotificationResponse),
+            api_class=TransformationNotificationsAPI,
+        ),
+        id="TransformationNotification",
     )
 
     yield pytest.param(
