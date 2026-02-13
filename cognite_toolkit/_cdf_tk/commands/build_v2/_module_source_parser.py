@@ -1,4 +1,3 @@
-from collections.abc import Iterable
 from typing import Any
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
@@ -24,7 +23,7 @@ class ModuleSourceParser:
         self.variables = variables
         self.selected_modules = selected_modules
         self.organization_dir = organization_dir
-        self.insights = InsightList()
+        self.errors = InsightList()
 
-    def parse(self) -> Iterable[ModuleSource]:
+    def parse(self) -> list[ModuleSource]:
         raise NotImplementedError("")

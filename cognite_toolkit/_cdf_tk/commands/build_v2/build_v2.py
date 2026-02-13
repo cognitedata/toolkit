@@ -133,13 +133,19 @@ class BuildV2Command(ToolkitCommand):
             suggestion.append(f"-o {display_path}")
         return f"'{' '.join(suggestion)}'"
 
-    def _parse_module_sources(self, parse_inputs: BuildFiles) -> Iterable[ModuleSource]:
-        yield from ModuleSourceParser(
+    def _parse_module_sources(self, parse_inputs: BuildFiles) -> list[ModuleSource]:
+        parser = ModuleSourceParser(
             parse_inputs.yaml_files,
             parse_inputs.variables,
             parse_inputs.selected_modules,
             parse_inputs.organization_dir,
-        ).parse()
+        )
+        module_sources = parser.parse()
+        if parser.errors:
+            raise ToolkitValueError(
+                "Errors encountered while parsing modules:\n" + "\n".join(f"- {error!s}" for error in parser.errors)
+            )
+        return module_sources
 
     @classmethod
     def _read_file_system(cls, parameters: BuildParameters) -> BuildFiles:
