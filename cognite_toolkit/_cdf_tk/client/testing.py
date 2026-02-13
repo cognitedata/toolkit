@@ -5,8 +5,6 @@ from unittest.mock import MagicMock
 
 from cognite.client._api.datapoints import DatapointsAPI
 from cognite.client._api.datapoints_subscriptions import DatapointsSubscriptionAPI
-from cognite.client._api.functions import FunctionCallsAPI
-from cognite.client._api.functions import FunctionSchedulesAPI as LegacyFunctionSchedulesAPI
 from cognite.client._api.raw import RawDatabasesAPI as LegacyRawDatabasesAPI
 from cognite.client._api.raw import RawRowsAPI
 from cognite.client._api.raw import RawTablesAPI as LegacyRawTablesAPI
@@ -23,7 +21,6 @@ from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.dml import DMLAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_data_modeling import ExtendedInstancesAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFileMetadataAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.extended_functions import ExtendedFunctionsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawAPI, RawDatabasesAPI, RawTablesAPI
@@ -117,9 +114,6 @@ class ToolkitClientMock(CogniteClientMock):
         self.canvas.industrial = MagicMock(spec_set=IndustrialCanvasAPI)
         self.charts = MagicMock(spec_set=ChartsAPI)
         self.files = MagicMock(spec_set=ExtendedFileMetadataAPI)
-        self.functions = MagicMock(spec=ExtendedFunctionsAPI)
-        self.functions.calls = MagicMock(spec_set=FunctionCallsAPI)
-        self.functions.schedules = MagicMock(spec_set=LegacyFunctionSchedulesAPI)
         self.infield = MagicMock(spec=InfieldAPI)
         self.infield.apm_config = MagicMock(spec_set=APMConfigAPI)
         self.infield.config = MagicMock(spec_set=InfieldConfigAPI)

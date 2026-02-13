@@ -335,7 +335,6 @@ API_RESOURCES = [
         methods={
             "create": [
                 Method(api_class_method="create", mock_class_method="create_single"),
-                Method(api_class_method="create_with_429_retry", mock_class_method="create_single"),
             ],
             "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
             "retrieve": [

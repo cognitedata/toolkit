@@ -4,33 +4,16 @@ from unittest.mock import MagicMock, patch
 import pytest
 import respx
 from cognite.client import global_config
-from cognite.client.data_classes import FunctionWrite
 from httpx import Response
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
 
-class TestExtendedFunctionsAPI:
-    def test_create_function_200(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
-        config = toolkit_config
-        client = ToolkitClient(config=config, enable_set_pending_ids=True)
-        url = config.create_api_url("/functions")
-        fun = FunctionWrite(name="test_function", file_id=123, external_id="test_function")
-
-        respx_mock.post(url).mock(
-            return_value=Response(
-                status_code=200,
-                json={"items": [{"externalId": "test_function", "name": "test_function", "createdTime": 42}]},
-            )
-        )
-        result = client.functions.create_with_429_retry(fun)
-
-        assert result.external_id == "test_function"
-        assert result.name == "test_function"
-        assert result.created_time == 42
-
+class TestFunctionsAPI:
     def test_create_function_429_succeed(
         self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
     ) -> None:
@@ -38,7 +21,7 @@ class TestExtendedFunctionsAPI:
         console = MagicMock(spec=Console)
         client = ToolkitClient(config=config, enable_set_pending_ids=True, console=console)
         url = config.create_api_url("/functions")
-        fun = FunctionWrite(name="test_function", file_id=123, external_id="test_function")
+        fun = FunctionRequest(name="test_function", file_id=123, external_id="test_function")
 
         with patch(f"{HTTPClient.__module__}.time"):
             # Add multiple 429 responses followed by a success response
@@ -49,12 +32,24 @@ class TestExtendedFunctionsAPI:
             responses.append(
                 Response(
                     status_code=200,
-                    json={"items": [{"externalId": "test_function", "name": "test_function", "createdTime": 42}]},
+                    json={
+                        "items": [
+                            {
+                                "externalId": "test_function",
+                                "name": "test_function",
+                                "createdTime": 42,
+                                "fileId": 123,
+                                "id": 1,
+                            }
+                        ]
+                    },
                 )
             )
             respx_mock.post(url).mock(side_effect=responses)
 
-            result = client.functions.create_with_429_retry(fun)
+            results = client.tool.functions.create([fun])
+        assert len(results) == 1
+        result = results[0]
         assert result.external_id == "test_function"
         assert console.print.call_count == global_config.max_retries - 1
         assert console.print.call_args.args[1] == (
@@ -68,7 +63,7 @@ class TestExtendedFunctionsAPI:
         console = MagicMock(spec=Console)
         client = ToolkitClient(config=config, enable_set_pending_ids=True, console=console)
         url = config.create_api_url("/functions")
-        fun = FunctionWrite(name="test_function", file_id=123, external_id="test_function")
+        fun = FunctionRequest(name="test_function", file_id=123, external_id="test_function")
 
         with patch(f"{HTTPClient.__module__}.time"):
             # Mock to always return 429 responses
@@ -79,7 +74,7 @@ class TestExtendedFunctionsAPI:
             )
 
             with pytest.raises(ToolkitAPIError) as exc_info:
-                client.functions.create_with_429_retry(fun)
+                client.tool.functions.create([fun])
         assert console.print.call_count == global_config.max_retries
         assert "Too many requests" in str(exc_info.value)
         assert (
@@ -93,7 +88,7 @@ class TestExtendedFunctionsAPI:
         console = MagicMock(spec=Console)
         client = ToolkitClient(config=config, enable_set_pending_ids=True, console=console)
         url = config.create_api_url("/functions")
-        fun = FunctionWrite(name="test_function", file_id=123, external_id="test_function")
+        fun = FunctionRequest(name="test_function", file_id=123, external_id="test_function")
 
         with patch(f"{HTTPClient.__module__}.time"):
             respx_mock.post(url).mock(
@@ -103,7 +98,7 @@ class TestExtendedFunctionsAPI:
             )
 
             with pytest.raises(ToolkitAPIError) as exc_info:
-                client.functions.create_with_429_retry(fun)
+                client.tool.functions.create([fun])
         assert console.print.call_count == 0
         assert "Too many requests" in str(exc_info.value)
 
@@ -111,14 +106,14 @@ class TestExtendedFunctionsAPI:
         config = toolkit_config
         client = ToolkitClient(config=config, enable_set_pending_ids=True)
         url = config.create_api_url("/functions")
-        fun = FunctionWrite(name="test_function", file_id=123, external_id="test_function")
+        fun = FunctionRequest(name="test_function", file_id=123, external_id="test_function")
 
         from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 
         respx_mock.post(url).mock(return_value=Response(status_code=401, json={"error": "Unauthorized"}))
 
         with pytest.raises(ToolkitAPIError) as exc_info:
-            client.functions.create_with_429_retry(fun)
+            client.tool.functions.create([fun])
 
         assert "401" in str(exc_info.value)
         assert "Unauthorized" in str(exc_info.value)
@@ -136,7 +131,7 @@ class TestExtendedFunctionsAPI:
         respx_mock.post(url).mock(return_value=Response(status_code=200, json={}))
 
         # Should not raise any exception
-        client.functions.delete_with_429_retry(["test_function"], ignore_unknown_ids=True)
+        client.tool.functions.delete([ExternalId(external_id="test_function")], ignore_unknown_ids=True)
 
         assert len(respx_mock.calls) == 1
         call = respx_mock.calls[0]
@@ -164,7 +159,7 @@ class TestExtendedFunctionsAPI:
             respx_mock.post(url).mock(side_effect=responses)
 
             # Should not raise any exception
-            client.functions.delete_with_429_retry(["test_function"], ignore_unknown_ids=True)
+            client.tool.functions.delete([ExternalId(external_id="test_function")], ignore_unknown_ids=True)
         assert console.print.call_count == global_config.max_retries - 1
         assert console.print.call_args.args[1] == (
             "Rate limit exceeded for the '/functions/delete' endpoint. Retrying after 42.0 seconds."
