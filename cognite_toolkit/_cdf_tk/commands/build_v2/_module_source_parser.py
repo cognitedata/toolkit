@@ -163,7 +163,7 @@ class ModuleSourceParser:
                         )
                 elif isinstance(value, list):
                     if all(isinstance(item, str | float | int | bool) for item in value):
-                        variables_by_path[subpath].append(
+                        variables_by_path[path].append(
                             BuildVariable(
                                 id=subpath, value=value, is_selected=path in selected_paths, iteration=iteration
                             )

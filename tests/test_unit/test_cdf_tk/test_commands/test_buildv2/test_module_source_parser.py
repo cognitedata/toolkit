@@ -106,9 +106,7 @@ class TestModuleSourceParser:
                 {""},
                 {""},
                 {
-                    "list_var": [
-                        BuildVariable(id=Path("list_var"), value=["a", "b", "c"], is_selected=True, iteration=None)
-                    ],
+                    ".": [BuildVariable(id=Path("list_var"), value=["a", "b", "c"], is_selected=True, iteration=None)],
                 },
                 [],
                 id="List of strings as single variable",

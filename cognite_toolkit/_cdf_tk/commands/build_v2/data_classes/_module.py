@@ -8,7 +8,7 @@ from ._types import AbsoluteFilePath, RelativeDirPath
 
 class BuildVariable(BaseModel):
     id: RelativeDirPath
-    value: str | bool | int | float | list[str] | list[int] | list[float] | list[bool]
+    value: str | bool | int | float | list[str | bool | int | float]
     is_selected: bool
     iteration: int | None = None
 
