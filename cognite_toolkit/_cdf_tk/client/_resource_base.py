@@ -3,6 +3,7 @@
 import sys
 import types
 from abc import ABC, abstractmethod
+from functools import total_ordering
 from typing import Any, ClassVar, Generic, Literal, TypeVar, Union, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict
@@ -77,6 +78,7 @@ class RequestItem(BaseModelObject, ABC):
 T_RequestItem = TypeVar("T_RequestItem", bound=RequestItem)
 
 
+@total_ordering
 class Identifier(RequestItem):
     """Base class for all identifier objects typically
     {"externalId": "..."}, {"id": ...}, {"space": "...", "externalId: "..."}."""
@@ -89,6 +91,16 @@ class Identifier(RequestItem):
         This is the default serialization method for request resources.
         """
         return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True)
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Identifier):
+            return NotImplemented
+        return self.dump() == other.dump()
+
+    def __lt__(self, other: Any) -> bool:
+        if not isinstance(other, Identifier):
+            return NotImplemented
+        return str(self) < str(other)
 
 
 T_Identifier = TypeVar("T_Identifier", bound=Identifier)
