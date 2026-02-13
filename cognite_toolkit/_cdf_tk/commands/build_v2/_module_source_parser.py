@@ -37,14 +37,24 @@ class ModuleSourceParser:
         module_sources: list[ModuleSource] = []
         for module in selected_modules:
             module_build_variables = build_variables.get(module, [])
-            for iteration, module_variable in enumerate(module_build_variables, start=1):
+            if module_build_variables:
+                for iteration, module_variable in enumerate(module_build_variables, start=1):
+                    module_sources.append(
+                        ModuleSource(
+                            path=self.organization_dir / module,
+                            id=module,
+                            resource_files=files_by_module[module],
+                            variables=module_variable,
+                            iteration=iteration,
+                        )
+                    )
+            else:
                 module_sources.append(
                     ModuleSource(
                         path=self.organization_dir / module,
                         id=module,
                         resource_files=files_by_module[module],
-                        variables=module_variable,
-                        iteration=iteration,
+                        variables=[],
                     )
                 )
         return module_sources
@@ -91,7 +101,13 @@ class ModuleSourceParser:
     def _select_modules(
         cls, files_by_module: dict[RelativeDirPath, list[RelativeDirPath]], selection: set[RelativeDirPath | str]
     ) -> list[RelativeDirPath]:
-        raise NotImplementedError()
+        return [
+            module_path
+            for module_path in files_by_module.keys()
+            if module_path in selection
+            or module_path.name in selection
+            or any(parent in selection for parent in module_path.parents)
+        ]
 
     @classmethod
     def _parse_variables(
@@ -100,4 +116,4 @@ class ModuleSourceParser:
         available_modules: set[RelativeDirPath],
         selected_modules: set[RelativeDirPath],
     ) -> tuple[dict[RelativeDirPath, list[list[BuildVariable]]], list[ModelSyntaxError]]:
-        raise NotImplementedError()
+        return {}, []
