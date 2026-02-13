@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     TransformationCRUD,
     WorkflowTriggerCRUD,
 )
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.data_product import DataProductCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.location import LocationFilterCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeployResult
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -126,6 +127,9 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
         if loader_cls in {HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD}:
             # These resources we have no way of knowing if they have changed. So they are always redeployed.
             continue
+        if loader_cls is DataProductCRUD:
+            # Data Products API is not yet available on the test server.
+            continue
         loader = loader_cls.create_loader(client, build_dir)
         worker = ResourceWorker(loader, "deploy")
         files = worker.load_files()
@@ -158,6 +162,8 @@ def get_changed_source_files(
             or loader_cls is LocationFilterCRUD
             # SearchConfigLoader is not supported in pull and post that also will require special handling
             or loader_cls is SearchConfigCRUD
+            # Data Products API is not yet available on the test server.
+            or loader_cls is DataProductCRUD
         ):
             continue
         loader = loader_cls.create_loader(env_vars.get_client(), build_dir)
