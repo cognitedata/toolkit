@@ -134,10 +134,7 @@ class BuildV2Command(ToolkitCommand):
         return f"'{' '.join(suggestion)}'"
 
     def _parse_module_sources(self, build: BuildSourceFiles) -> list[ModuleSource]:
-        parser = ModuleSourceParser(
-            build.selected_modules,
-            build.organization_dir,
-        )
+        parser = ModuleSourceParser(build.selected_modules, build.organization_dir)
         module_sources = parser.parse(build.yaml_files, build.variables)
         if parser.errors:
             # Todo: Nicer way of formatting errors.

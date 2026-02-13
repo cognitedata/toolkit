@@ -34,6 +34,14 @@ class ModuleSourceParser:
         if errors:
             self.errors.extend(errors)
             return []
+        return self._create_module_sources(build_variables, files_by_module, selected_modules)
+
+    def _create_module_sources(
+        self,
+        build_variables: dict[Path, list[list[BuildVariable]]],
+        files_by_module: dict[Path, list[Path]],
+        selected_modules: list[Path],
+    ) -> list[ModuleSource]:
         module_sources: list[ModuleSource] = []
         for module in selected_modules:
             source = ModuleSource(
