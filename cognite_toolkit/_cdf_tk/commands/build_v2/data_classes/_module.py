@@ -16,9 +16,9 @@ class ModuleSource(BaseModel):
 
     path: DirectoryPath = Field(description="Path to the module directory. Can be relative or absolute.")
     id: RelativeDirPath = Field(description="Relative path to the organization directory.")
-    iteration: int = 0
     resource_files: list[RelativeDirPath] = Field(default_factory=list)
     variables: list[BuildVariable] = Field(default_factory=list)
+    iteration: int = 0
 
     @property
     def name(self) -> str:
