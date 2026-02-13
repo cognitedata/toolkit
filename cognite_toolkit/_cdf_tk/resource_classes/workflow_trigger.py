@@ -2,7 +2,6 @@ import sys
 from types import MappingProxyType
 from typing import Any, ClassVar, cast
 
-from cognite.client.data_classes import WorkflowTrigger
 from pydantic import Field, JsonValue, ModelWrapValidatorHandler, model_serializer, model_validator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
@@ -78,7 +77,6 @@ class DataModelingTrigger(TriggerRuleYAML):
 
 
 class WorkflowTriggerYAML(ToolkitResource):
-    _cdf_resource = WorkflowTrigger
     external_id: str = Field(
         max_length=255,
         description="Identifier for a trigger. Must be unique for the project. "

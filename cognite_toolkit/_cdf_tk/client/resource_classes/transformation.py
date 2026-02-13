@@ -12,7 +12,10 @@ from .identifiers import ExternalId
 
 
 class NonceCredentials(BaseModelObject):
+    session_id: int
     nonce: str
+    cdf_project_name: str
+    client_id: str | None = None
 
 
 class DestinationDefinition(BaseModelObject):
@@ -90,8 +93,8 @@ class BlockedInfo(BaseModelObject):
 
 
 class SessionInfo(BaseModelObject):
-    client_id: str
-    session_id: str
+    client_id: str | None = None
+    session_id: int
     project_name: str
 
 
