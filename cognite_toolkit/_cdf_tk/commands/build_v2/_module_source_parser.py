@@ -129,8 +129,9 @@ class ModuleSourceParser:
         selected_paths = (
             {Path("")} | selected_modules | {parent for module in selected_modules for parent in module.parents}
         )
-        parsed_variable, errors = cls._parse_variables(variables, all_available_paths, selected_paths)
-        variable_by_module = cls._organize_variables_by_module(parsed_variable, selected_modules)
+        parsed_variables, errors = cls._parse_variables(variables, all_available_paths, selected_paths)
+        variable_by_module = cls._organize_variables_by_module(parsed_variables, selected_modules)
+        # Todo: Check that variables paths are not deeper than the module path.
 
         return variable_by_module, errors
 
@@ -146,10 +147,8 @@ class ModuleSourceParser:
             for key, value in subdict.items():
                 subpath = path / key
                 if isinstance(value, str | float | int | bool):
-                    variables_by_path[subpath].append(
-                        BuildVariable(
-                            id=subpath, value=value, is_selected=subpath in selected_paths, iteration=iteration
-                        )
+                    variables_by_path[path].append(
+                        BuildVariable(id=subpath, value=value, is_selected=path in selected_paths, iteration=iteration)
                     )
                 elif isinstance(value, dict):
                     if subpath in available_paths:
@@ -167,7 +166,7 @@ class ModuleSourceParser:
                     if all(isinstance(item, str | float | int | bool) for item in value):
                         variables_by_path[subpath].append(
                             BuildVariable(
-                                id=subpath, value=value, is_selected=subpath in selected_paths, iteration=iteration
+                                id=subpath, value=value, is_selected=path in selected_paths, iteration=iteration
                             )
                         )
                     elif all(isinstance(item, dict) for item in value):
