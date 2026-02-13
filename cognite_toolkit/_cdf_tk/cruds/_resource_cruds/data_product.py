@@ -46,7 +46,7 @@ class DataProductCRUD(ResourceCRUD[str, DataProductRequest, DataProductResponse]
         return UnknownAcl(
             actions=[],
             scope=AllScope(),
-            capability_name="dataProductsAcl",
+            capability_name="dataproductsAcl",
             allow_unknown=True,
         )
 

@@ -137,23 +137,12 @@ class TestCDFResourceAPI:
         resource = {
             "externalId": "dp_001",
             "name": "Example Data Product",
-            "instanceReadSpaces": [{"space": "my_space"}],
-            "governanceStatus": "governed",
+            "isGoverned": True,
+            "schemaSpace": "dp_001",
+            "tags": ["sales"],
+            "domains": [],
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
-            "versions": [
-                {
-                    "versionId": 1,
-                    "dataModel": {
-                        "space": "my_space",
-                        "externalId": "my_data_model",
-                        "version": "v1",
-                    },
-                    "isLatest": True,
-                    "createdTime": 1622547800000,
-                    "lastUpdatedTime": 1622547800000,
-                }
-            ],
         }
         instance = DataProductResponse.model_validate(resource)
         config = toolkit_config
