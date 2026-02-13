@@ -8,7 +8,6 @@ from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.dml import DMLAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_data_modeling import ExtendedDataModelingAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFileMetadataAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.extended_functions import ExtendedFunctionsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
@@ -34,7 +33,7 @@ from .api.project import ProjectAPI
 from .api.raw import RawAPI
 from .api.relationships import RelationshipsAPI
 from .api.robotics import RoboticsAPI
-from .api.search import SearchAPI
+from .api.search_config import SearchConfigurationsAPI
 from .api.security_categories import SecurityCategoriesAPI
 from .api.sequences import SequencesAPI
 from .api.simulators import SimulatorsAPI
@@ -75,6 +74,7 @@ class ToolAPI:
         self.security_categories = SecurityCategoriesAPI(http_client)
         self.relationships = RelationshipsAPI(http_client)
         self.sequences = SequencesAPI(http_client)
+        self.search_configurations = SearchConfigurationsAPI(http_client)
         self.simulators = SimulatorsAPI(http_client)
         self.three_d = ThreeDAPI(http_client)
         self.timeseries = TimeSeriesAPI(http_client)
@@ -91,25 +91,21 @@ class ToolkitClient(CogniteClient):
         console: Console | None = None,
     ) -> None:
         super().__init__(config=config)
-        http_client = HTTPClient(self.config)
+        http_client = HTTPClient(self.config, console=console)
         self.http_client = http_client
         toolkit_config = ToolkitClientConfig.from_client_config(self.config)
         self.console = console or Console(markup=True)
         self.tool = ToolAPI(http_client, self.console)
-        self.search = SearchAPI(self._config, self._API_VERSION, self)
         self.dml = DMLAPI(self._config, self._API_VERSION, self)
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self, self.console)
-        self.functions: ExtendedFunctionsAPI = ExtendedFunctionsAPI(
-            toolkit_config, self._API_VERSION, self, self.console
-        )
         self.data_modeling: ExtendedDataModelingAPI = ExtendedDataModelingAPI(self._config, self._API_VERSION, self)
         if enable_set_pending_ids:
             self.time_series: ExtendedTimeSeriesAPI = ExtendedTimeSeriesAPI(self._config, self._API_VERSION, self)
             self.files: ExtendedFileMetadataAPI = ExtendedFileMetadataAPI(self._config, self._API_VERSION, self)
         self.raw: ExtendedRawAPI = ExtendedRawAPI(self._config, self._API_VERSION, self)
         self.canvas = CanvasAPI(self.data_modeling.instances)
-        self.migration = MigrationAPI(self.data_modeling.instances)
+        self.migration = MigrationAPI(self.data_modeling.instances, http_client)
         self.token = TokenAPI(self)
         self.charts = ChartsAPI(self._config, self._API_VERSION, self)
         self.project = ProjectAPI(config=toolkit_config, cognite_client=self)

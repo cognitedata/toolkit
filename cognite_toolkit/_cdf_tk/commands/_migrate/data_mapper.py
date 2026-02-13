@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReference,
     ViewResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier, TypedNodeIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     ContainerReferenceApply,
     FdmInstanceContainerReferenceApply,
@@ -32,7 +32,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     IndustrialCanvasApply,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartWrite
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMappingApply
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
+    RESOURCE_VIEW_MAPPING_SPACE,
+    ResourceViewMappingRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
     AssetMappingDMRequest,
@@ -100,15 +103,16 @@ class AssetCentricMapper(
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
         self._ingestion_view_by_id: dict[ViewReference, ViewResponse] = {}
-        self._view_mapping_by_id: dict[str, ResourceViewMappingApply] = {}
+        self._view_mapping_by_id: dict[str, ResourceViewMappingRequest] = {}
         self._direct_relation_cache = DirectRelationCache(client)
 
     def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
         ingestion_view_ids = source_selector.get_ingestion_mappings()
-        ingestion_views = self.client.migration.resource_view_mapping.retrieve(ingestion_view_ids)
+        node_ids = TypedNodeIdentifier.from_str_ids(ingestion_view_ids, space=RESOURCE_VIEW_MAPPING_SPACE)
+        ingestion_views = self.client.migration.resource_view_mapping.retrieve(node_ids)
         defaults = {mapping.external_id: mapping for mapping in create_default_mappings()}
         # Custom mappings from CDF override the default mappings
-        self._view_mapping_by_id = defaults | {view.external_id: view.as_write() for view in ingestion_views}
+        self._view_mapping_by_id = defaults | {view.external_id: view.as_request_resource() for view in ingestion_views}
         missing_mappings = set(ingestion_view_ids) - set(self._view_mapping_by_id.keys())
         if missing_mappings:
             raise ToolkitValueError(

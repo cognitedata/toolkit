@@ -180,4 +180,4 @@ class InFieldCDMLocationConfigResponse(
     instance_type: Literal["node"] = "node"
 
     def as_request_resource(self) -> InFieldCDMLocationConfigRequest:
-        return InFieldCDMLocationConfigRequest.model_validate(self.dump(), extra="ignore")
+        return InFieldCDMLocationConfigRequest.model_validate(self.dump(context="toolkit"), extra="ignore")

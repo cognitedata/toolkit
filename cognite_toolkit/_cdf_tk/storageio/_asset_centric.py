@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, ClassVar, Generic
 
 from cognite.client.data_classes import Label, LabelDefinition
@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetAggregateItem, AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
@@ -83,11 +83,15 @@ class AssetCentricIO(
     def configurations(self, selector: AssetCentricSelector) -> Iterable[StorageIOConfig]:
         data_set_ids = self._downloaded_data_sets_by_selector[selector]
         if data_set_ids:
-            data_set_external_ids = self.client.lookup.data_sets.external_id(list(data_set_ids))
+            data_set_external_ids = [
+                ExternalId(external_id=data_set_external_id)
+                for data_set_external_id in self.client.lookup.data_sets.external_id(list(data_set_ids))
+            ]
             yield from self._configurations(data_set_external_ids, DataSetsCRUD.create_loader(self.client))
 
         yield from self._configurations(
-            list(self._downloaded_labels_by_selector[selector]), LabelCRUD.create_loader(self.client)
+            [ExternalId(external_id=label) for label in self._downloaded_labels_by_selector[selector]],
+            LabelCRUD.create_loader(self.client),
         )
 
     def _get_classic_filter(self, selector: AssetCentricSelector) -> ClassicFilter:
@@ -122,7 +126,7 @@ class AssetCentricIO(
     @classmethod
     def _configurations(
         cls,
-        ids: list[str],
+        ids: Sequence[Hashable],
         loader: DataSetsCRUD | LabelCRUD,
     ) -> Iterable[StorageIOConfig]:
         if not ids:

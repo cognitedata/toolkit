@@ -35,7 +35,7 @@ from cognite.client.data_classes.extractionpipelines import (
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -118,7 +118,7 @@ class ExtractionPipelineCRUD(ResourceCRUD[str, ExtractionPipelineWrite, Extracti
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         seen_databases: set[str] = set()
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, item["dataSetExternalId"]
+            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
         if "rawTables" in item:
             for entry in item["rawTables"]:
                 if db := entry.get("dbName"):
@@ -197,9 +197,12 @@ class ExtractionPipelineCRUD(ResourceCRUD[str, ExtractionPipelineWrite, Extracti
         if data_set_external_id is None:
             yield from iter(self.client.extraction_pipelines)
             return
-        data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
-        if data_set is None:
+        data_sets = self.client.tool.datasets.retrieve(
+            [ExternalId(external_id=data_set_external_id)], ignore_unknown_ids=True
+        )
+        if not data_sets:
             raise ToolkitRequiredValueError(f"DataSet {data_set_external_id!r} does not exist")
+        data_set = data_sets[0]
         for pipeline in self.client.extraction_pipelines:
             if pipeline.data_set_id == data_set.id:
                 yield pipeline

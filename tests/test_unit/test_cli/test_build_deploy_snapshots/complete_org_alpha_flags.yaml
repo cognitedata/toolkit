@@ -33,7 +33,7 @@ AssetResponse:
   externalId: Oslo_root
   name: RootAsset
   source: doctrino
-DataSet:
+DataSetResponse:
 - description: This is the dataset for all assets on Drammen
   externalId: ds_Drammen_assets
   name: Dataset for assets on Drammen
@@ -274,6 +274,7 @@ Node:
       type: view
       version: v1
   space: sp_nodes
+ResourceViewMappingResponse:
 - externalId: testing_default_asset_mapping
   instanceType: node
   sources:

@@ -20,10 +20,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
-    AssetCentricId,
-    ResourceViewMappingApply,
-)
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
@@ -178,7 +176,7 @@ class DirectRelationCache:
 def asset_centric_to_dm(
     resource: AssetCentricResourceExtended,
     instance_id: NodeReference | EdgeReference,
-    view_source: ResourceViewMappingApply,
+    view_source: ResourceViewMappingRequest,
     view_properties: dict[str, ViewResponseProperty],
     direct_relation_cache: DirectRelationCache,
     preferred_consumer_view: ViewReference | None = None,
@@ -188,7 +186,7 @@ def asset_centric_to_dm(
     Args:
         resource (CogniteResource): The asset-centric resource to convert.
         instance_id (NodeId | EdgeApply): The ID of the instance to create or update.
-        view_source (ResourceViewMappingApply): The view source defining how to map the resource to the data model.
+        view_source (ResourceViewMappingRequest): The view source defining how to map the resource to the data model.
         view_properties (dict[str, ViewProperty]): The defined properties referenced in the view source mapping.
         direct_relation_cache (DirectRelationCache): Cache for direct relation references.
         preferred_consumer_view (ViewId | None): The preferred consumer view for the instance.

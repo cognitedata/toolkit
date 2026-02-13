@@ -1,8 +1,4 @@
-from typing import ClassVar
-
 from pydantic import Field
-
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.search_config import SearchConfigWrite
 
 from .base import BaseModelResource, ToolkitResource
 
@@ -20,8 +16,6 @@ class PropertyConfig(BaseModelResource):
 
 
 class SearchConfigYAML(ToolkitResource):
-    _cdf_resource: ClassVar[type[SearchConfigWrite]] = SearchConfigWrite
-
     view: ViewId
     use_as_name: str | None = None
     use_as_description: str | None = None

@@ -1,5 +1,4 @@
-from cognite.client.data_classes import DataSet
-
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.cruds import DataSetsCRUD, ResourceWorker
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
@@ -16,13 +15,11 @@ class TestDataSetsLoader:
         )
         assert len(raw_list) == 2
 
-        first = DataSet._load(raw_list[0])
-        # Set the properties that are set on the server side
-        first.id = 42
-        first.created_time = 42
-        first.last_updated_time = 42
+        # Set the properties that are set on the server side and load as DataSetResponse
+        first_dict = {**raw_list[0], "id": 42, "createdTime": 42, "lastUpdatedTime": 42}
+        first = DataSetResponse._load(first_dict)
         # Simulate that the data set is already in CDF
-        toolkit_client_approval.append(DataSet, first)
+        toolkit_client_approval.append(DataSetResponse, first)
 
         worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([LOAD_DATA / "data_sets" / "1.my_datasets.yaml"])

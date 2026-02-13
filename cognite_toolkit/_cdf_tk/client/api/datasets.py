@@ -106,7 +106,7 @@ class DataSetsAPI(CDFResourceAPI[InternalOrExternalId, DataSetRequest, DataSetRe
         metadata: dict[str, str] | None = None,
         external_id_prefix: str | None = None,
         write_protected: bool | None = None,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[list[DataSetResponse]]:
         """Iterate over all data sets in CDF.
 
