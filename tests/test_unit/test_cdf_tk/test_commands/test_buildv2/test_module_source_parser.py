@@ -151,3 +151,82 @@ class TestModuleSourceParser:
         assert actual_error_messages == error_messages
         actual_variables = {path.as_posix(): var_list for path, var_list in build_variables.items()}
         assert actual_variables == expected_variables
+
+    @pytest.mark.parametrize(
+        "variables, available_modules, selected_modules, expected_variables, error_messages",
+        [
+            pytest.param(
+                {"var1": "value1"},
+                {"modules/moduleA"},
+                {"modules/moduleA"},
+                {
+                    "modules/moduleA": {
+                        0: [BuildVariable(id=Path("var1"), value="value1", is_selected=True, iteration=None)],
+                    },
+                },
+                [],
+                id="Root variable applied to single module",
+            ),
+            pytest.param(
+                {"modules": {"moduleA": {"var1": "value1"}}},
+                {"modules/moduleA"},
+                {"modules/moduleA"},
+                {
+                    "modules/moduleA": {
+                        0: [
+                            BuildVariable(
+                                id=Path("modules/moduleA/var1"), value="value1", is_selected=True, iteration=None
+                            )
+                        ],
+                    },
+                },
+                [],
+                id="Module-specific variable",
+            ),
+            pytest.param(
+                {"var1": "root", "modules": {"moduleA": {"var2": "moduleA_value"}}},
+                {"modules/moduleA", "modules/moduleB"},
+                {"modules/moduleA"},
+                {
+                    "modules/moduleA": {
+                        0: [
+                            BuildVariable(id=Path("var1"), value="root", is_selected=True, iteration=None),
+                            BuildVariable(
+                                id=Path("modules/moduleA/var2"), value="moduleA_value", is_selected=True, iteration=None
+                            ),
+                        ],
+                    },
+                },
+                [],
+                id="Root and module-specific variables combined",
+            ),
+            pytest.param(
+                {"modules": {"moduleA": [{"var1": "a"}, {"var1": "b"}]}},
+                {"modules/moduleA"},
+                {"modules/moduleA"},
+                {
+                    "modules/moduleA": {
+                        1: [BuildVariable(id=Path("modules/moduleA/var1"), value="a", is_selected=True, iteration=1)],
+                        2: [BuildVariable(id=Path("modules/moduleA/var1"), value="b", is_selected=True, iteration=2)],
+                    },
+                },
+                [],
+                id="Module with iterations",
+            ),
+        ],
+    )
+    def test_parse_module_variables(
+        self,
+        variables: dict[str, Any],
+        available_modules: set[str],
+        selected_modules: set[str],
+        expected_variables: dict[str, list[list[BuildVariable]]],
+        error_messages: list[str],
+    ) -> None:
+        module_variables, errors = ModuleSourceParser._parse_module_variables(
+            variables, {Path(path) for path in available_modules}, {Path(path) for path in selected_modules}
+        )
+        actual_error_messages = [error.message for error in errors]
+        assert actual_error_messages == error_messages
+        actual_variables = {path.as_posix(): var_list for path, var_list in module_variables.items()}
+        assert actual_variables == expected_variables

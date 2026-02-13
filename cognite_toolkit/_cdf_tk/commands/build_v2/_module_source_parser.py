@@ -41,7 +41,7 @@ class ModuleSourceParser:
 
     def _create_module_sources(
         self,
-        build_variables: dict[Path, list[list[BuildVariable]]],
+        build_variables: dict[Path, dict[int, list[BuildVariable]]],
         files_by_module: dict[Path, list[Path]],
         selected_modules: list[Path],
     ) -> list[ModuleSource]:
@@ -52,9 +52,9 @@ class ModuleSourceParser:
                 id=module,
                 resource_files=[self.organization_dir / resource_file for resource_file in files_by_module[module]],
             )
-            module_build_variables = build_variables.get(module, [])
+            module_build_variables = build_variables.get(module, {})
             if module_build_variables:
-                for iteration, module_variable in enumerate(module_build_variables, start=1):
+                for iteration, module_variable in module_build_variables.items():
                     module_sources.append(
                         source.model_copy(
                             update={
@@ -123,7 +123,7 @@ class ModuleSourceParser:
         variables: dict[str, Any],
         available_modules: set[RelativeDirPath],
         selected_modules: set[RelativeDirPath],
-    ) -> tuple[dict[RelativeDirPath, list[list[BuildVariable]]], list[ModelSyntaxError]]:
+    ) -> tuple[dict[RelativeDirPath, dict[int, list[BuildVariable]]], list[ModelSyntaxError]]:
         all_available_paths = (
             {Path("")} | available_modules | {parent for module in available_modules for parent in module.parents}
         )
@@ -186,11 +186,13 @@ class ModuleSourceParser:
     @classmethod
     def _organize_variables_by_module(
         cls, variables_by_path: dict[RelativeDirPath, list[BuildVariable]], selected_modules: set[RelativeDirPath]
-    ) -> dict[RelativeDirPath, list[list[BuildVariable]]]:
+    ) -> dict[RelativeDirPath, dict[int, list[BuildVariable]]]:
         module_path_by_relative_paths: dict[frozenset[RelativeDirPath], RelativeDirPath] = {
             frozenset([module, *list(module.parents)]): module for module in selected_modules
         }
-        variables_by_module: dict[RelativeDirPath, list[list[BuildVariable]]] = defaultdict(lambda: [])
+        variables_by_module: dict[RelativeDirPath, dict[int, list[BuildVariable]]] = defaultdict(
+            lambda: defaultdict(list)
+        )
         for variable_path, variables in variables_by_path.items():
             for module_paths, module in module_path_by_relative_paths.items():
                 if variable_path in module_paths:
