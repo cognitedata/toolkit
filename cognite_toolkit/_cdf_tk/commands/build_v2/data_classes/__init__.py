@@ -2,9 +2,10 @@ from ._build import BuildFolder, BuildParameters, BuiltModule, ParseInput
 from ._config import ConfigYAML
 from ._insights import ConsistencyError, Insight, InsightList, ModelSyntaxError, Recommendation
 from ._module import Module, ModuleSource, ModuleSources, ResourceType
-from ._types import RelativeDirPath, ValidationType
+from ._types import AbsoluteDirPath, RelativeDirPath, ValidationType
 
 __all__ = [
+    "AbsoluteDirPath",
     "BuildFolder",
     "BuildParameters",
     "BuiltModule",

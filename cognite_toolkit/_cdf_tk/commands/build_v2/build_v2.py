@@ -11,7 +11,7 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.commands.build_v2._modules_parser import ModulesParser
+from cognite_toolkit._cdf_tk.commands.build_v2._module_source_parser import ModuleSourceParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildFolder,
     BuildParameters,
@@ -20,7 +20,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     InsightList,
     Module,
     ModuleSource,
-    ModuleSources,
     ParseInput,
     RelativeDirPath,
     ResourceType,
@@ -43,7 +42,7 @@ class BuildV2Command(ToolkitCommand):
 
         self._validate_build_parameters(parameters, console, sys.argv)
         parse_inputs = self._read_parameters(parameters)
-        module_sources = self._parse_module_sources(parse_inputs, parameters.organization_dir)
+        module_sources = self._parse_module_sources(parse_inputs)
 
         build_folder = self._build_modules(module_sources, parameters.build_dir)
 
@@ -134,15 +133,13 @@ class BuildV2Command(ToolkitCommand):
             suggestion.append(f"-o {display_path}")
         return f"'{' '.join(suggestion)}'"
 
-    def _parse_module_sources(self, parse_inputs: ParseInput, organization_dir: Path) -> ModuleSources:
-        # Parse the variables.
-        module_paths = ModulesParser(organization_dir=organization_dir).parse()
-        return ModuleSources(
-            [
-                ModuleSource(path=module_path, id=module_path.relative_to(organization_dir))
-                for module_path in module_paths
-            ]
-        )
+    def _parse_module_sources(self, parse_inputs: ParseInput) -> Iterable[ModuleSource]:
+        yield from ModuleSourceParser(
+            parse_inputs.yaml_files,
+            parse_inputs.variables,
+            parse_inputs.selected_modules,
+            parse_inputs.organization_dir,
+        ).parse()
 
     @classmethod
     def _read_parameters(cls, parameters: BuildParameters) -> ParseInput:
@@ -176,13 +173,17 @@ class BuildV2Command(ToolkitCommand):
             validation_type = config.environment.validation_type
 
         # Todo optimize by only searching for yaml files in the selected modules paths if selection is provided.
-        yaml_files = list(parameters.modules_directory.rglob("*.y*ml"))
+        yaml_files = [
+            yaml_file.relative_to(parameters.organization_dir)
+            for yaml_file in parameters.modules_directory.rglob("*.y*ml")
+        ]
         return ParseInput(
             yaml_files=yaml_files,
             selected_modules=selected,
             variables=variables,
             validation_type=validation_type,
             cdf_project=cdf_project,
+            organization_dir=parameters.organization_dir,
         )
 
     @classmethod
@@ -218,7 +219,9 @@ class BuildV2Command(ToolkitCommand):
             selected.add(item_path)
         return selected, errors
 
-    def _build_modules(self, module_sources: ModuleSources, build_dir: Path, max_workers: int = 1) -> BuildFolder:
+    def _build_modules(
+        self, module_sources: Iterable[ModuleSource], build_dir: Path, max_workers: int = 1
+    ) -> BuildFolder:
         folder: BuildFolder = BuildFolder(path=build_dir)
 
         for source in module_sources:
