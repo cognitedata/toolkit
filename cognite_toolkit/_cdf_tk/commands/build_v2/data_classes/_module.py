@@ -1,5 +1,3 @@
-from collections import UserList
-
 from pydantic import BaseModel, ConfigDict, DirectoryPath, Field
 
 from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
@@ -23,9 +21,6 @@ class ModuleSource(BaseModel):
     @property
     def name(self) -> str:
         return self.path.name
-
-
-class ModuleSources(UserList[ModuleSource]): ...
 
 
 class ResourceType(BaseModel):
