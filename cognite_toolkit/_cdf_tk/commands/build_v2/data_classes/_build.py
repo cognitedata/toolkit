@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 
 from ._insights import InsightList
 from ._module import ModuleSource
-from ._types import AbsoluteDirPath, RelativeDirPath, ValidationType
+from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath, ValidationType
 
 
 class BuildParameters(BaseModel):
@@ -29,10 +29,10 @@ class BuildParameters(BaseModel):
         return self.organization_dir / MODULES
 
 
-class ParseInput(BaseModel):
+class BuildFiles(BaseModel):
     """Intermediate format used when parsing modules"""
 
-    yaml_files: list[RelativeDirPath]
+    yaml_files: list[RelativeFilePath]
     selected_modules: set[RelativeDirPath | str]
     variables: dict[str, JsonValue] = Field(default_factory=dict)
     validation_type: ValidationType = "prod"

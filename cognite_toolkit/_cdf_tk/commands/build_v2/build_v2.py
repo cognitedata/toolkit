@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2._module_source_parser import ModuleSourceParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
+    BuildFiles,
     BuildFolder,
     BuildParameters,
     BuiltModule,
@@ -20,7 +21,6 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     InsightList,
     Module,
     ModuleSource,
-    ParseInput,
     RelativeDirPath,
     ResourceType,
     ValidationType,
@@ -41,8 +41,8 @@ class BuildV2Command(ToolkitCommand):
         console = client.console if client else Console()
 
         self._validate_build_parameters(parameters, console, sys.argv)
-        parse_inputs = self._read_parameters(parameters)
-        module_sources = self._parse_module_sources(parse_inputs)
+        build_files = self._read_file_system(parameters)
+        module_sources = self._parse_module_sources(build_files)
 
         build_folder = self._build_modules(module_sources, parameters.build_dir)
 
@@ -133,7 +133,7 @@ class BuildV2Command(ToolkitCommand):
             suggestion.append(f"-o {display_path}")
         return f"'{' '.join(suggestion)}'"
 
-    def _parse_module_sources(self, parse_inputs: ParseInput) -> Iterable[ModuleSource]:
+    def _parse_module_sources(self, parse_inputs: BuildFiles) -> Iterable[ModuleSource]:
         yield from ModuleSourceParser(
             parse_inputs.yaml_files,
             parse_inputs.variables,
@@ -142,7 +142,8 @@ class BuildV2Command(ToolkitCommand):
         ).parse()
 
     @classmethod
-    def _read_parameters(cls, parameters: BuildParameters) -> ParseInput:
+    def _read_file_system(cls, parameters: BuildParameters) -> BuildFiles:
+        """Reads the file system to find the YAML files to build along with config.<name>.yaml if it exists."""
         selected: set[RelativeDirPath | str] = {
             parameters.modules_directory.relative_to(parameters.organization_dir)
         }  # Default to everything under modules.
@@ -177,7 +178,7 @@ class BuildV2Command(ToolkitCommand):
             yaml_file.relative_to(parameters.organization_dir)
             for yaml_file in parameters.modules_directory.rglob("*.y*ml")
         ]
-        return ParseInput(
+        return BuildFiles(
             yaml_files=yaml_files,
             selected_modules=selected,
             variables=variables,

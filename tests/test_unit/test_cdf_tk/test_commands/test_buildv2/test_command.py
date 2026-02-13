@@ -151,7 +151,7 @@ class TestValidateBuildParameters:
             BuildV2Command._validate_build_parameters(parameters, console, user_args)
 
 
-class TestReadParameters:
+class TestReadFileSystem:
     def test_happy_path(self, tmp_path: Path) -> None:
         config_yaml = tmp_path / "config.dev.yaml"
         config_yaml.write_text("""environment:
@@ -169,14 +169,15 @@ class TestReadParameters:
             config_yaml_name="dev",
             user_selected_modules=["module1", "module2"],
         )
-        parse_input = BuildV2Command._read_parameters(parameters)
+        parse_input = BuildV2Command._read_file_system(parameters)
         assert parse_input.model_dump() == {
-            "yaml_files": [resource_file],
+            "yaml_files": [resource_file.relative_to(tmp_path)],
             # Since user_selected_modules are provided, they should be used instead of config selected modules.
             "selected_modules": {"module1", "module2"},
             "variables": {},
             "validation_type": "dev",
             "cdf_project": "my-project",
+            "organization_dir": tmp_path.resolve(),
         }
 
     def test_invalid_config_yaml(self, tmp_path: Path) -> None:
@@ -191,7 +192,7 @@ class TestReadParameters:
         _ = create_space_resource_file(tmp_path)
         parameters = BuildParameters(organization_dir=tmp_path, build_dir=Path("build"), config_yaml_name="dev")
         with pytest.raises(ToolkitValueError) as exc_info:
-            BuildV2Command._read_parameters(parameters)
+            BuildV2Command._read_file_system(parameters)
 
         assert "In environment.validation-type input should be 'dev' or 'prod'. Got 'invalid_type'." in str(
             exc_info.value
