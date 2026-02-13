@@ -21,6 +21,7 @@ class DataProductsAPI(CDFResourceAPI[ExternalId, DataProductRequest, DataProduct
                 "delete": Endpoint(method="POST", path="/dataproducts/delete", item_limit=1),
                 "list": Endpoint(method="GET", path="/dataproducts", item_limit=1000),
             },
+            api_version="alpha",
         )
 
     def _validate_page_response(

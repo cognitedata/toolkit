@@ -97,6 +97,8 @@ if not FeatureFlag.is_enabled(Flags.SIMULATORS):
     _EXCLUDED_CRUDS.add(SimulatorRoutineRevisionCRUD)
     _EXCLUDED_CRUDS.add(SimulatorRoutineCRUD)
     _EXCLUDED_CRUDS.add(SimulatorModelRevisionCRUD)
+if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
+    _EXCLUDED_CRUDS.add(DataProductCRUD)
 
 CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[Loader]]] = defaultdict(list)
 CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)

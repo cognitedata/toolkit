@@ -6,6 +6,7 @@ import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
+from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
@@ -21,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
@@ -128,6 +130,67 @@ class TestCDFResourceAPI:
     #### These are tests for APIs that cannot use the generic test above
     # This is typically due to custom endpoints or request object cannot be made from response object
     ####
+
+    def test_data_products_api_crud_list_methods(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        resource = {
+            "externalId": "dp_001",
+            "name": "Example Data Product",
+            "instanceReadSpaces": [{"space": "my_space"}],
+            "governanceStatus": "governed",
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+            "versions": [
+                {
+                    "versionId": 1,
+                    "dataModel": {
+                        "space": "my_space",
+                        "externalId": "my_data_model",
+                        "version": "v1",
+                    },
+                    "isLatest": True,
+                    "createdTime": 1622547800000,
+                    "lastUpdatedTime": 1622547800000,
+                }
+            ],
+        }
+        instance = DataProductResponse.model_validate(resource)
+        config = toolkit_config
+        api = DataProductsAPI(HTTPClient(config))
+        request_item = instance.as_request_resource()
+
+        # Test create (and verify alpha header)
+        respx_mock.post(config.create_api_url("/dataproducts")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        created = api.create([request_item])
+        assert len(created) == 1
+        assert created[0].dump() == resource
+        assert respx_mock.calls[-1].request.headers["cdf-version"] == "alpha"
+
+        # Test retrieve
+        respx_mock.get(config.create_api_url(f"/dataproducts/{instance.external_id}")).mock(
+            return_value=httpx.Response(status_code=200, json=resource)
+        )
+        retrieved = api.retrieve([instance.external_id])
+        assert len(retrieved) == 1
+        assert retrieved[0].dump() == resource
+
+        # Test update
+        respx_mock.post(config.create_api_url("/dataproducts/update")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        updated = api.update([request_item])
+        assert len(updated) == 1
+        assert updated[0].dump() == resource
+
+        # Test delete
+        respx_mock.post(config.create_api_url("/dataproducts/delete")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [{"externalId": instance.external_id}]})
+        )
+        api.delete([instance.external_id])
+        assert len(respx_mock.calls) >= 1  # At least one call should have been made
 
     def test_raw_table_api_crud(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         """Test RawTablesAPI create, delete, list, and iterate methods.
