@@ -5,6 +5,7 @@ from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
@@ -57,15 +58,17 @@ class DataProductsAPI(CDFResourceAPI[ExternalId, DataProductRequest, DataProduct
                 endpoint_url=self._make_url(f"/dataproducts/{external_id}"),
                 method="GET",
                 body_content={},
+                api_version=self._api_version,
             )
             try:
                 response = self._http_client.request_single_retries(request)
                 success = response.get_success_or_raise()
                 result = DataProductResponse.model_validate_json(success.body)
                 results.append(result)
-            except Exception:
-                if not ignore_unknown_ids:
-                    raise
+            except ToolkitAPIError as e:
+                if ignore_unknown_ids and e.code == 404:
+                    continue
+                raise
         return results
 
     def update(
@@ -73,9 +76,9 @@ class DataProductsAPI(CDFResourceAPI[ExternalId, DataProductRequest, DataProduct
     ) -> list[DataProductResponse]:
         return self._update(items, mode=mode)
 
-    def delete(self, external_ids: Sequence[str], ignore_unknown_ids: bool = False) -> None:
+    def delete(self, external_ids: Sequence[str]) -> None:
         items = [ExternalId(external_id=ext_id) for ext_id in external_ids]
-        self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
+        self._request_no_response(items, "delete")
 
     def paginate(self, limit: int = 100, cursor: str | None = None) -> PagedResponse[DataProductResponse]:
         return self._paginate(cursor=cursor, limit=limit)

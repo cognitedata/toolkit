@@ -4,9 +4,11 @@ from typing import Any, final
 from cognite.client.data_classes.capabilities import AllScope, Capability, UnknownAcl
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.auth import GroupAllScopedCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import SpaceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import DataProductYAML
 
 
@@ -17,7 +19,7 @@ class DataProductCRUD(ResourceCRUD[str, DataProductRequest, DataProductResponse]
     resource_write_cls = DataProductRequest
     kind = "DataProduct"
     yaml_cls = DataProductYAML
-    dependencies = frozenset({GroupAllScopedCRUD})
+    dependencies = frozenset({GroupAllScopedCRUD, SpaceCRUD})
     support_drop = True
     support_update = True
     _doc_url = "Data-Products/operation/createDataProduct"
@@ -37,6 +39,11 @@ class DataProductCRUD(ResourceCRUD[str, DataProductRequest, DataProductResponse]
         return {"externalId": id}
 
     @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+        if "schemaSpace" in item:
+            yield SpaceCRUD, SpaceReference(space=item["schemaSpace"])
+
+    @classmethod
     def get_required_capability(
         cls, items: Sequence[DataProductRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
@@ -50,6 +57,24 @@ class DataProductCRUD(ResourceCRUD[str, DataProductRequest, DataProductResponse]
             allow_unknown=True,
         )
 
+    def dump_resource(self, resource: DataProductResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        local = local or {}
+        # schemaSpace is read-only (immutable after creation).
+        # Always exclude it — it cannot be updated, so comparing it only creates permanent false diffs.
+        dumped.pop("schemaSpace", None)
+        local.pop("schemaSpace", None)
+        # Strip server-set defaults for fields not explicitly in the local YAML.
+        defaults: list[tuple[str, Any]] = [
+            ("isGoverned", False),
+            ("description", None),
+            ("tags", []),
+        ]
+        for key, default in defaults:
+            if dumped.get(key) == default and key not in local:
+                dumped.pop(key)
+        return dumped
+
     def create(self, items: Sequence[DataProductRequest]) -> list[DataProductResponse]:
         return self.client.tool.data_products.create(list(items))
 
@@ -62,7 +87,7 @@ class DataProductCRUD(ResourceCRUD[str, DataProductRequest, DataProductResponse]
     def delete(self, ids: SequenceNotStr[str]) -> int:
         if not ids:
             return 0
-        self.client.tool.data_products.delete(list(ids), ignore_unknown_ids=True)
+        self.client.tool.data_products.delete(list(ids))
         return len(ids)
 
     def _iterate(
