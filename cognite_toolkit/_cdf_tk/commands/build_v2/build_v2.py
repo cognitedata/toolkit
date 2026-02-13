@@ -139,7 +139,7 @@ class BuildV2Command(ToolkitCommand):
         parser = ModuleSourceParser(build.selected_modules, build.organization_dir)
         module_sources = parser.parse(build.yaml_files, build.variables)
         if parser.errors:
-            # Todo: Nicer way of formatting errors.
+            # Todo: Nicer way of formatting errors. Jira CDF-27107
             raise ToolkitValueError(
                 "Errors encountered while parsing modules:\n" + "\n".join(f"- {error!s}" for error in parser.errors)
             )
@@ -228,7 +228,6 @@ class BuildV2Command(ToolkitCommand):
         self, module_sources: Sequence[ModuleSource], build_dir: Path, max_workers: int = 1
     ) -> BuildFolder:
         folder: BuildFolder = BuildFolder(path=build_dir)
-
         for source in module_sources:
             # Inside this loop, do not raise exceptions.
             module = self._import_module(source)  # Syntax validation
