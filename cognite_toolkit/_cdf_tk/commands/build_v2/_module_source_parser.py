@@ -1,4 +1,5 @@
 from collections import defaultdict
+from itertools import groupby
 from pathlib import Path
 from typing import Any
 
@@ -131,8 +132,6 @@ class ModuleSourceParser:
         )
         parsed_variables, errors = cls._parse_variables(variables, all_available_paths, selected_paths)
         variable_by_module = cls._organize_variables_by_module(parsed_variables, selected_modules)
-        # Todo: Check that variables paths are not deeper than the module path.
-
         return variable_by_module, errors
 
     @classmethod
@@ -188,4 +187,15 @@ class ModuleSourceParser:
     def _organize_variables_by_module(
         cls, variables_by_path: dict[RelativeDirPath, list[BuildVariable]], selected_modules: set[RelativeDirPath]
     ) -> dict[RelativeDirPath, list[list[BuildVariable]]]:
-        raise NotImplementedError()
+        module_path_by_relative_paths: dict[frozenset[RelativeDirPath], RelativeDirPath] = {
+            frozenset([module, *list(module.parents)]): module for module in selected_modules
+        }
+        variables_by_module: dict[RelativeDirPath, list[list[BuildVariable]]] = defaultdict(lambda: [])
+        for variable_path, variables in variables_by_path.items():
+            for module_paths, module in module_path_by_relative_paths.items():
+                if variable_path in module_paths:
+                    for iteration, variable in groupby(
+                        sorted(variables, key=lambda v: v.iteration or 0), key=lambda v: v.iteration or 0
+                    ):
+                        variables_by_module[module][iteration or 0].extend(variable)
+        return dict(variables_by_module)
