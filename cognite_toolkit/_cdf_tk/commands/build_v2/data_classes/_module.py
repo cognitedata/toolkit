@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, DirectoryPath, Field
 from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
 
 from ._insights import InsightList
-from ._types import RelativeDirPath
+from ._types import AbsoluteFilePath, RelativeDirPath
 
 
 class BuildVariable(BaseModel): ...
@@ -16,7 +16,7 @@ class ModuleSource(BaseModel):
 
     path: DirectoryPath = Field(description="Path to the module directory. Can be relative or absolute.")
     id: RelativeDirPath = Field(description="Relative path to the organization directory.")
-    resource_files: list[RelativeDirPath] = Field(default_factory=list)
+    resource_files: list[AbsoluteFilePath] = Field(default_factory=list)
     variables: list[BuildVariable] = Field(default_factory=list)
     iteration: int = 0
 

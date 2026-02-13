@@ -36,27 +36,24 @@ class ModuleSourceParser:
             return []
         module_sources: list[ModuleSource] = []
         for module in selected_modules:
+            source = ModuleSource(
+                path=self.organization_dir / module,
+                id=module,
+                resource_files=[self.organization_dir / resource_file for resource_file in files_by_module[module]],
+            )
             module_build_variables = build_variables.get(module, [])
             if module_build_variables:
                 for iteration, module_variable in enumerate(module_build_variables, start=1):
                     module_sources.append(
-                        ModuleSource(
-                            path=self.organization_dir / module,
-                            id=module,
-                            resource_files=files_by_module[module],
-                            variables=module_variable,
-                            iteration=iteration,
+                        source.model_copy(
+                            update={
+                                "variables": module_variable,
+                                "iteration": iteration,
+                            }
                         )
                     )
             else:
-                module_sources.append(
-                    ModuleSource(
-                        path=self.organization_dir / module,
-                        id=module,
-                        resource_files=files_by_module[module],
-                        variables=[],
-                    )
-                )
+                module_sources.append(source)
         return module_sources
 
     @classmethod
