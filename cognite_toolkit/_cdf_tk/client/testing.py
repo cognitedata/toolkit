@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.spaces import SpacesAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
+from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
 
 from ._toolkit_client import ToolAPI
 from .api.agents import AgentsAPI
@@ -158,6 +159,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.three_d = MagicMock(spec=ThreeDAPI)
         self.tool.three_d.models_classic = MagicMock(spec_set=ThreeDClassicModelsAPI)
         self.tool.assets = MagicMock(spec_set=AssetsAPI)
+        self.tool.cognite_files = MagicMock(spec_set=CogniteFilesAPI)
         self.tool.timeseries = MagicMock(spec_set=TimeSeriesAPI)
         self.tool.filemetadata = MagicMock(spec_set=FileMetadataAPI)
         self.tool.instances = MagicMock(spec=InstancesAPI)

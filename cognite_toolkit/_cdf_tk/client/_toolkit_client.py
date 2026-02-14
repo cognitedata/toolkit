@@ -46,7 +46,7 @@ from .api.verify import VerifyAPI
 from .api.views import ViewsAPI
 from .api.workflows import WorkflowsAPI
 from .config import ToolkitClientConfig
-
+from .api.cognite_files import CogniteFilesAPI
 
 class ToolAPI:
     """This is reimplemented CogniteAPIs in Toolkit"""
@@ -55,6 +55,7 @@ class ToolAPI:
         self.http_client = http_client
         self.agents = AgentsAPI(http_client)
         self.assets = AssetsAPI(http_client)
+        self.cognite_files = CogniteFilesAPI(http_client)
         self.datasets = DataSetsAPI(http_client)
         self.events = EventsAPI(http_client)
         self.extraction_pipelines = ExtractionPipelinesAPI(http_client)
