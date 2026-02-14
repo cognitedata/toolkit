@@ -8,6 +8,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, T_ResponseResource
+from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
@@ -45,6 +46,7 @@ from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessRe
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerRequest,
     DataModelRequest,
@@ -152,6 +154,7 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         InFieldCDMConfigAPI,
         APMConfigAPI,
         ResourceViewMappingsAPI,
+        CogniteFilesAPI,
         # Update and list have to be specially handled due to the way the API works.
         LocationFiltersAPI,
         # Dependency between Functions and FunctionSchedules makes it hard to test them in a generic way.
@@ -159,7 +162,7 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         FunctionSchedulesAPI,
         # Does not support delete
         SearchConfigurationsAPI,
-        # Dependencies betwwen APIs
+        # Dependencies between APIs
         TransformationsAPI,
         TransformationSchedulesAPI,
         TransformationNotificationsAPI,
@@ -211,6 +214,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
             }
         ],
         AssetRequest: [{"name": "smoke-test-asset", "externalId": "smoke-test-asset"}],
+        CogniteFileRequest: [{"externalId": "smoke-test-file", "space": SMOKE_SPACE}],
         DataSetRequest: [{"externalId": "smoke-tests-crudl-dataset"}],
         EventRequest: [{"externalId": "smoke-test-event"}],
         FileMetadataRequest: [{"name": "smoke-test-file", "externalId": "smoke-test-file"}],
@@ -1085,6 +1089,40 @@ class TestCDFResourceAPI:
         finally:
             # Clean up
             client.migration.resource_view_mapping.delete([mapping_id])
+
+    def test_cognite_file_crudl(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        file_example = get_examples_minimum_requests(CogniteFileRequest)[0]
+        file_request = CogniteFileRequest.model_validate(file_example)
+        file_id = file_request.as_id()
+
+        try:
+            # Create file
+            create_endpoint = client.tool.cognite_files._method_endpoint_map["upsert"]
+            try:
+                created = client.tool.cognite_files.create([file_request])
+            except ToolkitAPIError:
+                raise EndpointAssertionError(create_endpoint.path, "Creating file instance failed.")
+            if len(created) != 1:
+                raise EndpointAssertionError(create_endpoint.path, f"Expected 1 created file, got {len(created)}")
+            if created[0].as_id() != file_id:
+                raise EndpointAssertionError(create_endpoint.path, "Created file ID does not match requested ID.")
+
+            # Retrieve file
+            retrieve_endpoint = client.tool.cognite_files._method_endpoint_map["retrieve"]
+            self.assert_endpoint_method(
+                lambda: client.tool.cognite_files.retrieve([file_id]), "retrieve", retrieve_endpoint, file_id
+            )
+
+            # List files
+            list_endpoint = client.tool.cognite_files._method_endpoint_map["list"]
+            listed_files = list(client.tool.cognite_files.list(limit=1))
+            if len(listed_files) == 0:
+                raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed file, got 0")
+        finally:
+            # Clean up
+            client.tool.cognite_files.delete([file_id])
 
     def test_location_filter_crudls(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client

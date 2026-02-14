@@ -33,6 +33,23 @@ AssetResponse:
   externalId: Oslo_root
   name: RootAsset
   source: doctrino
+CogniteFileResponse:
+- externalId: MyExtendedFile
+  instanceType: node
+  sources:
+  - properties:
+      mimeType: text/plain
+      name: anotherfile.txt
+      sourceCreatedTime: '2023-01-01T00:00:00Z'
+      sourceCreatedUser: I
+      sourceUpdatedTime: '2024-01-01T00:00:00Z'
+      sourceUpdatedUser: Myself
+    source:
+      externalId: CogniteFile
+      space: cdf_cdm
+      type: view
+      version: v1
+  space: sp_nodes
 DataSetResponse:
 - description: This is the dataset for all assets on Drammen
   externalId: ds_Drammen_assets
@@ -47,6 +64,7 @@ FileCRUD:
 - externalId: MyExtendedFile
   filehash: c7fbc0e8
   space: sp_nodes
+  type: node
 - external_id: my_simulator_model_revision_file
   filehash: edf1f778
 - external_id: shopConfigFile
@@ -246,34 +264,6 @@ InFieldLocationConfigResponse:
     workorders: true
   rootLocationExternalId: location_filter_main_facility
   space: sp_instance
-Node:
-- externalId: MyExtendedFile
-  instanceType: node
-  sources:
-  - properties:
-      aliases: null
-      assets: null
-      category: null
-      description: null
-      directory: null
-      fileCategory: Document
-      mimeType: text/plain
-      name: anotherfile.txt
-      source: null
-      sourceContext: null
-      sourceCreatedTime: '2023-01-01T00:00:00.000+00:00'
-      sourceCreatedUser: I
-      sourceId: null
-      sourceUpdatedTime: '2024-01-01T00:00:00.000+00:00'
-      sourceUpdatedUser: Myself
-      status: Active
-      tags: null
-    source:
-      externalId: MyFileExtension
-      space: sp_schema
-      type: view
-      version: v1
-  space: sp_nodes
 ResourceViewMappingResponse:
 - externalId: testing_default_asset_mapping
   instanceType: node

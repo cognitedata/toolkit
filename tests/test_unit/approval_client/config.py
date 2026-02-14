@@ -122,6 +122,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import (
+    CogniteFileRequest,
+    CogniteFileResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerRequest,
     ContainerResponse,
@@ -782,6 +786,17 @@ API_RESOURCES = [
         api_name="infield.apm_config",
         resource_cls=APMConfigResponse,
         _write_cls=APMConfigRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.cognite_files",
+        resource_cls=CogniteFileResponse,
+        _write_cls=CogniteFileRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [

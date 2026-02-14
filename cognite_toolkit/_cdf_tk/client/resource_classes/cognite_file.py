@@ -1,21 +1,21 @@
 from datetime import datetime
 from typing import ClassVar, Literal
 
-from cognite_toolkit._cdf_tk.client._resource_base import (
-    BaseModelObject,
-    RequestResource,
-    ResponseResource,
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
+    NodeReference,
+    TypedNodeIdentifier,
+    TypedViewReference,
+    WrappedInstanceRequest,
+    WrappedInstanceResponse,
 )
 
-from .data_modeling import ViewReference
-from .instance_api import NodeReference, TypedNodeIdentifier
+COGNITE_FILE_VIEW_ID = TypedViewReference(space="cdf_cdm", external_id="CogniteFile", version="v1")
 
 
 class CogniteFile(BaseModelObject):
-    view_ref: ClassVar[ViewReference] = ViewReference(space="cdf_cdm", external_id="CogniteFile", version="v1")
-    instance_type: Literal["node"] = "node"
-    space: str
-    external_id: str
+    """Base class for CogniteFile containing common properties."""
+
     name: str | None = None
     description: str | None = None
     tags: list[str] | None = None
@@ -33,21 +33,31 @@ class CogniteFile(BaseModelObject):
     category: NodeReference | None = None
     type: NodeReference | None = None
 
+
+class CogniteFileRequest(WrappedInstanceRequest, CogniteFile):
+    """CogniteFile request resource for creating/updating nodes."""
+
+    VIEW_ID: ClassVar[TypedViewReference] = COGNITE_FILE_VIEW_ID
+    instance_type: Literal["node"] = "node"
+    space: str
+    external_id: str
+
     def as_id(self) -> TypedNodeIdentifier:
         return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
 
 
-class CogniteFileRequest(CogniteFile, RequestResource):
-    existing_version: int | None = None
+class CogniteFileResponse(WrappedInstanceResponse[CogniteFileRequest], CogniteFile):
+    """CogniteFile response resource returned from API."""
 
-
-class CogniteFileResponse(CogniteFile, ResponseResource[CogniteFileRequest]):
-    version: int
-    created_time: int
-    last_updated_time: int
+    VIEW_ID: ClassVar[TypedViewReference] = COGNITE_FILE_VIEW_ID
+    instance_type: Literal["node"] = "node"
+    space: str
+    external_id: str
     is_uploaded: bool | None = None
     uploaded_time: datetime | None = None
-    deleted_time: int | None = None
 
     def as_request_resource(self) -> CogniteFileRequest:
-        return CogniteFileRequest.model_validate(self.dump(), extra="ignore")
+        return CogniteFileRequest.model_validate(
+            self.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude={"instance_type"}),
+            extra="ignore",
+        )
