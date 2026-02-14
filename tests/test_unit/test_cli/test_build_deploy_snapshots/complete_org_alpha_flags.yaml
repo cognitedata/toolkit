@@ -71,6 +71,7 @@ FileCRUD:
 - externalId: MyExtendedFile
   filehash: c7fbc0e8
   space: sp_nodes
+  type: node
 - external_id: my_simulator_model_revision_file
   filehash: edf1f778
 - external_id: shopConfigFile
