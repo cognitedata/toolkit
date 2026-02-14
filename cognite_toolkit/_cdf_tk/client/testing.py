@@ -33,6 +33,8 @@ from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.spaces import SpacesAPI
+from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
+from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 
 from ._toolkit_client import ToolAPI
@@ -196,7 +198,9 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.relationships = MagicMock(spec_set=RelationshipsAPI)
         self.tool.security_categories = MagicMock(spec_set=SecurityCategoriesAPI)
         self.tool.sequences = MagicMock(spec_set=SequencesAPI)
-        self.tool.transformations = MagicMock(spec_set=TransformationsAPI)
+        self.tool.transformations = MagicMock(spec=TransformationsAPI)
+        self.tool.transformations.schedules = MagicMock(spec=TransformationSchedulesAPI)
+        self.tool.transformations.notifications = MagicMock(spec=TransformationNotificationsAPI)
         self.tool.workflows = MagicMock(spec=WorkflowsAPI)
         self.tool.workflows.triggers = MagicMock(spec_set=WorkflowTriggersAPI)
         self.tool.workflows.versions = MagicMock(spec_set=WorkflowVersionsAPI)

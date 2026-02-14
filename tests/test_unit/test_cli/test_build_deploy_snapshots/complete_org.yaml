@@ -850,7 +850,12 @@ TimeSeriesResponse:
   metadata:
     bar: foo
   name: CDF Toolkit Example Timeseries 2
-Transformation:
+TransformationNotificationResponse:
+- destination: jane.smith@example.com
+  transformationExternalId: tr_first_transformation
+- destination: john.smith@example.com
+  transformationExternalId: tr_first_transformation
+TransformationResponse:
 - conflictMode: upsert
   dataSetId: 7982613576047462211
   destination:
@@ -867,6 +872,7 @@ Transformation:
     type: assets
   destinationNonce:
     cdfProjectName: pytest-project
+    clientId: dummy-123
     nonce: dummy-nonce
     sessionId: 42
   externalId: tr_first_transformation
@@ -877,14 +883,10 @@ Transformation:
     from\n  `db_foo`.`table_foo`;\n-- this is a comment with an ← Unicode character\n"
   sourceNonce:
     cdfProjectName: pytest-project
+    clientId: dummy-123
     nonce: dummy-nonce
     sessionId: 42
-TransformationNotification:
-- destination: jane.smith@example.com
-  transformationExternalId: tr_first_transformation
-- destination: john.smith@example.com
-  transformationExternalId: tr_first_transformation
-TransformationSchedule:
+TransformationScheduleResponse:
 - externalId: tr_first_transformation
   interval: 7 * * * *
   isPaused: true
