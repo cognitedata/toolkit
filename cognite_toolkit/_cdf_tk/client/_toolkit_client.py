@@ -30,6 +30,7 @@ from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
 from .api.project import ProjectAPI
 from .api.raw import RawAPI
+from .api.records import RecordsAPI
 from .api.relationships import RelationshipsAPI
 from .api.robotics import RoboticsAPI
 from .api.search_config import SearchConfigurationsAPI
@@ -109,6 +110,7 @@ class ToolkitClient(CogniteClient):
         self.project = ProjectAPI(config=toolkit_config, cognite_client=self)
         self.infield = InfieldAPI(http_client)
         self.streams = StreamsAPI(http_client)
+        self.records = RecordsAPI(http_client)
 
     @property
     def config(self) -> ToolkitClientConfig:
