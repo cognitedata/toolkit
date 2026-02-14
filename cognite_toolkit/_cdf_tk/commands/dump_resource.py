@@ -345,6 +345,7 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
+        external_ids = [ExternalId(external_id=id_) for id_ in self.identifier]
         if self.transformations:
             yield (
                 [],
@@ -353,13 +354,13 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
                 None,
             )
         else:
-            yield list(self.identifier), None, TransformationCRUD.create_loader(self.client), None
+            yield external_ids, None, TransformationCRUD.create_loader(self.client), None
 
         schedule_loader = TransformationScheduleCRUD.create_loader(self.client)
-        schedule_list = list(schedule_loader.iterate(parent_ids=list(self.identifier)))
+        schedule_list = list(schedule_loader.iterate(parent_ids=external_ids))
         yield [], schedule_list, schedule_loader, None
         notification_loader = TransformationNotificationCRUD.create_loader(self.client)
-        notification_list = list(notification_loader.iterate(parent_ids=list(self.identifier)))
+        notification_list = list(notification_loader.iterate(parent_ids=external_ids))
         yield [], notification_list, notification_loader, None
 
 

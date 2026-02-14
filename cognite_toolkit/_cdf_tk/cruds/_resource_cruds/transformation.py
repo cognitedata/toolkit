@@ -704,6 +704,10 @@ class TransformationNotificationCRUD(
             dumped["transformationExternalId"] = local["transformationExternalId"]
         return dumped
 
+    @classmethod
+    def as_str(cls, id: TransformationNotificationId) -> str:
+        return sanitize_filename(f"{id.transformation_external_id}_{id.destination}")
+
     def create(self, items: Sequence[TransformationNotificationRequest]) -> list[TransformationNotificationResponse]:
         return self.client.tool.transformations.notifications.create(list(items))
 
@@ -740,7 +744,10 @@ class TransformationNotificationCRUD(
                     continue
                 filter = TransformationNotificationFilter(transformation_external_id=parent_id.external_id)
                 for notifications in self.client.tool.transformations.notifications.iterate(limit=None, filter=filter):
-                    yield from notifications
+                    for notification in notifications:
+                        # This is not set by the API.
+                        notification.transformation_external_id = parent_id.external_id
+                        yield notification
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:

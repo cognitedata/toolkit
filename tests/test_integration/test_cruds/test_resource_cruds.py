@@ -23,7 +23,6 @@ from cognite.client.data_classes import (
     TimeSeriesList,
     TimeSeriesWrite,
     TimeSeriesWriteList,
-    TransformationWrite,
     filters,
 )
 from cognite.client.data_classes.capabilities import IDScopeLowerCase, TimeSeriesAcl
@@ -58,6 +57,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotCapabilityResponse,
     RobotDataPostProcessingRequest,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     FunctionTaskParameters,
     WorkflowVersionRequest,
@@ -1030,8 +1030,9 @@ ignoreNullFields: true
         resource_dict = crud.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
         resource = crud.load_resource(resource_dict[0])
-        assert isinstance(resource, TransformationWrite)
-        if not crud.retrieve([resource.external_id]):
+        external_id = crud.get_id(resource)
+        assert isinstance(resource, TransformationRequest)
+        if not crud.retrieve([external_id]):
             _ = crud.create([resource])
 
         worker = ResourceWorker(crud, "deploy")
