@@ -22,20 +22,16 @@ from cognite.client.data_classes.capabilities import (
     DataModelInstancesAcl,
     FilesAcl,
 )
-from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeId
+from cognite.client.data_classes.data_modeling import NodeApplyResultList
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._time import convert_data_modelling_timestamp
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference, ViewReference
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, SpaceReference, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId, NameId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import (
-    ExtendableCogniteFile,
-    ExtendableCogniteFileApply,
-    ExtendableCogniteFileList,
-)
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
@@ -179,13 +175,13 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
 
 
 @final
-class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, ExtendableCogniteFile]):
+class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, CogniteFileResponse]):
     template_pattern = "$FILENAME"
     item_name = "file contents"
     folder_name = "files"
     kind = "CogniteFile"
-    resource_cls = ExtendableCogniteFile
-    resource_write_cls = ExtendableCogniteFileApply
+    resource_cls = CogniteFileResponse
+    resource_write_cls = CogniteFileRequest
     yaml_cls = CogniteFileYAML
     dependencies = frozenset({GroupAllScopedCRUD, SpaceCRUD, ViewCRUD})
 
@@ -196,22 +192,20 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, 
         return "cognite files"
 
     @classmethod
-    def get_id(cls, item: ExtendableCogniteFile | ExtendableCogniteFileApply | dict) -> NodeId:
+    def get_id(cls, item: CogniteFileResponse | CogniteFileRequest | dict) -> NodeReference:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"space", "externalId"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return NodeId(space=item["space"], external_id=item["externalId"])
-        return item.as_id()
+            return NodeReference(space=item["space"], external_id=item["externalId"])
+        return NodeReference(space=item.space, external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: NodeId) -> dict[str, Any]:
-        return id.dump(include_instance_type=False)
+    def dump_id(cls, id: NodeReference) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[ExtendableCogniteFileApply] | None, read_only: bool
-    ) -> list[Capability]:
+    def get_required_capability(cls, items: Sequence[CogniteFileRequest] | None, read_only: bool) -> list[Capability]:
         if not items and items is not None:
             return []
 
@@ -231,8 +225,8 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, 
             DataModelInstancesAcl(instance_actions, scope),
         ]
 
-    def dump_resource(self, resource: ExtendableCogniteFile, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump(context="local")
+    def dump_resource(self, resource: CogniteFileResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump(context="toolkit")
         local = local or {}
         if "existingVersion" not in local:
             # Existing version is typically not set when creating nodes, but we get it back
@@ -265,27 +259,27 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, 
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
-    def create(self, items: Sequence[ExtendableCogniteFileApply]) -> NodeApplyResultList:
+    def create(self, items: Sequence[CogniteFileRequest]) -> NodeApplyResultList:
         created = self.client.data_modeling.instances.apply(
             nodes=items, replace=False, skip_on_version_conflict=True, auto_create_direct_relations=True
         )
         return created.nodes
 
-    def retrieve(self, ids: SequenceNotStr[NodeId]) -> ExtendableCogniteFileList:
+    def retrieve(self, ids: SequenceNotStr[NodeReference]) -> list[CogniteFileResponse]:
         # Todo: Problem, if you extend the CogniteFiles with a custom view, we need to know
         #   the ID of the custom view to retrieve data from it. This is not possible with the current
         #   structure. Need to reconsider how to handle this.
         items = self.client.data_modeling.instances.retrieve_nodes(  # type: ignore[call-overload]
             nodes=ids,
-            node_cls=ExtendableCogniteFile,
+            node_cls=CogniteFileResponse,
         )
-        return ExtendableCogniteFileList(items)
+        return list(items)
 
-    def update(self, items: Sequence[ExtendableCogniteFileApply]) -> NodeApplyResultList:
+    def update(self, items: Sequence[CogniteFileRequest]) -> NodeApplyResultList:
         updated = self.client.data_modeling.instances.apply(nodes=items, replace=True)
         return updated.nodes
 
-    def delete(self, ids: SequenceNotStr[NodeId]) -> int:
+    def delete(self, ids: SequenceNotStr[NodeReference]) -> int:
         try:
             deleted = self.client.data_modeling.instances.delete(nodes=list(ids))
         except CogniteAPIError as e:
@@ -299,26 +293,26 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, 
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[ExtendableCogniteFile]:
+    ) -> Iterable[CogniteFileResponse]:
         # We do not have a way to know the source of the file, so we cannot filter on that.
         return []
 
-    def count(self, ids: SequenceNotStr[NodeId]) -> int:
+    def count(self, ids: SequenceNotStr[NodeReference]) -> int:
         return sum(
             [
                 bool(n.is_uploaded or False)
-                for n in self.client.data_modeling.instances.retrieve_nodes(nodes=ids, node_cls=ExtendableCogniteFile)  # type: ignore[call-overload]
+                for n in self.client.data_modeling.instances.retrieve_nodes(nodes=ids, node_cls=CogniteFileResponse)  # type: ignore[call-overload]
             ]
         )
 
-    def drop_data(self, ids: SequenceNotStr[NodeId]) -> int:
+    def drop_data(self, ids: SequenceNotStr[NodeReference]) -> int:
         existing_meta = self.client.files.retrieve_multiple(instance_ids=list(ids), ignore_unknown_ids=True)
         existing_node = self.retrieve(ids)
 
         # File and FileMetadata is tightly coupled, so we need to delete the metadata and recreate it
         # without the source set to delete the file.
         self.client.files.delete(id=existing_meta.as_ids())
-        self.create(existing_node.as_write())
+        self.create([n.as_request_resource() for n in existing_node])
         return len(existing_meta)
 
     @classmethod
