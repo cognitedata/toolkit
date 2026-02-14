@@ -45,6 +45,10 @@ class ClassicFilter(Filter):
         return [ExternalId(external_id=item) if isinstance(item, str) else InternalId(id=item) for item in ids]
 
 
+class TransformationFilter(Filter):
+    data_set_ids: list[ExternalId | InternalId] | None = None
+
+
 class DataModelingFilter(Filter):
     space: str | None = None
     include_global: bool | None = None

@@ -49,6 +49,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.request_classes.filters import TransformationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelReference,
     SpaceReference,
@@ -509,7 +510,10 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
         if isinstance(credentials, ClientCredentials):
             session = self.client.iam.sessions.create(credentials)
             nonce = NonceCredentials(
-                session_id=session.id, nonce=session.nonce, cdf_project_name=self.client.config.project
+                session_id=session.id,
+                nonce=session.nonce,
+                cdf_project_name=self.client.config.project,
+                client_id=credentials.client_id,
             )
         elif isinstance(credentials, OidcCredentials):
             config = deepcopy(self.client.config)
@@ -518,7 +522,10 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
             other_client = ToolkitClient(config)
             session = other_client.iam.sessions.create(credentials.as_client_credentials())
             nonce = NonceCredentials(
-                session_id=session.id, nonce=session.nonce, cdf_project_name=credentials.cdf_project_name
+                session_id=session.id,
+                nonce=session.nonce,
+                cdf_project_name=credentials.cdf_project_name,
+                client_id=credentials.client_id,
             )
         else:
             raise ValueError(f"Error in TransformationLoader: {type(credentials)} is not a valid credentials type")
@@ -530,15 +537,11 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[TransformationResponse]:
-        if data_set_external_id is None:
-            for transformations in self.client.tool.transformations.iterate(limit=100):
-                yield from transformations
-            return
-        data_set_id = self.client.lookup.data_sets.id(data_set_external_id, is_dry_run=False)
-        for transformations in self.client.tool.transformations.iterate(limit=100):
-            for transformation in transformations:
-                if transformation.data_set_id == data_set_id:
-                    yield transformation
+        filter = TransformationFilter()
+        if data_set_external_id is not None:
+            filter.data_set_ids = [ExternalId(external_id=data_set_external_id)]
+        for transformations in self.client.tool.transformations.iterate(limit=None, filter=filter):
+            yield from transformations
 
     def sensitive_strings(self, item: TransformationRequest) -> Iterable[str]:
         external_id = item.external_id
@@ -629,21 +632,11 @@ class TransformationScheduleCRUD(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[TransformationScheduleResponse]:
-        if parent_ids is None:
-            for schedules in self.client.tool.transformations.schedules.iterate(limit=100):
-                yield from schedules
-        else:
-            for transformation_id in parent_ids:
-                if isinstance(transformation_id, ExternalId):
-                    results = self.client.tool.transformations.schedules.retrieve(
-                        [transformation_id], ignore_unknown_ids=True
-                    )
-                    yield from results
-                elif isinstance(transformation_id, str):
-                    results = self.client.tool.transformations.schedules.retrieve(
-                        [ExternalId(external_id=transformation_id)], ignore_unknown_ids=True
-                    )
-                    yield from results
+        parent_id_set = {parent_id.external_id for parent_id in (parent_ids or []) if isinstance(parent_id, ExternalId)}
+        for schedules in self.client.tool.transformations.schedules.iterate(limit=None):
+            for schedule in schedules:
+                if schedule.external_id in parent_id_set:
+                    yield schedule
 
 
 @final
