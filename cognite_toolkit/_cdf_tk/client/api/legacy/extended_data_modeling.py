@@ -4,7 +4,6 @@ from collections.abc import MutableMapping, Sequence
 from typing import Any
 
 from cognite.client import global_config
-from cognite.client._api.data_modeling import DataModelingAPI
 from cognite.client._api.data_modeling.instances import InstancesAPI
 from cognite.client._api_client import T
 from cognite.client._cognite_client import ClientConfig, CogniteClient
@@ -19,12 +18,6 @@ from cognite_toolkit._cdf_tk.client._constants import DATA_MODELING_MAX_DELETE_W
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstancesApplyResultList
 from cognite_toolkit._cdf_tk.client.utils._concurrency import ToolkitConcurrencySettings
 from cognite_toolkit._cdf_tk.client.utils._http_client import ToolkitRetryTracker
-
-
-class ExtendedDataModelingAPI(DataModelingAPI):
-    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: CogniteClient) -> None:
-        super().__init__(config, api_version, cognite_client)
-        self.instances: ExtendedInstancesAPI = ExtendedInstancesAPI(config, api_version, cognite_client)
 
 
 class ExtendedInstancesAPI(InstancesAPI):
