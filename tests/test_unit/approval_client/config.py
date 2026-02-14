@@ -222,7 +222,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest, TransformationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_notification import (
     TransformationNotificationRequest,
     TransformationNotificationResponse,
@@ -1165,7 +1165,7 @@ API_RESOURCES = [
     APIResource(
         api_name="tool.transformations",
         resource_cls=TransformationResponse,
-        _write_cls=TransformationScheduleRequest,
+        _write_cls=TransformationRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [

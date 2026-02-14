@@ -15,9 +15,6 @@ from cognite.client.data_classes import (
     ExtractionPipelineList,
     Group,
     GroupList,
-    TransformationList,
-    TransformationNotificationList,
-    TransformationScheduleList,
     filters,
 )
 from cognite.client.data_classes.data_modeling import ViewId
@@ -59,6 +56,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import St
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.cruds import (
@@ -316,10 +314,10 @@ class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
 class TransformationFinder(ResourceFinder[tuple[str, ...]]):
     def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
         super().__init__(client, identifier)
-        self.transformations: TransformationList | None = None
+        self.transformations: list[TransformationResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        self.transformations = self.client.transformations.list(limit=-1)
+        self.transformations = self.client.tool.transformations.list(limit=None)
         if self.transformations and not any(transformation.external_id for transformation in self.transformations):
             raise ToolkitValueError(
                 "ExternalID is required for dumping transformations. "
@@ -350,7 +348,7 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
         if self.transformations:
             yield (
                 [],
-                TransformationList([t for t in self.transformations if t.external_id in self.identifier]),
+                [t for t in self.transformations if t.external_id in self.identifier],
                 TransformationCRUD.create_loader(self.client),
                 None,
             )
@@ -358,12 +356,10 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
             yield list(self.identifier), None, TransformationCRUD.create_loader(self.client), None
 
         schedule_loader = TransformationScheduleCRUD.create_loader(self.client)
-        schedule_list = TransformationScheduleList(list(schedule_loader.iterate(parent_ids=list(self.identifier))))
+        schedule_list = list(schedule_loader.iterate(parent_ids=list(self.identifier)))
         yield [], schedule_list, schedule_loader, None
         notification_loader = TransformationNotificationCRUD.create_loader(self.client)
-        notification_list = TransformationNotificationList(
-            list(notification_loader.iterate(parent_ids=list(self.identifier)))
-        )
+        notification_list = list(notification_loader.iterate(parent_ids=list(self.identifier)))
         yield [], notification_list, notification_loader, None
 
 
