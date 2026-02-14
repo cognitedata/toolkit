@@ -636,11 +636,15 @@ class TransformationScheduleCRUD(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[TransformationScheduleResponse]:
-        parent_id_set = {parent_id.external_id for parent_id in (parent_ids or []) if isinstance(parent_id, ExternalId)}
-        for schedules in self.client.tool.transformations.schedules.iterate(limit=None):
-            for schedule in schedules:
-                if schedule.external_id in parent_id_set:
-                    yield schedule
+        if not parent_ids:
+            for schedules in self.client.tool.transformations.schedules.iterate(limit=None):
+                yield from schedules
+        else:
+            transformation_external_ids = [parent_id for parent_id in parent_ids if isinstance(parent_id, ExternalId)]
+            if transformation_external_ids:
+                yield from self.client.tool.transformations.schedules.retrieve(
+                    transformation_external_ids, ignore_unknown_ids=True
+                )
 
 
 @final
