@@ -3,6 +3,7 @@ from collections.abc import Iterable, Sequence
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.request_classes.filters import TransformationNotificationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_notification import (
     TransformationNotificationRequest,
@@ -51,12 +52,14 @@ class TransformationNotificationsAPI(
 
     def paginate(
         self,
+        filter: TransformationNotificationFilter | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[TransformationNotificationResponse]:
         """Fetch a page of transformation notification subscriptions from CDF.
 
         Args:
+            filter: TransformationNotificationFilter object to filter the results.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
@@ -66,11 +69,13 @@ class TransformationNotificationsAPI(
         return self._paginate(
             cursor=cursor,
             limit=limit,
+            params=filter.dump() if filter else None,
         )
 
     def iterate(
         self,
-        limit: int = 100,
+        filter: TransformationNotificationFilter | None = None,
+        limit: int | None = 100,
     ) -> Iterable[list[TransformationNotificationResponse]]:
         """Iterate over all transformation notification subscriptions in CDF.
 
@@ -80,10 +85,11 @@ class TransformationNotificationsAPI(
         Returns:
             Iterable of lists of TransformationNotificationResponse objects.
         """
-        return self._iterate(limit=limit)
+        return self._iterate(limit=limit, params=filter.dump() if filter else None)
 
     def list(
         self,
+        filter: TransformationNotificationFilter | None = None,
         limit: int | None = 100,
     ) -> list[TransformationNotificationResponse]:
         """List all transformation notification subscriptions in CDF.
@@ -91,4 +97,4 @@ class TransformationNotificationsAPI(
         Returns:
             List of TransformationNotificationResponse objects.
         """
-        return self._list(limit=limit)
+        return self._list(limit=limit, params=filter.dump() if filter else None)

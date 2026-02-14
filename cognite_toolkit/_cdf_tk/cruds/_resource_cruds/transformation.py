@@ -38,35 +38,46 @@ from typing import Any, Literal, cast, final
 from cognite.client.data_classes import (
     ClientCredentials,
     OidcCredentials,
-    Transformation,
-    TransformationList,
-    TransformationNotification,
-    TransformationNotificationList,
-    TransformationSchedule,
-    TransformationScheduleList,
-    TransformationScheduleWrite,
-    TransformationWrite,
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
     TransformationsAcl,
 )
-from cognite.client.data_classes.transformations import NonceCredentials
-from cognite.client.data_classes.transformations.notifications import (
-    TransformationNotificationWrite,
-)
-from cognite.client.exceptions import CogniteAPIError, CogniteAuthError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.request_classes.filters import (
+    TransformationFilter,
+    TransformationNotificationFilter,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelReference,
     SpaceReference,
     ViewReference,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
+    ExternalId,
+    InternalId,
+    RawDatabaseId,
+    RawTableId,
+    TransformationNotificationId,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    NonceCredentials,
+    TransformationRequest,
+    TransformationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_notification import (
+    TransformationNotificationRequest,
+    TransformationNotificationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule import (
+    TransformationScheduleRequest,
+    TransformationScheduleResponse,
+)
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -90,6 +101,7 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
     safe_read,
+    sanitize_filename,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.collection import chunker
@@ -103,10 +115,10 @@ from .raw import RawDatabaseCRUD, RawTableCRUD
 
 
 @final
-class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation]):
+class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, TransformationResponse]):
     folder_name = "transformations"
-    resource_cls = Transformation
-    resource_write_cls = TransformationWrite
+    resource_cls = TransformationResponse
+    resource_write_cls = TransformationRequest
     kind = "Transformation"
     yaml_cls = TransformationYAML
     dependencies = frozenset(
@@ -142,7 +154,7 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[TransformationWrite] | None, read_only: bool
+        cls, items: Sequence[TransformationRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -160,15 +172,15 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
         return TransformationsAcl(actions, scope)
 
     @classmethod
-    def get_id(cls, item: Transformation | TransformationWrite | dict) -> str:
+    def get_id(cls, item: TransformationResponse | TransformationRequest | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
+            return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
             raise ToolkitRequiredValueError("Transformation must have external_id set.")
-        return item.external_id
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def get_internal_id(cls, item: Transformation | dict) -> int:
+    def get_internal_id(cls, item: TransformationResponse | dict) -> int:
         if isinstance(item, dict):
             return item["id"]
         if item.id is None:
@@ -176,8 +188,12 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
         return item.id
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
+
+    @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -224,7 +240,7 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
                     raise ValueError("filepath must be set if queryFile is set")
                 query_file = filepath.parent / Path(item.pop("queryFile"))
 
-            external_id = self.get_id(item)
+            external_id = self.get_id(item).external_id
             if query_file is None and "query" not in item:
                 if filepath is None:
                     raise ValueError("filepath must be set if query is not set")
@@ -314,7 +330,7 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
                 )
         return raw_list
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> TransformationWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> TransformationRequest:
         invalid_parameters: dict[str, str] = {}
         if "action" in resource and "conflictMode" not in resource:
             invalid_parameters["action"] = "conflictMode"
@@ -331,12 +347,13 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         if "conflictMode" not in resource:
-            # Todo; Bug SDK missing default value
             resource["conflictMode"] = "upsert"
-        return TransformationWrite._load(resource)
+        if "ignoreNullFields" not in resource:
+            resource["ignoreNullFields"] = True
+        return TransformationRequest.model_validate(resource)
 
-    def dump_resource(self, resource: Transformation, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+    def dump_resource(self, resource: TransformationResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
         local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
@@ -373,31 +390,29 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
             return diff_list_hashable(local, cdf)
         return super().diff_list(local, cdf, json_path)
 
-    def create(self, items: Sequence[TransformationWrite]) -> TransformationList:
-        return self._execute_in_batches(items, self.client.transformations.create)
+    def create(self, items: Sequence[TransformationRequest]) -> list[TransformationResponse]:
+        return self._execute_in_batches(items, self.client.tool.transformations.create)
 
-    def retrieve(self, ids: SequenceNotStr[str | int]) -> TransformationList:
-        internal_ids, external_ids = self._split_ids(ids)
-        return self.client.transformations.retrieve_multiple(
-            ids=internal_ids, external_ids=external_ids, ignore_unknown_ids=True
-        )
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[TransformationResponse]:
+        return self.client.tool.transformations.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[TransformationWrite]) -> TransformationList:
-        def update(transformations: Sequence[TransformationWrite]) -> TransformationList:
-            return self.client.transformations.update(transformations, mode="replace")
+    def update(self, items: Sequence[TransformationRequest]) -> list[TransformationResponse]:
+        def update(transformations: Sequence[TransformationRequest]) -> list[TransformationResponse]:
+            return self.client.tool.transformations.update(list(transformations), mode="replace")
 
         return self._execute_in_batches(items, update)
 
-    @staticmethod
-    def _create_auth_creation_error(items: Sequence[TransformationWrite]) -> ResourceCreationError | None:
+    def _create_auth_creation_error(self, items: Sequence[TransformationRequest]) -> ResourceCreationError | None:
         hints_by_id: dict[str, list[str]] = defaultdict(list)
         for item in items:
             if not item.external_id:
                 continue
-            hint_source = try_find_error(item.source_oidc_credentials)
+            read_credentials = self._authentication_by_id_operation.get((item.external_id, "read"))
+            hint_source = try_find_error(read_credentials)
             if hint_source:
                 hints_by_id[item.external_id].append(hint_source)
-            if hint_dest := try_find_error(item.destination_oidc_credentials):
+            write_credentials = self._authentication_by_id_operation.get((item.external_id, "write"))
+            if hint_dest := try_find_error(write_credentials):
                 if hint_dest != hint_source:
                     hints_by_id[item.external_id].append(hint_dest)
         if hints_by_id:
@@ -407,30 +422,30 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
             )
         return None
 
-    def delete(self, ids: SequenceNotStr[str | int]) -> int:
-        existing = self.retrieve(ids).as_ids()
-        if existing:
-            self.client.transformations.delete(id=existing, ignore_unknown_ids=True)
-        return len(existing)
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+        if not ids:
+            return 0
+        self.client.tool.transformations.delete(list(ids), ignore_unknown_ids=True)
+        return len(ids)
 
     def _execute_in_batches(
         self,
-        items: Sequence[TransformationWrite],
-        api_call: Callable[[Sequence[TransformationWrite]], TransformationList],
-    ) -> TransformationList:
-        results = TransformationList([])
+        items: Sequence[TransformationRequest],
+        api_call: Callable[[Sequence[TransformationRequest]], list[TransformationResponse]],
+    ) -> list[TransformationResponse]:
+        results: list[TransformationResponse] = []
         for chunk in chunker(items, self._BATCH_SIZE):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 self._update_nonce(chunk)
             try:
                 chunk_results = api_call(chunk)
-            except CogniteAuthError as e:
-                if error := self._create_auth_creation_error(chunk):
-                    raise error from e
-                raise e
-            except CogniteAPIError as e:
-                if "Failed to bind session using nonce" in e.message and len(chunk) > 1:
+            except ToolkitAPIError as e:
+                if e.code in (401, 403):
+                    if error := self._create_auth_creation_error(chunk):
+                        raise error from e
+                    raise
+                elif "Failed to bind session using nonce" in e.message and len(chunk) > 1:
                     results.extend(self._execute_one_by_one(chunk, api_call))
                 else:
                     raise
@@ -440,9 +455,9 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
 
     def _execute_one_by_one(
         self,
-        chunk: Sequence[TransformationWrite],
-        api_call: Callable[[Sequence[TransformationWrite]], TransformationList],
-    ) -> TransformationList:
+        chunk: Sequence[TransformationRequest],
+        api_call: Callable[[Sequence[TransformationRequest]], list[TransformationResponse]],
+    ) -> list[TransformationResponse]:
         MediumSeverityWarning(
             f"Failed to create {len(chunk)} transformations in a batch due to nonce binding error. "
             "Trying to recover by creating them one by one."
@@ -452,11 +467,11 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
         success_count = 0
         delay = 0.3
         self._sleep_with_jitter(delay, delay + 0.3)
-        results = TransformationList([])
+        results: list[TransformationResponse] = []
         for item in chunk:
             try:
                 recovered = api_call([item])
-            except CogniteAPIError as e:
+            except ToolkitAPIError as e:
                 if "Failed to bind session using nonce" in e.message:
                     failed_ids.append(item.external_id or "<missing>")
                     self._sleep_with_jitter(delay, delay + 0.3)
@@ -482,7 +497,7 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
         sleep_time = random.uniform(base_delay, max_delay)
         time.sleep(sleep_time)
 
-    def _update_nonce(self, items: Sequence[TransformationWrite]) -> None:
+    def _update_nonce(self, items: Sequence[TransformationRequest]) -> None:
         for item in items:
             if not item.external_id:
                 raise ToolkitRequiredValueError("Transformation must have external_id set.")
@@ -498,14 +513,24 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
     def _create_nonce(self, credentials: OidcCredentials | ClientCredentials) -> NonceCredentials:
         if isinstance(credentials, ClientCredentials):
             session = self.client.iam.sessions.create(credentials)
-            nonce = NonceCredentials(session.id, session.nonce, self.client.config.project)
+            nonce = NonceCredentials(
+                session_id=session.id,
+                nonce=session.nonce,
+                cdf_project_name=self.client.config.project,
+                client_id=credentials.client_id,
+            )
         elif isinstance(credentials, OidcCredentials):
             config = deepcopy(self.client.config)
             config.project = credentials.cdf_project_name
             config.credentials = credentials.as_credential_provider()
             other_client = ToolkitClient(config)
             session = other_client.iam.sessions.create(credentials.as_client_credentials())
-            nonce = NonceCredentials(session.id, session.nonce, credentials.cdf_project_name)
+            nonce = NonceCredentials(
+                session_id=session.id,
+                nonce=session.nonce,
+                cdf_project_name=credentials.cdf_project_name,
+                client_id=credentials.client_id,
+            )
         else:
             raise ValueError(f"Error in TransformationLoader: {type(credentials)} is not a valid credentials type")
         return nonce
@@ -515,18 +540,15 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[Transformation]:
-        return iter(
-            self.client.transformations(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
-        )
+    ) -> Iterable[TransformationResponse]:
+        filter = TransformationFilter()
+        if data_set_external_id is not None:
+            filter.data_set_ids = [ExternalId(external_id=data_set_external_id)]
+        for transformations in self.client.tool.transformations.iterate(limit=None, filter=filter):
+            yield from transformations
 
-    def sensitive_strings(self, item: TransformationWrite) -> Iterable[str]:
-        if item.source_oidc_credentials:
-            yield item.source_oidc_credentials.client_secret
-        if item.destination_oidc_credentials:
-            yield item.destination_oidc_credentials.client_secret
-
-        external_id = self.get_id(item)
+    def sensitive_strings(self, item: TransformationRequest) -> Iterable[str]:
+        external_id = item.external_id
         if read_credentials := self._authentication_by_id_operation.get((external_id, "read")):
             yield read_credentials.client_secret
         if write_credentials := self._authentication_by_id_operation.get((external_id, "write")):
@@ -536,14 +558,14 @@ class TransformationCRUD(ResourceCRUD[str, TransformationWrite, Transformation])
 @final
 class TransformationScheduleCRUD(
     ResourceCRUD[
-        str,
-        TransformationScheduleWrite,
-        TransformationSchedule,
+        ExternalId,
+        TransformationScheduleRequest,
+        TransformationScheduleResponse,
     ]
 ):
     folder_name = "transformations"
-    resource_cls = TransformationSchedule
-    resource_write_cls = TransformationScheduleWrite
+    resource_cls = TransformationScheduleResponse
+    resource_write_cls = TransformationScheduleRequest
     kind = "Schedule"
     yaml_cls = TransformationScheduleYAML
     dependencies = frozenset({TransformationCRUD})
@@ -556,199 +578,159 @@ class TransformationScheduleCRUD(
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[TransformationScheduleWrite] | None, read_only: bool
+        cls, items: Sequence[TransformationScheduleRequest] | None, read_only: bool
     ) -> list[Capability]:
         # Access for transformations schedules is checked by the transformation that is deployed
         # first, so we don't need to check for any capabilities here.
         return []
 
     @classmethod
-    def get_id(cls, item: TransformationSchedule | TransformationScheduleWrite | dict) -> str:
+    def get_id(cls, item: TransformationScheduleResponse | TransformationScheduleRequest | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
+            return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
             raise ToolkitRequiredValueError("TransformationSchedule must have external_id set.")
-        return item.external_id
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
+
+    @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "externalId" in item:
-            yield TransformationCRUD, item["externalId"]
+            yield TransformationCRUD, ExternalId(external_id=item["externalId"])
 
-    def create(self, items: Sequence[TransformationScheduleWrite]) -> TransformationScheduleList:
+    def create(self, items: Sequence[TransformationScheduleRequest]) -> list[TransformationScheduleResponse]:
         try:
-            return self.client.transformations.schedules.create(list(items))
-        except CogniteDuplicatedError as e:
+            return self.client.tool.transformations.schedules.create(list(items))
+        except ToolkitAPIError as e:
+            if not e.duplicated:
+                raise
             existing = {external_id for dup in e.duplicated if (external_id := dup.get("externalId", None))}
             print(
                 f"  [bold yellow]WARNING:[/] {len(e.duplicated)} transformation schedules already exist(s): {existing}"
             )
             new_items = [item for item in items if item.external_id not in existing]
-            return self.client.transformations.schedules.create(new_items)
+            return self.client.tool.transformations.schedules.create(new_items)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> TransformationScheduleList:
-        return self.client.transformations.schedules.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[TransformationScheduleResponse]:
+        return self.client.tool.transformations.schedules.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[TransformationScheduleWrite]) -> TransformationScheduleList:
-        return self.client.transformations.schedules.update(items, mode="replace")
+    def update(self, items: Sequence[TransformationScheduleRequest]) -> list[TransformationScheduleResponse]:
+        return self.client.tool.transformations.schedules.update(list(items), mode="replace")
 
-    def delete(self, ids: str | SequenceNotStr[str] | None) -> int:
-        try:
-            self.client.transformations.schedules.delete(
-                external_id=cast(SequenceNotStr[str], ids), ignore_unknown_ids=False
-            )
-            return len(cast(SequenceNotStr[str], ids))
-        except CogniteNotFoundError as e:
-            return len(cast(SequenceNotStr[str], ids)) - len(e.not_found)
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+        if not ids:
+            return 0
+        self.client.tool.transformations.schedules.delete(list(ids), ignore_unknown_ids=True)
+        return len(ids)
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[TransformationSchedule]:
-        if parent_ids is None:
-            yield from iter(self.client.transformations.schedules)
+    ) -> Iterable[TransformationScheduleResponse]:
+        if not parent_ids:
+            for schedules in self.client.tool.transformations.schedules.iterate(limit=None):
+                yield from schedules
         else:
-            for transformation_id in parent_ids:
-                if isinstance(transformation_id, str):
-                    res = self.client.transformations.schedules.retrieve(external_id=transformation_id)
-                    if res:
-                        yield res
-                elif isinstance(transformation_id, int):
-                    res = self.client.transformations.schedules.retrieve(id=transformation_id)
-                    if res:
-                        yield res
+            transformation_external_ids = [parent_id for parent_id in parent_ids if isinstance(parent_id, ExternalId)]
+            if transformation_external_ids:
+                yield from self.client.tool.transformations.schedules.retrieve(
+                    transformation_external_ids, ignore_unknown_ids=True
+                )
 
 
 @final
 class TransformationNotificationCRUD(
     ResourceCRUD[
-        str,
-        TransformationNotificationWrite,
-        TransformationNotification,
+        TransformationNotificationId,
+        TransformationNotificationRequest,
+        TransformationNotificationResponse,
     ]
 ):
     folder_name = "transformations"
-    resource_cls = TransformationNotification
-    resource_write_cls = TransformationNotificationWrite
+    resource_cls = TransformationNotificationResponse
+    resource_write_cls = TransformationNotificationRequest
     kind = "Notification"
     dependencies = frozenset({TransformationCRUD})
     _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
-    _split_character = "@@@"
     parent_resource = frozenset({TransformationCRUD})
     yaml_cls = TransformationNotificationYAML
+
+    support_update = False
 
     @property
     def display_name(self) -> str:
         return "transformation notifications"
 
     @classmethod
-    def get_id(cls, item: TransformationNotification | TransformationNotificationWrite | dict) -> str:
+    def get_id(
+        cls, item: TransformationNotificationResponse | TransformationNotificationRequest | dict
+    ) -> TransformationNotificationId:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"transformationExternalId", "destination"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return f"{item['transformationExternalId']}{cls._split_character}{item['destination']}"
+            return TransformationNotificationId(
+                transformation_external_id=item["transformationExternalId"], destination=item["destination"]
+            )
 
-        return f"{item.transformation_external_id}{cls._split_character}{item.destination}"
+        return TransformationNotificationId(
+            transformation_external_id=item.transformation_external_id or "<missing>",
+            destination=item.destination,
+        )
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        transformation_id, destination = id.split(cls._split_character, maxsplit=1)
-        return {
-            "transformationExternalId": transformation_id,
-            "destination": destination,
-        }
+    def dump_id(cls, id: TransformationNotificationId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[TransformationNotificationWrite] | None, read_only: bool
+        cls, items: Sequence[TransformationNotificationRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         # Access for transformation notification is checked by the transformation that is deployed
         # first, so we don't need to check for any capabilities here.
         return []
 
     def dump_resource(
-        self, resource: TransformationNotification, local: dict[str, Any] | None = None
+        self, resource: TransformationNotificationResponse, local: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+        dumped = resource.as_request_resource().dump()
         if local and "transformationExternalId" in local:
-            dumped.pop("transformationId")
+            dumped.pop("transformationId", None)
             dumped["transformationExternalId"] = local["transformationExternalId"]
         return dumped
 
-    def create(self, items: Sequence[TransformationNotificationWrite]) -> TransformationNotificationList:
-        return self.client.transformations.notifications.create(items)
+    @classmethod
+    def as_str(cls, id: TransformationNotificationId) -> str:
+        return sanitize_filename(f"{id.transformation_external_id}_{id.destination}")
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> TransformationNotificationList:
-        retrieved = TransformationNotificationList([])
-        for id_ in ids:
-            try:
-                transformation_external_id, destination = id_.rsplit(self._split_character, maxsplit=1)
-            except ValueError:
-                # This should never happen, and is a bug in the toolkit if it occurs. Creating a nice error message
-                # here so that if it does happen, it will be easier to debug.
-                raise ValueError(
-                    f"Invalid externalId: {id_}. Must be in the format 'transformationExternalId{self._split_character}destination'"
-                )
-            try:
-                result = self.client.transformations.notifications.list(
-                    transformation_external_id=transformation_external_id, destination=destination, limit=-1
-                )
-                # list() does not return the transformation_external_id on items
-                for notification in result:
-                    notification.transformation_external_id = transformation_external_id
+    def create(self, items: Sequence[TransformationNotificationRequest]) -> list[TransformationNotificationResponse]:
+        return self.client.tool.transformations.notifications.create(list(items))
 
-            except CogniteAPIError:
-                # The notification endpoint gives a 500 if the notification does not exist.
-                # The issue has been reported to the service team.
-                continue
+    def retrieve(self, ids: SequenceNotStr[TransformationNotificationId]) -> list[TransformationNotificationResponse]:
+        unique_ids: set[ExternalId] = {ExternalId(external_id=id_.transformation_external_id) for id_ in ids}
+        targets_ids = {(id_.transformation_external_id, id_.destination) for id_ in ids}
+        return [
+            notification
+            for notification in self.iterate(parent_ids=list(unique_ids))
+            if (notification.transformation_external_id, notification.destination) in targets_ids
+        ]
 
-            retrieved.extend(result)
-
-        return retrieved
-
-    def update(self, items: Sequence[TransformationNotificationWrite]) -> TransformationNotificationList:
-        # Note that since a notification is identified by the combination of transformationExternalId and destination,
-        # which is the entire object, an update should never happen. However, implementing just in case.
-        item_by_id = {self.get_id(item): item for item in items}
-        existing = self.retrieve(list(item_by_id.keys()))
-        exiting_by_id = {self.get_id(item): item for item in existing}
-        create: list[TransformationNotificationWrite] = []
-        unchanged: list[str] = []
-        delete: list[int] = []
-        for id_, local_item in item_by_id.items():
-            existing_item = exiting_by_id.get(id_)
-            local_dict = local_item.dump()
-            if existing_item and local_item == self.dump_resource(existing_item, local_dict):
-                unchanged.append(self.get_id(existing_item))
-            else:
-                create.append(local_item)
-            if existing_item:
-                delete.append(existing_item.id)
-        if delete:
-            self.client.transformations.notifications.delete(delete)
-        updated_by_id: dict[str, TransformationNotification] = {}
-        if create:
-            # Bug in SDK
-            created = self.client.transformations.notifications.create(create)
-            updated_by_id.update({self.get_id(item): item for item in created})
-        if unchanged:
-            updated_by_id.update({id_: exiting_by_id[id_] for id_ in unchanged})
-        return TransformationNotificationList([updated_by_id[id_] for id_ in item_by_id.keys()])
-
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: SequenceNotStr[TransformationNotificationId]) -> int:
         # Note that it is theoretically possible that more items will be deleted than
         # input ids. This is because TransformationNotifications are identified by an internal id,
         # while the toolkit uses the transformationExternalId + destination as the id. Thus, there could
         # be multiple notifications for the same transformationExternalId + destination.
         if existing := self.retrieve(ids):
-            self.client.transformations.notifications.delete([item.id for item in existing])
+            self.client.tool.transformations.notifications.delete(InternalId.from_ids([item.id for item in existing]))
         return len(existing)
 
     def _iterate(
@@ -756,15 +738,20 @@ class TransformationNotificationCRUD(
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[TransformationNotification]:
+    ) -> Iterable[TransformationNotificationResponse]:
         if parent_ids is None:
-            yield from iter(self.client.transformations.notifications)
+            for notifications in self.client.tool.transformations.notifications.iterate(limit=None):
+                yield from notifications
         else:
-            for transformation_id in parent_ids:
-                if isinstance(transformation_id, str):
-                    yield from self.client.transformations.notifications(transformation_external_id=transformation_id)
-                elif isinstance(transformation_id, int):
-                    yield from self.client.transformations.notifications(transformation_id=transformation_id)
+            for parent_id in parent_ids:
+                if not isinstance(parent_id, ExternalId):
+                    continue
+                filter = TransformationNotificationFilter(transformation_external_id=parent_id.external_id)
+                for notifications in self.client.tool.transformations.notifications.iterate(limit=None, filter=filter):
+                    for notification in notifications:
+                        # This is not set by the API.
+                        notification.transformation_external_id = parent_id.external_id
+                        yield notification
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -774,4 +761,4 @@ class TransformationNotificationCRUD(
         DatasetLoader and identifier of that dataset.
         """
         if "transformationExternalId" in item:
-            yield TransformationCRUD, item["transformationExternalId"]
+            yield TransformationCRUD, ExternalId(external_id=item["transformationExternalId"])
