@@ -38,19 +38,12 @@ CogniteFileResponse:
   instanceType: node
   sources:
   - properties:
-      fileCategory: Document
       mimeType: text/plain
       name: anotherfile.txt
-      nodeSource:
-        externalId: MyFileExtension
-        space: sp_schema
-        type: view
-        version: v1
       sourceCreatedTime: '2023-01-01T00:00:00Z'
       sourceCreatedUser: I
       sourceUpdatedTime: '2024-01-01T00:00:00Z'
       sourceUpdatedUser: Myself
-      status: Active
     source:
       externalId: CogniteFile
       space: cdf_cdm
