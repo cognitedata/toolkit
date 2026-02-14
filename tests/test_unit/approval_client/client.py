@@ -64,7 +64,11 @@ from requests import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceDefinition, InstanceRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    InstanceDefinition,
+    InstanceRequest,
+    NodeReference,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source._base import SourceRequestDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import GraphQLDataModelWrite
@@ -689,7 +693,7 @@ class ApprovalToolkitClient:
         def upload_file_content_bytes_files_api(
             content: str | bytes,
             external_id: str | None = None,
-            instance_id: NodeId | None = None,
+            instance_id: NodeReference | None = None,
         ) -> FileMetadata:
             if isinstance(content, bytes):
                 try:
@@ -715,7 +719,7 @@ class ApprovalToolkitClient:
         def _upload_file_content_files_api(
             filehash: str,
             external_id: str | None = None,
-            instance_id: NodeId | None = None,
+            instance_id: NodeReference | None = None,
         ) -> FileMetadata:
             if sum([bool(external_id), bool(instance_id)]) != 1:
                 raise ValueError("Exactly one of external_id or instance_id must be set")
@@ -723,7 +727,7 @@ class ApprovalToolkitClient:
             if external_id:
                 entry = {"external_id": external_id}
             else:
-                entry = instance_id.dump(include_instance_type=False)
+                entry = instance_id.dump()
             entry["filehash"] = filehash
 
             created_resources[FileCRUD.__name__].append(entry)
