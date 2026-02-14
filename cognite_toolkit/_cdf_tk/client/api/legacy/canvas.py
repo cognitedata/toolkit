@@ -1,10 +1,13 @@
 from collections.abc import Iterable, Sequence
 from typing import Any, overload
 
+from cognite.client._api.data_modeling.instances import InstancesAPI
 from cognite.client._constants import DEFAULT_LIMIT_READ
 from cognite.client.data_classes.data_modeling import (
+    EdgeApply,
     EdgeId,
     InstanceSort,
+    NodeApply,
     NodeApplyResultList,
     NodeId,
     NodeList,
@@ -15,7 +18,6 @@ from cognite.client.data_classes.filters import Filter
 from cognite.client.exceptions import CogniteDuplicatedError
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.api.legacy.extended_data_modeling import ExtendedInstancesAPI
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     ANNOTATION_EDGE_TYPE,
     CANVAS_INSTANCE_SPACE,
@@ -35,7 +37,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
 
 class CanvasAPI:
-    def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
+    def __init__(self, instance_api: InstancesAPI) -> None:
         self._instance_api = instance_api
         self.instance_space = CANVAS_INSTANCE_SPACE
         self.industrial = IndustrialCanvasAPI(instance_api)
@@ -76,7 +78,7 @@ class CanvasAPI:
 
 
 class IndustrialCanvasAPI:
-    def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
+    def __init__(self, instance_api: InstancesAPI) -> None:
         self._instance_api = instance_api
         self._APPLY_LIMIT = 1000  # Limit for applying instances in a single request
 
@@ -90,7 +92,11 @@ class IndustrialCanvasAPI:
             raise CogniteDuplicatedError(duplicated=existing.nodes.as_ids() + existing.edges.as_ids())
         instances = canvas.as_instances()
         self._validate_instance_count(len(instances))
-        return self._instance_api.apply_fast(instances)
+        nodes = [node for node in instances if isinstance(node, NodeApply)]
+        edges = [edge for edge in instances if isinstance(edge, EdgeApply)]
+
+        result = self._instance_api.apply(nodes=nodes, edges=edges)
+        return InstancesApplyResultList([*result.nodes, *result.edges])
 
     def retrieve(self, external_id: str) -> IndustrialCanvas | None:
         retrieve_query = self._retrieve_query(external_id)
@@ -111,15 +117,26 @@ class IndustrialCanvasAPI:
             )
         existing_instance_ids = existing.as_write().as_instance_ids(include_solution_tags=False)
         to_delete = set(existing_instance_ids) - set(new_instance_ids)
-        result = self._instance_api.apply_fast(canvas.as_instances())
+        instances = canvas.as_instances()
+        nodes = [node for node in instances if isinstance(node, NodeApply)]
+        edges = [edge for edge in instances if isinstance(edge, EdgeApply)]
+        sdk_result = self._instance_api.apply(nodes=nodes, edges=edges)
+        result = InstancesApplyResultList([*sdk_result.nodes, *sdk_result.edges])
         if to_delete:
+            nodes_ids = [node for node in to_delete if isinstance(node, NodeId)]
+            edges_ids = [edge for edge in to_delete if isinstance(edge, EdgeId)]
             # Delete components that are not in the new canvas
-            self._instance_api.delete_fast(list(to_delete))
+            self._instance_api.delete(nodes=nodes_ids, edges=edges_ids)
         return result
 
     def delete(self, canvas: IndustrialCanvasApply) -> list[NodeId | EdgeId]:
         # Solution tags are used by multiple canvases, so we do not include them in the deletion.
-        return self._instance_api.delete_fast(canvas.as_instance_ids(include_solution_tags=False))
+        instance_ids = canvas.as_instance_ids(include_solution_tags=False)
+        nodes_ids = [node for node in instance_ids if isinstance(node, NodeId)]
+        edges_ids = [edge for edge in instance_ids if isinstance(edge, EdgeId)]
+
+        result = self._instance_api.delete(nodes_ids, edges_ids)
+        return result.nodes + result.edges
 
     def _validate_instance_count(self, instance_count: int) -> None:
         if instance_count > self._APPLY_LIMIT:
