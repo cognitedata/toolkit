@@ -27,7 +27,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, SpaceReference, ViewReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId, NameId
@@ -311,6 +311,3 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, C
             for asset in item["assets"]:
                 if isinstance(asset, dict) and in_dict(("space", "externalId"), asset):
                     yield AssetCRUD, TypedNodeIdentifier(space=asset["space"], external_id=asset["externalId"])
-        if "nodeSource" in item:
-            if in_dict(("space", "externalId", "version", "type"), item["nodeSource"]):
-                yield ViewCRUD, ViewReference.model_validate(item["nodeSource"])
