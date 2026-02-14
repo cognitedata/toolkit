@@ -26,6 +26,7 @@ from ._resource_cruds import (
     ContainerCRUD,
     DataModelCRUD,
     DatapointSubscriptionCRUD,
+    DataProductCRUD,
     DataSetsCRUD,
     EdgeCRUD,
     EventCRUD,
@@ -96,6 +97,8 @@ if not FeatureFlag.is_enabled(Flags.SIMULATORS):
     _EXCLUDED_CRUDS.add(SimulatorRoutineRevisionCRUD)
     _EXCLUDED_CRUDS.add(SimulatorRoutineCRUD)
     _EXCLUDED_CRUDS.add(SimulatorModelRevisionCRUD)
+if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
+    _EXCLUDED_CRUDS.add(DataProductCRUD)
 
 CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[Loader]]] = defaultdict(list)
 CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)
@@ -144,6 +147,7 @@ ResourceTypes: TypeAlias = Literal[
     "classic",
     "data_modeling",
     "data_models",  # Todo: Remove in v1.0
+    "data_products",
     "data_sets",
     "hosted_extractors",
     "locations",
@@ -184,6 +188,7 @@ __all__ = [
     "ContainerCRUD",
     "DataCRUD",
     "DataModelCRUD",
+    "DataProductCRUD",
     "DataSetsCRUD",
     "DatapointSubscriptionCRUD",
     "DatapointsCRUD",

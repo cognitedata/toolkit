@@ -38,6 +38,7 @@ from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from ._toolkit_client import ToolAPI
 from .api.agents import AgentsAPI
 from .api.assets import AssetsAPI
+from .api.data_products import DataProductsAPI
 from .api.datasets import DataSetsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
@@ -200,6 +201,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.workflows = MagicMock(spec=WorkflowsAPI)
         self.tool.workflows.triggers = MagicMock(spec_set=WorkflowTriggersAPI)
         self.tool.workflows.versions = MagicMock(spec_set=WorkflowVersionsAPI)
+        self.tool.data_products = MagicMock(spec_set=DataProductsAPI)
 
         self.streams = MagicMock(spec=StreamsAPI)
 
