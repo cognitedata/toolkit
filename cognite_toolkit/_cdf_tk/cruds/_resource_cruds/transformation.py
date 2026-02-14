@@ -49,7 +49,10 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.request_classes.filters import TransformationFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import (
+    TransformationFilter,
+    TransformationNotificationFilter,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelReference,
     SpaceReference,
@@ -60,6 +63,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
     InternalId,
     RawDatabaseId,
     RawTableId,
+    TransformationNotificationId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     NonceCredentials,
@@ -642,7 +646,7 @@ class TransformationScheduleCRUD(
 @final
 class TransformationNotificationCRUD(
     ResourceCRUD[
-        str,
+        TransformationNotificationId,
         TransformationNotificationRequest,
         TransformationNotificationResponse,
     ]
@@ -653,31 +657,35 @@ class TransformationNotificationCRUD(
     kind = "Notification"
     dependencies = frozenset({TransformationCRUD})
     _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
-    _split_character = "@@@"
     parent_resource = frozenset({TransformationCRUD})
     yaml_cls = TransformationNotificationYAML
+
+    support_update = False
 
     @property
     def display_name(self) -> str:
         return "transformation notifications"
 
     @classmethod
-    def get_id(cls, item: TransformationNotificationResponse | TransformationNotificationRequest | dict) -> str:
+    def get_id(
+        cls, item: TransformationNotificationResponse | TransformationNotificationRequest | dict
+    ) -> TransformationNotificationId:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"transformationExternalId", "destination"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return f"{item['transformationExternalId']}{cls._split_character}{item['destination']}"
+            return TransformationNotificationId(
+                transformation_external_id=item["transformationExternalId"], destination=item["destination"]
+            )
 
-        return f"{item.transformation_external_id}{cls._split_character}{item.destination}"
+        return TransformationNotificationId(
+            transformation_external_id=item.transformation_external_id or "<missing>",
+            destination=item.destination,
+        )
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        transformation_id, destination = id.split(cls._split_character, maxsplit=1)
-        return {
-            "transformationExternalId": transformation_id,
-            "destination": destination,
-        }
+    def dump_id(cls, id: TransformationNotificationId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_required_capability(
@@ -699,85 +707,16 @@ class TransformationNotificationCRUD(
     def create(self, items: Sequence[TransformationNotificationRequest]) -> list[TransformationNotificationResponse]:
         return self.client.tool.transformations.notifications.create(list(items))
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> list[TransformationNotificationResponse]:
-        retrieved: list[TransformationNotificationResponse] = []
+    def retrieve(self, ids: SequenceNotStr[TransformationNotificationId]) -> list[TransformationNotificationResponse]:
+        unique_ids: set[ExternalId] = {ExternalId(external_id=id_.transformation_external_id) for id_ in ids}
+        targets_ids = {(id_.transformation_external_id, id_.destination) for id_ in ids}
+        return [
+            notification
+            for notification in self.iterate(parent_ids=list(unique_ids))
+            if (notification.transformation_external_id, notification.destination) in targets_ids
+        ]
 
-        # Parse all composite IDs into (transformation_external_id, destination) pairs
-        target_pairs: set[tuple[str, str]] = set()
-        for id_ in ids:
-            try:
-                transformation_external_id, destination = id_.rsplit(self._split_character, maxsplit=1)
-            except ValueError:
-                # This should never happen, and is a bug in the toolkit if it occurs. Creating a nice error message
-                # here so that if it does happen, it will be easier to debug.
-                raise ValueError(
-                    f"Invalid externalId: {id_}. Must be in the format 'transformationExternalId{self._split_character}destination'"
-                )
-            target_pairs.add((transformation_external_id, destination))
-
-        # Resolve transformation external IDs to internal IDs
-        unique_ext_ids = {pair[0] for pair in target_pairs}
-        transformations = self.client.tool.transformations.retrieve(
-            [ExternalId(external_id=ext_id) for ext_id in unique_ext_ids], ignore_unknown_ids=True
-        )
-        ext_to_int: dict[str, int] = {t.external_id: t.id for t in transformations}
-        int_to_ext: dict[int, str] = {t.id: t.external_id for t in transformations}
-
-        # Build lookup of target (transformation_id, destination) pairs
-        target_int_pairs: set[tuple[int, str]] = set()
-        for ext_id, dest in target_pairs:
-            if int_id := ext_to_int.get(ext_id):
-                target_int_pairs.add((int_id, dest))
-
-        try:
-            # List all notifications and filter to matching targets
-            all_notifications = self.client.tool.transformations.notifications.list(limit=None)
-            for notification in all_notifications:
-                if (notification.transformation_id, notification.destination) in target_int_pairs:
-                    # The API does not return transformation_external_id, set it from the lookup
-                    notification.transformation_external_id = int_to_ext.get(notification.transformation_id)
-                    retrieved.append(notification)
-        except ToolkitAPIError:
-            # The notification endpoint may return errors if there are issues.
-            pass
-
-        return retrieved
-
-    def update(self, items: Sequence[TransformationNotificationRequest]) -> list[TransformationNotificationResponse]:
-        # Note that since a notification is identified by the combination of transformationExternalId and destination,
-        # which is the entire object, an update should never happen. However, implementing just in case.
-        item_by_id = {self.get_id(item): item for item in items}
-        existing = self.retrieve(list(item_by_id.keys()))
-        existing_by_id = {self.get_id(item): item for item in existing}
-        to_create: list[TransformationNotificationRequest] = []
-        unchanged: list[str] = []
-        to_delete: list[int] = []
-        for id_, local_item in item_by_id.items():
-            existing_item = existing_by_id.get(id_)
-            local_dict = local_item.dump()
-            if existing_item and local_item == self.dump_resource(existing_item, local_dict):
-                unchanged.append(self.get_id(existing_item))
-            else:
-                to_create.append(local_item)
-            if existing_item:
-                to_delete.append(existing_item.id)
-        if to_delete:
-            self.client.tool.transformations.notifications.delete(InternalId.from_ids(to_delete))
-        updated_by_id: dict[str, TransformationNotificationResponse] = {}
-        if to_create:
-            created = self.client.tool.transformations.notifications.create(to_create)
-            # The API does not return transformation_external_id, set it from the request items
-            for item in created:
-                for req in to_create:
-                    if item.destination == req.destination:
-                        item.transformation_external_id = req.transformation_external_id
-                        break
-            updated_by_id.update({self.get_id(item): item for item in created})
-        if unchanged:
-            updated_by_id.update({id_: existing_by_id[id_] for id_ in unchanged})
-        return [updated_by_id[id_] for id_ in item_by_id.keys()]
-
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: SequenceNotStr[TransformationNotificationId]) -> int:
         # Note that it is theoretically possible that more items will be deleted than
         # input ids. This is because TransformationNotifications are identified by an internal id,
         # while the toolkit uses the transformationExternalId + destination as the id. Thus, there could
@@ -792,31 +731,16 @@ class TransformationNotificationCRUD(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[TransformationNotificationResponse]:
-        # Build a mapping from transformation_id to external_id for annotation
-        int_to_ext: dict[int, str] = {}
-        parent_int_ids: set[int] | None = None
-        if parent_ids is not None:
-            parent_ext_ids = [
-                ExternalId(external_id=pid.external_id if isinstance(pid, ExternalId) else pid)
-                for pid in parent_ids
-                if isinstance(pid, (str, ExternalId))
-            ]
-            if parent_ext_ids:
-                transformations = self.client.tool.transformations.retrieve(parent_ext_ids, ignore_unknown_ids=True)
-                int_to_ext = {t.id: t.external_id for t in transformations}
-            parent_int_ids = set(int_to_ext.keys())
+        if parent_ids is None:
+            for notifications in self.client.tool.transformations.notifications.iterate(limit=None):
+                yield from notifications
         else:
-            # Build mapping from all transformations
-            for batch in self.client.tool.transformations.iterate(limit=100):
-                for t in batch:
-                    int_to_ext[t.id] = t.external_id
-
-        for notifications in self.client.tool.transformations.notifications.iterate(limit=100):
-            for notification in notifications:
-                if parent_int_ids is not None and notification.transformation_id not in parent_int_ids:
+            for parent_id in parent_ids:
+                if not isinstance(parent_id, ExternalId):
                     continue
-                notification.transformation_external_id = int_to_ext.get(notification.transformation_id)
-                yield notification
+                filter = TransformationNotificationFilter(transformation_external_id=parent_id.external_id)
+                for notifications in self.client.tool.transformations.notifications.iterate(limit=None, filter=filter):
+                    yield from notifications
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
