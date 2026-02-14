@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 
 from .api.agents import AgentsAPI
 from .api.assets import AssetsAPI
+from .api.cognite_files import CogniteFilesAPI
 from .api.containers import ContainersAPI
 from .api.data_models import DataModelsAPI
 from .api.datasets import DataSetsAPI
@@ -46,7 +47,7 @@ from .api.verify import VerifyAPI
 from .api.views import ViewsAPI
 from .api.workflows import WorkflowsAPI
 from .config import ToolkitClientConfig
-from .api.cognite_files import CogniteFilesAPI
+
 
 class ToolAPI:
     """This is reimplemented CogniteAPIs in Toolkit"""
