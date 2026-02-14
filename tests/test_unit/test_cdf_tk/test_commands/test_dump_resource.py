@@ -139,7 +139,7 @@ class TestTransformationFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(TransformationFinder.__module__, monkeypatch, answers),
         ):
-            client.tool.transformations.iterate.return_value = [three_transformations]
+            client.tool.transformations.list.return_value = three_transformations
             finder = TransformationFinder(client, None)
             selected = finder._interactive_select()
 
