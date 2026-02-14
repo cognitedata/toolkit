@@ -235,7 +235,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, C
         for key in list(dumped.keys()):
             value = dumped[key]
             if key not in local:
-                if value is None:
+                if value is None or value in ([], {}):
                     dumped.pop(key)
                 continue
             local_value = local[key]
@@ -244,8 +244,6 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, C
             elif isinstance(local_value, date) and isinstance(value, str):
                 dumped[key] = date.fromisoformat(value)
 
-        if "nodeSource" in local:
-            dumped["nodeSource"] = local["nodeSource"]
         if dumped.get("instanceType") == "node" and "instanceType" not in local:
             dumped.pop("instanceType")
         return dumped
