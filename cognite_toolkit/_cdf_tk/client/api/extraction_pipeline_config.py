@@ -5,7 +5,6 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsSuccessResponse,
-    RequestMessage,
     SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config import (
@@ -18,13 +17,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import Extracti
 class ExtractionPipelineConfigsAPI(
     CDFResourceAPI[ExtractionPipelineConfigId, ExtractionPipelineConfigRequest, ExtractionPipelineConfigResponse]
 ):
-    """API for managing extraction pipeline configuration revisions.
-
-    This API does not follow the standard items-based CRUD pattern. Instead:
-    - Create and revert operate on single objects.
-    - Retrieve retrieves a single configuration revision by query parameters.
-    - List returns paginated configuration revisions.
-    """
+    """API for managing extraction pipeline configuration revisions."""
 
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
@@ -40,7 +33,8 @@ class ExtractionPipelineConfigsAPI(
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
     ) -> PagedResponse[ExtractionPipelineConfigResponse]:
-        return PagedResponse[ExtractionPipelineConfigResponse].model_validate_json(response.body)
+        result = ExtractionPipelineConfigResponse.model_validate_json(response.body)
+        return PagedResponse[ExtractionPipelineConfigResponse](items=[result], nextCursor=None)
 
     def create(self, items: Sequence[ExtractionPipelineConfigRequest]) -> list[ExtractionPipelineConfigResponse]:
         """Create new configuration revisions for extraction pipelines.
@@ -53,17 +47,7 @@ class ExtractionPipelineConfigsAPI(
         Returns:
             List of created configuration revisions.
         """
-        endpoint = self._method_endpoint_map["create"]
-        results: list[ExtractionPipelineConfigResponse] = []
-        for item in items:
-            request = RequestMessage(
-                endpoint_url=self._make_url(endpoint.path),
-                method=endpoint.method,
-                body_content=item.dump(),
-            )
-            response = self._http_client.request_single_retries(request).get_success_or_raise()
-            results.append(ExtractionPipelineConfigResponse.model_validate_json(response.body))
-        return results
+        return self._request_item_response(items, "create")
 
     def retrieve(self, items: Sequence[ExtractionPipelineConfigId]) -> list[ExtractionPipelineConfigResponse]:
         """Retrieve configuration revisions by their identifiers.
@@ -76,17 +60,7 @@ class ExtractionPipelineConfigsAPI(
         Returns:
             List of retrieved configuration revisions.
         """
-        endpoint = self._method_endpoint_map["retrieve"]
-        results: list[ExtractionPipelineConfigResponse] = []
-        for item in items:
-            request = RequestMessage(
-                endpoint_url=self._make_url(endpoint.path),
-                method=endpoint.method,
-                parameters=item.dump(),
-            )
-            response = self._http_client.request_single_retries(request).get_success_or_raise()
-            results.append(ExtractionPipelineConfigResponse.model_validate_json(response.body))
-        return results
+        return self._request_item_response(items, "retrieve")
 
     def delete(self, items: Sequence[ExtractionPipelineConfigId]) -> list[ExtractionPipelineConfigResponse]:
         """Delete configuration revisions. This is called revert in the CDF API, as it reverts
@@ -99,17 +73,7 @@ class ExtractionPipelineConfigsAPI(
             List of the latest configuration revisions after the revert.
 
         """
-        endpoint = self._method_endpoint_map["delete"]
-        latest_new_configurations: list[ExtractionPipelineConfigResponse] = []
-        for item in items:
-            request = RequestMessage(
-                endpoint_url=self._make_url(endpoint.path),
-                method=endpoint.method,
-                body_content=item.dump(),
-            )
-            response = self._http_client.request_single_retries(request).get_success_or_raise()
-            latest_new_configurations.append(ExtractionPipelineConfigResponse.model_validate_json(response.body))
-        return latest_new_configurations
+        return self._request_item_response(items, "delete")
 
     def paginate(
         self,
