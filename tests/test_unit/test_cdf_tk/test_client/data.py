@@ -36,7 +36,6 @@ from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsA
 from cognite_toolkit._cdf_tk.client.api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_routines import SimulatorRoutinesAPI
 from cognite_toolkit._cdf_tk.client.api.spaces import SpacesAPI
-from cognite_toolkit._cdf_tk.client.api.three_d import ThreeDClassicModelsAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
@@ -1216,7 +1215,7 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=ThreeDModelResponse,
             request_cls=ThreeDModelClassicRequest,
             example_data=get_example_minimum_responses(ThreeDModelResponse),
-            api_class=ThreeDClassicModelsAPI,
+            # Needs custom mocking due to the retrieve method requires modelId in the path parameter.
         ),
         id="ThreeDClassicModel",
     )

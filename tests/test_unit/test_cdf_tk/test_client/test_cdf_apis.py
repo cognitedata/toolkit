@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersA
 from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
+from cognite_toolkit._cdf_tk.client.api.three_d import ThreeDClassicModelsAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
@@ -34,6 +35,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import Loca
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicRequest, ThreeDModelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     WorkflowTriggerRequest,
@@ -638,6 +640,54 @@ class TestCDFResourceAPI:
 
         # Test iterate/list/paginate
         respx_mock.post(config.create_app_url("/storage/config/locationfilters/list")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list()
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
+
+        page = api.paginate()
+        assert len(page.items) == 1
+        assert page.items[0].dump() == resource
+
+        iterated = list(api.iterate())
+        assert len(iterated) == 1
+        assert iterated[0][0].dump() == resource
+
+    def test_classic_3D_crudl_methods(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        """Test ClassicFilter and its usage in an API method."""
+        resource = get_example_minimum_responses(ThreeDModelResponse)
+        instance = ThreeDModelResponse.model_validate(resource)
+        request = instance.as_request_resource()
+        assert isinstance(request, ThreeDModelClassicRequest)
+        config = toolkit_config
+        api = ThreeDClassicModelsAPI(HTTPClient(config))
+
+        # Test create
+        respx_mock.post(config.create_api_url("/3d/models")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        created = api.create([request])
+        assert len(created) == 1
+        assert created[0] == instance
+
+        # Test retrieve
+        respx_mock.post(config.create_api_url(f"/3d/models/{instance.id}")).mock(
+            return_value=httpx.Response(status_code=200, json=resource)
+        )
+        # Test update
+        respx_mock.post(config.create_api_url("/3d/models/update")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        updated = api.update([request])
+        assert len(updated) == 1
+
+        # Test delete
+        respx_mock.post(config.create_api_url("/3d/models/delete")).mock(return_value=httpx.Response(status_code=200))
+        api.delete([request.as_id()])
+
+        # Test iterate/list/paginate
+        respx_mock.get(config.create_api_url("/3d/models")).mock(
             return_value=httpx.Response(status_code=200, json={"items": [resource]})
         )
         listed = api.list()
