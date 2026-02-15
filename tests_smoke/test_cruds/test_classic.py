@@ -28,9 +28,7 @@ def large_sequence(toolkit_client: ToolkitClient) -> SequenceResponse:
 
 
 class TestSequenceRowCRUD:
-    def test_create_delete_large_sequence(
-        self, toolkit_client: ToolkitClient, large_sequence: SequenceResponse
-    ) -> None:
+    def test_create_delete_many_rows(self, toolkit_client: ToolkitClient, large_sequence: SequenceResponse) -> None:
         count = 10_000
         many_rows = SequenceRowsRequest(
             external_id=SEQUENCE_EXTERNAL_ID,
