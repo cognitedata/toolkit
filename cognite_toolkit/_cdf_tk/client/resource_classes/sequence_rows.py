@@ -2,7 +2,6 @@ from typing import Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
-    RequestItem,
     RequestResource,
     ResponseResource,
 )
@@ -41,22 +40,6 @@ class SequenceRowsRequest(SequenceRows, RequestResource):
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
-
-
-class SequenceRowsDeleteRequest(RequestItem):
-    """Request resource for deleting rows from a sequence.
-
-    Specify either external_id or id, plus the list of row numbers to delete.
-    """
-
-    external_id: str | None = None
-    id: int | None = None
-    rows: list[int]
-
-    def __str__(self) -> str:
-        if self.external_id is not None:
-            return f"externalId='{self.external_id}'"
-        return f"id={self.id}"
 
 
 class SequenceRowsResponse(SequenceRows, ResponseResource[SequenceRowsRequest]):
