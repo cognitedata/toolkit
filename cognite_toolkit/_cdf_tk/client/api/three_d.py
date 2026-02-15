@@ -7,10 +7,11 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsSuccessResponse,
+    RequestMessage,
     SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ThreeDAssetMappingFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId, ThreeDModelRevisionId
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicRequest,
     AssetMappingClassicResponse,
@@ -61,18 +62,36 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicReques
         Returns:
             list[ThreeDModelResponse]: The retrieved 3D model(s).
         """
-        return self._request_item_response(ids, "retrieve")
+        retrieved: list[ThreeDModelResponse] = []
+        endpoint = self._method_endpoint_map["retrieve"]
+        for id in ids:
+            url = endpoint.path.format(modelId=id.id)
+            response = self._http_client.request_single_retries(
+                RequestMessage(
+                    endpoint_url=self._make_url(url),
+                    method=endpoint.method,
+                    api_version=self._api_version,
+                    disable_gzip=self._disable_gzip,
+                )
+            )
+            result = response.get_success_or_raise()
+            retrieved.append(ThreeDModelResponse.model_validate_json(result.body))
+        return retrieved
 
-    def update(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelResponse]:
+    def update(
+        self, items: Sequence[ThreeDModelClassicRequest], mode: Literal["patch", "replace"] = "replace"
+    ) -> list[ThreeDModelResponse]:
         """Update 3D models in classic format.
 
         Args:
             items (Sequence[ThreeDModelClassicRequest]): The 3D model(s) to update.
+            mode (Literal["patch", "replace"]): The update mode. "patch" only updates explicitly set fields,
+                "replace" replaces all fields.
 
         Returns:
             list[ThreeDModelResponse]: The updated 3D model(s).
         """
-        return self._request_item_response(items, "update")
+        return self._update(items, mode="replace")
 
     def delete(self, ids: Sequence[InternalId]) -> None:
         """Delete 3D models by their IDs.
@@ -125,7 +144,7 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicReques
 
 
 class ThreeDClassicRevisionsAPI(
-    CDFResourceAPI[InternalId, ThreeDRevisionClassicRequest, ThreeDRevisionClassicResponse]
+    CDFResourceAPI[ThreeDModelRevisionId, ThreeDRevisionClassicRequest, ThreeDRevisionClassicResponse]
 ):
     ENDPOINT = "/3d/models/{modelId}/revisions"
 
@@ -195,7 +214,7 @@ class ThreeDClassicRevisionsAPI(
                 results.extend(page.items)
         return results
 
-    def delete(self, model_id: int, ids: Sequence[InternalId]) -> None:
+    def delete(self, ids: Sequence[ThreeDModelRevisionId]) -> None:
         """Delete 3D revisions by their IDs.
 
         Args:
@@ -203,8 +222,9 @@ class ThreeDClassicRevisionsAPI(
             ids: The IDs of the revisions to delete.
         """
         endpoint = self._method_endpoint_map["delete"]
-        path = endpoint.path.format(modelId=model_id)
-        self._request_no_response(ids, "delete", endpoint=path)
+        for (model_id,), group in self._group_items_by_text_field(ids, "model_id").items():
+            path = endpoint.path.format(modelId=model_id)
+            self._request_no_response(group, "delete", endpoint=path)
 
     @staticmethod
     def _create_list_filter(published: bool | None) -> dict[str, bool]:

@@ -1,5 +1,5 @@
 import sys
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Literal
 
 from pydantic import Field
 
@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 )
 
 from .data_modeling import NodeReference
-from .identifiers import InternalId
+from .identifiers import InternalId, ThreeDModelRevisionId
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -79,6 +79,9 @@ class ThreeDRevisionClassicRequest(UpdatableRequestResource):
     """Request class for creating/updating a classic 3D revision."""
 
     container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset(
+        {"published", "rotation", "scale", "translation", "camera"}
+    )
 
     published: bool | None = None
     rotation: list[float] | None = None
@@ -92,10 +95,17 @@ class ThreeDRevisionClassicRequest(UpdatableRequestResource):
     # model_id is a path parameter, not part of the request body.
     model_id: int = Field(exclude=True)
 
-    def as_id(self) -> InternalId:
+    def as_id(self) -> ThreeDModelRevisionId:
         if self.id is None:
             raise ValueError("Cannot convert to InternalId when id is None.")
-        return InternalId(id=self.id)
+        return ThreeDModelRevisionId(model_id=self.model_id, id=self.id)
+
+    def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
+        update = super().as_update(mode)
+        # the FileId is immutable.
+        if "update" in update and "fileId" in update["update"]:
+            del update["update"]["fileId"]
+        return update
 
 
 class ThreeDRevisionClassicResponse(ResponseResource[ThreeDRevisionClassicRequest]):
@@ -118,7 +128,9 @@ class ThreeDRevisionClassicResponse(ResponseResource[ThreeDRevisionClassicReques
     model_id: int = Field(-1, exclude=True)
 
     def as_request_resource(self) -> ThreeDRevisionClassicRequest:
-        return ThreeDRevisionClassicRequest.model_validate(self.dump(), extra="ignore")
+        dumped = self.dump()
+        dumped["modelId"] = self.model_id
+        return ThreeDRevisionClassicRequest.model_validate(dumped, extra="ignore")
 
 
 class AssetMappingDMRequest(RequestResource, Identifier):

@@ -8,7 +8,6 @@ from cognite.client.data_classes import (
     Asset,
     AssetWrite,
     DataSet,
-    FileMetadata,
     ThreeDModelRevision,
     ThreeDModelRevisionWrite,
     filters,
@@ -101,7 +100,7 @@ def migrated_asset(
 @pytest.fixture
 def tmp_3D_model_with_asset_mapping(
     toolkit_client: ToolkitClient,
-    three_d_file: FileMetadata,
+    three_d_file: FileMetadataResponse,
     smoke_dataset: DataSet,
     smoke_space: Space,
     migrated_asset: tuple[Asset, Node],
