@@ -1,6 +1,7 @@
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
+from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
@@ -26,6 +27,7 @@ class ExtractionPipelinesAPI(
                 "list": Endpoint(method="POST", path="/extpipes/list", item_limit=1000),
             },
         )
+        self.configs = ExtractionPipelineConfigsAPI(http_client)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
