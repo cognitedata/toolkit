@@ -221,6 +221,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
     SimulatorRoutineRevisionResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicRequest, ThreeDModelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
@@ -1091,6 +1092,17 @@ API_RESOURCES = [
         api_name="tool.location_filters",
         resource_cls=LocationFilterResponse,
         _write_cls=LocationFilterRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.three_d.models_classic",
+        resource_cls=ThreeDModelClassicRequest,
+        _write_cls=ThreeDModelResponse,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
