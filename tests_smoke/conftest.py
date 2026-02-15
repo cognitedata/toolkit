@@ -1,17 +1,17 @@
 import os
 import zipfile
 from pathlib import Path
-from typing import cast
 
 import pytest
 from cognite.client import global_config
 from cognite.client.credentials import OAuthClientCredentials
-from cognite.client.data_classes import FileMetadata, FileMetadataWrite
 from cognite.client.data_classes.data_modeling import Space, SpaceApply
 from dotenv import load_dotenv
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from tests.data import THREE_D_He2_FBX_ZIP
 from tests_smoke.constants import SMOKE_SPACE
@@ -82,23 +82,35 @@ def smoke_space(toolkit_client: ToolkitClient) -> "Space":
 
 
 @pytest.fixture(scope="session")
-def three_d_file(toolkit_client: ToolkitClient, smoke_dataset: DataSetResponse) -> FileMetadata:
+def three_d_file(toolkit_client: ToolkitClient, smoke_dataset: DataSetResponse) -> FileMetadataResponse:
     client = toolkit_client
-    meta = FileMetadataWrite(
+    mime_type = "application/octet-stream"
+    meta = FileMetadataRequest(
         name="he2.fbx",
         data_set_id=smoke_dataset.id,
         external_id="toolkit_3d_model_test_file_external_id",
         metadata={"source": "integration_test"},
-        mime_type="application/octet-stream",
+        mime_type=mime_type,
         source="3d-models",
     )
-    read = cast(FileMetadata | None, client.files.retrieve(external_id=meta.external_id))
-    if read and read.uploaded is True:
-        return read
-    if read is None:
-        read, _ = client.files.create(meta)
+    read = client.tool.filemetadata.retrieve([meta.as_id()], ignore_unknown_ids=True)
+    if read and read[0].uploaded is True:
+        return read[0]
+
+    created_list = client.tool.filemetadata.create([meta], overwrite=True)
+    created = created_list[0]
+    if not created.upload_url:
+        raise AssertionError("Expected upload URL to be present for created file metadata")
     with zipfile.ZipFile(THREE_D_He2_FBX_ZIP, mode="r") as zip_ref:
         file_data = zip_ref.read("he2.fbx")
-        read = client.files.upload_content_bytes(file_data, external_id=meta.external_id)
-    assert read.uploaded is True
-    return read
+        result = client.http_client.request_single_retries(
+            RequestMessage(
+                endpoint_url=created.upload_url,
+                method="PUT",
+                content_type=mime_type,
+                data_content=file_data,
+            )
+        )
+        if not isinstance(result, SuccessResponse):
+            raise AssertionError(f"File upload failed. Result: {result!s}")
+    return created

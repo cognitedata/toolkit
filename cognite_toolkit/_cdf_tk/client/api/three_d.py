@@ -1,26 +1,30 @@
 from collections.abc import Iterable, Sequence
-from typing import TypeVar
+from functools import partial
+from typing import Literal, TypeVar
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsSuccessResponse,
+    RequestMessage,
     SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ThreeDAssetMappingFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId, ThreeDModelRevisionId
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicRequest,
     AssetMappingClassicResponse,
     AssetMappingDMRequest,
     AssetMappingDMResponse,
     ThreeDModelClassicRequest,
-    ThreeDModelResponse,
+    ThreeDModelClassicResponse,
+    ThreeDRevisionClassicRequest,
+    ThreeDRevisionClassicResponse,
 )
 
 
-class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicRequest, ThreeDModelResponse]):
+class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicRequest, ThreeDModelClassicResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,
@@ -35,41 +39,59 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicReques
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
-    ) -> PagedResponse[ThreeDModelResponse]:
-        return PagedResponse[ThreeDModelResponse].model_validate_json(response.body)
+    ) -> PagedResponse[ThreeDModelClassicResponse]:
+        return PagedResponse[ThreeDModelClassicResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelResponse]:
+    def create(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelClassicResponse]:
         """Create 3D models in classic format.
 
         Args:
             items (Sequence[ThreeDModelClassicRequest]): The 3D model(s) to create.
 
         Returns:
-            list[ThreeDModelResponse]: The created 3D model(s).
+            list[ThreeDModelClassicResponse]: The created 3D model(s).
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, ids: Sequence[InternalId]) -> list[ThreeDModelResponse]:
+    def retrieve(self, ids: Sequence[InternalId]) -> list[ThreeDModelClassicResponse]:
         """Retrieve 3D models by their IDs.
 
         Args:
             ids (Sequence[int]): The IDs of the 3D models to retrieve.
 
         Returns:
-            list[ThreeDModelResponse]: The retrieved 3D model(s).
+            list[ThreeDModelClassicResponse]: The retrieved 3D model(s).
         """
-        return self._request_item_response(ids, "retrieve")
+        retrieved: list[ThreeDModelClassicResponse] = []
+        endpoint = self._method_endpoint_map["retrieve"]
+        for id in ids:
+            url = endpoint.path.format(modelId=id.id)
+            response = self._http_client.request_single_retries(
+                RequestMessage(
+                    endpoint_url=self._make_url(url),
+                    method=endpoint.method,
+                    api_version=self._api_version,
+                    disable_gzip=self._disable_gzip,
+                )
+            )
+            result = response.get_success_or_raise()
+            retrieved.append(ThreeDModelClassicResponse.model_validate_json(result.body))
+        return retrieved
 
-    def update(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelResponse]:
+    def update(
+        self, items: Sequence[ThreeDModelClassicRequest], mode: Literal["patch", "replace"] = "replace"
+    ) -> list[ThreeDModelClassicResponse]:
         """Update 3D models in classic format.
 
         Args:
             items (Sequence[ThreeDModelClassicRequest]): The 3D model(s) to update.
+            mode (Literal["patch", "replace"]): The update mode. "patch" only updates explicitly set fields,
+                "replace" replaces all fields.
 
         Returns:
-            list[ThreeDModelResponse]: The updated 3D model(s).
+            list[ThreeDModelClassicResponse]: The updated 3D model(s).
         """
-        return self._request_item_response(items, "update")
+        return self._update(items, mode="replace")
 
     def delete(self, ids: Sequence[InternalId]) -> None:
         """Delete 3D models by their IDs.
@@ -97,7 +119,7 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicReques
         include_revision_info: bool = False,
         limit: int = 100,
         cursor: str | None = None,
-    ) -> PagedResponse[ThreeDModelResponse]:
+    ) -> PagedResponse[ThreeDModelClassicResponse]:
         params = self._create_list_filter(include_revision_info, published)
         return self._paginate(limit=limit, cursor=cursor, params=params)
 
@@ -105,9 +127,9 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicReques
         self,
         published: bool | None = None,
         include_revision_info: bool = False,
-        limit: int = 100,
+        limit: int | None = 100,
         cursor: str | None = None,
-    ) -> Iterable[list[ThreeDModelResponse]]:
+    ) -> Iterable[list[ThreeDModelClassicResponse]]:
         params = self._create_list_filter(include_revision_info, published)
         return self._iterate(limit=limit, cursor=cursor, params=params)
 
@@ -116,9 +138,170 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicReques
         published: bool | None = None,
         include_revision_info: bool = False,
         limit: int | None = 100,
-    ) -> list[ThreeDModelResponse]:
+    ) -> list[ThreeDModelClassicResponse]:
         params = self._create_list_filter(include_revision_info, published)
         return self._list(limit=limit, params=params)
+
+
+class ThreeDClassicRevisionsAPI(
+    CDFResourceAPI[ThreeDModelRevisionId, ThreeDRevisionClassicRequest, ThreeDRevisionClassicResponse]
+):
+    ENDPOINT = "/3d/models/{modelId}/revisions"
+
+    def __init__(self, http_client: HTTPClient) -> None:
+        super().__init__(
+            http_client=http_client,
+            method_endpoint_map={
+                "create": Endpoint(method="POST", path=self.ENDPOINT, item_limit=1000),
+                "delete": Endpoint(method="POST", path=f"{self.ENDPOINT}/delete", item_limit=1000),
+                "update": Endpoint(method="POST", path=f"{self.ENDPOINT}/update", item_limit=1000),
+                "list": Endpoint(method="GET", path=self.ENDPOINT, item_limit=1000),
+            },
+        )
+
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[ThreeDRevisionClassicResponse]:
+        return PagedResponse[ThreeDRevisionClassicResponse].model_validate_json(response.body)
+
+    def create(self, items: Sequence[ThreeDRevisionClassicRequest]) -> list[ThreeDRevisionClassicResponse]:
+        """Create 3D revisions in classic format.
+
+        Items are grouped by model_id and the path is formatted accordingly.
+
+        Args:
+            items: The 3D revision(s) to create. Each item must have model_id set.
+
+        Returns:
+            The created 3D revision(s).
+        """
+        results: list[ThreeDRevisionClassicResponse] = []
+        for (model_id,), group in self._group_items_by_text_field(items, "model_id").items():
+            path = self.ENDPOINT.format(modelId=model_id)
+            result = self._request_item_response(group, "create", endpoint=path)
+            for item in result:
+                item.model_id = int(model_id)
+            results.extend(result)
+        return results
+
+    def update(
+        self,
+        items: Sequence[ThreeDRevisionClassicRequest],
+        mode: Literal["patch", "replace"] = "replace",
+    ) -> list[ThreeDRevisionClassicResponse]:
+        """Update 3D revisions in classic format.
+
+        Items are grouped by model_id and the path is formatted accordingly.
+
+        Args:
+            items: The 3D revision(s) to update. Each item must have id and model_id set.
+            mode: The update mode. "patch" only updates explicitly set fields,
+                "replace" replaces all fields.
+
+        Returns:
+            The updated 3D revision(s).
+        """
+        results: list[ThreeDRevisionClassicResponse] = []
+        endpoint = self._method_endpoint_map["update"]
+        for (model_id,), group in self._group_items_by_text_field(items, "model_id").items():
+            path = endpoint.path.format(modelId=model_id)
+            for response in self._chunk_requests(
+                group, "update", serialization=partial(self._serialize_updates, mode=mode), endpoint_path=path
+            ):
+                page = self._validate_page_response(response)
+                for item in page.items:
+                    item.model_id = int(model_id)
+                results.extend(page.items)
+        return results
+
+    def delete(self, ids: Sequence[ThreeDModelRevisionId]) -> None:
+        """Delete 3D revisions by their IDs.
+
+        Args:
+            ids: The revisions to delete, identified by a sequence of `ThreeDModelRevisionId` objects.
+        """
+        endpoint = self._method_endpoint_map["delete"]
+        for (model_id,), group in self._group_items_by_text_field(ids, "model_id").items():
+            path = endpoint.path.format(modelId=model_id)
+            self._request_no_response(group, "delete", endpoint=path)
+
+    @staticmethod
+    def _create_list_filter(published: bool | None) -> dict[str, bool]:
+        params: dict[str, bool] = {}
+        if published is not None:
+            params["published"] = published
+        return params
+
+    def paginate(
+        self,
+        model_id: int,
+        published: bool | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> PagedResponse[ThreeDRevisionClassicResponse]:
+        """Fetch a single page of 3D revisions for a model.
+
+        Args:
+            model_id: The ID of the model to list revisions for.
+            published: Filter based on published status.
+            limit: Maximum number of items to return in the page.
+            cursor: Cursor for pagination.
+
+        Returns:
+            A page of 3D revisions.
+        """
+        path = self.ENDPOINT.format(modelId=model_id)
+        params = self._create_list_filter(published)
+        page = self._paginate(limit=limit, cursor=cursor, params=params, endpoint_path=path)
+        for item in page.items:
+            item.model_id = model_id
+        return page
+
+    def iterate(
+        self,
+        model_id: int,
+        published: bool | None = None,
+        limit: int | None = 100,
+    ) -> Iterable[list[ThreeDRevisionClassicResponse]]:
+        """Iterate over all 3D revisions for a model, handling pagination automatically.
+
+        Args:
+            model_id: The ID of the model to list revisions for.
+            published: Filter based on published status.
+            limit: Maximum number of items per page.
+
+        Yields:
+            Batches of 3D revisions.
+        """
+        path = self.ENDPOINT.format(modelId=model_id)
+        params = self._create_list_filter(published)
+        for items in self._iterate(limit=limit, params=params, endpoint_path=path):
+            for item in items:
+                item.model_id = model_id
+            yield items
+
+    def list(
+        self,
+        model_id: int,
+        published: bool | None = None,
+        limit: int | None = 100,
+    ) -> list[ThreeDRevisionClassicResponse]:
+        """List all 3D revisions for a model.
+
+        Args:
+            model_id: The ID of the model to list revisions for.
+            published: Filter based on published status.
+            limit: Maximum total number of items to return. None means no limit.
+
+        Returns:
+            All matching 3D revisions.
+        """
+        path = self.ENDPOINT.format(modelId=model_id)
+        params = self._create_list_filter(published)
+        items = self._list(limit=limit, params=params, endpoint_path=path)
+        for item in items:
+            item.model_id = model_id
+        return items
 
 
 T_RequestMapping = TypeVar("T_RequestMapping", bound=AssetMappingClassicRequest | AssetMappingDMRequest)
@@ -397,5 +580,6 @@ class ThreeDDMAssetMappingAPI(CDFResourceAPI[AssetMappingDMRequest, AssetMapping
 class ThreeDAPI:
     def __init__(self, http_client: HTTPClient) -> None:
         self.models_classic = ThreeDClassicModelsAPI(http_client)
+        self.revisions_classic = ThreeDClassicRevisionsAPI(http_client)
         self.asset_mappings_classic = ThreeDClassicAssetMappingAPI(http_client)
         self.asset_mappings_dm = ThreeDDMAssetMappingAPI(http_client)

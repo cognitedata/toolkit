@@ -36,7 +36,6 @@ from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsA
 from cognite_toolkit._cdf_tk.client.api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_routines import SimulatorRoutinesAPI
 from cognite_toolkit._cdf_tk.client.api.spaces import SpacesAPI
-from cognite_toolkit._cdf_tk.client.api.three_d import ThreeDClassicModelsAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
@@ -157,7 +156,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest, StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicRequest, ThreeDModelResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
+    ThreeDModelClassicRequest,
+    ThreeDModelClassicResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest, TransformationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_notification import (
@@ -702,7 +704,7 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "createdFromTemplate": "ImmutableTestStream",
             "type": "Immutable",
         },
-        ThreeDModelResponse: {
+        ThreeDModelClassicResponse: {
             "id": 123,
             "name": "Example 3D Model",
             "createdTime": 1622547800000,
@@ -1213,10 +1215,10 @@ def iterate_cdf_resources() -> Iterable[tuple]:
     )
     yield pytest.param(
         CDFResource(
-            response_cls=ThreeDModelResponse,
+            response_cls=ThreeDModelClassicResponse,
             request_cls=ThreeDModelClassicRequest,
-            example_data=get_example_minimum_responses(ThreeDModelResponse),
-            api_class=ThreeDClassicModelsAPI,
+            example_data=get_example_minimum_responses(ThreeDModelClassicResponse),
+            # Needs custom mocking due to the retrieve method requires modelId in the path parameter.
         ),
         id="ThreeDClassicModel",
     )

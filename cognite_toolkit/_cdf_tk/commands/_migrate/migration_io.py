@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.pending_instances_id
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
     AssetMappingDMRequest,
-    ThreeDModelResponse,
+    ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import ThreeDMigrationRequest
 from cognite_toolkit._cdf_tk.constants import MISSING_EXTERNAL_ID, MISSING_INSTANCE_SPACE
@@ -373,7 +373,7 @@ class AnnotationMigrationIO(
         raise NotImplementedError("Serializing Annotation Migrations to JSON is not supported.")
 
 
-class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse, ThreeDMigrationRequest]):
+class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicResponse, ThreeDMigrationRequest]):
     """IO class for downloading and migrating 3D models.
 
     Args:
@@ -395,19 +395,21 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
         super().__init__(client)
         self.data_model_type = data_model_type
 
-    def as_id(self, item: ThreeDModelResponse) -> str:
+    def as_id(self, item: ThreeDModelClassicResponse) -> str:
         return item.name
 
-    def _is_selected(self, item: ThreeDModelResponse, included_models: set[int] | None) -> bool:
+    def _is_selected(self, item: ThreeDModelClassicResponse, included_models: set[int] | None) -> bool:
         return self._is_correct_type(item) and (included_models is None or item.id in included_models)
 
-    def _is_correct_type(self, item: ThreeDModelResponse) -> bool:
+    def _is_correct_type(self, item: ThreeDModelClassicResponse) -> bool:
         if self.data_model_type == "classic":
             return item.space is None
         else:
             return item.space is not None
 
-    def stream_data(self, selector: ThreeDSelector, limit: int | None = None) -> Iterable[Page[ThreeDModelResponse]]:
+    def stream_data(
+        self, selector: ThreeDSelector, limit: int | None = None
+    ) -> Iterable[Page[ThreeDModelClassicResponse]]:
         published: bool | None = None
         if isinstance(selector, ThreeDModelFilteredSelector):
             published = selector.published
@@ -434,7 +436,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelResponse,
         return None
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[ThreeDModelResponse], selector: ThreeDSelector | None = None
+        self, data_chunk: Sequence[ThreeDModelClassicResponse], selector: ThreeDSelector | None = None
     ) -> list[dict[str, JsonVal]]:
         raise NotImplementedError("Deserializing Annotation Migrations from JSON is not supported.")
 
