@@ -64,6 +64,9 @@ class ThreeDModelClassicResponse(ResponseResource[ThreeDModelClassicRequest]):
     def as_request_resource(self) -> ThreeDModelClassicRequest:
         return ThreeDModelClassicRequest.model_validate(self.dump(), extra="ignore")
 
+    def as_id(self) -> InternalId:
+        return InternalId(id=self.id)
+
 
 class ThreeDRevisionCamera(BaseModelObject):
     """Camera settings for a 3D revision (target and position)."""

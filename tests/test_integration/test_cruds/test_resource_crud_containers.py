@@ -5,15 +5,15 @@ import pandas as pd
 import pytest
 from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import (
-    ThreeDModelList,
-    ThreeDModelWrite,
-    ThreeDModelWriteList,
-)
-from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerReference, ContainerRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
+    ThreeDModelClassicRequest,
+    ThreeDModelClassicResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, TimeSeriesCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.three_d_model import ThreeDModelCRUD
@@ -184,7 +184,7 @@ class TestContainerLoader:
 
 class Test3DModelLoader:
     def test_create_delete_model(self, toolkit_client: ToolkitClient) -> None:
-        model = ThreeDModelWrite(
+        model = ThreeDModelClassicRequest(
             name=f"tmp_test_create_delete_model_{RUN_UNIQUE_ID}",
             metadata={
                 "description": "My description",
@@ -196,23 +196,23 @@ class Test3DModelLoader:
         missing = toolkit_client.iam.verify_capabilities(loader.get_required_capability(None, read_only=False))
         assert not missing, f"Missing capabilities: {missing}"
 
-        created: ThreeDModelList | None = None
+        created: list[ThreeDModelClassicResponse] | None = None
         try:
-            created = loader.create(ThreeDModelWriteList([model]))
+            created = loader.create([model])
             assert len(created) == 1
 
             # Serialize and deserialize the model to get a copy
-            update = ThreeDModelWrite.load(model.dump())
+            update = created[0].as_request_resource().model_copy(deep=True)
             update.metadata["new_key"] = "new_value"
 
-            updated = loader.update(ThreeDModelWriteList([update]))
+            updated = loader.update([update])
             assert len(updated) == 1
             assert updated[0].metadata["new_key"] == "new_value"
 
-            delete_count = loader.delete([model.name])
+            delete_count = loader.delete([NameId(name=model.name)])
             assert delete_count == 1
         finally:
             # Ensure that the model is deleted even if the test fails.
-            if created:
-                with suppress(CogniteAPIError):
-                    toolkit_client.three_d.models.delete(created.as_ids())
+            if created is not None:
+                with suppress(ToolkitAPIError):
+                    toolkit_client.tool.three_d.models_classic.delete([created[0].as_id()])
