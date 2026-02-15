@@ -56,8 +56,7 @@ class RespaceCommand(ToolkitCommand):
 
     def execute(self, plan_file: Path, backup_dir: Path, dry_run: bool = False) -> None:
         """Execute a respace plan."""
-        print(f"[bold]Executing plan:[/] {plan_file}")
+        verb = "Would execute" if dry_run else "Executing"
+        print(f"[bold]{verb} plan:[/] {plan_file}")
         print(f"[bold]Backup directory:[/] {backup_dir}")
-        if dry_run:
-            print("[bold cyan]DRY RUN mode — no changes will be made.[/]")
         print("[bold yellow]:construction: Work in Progress, you'll be able to execute soon! :construction:[/]")
