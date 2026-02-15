@@ -218,8 +218,7 @@ class ThreeDClassicRevisionsAPI(
         """Delete 3D revisions by their IDs.
 
         Args:
-            model_id: The ID of the model that the revisions belong to.
-            ids: The IDs of the revisions to delete.
+            ids: The revisions to delete, identified by a sequence of `ThreeDModelRevisionId` objects.
         """
         endpoint = self._method_endpoint_map["delete"]
         for (model_id,), group in self._group_items_by_text_field(ids, "model_id").items():
