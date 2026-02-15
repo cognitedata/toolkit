@@ -431,12 +431,7 @@ class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRows
             for sequences in self.client.tool.sequences.iterate(filter=filter_):
                 parent_external_ids.extend(seq.external_id for seq in sequences if seq.external_id)
         else:
-            parent_external_ids = []
-            for pid in parent_ids:
-                if isinstance(pid, ExternalId):
-                    parent_external_ids.append(pid.external_id)
-                elif isinstance(pid, str):
-                    parent_external_ids.append(pid)
+            parent_external_ids = [id.external_id for id in parent_ids if isinstance(id, ExternalId)]
         for ext_id in parent_external_ids:
             row_filter = SequenceRowFilter(external_id=ext_id)
             responses = self.client.tool.sequences.rows.list(row_filter)
