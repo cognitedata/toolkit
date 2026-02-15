@@ -1292,6 +1292,17 @@ class TestCDFResourceAPI:
             except ToolkitAPIError:
                 raise EndpointAssertionError(create_endpoint.path, "Creating sequence rows instance failed.")
 
+            # Retrieve latest
+            latest_endpoint = client.tool.sequences.rows._latest_endpoint
+            try:
+                latest = client.tool.sequences.rows.latest(external_id=sequence_id.external_id)
+            except ToolkitAPIError:
+                raise EndpointAssertionError(latest_endpoint.path, "Retrieving latest sequence rows failed.")
+            if latest.external_id != sequence_id.external_id:
+                raise EndpointAssertionError(
+                    latest_endpoint.path, "Retrieved latest sequence rows external ID does not match requested ID."
+                )
+
             # List sequence rows
             list_endpoint = client.tool.sequences.rows._method_endpoint_map["list"]
             try:

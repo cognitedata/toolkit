@@ -32,6 +32,7 @@ class SequenceRowsAPI(CDFResourceAPI[SequenceRowId, SequenceRowsRequest, Sequenc
                 ),
             },
         )
+        self._latest_endpoint = Endpoint(method="POST", path="/sequences/data/latest", item_limit=1000)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
@@ -73,6 +74,36 @@ class SequenceRowsAPI(CDFResourceAPI[SequenceRowId, SequenceRowsRequest, Sequenc
                 sequence (by external_id or id) and the row numbers to delete.
         """
         self._request_no_response(items, "delete")
+
+    def latest(self, external_id: str, before: int | None = None) -> SequenceRowsResponse:
+        """Retrieve the latest rows for a given sequence.
+
+        This endpoint returns the latest rows for a single sequence, with an optional
+        filter for which rows to include. The response structure is the same as the
+        list endpoint but without pagination (all rows are returned in one response).
+
+        Args:
+            external_id: External ID of the sequence to retrieve rows for.
+            before: Optional filter to only include rows with row_number less than this value.
+
+        Returns:
+            SequenceRowsResponse containing the latest rows for the specified sequence.
+        """
+        body: dict[str, Any] = {"externalId": external_id}
+        if before is not None:
+            body["before"] = before
+
+        result = self._http_client.request_single_retries(
+            RequestMessage(
+                endpoint_url=self._make_url(self._latest_endpoint.path),
+                method=self._latest_endpoint.method,
+                body_content=body,
+                disable_gzip=self._disable_gzip,
+                api_version=self._api_version,
+            )
+        )
+        response = result.get_success_or_raise()
+        return SequenceRowsResponse.model_validate_json(response.body)
 
     # Overridden form of the _paginate method to handle the unique pagination structure of sequence rows endpoints
     def _paginate(
