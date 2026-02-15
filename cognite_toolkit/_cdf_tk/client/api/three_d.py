@@ -127,7 +127,7 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicReques
         self,
         published: bool | None = None,
         include_revision_info: bool = False,
-        limit: int = 100,
+        limit: int | None = 100,
         cursor: str | None = None,
     ) -> Iterable[list[ThreeDModelResponse]]:
         params = self._create_list_filter(include_revision_info, published)
@@ -262,7 +262,7 @@ class ThreeDClassicRevisionsAPI(
         self,
         model_id: int,
         published: bool | None = None,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[list[ThreeDRevisionClassicResponse]]:
         """Iterate over all 3D revisions for a model, handling pagination automatically.
 
