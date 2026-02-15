@@ -68,6 +68,59 @@ class ThreeDModelResponse(ResponseResource[ThreeDModelRequest]):
             return ThreeDModelDMSRequest._load(self.dump())
 
 
+class ThreeDRevisionCamera(BaseModelObject):
+    """Camera settings for a 3D revision (target and position)."""
+
+    target: list[float]
+    position: list[float]
+
+
+class ThreeDRevisionClassicRequest(UpdatableRequestResource):
+    """Request class for creating/updating a classic 3D revision."""
+
+    container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})
+
+    published: bool | None = None
+    rotation: list[float] | None = None
+    scale: list[float] | None = None
+    translation: list[float] | None = None
+    metadata: dict[str, str] | None = None
+    camera: ThreeDRevisionCamera | None = None
+    file_id: int
+    # This field is used for update/delete and is not part of the create body schema.
+    id: int | None = Field(None, exclude=True)
+    # model_id is a path parameter, not part of the request body.
+    model_id: int = Field(exclude=True)
+
+    def as_id(self) -> InternalId:
+        if self.id is None:
+            raise ValueError("Cannot convert to InternalId when id is None.")
+        return InternalId(id=self.id)
+
+
+class ThreeDRevisionClassicResponse(ResponseResource[ThreeDRevisionClassicRequest]):
+    """Response class for a classic 3D revision."""
+
+    id: int
+    file_id: int
+    published: bool
+    rotation: list[float] | None = None
+    scale: list[float] | None = None
+    translation: list[float] | None = None
+    camera: ThreeDRevisionCamera | None = None
+    status: Literal["Queued", "Processing", "Done", "Failed"]
+    metadata: dict[str, str] | None = None
+    thumbnail_threed_file_id: int | None = None
+    thumbnail_url: str | None = Field(None, alias="thumbnailURL")
+    asset_mapping_count: int
+    created_time: int
+    # model_id is a path parameter, not returned in the API response body.
+    model_id: int = Field(-1, exclude=True)
+
+    def as_request_resource(self) -> ThreeDRevisionClassicRequest:
+        return ThreeDRevisionClassicRequest.model_validate(self.dump(), extra="ignore")
+
+
 class AssetMappingDMRequest(RequestResource, Identifier):
     node_id: int
     asset_instance_id: NodeReference
