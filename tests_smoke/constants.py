@@ -1,7 +1,6 @@
 ASSET_EXTERNAL_ID = "toolkit_smoke_test_asset_external_id"
 EVENT_EXTERNAL_ID = "toolkit_smoke_test_event_external_id"
 SMOKE_SPACE = "toolkit_smoke_test_space"
-SMOKE_TEST_CONTAINER_EXTERNAL_ID = "toolkit_smoke_test_container"
-SMOKE_TEST_VIEW_EXTERNAL_ID = "toolkit_smoke_test_dataset"
+EXTRACTION_PIPELINE_CONFIG = "toolkit_smoke_test_extract_pipeline_config"
 SMOKE_TEST_CONTAINER_EXTERNAL_ID = "toolkit_smoke_test_container"
 SMOKE_TEST_VIEW_EXTERNAL_ID = "toolkit_smoke_test_dataset"
