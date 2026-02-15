@@ -62,7 +62,7 @@ class ThreeDModelClassicResponse(ResponseResource[ThreeDModelClassicRequest]):
     last_revision_info: RevisionStatus | None = None
 
     def as_request_resource(self) -> ThreeDModelClassicRequest:
-        return ThreeDModelClassicRequest._load(self.dump())
+        return ThreeDModelClassicRequest.model_validate(self.dump(), extra="ignore")
 
 
 class ThreeDRevisionCamera(BaseModelObject):
