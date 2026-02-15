@@ -18,13 +18,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import Extracti
 class ExtractionPipelineConfigsAPI(
     CDFResourceAPI[ExtractionPipelineConfigId, ExtractionPipelineConfigRequest, ExtractionPipelineConfigResponse]
 ):
-    """API for managing extraction pipeline configuration revisions.
-
-    This API does not follow the standard items-based CRUD pattern. Instead:
-    - Create and revert operate on single objects.
-    - Retrieve retrieves a single configuration revision by query parameters.
-    - List returns paginated configuration revisions.
-    """
+    """API for managing extraction pipeline configuration revisions."""
 
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
