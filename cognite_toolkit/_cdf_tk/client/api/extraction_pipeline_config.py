@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -13,12 +13,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config 
     ExtractionPipelineConfigResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExtractionPipelineConfigId
-from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
-
-_BASE_PATH = "/extpipes/config"
-_REVISIONS_PATH = f"{_BASE_PATH}/revisions"
-_REVERT_PATH = f"{_BASE_PATH}/revert"
-_LIST_LIMIT = 100
 
 
 class ExtractionPipelineConfigsAPI(
@@ -36,7 +30,10 @@ class ExtractionPipelineConfigsAPI(
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "list": Endpoint(method="GET", path=_REVISIONS_PATH, item_limit=_LIST_LIMIT),
+                "create": Endpoint(method="POST", path="/extpipes/config", item_limit=1),
+                "retrieve": Endpoint(method="GET", path="/extpipes/config", item_limit=1),
+                "delete": Endpoint(method="POST", path="/extpipes/config/revert", item_limit=1),
+                "list": Endpoint(method="GET", path="/extpipes/config/revisions", item_limit=1000),
             },
         )
 
@@ -45,61 +42,79 @@ class ExtractionPipelineConfigsAPI(
     ) -> PagedResponse[ExtractionPipelineConfigResponse]:
         return PagedResponse[ExtractionPipelineConfigResponse].model_validate_json(response.body)
 
-    def create(self, item: ExtractionPipelineConfigRequest) -> ExtractionPipelineConfigResponse:
-        """Create a new configuration revision for an extraction pipeline.
+    def create(self, items: Sequence[ExtractionPipelineConfigRequest]) -> list[ExtractionPipelineConfigResponse]:
+        """Create new configuration revisions for extraction pipelines.
+
+        The CDF API creates one revision at a time, so items are created sequentially.
 
         Args:
-            item: The configuration revision to create.
+            items: List of configuration revisions to create.
 
         Returns:
-            The created configuration revision.
+            List of created configuration revisions.
         """
-        request = RequestMessage(
-            endpoint_url=self._make_url(_BASE_PATH),
-            method="POST",
-            body_content=item.dump(),
-        )
-        response = self._http_client.request_single_retries(request).get_success_or_raise()
-        return ExtractionPipelineConfigResponse.model_validate_json(response.body)
+        endpoint = self._method_endpoint_map["create"]
+        results: list[ExtractionPipelineConfigResponse] = []
+        for item in items:
+            request = RequestMessage(
+                endpoint_url=self._make_url(endpoint.path),
+                method=endpoint.method,
+                body_content=item.dump(),
+            )
+            response = self._http_client.request_single_retries(request).get_success_or_raise()
+            results.append(ExtractionPipelineConfigResponse.model_validate_json(response.body))
+        return results
 
-    def retrieve(
-        self,
-        external_id: str,
-        revision: int | None = None,
-        active_at_time: int | None = None,
-    ) -> ExtractionPipelineConfigResponse:
-        """Retrieve a single configuration revision.
+    def retrieve(self, items: Sequence[ExtractionPipelineConfigId]) -> list[ExtractionPipelineConfigResponse]:
+        """Retrieve configuration revisions by their identifiers.
 
-        By default, the latest revision is retrieved. Either ``revision`` or
-        ``active_at_time`` can be specified to retrieve a specific revision.
+        Each identifier specifies an extraction pipeline external ID and a revision number.
 
         Args:
-            external_id: External ID of the extraction pipeline.
-            revision: The revision number to retrieve.
-            active_at_time: Retrieve the revision that was active at this time
-                (milliseconds since epoch).
+            items: List of ExtractionPipelineConfigId objects to retrieve.
 
         Returns:
-            The retrieved configuration revision.
+            List of retrieved configuration revisions.
         """
-        params: dict[str, PrimitiveType] = {"externalId": external_id}
-        if revision is not None:
-            params["revision"] = revision
-        if active_at_time is not None:
-            params["activeAtTime"] = active_at_time
+        endpoint = self._method_endpoint_map["retrieve"]
+        results: list[ExtractionPipelineConfigResponse] = []
+        for item in items:
+            request = RequestMessage(
+                endpoint_url=self._make_url(endpoint.path),
+                method=endpoint.method,
+                parameters=item.dump(),
+            )
+            response = self._http_client.request_single_retries(request).get_success_or_raise()
+            results.append(ExtractionPipelineConfigResponse.model_validate_json(response.body))
+        return results
 
-        request = RequestMessage(
-            endpoint_url=self._make_url(_BASE_PATH),
-            method="GET",
-            parameters=params,
-        )
-        response = self._http_client.request_single_retries(request).get_success_or_raise()
-        return ExtractionPipelineConfigResponse.model_validate_json(response.body)
+    def delete(self, items: Sequence[ExtractionPipelineConfigId]) -> list[ExtractionPipelineConfigResponse]:
+        """Delete configuration revisions. This is called revert in the CDF API, as it reverts
+         the configuration to a previous revision.
+
+        Args:
+            items: List of ExtractionPipelineConfigId objects to delete.
+
+        Returns:
+            List of the latest configuration revisions after the revert.
+
+        """
+        endpoint = self._method_endpoint_map["delete"]
+        latest_new_configurations: list[ExtractionPipelineConfigResponse] = []
+        for item in items:
+            request = RequestMessage(
+                endpoint_url=self._make_url(endpoint.path),
+                method=endpoint.method,
+                body_content=item.dump(),
+            )
+            response = self._http_client.request_single_retries(request).get_success_or_raise()
+            latest_new_configurations.append(ExtractionPipelineConfigResponse.model_validate_json(response.body))
+        return latest_new_configurations
 
     def paginate(
         self,
         external_id: str,
-        limit: int = _LIST_LIMIT,
+        limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[ExtractionPipelineConfigResponse]:
         """Retrieve a page of configuration revisions for an extraction pipeline.
@@ -155,22 +170,3 @@ class ExtractionPipelineConfigsAPI(
             limit=limit,
             params={"externalId": external_id},
         )
-
-    def revert(self, item: ExtractionPipelineConfigId) -> ExtractionPipelineConfigResponse:
-        """Revert the configuration to a specific revision.
-
-        This creates a new revision with the content of the specified revision.
-
-        Args:
-            item: The identifier specifying the extraction pipeline and revision to revert to.
-
-        Returns:
-            The newly created configuration revision.
-        """
-        request = RequestMessage(
-            endpoint_url=self._make_url(_REVERT_PATH),
-            method="POST",
-            body_content=item.dump(),
-        )
-        response = self._http_client.request_single_retries(request).get_success_or_raise()
-        return ExtractionPipelineConfigResponse.model_validate_json(response.body)
