@@ -25,8 +25,7 @@ class RespaceApp(typer.Typer):
         csv_file: Annotated[
             Path,
             typer.Argument(
-                help="Path to CSV file with nodes to respace. "
-                "Expected columns: sourceSpace, externalId, targetSpace.",
+                help="Path to CSV file with nodes to respace. Expected columns: sourceSpace, externalId, targetSpace.",
                 exists=True,
                 file_okay=True,
                 dir_okay=False,
