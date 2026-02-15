@@ -74,6 +74,54 @@ class SequenceRowsAPI(CDFResourceAPI[SequenceRowId, SequenceRowsRequest, Sequenc
         """
         self._request_no_response(items, "delete")
 
+    # Overridden form of the _paginate method to handle the unique pagination structure of sequence rows endpoints
+    def _paginate(
+        self,
+        limit: int,
+        cursor: str | None = None,
+        params: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
+        endpoint_path: str | None = None,
+    ) -> PagedResponse[SequenceRowsResponse]:
+        """Fetch a single page of resources.
+
+        Args:
+            params: Query parameters for the request. Supported parameters depend on
+                the resource type but typically include:
+                - cursor: Cursor for pagination
+                - limit: Maximum number of items (defaults to list limit)
+                - space: Filter by space
+                - includeGlobal: Whether to include global resources
+            body : Body content for the request, if applicable.
+                limit: Maximum number of items to return in the page.
+                cursor: Cursor for pagination.
+            limit: Maximum number of items to return in the page.
+            cursor: Cursor for pagination.
+
+        Returns:
+            A Page containing the items and the cursor for the next page.
+        """
+        endpoint = self._method_endpoint_map["list"]
+        if not (0 < limit <= endpoint.item_limit):
+            raise ValueError(f"Limit must be between 1 and {endpoint.item_limit}, got {limit}.")
+
+        body_content: dict[str, Any] = {"limit": limit, **(body or {})}
+        if cursor is not None:
+            body_content["cursor"] = cursor
+
+        request = RequestMessage(
+            endpoint_url=self._make_url(endpoint_path or endpoint.path),
+            method=endpoint.method,
+            body_content=body_content,
+            disable_gzip=self._disable_gzip,
+            api_version=self._api_version,
+        )
+        result = self._http_client.request_single_retries(request)
+        response = result.get_success_or_raise()
+
+        parsed = SequenceRowsResponse.model_validate_json(response.body)
+        return PagedResponse(items=[parsed], nextCursor=parsed.next_cursor)
+
     def paginate(
         self, filter: SequenceRowFilter, limit: int = 100, cursor: str | None = None
     ) -> PagedResponse[SequenceRowsResponse]:
@@ -111,4 +159,15 @@ class SequenceRowsAPI(CDFResourceAPI[SequenceRowId, SequenceRowsRequest, Sequenc
         Returns:
             List of SequenceResponse objects.
         """
-        return self._list(limit=limit, body=filter.dump())
+        # The sequence rows list endpoint returns one sequence's rows at a time (a single SequenceRowsResponse
+        # per page), so we aggregate all rows into the first response rather than returning multiple responses.
+        # Since each page contains exactly one item, we extend first_response.rows with subsequent pages' rows.
+        first_response: SequenceRowsResponse | None = None
+        for batch in self._iterate(limit=limit, body=filter.dump()):
+            if not batch:
+                break
+            if first_response is None:
+                first_response = batch[0]
+            else:
+                first_response.rows.extend(batch[0].rows)
+        return [first_response] if first_response is not None else []
