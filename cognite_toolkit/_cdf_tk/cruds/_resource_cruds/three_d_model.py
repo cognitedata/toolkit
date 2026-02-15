@@ -11,7 +11,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
     NameId,
     ThreeDModelRevisionId,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicRequest, ThreeDModelResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
+    ThreeDModelClassicRequest,
+    ThreeDModelClassicResponse,
+)
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import ThreeDModelYAML
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
@@ -20,9 +23,9 @@ from .data_organization import DataSetsCRUD
 
 
 @final
-class ThreeDModelCRUD(ResourceContainerCRUD[NameId, ThreeDModelClassicRequest, ThreeDModelResponse]):
+class ThreeDModelCRUD(ResourceContainerCRUD[NameId, ThreeDModelClassicRequest, ThreeDModelClassicResponse]):
     folder_name = "3dmodels"
-    resource_cls = ThreeDModelResponse
+    resource_cls = ThreeDModelClassicResponse
     resource_write_cls = ThreeDModelClassicRequest
     kind = "3DModel"
     yaml_cls = ThreeDModelYAML
@@ -35,7 +38,7 @@ class ThreeDModelCRUD(ResourceContainerCRUD[NameId, ThreeDModelClassicRequest, T
         return "3D models"
 
     @classmethod
-    def get_id(cls, item: ThreeDModelClassicRequest | ThreeDModelResponse | dict) -> NameId:
+    def get_id(cls, item: ThreeDModelClassicRequest | ThreeDModelClassicResponse | dict) -> NameId:
         if isinstance(item, dict):
             return NameId(name=item["name"])
         if not item.name:
@@ -43,7 +46,7 @@ class ThreeDModelCRUD(ResourceContainerCRUD[NameId, ThreeDModelClassicRequest, T
         return NameId(name=item.name)
 
     @classmethod
-    def get_internal_id(cls, item: ThreeDModelResponse | dict) -> int:
+    def get_internal_id(cls, item: ThreeDModelClassicResponse | dict) -> int:
         if isinstance(item, dict):
             return item["id"]
         if not item.id:
@@ -84,12 +87,12 @@ class ThreeDModelCRUD(ResourceContainerCRUD[NameId, ThreeDModelClassicRequest, T
 
         return capabilities.ThreeDAcl(actions, scope)
 
-    def create(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelResponse]:
+    def create(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelClassicResponse]:
         return self.client.tool.three_d.models_classic.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[NameId]) -> list[ThreeDModelResponse]:
+    def retrieve(self, ids: SequenceNotStr[NameId]) -> list[ThreeDModelClassicResponse]:
         selected_names = {id_.name for id_ in ids}
-        output: list[ThreeDModelResponse] = []
+        output: list[ThreeDModelClassicResponse] = []
         for models in self.client.tool.three_d.models_classic.iterate(limit=None):
             for model in models:
                 if model.name in selected_names:
@@ -99,7 +102,7 @@ class ThreeDModelCRUD(ResourceContainerCRUD[NameId, ThreeDModelClassicRequest, T
                 break
         return output
 
-    def update(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelResponse]:
+    def update(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelClassicResponse]:
         return self.client.tool.three_d.models_classic.update(items)
 
     def delete(self, ids: SequenceNotStr[NameId]) -> int:
@@ -113,7 +116,7 @@ class ThreeDModelCRUD(ResourceContainerCRUD[NameId, ThreeDModelClassicRequest, T
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[ThreeDModelResponse]:
+    ) -> Iterable[ThreeDModelClassicResponse]:
         # DataSet filtering is not supported by the API, so we filter client-side.
         data_set_id = self.client.lookup.data_sets.id(data_set_external_id) if data_set_external_id else None
         for models in self.client.tool.three_d.models_classic.iterate(limit=None):
@@ -157,7 +160,9 @@ class ThreeDModelCRUD(ResourceContainerCRUD[NameId, ThreeDModelClassicRequest, T
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         return ThreeDModelClassicRequest.model_validate(resource)
 
-    def dump_resource(self, resource: ThreeDModelResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+    def dump_resource(
+        self, resource: ThreeDModelClassicResponse, local: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
         local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):

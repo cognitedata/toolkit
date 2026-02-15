@@ -18,13 +18,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingDMRequest,
     AssetMappingDMResponse,
     ThreeDModelClassicRequest,
-    ThreeDModelResponse,
+    ThreeDModelClassicResponse,
     ThreeDRevisionClassicRequest,
     ThreeDRevisionClassicResponse,
 )
 
 
-class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicRequest, ThreeDModelResponse]):
+class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicRequest, ThreeDModelClassicResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,
@@ -39,30 +39,30 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicReques
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
-    ) -> PagedResponse[ThreeDModelResponse]:
-        return PagedResponse[ThreeDModelResponse].model_validate_json(response.body)
+    ) -> PagedResponse[ThreeDModelClassicResponse]:
+        return PagedResponse[ThreeDModelClassicResponse].model_validate_json(response.body)
 
-    def create(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelResponse]:
+    def create(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelClassicResponse]:
         """Create 3D models in classic format.
 
         Args:
             items (Sequence[ThreeDModelClassicRequest]): The 3D model(s) to create.
 
         Returns:
-            list[ThreeDModelResponse]: The created 3D model(s).
+            list[ThreeDModelClassicResponse]: The created 3D model(s).
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, ids: Sequence[InternalId]) -> list[ThreeDModelResponse]:
+    def retrieve(self, ids: Sequence[InternalId]) -> list[ThreeDModelClassicResponse]:
         """Retrieve 3D models by their IDs.
 
         Args:
             ids (Sequence[int]): The IDs of the 3D models to retrieve.
 
         Returns:
-            list[ThreeDModelResponse]: The retrieved 3D model(s).
+            list[ThreeDModelClassicResponse]: The retrieved 3D model(s).
         """
-        retrieved: list[ThreeDModelResponse] = []
+        retrieved: list[ThreeDModelClassicResponse] = []
         endpoint = self._method_endpoint_map["retrieve"]
         for id in ids:
             url = endpoint.path.format(modelId=id.id)
@@ -75,12 +75,12 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicReques
                 )
             )
             result = response.get_success_or_raise()
-            retrieved.append(ThreeDModelResponse.model_validate_json(result.body))
+            retrieved.append(ThreeDModelClassicResponse.model_validate_json(result.body))
         return retrieved
 
     def update(
         self, items: Sequence[ThreeDModelClassicRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[ThreeDModelResponse]:
+    ) -> list[ThreeDModelClassicResponse]:
         """Update 3D models in classic format.
 
         Args:
@@ -89,7 +89,7 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicReques
                 "replace" replaces all fields.
 
         Returns:
-            list[ThreeDModelResponse]: The updated 3D model(s).
+            list[ThreeDModelClassicResponse]: The updated 3D model(s).
         """
         return self._update(items, mode="replace")
 
@@ -119,7 +119,7 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicReques
         include_revision_info: bool = False,
         limit: int = 100,
         cursor: str | None = None,
-    ) -> PagedResponse[ThreeDModelResponse]:
+    ) -> PagedResponse[ThreeDModelClassicResponse]:
         params = self._create_list_filter(include_revision_info, published)
         return self._paginate(limit=limit, cursor=cursor, params=params)
 
@@ -129,7 +129,7 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicReques
         include_revision_info: bool = False,
         limit: int | None = 100,
         cursor: str | None = None,
-    ) -> Iterable[list[ThreeDModelResponse]]:
+    ) -> Iterable[list[ThreeDModelClassicResponse]]:
         params = self._create_list_filter(include_revision_info, published)
         return self._iterate(limit=limit, cursor=cursor, params=params)
 
@@ -138,7 +138,7 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicReques
         published: bool | None = None,
         include_revision_info: bool = False,
         limit: int | None = 100,
-    ) -> list[ThreeDModelResponse]:
+    ) -> list[ThreeDModelClassicResponse]:
         params = self._create_list_filter(include_revision_info, published)
         return self._list(limit=limit, params=params)
 

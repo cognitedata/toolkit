@@ -35,7 +35,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import Loca
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicRequest, ThreeDModelResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
+    ThreeDModelClassicRequest,
+    ThreeDModelClassicResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     WorkflowTriggerRequest,
@@ -656,8 +659,8 @@ class TestCDFResourceAPI:
 
     def test_classic_3D_crudl_methods(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         """Test ClassicFilter and its usage in an API method."""
-        resource = get_example_minimum_responses(ThreeDModelResponse)
-        instance = ThreeDModelResponse.model_validate(resource)
+        resource = get_example_minimum_responses(ThreeDModelClassicResponse)
+        instance = ThreeDModelClassicResponse.model_validate(resource)
         request = instance.as_request_resource()
         assert isinstance(request, ThreeDModelClassicRequest)
         config = toolkit_config

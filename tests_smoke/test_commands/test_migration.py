@@ -28,7 +28,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMet
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicRequest,
     ThreeDModelClassicRequest,
-    ThreeDModelResponse,
+    ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.commands import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ThreeDAssetMapper, ThreeDMapper
@@ -104,7 +104,7 @@ def tmp_3D_model_with_asset_mapping(
     smoke_dataset: DataSet,
     smoke_space: Space,
     migrated_asset: tuple[Asset, Node],
-) -> Iterator[tuple[ThreeDModelResponse, Node]]:
+) -> Iterator[tuple[ThreeDModelClassicResponse, Node]]:
     classic_asset, asset_node = migrated_asset
     client = toolkit_client
     model_request = ThreeDModelClassicRequest(
@@ -216,7 +216,7 @@ class TestMigrate3D:
     @pytest.mark.usefixtures("three_d_model_instance_space")
     def test_migrate_3d_model_then_migrate_asset_mapping(
         self,
-        tmp_3D_model_with_asset_mapping: tuple[ThreeDModelResponse, Node],
+        tmp_3D_model_with_asset_mapping: tuple[ThreeDModelClassicResponse, Node],
         toolkit_client: ToolkitClient,
         tmp_path: Path,
         smoke_space: Space,

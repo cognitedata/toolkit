@@ -52,7 +52,7 @@ class ThreeDModelDMSRequest(ThreeDModelRequest):
     thumbnail_reference: NodeReference | None = None
 
 
-class ThreeDModelResponse(ResponseResource[ThreeDModelRequest]):
+class ThreeDModelClassicResponse(ResponseResource[ThreeDModelClassicRequest]):
     name: str
     id: int
     created_time: int
@@ -61,11 +61,8 @@ class ThreeDModelResponse(ResponseResource[ThreeDModelRequest]):
     space: str | None = None
     last_revision_info: RevisionStatus | None = None
 
-    def as_request_resource(self) -> ThreeDModelRequest:
-        if self.space is None:
-            return ThreeDModelClassicRequest._load(self.dump())
-        else:
-            return ThreeDModelDMSRequest._load(self.dump())
+    def as_request_resource(self) -> ThreeDModelClassicRequest:
+        return ThreeDModelClassicRequest._load(self.dump())
 
 
 class ThreeDRevisionCamera(BaseModelObject):

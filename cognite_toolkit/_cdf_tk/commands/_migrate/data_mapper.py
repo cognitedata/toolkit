@@ -40,7 +40,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
     AssetMappingDMRequest,
     RevisionStatus,
-    ThreeDModelResponse,
+    ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import DirectRelationCache, asset_centric_to_dm
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
@@ -496,8 +496,8 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
         )
 
 
-class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrationRequest]):
-    def map(self, source: Sequence[ThreeDModelResponse]) -> Sequence[ThreeDMigrationRequest | None]:
+class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeDMigrationRequest]):
+    def map(self, source: Sequence[ThreeDModelClassicResponse]) -> Sequence[ThreeDMigrationRequest | None]:
         self._populate_cache(source)
         output: list[ThreeDMigrationRequest | None] = []
         issues: list[ThreeDModelMigrationIssue] = []
@@ -519,7 +519,7 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrati
             self.logger.log(issues)
         return output
 
-    def _populate_cache(self, source: Sequence[ThreeDModelResponse]) -> None:
+    def _populate_cache(self, source: Sequence[ThreeDModelClassicResponse]) -> None:
         dataset_ids: set[int] = set()
         for model in source:
             if model.data_set_id is not None:
@@ -527,7 +527,7 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelResponse, ThreeDMigrati
         self.client.migration.space_source.retrieve(list(dataset_ids))
 
     def _map_single_item(
-        self, item: ThreeDModelResponse
+        self, item: ThreeDModelClassicResponse
     ) -> tuple[ThreeDMigrationRequest | None, ThreeDModelMigrationIssue]:
         issue = ThreeDModelMigrationIssue(model_name=item.name, model_id=item.id, id=item.name)
         instance_space: str | None = None
