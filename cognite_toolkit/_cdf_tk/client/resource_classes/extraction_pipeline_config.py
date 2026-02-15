@@ -1,11 +1,11 @@
-from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, T_RequestResource, Identifier
+from pydantic import Field
+
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
-    ResponseResource,
     RequestResource,
+    ResponseResource,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExtractionPipelineConfigId
-from pydantic import Field
 
 
 class ExtractionPipelineConfig(BaseModelObject):
@@ -24,11 +24,10 @@ class ExtractionPipelineConfigRequest(ExtractionPipelineConfig, RequestResource)
         config: Configuration content.
         description: A description of this configuration revision.
     """
+
     revision: int | None = Field(None, exclude=True)
 
     def as_id(self) -> ExtractionPipelineConfigId:
-        if self.revision is None:
-            raise ValueError("Cannot convert to ExtractionPipelineConfigId when revision is None.")
         return ExtractionPipelineConfigId(external_id=self.external_id, revision=self.revision)
 
 

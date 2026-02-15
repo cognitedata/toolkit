@@ -339,14 +339,8 @@ class ExtractionPipelineConfigCRUD(
         return self._upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[ExtractionPipelineConfigResponse]:
-        all_configs = list(self._iterate(parent_ids=list(ids)))
-        # List returns configs without the config content, so we need to retrieve each config
-        # separately to get the conent.
         return self.client.tool.extraction_pipelines.configs.retrieve(
-            [
-                ExtractionPipelineConfigId(external_id=config.external_id, revision=config.revision)
-                for config in all_configs
-            ]
+            [ExtractionPipelineConfigId(external_id=pipeline_id.external_id) for pipeline_id in ids]
         )
 
     def delete(self, ids: SequenceNotStr[ExternalId]) -> int:

@@ -92,7 +92,7 @@ class RawTableId(Identifier):
 
 class ExtractionPipelineConfigId(Identifier):
     external_id: str
-    revision: int
+    revision: int | None = None
 
     def __str__(self) -> str:
         return f"externalId='{self.external_id}', revision={self.revision}"
