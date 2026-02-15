@@ -55,7 +55,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
+    ExtractionPipelineRequest,
+    ExtractionPipelineResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config import ExtractionPipelineConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
@@ -108,9 +111,10 @@ from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from tests_smoke.constants import (
     ASSET_EXTERNAL_ID,
     EVENT_EXTERNAL_ID,
+    EXTRACTION_PIPELINE_CONFIG,
     SMOKE_SPACE,
     SMOKE_TEST_CONTAINER_EXTERNAL_ID,
-    SMOKE_TEST_VIEW_EXTERNAL_ID, EXTRACTION_PIPELINE_CONFIG,
+    SMOKE_TEST_VIEW_EXTERNAL_ID,
 )
 from tests_smoke.exceptions import EndpointAssertionError
 
@@ -464,9 +468,12 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
     except KeyError:
         raise NotImplementedError(f"No example request defined for {request_cls.__name__}")
 
+
 @pytest.fixture(scope="session")
-def smoke_extraction_pipeline(toolkit_client: ToolkitClient, smoke_dataset: DataSetResponse) -> ExtractionPipelineRequest:
-    pipeline= ExtractionPipelineRequest(
+def smoke_extraction_pipeline(
+    toolkit_client: ToolkitClient, smoke_dataset: DataSetResponse
+) -> ExtractionPipelineResponse:
+    pipeline = ExtractionPipelineRequest(
         external_id=EXTRACTION_PIPELINE_CONFIG,
         name="Peristent pipeline for smoke tests",
         data_set_id=smoke_dataset.id,
@@ -476,6 +483,7 @@ def smoke_extraction_pipeline(toolkit_client: ToolkitClient, smoke_dataset: Data
     if len(retrieved) == 0:
         return toolkit_client.tool.extraction_pipelines.create([pipeline])[0]
     return retrieved[0]
+
 
 @pytest.fixture(scope="module")
 def function_code(toolkit_client: ToolkitClient) -> FileMetadataResponse:
@@ -550,7 +558,9 @@ def smoke_event(toolkit_client: ToolkitClient) -> EventResponse:
     return retrieved[0]
 
 
-@pytest.mark.usefixtures("smoke_space", "smoke_extraction_pipeline", "smoke_asset", "smoke_event", "smoke_container", "smoke_view")
+@pytest.mark.usefixtures(
+    "smoke_space", "smoke_extraction_pipeline", "smoke_asset", "smoke_event", "smoke_container", "smoke_view"
+)
 class TestCDFResourceAPI:
     def assert_endpoint_method(
         self, method: Callable[[], list[T_ResponseResource]], name: str, endpoint: Endpoint, id: Hashable | None = None

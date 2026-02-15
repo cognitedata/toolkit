@@ -53,6 +53,7 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     read_yaml_content,
     safe_read,
+    sanitize_filename,
     stringify_value_by_key_in_yaml,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
@@ -117,6 +118,10 @@ class ExtractionPipelineCRUD(ResourceCRUD[ExternalId, ExtractionPipelineRequest,
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
+
+    @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -225,6 +230,10 @@ class ExtractionPipelineConfigCRUD(
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
+
+    @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return sanitize_filename(id.external_id)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:

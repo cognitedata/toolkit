@@ -1,4 +1,7 @@
-ExtractionPipeline:
+ExtractionPipelineConfigResponse:
+- config: "data:\n  debug: True\n"
+  externalId: springfield_aveva_pi_extractors
+ExtractionPipelineResponse:
 - createdBy: unknown
   dataSetId: 316416785021717804
   description: Extractor configuration and monitoring for Springfield AVEVA PI
@@ -12,9 +15,6 @@ ExtractionPipeline:
   - dbName: ingestion
     tableName: timeseries_metadata
   source: Springfield AVEVA PI
-ExtractionPipelineConfig:
-- config: "data:\n  debug: True\n"
-  externalId: springfield_aveva_pi_extractors
 Group:
 - capabilities:
   - projectsAcl:

@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReferenceNoVersion,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
@@ -383,15 +384,28 @@ class TestExtractionPipelineFinder:
 
 
 class TestDumpExtractionPipeline:
-    def test_dump_extraction_pipelines(
-        self, three_extraction_pipelines: ExtractionPipelineList, tmp_path: Path
-    ) -> None:
+    def test_dump_extraction_pipelines(self, tmp_path: Path) -> None:
+        pipelines = [
+            ExtractionPipelineResponse(
+                id=2,
+                external_id="pipelineB",
+                name="Pipeline B",
+                data_set_id=123,
+                created_time=1,
+                last_updated_time=1,
+            ),
+            ExtractionPipelineResponse(
+                id=3,
+                external_id="pipelineC",
+                name="Pipeline C",
+                data_set_id=123,
+                created_time=1,
+                last_updated_time=1,
+            ),
+        ]
         with monkeypatch_toolkit_client() as toolkit_client:
             approval_client = ApprovalToolkitClient(toolkit_client, allow_reverse_lookup=True)
-            approval_client.append(ExtractionPipeline, three_extraction_pipelines[1:])
-            toolkit_client.extraction_pipelines.config.retrieve.side_effect = CogniteAPIError(
-                "There is no config stored for pipeline", code=404
-            )
+            approval_client.append(ExtractionPipelineResponse, pipelines)
 
             client = approval_client.mock_client
             cmd = DumpResourceCommand(silent=True)
@@ -409,7 +423,7 @@ class TestDumpExtractionPipeline:
                 key=lambda d: d.get("external_id", d.get("externalId")),
             )
             expected = sorted(
-                [loader.dump_resource(ep) for ep in three_extraction_pipelines[1:]],
+                [loader.dump_resource(ep) for ep in pipelines],
                 key=lambda d: d.get("external_id", d.get("externalId")),
             )
             assert items == expected

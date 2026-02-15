@@ -246,7 +246,14 @@ EventResponse:
   startTime: 1732959346052
   subtype: info
   type: success
-ExtractionPipeline:
+ExtractionPipelineConfigResponse:
+- config: "logger:\n  console:\n    level: INFO\n  file:\n    level: INFO\n    path:\
+    \ file.log\n    user: domain\\\\user\n# List of databases\ndatabases:\n- type:\
+    \ odbc\n  name: postgres\n  connection-string: DSN={MyPostgresDsn}\n# List of\
+    \ queries\nqueries:\n- name: test-postgres\n  database: postgres\n  query: SELECT\n"
+  description: DB extractor config reading data from Hamburg SAP
+  externalId: ep_src_asset_hamburg_sap
+ExtractionPipelineResponse:
 - createdBy: unknown
   dataSetId: 7982613576047462211
   description: Asset source extraction pipeline with configuration for a DB extractor
@@ -258,13 +265,6 @@ ExtractionPipeline:
   - dbName: db_complete_org
     tableName: asset
   source: doctrino
-ExtractionPipelineConfig:
-- config: "logger:\n  console:\n    level: INFO\n  file:\n    level: INFO\n    path:\
-    \ file.log\n    user: domain\\\\user\n# List of databases\ndatabases:\n- type:\
-    \ odbc\n  name: postgres\n  connection-string: DSN={MyPostgresDsn}\n# List of\
-    \ queries\nqueries:\n- name: test-postgres\n  database: postgres\n  query: SELECT\n"
-  description: DB extractor config reading data from Hamburg SAP
-  externalId: ep_src_asset_hamburg_sap
 FileCRUD:
 - externalId: MyVanillaFile
   filehash: 0f18a9c5
