@@ -1,0 +1,51 @@
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, T_RequestResource, Identifier
+from cognite_toolkit._cdf_tk.client._resource_base import (
+    BaseModelObject,
+    ResponseResource,
+    RequestResource,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExtractionPipelineConfigId
+from pydantic import Field
+
+
+class ExtractionPipelineConfig(BaseModelObject):
+    """Base class for extraction pipeline configuration revisions."""
+
+    external_id: str
+    config: str | None = None
+    description: str | None = None
+
+
+class ExtractionPipelineConfigRequest(ExtractionPipelineConfig, RequestResource):
+    """Request body for creating a new extraction pipeline configuration revision.
+
+    Attributes:
+        external_id: External ID of the extraction pipeline this configuration revision belongs to.
+        config: Configuration content.
+        description: A description of this configuration revision.
+    """
+    revision: int | None = Field(None, exclude=True)
+
+    def as_id(self) -> ExtractionPipelineConfigId:
+        if self.revision is None:
+            raise ValueError("Cannot convert to ExtractionPipelineConfigId when revision is None.")
+        return ExtractionPipelineConfigId(external_id=self.external_id, revision=self.revision)
+
+
+class ExtractionPipelineConfigResponse(ExtractionPipelineConfig, ResponseResource[ExtractionPipelineConfigRequest]):
+    """Response for an extraction pipeline configuration revision.
+
+    Attributes:
+        external_id: External ID of the extraction pipeline.
+        config: Configuration content.
+        revision: The revision number.
+        created_time: Timestamp when this revision was created, in milliseconds since epoch.
+        description: A description of this configuration revision.
+    """
+
+    revision: int
+    created_time: int
+
+    def as_request_resource(self) -> ExtractionPipelineConfigRequest:
+        """Convert the response object to a request resource object."""
+        return ExtractionPipelineConfigRequest.model_validate(self.dump(), extra="ignore")
