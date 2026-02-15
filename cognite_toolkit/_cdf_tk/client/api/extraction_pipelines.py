@@ -114,10 +114,7 @@ class ExtractionPipelinesAPI(
         )
 
     def iterate(
-        self,
-        filter: ClassicFilter | None = None,
-        external_id_prefix: str | None = None,
-        limit: int = 100,
+        self, filter: ClassicFilter | None = None, external_id_prefix: str | None = None, limit: int | None = 100
     ) -> Iterable[list[ExtractionPipelineResponse]]:
         """Iterate over all extraction pipelines in CDF.
 

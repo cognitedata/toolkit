@@ -25,6 +25,7 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
     ExtractionPipelineResponse,
@@ -178,20 +179,11 @@ class ExtractionPipelineCRUD(ResourceCRUD[ExternalId, ExtractionPipelineRequest,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ExtractionPipelineResponse]:
-        if data_set_external_id is None:
-            for pipelines in self.client.tool.extraction_pipelines.iterate():
-                yield from pipelines
-            return
-        data_sets = self.client.tool.datasets.retrieve(
-            [ExternalId(external_id=data_set_external_id)], ignore_unknown_ids=True
-        )
-        if not data_sets:
-            raise ToolkitRequiredValueError(f"DataSet {data_set_external_id!r} does not exist")
-        data_set = data_sets[0]
-        for pipelines in self.client.tool.extraction_pipelines.iterate():
-            for pipeline in pipelines:
-                if pipeline.data_set_id == data_set.id:
-                    yield pipeline
+        filter: ClassicFilter | None = None
+        if data_set_external_id is not None:
+            filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
+        for pipelines in self.client.tool.extraction_pipelines.iterate(filter=filter, limit=None):
+            yield from pipelines
 
 
 @final
@@ -332,23 +324,21 @@ class ExtractionPipelineConfigCRUD(
     def create(self, items: Sequence[ExtractionPipelineConfigRequest]) -> list[ExtractionPipelineConfigResponse]:
         return self._upsert(items)
 
-    # configs cannot be updated, instead new revision is created
     def update(self, items: Sequence[ExtractionPipelineConfigRequest]) -> list[ExtractionPipelineConfigResponse]:
+        # configs cannot be updated, instead new revision is created
         return self._upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[ExtractionPipelineConfigResponse]:
         retrieved: list[ExtractionPipelineConfigResponse] = []
         for id_ in ids:
             try:
-                configs = self.client.tool.extraction_pipelines.configs.list(external_id=id_.external_id, limit=1)
+                result = self.client.tool.extraction_pipelines.configs.list(external_id=id_.external_id, limit=None)
             except ToolkitAPIError as e:
-                if (
-                    e.code == 404 and "There is no config stored" in e.message
-                ) or "Extraction pipeline not found" in e.message:
+                if e.code == 403 and "not found" in e.message and "extraction pipeline" in e.message.lower():
                     continue
                 raise
-            if configs:
-                retrieved.append(configs[0])
+            else:
+                retrieved.extend(result)
         return retrieved
 
     def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
@@ -361,14 +351,13 @@ class ExtractionPipelineConfigCRUD(
         count = 0
         for id_ in ids:
             try:
-                result = self.client.tool.extraction_pipelines.configs.list(external_id=id_.external_id)
+                result = self.client.tool.extraction_pipelines.configs.list(external_id=id_.external_id, limit=None)
             except ToolkitAPIError as e:
                 if e.code == 403 and "not found" in e.message and "extraction pipeline" in e.message.lower():
                     continue
                 raise
             else:
-                if result:
-                    count += 1
+                count += len(result)
         return count
 
     def _iterate(
@@ -377,28 +366,19 @@ class ExtractionPipelineConfigCRUD(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ExtractionPipelineConfigResponse]:
-        if parent_ids is not None:
-            parent_iterable: Iterable[Hashable] = parent_ids
-        else:
-            parent_iterable = (
-                pipeline for pipelines in self.client.tool.extraction_pipelines.iterate() for pipeline in pipelines
+        if parent_ids is None:
+            parent_external_ids: Iterable[ExternalId] = (
+                pipeline.as_id() for pipeline in self.client.tool.extraction_pipelines.list(limit=None)
             )
-        for parent_id in parent_iterable:
-            pipeline_id: str | None = None
-            if isinstance(parent_id, ExtractionPipelineResponse):
-                if parent_id.external_id:
-                    pipeline_id = parent_id.external_id
-            elif isinstance(parent_id, str):
-                pipeline_id = parent_id
-
-            if pipeline_id is None:
-                continue
-
+        else:
+            parent_external_ids = [pid for pid in parent_ids if isinstance(pid, ExternalId)]
+        for parent_id in parent_external_ids:
             try:
-                configs = self.client.tool.extraction_pipelines.configs.list(external_id=pipeline_id, limit=1)
+                for configs in self.client.tool.extraction_pipelines.configs.iterate(
+                    external_id=parent_id.external_id, limit=None
+                ):
+                    yield from configs
             except ToolkitAPIError as e:
                 if e.code == 404 and "There is no config stored" in e.message:
                     continue
                 raise
-            if configs:
-                yield configs[0]
