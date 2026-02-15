@@ -48,5 +48,5 @@ class TestSequenceRowCRUD:
             deleted = io.delete([large_sequence.as_id()])
         except ToolkitAPIError as e:
             raise AssertionError(f"Failed deleting rows from sequence. Got error: {e}")
-        if deleted != 1:
+        if deleted != count:
             raise AssertionError(f"Expected to delete 1 sequence, but deleted {deleted}")
