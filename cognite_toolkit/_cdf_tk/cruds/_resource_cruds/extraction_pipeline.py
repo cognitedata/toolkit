@@ -329,17 +329,7 @@ class ExtractionPipelineConfigCRUD(
         return self._upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[ExtractionPipelineConfigResponse]:
-        retrieved: list[ExtractionPipelineConfigResponse] = []
-        for id_ in ids:
-            try:
-                result = self.client.tool.extraction_pipelines.configs.list(external_id=id_.external_id, limit=None)
-            except ToolkitAPIError as e:
-                if e.code == 403 and "not found" in e.message and "extraction pipeline" in e.message.lower():
-                    continue
-                raise
-            else:
-                retrieved.extend(result)
-        return retrieved
+        return list(self._iterate(parent_ids=list(ids)))
 
     def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
         """Delete is not supported for extraction pipeline configs.
