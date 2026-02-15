@@ -1,18 +1,11 @@
-from typing import Literal
+from cognite_toolkit._cdf_tk.client._resource_base import (
+    BaseModelObject,
+    RequestResource,
+    ResponseResource,
+)
 
-from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
-
-from .identifiers import ExternalId
-
-
-class SequenceColumn(BaseModelObject):
-    """Represents a column in a sequence."""
-
-    external_id: str
-    name: str | None = None
-    description: str | None = None
-    value_type: Literal["STRING", "DOUBLE", "LONG"] | None = None
-    metadata: dict[str, str] | None = None
+from .identifiers import SequenceRowId
+from .sequence import SequenceColumnSlim
 
 
 class SequenceRow(BaseModelObject):
@@ -34,8 +27,8 @@ class SequenceRowsRequest(SequenceRows, RequestResource):
     external_id: str
     columns: list[str]
 
-    def as_id(self) -> ExternalId:
-        return ExternalId(external_id=self.external_id)
+    def as_id(self) -> SequenceRowId:
+        return SequenceRowId(external_id=self.external_id, rows=tuple([row.row_number for row in self.rows]))
 
 
 class SequenceRowsResponse(SequenceRows, ResponseResource[SequenceRowsRequest]):
@@ -48,7 +41,8 @@ class SequenceRowsResponse(SequenceRows, ResponseResource[SequenceRowsRequest]):
 
     external_id: str | None = None
     id: int
-    columns: list[SequenceColumn]
+    columns: list[SequenceColumnSlim]
+    next_cursor: str | None = None
 
     def as_request_resource(self) -> SequenceRowsRequest:
         dumped = self.dump()

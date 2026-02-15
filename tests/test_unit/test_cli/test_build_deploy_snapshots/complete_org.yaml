@@ -778,12 +778,10 @@ SequenceResponse:
   description: A sequence of numbers
   externalId: mySequence
   name: mySequence
-SequenceRows:
+SequenceRowsResponse:
 - columns:
-  - externalId: wind_speed
-    valueType: Double
-  - externalId: power
-    valueType: Double
+  - wind_speed
+  - power
   externalId: SequenceWithRows
   rows:
   - rowNumber: 1

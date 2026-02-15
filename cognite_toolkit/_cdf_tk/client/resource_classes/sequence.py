@@ -11,12 +11,15 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 from .identifiers import ExternalId
 
 
-class SequenceColumn(BaseModelObject):
+class SequenceColumnSlim(BaseModelObject):
     external_id: str
     name: str | None = None
+    value_type: Literal["STRING", "DOUBLE", "LONG"] | None = None
+
+
+class SequenceColumn(SequenceColumnSlim):
     description: str | None = None
     metadata: dict[str, str] | None = None
-    value_type: Literal["STRING", "DOUBLE", "LONG"] | None = None
 
 
 class SequenceColumnRequest(SequenceColumn, UpdatableRequestResource):

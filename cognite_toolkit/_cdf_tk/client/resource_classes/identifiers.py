@@ -90,6 +90,15 @@ class RawTableId(Identifier):
         return f"dbName='{self.db_name}', name='{self.name}'"
 
 
+class SequenceRowId(Identifier):
+    external_id: str = Field(description="ExternalId of the sequence")
+    rows: tuple[int, ...]
+
+    def __str__(self) -> str:
+        rows_str = ", ".join(str(row) for row in self.rows)
+        return f"externalId='{self.external_id}', rows=[{rows_str}]"
+
+
 class WorkflowVersionId(Identifier):
     workflow_external_id: str
     version: str

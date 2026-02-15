@@ -124,6 +124,13 @@ class ThreeDAssetMappingTreeIndexFilter(ThreeDAssetMappingFilter):
     tree_indexes: list[int] = Field(max_length=100)
 
 
+class SequenceRowFilter(Filter):
+    external_id: str
+    start: int | None = None
+    end: int | None = None
+    columns: list[str] | None = None
+
+
 class SimulatorFilter(Filter):
     simulator_external_ids: list[str] | None = None
 

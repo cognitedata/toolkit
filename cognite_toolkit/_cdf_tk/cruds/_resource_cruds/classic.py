@@ -11,7 +11,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter, SequenceRowFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import (
     AssetAggregateItem,
     AssetRequest,
@@ -19,12 +19,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.sequences import (
-    ToolkitSequenceRows,
-    ToolkitSequenceRowsList,
-    ToolkitSequenceRowsWrite,
-)
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
 from cognite_toolkit._cdf_tk.constants import TABLE_FORMATS, YAML_SUFFIX
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -350,10 +346,10 @@ class SequenceCRUD(ResourceCRUD[ExternalId, SequenceRequest, SequenceResponse]):
 
 
 @final
-class SequenceRowCRUD(ResourceCRUD[str, ToolkitSequenceRowsWrite, ToolkitSequenceRows]):
+class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRowsResponse]):
     folder_name = "classic"
-    resource_cls = ToolkitSequenceRows
-    resource_write_cls = ToolkitSequenceRowsWrite
+    resource_cls = SequenceRowsResponse
+    resource_write_cls = SequenceRowsRequest
     kind = "SequenceRow"
     dependencies = frozenset({SequenceCRUD})
     parent_resource = frozenset({SequenceCRUD})
@@ -372,15 +368,15 @@ class SequenceRowCRUD(ResourceCRUD[str, ToolkitSequenceRowsWrite, ToolkitSequenc
         return "sequence rows"
 
     @classmethod
-    def get_id(cls, item: ToolkitSequenceRows | ToolkitSequenceRowsWrite | dict) -> str:
+    def get_id(cls, item: SequenceRowsRequest | SequenceRowsResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
+            return ExternalId(external_id=item["externalId"])
         if not item.external_id:
             raise KeyError("SequenceRows must have external_id")
-        return item.external_id
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def get_internal_id(cls, item: ToolkitSequenceRows | ToolkitSequenceRowsWrite | dict) -> int:
+    def get_internal_id(cls, item: SequenceRowsResponse | dict) -> int:
         if isinstance(item, dict):
             return item["id"]
         if not item.id:
@@ -388,50 +384,57 @@ class SequenceRowCRUD(ResourceCRUD[str, ToolkitSequenceRowsWrite, ToolkitSequenc
         return item.id
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_required_capability(
-        cls, items: collections.abc.Sequence[ToolkitSequenceRowsWrite] | None, read_only: bool
+        cls, items: collections.abc.Sequence[SequenceRowsRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         # We don't have any capabilities for SequenceRows, that is already handled by the Sequence
         return []
 
-    def create(self, items: Sequence[ToolkitSequenceRowsWrite]) -> Sequence[ToolkitSequenceRowsWrite]:
-        for item in items:
-            self.client.sequences.rows.insert(item.as_sequence_rows(), external_id=item.external_id)
+    def create(self, items: Sequence[SequenceRowsRequest]) -> Sequence[SequenceRowsRequest]:
+        self.client.tool.sequences.rows.create(list(items))
         return items
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> ToolkitSequenceRowsList:
-        retrieved = self.client.sequences.rows.retrieve(external_id=ids)
-        return ToolkitSequenceRowsList([ToolkitSequenceRows._load(row.dump(camel_case=True)) for row in retrieved])
-
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[SequenceRowsResponse]:
+        results: list[SequenceRowsResponse] = []
         for id_ in ids:
-            self.client.sequences.rows.delete_range(start=0, end=None, external_id=id_)
-        return len(ids)
+            row_filter = SequenceRowFilter(external_id=id_.external_id)
+            responses = self.client.tool.sequences.rows.list(row_filter)
+            results.extend(responses)
+        return results
+
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+        deleted: int = 0
+        for id_ in ids:
+            row_filter = SequenceRowFilter(external_id=id_.external_id)
+            for batch in self.client.tool.sequences.rows.iterate(row_filter, limit=None):
+                if not batch or not batch[0].rows:
+                    continue
+                item = batch[0]
+                self.client.tool.sequences.rows.delete([item.as_request_resource().as_id()])
+                deleted += len(item.rows)
+        return deleted
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[ToolkitSequenceRows]:
+    ) -> Iterable[SequenceRowsResponse]:
         if parent_ids is None:
-            sequence_iterable = self.client.sequences(
-                data_set_external_ids=[data_set_external_id] if data_set_external_id else None
-            )
-            parent_ids = [seq.external_id or seq.id for seq in sequence_iterable]
-        for sequence_id in parent_ids:
-            if isinstance(sequence_id, str):
-                res = self.client.sequences.rows.retrieve(external_id=sequence_id)
-                if res:
-                    yield ToolkitSequenceRows._load(res.dump(camel_case=True))
-            elif isinstance(sequence_id, int):
-                res = self.client.sequences.rows.retrieve(id=sequence_id)
-                if res:
-                    yield ToolkitSequenceRows._load(res.dump(camel_case=True))
+            filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
+            parent_external_ids: list[str] = []
+            for sequences in self.client.tool.sequences.iterate(filter=filter_):
+                parent_external_ids.extend(seq.external_id for seq in sequences if seq.external_id)
+        else:
+            parent_external_ids = [id.external_id for id in parent_ids if isinstance(id, ExternalId)]
+        for ext_id in parent_external_ids:
+            row_filter = SequenceRowFilter(external_id=ext_id)
+            responses = self.client.tool.sequences.rows.list(row_filter)
+            yield from responses
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -442,11 +445,11 @@ class SequenceRowCRUD(ResourceCRUD[str, ToolkitSequenceRowsWrite, ToolkitSequenc
         """
         yield SequenceCRUD, ExternalId(external_id=item["externalId"])
 
-    def dump_resource(self, resource: ToolkitSequenceRows, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SequenceRowsRequest:
+        return SequenceRowsRequest.model_validate(resource)
 
-        if local is not None and "id" in dumped and "id" not in local:
-            dumped.pop("id")
+    def dump_resource(self, resource: SequenceRowsResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
         # Ensure that the rows is the last key in the dumped dictionary,
         # This information is used in the .diff_list method to match the values in the rows to the correct column.
         dumped["rows"] = dumped.pop("rows")
