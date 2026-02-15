@@ -90,6 +90,14 @@ class RawTableId(Identifier):
         return f"dbName='{self.db_name}', name='{self.name}'"
 
 
+class ExtractionPipelineConfigId(Identifier):
+    external_id: str
+    revision: int
+
+    def __str__(self) -> str:
+        return f"externalId='{self.external_id}', revision={self.revision}"
+
+
 class WorkflowVersionId(Identifier):
     workflow_external_id: str
     version: str
