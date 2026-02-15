@@ -7,8 +7,6 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
-    ExtractionPipeline,
-    ExtractionPipelineList,
     FileMetadataList,
     Group,
     GroupList,
@@ -346,25 +344,23 @@ class TestDumpAgents:
 
 
 @pytest.fixture()
-def three_extraction_pipelines() -> ExtractionPipelineList:
-    return ExtractionPipelineList(
-        [
-            ExtractionPipeline(
-                1, external_id="pipelineA", name="Pipeline A", data_set_id=123, created_time=1, last_updated_time=1
-            ),
-            ExtractionPipeline(
-                2, external_id="pipelineB", name="Pipeline B", data_set_id=123, created_time=1, last_updated_time=1
-            ),
-            ExtractionPipeline(
-                3, external_id="pipelineC", name="Pipeline C", data_set_id=123, created_time=1, last_updated_time=1
-            ),
-        ]
-    )
+def three_extraction_pipelines() -> list[ExtractionPipelineResponse]:
+    return [
+        ExtractionPipelineResponse(
+            id=1, external_id="pipelineA", name="Pipeline A", data_set_id=123, created_time=1, last_updated_time=1
+        ),
+        ExtractionPipelineResponse(
+            id=2, external_id="pipelineB", name="Pipeline B", data_set_id=123, created_time=1, last_updated_time=1
+        ),
+        ExtractionPipelineResponse(
+            id=3, external_id="pipelineC", name="Pipeline C", data_set_id=123, created_time=1, last_updated_time=1
+        ),
+    ]
 
 
 class TestExtractionPipelineFinder:
     def test_select_extraction_pipelines(
-        self, three_extraction_pipelines: ExtractionPipelineList, monkeypatch: MonkeyPatch
+        self, three_extraction_pipelines: list[ExtractionPipelineResponse], monkeypatch: MonkeyPatch
     ) -> None:
         def select_pipelines(choices: list[Choice]) -> list[str]:
             assert len(choices) == len(three_extraction_pipelines)
@@ -376,7 +372,7 @@ class TestExtractionPipelineFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(ExtractionPipelineFinder.__module__, monkeypatch, answers),
         ):
-            client.extraction_pipelines.list.return_value = three_extraction_pipelines
+            client.tool.extraction_pipelines.list.return_value = three_extraction_pipelines
             finder = ExtractionPipelineFinder(client, None)
             selected = finder._interactive_select()
 
