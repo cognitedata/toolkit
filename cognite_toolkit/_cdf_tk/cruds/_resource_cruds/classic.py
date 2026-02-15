@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import (
     AssetResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId, SequenceRowId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
 from cognite_toolkit._cdf_tk.constants import TABLE_FORMATS, YAML_SUFFIX
@@ -407,17 +407,16 @@ class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRows
         return results
 
     def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+        deleted: int = 0
         for id_ in ids:
             row_filter = SequenceRowFilter(external_id=id_.external_id)
-            responses = self.client.tool.sequences.rows.list(row_filter, limit=None)
-            all_row_numbers: list[int] = []
-            for response in responses:
-                all_row_numbers.extend(row.row_number for row in response.rows)
-            if all_row_numbers:
-                self.client.tool.sequences.rows.delete(
-                    [SequenceRowId(external_id=id_.external_id, rows=tuple(all_row_numbers))]
-                )
-        return len(ids)
+            for batch in self.client.tool.sequences.rows.iterate(row_filter, limit=None):
+                if not batch or not batch[0].rows:
+                    continue
+                item = batch[0]
+                self.client.tool.sequences.rows.delete([item.as_request_resource().as_id()])
+                deleted += 1
+        return deleted
 
     def _iterate(
         self,

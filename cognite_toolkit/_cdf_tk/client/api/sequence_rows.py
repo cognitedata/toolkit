@@ -70,8 +70,7 @@ class SequenceRowsAPI(CDFResourceAPI[SequenceRowId, SequenceRowsRequest, Sequenc
         All columns are affected for the specified row numbers.
 
         Args:
-            items: Sequence of SequenceRowsDeleteRequest objects, each specifying a
-                sequence (by external_id or id) and the row numbers to delete.
+            items: Sequence of SequenceRowId objects, each specifying a sequence (by external_id) and the row numbers to delete.
         """
         self._request_no_response(items, "delete")
 
@@ -160,7 +159,7 @@ class SequenceRowsAPI(CDFResourceAPI[SequenceRowId, SequenceRowsRequest, Sequenc
 
         Args:
             filter: Which sequence rows to paginate over.
-            limit: Maximum number of items to return.
+            limit: Maximum number of rows to return per page.
             cursor: Cursor for pagination.
 
         Returns:
@@ -168,12 +167,36 @@ class SequenceRowsAPI(CDFResourceAPI[SequenceRowId, SequenceRowsRequest, Sequenc
         """
         return self._paginate(cursor=cursor, limit=limit, body=filter.dump())
 
-    def iterate(self, filter: SequenceRowFilter, limit: int = 100) -> Iterable[list[SequenceRowsResponse]]:
+    # Overridden to count on the number of rows rather than number of items.
+    def _iterate(
+        self,
+        limit: int | None = None,
+        cursor: str | None = None,
+        params: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
+        endpoint_path: str | None = None,
+    ) -> Iterable[list[SequenceRowsResponse]]:
+        """Iterate over all resources, handling pagination automatically."""
+        next_cursor = cursor
+        total = 0
+        endpoint = self._method_endpoint_map["list"]
+        while True:
+            page_limit = endpoint.item_limit if limit is None else min(limit - total, endpoint.item_limit)
+            page = self._paginate(
+                limit=page_limit, cursor=next_cursor, params=params, body=body, endpoint_path=endpoint_path
+            )
+            yield page.items
+            total += len(page.items[0].rows)
+            if page.next_cursor is None or (limit is not None and total >= limit):
+                break
+            next_cursor = page.next_cursor
+
+    def iterate(self, filter: SequenceRowFilter, limit: int | None = 100) -> Iterable[list[SequenceRowsResponse]]:
         """Iterate over sequence rows in CDF.
 
         Args:
             filter: Which sequence rows to iterate over.
-            limit: Maximum number of items to return per page.
+            limit: Maximum number of rows to return. If None, iterates over all rows (may be slow for large sequences).
 
         Returns:
             Iterable of lists of SequenceResponse objects.
@@ -185,7 +208,7 @@ class SequenceRowsAPI(CDFResourceAPI[SequenceRowId, SequenceRowsRequest, Sequenc
 
         Args:
             filter: Which sequence rows to list.
-            limit: Maximum number of items to return.
+            limit: Maximum number of rows to return. If None, returns all rows (may be slow for large sequences).
 
         Returns:
             List of SequenceResponse objects.
