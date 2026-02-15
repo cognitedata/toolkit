@@ -415,7 +415,7 @@ class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRows
                     continue
                 item = batch[0]
                 self.client.tool.sequences.rows.delete([item.as_request_resource().as_id()])
-                deleted += 1
+            deleted += 1
         return deleted
 
     def _iterate(
