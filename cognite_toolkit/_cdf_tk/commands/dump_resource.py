@@ -12,7 +12,6 @@ import questionary
 import typer
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
-    ExtractionPipelineList,
     Group,
     GroupList,
     TransformationList,
@@ -22,7 +21,6 @@ from cognite.client.data_classes import (
 )
 from cognite.client.data_classes.data_modeling import ViewId
 from cognite.client.data_classes.documents import SourceFileProperty
-from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.functions import (
     Function,
 )
@@ -49,6 +47,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
     ExternalId,
@@ -551,16 +550,15 @@ class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
 class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
     def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
         super().__init__(client, identifier)
-        self.extraction_pipelines: ExtractionPipelineList | None = None
+        self.extraction_pipelines: list[ExtractionPipelineResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        self.extraction_pipelines = self.client.extraction_pipelines.list(limit=-1)
+        self.extraction_pipelines = self.client.tool.extraction_pipelines.list(limit=None)
         if not self.extraction_pipelines:
             raise ToolkitMissingResourceError("No extraction pipelines found")
         choices = [
             Choice(f"{pipeline.name} ({pipeline.external_id})", value=pipeline.external_id)
             for pipeline in sorted(self.extraction_pipelines, key=lambda p: p.name or "")
-            if pipeline.external_id
         ]
         selected_pipeline_ids: tuple[str, ...] | None = questionary.checkbox(
             "Which extraction pipeline(s) would you like to dump?",
@@ -575,16 +573,15 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
+        external_ids = [ExternalId(external_id=ext_id) for ext_id in self.identifier]
         pipeline_loader = ExtractionPipelineCRUD.create_loader(self.client)
         if self.extraction_pipelines:
-            selected_pipelines = ExtractionPipelineList(
-                [p for p in self.extraction_pipelines if p.external_id in self.identifier]
-            )
+            selected_pipelines = [p for p in self.extraction_pipelines if p.external_id in self.identifier]
             yield [], selected_pipelines, pipeline_loader, None
         else:
-            yield list(self.identifier), None, pipeline_loader, None
+            yield external_ids, None, pipeline_loader, None
         config_loader = ExtractionPipelineConfigCRUD.create_loader(self.client)
-        configs = ExtractionPipelineConfigList(list(config_loader.iterate(parent_ids=list(self.identifier))))
+        configs = list(config_loader.iterate(parent_ids=external_ids))
         yield [], configs, config_loader, None
 
 

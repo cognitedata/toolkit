@@ -36,6 +36,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config 
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
     ExternalId,
+    ExtractionPipelineConfigId,
     InternalOrExternalId,
     RawDatabaseId,
     RawTableId,
@@ -338,7 +339,15 @@ class ExtractionPipelineConfigCRUD(
         return self._upsert(items)
 
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[ExtractionPipelineConfigResponse]:
-        return list(self._iterate(parent_ids=list(ids)))
+        all_configs = list(self._iterate(parent_ids=list(ids)))
+        # List returns configs without the config content, so we need to retrieve each config
+        # separately to get the conent.
+        return self.client.tool.extraction_pipelines.configs.retrieve(
+            [
+                ExtractionPipelineConfigId(external_id=config.external_id, revision=config.revision)
+                for config in all_configs
+            ]
+        )
 
     def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
         """Delete is not supported for extraction pipeline configs.
