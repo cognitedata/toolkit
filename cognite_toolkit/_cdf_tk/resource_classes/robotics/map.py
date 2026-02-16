@@ -2,6 +2,7 @@ from typing import Literal
 
 from pydantic import Field, JsonValue
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
 
 
@@ -14,3 +15,6 @@ class RobotMapYAML(ToolkitResource):
     data: dict[str, JsonValue] | None = Field(default=None, description="Map-specific data.")
     location_external_id: str | None = Field(default=None, description="External id of the location.")
     scale: float | None = Field(default=None, description="Uniform scaling factor.", ge=0.0, le=1.0)
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

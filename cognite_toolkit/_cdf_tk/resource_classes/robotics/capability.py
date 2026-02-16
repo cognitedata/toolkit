@@ -1,5 +1,6 @@
 from pydantic import Field, JsonValue
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
 
 
@@ -17,3 +18,6 @@ class RobotCapabilityYAML(ToolkitResource):
         default=None,
         description="Textual description of the RobotCapability.",
     )
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

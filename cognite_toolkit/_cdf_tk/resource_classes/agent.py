@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+
 from .agent_tools import AgentTool
 from .base import ToolkitResource
 
@@ -56,3 +58,6 @@ class AgentYAML(ToolkitResource):
     )
     tools: list[AgentTool] | None = Field(None, description="A list of tools available to the agent.", max_length=20)
     runtime_version: str | None = Field(None, description="The runtime version")
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

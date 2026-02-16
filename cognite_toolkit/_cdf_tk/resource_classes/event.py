@@ -1,5 +1,7 @@
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+
 from .base import ToolkitResource
 
 
@@ -16,3 +18,6 @@ class EventYAML(ToolkitResource):
         None, description="Asset IDs of equipment that this event relates to.", max_length=10000
     )
     source: str | None = Field(None, description="The source of this event.", max_length=128)
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

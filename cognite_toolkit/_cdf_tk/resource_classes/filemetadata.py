@@ -2,12 +2,18 @@ from typing import Any, Literal
 
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
+
 from .base import ToolkitResource
 
 
 class NodeId(ToolkitResource):
     external_id: str
     space: str
+
+    def as_id(self) -> TypedNodeIdentifier:
+        return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
 
 
 class FileMetadataYAML(ToolkitResource):
@@ -61,3 +67,6 @@ class FileMetadataYAML(ToolkitResource):
     security_categories: list[str] | None = Field(
         default=None, description="The security category IDs required to access this file.", max_length=100
     )
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

@@ -1,5 +1,7 @@
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+
 from .base import ToolkitResource
 
 
@@ -28,3 +30,6 @@ class DataSetYAML(ToolkitResource):
         default=False,
         description="To write data to a write-protected data set.",
     )
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

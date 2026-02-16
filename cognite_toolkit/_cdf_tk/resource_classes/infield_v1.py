@@ -1,5 +1,7 @@
 from pydantic import JsonValue
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+
 from .base import BaseModelResource, ToolkitResource
 
 
@@ -152,3 +154,6 @@ class InfieldV1YAML(ToolkitResource):
     customer_data_space_id: str | None = None
     customer_data_space_version: str | None = None
     feature_configuration: FeatureConfiguration | None = None
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
