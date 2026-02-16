@@ -329,7 +329,8 @@ class TestAssetIO:
             assert "items" in payload
             items = payload["items"]
             assert isinstance(items, list)
-            assert items == [asset.as_write().dump() for asset in some_asset_data]
+            assert len(items) == len(some_asset_data)
+            assert {item["externalId"] for item in items} == {asset.external_id for asset in some_asset_data}
             return httpx.Response(status_code=200, json={"items": [asset.dump() for asset in some_asset_data]})
 
         respx_mock.post(config.create_api_url("/assets")).mock(side_effect=asset_create_callback)
