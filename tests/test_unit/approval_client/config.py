@@ -140,6 +140,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
+    ExtractionPipelineRequest,
+    ExtractionPipelineResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config import (
+    ExtractionPipelineConfigRequest,
+    ExtractionPipelineConfigResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
@@ -1283,6 +1291,30 @@ API_RESOURCES = [
         api_name="tool.datasets",
         resource_cls=DataSetResponse,
         _write_cls=DataSetRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.extraction_pipelines",
+        resource_cls=ExtractionPipelineResponse,
+        _write_cls=ExtractionPipelineRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+                Method(api_class_method="iterate", mock_class_method="iterate"),
+                Method(api_class_method="list", mock_class_method="list"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.extraction_pipelines.configs",
+        resource_cls=ExtractionPipelineConfigResponse,
+        _write_cls=ExtractionPipelineConfigRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [

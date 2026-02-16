@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
+from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
@@ -60,7 +61,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
+    ExtractionPipelineRequest,
+    ExtractionPipelineResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config import ExtractionPipelineConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleRequest
@@ -76,6 +81,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
     RESTSourceRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
+    ExtractionPipelineConfigId,
     InternalId,
     InternalIdUnwrapped,
     ThreeDModelRevisionId,
@@ -122,6 +128,7 @@ from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from tests_smoke.constants import (
     ASSET_EXTERNAL_ID,
     EVENT_EXTERNAL_ID,
+    EXTRACTION_PIPELINE_CONFIG,
     SEQUENCE_COLUMN_ID,
     SEQUENCE_EXTERNAL_ID,
     SMOKE_SPACE,
@@ -162,6 +169,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         ThreeDDMAssetMappingAPI,
         ThreeDClassicAssetMappingAPI,
         ThreeDClassicRevisionsAPI,
+        # Requires special handling of list call,
+        ExtractionPipelineConfigsAPI,
         # Cannot be deleted and recreated frequently.
         StreamsAPI,
         # SecurityCategories can easily hit a bad state.
@@ -248,6 +257,11 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
                 "name": "smoke-test-pipeline",
                 "externalId": "smoke-test-pipeline",
                 "dataSetId": -1,
+            }
+        ],
+        ExtractionPipelineConfigRequest: [
+            {
+                "externalId": EXTRACTION_PIPELINE_CONFIG,
             }
         ],
         KafkaSourceRequest: [
@@ -487,6 +501,25 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         return requests[request_cls]
     except KeyError:
         raise NotImplementedError(f"No example request defined for {request_cls.__name__}")
+
+
+@pytest.fixture(scope="session")
+def smoke_extraction_pipeline(
+    toolkit_client: ToolkitClient, smoke_dataset: DataSetResponse
+) -> Iterable[ExtractionPipelineResponse]:
+    pipeline = ExtractionPipelineRequest(
+        external_id=EXTRACTION_PIPELINE_CONFIG,
+        name="Pipeline for smoke tests of configs",
+        data_set_id=smoke_dataset.id,
+    )
+
+    retrieved = toolkit_client.tool.extraction_pipelines.retrieve([pipeline.as_id()], ignore_unknown_ids=True)
+    if len(retrieved) == 0:
+        yield toolkit_client.tool.extraction_pipelines.create([pipeline])[0]
+    else:
+        yield retrieved[0]
+
+    toolkit_client.tool.extraction_pipelines.delete([pipeline.as_id()], ignore_unknown_ids=True)
 
 
 @pytest.fixture(scope="module")
@@ -984,6 +1017,45 @@ class TestCDFResourceAPI:
             # Clean up
             client.tool.instances.delete([edge_id])
             client.tool.instances.delete([node_id])
+
+    def test_extraction_pipeline_config_crudl(
+        self, toolkit_client: ToolkitClient, smoke_extraction_pipeline: ExtractionPipelineResponse
+    ) -> None:
+        client = toolkit_client
+
+        example = get_examples_minimum_requests(ExtractionPipelineConfigRequest)[0]
+        request = ExtractionPipelineConfigRequest.model_validate(example)
+
+        method_map = client.tool.extraction_pipelines.configs._method_endpoint_map
+        config_id = cast(
+            ExtractionPipelineConfigId,
+            self.assert_endpoint_method(
+                lambda: client.tool.extraction_pipelines.configs.create([request]),
+                "create",
+                method_map["create"],
+            ),
+        )
+
+        self.assert_endpoint_method(
+            lambda: client.tool.extraction_pipelines.configs.retrieve([config_id]),
+            "retrieve",
+            method_map["retrieve"],
+            config_id,
+        )
+
+        # List configs
+        try:
+            listed_configs = client.tool.extraction_pipelines.configs.list(
+                external_id=smoke_extraction_pipeline.external_id, limit=1
+            )
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                method_map["list"].path, f"Listing extraction pipeline configs failed with error: {e!s}"
+            ) from e
+        if len(listed_configs) != 1:
+            raise EndpointAssertionError(
+                method_map["list"].path, "Expected at 1 listed extraction pipeline config, got 0"
+            )
 
     def test_workflow_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client

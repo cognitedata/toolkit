@@ -99,6 +99,14 @@ class SequenceRowId(Identifier):
         return f"externalId='{self.external_id}', rows=[{rows_str}]"
 
 
+class ExtractionPipelineConfigId(Identifier):
+    external_id: str
+    revision: int | None = None
+
+    def __str__(self) -> str:
+        return f"externalId='{self.external_id}', revision={self.revision}"
+
+
 class WorkflowVersionId(Identifier):
     workflow_external_id: str
     version: str
