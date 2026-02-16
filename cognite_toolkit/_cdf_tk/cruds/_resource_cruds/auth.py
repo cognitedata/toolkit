@@ -13,7 +13,6 @@
 # limitations under the License.
 
 
-import difflib
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from dataclasses import dataclass
@@ -26,11 +25,6 @@ from cognite.client.data_classes.capabilities import (
     GroupsAcl,
     SecurityCategoriesAcl,
 )
-from cognite.client.data_classes.iam import (
-    Group,
-    GroupList,
-    GroupWrite,
-)
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -39,8 +33,13 @@ from rich.markup import escape
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    GroupRequest,
+    GroupResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
     ExternalId,
+    InternalId,
     InternalIdUnwrapped,
     NameId,
     RawDatabaseId,
@@ -71,11 +70,11 @@ class _ReplaceMethod:
     id_name: str
 
 
-class GroupCRUD(ResourceCRUD[str, GroupWrite, Group]):
+class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
     folder_name = "auth"
     kind = "Group"
-    resource_cls = Group
-    resource_write_cls = GroupWrite
+    resource_cls = GroupResponse
+    resource_write_cls = GroupRequest
     yaml_cls = GroupYAML
     resource_scopes = frozenset(
         {
@@ -110,7 +109,7 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group]):
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[GroupWrite] | None, read_only: bool
+        cls, items: Sequence[GroupRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -136,14 +135,14 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group]):
         )
 
     @classmethod
-    def get_id(cls, item: GroupWrite | Group | dict) -> str:
+    def get_id(cls, item: GroupRequest | GroupResponse | dict) -> NameId:
         if isinstance(item, dict):
-            return item["name"]
-        return item.name
+            return NameId(name=item["name"])
+        return NameId(name=item.name)
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"name": id}
+    def dump_id(cls, id: NameId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -287,7 +286,7 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group]):
             for key, method in source.items()
         }
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> GroupWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> GroupRequest:
         is_resource_scoped = any(
             any(scope_name in capability.get(acl, {}).get("scope", {}) for scope_name in self.resource_scope_names)
             for capability in resource.get("capabilities", [])
@@ -301,26 +300,10 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group]):
             raise ToolkitWrongResourceError()
 
         substituted = self._substitute_scope_ids(resource, is_dry_run)
-        try:
-            loaded = GroupWrite.load(substituted)
-        except ValueError:
-            # The GroupWrite class in the SDK will raise a ValueError if the ACI or scope is not valid or unknown.
-            loaded = GroupWrite._load(substituted, allow_unknown=True)
-            for capability in loaded.capabilities or []:
-                if isinstance(capability, cap.UnknownAcl):
-                    msg = (
-                        f"In group {loaded.name!r}, unknown capability found: {capability.capability_name!r}.\n"
-                        "Will proceed with group creation and let the API validate the capability."
-                    )
-                    if matches := difflib.get_close_matches(capability.capability_name, cap.ALL_CAPABILITIES):
-                        msg += f"\nIf the API rejects the capability, could it be that you meant on of: {matches}?"
-                    prefix, warning_msg = MediumSeverityWarning(msg).print_prepare()
-                    print(prefix, warning_msg)
+        return GroupRequest._load(substituted)
 
-        return loaded
-
-    def dump_resource(self, resource: Group, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+    def dump_resource(self, resource: GroupResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
         local = local or {}
         if not dumped.get("metadata") and "metadata" not in local:
             dumped.pop("metadata", None)
@@ -355,55 +338,56 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group]):
         # When you dump a CDF Group, all the referenced resources should be available in CDF.
         return self._substitute_scope_ids(dumped, is_dry_run=False, reverse=True)
 
-    def create(self, items: Sequence[GroupWrite]) -> GroupList:
+    def create(self, items: Sequence[GroupRequest]) -> list[GroupResponse]:
         if len(items) == 0:
-            return GroupList([])
+            return []
         return self._create_with_fallback(items, action="create")
 
-    def update(self, items: Sequence[GroupWrite]) -> GroupList:
+    def update(self, items: Sequence[GroupRequest]) -> list[GroupResponse]:
         # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
-        old_groups = self.client.iam.groups.list(all=True)
+        old_groups = self.client.tool.groups.list(all_groups=True)
         created = self._create_with_fallback(items, action="update")
         created_names = {g.name for g in created}
-        to_delete = GroupList([group for group in old_groups if group.name in created_names])
+        to_delete = [group for group in old_groups if group.name in created_names]
         if to_delete:
             self._delete(to_delete, check_own_principal=False)
         return created
 
-    def _create_with_fallback(self, items: Sequence[GroupWrite], action: Literal["create", "update"]) -> GroupList:
+    def _create_with_fallback(
+        self, items: Sequence[GroupRequest], action: Literal["create", "update"]
+    ) -> list[GroupResponse]:
         try:
-            return self.client.iam.groups.create(items)
+            return self.client.tool.groups.create(items)
         except CogniteAPIError as e:
             if not (e.code == 400 and "buffer" in e.message.lower() and len(items) > 1):
                 raise e
             # Fallback to create one by one
-            created_list = GroupList([])
+            created_list: list[GroupResponse] = []
             for item in items:
                 try:
-                    created = self.client.iam.groups.create(item)
+                    created = self.client.tool.groups.create([item])
                 except CogniteAPIError as e:
                     HighSeverityWarning(f"Failed to {action} group {item.name}. Error: {escape(str(e))}").print_warning(
                         include_timestamp=True, console=self.console
                     )
                 else:
-                    created_list.append(created)
+                    created_list.extend(created)
             return created_list
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> GroupList:
-        id_set = set(ids)
-        remote = self.client.iam.groups.list(all=True)
-        found = [g for g in remote if g.name in id_set]
-        return GroupList(found)
+    def retrieve(self, ids: SequenceNotStr[NameId]) -> list[GroupResponse]:
+        names = {id.name for id in ids}
+        remote = self.client.tool.groups.list(all_groups=True)
+        return [g for g in remote if g.name in names]
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: SequenceNotStr[NameId]) -> int:
         return self._delete(self.retrieve(ids), check_own_principal=True)
 
-    def _delete(self, delete_candidates: GroupList, check_own_principal: bool = True) -> int:
+    def _delete(self, delete_candidates: list[GroupResponse], check_own_principal: bool = True) -> int:
         if check_own_principal:
             print_fun = self.console.print if self.console else print
             try:
                 # Let's prevent that we delete groups we belong to
-                my_groups = self.client.iam.groups.list()
+                my_groups = self.client.tool.groups.list()
             except CogniteAPIError as e:
                 print_fun(
                     f"[bold red]ERROR:[/] Failed to retrieve the current service principal's groups. Aborting group deletion.\n{e}"
@@ -432,12 +416,12 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group]):
         failed_deletes = []
         error_str = ""
         try:
-            self.client.iam.groups.delete(to_delete)
+            self.client.tool.groups.delete([InternalId(id=id_) for id_ in to_delete])
         except CogniteNotFoundError:
             # Fallback to delete one by one
             for delete_item_id in to_delete:
                 try:
-                    self.client.iam.groups.delete(delete_item_id)
+                    self.client.tool.groups.delete([InternalId(id=delete_item_id)])
                 except CogniteNotFoundError:
                     # If the group is already deleted, we can ignore the error
                     ...
@@ -460,8 +444,9 @@ class GroupCRUD(ResourceCRUD[str, GroupWrite, Group]):
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[Group]:
-        return self.client.iam.groups.list(all=True)
+    ) -> Iterable[GroupResponse]:
+        for items in self.client.tool.groups.iterate(all_groups=True):
+            yield from items
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
