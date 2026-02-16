@@ -41,11 +41,11 @@ class DataProductsAPI(CDFResourceAPI[ExternalId, DataProductRequest, DataProduct
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, external_ids: Sequence[str], ignore_unknown_ids: bool = False) -> list[DataProductResponse]:
+    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[DataProductResponse]:
         """Retrieve data products by external ID. The API only supports single-item GET.
 
         Args:
-            external_ids: List of external IDs of the data products to retrieve.
+            items: List of ExternalId objects of the data products to retrieve.
             ignore_unknown_ids: Whether to ignore unknown IDs. If False, an error will be raised if any of the provided IDs do not exist.
         Returns:
             List of retrieved DataProductResponse objects.
@@ -53,9 +53,9 @@ class DataProductsAPI(CDFResourceAPI[ExternalId, DataProductRequest, DataProduct
         """
 
         results: list[DataProductResponse] = []
-        for external_id in external_ids:
+        for item in items:
             request = RequestMessage(
-                endpoint_url=self._make_url(f"/dataproducts/{external_id}"),
+                endpoint_url=self._make_url(f"/dataproducts/{item.external_id}"),
                 method="GET",
                 body_content={},
                 api_version=self._api_version,
@@ -76,14 +76,13 @@ class DataProductsAPI(CDFResourceAPI[ExternalId, DataProductRequest, DataProduct
     ) -> list[DataProductResponse]:
         return self._update(items, mode=mode)
 
-    def delete(self, external_ids: Sequence[str]) -> None:
-        items = [ExternalId(external_id=ext_id) for ext_id in external_ids]
+    def delete(self, items: Sequence[ExternalId]) -> None:
         self._request_no_response(items, "delete")
 
-    def paginate(self, limit: int = 100, cursor: str | None = None) -> PagedResponse[DataProductResponse]:
+    def paginate(self, limit: int = 10, cursor: str | None = None) -> PagedResponse[DataProductResponse]:
         return self._paginate(cursor=cursor, limit=limit)
 
-    def iterate(self, limit: int | None = None) -> Iterable[list[DataProductResponse]]:
+    def iterate(self, limit: int | None = 10) -> Iterable[list[DataProductResponse]]:
         return self._iterate(limit=limit)
 
     def list(self, limit: int | None = None) -> list[DataProductResponse]:

@@ -6,6 +6,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.auth import GroupAllScopedCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import SpaceCRUD
@@ -29,14 +30,16 @@ class DataProductCRUD(ResourceCRUD[ExternalId, DataProductRequest, DataProductRe
         return "data products"
 
     @classmethod
-    def get_id(cls, item: DataProductRequest | DataProductResponse | dict) -> str:
+    def get_id(cls, item: DataProductRequest | DataProductResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
-        return item.external_id
+            return ExternalId(external_id=item["externalId"])
+        if isinstance(item, DataProductRequest):
+            return item.as_id()
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return {"externalId": id.external_id}
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -57,8 +60,10 @@ class DataProductCRUD(ResourceCRUD[ExternalId, DataProductRequest, DataProductRe
         local = local or {}
         # schemaSpace is read-only (immutable after creation).
         # Always exclude it — it cannot be updated, so comparing it only creates permanent false diffs.
-        dumped.pop("schemaSpace", None)
-        local.pop("schemaSpace", None)
+
+        if not local.get("schemaSpace"):
+            dumped.pop("schemaSpace", None)
+
         # Strip server-set defaults for fields not explicitly in the local YAML.
         defaults: list[tuple[str, Any]] = [
             ("isGoverned", False),
@@ -73,13 +78,13 @@ class DataProductCRUD(ResourceCRUD[ExternalId, DataProductRequest, DataProductRe
     def create(self, items: Sequence[DataProductRequest]) -> list[DataProductResponse]:
         return self.client.tool.data_products.create(list(items))
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> list[DataProductResponse]:
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[DataProductResponse]:
         return self.client.tool.data_products.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[DataProductRequest]) -> list[DataProductResponse]:
         return self.client.tool.data_products.update(list(items))
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.data_products.delete(list(ids))

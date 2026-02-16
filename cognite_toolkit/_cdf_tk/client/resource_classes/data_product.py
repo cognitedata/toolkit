@@ -1,4 +1,3 @@
-
 from typing import Any, ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
