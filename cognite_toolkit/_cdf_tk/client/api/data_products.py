@@ -41,13 +41,15 @@ class DataProductsAPI(CDFResourceAPI[ExternalId, DataProductRequest, DataProduct
         """
         return self._request_item_response(items, "create")
 
-    def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[DataProductResponse]:
+    def retrieve(
+        self, external_ids: Sequence[ExternalId], ignore_unknown_ids: bool = False
+    ) -> list[DataProductResponse]:
         """Retrieve data products by external ID.
 
         The API only supports single-item GET at /dataproducts/{externalId}.
 
         Args:
-            items: List of ExternalId objects of the data products to retrieve.
+            external_ids: List of ExternalId objects of the data products to retrieve.
             ignore_unknown_ids: Whether to ignore unknown IDs. If False, an error will be raised
                 if any of the provided IDs do not exist.
         Returns:
@@ -56,10 +58,10 @@ class DataProductsAPI(CDFResourceAPI[ExternalId, DataProductRequest, DataProduct
         """
         results: list[DataProductResponse] = []
         endpoint = self._method_endpoint_map["retrieve"]
-        for item in items:
+        for ext_id in external_ids:
             response = self._http_client.request_single_retries(
                 RequestMessage(
-                    endpoint_url=self._make_url(endpoint.path.format(externalId=item.external_id)),
+                    endpoint_url=self._make_url(endpoint.path.format(externalId=ext_id.external_id)),
                     method=endpoint.method,
                     api_version=self._api_version,
                 )
@@ -77,8 +79,8 @@ class DataProductsAPI(CDFResourceAPI[ExternalId, DataProductRequest, DataProduct
     ) -> list[DataProductResponse]:
         return self._update(items, mode=mode)
 
-    def delete(self, items: Sequence[ExternalId]) -> None:
-        self._request_no_response(items, "delete")
+    def delete(self, external_ids: Sequence[ExternalId]) -> None:
+        self._request_no_response(external_ids, "delete")
 
     def paginate(self, limit: int = 10, cursor: str | None = None) -> PagedResponse[DataProductResponse]:
         return self._paginate(cursor=cursor, limit=limit)
@@ -86,5 +88,5 @@ class DataProductsAPI(CDFResourceAPI[ExternalId, DataProductRequest, DataProduct
     def iterate(self, limit: int | None = 10) -> Iterable[list[DataProductResponse]]:
         return self._iterate(limit=limit)
 
-    def list(self, limit: int | None = None) -> list[DataProductResponse]:
+    def list(self, limit: int | None = 10) -> list[DataProductResponse]:
         return self._list(limit=limit)
