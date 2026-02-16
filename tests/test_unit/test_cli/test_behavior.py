@@ -10,7 +10,6 @@ from cognite.client.data_classes import (
     DataSet,
     Group,
     GroupWrite,
-    Transformation,
 )
 from cognite.client.data_classes.capabilities import AssetsAcl, EventsAcl, TimeSeriesAcl
 from pytest import MonkeyPatch
@@ -37,6 +36,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import Workflow
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     ScheduleTriggerRule,
@@ -220,7 +220,7 @@ def test_pull_transformation_sql(
 from `ingestion`.`timeseries_metadata`"""
     transformation.query = new_query
 
-    toolkit_client_approval.append(Transformation, transformation)
+    toolkit_client_approval.append(TransformationResponse, transformation)
     cmd = PullCommand(silent=True)
     cmd.pull_module(
         module_name_or_path=transformation_yaml,
@@ -243,7 +243,7 @@ from `ingestion`.`timeseries_metadata`"""
     assert target_yaml == source_yaml, "Transformation file should not be updated"
 
 
-def _load_cdf_pi_transformation(transformation_yaml: Path, client: ToolkitClient) -> Transformation:
+def _load_cdf_pi_transformation(transformation_yaml: Path, client: ToolkitClient) -> TransformationResponse:
     variables = [
         ("dataset", "ingestion"),
         ("schemaSpace", "sp_enterprise_process_industry"),
@@ -257,9 +257,24 @@ def _load_cdf_pi_transformation(transformation_yaml: Path, client: ToolkitClient
         raw_transformation = raw_transformation.replace(f"{{{{ {key} }}}}", value)
     data = yaml.safe_load(raw_transformation)
     data["dataSetId"] = client.lookup.data_sets.id(data.pop("dataSetExternalId"))
-    transformation = Transformation._load(data)
-
-    return transformation
+    # Read query from the associated SQL file if not inline
+    if "query" not in data:
+        sql_file = transformation_yaml.with_suffix(".sql")
+        if sql_file.exists():
+            raw_sql = sql_file.read_text()
+            for key, value in variables:
+                raw_sql = raw_sql.replace(f"{{{{ {key} }}}}", value)
+            data["query"] = raw_sql
+    # Add required fields for TransformationResponse
+    data.setdefault("id", 1)
+    data.setdefault("createdTime", 1)
+    data.setdefault("lastUpdatedTime", 1)
+    data.setdefault("isPublic", True)
+    data.setdefault("owner", "test")
+    data.setdefault("ownerIsCurrentUser", True)
+    data.setdefault("hasSourceOidcCredentials", False)
+    data.setdefault("hasDestinationOidcCredentials", False)
+    return TransformationResponse.model_validate(data)
 
 
 def test_pull_workflow_trigger_with_environment_variables(
@@ -770,7 +785,7 @@ def test_build_deploy_keep_special_characters(
         verbose=False,
     )
 
-    transformations = toolkit_client_approval.created_resources_of_type(Transformation)
+    transformations = toolkit_client_approval.created_resources_of_type(TransformationResponse)
 
     assert len(transformations) == 2
     transformation = next(t for t in transformations if t.external_id.endswith(encoding))

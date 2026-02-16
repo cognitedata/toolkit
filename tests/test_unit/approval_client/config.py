@@ -239,6 +239,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest, TransformationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_notification import (
+    TransformationNotificationRequest,
+    TransformationNotificationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule import (
+    TransformationScheduleRequest,
+    TransformationScheduleResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     WorkflowTriggerRequest,
@@ -1200,6 +1209,39 @@ API_RESOURCES = [
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
                 Method(api_class_method="list", mock_class_method="list"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.transformations",
+        resource_cls=TransformationResponse,
+        _write_cls=TransformationRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.transformations.schedules",
+        resource_cls=TransformationScheduleResponse,
+        _write_cls=TransformationScheduleRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.transformations.notifications",
+        resource_cls=TransformationNotificationResponse,
+        _write_cls=TransformationNotificationRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="iterate", mock_class_method="list"),
             ],
         },
     ),

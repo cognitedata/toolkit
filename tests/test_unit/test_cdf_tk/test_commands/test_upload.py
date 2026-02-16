@@ -1,12 +1,16 @@
 import json
 from collections.abc import Iterator
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 import respx
 from cognite.client.data_classes.raw import RowWrite, Table, TableList
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable, RawTableList
@@ -15,7 +19,10 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.cruds import RawTableCRUD
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
 from cognite_toolkit._cdf_tk.storageio import RawIO
+from cognite_toolkit._cdf_tk.storageio._asset_centric import AssetIO
+from cognite_toolkit._cdf_tk.storageio._base import UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     InstanceSpaceSelector,
     RawTableSelector,
@@ -23,6 +30,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     SelectedView,
     Selector,
 )
+from cognite_toolkit._cdf_tk.storageio.selectors._asset_centric import DataSetSelector
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -193,3 +201,32 @@ class TestUploadCommand:
         # Verify non-instance selectors are preserved
         assert raw_selector in result, f"Raw selector should be preserved, not found in {result_keys}"
         assert len(result) == 3, f"Expected 3 selectors, got {len(result)}: {result_keys}"
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_early_stopping_when_all_items_fail(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        respx_mock.post(
+            url=toolkit_config.create_api_url("/assets"),
+        ).respond(
+            status_code=401,
+            json={"error": {"code": 401, "message": "Unauthorized"}},
+        )
+        items = [
+            UploadItem(item=AssetRequest(external_id="asset_1", name="Asset 1"), source_id="row 1"),  # type: ignore[arg-type]
+            UploadItem(item=AssetRequest(external_id="asset_2", name="Asset 2"), source_id="row 2"),  # type: ignore[arg-type]
+        ]
+        with HTTPClient(config=toolkit_config) as http_client:
+            with pytest.raises(
+                ToolkitRuntimeError, match="Upload process was stopped due to repeatedly failed uploads"
+            ):
+                UploadCommand._upload_items(
+                    data_chunk=items,
+                    upload_client=http_client,
+                    io=AssetIO(ToolkitClient(toolkit_config)),  # type: ignore[arg-type]
+                    selector=DataSetSelector(data_set_external_id="dummy", kind="Assets"),
+                    dry_run=False,
+                    tracker=MagicMock(),
+                    console=MagicMock(spec=Console),
+                    verbose=False,
+                )
