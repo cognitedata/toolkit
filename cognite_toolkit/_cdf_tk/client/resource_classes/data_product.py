@@ -49,11 +49,4 @@ class DataProductResponse(ResponseResource[DataProductRequest]):
     last_updated_time: int
 
     def as_request_resource(self) -> DataProductRequest:
-        return DataProductRequest(
-            external_id=self.external_id,
-            name=self.name,
-            is_governed=self.is_governed,
-            description=self.description,
-            schema_space=self.schema_space,
-            tags=self.tags,
-        )
+        return DataProductRequest.model_validate(self.dump(), extra="ignore")
