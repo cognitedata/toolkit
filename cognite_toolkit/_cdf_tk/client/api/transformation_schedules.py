@@ -105,7 +105,7 @@ class TransformationSchedulesAPI(
 
     def iterate(
         self,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[list[TransformationScheduleResponse]]:
         """Iterate over all transformation schedules in CDF.
 

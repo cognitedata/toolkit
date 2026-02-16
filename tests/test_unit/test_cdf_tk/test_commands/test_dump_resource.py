@@ -12,9 +12,6 @@ from cognite.client.data_classes import (
     FileMetadataList,
     Group,
     GroupList,
-    Transformation,
-    TransformationList,
-    TransformationScheduleList,
 )
 from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
 from cognite.client.data_classes.capabilities import (
@@ -39,6 +36,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import St
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
     AgentFinder,
@@ -74,39 +72,63 @@ from tests.test_unit.utils import MockQuestionary
 
 
 @pytest.fixture()
-def three_transformations() -> TransformationList:
-    return TransformationList(
-        [
-            Transformation(
-                1,
-                "transformationA",
-                name="My First Transformation",
-                ignore_null_fields=True,
-                created_time=1,
-                updated_time=1,
-            ),
-            Transformation(
-                2,
-                "transformationB",
-                name="My Second Transformation",
-                ignore_null_fields=True,
-                created_time=1,
-                updated_time=1,
-            ),
-            Transformation(
-                3,
-                "transformationC",
-                name="My Third Transformation",
-                ignore_null_fields=True,
-                created_time=1,
-                updated_time=1,
-            ),
-        ]
-    )
+def three_transformations() -> list[TransformationResponse]:
+    return [
+        TransformationResponse(
+            id=1,
+            external_id="transformationA",
+            name="My First Transformation",
+            ignore_null_fields=True,
+            created_time=1,
+            last_updated_time=1,
+            query="",
+            is_public=True,
+            conflict_mode="upsert",
+            destination={"type": "assets"},
+            owner="test",
+            owner_is_current_user=True,
+            has_source_oidc_credentials=False,
+            has_destination_oidc_credentials=False,
+        ),
+        TransformationResponse(
+            id=2,
+            external_id="transformationB",
+            name="My Second Transformation",
+            ignore_null_fields=True,
+            created_time=1,
+            last_updated_time=1,
+            query="",
+            is_public=True,
+            conflict_mode="upsert",
+            destination={"type": "assets"},
+            owner="test",
+            owner_is_current_user=True,
+            has_source_oidc_credentials=False,
+            has_destination_oidc_credentials=False,
+        ),
+        TransformationResponse(
+            id=3,
+            external_id="transformationC",
+            name="My Third Transformation",
+            ignore_null_fields=True,
+            created_time=1,
+            last_updated_time=1,
+            query="",
+            is_public=True,
+            conflict_mode="upsert",
+            destination={"type": "assets"},
+            owner="test",
+            owner_is_current_user=True,
+            has_source_oidc_credentials=False,
+            has_destination_oidc_credentials=False,
+        ),
+    ]
 
 
 class TestTransformationFinder:
-    def test_select_transformations(self, three_transformations: TransformationList, monkeypatch: MonkeyPatch) -> None:
+    def test_select_transformations(
+        self, three_transformations: list[TransformationResponse], monkeypatch: MonkeyPatch
+    ) -> None:
         def select_transformations(choices: list[Choice]) -> list[str]:
             assert len(choices) == len(three_transformations)
             return [choices[1].value, choices[2].value]
@@ -117,7 +139,7 @@ class TestTransformationFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(TransformationFinder.__module__, monkeypatch, answers),
         ):
-            client.transformations.list.return_value = three_transformations
+            client.tool.transformations.list.return_value = three_transformations
             finder = TransformationFinder(client, None)
             selected = finder._interactive_select()
 
@@ -125,10 +147,10 @@ class TestTransformationFinder:
 
 
 class TestDumpTransformations:
-    def test_dump_transformations(self, three_transformations: TransformationList, tmp_path: Path) -> None:
+    def test_dump_transformations(self, three_transformations: list[TransformationResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.transformations.retrieve_multiple.return_value = three_transformations[1:]
-            client.transformations.schedules.retrieve.return_value = TransformationScheduleList([])
+            client.tool.transformations.retrieve.return_value = three_transformations[1:]
+            client.tool.transformations.schedules.retrieve.return_value = []
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
