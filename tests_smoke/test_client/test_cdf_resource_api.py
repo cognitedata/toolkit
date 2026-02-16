@@ -9,6 +9,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
+from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
@@ -74,7 +75,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
     MQTTSourceRequest,
     RESTSourceRequest,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId, InternalIdUnwrapped
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
+    ExtractionPipelineConfigId,
+    InternalId,
+    InternalIdUnwrapped,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterRequest
@@ -149,6 +154,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         ThreeDClassicModelsAPI,
         ThreeDDMAssetMappingAPI,
         ThreeDClassicAssetMappingAPI,
+        # Requires special handling of list call,
+        ExtractionPipelineConfigsAPI,
         # Cannot be deleted and recreated frequently.
         StreamsAPI,
         # SecurityCategories can easily hit a bad state.
@@ -472,17 +479,20 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
 @pytest.fixture(scope="session")
 def smoke_extraction_pipeline(
     toolkit_client: ToolkitClient, smoke_dataset: DataSetResponse
-) -> ExtractionPipelineResponse:
+) -> Iterable[ExtractionPipelineResponse]:
     pipeline = ExtractionPipelineRequest(
         external_id=EXTRACTION_PIPELINE_CONFIG,
-        name="Peristent pipeline for smoke tests",
+        name="Pipeline for smoke tests of configs",
         data_set_id=smoke_dataset.id,
     )
 
     retrieved = toolkit_client.tool.extraction_pipelines.retrieve([pipeline.as_id()], ignore_unknown_ids=True)
     if len(retrieved) == 0:
-        return toolkit_client.tool.extraction_pipelines.create([pipeline])[0]
-    return retrieved[0]
+        yield toolkit_client.tool.extraction_pipelines.create([pipeline])[0]
+    else:
+        yield retrieved[0]
+
+    toolkit_client.tool.extraction_pipelines.delete([pipeline.as_id()], ignore_unknown_ids=True)
 
 
 @pytest.fixture(scope="module")
@@ -558,9 +568,7 @@ def smoke_event(toolkit_client: ToolkitClient) -> EventResponse:
     return retrieved[0]
 
 
-@pytest.mark.usefixtures(
-    "smoke_space", "smoke_extraction_pipeline", "smoke_asset", "smoke_event", "smoke_container", "smoke_view"
-)
+@pytest.mark.usefixtures("smoke_space", "smoke_asset", "smoke_event", "smoke_container", "smoke_view")
 class TestCDFResourceAPI:
     def assert_endpoint_method(
         self, method: Callable[[], list[T_ResponseResource]], name: str, endpoint: Endpoint, id: Hashable | None = None
@@ -887,6 +895,52 @@ class TestCDFResourceAPI:
             # Clean up
             client.tool.instances.delete([edge_id])
             client.tool.instances.delete([node_id])
+
+    def test_extraction_pipeline_config_crudl(
+        self, toolkit_client: ToolkitClient, smoke_extraction_pipeline: ExtractionPipelineResponse
+    ) -> None:
+        client = toolkit_client
+
+        example = get_examples_minimum_requests(ExtractionPipelineConfigRequest)[0]
+        request = ExtractionPipelineConfigRequest.model_validate(example)
+
+        method_map = client.tool.extraction_pipelines.configs._method_endpoint_map
+        config_id = cast(
+            ExtractionPipelineConfigId,
+            self.assert_endpoint_method(
+                lambda: client.tool.extraction_pipelines.configs.create([request]),
+                "create",
+                method_map["create"],
+            ),
+        )
+
+        self.assert_endpoint_method(
+            lambda: client.tool.extraction_pipelines.configs.retrieve([config_id]),
+            "retrieve",
+            method_map["retrieve"],
+            config_id,
+        )
+
+        # List configs
+        try:
+            listed_configs = client.tool.extraction_pipelines.configs.list(
+                external_id=smoke_extraction_pipeline.external_id, limit=1
+            )
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                method_map["list"].path, f"Listing extraction pipeline configs failed with error: {e!s}"
+            ) from e
+        if len(listed_configs) != 1:
+            raise EndpointAssertionError(
+                method_map["list"].path, "Expected at 1 listed extraction pipeline config, got 0"
+            )
+
+        # Revert
+        self.assert_endpoint_method(
+            lambda: client.tool.extraction_pipelines.configs.delete([config_id]),
+            "delete",
+            method_map["delete"],
+        )
 
     def test_workflow_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
