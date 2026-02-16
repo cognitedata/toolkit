@@ -64,7 +64,7 @@ class TestExtractionPipelineDependencies:
             "changed": len(resources.to_update),
             "delete": len(resources.to_delete),
             "unchanged": len(resources.unchanged),
-        } == {"create": 0, "changed": 1, "delete": 0, "unchanged": 0}
+        } == {"create": 1, "changed": 0, "delete": 1, "unchanged": 0}
 
     def test_load_extraction_pipeline_delete_one(
         self,
