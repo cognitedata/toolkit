@@ -1,4 +1,5 @@
 import difflib
+import logging
 import os
 import sys
 from pathlib import Path
@@ -11,6 +12,7 @@ from mypy.checkexpr import defaultdict
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIError
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, PullCommand
 from cognite_toolkit._cdf_tk.cruds import (
     CRUDS_BY_FOLDER_NAME,
@@ -30,9 +32,12 @@ from cognite_toolkit._cdf_tk.cruds import (
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.data_product import DataProductCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.location import LocationFilterCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeployResult
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import remove_trailing_newline
 from tests import data
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.mark.skipif(
@@ -98,9 +103,10 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
     deploy_command = DeployCommand(silent=False, skip_tracking=True)
     client_id = os.environ["IDP_CLIENT_ID"]
     client_secret = os.environ["IDP_CLIENT_SECRET"]
-    # Data Products API is not yet available on the test server (returns 404).
-    # Exclude it from deploy by temporarily removing it from the CRUD registry.
-    _skip_cruds = {DataProductCRUD}
+    # Exclude Data Products from deploy when the alpha flag is off (API not available).
+    _skip_cruds: set[type] = set()
+    if not Flags.DATA_PRODUCTS.is_enabled():
+        _skip_cruds.add(DataProductCRUD)
     with (
         patch.dict(
             os.environ,
@@ -112,17 +118,25 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
             clear=True,
         ),
     ):
-        deploy_command.deploy_build_directory(
-            env_vars,
-            build_dir=build_dir,
-            build_env_name="dev",
-            dry_run=False,
-            drop=False,
-            drop_data=False,
-            force_update=False,
-            include=None,
-            verbose=True,
-        )
+        try:
+            deploy_command.deploy_build_directory(
+                env_vars,
+                build_dir=build_dir,
+                build_env_name="dev",
+                dry_run=False,
+                drop=False,
+                drop_data=False,
+                force_update=False,
+                include=None,
+                verbose=True,
+            )
+        except ToolkitAPIError as e:
+            # Suppress 404 only when the data products alpha API is included
+            # but not yet available on the test server.
+            if e.code == 404 and Flags.DATA_PRODUCTS.is_enabled():
+                logger.warning("Data products API returned 404 (not available on test server), skipping: %s", e)
+            else:
+                raise
 
     changed_resources = get_changed_resources(env_vars, build_dir)
     assert not changed_resources, "Redeploying the same resources should not change anything"
