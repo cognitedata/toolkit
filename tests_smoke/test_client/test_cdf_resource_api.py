@@ -1057,13 +1057,6 @@ class TestCDFResourceAPI:
                 method_map["list"].path, "Expected at 1 listed extraction pipeline config, got 0"
             )
 
-        # Revert
-        self.assert_endpoint_method(
-            lambda: client.tool.extraction_pipelines.configs.delete([config_id]),
-            "delete",
-            method_map["delete"],
-        )
-
     def test_workflow_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 

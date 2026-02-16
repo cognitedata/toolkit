@@ -26,7 +26,6 @@ class ExtractionPipelineConfigsAPI(
             method_endpoint_map={
                 "create": Endpoint(method="POST", path="/extpipes/config", item_limit=1),
                 "retrieve": Endpoint(method="GET", path="/extpipes/config", item_limit=1),
-                "delete": Endpoint(method="POST", path="/extpipes/config/revert", item_limit=1),
                 "list": Endpoint(method="GET", path="/extpipes/config/revisions", item_limit=1000),
             },
         )
@@ -81,29 +80,6 @@ class ExtractionPipelineConfigsAPI(
             response = self._http_client.request_single_retries(request).get_success_or_raise()
             results.append(ExtractionPipelineConfigResponse.model_validate_json(response.body))
         return results
-
-    def delete(self, items: Sequence[ExtractionPipelineConfigId]) -> list[ExtractionPipelineConfigResponse]:
-        """Delete configuration revisions. This is called revert in the CDF API, as it reverts
-         the configuration to a previous revision.
-
-        Args:
-            items: List of ExtractionPipelineConfigId objects to delete.
-
-        Returns:
-            List of the latest configuration revisions after the revert.
-
-        """
-        endpoint = self._method_endpoint_map["delete"]
-        latest_new_configurations: list[ExtractionPipelineConfigResponse] = []
-        for item in items:
-            request = RequestMessage(
-                endpoint_url=self._make_url(endpoint.path),
-                method=endpoint.method,
-                body_content=item.dump(),
-            )
-            response = self._http_client.request_single_retries(request).get_success_or_raise()
-            latest_new_configurations.append(ExtractionPipelineConfigResponse.model_validate_json(response.body))
-        return latest_new_configurations
 
     def paginate(
         self,

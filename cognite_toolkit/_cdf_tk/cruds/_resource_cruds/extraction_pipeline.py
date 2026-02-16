@@ -209,6 +209,8 @@ class ExtractionPipelineConfigCRUD(
     parent_resource = frozenset({ExtractionPipelineCRUD})
     yaml_cls = ExtractionPipelineConfigYAML
 
+    support_update = False
+
     @property
     def display_name(self) -> str:
         return "extraction pipeline configs"
@@ -334,10 +336,6 @@ class ExtractionPipelineConfigCRUD(
     def create(self, items: Sequence[ExtractionPipelineConfigRequest]) -> list[ExtractionPipelineConfigResponse]:
         return self._upsert(items)
 
-    def update(self, items: Sequence[ExtractionPipelineConfigRequest]) -> list[ExtractionPipelineConfigResponse]:
-        # configs cannot be updated, instead new revision is created
-        return self._upsert(items)
-
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[ExtractionPipelineConfigResponse]:
         return self.client.tool.extraction_pipelines.configs.retrieve(
             [ExtractionPipelineConfigId(external_id=pipeline_id.external_id) for pipeline_id in ids]
@@ -350,6 +348,7 @@ class ExtractionPipelineConfigCRUD(
         extraction pipelines which will automatically delete the configs. In this method, we simply count the number
         of configs that exist for the given ids and return that number as these will be deleted.
         """
+        # Todo; Change to raise ToolkitNotSupportedError in v0.8
         count = 0
         for id_ in ids:
             try:
