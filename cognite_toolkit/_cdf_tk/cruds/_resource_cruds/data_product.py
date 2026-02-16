@@ -91,5 +91,5 @@ class DataProductCRUD(ResourceCRUD[ExternalId, DataProductRequest, DataProductRe
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DataProductResponse]:
-        for items in self.client.tool.data_products.iterate():
+        for items in self.client.tool.data_products.iterate(limit=None):
             yield from items
