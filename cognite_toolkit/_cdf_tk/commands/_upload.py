@@ -50,6 +50,7 @@ class UploadCommand(ToolkitCommand):
     """
 
     _MAX_QUEUE_SIZE = 80
+    _MAX_VERBOSE_PRINTED_FAILED_IDS = 10
     _UPLOAD = "upload"
 
     def upload(
@@ -316,11 +317,10 @@ class UploadCommand(ToolkitCommand):
             else:
                 console.log(f"[red]Unexpected result from upload: {str(message)!r}[/red]")
         if verbose:
-            max_ids_shown = 10
             for error_description, failed_ids in failures_by_error.items():
-                ids_display = ", ".join(failed_ids[:max_ids_shown])
-                if len(failed_ids) > max_ids_shown:
-                    ids_display += f" ... and {len(failed_ids) - max_ids_shown} more"
+                ids_display = ", ".join(failed_ids[: cls._MAX_VERBOSE_PRINTED_FAILED_IDS])
+                if len(failed_ids) > cls._MAX_VERBOSE_PRINTED_FAILED_IDS:
+                    ids_display += f" ... and {len(failed_ids) - cls._MAX_VERBOSE_PRINTED_FAILED_IDS} more"
                 console.print(
                     f"[red]Failed to upload[/red] {len(failed_ids)} items from [bold]{selector}[/bold] "
                     f"{error_description}\n"
