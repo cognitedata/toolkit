@@ -68,12 +68,12 @@ class TransformationBuilder(Builder):
         extra_sources: list[SourceLocation] = []
         for entry in loaded_list:
             try:
-                external_id = TransformationCRUD.get_id(entry)
+                id_ = TransformationCRUD.get_id(entry)
             except KeyError:
                 # This will be validated later
                 continue
             filepath = source_file.source.path
-            query_file = self._get_query_file(filepath, external_id, query_files)
+            query_file = self._get_query_file(filepath, id_.external_id, query_files)
 
             if "query" in entry and query_file is not None:
                 raise ToolkitYAMLFormatError(
@@ -82,7 +82,7 @@ class TransformationBuilder(Builder):
                 )
             elif "query" not in entry and query_file is None:
                 warning = HighSeverityWarning(
-                    f"query property or is missing in {filepath.as_posix()!r}. It can be inline or a separate file named {filepath.stem}.sql or {external_id}.sql",
+                    f"query property or is missing in {filepath.as_posix()!r}. It can be inline or a separate file named {filepath.stem}.sql or {id_}.sql",
                 )
                 if self.warn:
                     self.warn(warning)

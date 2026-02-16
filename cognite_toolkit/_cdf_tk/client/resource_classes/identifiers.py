@@ -90,6 +90,15 @@ class RawTableId(Identifier):
         return f"dbName='{self.db_name}', name='{self.name}'"
 
 
+class SequenceRowId(Identifier):
+    external_id: str = Field(description="ExternalId of the sequence")
+    rows: tuple[int, ...]
+
+    def __str__(self) -> str:
+        rows_str = ", ".join(str(row) for row in self.rows)
+        return f"externalId='{self.external_id}', rows=[{rows_str}]"
+
+
 class WorkflowVersionId(Identifier):
     workflow_external_id: str
     version: str
@@ -98,8 +107,24 @@ class WorkflowVersionId(Identifier):
         return f"workflowExternalId='{self.workflow_external_id}', version='{self.version}'"
 
 
+class ThreeDModelRevisionId(Identifier):
+    model_id: int = Field(exclude=True)
+    id: int
+
+    def __str__(self) -> str:
+        return f"modelId={self.model_id}, id={self.id}"
+
+
 class DataSetId(Identifier):
     data_set_id: int
 
     def __str__(self) -> str:
         return f"dataSetId={self.data_set_id}"
+
+
+class TransformationNotificationId(Identifier):
+    transformation_external_id: str
+    destination: str
+
+    def __str__(self) -> str:
+        return f"transformationExternalId='{self.transformation_external_id}', destination='{self.destination}'"

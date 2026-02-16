@@ -72,7 +72,7 @@ RAWDatabaseResponse:
 - name: ingestion
 RAWTableResponse:
 - name: timeseries_metadata
-Transformation:
+TransformationResponse:
 - conflictMode: upsert
   dataSetId: 316416785021717804
   destination:
