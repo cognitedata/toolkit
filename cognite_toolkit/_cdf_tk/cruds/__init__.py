@@ -170,6 +170,11 @@ def get_crud(resource_dir: str, kind: str) -> type[Loader]:
     for loader in CRUDS_BY_FOLDER_NAME[resource_dir]:
         if loader.kind == kind:
             return loader
+    # Fall back to alpha-inclusive registry (e.g. for deserializing built resources
+    # when a CRUD is excluded by feature flags or test patching).
+    for loader in CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA[resource_dir]:
+        if loader.kind == kind:
+            return loader
     raise ValueError(f"Loader not found for {resource_dir} and {kind}")
 
 
