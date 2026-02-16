@@ -297,8 +297,8 @@ class UploadCommand(ToolkitCommand):
             return
         results = io.upload_items(data_chunk, upload_client, selector)
         all_failed = True
-        # Group failed ids by error details for cleaner output
-        failures_by_error: dict[tuple[int | None, str], list[str]] = {}
+        # Group failed ids by error description for cleaner output
+        failures_by_error: dict[str, list[str]] = {}
         for message in results:
             if isinstance(message, ItemsSuccessResponse):
                 all_failed = False
@@ -309,23 +309,21 @@ class UploadCommand(ToolkitCommand):
                     tracker.set_progress(id_, step=cls._UPLOAD, status="failed")
                 if verbose:
                     if isinstance(message, ItemsFailedResponse):
-                        key = (message.status_code, message.error.message)
-                        failures_by_error.setdefault(key, []).extend(message.ids)
+                        error_description = f"(HTTP {message.status_code}): {message.error.message}"
+                        failures_by_error.setdefault(error_description, []).extend(message.ids)
                     elif isinstance(message, ItemsFailedRequest):
-                        key = (None, message.error_message)
-                        failures_by_error.setdefault(key, []).extend(message.ids)
+                        failures_by_error.setdefault(message.error_message, []).extend(message.ids)
             else:
                 console.log(f"[red]Unexpected result from upload: {str(message)!r}[/red]")
         if verbose:
             max_ids_shown = 10
-            for (status_code, error_message), failed_ids in failures_by_error.items():
+            for error_description, failed_ids in failures_by_error.items():
                 ids_display = ", ".join(failed_ids[:max_ids_shown])
                 if len(failed_ids) > max_ids_shown:
                     ids_display += f" ... and {len(failed_ids) - max_ids_shown} more"
-                status_part = f" (HTTP {status_code})" if status_code is not None else ""
                 console.print(
-                    f"[red]Failed to upload[/red] {len(failed_ids)} items from [bold]{selector}[/bold]"
-                    f"{status_part}: {error_message}\n"
+                    f"[red]Failed to upload[/red] {len(failed_ids)} items from [bold]{selector}[/bold] "
+                    f"{error_description}\n"
                     f"  Failed items: {ids_display}"
                 )
         if all_failed:

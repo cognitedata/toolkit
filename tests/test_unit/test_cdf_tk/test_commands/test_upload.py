@@ -217,7 +217,9 @@ class TestUploadCommand:
             UploadItem(item=AssetRequest(external_id="asset_2", name="Asset 2"), source_id="row 2"),  # type: ignore[arg-type]
         ]
         with HTTPClient(config=toolkit_config) as http_client:
-            with pytest.raises(ToolkitRuntimeError, match="Upload process was stopped due to repeatedly failed uploads"):
+            with pytest.raises(
+                ToolkitRuntimeError, match="Upload process was stopped due to repeatedly failed uploads"
+            ):
                 UploadCommand._upload_items(
                     data_chunk=items,
                     upload_client=http_client,
