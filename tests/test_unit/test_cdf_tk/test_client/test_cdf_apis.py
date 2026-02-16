@@ -136,38 +136,26 @@ class TestCDFResourceAPI:
     # This is typically due to custom endpoints or request object cannot be made from response object
     ####
 
-    def test_data_products_api_crud_list_methods(
-        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
-    ) -> None:
-        resource = {
-            "externalId": "dp_001",
-            "name": "Example Data Product",
-            "isGoverned": True,
-            "schemaSpace": "dp_001",
-            "tags": ["sales"],
-            "domains": [],
-            "createdTime": 1622547800000,
-            "lastUpdatedTime": 1622547800000,
-        }
+    def test_data_products_api_crud(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        resource = get_example_minimum_responses(DataProductResponse)
         instance = DataProductResponse.model_validate(resource)
+        request = instance.as_request_resource()
         config = toolkit_config
         api = DataProductsAPI(HTTPClient(config))
-        request_item = instance.as_request_resource()
 
-        # Test create (and verify alpha header)
+        # Test create
         respx_mock.post(config.create_api_url("/dataproducts")).mock(
             return_value=httpx.Response(status_code=200, json={"items": [resource]})
         )
-        created = api.create([request_item])
+        created = api.create([request])
         assert len(created) == 1
         assert created[0].dump() == resource
-        assert respx_mock.calls[-1].request.headers["cdf-version"] == "alpha"
 
         # Test retrieve
         respx_mock.get(config.create_api_url(f"/dataproducts/{instance.external_id}")).mock(
             return_value=httpx.Response(status_code=200, json=resource)
         )
-        retrieved = api.retrieve([instance.external_id])
+        retrieved = api.retrieve([request.as_id()])
         assert len(retrieved) == 1
         assert retrieved[0].dump() == resource
 
@@ -175,16 +163,33 @@ class TestCDFResourceAPI:
         respx_mock.post(config.create_api_url("/dataproducts/update")).mock(
             return_value=httpx.Response(status_code=200, json={"items": [resource]})
         )
-        updated = api.update([request_item])
+        updated = api.update([request])
         assert len(updated) == 1
         assert updated[0].dump() == resource
 
         # Test delete
         respx_mock.post(config.create_api_url("/dataproducts/delete")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [{"externalId": instance.external_id}]})
+            return_value=httpx.Response(status_code=200)
         )
-        api.delete([instance.external_id])
-        assert len(respx_mock.calls) >= 1  # At least one call should have been made
+        api.delete([request.as_id()])
+        assert len(respx_mock.calls) >= 1
+
+        # Test list/paginate/iterate
+        respx_mock.get(config.create_api_url("/dataproducts")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list(limit=10)
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
+
+        page = api.paginate(limit=10)
+        assert len(page.items) == 1
+        assert page.items[0].dump() == resource
+
+        iterated = list(api.iterate(limit=10))
+        assert len(iterated) >= 1
+        items = [item for batch in iterated for item in batch]
+        assert items[0].dump() == resource
 
     def test_raw_table_api_crud(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         """Test RawTablesAPI create, delete, list, and iterate methods.

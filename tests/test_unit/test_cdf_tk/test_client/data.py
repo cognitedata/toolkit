@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.api.agents import AgentsAPI
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.containers import ContainersAPI
 from cognite_toolkit._cdf_tk.client.api.data_models import DataModelsAPI
+from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipelines import ExtractionPipelinesAPI
@@ -61,6 +62,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewRequest,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
@@ -709,6 +711,16 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "name": "Example 3D Model",
             "createdTime": 1622547800000,
         },
+        DataProductResponse: {
+            "externalId": "dp_001",
+            "name": "Example Data Product",
+            "isGoverned": True,
+            "schemaSpace": "dp_001",
+            "tags": ["sales"],
+            "domains": [],
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
     }
     try:
         return responses[resource_cls]
@@ -1221,4 +1233,13 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             # Needs custom mocking due to the retrieve method requires modelId in the path parameter.
         ),
         id="ThreeDClassicModel",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=DataProductResponse,
+            request_cls=DataProductRequest,
+            example_data=get_example_minimum_responses(DataProductResponse),
+            api_class=DataProductsAPI,
+        ),
+        id="DataProduct",
     )
