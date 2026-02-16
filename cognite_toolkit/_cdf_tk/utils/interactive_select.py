@@ -34,7 +34,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import Canvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList, Visibility
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
 from . import humanize_collection
@@ -837,7 +837,9 @@ class ThreeDInteractiveSelect:
         self.client = client
         self.operation = operation
 
-    def select_three_d_models(self, model_type: Literal["classic", "dm"] | None = None) -> list[ThreeDModelResponse]:
+    def select_three_d_models(
+        self, model_type: Literal["classic", "dm"] | None = None
+    ) -> list[ThreeDModelClassicResponse]:
         """Select multiple 3D models interactively."""
         if model_type is None:
             model_type = questionary.select(

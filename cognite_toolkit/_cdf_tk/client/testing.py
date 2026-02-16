@@ -83,7 +83,13 @@ from .api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
 from .api.simulator_routines import SimulatorRoutinesAPI
 from .api.simulators import SimulatorsAPI
 from .api.streams import StreamsAPI
-from .api.three_d import ThreeDAPI, ThreeDClassicModelsAPI
+from .api.three_d import (
+    ThreeDAPI,
+    ThreeDClassicAssetMappingAPI,
+    ThreeDClassicModelsAPI,
+    ThreeDClassicRevisionsAPI,
+    ThreeDDMAssetMappingAPI,
+)
 from .api.timeseries import TimeSeriesAPI
 from .api.token import TokenAPI
 from .api.transformations import TransformationsAPI
@@ -156,6 +162,9 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.agents = MagicMock(spec=AgentsAPI)
         self.tool.three_d = MagicMock(spec=ThreeDAPI)
         self.tool.three_d.models_classic = MagicMock(spec_set=ThreeDClassicModelsAPI)
+        self.tool.three_d.revisions_classic = MagicMock(spec_set=ThreeDClassicRevisionsAPI)
+        self.tool.three_d.asset_mappings_classic = MagicMock(spec_set=ThreeDClassicAssetMappingAPI)
+        self.tool.three_d.asset_mappings_dm = MagicMock(spec_set=ThreeDDMAssetMappingAPI)
         self.tool.assets = MagicMock(spec_set=AssetsAPI)
         self.tool.cognite_files = MagicMock(spec_set=CogniteFilesAPI)
         self.tool.timeseries = MagicMock(spec_set=TimeSeriesAPI)
