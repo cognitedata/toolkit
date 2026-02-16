@@ -19,11 +19,7 @@ class DataProductRequest(UpdatableRequestResource):
     is_governed: bool = False
     tags: list[str] | None = None
 
-    container_fields: ClassVar[frozenset[str]] = frozenset(
-        {
-            "tags",
-        }
-    )
+    container_fields: ClassVar[frozenset[str]] = frozenset({"tags"})
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
