@@ -29,6 +29,5 @@ class DataProductYAML(ToolkitResource):
         description="Indicates whether the data product follows governance policies and standards.",
     )
     tags: list[str] | None = Field(
-        default=None,
-        description="A list of distinct tags for categorization and filtering.",
+        default=None, description="A list of distinct tags for categorization and filtering.", max_length=10
     )
