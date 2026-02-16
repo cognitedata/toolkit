@@ -666,10 +666,10 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
         CogniteFileResponse: {
             "space": "my_space",
             "externalId": "cognite_file_001",
-            "name": "Example File",
             "version": 1,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
+            "properties": {"cdf_cdm": {"CogniteFile/v1": {"name": "Example File"}}},
         },
         ResourceViewMappingResponse: {
             "externalId": "mapping_001",

@@ -5,7 +5,9 @@ from typing import TYPE_CHECKING, cast, final
 
 import pandas as pd
 from cognite.client.data_classes import FileMetadataWrite
+from cognite.client.data_classes.data_modeling import NodeId
 
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import ExtendableCogniteFileApply
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
@@ -123,6 +125,8 @@ class FileCRUD(DataCRUD):
                 identifier = resource.identifier
                 if isinstance(identifier, ExternalId):
                     identifier = identifier.external_id
+                elif isinstance(identifier, NodeReference):
+                    identifier = NodeId(identifier.space, identifier.external_id)
                 if dry_run:
                     yield f" Would upload file '{datafile!s}' to file with {id_name}={identifier!r}", 1
                 else:
