@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.resource_classes import DataProductYAML
 
 
 @final
-class DataProductCRUD(ResourceCRUD[str, DataProductRequest, DataProductResponse]):  # pyright: ignore[reportInvalidTypeArguments]
+class DataProductCRUD(ResourceCRUD[ExternalId, DataProductRequest, DataProductResponse]):
     folder_name = "data_products"
     resource_cls = DataProductResponse
     resource_write_cls = DataProductRequest
