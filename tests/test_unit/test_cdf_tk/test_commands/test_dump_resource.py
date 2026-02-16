@@ -7,8 +7,6 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
-    ExtractionPipeline,
-    ExtractionPipelineList,
     FileMetadataList,
     Group,
     GroupList,
@@ -31,6 +29,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReferenceNoVersion,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
@@ -367,25 +366,23 @@ class TestDumpAgents:
 
 
 @pytest.fixture()
-def three_extraction_pipelines() -> ExtractionPipelineList:
-    return ExtractionPipelineList(
-        [
-            ExtractionPipeline(
-                1, external_id="pipelineA", name="Pipeline A", data_set_id=123, created_time=1, last_updated_time=1
-            ),
-            ExtractionPipeline(
-                2, external_id="pipelineB", name="Pipeline B", data_set_id=123, created_time=1, last_updated_time=1
-            ),
-            ExtractionPipeline(
-                3, external_id="pipelineC", name="Pipeline C", data_set_id=123, created_time=1, last_updated_time=1
-            ),
-        ]
-    )
+def three_extraction_pipelines() -> list[ExtractionPipelineResponse]:
+    return [
+        ExtractionPipelineResponse(
+            id=1, external_id="pipelineA", name="Pipeline A", data_set_id=123, created_time=1, last_updated_time=1
+        ),
+        ExtractionPipelineResponse(
+            id=2, external_id="pipelineB", name="Pipeline B", data_set_id=123, created_time=1, last_updated_time=1
+        ),
+        ExtractionPipelineResponse(
+            id=3, external_id="pipelineC", name="Pipeline C", data_set_id=123, created_time=1, last_updated_time=1
+        ),
+    ]
 
 
 class TestExtractionPipelineFinder:
     def test_select_extraction_pipelines(
-        self, three_extraction_pipelines: ExtractionPipelineList, monkeypatch: MonkeyPatch
+        self, three_extraction_pipelines: list[ExtractionPipelineResponse], monkeypatch: MonkeyPatch
     ) -> None:
         def select_pipelines(choices: list[Choice]) -> list[str]:
             assert len(choices) == len(three_extraction_pipelines)
@@ -397,7 +394,7 @@ class TestExtractionPipelineFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(ExtractionPipelineFinder.__module__, monkeypatch, answers),
         ):
-            client.extraction_pipelines.list.return_value = three_extraction_pipelines
+            client.tool.extraction_pipelines.list.return_value = three_extraction_pipelines
             finder = ExtractionPipelineFinder(client, None)
             selected = finder._interactive_select()
 
@@ -405,15 +402,28 @@ class TestExtractionPipelineFinder:
 
 
 class TestDumpExtractionPipeline:
-    def test_dump_extraction_pipelines(
-        self, three_extraction_pipelines: ExtractionPipelineList, tmp_path: Path
-    ) -> None:
+    def test_dump_extraction_pipelines(self, tmp_path: Path) -> None:
+        pipelines = [
+            ExtractionPipelineResponse(
+                id=2,
+                external_id="pipelineB",
+                name="Pipeline B",
+                data_set_id=123,
+                created_time=1,
+                last_updated_time=1,
+            ),
+            ExtractionPipelineResponse(
+                id=3,
+                external_id="pipelineC",
+                name="Pipeline C",
+                data_set_id=123,
+                created_time=1,
+                last_updated_time=1,
+            ),
+        ]
         with monkeypatch_toolkit_client() as toolkit_client:
             approval_client = ApprovalToolkitClient(toolkit_client, allow_reverse_lookup=True)
-            approval_client.append(ExtractionPipeline, three_extraction_pipelines[1:])
-            toolkit_client.extraction_pipelines.config.retrieve.side_effect = CogniteAPIError(
-                "There is no config stored for pipeline", code=404
-            )
+            approval_client.append(ExtractionPipelineResponse, pipelines)
 
             client = approval_client.mock_client
             cmd = DumpResourceCommand(silent=True)
@@ -431,7 +441,7 @@ class TestDumpExtractionPipeline:
                 key=lambda d: d.get("external_id", d.get("externalId")),
             )
             expected = sorted(
-                [loader.dump_resource(ep) for ep in three_extraction_pipelines[1:]],
+                [loader.dump_resource(ep) for ep in pipelines],
                 key=lambda d: d.get("external_id", d.get("externalId")),
             )
             assert items == expected
