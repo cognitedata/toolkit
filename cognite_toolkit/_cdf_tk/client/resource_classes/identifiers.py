@@ -120,3 +120,11 @@ class DataSetId(Identifier):
 
     def __str__(self) -> str:
         return f"dataSetId={self.data_set_id}"
+
+
+class TransformationNotificationId(Identifier):
+    transformation_external_id: str
+    destination: str
+
+    def __str__(self) -> str:
+        return f"transformationExternalId='{self.transformation_external_id}', destination='{self.destination}'"
