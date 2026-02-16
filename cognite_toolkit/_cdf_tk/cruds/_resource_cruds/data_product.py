@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.resource_classes import DataProductYAML
 
 
 @final
-class DataProductCRUD(ResourceCRUD[str, DataProductRequest, DataProductResponse]):  # pyright: ignore[reportInvalidTypeArguments]
+class DataProductCRUD(ResourceCRUD[ExternalId, DataProductRequest, DataProductResponse]):
     folder_name = "data_products"
     resource_cls = DataProductResponse
     resource_write_cls = DataProductRequest
@@ -91,5 +91,5 @@ class DataProductCRUD(ResourceCRUD[str, DataProductRequest, DataProductResponse]
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DataProductResponse]:
-        for items in self.client.tool.data_products.iterate():
+        for items in self.client.tool.data_products.iterate(limit=None):
             yield from items
