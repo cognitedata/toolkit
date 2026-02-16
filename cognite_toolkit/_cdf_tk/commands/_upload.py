@@ -326,7 +326,7 @@ class UploadCommand(ToolkitCommand):
                     f"{error_description}\n"
                     f"  Failed items: {ids_display}"
                 )
-        if all_failed:
+        if all_failed and results:
             raise ToolkitRuntimeError(
                 "Upload process was stopped due to repeatedly failed uploads. Rerun with --verbose to see detailed failure information."
             )
