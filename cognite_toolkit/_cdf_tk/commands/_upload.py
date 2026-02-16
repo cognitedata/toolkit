@@ -6,11 +6,17 @@ from pathlib import Path
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsResultMessage, ItemsSuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import (
+    HTTPClient,
+    ItemsFailedRequest,
+    ItemsFailedResponse,
+    ItemsResultMessage,
+    ItemsSuccessResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.cruds import ViewCRUD
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError, ToolkitValueError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio import (
     FileContentIO,
@@ -233,6 +239,7 @@ class UploadCommand(ToolkitCommand):
                         selector=selector,
                         tracker=tracker,
                         console=console,
+                        verbose=verbose,
                     ),
                     iteration_count=iteration_count,
                     max_queue_size=self._MAX_QUEUE_SIZE,
@@ -282,18 +289,46 @@ class UploadCommand(ToolkitCommand):
         dry_run: bool,
         tracker: ProgressTracker[str],
         console: Console,
+        verbose: bool,
     ) -> None:
         if dry_run:
             for item in data_chunk:
                 tracker.set_progress(item.source_id, cls._UPLOAD, "success")
             return
         results = io.upload_items(data_chunk, upload_client, selector)
+        all_failed = True
+        # Group failed ids by error details for cleaner output
+        failures_by_error: dict[tuple[int | None, str], list[str]] = {}
         for message in results:
             if isinstance(message, ItemsSuccessResponse):
+                all_failed = False
                 for id_ in message.ids:
                     tracker.set_progress(id_, step=cls._UPLOAD, status="success")
             elif isinstance(message, ItemsResultMessage):
                 for id_ in message.ids:
                     tracker.set_progress(id_, step=cls._UPLOAD, status="failed")
+                if verbose:
+                    if isinstance(message, ItemsFailedResponse):
+                        key = (message.status_code, message.error.message)
+                        failures_by_error.setdefault(key, []).extend(message.ids)
+                    elif isinstance(message, ItemsFailedRequest):
+                        key = (None, message.error_message)
+                        failures_by_error.setdefault(key, []).extend(message.ids)
             else:
                 console.log(f"[red]Unexpected result from upload: {str(message)!r}[/red]")
+        if verbose:
+            max_ids_shown = 10
+            for (status_code, error_message), failed_ids in failures_by_error.items():
+                ids_display = ", ".join(failed_ids[:max_ids_shown])
+                if len(failed_ids) > max_ids_shown:
+                    ids_display += f" ... and {len(failed_ids) - max_ids_shown} more"
+                status_part = f" (HTTP {status_code})" if status_code is not None else ""
+                console.print(
+                    f"[red]Failed to upload[/red] {len(failed_ids)} items from [bold]{selector}[/bold]"
+                    f"{status_part}: {error_message}\n"
+                    f"  Failed items: {ids_display}"
+                )
+        if all_failed:
+            raise ToolkitRuntimeError(
+                "Upload process was stopped due to repeatedly failed uploads. Rerun with --verbose to see detailed failure information."
+            )
