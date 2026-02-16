@@ -8,6 +8,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, T_ResponseResource
+from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
@@ -25,6 +26,7 @@ from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
+from cognite_toolkit._cdf_tk.client.api.sequence_rows import SequenceRowsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
@@ -42,9 +44,11 @@ from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTrigger
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse, ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.request_classes.filters import SequenceRowFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerRequest,
     DataModelRequest,
@@ -82,7 +86,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.relationship import Relatio
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import SecurityCategoryRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.sequence import (
+    SequenceColumnRequest,
+    SequenceRequest,
+    SequenceResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicRequest,
@@ -107,6 +116,8 @@ from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from tests_smoke.constants import (
     ASSET_EXTERNAL_ID,
     EVENT_EXTERNAL_ID,
+    SEQUENCE_COLUMN_ID,
+    SEQUENCE_EXTERNAL_ID,
     SMOKE_SPACE,
     SMOKE_TEST_CONTAINER_EXTERNAL_ID,
     SMOKE_TEST_VIEW_EXTERNAL_ID,
@@ -152,6 +163,7 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         InFieldCDMConfigAPI,
         APMConfigAPI,
         ResourceViewMappingsAPI,
+        CogniteFilesAPI,
         # Update and list have to be specially handled due to the way the API works.
         LocationFiltersAPI,
         # Dependency between Functions and FunctionSchedules makes it hard to test them in a generic way.
@@ -159,10 +171,12 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         FunctionSchedulesAPI,
         # Does not support delete
         SearchConfigurationsAPI,
-        # Dependencies betwwen APIs
+        # Dependencies between APIs
         TransformationsAPI,
         TransformationSchedulesAPI,
         TransformationNotificationsAPI,
+        # List method requires an argument,
+        SequenceRowsAPI,
     }
 )
 
@@ -211,6 +225,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
             }
         ],
         AssetRequest: [{"name": "smoke-test-asset", "externalId": "smoke-test-asset"}],
+        CogniteFileRequest: [{"externalId": "smoke-test-file", "space": SMOKE_SPACE}],
         DataSetRequest: [{"externalId": "smoke-tests-crudl-dataset"}],
         EventRequest: [{"externalId": "smoke-test-event"}],
         FileMetadataRequest: [{"name": "smoke-test-file", "externalId": "smoke-test-file"}],
@@ -314,6 +329,13 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         SecurityCategoryRequest: [{"name": "smoke-test-security-category"}],
         SequenceRequest: [
             {"externalId": "smoke-test-sequence", "columns": [{"externalId": "smoke-test-sequence-column"}]}
+        ],
+        SequenceRowsRequest: [
+            {
+                "externalId": SEQUENCE_EXTERNAL_ID,
+                "columns": [SEQUENCE_COLUMN_ID],
+                "rows": [{"rowNumber": 1, "values": [37]}],
+            }
         ],
         StreamRequest: [
             {"externalId": "smoke-test-stream3", "settings": {"template": {"name": "ImmutableTestStream"}}}
@@ -529,6 +551,17 @@ def smoke_event(toolkit_client: ToolkitClient) -> EventResponse:
     retrieved = toolkit_client.tool.events.retrieve([event_request.as_id()], ignore_unknown_ids=True)
     if len(retrieved) == 0:
         return toolkit_client.tool.events.create([event_request])[0]
+    return retrieved[0]
+
+
+@pytest.fixture(scope="session")
+def smoke_sequence(toolkit_client: ToolkitClient) -> SequenceResponse:
+    sequence_request = SequenceRequest(
+        external_id=SEQUENCE_EXTERNAL_ID, columns=[SequenceColumnRequest(external_id=SEQUENCE_COLUMN_ID)]
+    )
+    retrieved = toolkit_client.tool.sequences.retrieve([sequence_request.as_id()], ignore_unknown_ids=True)
+    if len(retrieved) == 0:
+        return toolkit_client.tool.sequences.create([sequence_request])[0]
     return retrieved[0]
 
 
@@ -1086,6 +1119,40 @@ class TestCDFResourceAPI:
             # Clean up
             client.migration.resource_view_mapping.delete([mapping_id])
 
+    def test_cognite_file_crudl(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        file_example = get_examples_minimum_requests(CogniteFileRequest)[0]
+        file_request = CogniteFileRequest.model_validate(file_example)
+        file_id = file_request.as_id()
+
+        try:
+            # Create file
+            create_endpoint = client.tool.cognite_files._method_endpoint_map["upsert"]
+            try:
+                created = client.tool.cognite_files.create([file_request])
+            except ToolkitAPIError:
+                raise EndpointAssertionError(create_endpoint.path, "Creating file instance failed.")
+            if len(created) != 1:
+                raise EndpointAssertionError(create_endpoint.path, f"Expected 1 created file, got {len(created)}")
+            if created[0].as_id() != file_id:
+                raise EndpointAssertionError(create_endpoint.path, "Created file ID does not match requested ID.")
+
+            # Retrieve file
+            retrieve_endpoint = client.tool.cognite_files._method_endpoint_map["retrieve"]
+            self.assert_endpoint_method(
+                lambda: client.tool.cognite_files.retrieve([file_id]), "retrieve", retrieve_endpoint, file_id
+            )
+
+            # List files
+            list_endpoint = client.tool.cognite_files._method_endpoint_map["list"]
+            listed_files = list(client.tool.cognite_files.list(limit=1))
+            if len(listed_files) == 0:
+                raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed file, got 0")
+        finally:
+            # Clean up
+            client.tool.cognite_files.delete([file_id])
+
     def test_location_filter_crudls(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
@@ -1246,6 +1313,47 @@ class TestCDFResourceAPI:
             raise EndpointAssertionError(create_endpoint.path, f"Expected 1 created search config, got {len(created)}")
         if created[0].as_id() != search_config_id:
             raise EndpointAssertionError(create_endpoint.path, "Created search config ID does not match requested ID.")
+
+    @pytest.mark.usefixtures("smoke_sequence")
+    def test_sequence_rows_crudl(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        sequence_rows_example = get_examples_minimum_requests(SequenceRowsRequest)[0]
+        sequence_rows_request = SequenceRowsRequest.model_validate(sequence_rows_example)
+        sequence_id = sequence_rows_request.as_id()
+
+        try:
+            # Create sequence rows
+            create_endpoint = client.tool.sequences.rows._method_endpoint_map["create"]
+            try:
+                client.tool.sequences.rows.create([sequence_rows_request])
+            except ToolkitAPIError:
+                raise EndpointAssertionError(create_endpoint.path, "Creating sequence rows instance failed.")
+
+            # Retrieve latest
+            latest_endpoint = client.tool.sequences.rows._latest_endpoint
+            try:
+                latest = client.tool.sequences.rows.latest(external_id=sequence_id.external_id)
+            except ToolkitAPIError:
+                raise EndpointAssertionError(latest_endpoint.path, "Retrieving latest sequence rows failed.")
+            if latest.external_id != sequence_id.external_id:
+                raise EndpointAssertionError(
+                    latest_endpoint.path, "Retrieved latest sequence rows external ID does not match requested ID."
+                )
+
+            # List sequence rows
+            list_endpoint = client.tool.sequences.rows._method_endpoint_map["list"]
+            try:
+                listed_rows = client.tool.sequences.rows.list(
+                    SequenceRowFilter(external_id=sequence_id.external_id), limit=1
+                )
+            except ToolkitAPIError:
+                raise EndpointAssertionError(list_endpoint.path, "Listing sequence rows failed.")
+            if len(listed_rows) == 0:
+                raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed sequence row, got 0")
+        finally:
+            # Clean up
+            client.tool.sequences.rows.delete([sequence_id])
 
     def test_transformation_crudls(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
