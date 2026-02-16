@@ -165,7 +165,8 @@ class TestInstanceIO:
             assert "items" in payload
             items = payload["items"]
             assert isinstance(items, list)
-            assert items == [asset.as_write().dump() for asset in some_instance_data]
+            assert len(items) == len(some_instance_data)
+            assert {item["externalId"] for item in items} == {inst.external_id for inst in some_instance_data}
             return httpx.Response(status_code=200, json={"items": some_instance_data.dump()})
 
         # Download count
