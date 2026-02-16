@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from itertools import groupby
 from typing import Any, Literal, TypeVar, cast, overload
 
+from cognite.client._api.data_modeling import InstancesAPI
 from cognite.client._constants import DEFAULT_LIMIT_READ
 from cognite.client.data_classes.data_modeling import (
     NodeList,
@@ -11,7 +12,6 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.api.instances import WrappedInstancesAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.extended_data_modeling import ExtendedInstancesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, ViewReference
@@ -32,7 +32,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType
 
 
 class InstanceSourceAPI:
-    def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
+    def __init__(self, instance_api: InstancesAPI) -> None:
         self._instance_api = instance_api
         self._RETRIEVE_LIMIT = 1000
         self._view_id = InstanceSource.get_source()
@@ -120,7 +120,7 @@ class ResourceViewMappingsAPI(
 
 
 class CreatedSourceSystemAPI:
-    def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
+    def __init__(self, instance_api: InstancesAPI) -> None:
         self._instance_api = instance_api
         self._RETRIEVE_LIMIT = 1000
         self._view_id = CreatedSourceSystem.get_source()
@@ -158,7 +158,7 @@ _T = TypeVar("_T", bound=int | str)
 
 
 class SpaceSourceAPI:
-    def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
+    def __init__(self, instance_api: InstancesAPI) -> None:
         self._instance_api = instance_api
         self._RETRIEVE_LIMIT = 1000
         self._view_id = SpaceSource.get_source()
@@ -287,7 +287,7 @@ _T_Cached = TypeVar("_T_Cached", bound=NodeReference | ViewReference)
 
 
 class LookupAPI:
-    def __init__(self, instance_api: ExtendedInstancesAPI, resource_type: AssetCentricType) -> None:
+    def __init__(self, instance_api: InstancesAPI, resource_type: AssetCentricType) -> None:
         self._instance_api = instance_api
         self._resource_type = resource_type
         self._view_id = InstanceSource.get_source()
@@ -448,7 +448,7 @@ class LookupAPI:
 
 
 class MigrationLookupAPI:
-    def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
+    def __init__(self, instance_api: InstancesAPI) -> None:
         self.assets = LookupAPI(instance_api, "asset")
         self.events = LookupAPI(instance_api, "event")
         self.files = LookupAPI(instance_api, "file")
@@ -456,7 +456,7 @@ class MigrationLookupAPI:
 
 
 class MigrationAPI:
-    def __init__(self, instance_api: ExtendedInstancesAPI, http_client: HTTPClient) -> None:
+    def __init__(self, instance_api: InstancesAPI, http_client: HTTPClient) -> None:
         self.instance_source = InstanceSourceAPI(instance_api)
         self.resource_view_mapping = ResourceViewMappingsAPI(http_client)
         self.created_source_system = CreatedSourceSystemAPI(instance_api)

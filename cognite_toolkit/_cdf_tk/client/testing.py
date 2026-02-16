@@ -19,7 +19,6 @@ from cognite_toolkit._cdf_tk.client.api.hosted_extractors import HostedExtractor
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI, IndustrialCanvasAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.dml import DMLAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.extended_data_modeling import ExtendedInstancesAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
@@ -146,8 +145,6 @@ class ToolkitClientMock(CogniteClientMock):
         self.raw.databases = MagicMock(spec_set=LegacyRawDatabasesAPI)
         self.raw.rows = MagicMock(spec_set=RawRowsAPI)
         self.raw.tables = MagicMock(spec_set=LegacyRawTablesAPI)
-
-        self.data_modeling.instances = MagicMock(spec_set=ExtendedInstancesAPI)
 
         self.time_series = MagicMock(spec=ExtendedTimeSeriesAPI)
         self.time_series.data = MagicMock(spec=DatapointsAPI)
