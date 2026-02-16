@@ -1,6 +1,7 @@
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
+from cognite_toolkit._cdf_tk.client.api.sequence_rows import SequenceRowsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
@@ -23,6 +24,7 @@ class SequencesAPI(CDFResourceAPI[InternalOrExternalId, SequenceRequest, Sequenc
                 "list": Endpoint(method="POST", path="/sequences/list", item_limit=1000),
             },
         )
+        self.rows = SequenceRowsAPI(http_client)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse

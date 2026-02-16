@@ -74,6 +74,7 @@ from .api.migration import (
 from .api.project import ProjectAPI
 from .api.relationships import RelationshipsAPI
 from .api.security_categories import SecurityCategoriesAPI
+from .api.sequence_rows import SequenceRowsAPI
 from .api.sequences import SequencesAPI
 from .api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from .api.simulator_models import SimulatorModelsAPI
@@ -192,7 +193,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.robotics.robots = MagicMock(spec_set=RobotsAPI)
         self.tool.relationships = MagicMock(spec_set=RelationshipsAPI)
         self.tool.security_categories = MagicMock(spec_set=SecurityCategoriesAPI)
-        self.tool.sequences = MagicMock(spec_set=SequencesAPI)
+        self.tool.sequences = MagicMock(spec=SequencesAPI)
+        self.tool.sequences.rows = MagicMock(spec_set=SequenceRowsAPI)
         self.tool.transformations = MagicMock(spec_set=TransformationsAPI)
         self.tool.workflows = MagicMock(spec=WorkflowsAPI)
         self.tool.workflows.triggers = MagicMock(spec_set=WorkflowTriggersAPI)

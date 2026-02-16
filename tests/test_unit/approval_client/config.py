@@ -204,6 +204,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelRequest,
     SimulatorModelResponse,
@@ -885,6 +886,17 @@ API_RESOURCES = [
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
                 Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.sequences.rows",
+        resource_cls=SequenceRowsResponse,
+        _write_cls=SequenceRowsRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="list", mock_class_method="list"),
             ],
         },
     ),
