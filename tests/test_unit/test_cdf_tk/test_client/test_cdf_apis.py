@@ -77,12 +77,20 @@ class TestCDFResourceAPI:
             assert len(created) == 1
             assert created[0].dump() == resource.example_data
         if hasattr(api, "retrieve"):
-            self._mock_endpoint(api, "retrieve", {"items": [resource.example_data]}, respx_mock)
-            to_retrieve = resource.resource_id
-
-            retrieved = api.retrieve([to_retrieve])
-            assert len(retrieved) == 1
-            assert retrieved[0].dump() == resource.example_data
+            retrieve_endpoint = api._method_endpoint_map.get("retrieve")
+            if retrieve_endpoint and "{" in retrieve_endpoint.path:
+                # Path-parameter retrieve (e.g. GET /dataproducts/{externalId}) returns a single object.
+                resolved_path = retrieve_endpoint.path.format_map(resource.resource_id.dump())
+                respx_mock.request(retrieve_endpoint.method, api._make_url(resolved_path)).mock(
+                    return_value=httpx.Response(status_code=200, json=resource.example_data)
+                )
+            elif retrieve_endpoint:
+                self._mock_endpoint(api, "retrieve", {"items": [resource.example_data]}, respx_mock)
+            if retrieve_endpoint:
+                to_retrieve = resource.resource_id
+                retrieved = api.retrieve([to_retrieve])
+                assert len(retrieved) == 1
+                assert retrieved[0].dump() == resource.example_data
         if hasattr(api, "update"):
             self._mock_endpoint(api, "update", {"items": [resource.example_data]}, respx_mock)
             to_update = resource.request_instance

@@ -5,7 +5,6 @@ from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
-from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
@@ -18,6 +17,7 @@ class DataProductsAPI(CDFResourceAPI[ExternalId, DataProductRequest, DataProduct
             http_client=http_client,
             method_endpoint_map={
                 "create": Endpoint(method="POST", path="/dataproducts", item_limit=1),
+                "retrieve": Endpoint(method="GET", path="/dataproducts/{externalId}", item_limit=1),
                 "update": Endpoint(method="POST", path="/dataproducts/update", item_limit=1),
                 "delete": Endpoint(method="POST", path="/dataproducts/delete", item_limit=1),
                 "list": Endpoint(method="GET", path="/dataproducts", item_limit=1000),
@@ -42,33 +42,34 @@ class DataProductsAPI(CDFResourceAPI[ExternalId, DataProductRequest, DataProduct
         return self._request_item_response(items, "create")
 
     def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[DataProductResponse]:
-        """Retrieve data products by external ID. The API only supports single-item GET.
+        """Retrieve data products by external ID.
+
+        The API only supports single-item GET at /dataproducts/{externalId}.
 
         Args:
             items: List of ExternalId objects of the data products to retrieve.
-            ignore_unknown_ids: Whether to ignore unknown IDs. If False, an error will be raised if any of the provided IDs do not exist.
+            ignore_unknown_ids: Whether to ignore unknown IDs. If False, an error will be raised
+                if any of the provided IDs do not exist.
         Returns:
             List of retrieved DataProductResponse objects.
 
         """
-
         results: list[DataProductResponse] = []
+        endpoint = self._method_endpoint_map["retrieve"]
         for item in items:
-            request = RequestMessage(
-                endpoint_url=self._make_url(f"/dataproducts/{item.external_id}"),
-                method="GET",
-                body_content={},
-                api_version=self._api_version,
+            response = self._http_client.request_single_retries(
+                RequestMessage(
+                    endpoint_url=self._make_url(endpoint.path.format(externalId=item.external_id)),
+                    method=endpoint.method,
+                    api_version=self._api_version,
+                )
             )
-            try:
-                response = self._http_client.request_single_retries(request)
-                success = response.get_success_or_raise()
-                result = DataProductResponse.model_validate_json(success.body)
-                results.append(result)
-            except ToolkitAPIError as e:
-                if ignore_unknown_ids and e.code == 404:
-                    continue
-                raise
+            if isinstance(response, SuccessResponse):
+                results.append(DataProductResponse.model_validate_json(response.body))
+            elif ignore_unknown_ids:
+                continue
+            else:
+                _ = response.get_success_or_raise()
         return results
 
     def update(
