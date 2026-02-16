@@ -35,6 +35,7 @@ from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
 from cognite_toolkit._cdf_tk.client.api.three_d import (
     ThreeDClassicAssetMappingAPI,
     ThreeDClassicModelsAPI,
+    ThreeDClassicRevisionsAPI,
     ThreeDDMAssetMappingAPI,
 )
 from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
@@ -74,7 +75,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
     MQTTSourceRequest,
     RESTSourceRequest,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId, InternalIdUnwrapped
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
+    InternalId,
+    InternalIdUnwrapped,
+    ThreeDModelRevisionId,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterRequest
@@ -98,6 +103,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingDMRequest,
     ThreeDModelClassicRequest,
     ThreeDModelDMSRequest,
+    ThreeDRevisionClassicRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
@@ -155,6 +161,7 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         ThreeDClassicModelsAPI,
         ThreeDDMAssetMappingAPI,
         ThreeDClassicAssetMappingAPI,
+        ThreeDClassicRevisionsAPI,
         # Cannot be deleted and recreated frequently.
         StreamsAPI,
         # SecurityCategories can easily hit a bad state.
@@ -342,6 +349,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         ],
         ThreeDModelClassicRequest: [{"name": "smoke-test-3d-model-classic"}],
         ThreeDModelDMSRequest: [{"name": "smoke-test-3d-model-dms", "space": SMOKE_SPACE, "type": "CAD"}],
+        ThreeDRevisionClassicRequest: [{"fileId": -1, "modelId": -1}],
         AssetMappingClassicRequest: [{"externalId": "smoke-test-asset-mapping-classic", "model3dId": 1, "assetId": 1}],
         AssetMappingDMRequest: [
             {
@@ -655,6 +663,90 @@ class TestCDFResourceAPI:
             raise AssertionError(
                 f"CDFResourceAPI subclasses missing {humanize_collection(missing_names)} tests in TestCDFResourceAPI.test_crud_list"
             )
+
+    def test_classic_3D_model_and_revision_crudl(
+        self, toolkit_client: ToolkitClient, three_d_file: FileMetadataResponse
+    ) -> None:
+        model_example = get_examples_minimum_requests(ThreeDModelClassicRequest)[0]
+        model_request = ThreeDModelClassicRequest.model_validate(model_example)
+
+        revision = get_examples_minimum_requests(ThreeDRevisionClassicRequest)[0]
+        revision_request = ThreeDRevisionClassicRequest.model_validate(revision)
+        revision_request.file_id = three_d_file.id
+
+        model_id: InternalId | None = None
+        revision_id: ThreeDModelRevisionId | None = None
+        try:
+            ### 3D Model Classic CRUDL ###
+            model_id = cast(
+                InternalId,
+                self.assert_endpoint_method(
+                    lambda: toolkit_client.tool.three_d.models_classic.create([model_request]),
+                    "create",
+                    toolkit_client.tool.three_d.models_classic._method_endpoint_map["create"],
+                ),
+            )
+
+            self.assert_endpoint_method(
+                lambda: toolkit_client.tool.three_d.models_classic.retrieve([model_id]),
+                "retrieve",
+                toolkit_client.tool.three_d.models_classic._method_endpoint_map["retrieve"],
+                model_id,
+            )
+            # Need to set ID for update.
+            model_request.id = model_id.id
+            self.assert_endpoint_method(
+                lambda: toolkit_client.tool.three_d.models_classic.update([model_request]),
+                "update",
+                toolkit_client.tool.three_d.models_classic._method_endpoint_map["update"],
+                model_id,
+            )
+
+            list_endpoint = toolkit_client.tool.three_d.models_classic._method_endpoint_map["list"]
+            try:
+                listed_models = list(toolkit_client.tool.three_d.models_classic.list(limit=1))
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(list_endpoint.path, f"List method failed with error: {e!s}") from e
+            if len(listed_models) == 0:
+                raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed model, got 0")
+
+            ### 3D Revision Classic CRUDL ###
+            revision_request.model_id = model_id.id
+            revision_id = cast(
+                ThreeDModelRevisionId,
+                self.assert_endpoint_method(
+                    lambda: toolkit_client.tool.three_d.revisions_classic.create([revision_request]),
+                    "create",
+                    toolkit_client.tool.three_d.revisions_classic._method_endpoint_map["create"],
+                ),
+            )
+
+            # Need to set ID for update
+            revision_request.id = revision_id.id
+            self.assert_endpoint_method(
+                lambda: toolkit_client.tool.three_d.revisions_classic.update([revision_request]),
+                "update",
+                toolkit_client.tool.three_d.revisions_classic._method_endpoint_map["update"],
+                revision_id,
+            )
+
+            try:
+                listed_revisions = toolkit_client.tool.three_d.revisions_classic.list(model_id=model_id.id, limit=1)
+            except ToolkitAPIError as e:
+                raise EndpointAssertionError(
+                    toolkit_client.tool.three_d.revisions_classic._method_endpoint_map["list"].path,
+                    f"List method failed with error: {e!s}",
+                ) from e
+            if len(list(listed_revisions)) == 0:
+                raise EndpointAssertionError(
+                    toolkit_client.tool.three_d.revisions_classic._method_endpoint_map["list"].path,
+                    "Expected at least 1 listed revision, got 0",
+                )
+        finally:
+            if revision_id is not None:
+                toolkit_client.tool.three_d.revisions_classic.delete([revision_id])
+            if model_id is not None:
+                toolkit_client.tool.three_d.models_classic.delete([model_id])
 
     def test_raw_tables_and_databases_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client

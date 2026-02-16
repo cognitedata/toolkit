@@ -34,7 +34,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import CANVAS
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.aggregators import AssetCentricAggregator
@@ -1057,7 +1057,7 @@ class TestThreeDInteractiveSelect:
         ):
             selector = ThreeDInteractiveSelect(client, "test_operation")
             client.tool.three_d.models_classic.list.return_value = [
-                ThreeDModelResponse(
+                ThreeDModelClassicResponse(
                     name=f"Model {i}", id=i, createdTime=1, lastUpdatedTime=1, space="default" if i % 2 == 0 else None
                 )
                 for i in range(3)

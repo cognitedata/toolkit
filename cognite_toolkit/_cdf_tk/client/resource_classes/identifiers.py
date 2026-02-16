@@ -107,6 +107,14 @@ class WorkflowVersionId(Identifier):
         return f"workflowExternalId='{self.workflow_external_id}', version='{self.version}'"
 
 
+class ThreeDModelRevisionId(Identifier):
+    model_id: int = Field(exclude=True)
+    id: int
+
+    def __str__(self) -> str:
+        return f"modelId={self.model_id}, id={self.id}"
+
+
 class DataSetId(Identifier):
     data_set_id: int
 
