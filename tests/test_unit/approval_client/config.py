@@ -122,6 +122,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import (
+    CogniteFileRequest,
+    CogniteFileResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerRequest,
     ContainerResponse,
@@ -212,6 +216,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelRequest,
     SimulatorModelResponse,
@@ -229,6 +234,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
     SimulatorRoutineRevisionResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
+    ThreeDModelClassicRequest,
+    ThreeDModelClassicResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
@@ -798,6 +807,17 @@ API_RESOURCES = [
         },
     ),
     APIResource(
+        api_name="tool.cognite_files",
+        resource_cls=CogniteFileResponse,
+        _write_cls=CogniteFileRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
         api_name="streams",
         resource_cls=StreamResponse,
         _write_cls=StreamRequest,
@@ -893,6 +913,17 @@ API_RESOURCES = [
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
                 Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.sequences.rows",
+        resource_cls=SequenceRowsResponse,
+        _write_cls=SequenceRowsRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="list", mock_class_method="list"),
             ],
         },
     ),
@@ -1099,6 +1130,17 @@ API_RESOURCES = [
         api_name="tool.location_filters",
         resource_cls=LocationFilterResponse,
         _write_cls=LocationFilterRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.three_d.models_classic",
+        resource_cls=ThreeDModelClassicRequest,
+        _write_cls=ThreeDModelClassicResponse,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [

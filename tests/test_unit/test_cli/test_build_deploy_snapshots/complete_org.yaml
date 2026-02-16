@@ -32,6 +32,41 @@ AssetResponse:
     key2: value2
   name: RootAsset
   source: doctrino
+CogniteFileResponse:
+- externalId: MyVanillaFile
+  instanceType: node
+  sources:
+  - properties:
+      mimeType: text/plain
+      name: filecontent.txt
+      sourceCreatedTime: '2020-01-01T00:00:00Z'
+      sourceCreatedUser: MySelf
+      sourceUpdatedTime: '2021-01-01T00:00:00Z'
+      sourceUpdatedUser: Me
+      tags:
+      - tag1
+      - tag2
+    source:
+      externalId: CogniteFile
+      space: cdf_cdm
+      type: view
+      version: v1
+  space: sp_nodes
+- externalId: my.CogniteFile.yaml
+  instanceType: node
+  sources:
+  - properties:
+      mimeType: text/plain
+      name: my.CogniteFile.yaml
+      tags:
+      - tag1
+      - tag2
+    source:
+      externalId: CogniteFile
+      space: cdf_cdm
+      type: view
+      version: v1
+  space: sp_complete_org_files
 ContainerResponse:
 - description: Container with a description property
   externalId: DescriptionContainer
@@ -269,14 +304,17 @@ FileCRUD:
 - externalId: MyVanillaFile
   filehash: 0f18a9c5
   space: sp_nodes
+  type: node
 - external_id: classicFileMetadata
   filehash: de91f3a0
 - externalId: fn_data_modeling_only_function
   filehash: 22a54716
   space: sp_instance
+  type: node
 - externalId: my.CogniteFile.yaml
   filehash: 6d889d00
   space: sp_complete_org_files
+  type: node
 - external_id: myapp
   filehash: c59dc2b6
 FileMetadata:
@@ -491,33 +529,6 @@ LocationFilterResponse:
   externalId: main-location
   name: Main location name
 Node:
-- externalId: MyVanillaFile
-  instanceType: node
-  sources:
-  - properties:
-      aliases: null
-      assets: null
-      category: null
-      description: null
-      directory: null
-      mimeType: text/plain
-      name: filecontent.txt
-      source: null
-      sourceContext: null
-      sourceCreatedTime: '2020-01-01T00:00:00.000+00:00'
-      sourceCreatedUser: MySelf
-      sourceId: null
-      sourceUpdatedTime: '2021-01-01T00:00:00.000+00:00'
-      sourceUpdatedUser: Me
-      tags:
-      - tag1
-      - tag2
-    source:
-      externalId: CogniteFile
-      space: cdf_cdm
-      type: view
-      version: v1
-  space: sp_nodes
 - externalId: fn_data_modeling_only_function
   instanceType: node
   sources:
@@ -543,33 +554,6 @@ Node:
       type: view
       version: v1
   space: sp_instance
-- externalId: my.CogniteFile.yaml
-  instanceType: node
-  sources:
-  - properties:
-      aliases: null
-      assets: null
-      category: null
-      description: null
-      directory: null
-      mimeType: text/plain
-      name: my.CogniteFile.yaml
-      source: null
-      sourceContext: null
-      sourceCreatedTime: null
-      sourceCreatedUser: null
-      sourceId: null
-      sourceUpdatedTime: null
-      sourceUpdatedUser: null
-      tags:
-      - tag1
-      - tag2
-    source:
-      externalId: CogniteFile
-      space: cdf_cdm
-      type: view
-      version: v1
-  space: sp_complete_org_files
 RAWDatabaseResponse:
 - name: db_complete_org
 RAWTableResponse:
@@ -778,12 +762,10 @@ SequenceResponse:
   description: A sequence of numbers
   externalId: mySequence
   name: mySequence
-SequenceRows:
+SequenceRowsResponse:
 - columns:
-  - externalId: wind_speed
-    valueType: Double
-  - externalId: power
-    valueType: Double
+  - wind_speed
+  - power
   externalId: SequenceWithRows
   rows:
   - rowNumber: 1
@@ -825,9 +807,8 @@ SpaceResponse:
 - space: sp_instance
 - space: sp_nodes
 - space: sp_schema
-ThreeDModel:
-- createdTime: 1
-  dataSetId: 7982613576047462211
+ThreeDModelClassicRequest:
+- dataSetId: 7982613576047462211
   metadata:
     origin: cognite-toolkit
   name: my_3Dmodel
