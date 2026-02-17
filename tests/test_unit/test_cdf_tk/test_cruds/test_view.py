@@ -19,7 +19,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, ResourceCRUD, ResourceWorker, SpaceCRUD, ViewCRUD
-from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -254,7 +253,9 @@ class TestViewLoader:
         toolkit_client_approval.append(ViewResponse, cognite_core_no_3D.views)
         toolkit_client_approval.append(ContainerResponse, cognite_core_containers_no_3D)
 
-        sorted_views = loader.topological_sort_container_constraints(view_ids)
+        sorted_views, cyclic_views = loader.topological_sort_container_constraints(view_ids)
+
+        assert not cyclic_views, f"{test_description}: Expected no cyclic views, got {cyclic_views}"
 
         # Verify same number of views returned
         assert len(sorted_views) == len(view_ids), (
@@ -272,7 +273,7 @@ class TestViewLoader:
     def test_topological_sort_container_constraints_cyclical_dependency(
         self, toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
-        """Test that cyclical dependencies raise ToolkitCycleError."""
+        """Test that cyclical dependencies are warned about but don't fail."""
 
         loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
 
@@ -322,8 +323,10 @@ class TestViewLoader:
 
         view_ids = [view_a.as_id(), view_b.as_id(), view_c.as_id()]
 
-        with pytest.raises(ToolkitCycleError):
-            loader.topological_sort_container_constraints(view_ids)
+        sorted_views, cyclic_views = loader.topological_sort_container_constraints(view_ids)
+
+        assert set(sorted_views + cyclic_views) == set(view_ids)
+        assert len(cyclic_views) > 0
 
     @pytest.mark.parametrize(
         "view_id,expected_readonly_props",
