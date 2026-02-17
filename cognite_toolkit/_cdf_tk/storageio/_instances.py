@@ -144,13 +144,13 @@ class InstanceIO(
                     break
                 cursor = page.next_cursor
         elif isinstance(selector, InstanceFileSelector):
-            for chunk in chunker_sequence(selector.as_ids(), self.CHUNK_SIZE):
+            for chunk in chunker_sequence(selector.ids, self.CHUNK_SIZE):
                 yield Page(worker_id="main", items=self.client.tool.instances.retrieve(chunk))
         else:
             raise NotImplementedError()
 
     def download_ids(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[Sequence[InstanceId]]:
-        # Switch to use pydantic classes once purge has been updated.
+        # Todo: Switch to use pydantic classes once purge has been updated.
         if isinstance(selector, InstanceFileSelector) and selector.validate_instance is False:
             instances_to_yield = selector.instance_ids
             if limit is not None:
@@ -227,7 +227,7 @@ class InstanceIO(
         if not selector.view:
             return
         view_crud = ViewCRUD(self.client, None, None, topological_sort_implements=True)
-        views = view_crud.retrieve([selector.view.as_id()])
+        views = self.client.tool.views.retrieve([selector.view.as_id()], include_inherited_properties=False)
         views = [view for view in views if not view.is_global]
         if not views:
             return

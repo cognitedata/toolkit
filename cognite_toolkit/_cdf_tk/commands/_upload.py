@@ -116,16 +116,11 @@ class UploadCommand(ToolkitCommand):
         selector_by_view_id: dict[ViewReference, Selector] = {}
         for selector in data_files_by_selector:
             if isinstance(selector, InstanceSpaceSelector) and selector.view is not None:
-                view_legacy_id = selector.view.as_id()
-                if view_legacy_id.version is None:
+                view_ref = selector.view.as_id()
+                if not isinstance(view_ref, ViewReference):
                     raise RuntimeError(
-                        f"View {view_legacy_id} does not have a version, which is required for topological sorting."
+                        f"View {view_ref} does not have a version, which is required for topological sorting."
                     )
-                view_ref = ViewReference(
-                    space=view_legacy_id.space,
-                    external_id=view_legacy_id.external_id,
-                    version=view_legacy_id.version,
-                )
                 selector_by_view_id[view_ref] = selector
 
         view_dependencies = ViewCRUD.create_loader(client).topological_sort_container_constraints(
