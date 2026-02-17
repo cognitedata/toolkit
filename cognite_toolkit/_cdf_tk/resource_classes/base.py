@@ -12,5 +12,5 @@ class BaseModelResource(BaseModel, alias_generator=to_camel, extra="forbid"): ..
 class ToolkitResource(BaseModelResource):
     @abstractmethod
     def as_id(self) -> Identifier:
-        """Return a string identifier for this resource."""
+        """Return an identifier for this resource."""
         raise NotImplementedError()

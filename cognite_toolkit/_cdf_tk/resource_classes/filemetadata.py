@@ -3,17 +3,13 @@ from typing import Any, Literal
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
 
-from .base import ToolkitResource
+from .base import BaseModelResource, ToolkitResource
 
 
-class NodeId(ToolkitResource):
+class NodeId(BaseModelResource):
     external_id: str
     space: str
-
-    def as_id(self) -> TypedNodeIdentifier:
-        return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
 
 
 class FileMetadataYAML(ToolkitResource):
