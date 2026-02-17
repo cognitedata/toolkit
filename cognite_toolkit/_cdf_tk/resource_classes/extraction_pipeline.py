@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+
 from .base import BaseModelResource, ToolkitResource
 
 
@@ -52,3 +54,6 @@ class ExtractionPipelineYAML(ToolkitResource):
     created_by: str | None = Field(
         None, description="Extraction Pipeline creator. Usually user email is expected here."
     )
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

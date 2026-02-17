@@ -1,5 +1,6 @@
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataModelReference
 from cognite_toolkit._cdf_tk.constants import (
     DM_EXTERNAL_ID_PATTERN,
     DM_VERSION_PATTERN,
@@ -48,3 +49,6 @@ class GraphQLDataModelYAML(ToolkitResource):
         pattern=DM_VERSION_PATTERN,
     )
     preserve_dml: bool | None = None
+
+    def as_id(self) -> DataModelReference:
+        return DataModelReference(space=self.space, external_id=self.external_id, version=self.version)

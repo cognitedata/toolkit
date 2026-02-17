@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, SequenceRowId
+
 from .base import BaseModelResource, ToolkitResource
 
 
@@ -65,6 +67,9 @@ class SequenceYAML(ToolkitResource):
         max_length=400,
     )
 
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
+
 
 class SequenceRowDTO(BaseModelResource):
     row_number: int = Field(
@@ -105,3 +110,6 @@ class SequenceRowYAML(ToolkitResource):
                     f"Each row must have exactly {total_columns} value(s) which is the same as the number of column(s)."
                 )
         return self
+
+    def as_id(self) -> SequenceRowId:
+        return SequenceRowId(external_id=self.external_id, rows=tuple(row.row_number for row in self.rows))

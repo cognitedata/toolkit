@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+
 from .base import ToolkitResource
 
 
@@ -24,3 +26,6 @@ class StreamlitYAML(ToolkitResource):
     data_set_external_id: str | None = Field(
         None, description="The external ID of the data set to associate with the app."
     )
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

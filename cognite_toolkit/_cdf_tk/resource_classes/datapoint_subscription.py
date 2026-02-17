@@ -2,6 +2,7 @@ import sys
 
 from pydantic import Field, JsonValue, model_validator
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
@@ -75,3 +76,6 @@ class DatapointSubscriptionYAML(ToolkitResource):
         if self.filter is not None and total > 0:
             raise ValueError("Cannot set both filter and time_series_ids/instance_ids.")
         return self
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

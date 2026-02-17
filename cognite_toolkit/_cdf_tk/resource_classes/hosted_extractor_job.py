@@ -6,6 +6,7 @@ from typing import Any, ClassVar, Literal, cast
 from pydantic import Field, JsonValue, ModelWrapValidatorHandler, field_validator, model_serializer, model_validator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
@@ -245,6 +246,9 @@ class HostedExtractorJobYAML(ToolkitResource):
         None,
         description="Source specific job configuration. The type depends on the type of source, and is required for some sources.",
     )
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
 
 
 _INCREMENTAL_LOAD_CLS_BY_TYPE: MappingProxyType[str, type[IncrementalLoad]] = MappingProxyType(
