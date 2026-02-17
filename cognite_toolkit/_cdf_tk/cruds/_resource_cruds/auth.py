@@ -58,7 +58,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
-
+from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 
 @dataclass
 class _ReplaceMethod:
@@ -143,6 +143,10 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
     @classmethod
     def dump_id(cls, id: NameId) -> dict[str, Any]:
         return id.dump()
+
+    @classmethod
+    def as_str(cls, id: NameId) -> str:
+        return sanitize_filename(id.name)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:

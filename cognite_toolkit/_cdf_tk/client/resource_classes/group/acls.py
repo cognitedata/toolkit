@@ -554,12 +554,25 @@ class SimulatorsAcl(Acl):
     scope: AllScope | DataSetScope
 
 
-class UnknownAcl(Acl):
+class UnknownAcl(BaseModelObject):
     """Fallback for unknown ACL types."""
 
-    acl_name: Literal["unknownAcl"] = Field("unknownAcl", exclude=True)
+    acl_name: str = Field("unknownAcl", exclude=True)
     actions: Sequence[str]
-    scope: AllScope
+    scope: dict[str, JsonValue]
+
+    @model_serializer
+    def convert_scope_to_api_format(self) -> dict[str, Any]:
+        """Serialize unknown ACL, preserving original scope structure."""
+        return {"actions": list(self.actions), "scope": self.scope}
+
+    @model_validator(mode="before")
+    @classmethod
+    def convert_scope_format(cls, value: Any) -> Any:
+        """Preserve original scope for unknown ACLs."""
+        if not isinstance(value, dict):
+            return value
+        return value
 
 
 def _get_acl_name(cls: type[Acl]) -> str | None:
@@ -578,7 +591,9 @@ _KNOWN_ACLS = {
 
 
 def _handle_unknown_acl(value: Any) -> Any:
-    if isinstance(value, dict) and isinstance(acl_name := value[ACL_NAME], str):
+    if isinstance(value, Acl | UnknownAcl):
+        return value
+    if isinstance(value, dict) and isinstance(acl_name := value.get(ACL_NAME), str):
         acl_class = _KNOWN_ACLS.get(acl_name)
         if acl_class:
             return TypeAdapter(acl_class).validate_python(value)
