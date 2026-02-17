@@ -5,10 +5,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
-from cognite.client.data_classes import ExtractionPipelineConfig, ExtractionPipelineConfigWrite
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config import (
+    ExtractionPipelineConfigRequest,
+    ExtractionPipelineConfigResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.commands import CleanCommand
 from cognite_toolkit._cdf_tk.cruds import (
@@ -40,11 +43,13 @@ class TestExtractionPipelineDependencies:
         self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
     ) -> None:
         toolkit_client_approval.append(
-            ExtractionPipelineConfig,
-            ExtractionPipelineConfig(
+            ExtractionPipelineConfigResponse,
+            ExtractionPipelineConfigResponse(
                 external_id="ep_src_asset",
                 description="DB extractor config reading data from Springfield SAP",
                 config="\n    logger: \n        {level: WARN}",
+                revision=1,
+                created_time=0,
             ),
         )
 
@@ -59,7 +64,7 @@ class TestExtractionPipelineDependencies:
             "changed": len(resources.to_update),
             "delete": len(resources.to_delete),
             "unchanged": len(resources.unchanged),
-        } == {"create": 0, "changed": 1, "delete": 0, "unchanged": 0}
+        } == {"create": 1, "changed": 0, "delete": 1, "unchanged": 0}
 
     def test_load_extraction_pipeline_delete_one(
         self,
@@ -68,11 +73,13 @@ class TestExtractionPipelineDependencies:
         monkeypatch: MonkeyPatch,
     ) -> None:
         toolkit_client_approval.append(
-            ExtractionPipelineConfig,
-            ExtractionPipelineConfig(
+            ExtractionPipelineConfigResponse,
+            ExtractionPipelineConfigResponse(
                 external_id="ep_src_asset",
                 description="DB extractor config reading data from Springfield SAP",
                 config="\n    logger: \n        {level: WARN}",
+                revision=1,
+                created_time=0,
             ),
         )
 
@@ -167,7 +174,7 @@ databases:
 
         loaded = crud.load_resource(resource)
 
-        assert isinstance(loaded, ExtractionPipelineConfigWrite)
+        assert isinstance(loaded, ExtractionPipelineConfigRequest)
         # No warning should be printed
         print_mock.assert_not_called()
 
@@ -182,7 +189,7 @@ databases:
         crud = ExtractionPipelineConfigCRUD(MagicMock(spec=ToolkitClient), None, console=console)
         loaded = crud.load_resource(resource)
 
-        assert isinstance(loaded, ExtractionPipelineConfigWrite)
+        assert isinstance(loaded, ExtractionPipelineConfigRequest)
         print_mock.assert_called_once()
         args, _ = print_mock.call_args
         _, message = args
@@ -199,7 +206,7 @@ databases:
         crud = ExtractionPipelineConfigCRUD(MagicMock(spec=ToolkitClient), None, console=console)
         loaded = crud.load_resource(resource)
 
-        assert isinstance(loaded, ExtractionPipelineConfigWrite)
+        assert isinstance(loaded, ExtractionPipelineConfigRequest)
         print_mock.assert_called_once()
         args, _ = print_mock.call_args
         _, message = args

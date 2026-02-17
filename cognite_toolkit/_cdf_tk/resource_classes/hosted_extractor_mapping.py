@@ -5,6 +5,7 @@ from typing import Any, ClassVar, cast
 from pydantic import Field, ModelWrapValidatorHandler, model_serializer, model_validator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .base import BaseModelResource, ToolkitResource
@@ -99,6 +100,9 @@ class HostedExtractorMappingYAML(ToolkitResource):
     mapping: Mapping
     input: MappingInput | None = Field(None, description="The input format of the data to be transformed.")
     published: bool = Field(description="Whether this mapping is published and should be available to be used in jobs.")
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
 
     @model_serializer(mode="wrap")
     def serialize_input(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:

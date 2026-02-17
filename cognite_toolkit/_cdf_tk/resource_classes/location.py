@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+
 from .base import BaseModelResource, ToolkitResource
 
 
@@ -65,3 +67,6 @@ class LocationYAML(ToolkitResource):
     data_modeling_type: Literal["HYBRID", "DATA_MODELING_ONLY"] | None = Field(
         default="HYBRID", description="The data modeling type"
     )
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

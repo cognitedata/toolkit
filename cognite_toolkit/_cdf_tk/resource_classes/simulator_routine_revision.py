@@ -3,6 +3,7 @@ from typing import Any, Literal, TypeAlias
 from pydantic import Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .base import BaseModelResource, ToolkitResource
@@ -157,3 +158,6 @@ class SimulatorRoutineRevisionYAML(ToolkitResource):
     routine_external_id: str = Field(description="External ID of the simulator routine.", min_length=1, max_length=255)
     configuration: SimulatorRoutineConfiguration = Field(description="Configuration of the simulator routine revision.")
     script: list[ScriptStage] | None = Field(default=None, description="Script stages for the routine revision.")
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

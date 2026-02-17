@@ -13,6 +13,7 @@ from .base import BaseModelResource, ToolkitResource
 from .cognitefile import CogniteFileYAML
 from .containers import ContainerYAML
 from .data_model import DataModelYAML
+from .data_product import DataProductYAML
 from .datapoint_subscription import DatapointSubscriptionYAML
 from .dataset import DataSetYAML
 from .event import EventYAML
@@ -64,7 +65,7 @@ __all__ = [
     "CogniteFileYAML",
     "ContainerYAML",
     "DataModelYAML",
-    "DataModelYAML",
+    "DataProductYAML",
     "DataSetYAML",
     "DatabaseYAML",
     "DatapointSubscriptionYAML",

@@ -50,6 +50,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.text import warn_invalid_space_name
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 from .data_model import CREATED_SOURCE_SYSTEM_VIEW_ID, SPACE, SPACE_SOURCE_VIEW_ID
@@ -104,10 +105,10 @@ class InstanceSpaceCreator(MigrationCreator):
             raise ToolkitRequiredValueError(
                 f"Cannot create instance spaces for datasets with missing external IDs: {humanize_collection(missing_external_ids)}"
             )
-        data_set_by_external_id = {ds.external_id: ds for ds in self.datasets}
         created_resources: list[CreatedResource[SpaceRequest]] = []
         linage_nodes: list[NodeRequest] = []
         for dataset in self.datasets:
+            warn_invalid_space_name(dataset.external_id)  # type: ignore[arg-type]
             space = SpaceRequest(
                 # This is checked above
                 space=dataset.external_id,  # type: ignore[arg-type]
@@ -122,8 +123,8 @@ class InstanceSpaceCreator(MigrationCreator):
                         source=SPACE_SOURCE_VIEW_ID,
                         properties={
                             "instanceSpace": space.space,
-                            "dataSetId": data_set_by_external_id[space.space].id,
-                            "dataSetExternalId": data_set_by_external_id[space.space].external_id,
+                            "dataSetId": dataset.id,
+                            "dataSetExternalId": dataset.external_id,
                         },
                     )
                 ],

@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+
 from .base import BaseModelResource, ToolkitResource
 
 
@@ -48,3 +50,6 @@ class RelationshipYAML(ToolkitResource):
     labels: list[LabelRefYAML] | None = Field(
         None, description="A list of labels that the relationship belongs to.", max_length=10
     )
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

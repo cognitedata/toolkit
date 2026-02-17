@@ -4,6 +4,7 @@ from typing import Any
 from pydantic import Field, field_validator, model_serializer
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference as ViewReferenceId
 from cognite_toolkit._cdf_tk.constants import (
     CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN,
     DM_EXTERNAL_ID_PATTERN,
@@ -59,6 +60,9 @@ class ViewYAML(ToolkitResource):
     properties: dict[str, ViewProperty] | None = Field(
         default=None, description="Set of properties to apply to the View."
     )
+
+    def as_id(self) -> ViewReferenceId:
+        return ViewReferenceId(space=self.space, external_id=self.external_id, version=self.version)
 
     @field_validator("external_id")
     @classmethod

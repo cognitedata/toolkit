@@ -2,6 +2,7 @@ from typing import Literal
 
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import ToolkitResource
@@ -70,3 +71,6 @@ class FunctionsYAML(ToolkitResource):
         max_length=43,
         pattern=SPACE_FORMAT_PATTERN,
     )
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

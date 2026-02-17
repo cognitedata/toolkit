@@ -4,6 +4,8 @@ from typing import Any, Literal, cast
 from pydantic import ModelWrapValidatorHandler, model_serializer, model_validator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId
+
 from .base import ToolkitResource
 from .capabilities import Capability
 
@@ -17,6 +19,9 @@ class GroupYAML(ToolkitResource):
     name: str
     capabilities: list[Capability] | None = None
     metadata: dict[str, str] | None = None
+
+    def as_id(self) -> NameId:
+        return NameId(name=self.name)
 
     @model_validator(mode="wrap")
     @classmethod

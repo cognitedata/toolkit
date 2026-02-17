@@ -7,14 +7,9 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
-    ExtractionPipeline,
-    ExtractionPipelineList,
     FileMetadataList,
     Group,
     GroupList,
-    Transformation,
-    TransformationList,
-    TransformationScheduleList,
 )
 from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
 from cognite.client.data_classes.capabilities import (
@@ -34,11 +29,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReferenceNoVersion,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
     AgentFinder,
@@ -74,39 +71,63 @@ from tests.test_unit.utils import MockQuestionary
 
 
 @pytest.fixture()
-def three_transformations() -> TransformationList:
-    return TransformationList(
-        [
-            Transformation(
-                1,
-                "transformationA",
-                name="My First Transformation",
-                ignore_null_fields=True,
-                created_time=1,
-                updated_time=1,
-            ),
-            Transformation(
-                2,
-                "transformationB",
-                name="My Second Transformation",
-                ignore_null_fields=True,
-                created_time=1,
-                updated_time=1,
-            ),
-            Transformation(
-                3,
-                "transformationC",
-                name="My Third Transformation",
-                ignore_null_fields=True,
-                created_time=1,
-                updated_time=1,
-            ),
-        ]
-    )
+def three_transformations() -> list[TransformationResponse]:
+    return [
+        TransformationResponse(
+            id=1,
+            external_id="transformationA",
+            name="My First Transformation",
+            ignore_null_fields=True,
+            created_time=1,
+            last_updated_time=1,
+            query="",
+            is_public=True,
+            conflict_mode="upsert",
+            destination={"type": "assets"},
+            owner="test",
+            owner_is_current_user=True,
+            has_source_oidc_credentials=False,
+            has_destination_oidc_credentials=False,
+        ),
+        TransformationResponse(
+            id=2,
+            external_id="transformationB",
+            name="My Second Transformation",
+            ignore_null_fields=True,
+            created_time=1,
+            last_updated_time=1,
+            query="",
+            is_public=True,
+            conflict_mode="upsert",
+            destination={"type": "assets"},
+            owner="test",
+            owner_is_current_user=True,
+            has_source_oidc_credentials=False,
+            has_destination_oidc_credentials=False,
+        ),
+        TransformationResponse(
+            id=3,
+            external_id="transformationC",
+            name="My Third Transformation",
+            ignore_null_fields=True,
+            created_time=1,
+            last_updated_time=1,
+            query="",
+            is_public=True,
+            conflict_mode="upsert",
+            destination={"type": "assets"},
+            owner="test",
+            owner_is_current_user=True,
+            has_source_oidc_credentials=False,
+            has_destination_oidc_credentials=False,
+        ),
+    ]
 
 
 class TestTransformationFinder:
-    def test_select_transformations(self, three_transformations: TransformationList, monkeypatch: MonkeyPatch) -> None:
+    def test_select_transformations(
+        self, three_transformations: list[TransformationResponse], monkeypatch: MonkeyPatch
+    ) -> None:
         def select_transformations(choices: list[Choice]) -> list[str]:
             assert len(choices) == len(three_transformations)
             return [choices[1].value, choices[2].value]
@@ -117,7 +138,7 @@ class TestTransformationFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(TransformationFinder.__module__, monkeypatch, answers),
         ):
-            client.transformations.list.return_value = three_transformations
+            client.tool.transformations.list.return_value = three_transformations
             finder = TransformationFinder(client, None)
             selected = finder._interactive_select()
 
@@ -125,10 +146,10 @@ class TestTransformationFinder:
 
 
 class TestDumpTransformations:
-    def test_dump_transformations(self, three_transformations: TransformationList, tmp_path: Path) -> None:
+    def test_dump_transformations(self, three_transformations: list[TransformationResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.transformations.retrieve_multiple.return_value = three_transformations[1:]
-            client.transformations.schedules.retrieve.return_value = TransformationScheduleList([])
+            client.tool.transformations.retrieve.return_value = three_transformations[1:]
+            client.tool.transformations.schedules.retrieve.return_value = []
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
@@ -345,25 +366,23 @@ class TestDumpAgents:
 
 
 @pytest.fixture()
-def three_extraction_pipelines() -> ExtractionPipelineList:
-    return ExtractionPipelineList(
-        [
-            ExtractionPipeline(
-                1, external_id="pipelineA", name="Pipeline A", data_set_id=123, created_time=1, last_updated_time=1
-            ),
-            ExtractionPipeline(
-                2, external_id="pipelineB", name="Pipeline B", data_set_id=123, created_time=1, last_updated_time=1
-            ),
-            ExtractionPipeline(
-                3, external_id="pipelineC", name="Pipeline C", data_set_id=123, created_time=1, last_updated_time=1
-            ),
-        ]
-    )
+def three_extraction_pipelines() -> list[ExtractionPipelineResponse]:
+    return [
+        ExtractionPipelineResponse(
+            id=1, external_id="pipelineA", name="Pipeline A", data_set_id=123, created_time=1, last_updated_time=1
+        ),
+        ExtractionPipelineResponse(
+            id=2, external_id="pipelineB", name="Pipeline B", data_set_id=123, created_time=1, last_updated_time=1
+        ),
+        ExtractionPipelineResponse(
+            id=3, external_id="pipelineC", name="Pipeline C", data_set_id=123, created_time=1, last_updated_time=1
+        ),
+    ]
 
 
 class TestExtractionPipelineFinder:
     def test_select_extraction_pipelines(
-        self, three_extraction_pipelines: ExtractionPipelineList, monkeypatch: MonkeyPatch
+        self, three_extraction_pipelines: list[ExtractionPipelineResponse], monkeypatch: MonkeyPatch
     ) -> None:
         def select_pipelines(choices: list[Choice]) -> list[str]:
             assert len(choices) == len(three_extraction_pipelines)
@@ -375,7 +394,7 @@ class TestExtractionPipelineFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(ExtractionPipelineFinder.__module__, monkeypatch, answers),
         ):
-            client.extraction_pipelines.list.return_value = three_extraction_pipelines
+            client.tool.extraction_pipelines.list.return_value = three_extraction_pipelines
             finder = ExtractionPipelineFinder(client, None)
             selected = finder._interactive_select()
 
@@ -383,15 +402,28 @@ class TestExtractionPipelineFinder:
 
 
 class TestDumpExtractionPipeline:
-    def test_dump_extraction_pipelines(
-        self, three_extraction_pipelines: ExtractionPipelineList, tmp_path: Path
-    ) -> None:
+    def test_dump_extraction_pipelines(self, tmp_path: Path) -> None:
+        pipelines = [
+            ExtractionPipelineResponse(
+                id=2,
+                external_id="pipelineB",
+                name="Pipeline B",
+                data_set_id=123,
+                created_time=1,
+                last_updated_time=1,
+            ),
+            ExtractionPipelineResponse(
+                id=3,
+                external_id="pipelineC",
+                name="Pipeline C",
+                data_set_id=123,
+                created_time=1,
+                last_updated_time=1,
+            ),
+        ]
         with monkeypatch_toolkit_client() as toolkit_client:
             approval_client = ApprovalToolkitClient(toolkit_client, allow_reverse_lookup=True)
-            approval_client.append(ExtractionPipeline, three_extraction_pipelines[1:])
-            toolkit_client.extraction_pipelines.config.retrieve.side_effect = CogniteAPIError(
-                "There is no config stored for pipeline", code=404
-            )
+            approval_client.append(ExtractionPipelineResponse, pipelines)
 
             client = approval_client.mock_client
             cmd = DumpResourceCommand(silent=True)
@@ -409,7 +441,7 @@ class TestDumpExtractionPipeline:
                 key=lambda d: d.get("external_id", d.get("externalId")),
             )
             expected = sorted(
-                [loader.dump_resource(ep) for ep in three_extraction_pipelines[1:]],
+                [loader.dump_resource(ep) for ep in pipelines],
                 key=lambda d: d.get("external_id", d.get("externalId")),
             )
             assert items == expected
