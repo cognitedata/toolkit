@@ -16,6 +16,9 @@ class GraphQLDataModel(BaseModelObject):
     name: str | None = None
     description: str | None = None
 
+    def as_id(self) -> DataModelReference:
+        return DataModelReference(space=self.space, external_id=self.external_id, version=self.version)
+
 
 class GraphQLDataModelRequest(GraphQLDataModel, RequestResource):
     """Request resource for creating/updating GraphQL data models."""
@@ -23,9 +26,6 @@ class GraphQLDataModelRequest(GraphQLDataModel, RequestResource):
     previous_version: str | None = None
     dml: str | None = None
     preserve_dml: bool | None = None
-
-    def as_id(self) -> DataModelReference:
-        return DataModelReference(space=self.space, external_id=self.external_id, version=self.version)
 
 
 class GraphQLDataModelResponse(GraphQLDataModel, ResponseResource[GraphQLDataModelRequest]):
