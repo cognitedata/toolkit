@@ -308,4 +308,4 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, C
         if "assets" in item:
             for asset in item["assets"]:
                 if isinstance(asset, dict) and in_dict(("space", "externalId"), asset):
-                    yield AssetCRUD, TypedNodeIdentifier(space=asset["space"], external_id=asset["externalId"])
+                    yield NodeCRUD, TypedNodeIdentifier(space=asset["space"], external_id=asset["externalId"])
