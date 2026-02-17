@@ -49,22 +49,59 @@ class TestInstanceIO:
                 ]
             },
         )
-        respx_mock.post(url).respond(
-            status_code=200,
-            json={
-                "items": [
-                    {
-                        "externalId": f"instance_{i}",
-                        "space": "my_space",
-                        "instanceType": "node",
-                        "createdTime": 0,
-                        "lastUpdatedTime": 0,
-                        "version": 1,
-                    }
-                    for i in range(N)
-                ]
-            },
-        )
+
+        respx_mock.post(url).side_effect = [
+            httpx.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "externalId": f"instance_{i}",
+                            "space": "my_space",
+                            "instanceType": "node",
+                            "createdTime": 0,
+                            "lastUpdatedTime": 0,
+                            "version": 1,
+                        }
+                        for i in range(1000)
+                    ],
+                    "nextCursor": "cursor_1",
+                },
+            ),
+            httpx.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "externalId": f"instance_{i}",
+                            "space": "my_space",
+                            "instanceType": "node",
+                            "createdTime": 0,
+                            "lastUpdatedTime": 0,
+                            "version": 1,
+                        }
+                        for i in range(1000, 2000)
+                    ],
+                    "nextCursor": "cursor_2",
+                },
+            ),
+            httpx.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "externalId": f"instance_{i}",
+                            "space": "my_space",
+                            "instanceType": "node",
+                            "createdTime": 0,
+                            "lastUpdatedTime": 0,
+                            "version": 1,
+                        }
+                        for i in range(2000, N)
+                    ]
+                },
+            ),
+        ]
         io = InstanceIO(client)
         ids = list(io.download_ids(selector))
         count = io.count(selector)
