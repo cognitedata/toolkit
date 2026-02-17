@@ -1,3 +1,5 @@
+from pydantic import Field
+
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
     RequestResource,
@@ -26,6 +28,8 @@ class GraphQLDataModelRequest(GraphQLDataModel, RequestResource):
     previous_version: str | None = None
     dml: str | None = None
     preserve_dml: bool | None = None
+    # Used in the loading process, but not part of the API payload.
+    graphql_file: str | None = Field(None, exclude=True)
 
 
 class GraphQLDataModelResponse(GraphQLDataModel, ResponseResource[GraphQLDataModelRequest]):
