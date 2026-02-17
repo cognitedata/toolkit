@@ -838,7 +838,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
             MediumSeverityWarning(
                 f"Views {missing_view_ids} not found or you don't have permission to access them, skipping dependency check."
             ).print_warning(console=self.console)
-            return view_ids
+            return view_ids, []
 
         view_to_containers: dict[ViewReference, set[ContainerReference]] = {}
         container_to_views: defaultdict[ContainerReference, set[ViewReference]] = defaultdict(set)
