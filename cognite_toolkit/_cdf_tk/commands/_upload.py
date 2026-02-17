@@ -128,9 +128,17 @@ class UploadCommand(ToolkitCommand):
                 )
                 selector_by_view_id[view_ref] = selector
 
-        view_dependencies = ViewCRUD.create_loader(client).topological_sort_container_constraints(
+        view_dependencies, cyclic_views = ViewCRUD.create_loader(client).topological_sort_container_constraints(
             list(selector_by_view_id.keys())
         )
+        if cyclic_views:
+            MediumSeverityWarning(
+                f"Cyclic dependencies detected between views: {', '.join(str(view) for view in cyclic_views)}. "
+                f"If their constraints are not already satisfied by instances in existing containers / views "
+                f"in CDF, the upload may fail for these views."
+            ).print_warning(console=client.console)
+            view_dependencies = view_dependencies + cyclic_views
+
         prepared_selectors: dict[Selector, list[Path]] = {}
 
         # Reorder selectors according to the dependency-sorted view list
