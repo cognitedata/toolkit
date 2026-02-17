@@ -68,7 +68,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._references import ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
     TypedEdgeIdentifier,
     TypedNodeIdentifier,
@@ -839,7 +838,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
             MediumSeverityWarning(
                 f"Views {missing_view_ids} not found or you don't have permission to access them, skipping dependency check."
             ).print_warning(console=self.console)
-            return view_ids
+            return view_ids, []
 
         view_to_containers: dict[ViewReference, set[ContainerReference]] = {}
         container_to_views: defaultdict[ContainerReference, set[ViewReference]] = defaultdict(set)
