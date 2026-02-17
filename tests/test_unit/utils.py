@@ -68,7 +68,7 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
 from tests.data import COMPLETE_ORG
 from tests.test_unit.get_type_hints import _TypeHints
-
+from cognite_toolkit._cdf_tk.client.resource_classes.group.capability import GroupCapability
 UNION_TYPES = {typing.Union, UnionType}
 
 
@@ -346,6 +346,11 @@ class FakeCogniteResourceGenerator:
         return resource_cls(*positional_arguments, **keyword_arguments)
 
     def create_pydantic_instance(self, model_cls: type[BaseModel], skip_defaulted_args: bool = False) -> BaseModel:
+        if model_cls is GroupCapability:
+            return GroupCapability.model_validate(
+                {"assetsAcl": {"actions": ["READ"], "scope": {"all": {}}}}
+            )
+
         keyword_arguments: dict[str, Any] = {}
         for field_id, field in model_cls.model_fields.items():
             if skip_defaulted_args and field.default is not None:

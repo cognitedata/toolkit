@@ -39,6 +39,7 @@ from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 
 from ._toolkit_client import ToolAPI
 from .api.agents import AgentsAPI
+from .api.groups import GroupsAPI
 from .api.assets import AssetsAPI
 from .api.data_products import DataProductsAPI
 from .api.datasets import DataSetsAPI
@@ -182,6 +183,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.events = MagicMock(spec_set=EventsAPI)
         self.tool.functions = MagicMock(spec=FunctionsAPI)
         self.tool.functions.schedules = MagicMock(spec_set=FunctionSchedulesAPI)
+        self.tool.groups = MagicMock(spec_set=GroupsAPI)
         self.tool.search_configurations = MagicMock(spec_set=SearchConfigurationsAPI)
         self.tool.simulators = MagicMock(spec=SimulatorsAPI)
         self.tool.simulators.models = MagicMock(spec_set=SimulatorModelsAPI)
