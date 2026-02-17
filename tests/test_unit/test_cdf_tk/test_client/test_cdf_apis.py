@@ -6,6 +6,7 @@ import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
+from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
@@ -22,6 +23,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
@@ -75,12 +77,20 @@ class TestCDFResourceAPI:
             assert len(created) == 1
             assert created[0].dump() == resource.example_data
         if hasattr(api, "retrieve"):
-            self._mock_endpoint(api, "retrieve", {"items": [resource.example_data]}, respx_mock)
-            to_retrieve = resource.resource_id
-
-            retrieved = api.retrieve([to_retrieve])
-            assert len(retrieved) == 1
-            assert retrieved[0].dump() == resource.example_data
+            retrieve_endpoint = api._method_endpoint_map.get("retrieve")
+            if retrieve_endpoint and "{" in retrieve_endpoint.path:
+                # Path-parameter retrieve (e.g. GET /dataproducts/{externalId}) returns a single object.
+                resolved_path = retrieve_endpoint.path.format_map(resource.resource_id.dump())
+                respx_mock.request(retrieve_endpoint.method, api._make_url(resolved_path)).mock(
+                    return_value=httpx.Response(status_code=200, json=resource.example_data)
+                )
+            elif retrieve_endpoint:
+                self._mock_endpoint(api, "retrieve", {"items": [resource.example_data]}, respx_mock)
+            if retrieve_endpoint:
+                to_retrieve = resource.resource_id
+                retrieved = api.retrieve([to_retrieve])
+                assert len(retrieved) == 1
+                assert retrieved[0].dump() == resource.example_data
         if hasattr(api, "update"):
             self._mock_endpoint(api, "update", {"items": [resource.example_data]}, respx_mock)
             to_update = resource.request_instance
@@ -133,6 +143,61 @@ class TestCDFResourceAPI:
     #### These are tests for APIs that cannot use the generic test above
     # This is typically due to custom endpoints or request object cannot be made from response object
     ####
+
+    def test_data_products_api_crud(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        resource = get_example_minimum_responses(DataProductResponse)
+        instance = DataProductResponse.model_validate(resource)
+        request = instance.as_request_resource()
+        config = toolkit_config
+        api = DataProductsAPI(HTTPClient(config))
+
+        # Test create
+        respx_mock.post(config.create_api_url("/dataproducts")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        created = api.create([request])
+        assert len(created) == 1
+        assert created[0].dump() == resource
+
+        # Test retrieve
+        respx_mock.get(config.create_api_url(f"/dataproducts/{instance.external_id}")).mock(
+            return_value=httpx.Response(status_code=200, json=resource)
+        )
+        retrieved = api.retrieve([request.as_id()])
+        assert len(retrieved) == 1
+        assert retrieved[0].dump() == resource
+
+        # Test update
+        respx_mock.post(config.create_api_url("/dataproducts/update")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        updated = api.update([request])
+        assert len(updated) == 1
+        assert updated[0].dump() == resource
+
+        # Test delete
+        respx_mock.post(config.create_api_url("/dataproducts/delete")).mock(
+            return_value=httpx.Response(status_code=200)
+        )
+        api.delete([request.as_id()])
+        assert len(respx_mock.calls) >= 1
+
+        # Test list/paginate/iterate
+        respx_mock.get(config.create_api_url("/dataproducts")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [resource]})
+        )
+        listed = api.list(limit=10)
+        assert len(listed) == 1
+        assert listed[0].dump() == resource
+
+        page = api.paginate(limit=10)
+        assert len(page.items) == 1
+        assert page.items[0].dump() == resource
+
+        iterated = list(api.iterate(limit=10))
+        assert len(iterated) >= 1
+        items = [item for batch in iterated for item in batch]
+        assert items[0].dump() == resource
 
     def test_raw_table_api_crud(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         """Test RawTablesAPI create, delete, list, and iterate methods.

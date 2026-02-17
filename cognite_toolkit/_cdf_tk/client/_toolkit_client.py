@@ -17,6 +17,7 @@ from .api.assets import AssetsAPI
 from .api.cognite_files import CogniteFilesAPI
 from .api.containers import ContainersAPI
 from .api.data_models import DataModelsAPI
+from .api.data_products import DataProductsAPI
 from .api.datasets import DataSetsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
@@ -80,6 +81,7 @@ class ToolAPI:
         self.timeseries = TimeSeriesAPI(http_client)
         self.transformations = TransformationsAPI(http_client)
         self.workflows = WorkflowsAPI(http_client)
+        self.data_products = DataProductsAPI(http_client)
 
 
 class ToolkitClient(CogniteClient):

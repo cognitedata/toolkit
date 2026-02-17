@@ -50,6 +50,14 @@ CogniteFileResponse:
       type: view
       version: v1
   space: sp_nodes
+DataProductResponse:
+- description: Curated data product.
+  externalId: my_data_product
+  isGoverned: true
+  name: My Data Product
+  schemaSpace: sp_schema
+  tags:
+  - tag
 DataSetResponse:
 - description: This is the dataset for all assets on Drammen
   externalId: ds_Drammen_assets
