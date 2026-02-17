@@ -197,9 +197,8 @@ class TestPurgeInstances:
                 ]
             },
         )
-        rsps.add(
-            responses.POST,
-            config.create_api_url("/models/instances/list"),
+        respx_mock.post(config.create_api_url("/models/instances/list")).respond(
+            status_code=200,
             json={"items": [instance.dump() for instance in instances]},
         )
         ts_objects = [ts.dump() for ts in timeseries_by_node_id.values()] if instance_type == "timeseries" else []
