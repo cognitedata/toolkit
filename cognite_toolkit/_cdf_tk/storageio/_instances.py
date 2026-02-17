@@ -3,7 +3,7 @@ from types import MappingProxyType
 from typing import ClassVar, cast
 
 from cognite.client.data_classes.aggregations import Count
-from cognite.client.data_classes.data_modeling import ViewId
+from cognite.client.data_classes.data_modeling import EdgeId, NodeId, ViewId
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk import constants
@@ -149,14 +149,23 @@ class InstanceIO(
         else:
             raise NotImplementedError()
 
-    def download_ids(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[list[InstanceId]]:
+    def download_ids(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[Sequence[InstanceId]]:
+        # Switch to use pydantic classes once purge has been updated.
         if isinstance(selector, InstanceFileSelector) and selector.validate_instance is False:
             instances_to_yield = selector.instance_ids
             if limit is not None:
                 instances_to_yield = instances_to_yield[:limit]
             yield from chunker_sequence(instances_to_yield, self.CHUNK_SIZE)
         else:
-            yield from ([instance.as_id() for instance in chunk.items] for chunk in self.stream_data(selector, limit))
+            yield from (
+                [
+                    NodeId(space=instance.space, external_id=instance.external_id)
+                    if instance.instance_type == "node"
+                    else EdgeId(space=instance.space, external_id=instance.external_id)
+                    for instance in chunk.items
+                ]
+                for chunk in self.stream_data(selector, limit)
+            )
 
     def count(self, selector: InstanceSelector) -> int | None:
         if isinstance(selector, InstanceViewSelector) or (
