@@ -602,7 +602,7 @@ class PurgeCommand(ToolkitCommand):
                 if not confirm:
                     return DeleteResults()
 
-        process: Callable[[list[InstanceId]], list[dict[str, JsonVal]]] = self._prepare
+        process: Callable[[Sequence[InstanceId]], list[dict[str, JsonVal]]] = self._prepare
         if unlink:
             process = partial(self._unlink_prepare, client=client, dry_run=dry_run, console=console, verbose=verbose)
 
@@ -611,7 +611,7 @@ class PurgeCommand(ToolkitCommand):
             process_str = "Would be unlinking" if dry_run else "Unlinking"
             write_str = "Would be deleting" if dry_run else "Deleting"
             results = DeleteResults()
-            executor = ProducerWorkerExecutor[list[InstanceId], list[dict[str, JsonVal]]](
+            executor = ProducerWorkerExecutor[Sequence[InstanceId], list[dict[str, JsonVal]]](
                 download_iterable=io.download_ids(selector),
                 process=process,
                 write=partial(self._delete_instance_ids, dry_run=dry_run, delete_client=delete_client, results=results),
@@ -687,7 +687,7 @@ class PurgeCommand(ToolkitCommand):
         self.warn(LimitedAccessWarning(f"You can only unlink files in the following scopes: {scope_str}."))
 
     @staticmethod
-    def _prepare(instance_ids: list[InstanceId]) -> list[dict[str, JsonVal]]:
+    def _prepare(instance_ids: Sequence[InstanceId]) -> list[dict[str, JsonVal]]:
         output: list[dict[str, JsonVal]] = []
         for instance_id in instance_ids:
             dumped = instance_id.dump(include_instance_type=True)
@@ -700,7 +700,7 @@ class PurgeCommand(ToolkitCommand):
 
     def _unlink_prepare(
         self,
-        instance_ids: list[InstanceId],
+        instance_ids: Sequence[InstanceId],
         client: ToolkitClient,
         dry_run: bool,
         console: Console,
@@ -733,7 +733,7 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _unlink_timeseries(
-        instances: list[InstanceId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
+        instances: Sequence[InstanceId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
     ) -> list[InstanceId]:
         node_ids = [instance for instance in instances if isinstance(instance, NodeId)]
         if node_ids:
@@ -745,11 +745,11 @@ class PurgeCommand(ToolkitCommand):
                     console.print(f"Unlinked {len(migrated_timeseries_ids)} timeseries from datapoints.")
             elif verbose and timeseries:
                 console.print(f"Would have unlinked {len(timeseries)} timeseries from datapoints.")
-        return instances
+        return list(instances)
 
     @staticmethod
     def _unlink_files(
-        instances: list[InstanceId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
+        instances: Sequence[InstanceId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
     ) -> list[InstanceId]:
         file_ids = [instance for instance in instances if isinstance(instance, NodeId)]
         if file_ids:
@@ -765,4 +765,4 @@ class PurgeCommand(ToolkitCommand):
                     console.print(f"Unlinked {len(migrated_file_ids)} files from nodes.")
             elif verbose and files:
                 console.print(f"Would have unlinked {len(files)} files from their blob content.")
-        return instances
+        return list(instances)
