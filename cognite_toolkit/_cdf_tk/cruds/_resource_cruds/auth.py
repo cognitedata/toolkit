@@ -25,13 +25,13 @@ from cognite.client.data_classes.capabilities import (
     GroupsAcl,
     SecurityCategoriesAcl,
 )
-from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.console import Console
 from rich.markup import escape
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupRequest,
@@ -358,7 +358,7 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
     ) -> list[GroupResponse]:
         try:
             return self.client.tool.groups.create(items)
-        except CogniteAPIError as e:
+        except ToolkitAPIError as e:
             if not (e.code == 400 and "buffer" in e.message.lower() and len(items) > 1):
                 raise e
             # Fallback to create one by one
@@ -366,7 +366,7 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
             for item in items:
                 try:
                     created = self.client.tool.groups.create([item])
-                except CogniteAPIError as e:
+                except ToolkitAPIError as e:
                     HighSeverityWarning(f"Failed to {action} group {item.name}. Error: {escape(str(e))}").print_warning(
                         include_timestamp=True, console=self.console
                     )
@@ -388,7 +388,7 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
             try:
                 # Let's prevent that we delete groups we belong to
                 my_groups = self.client.tool.groups.list()
-            except CogniteAPIError as e:
+            except ToolkitAPIError as e:
                 print_fun(
                     f"[bold red]ERROR:[/] Failed to retrieve the current service principal's groups. Aborting group deletion.\n{e}"
                 )
@@ -417,20 +417,21 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
         error_str = ""
         try:
             self.client.tool.groups.delete([InternalId(id=id_) for id_ in to_delete])
-        except CogniteNotFoundError:
-            # Fallback to delete one by one
-            for delete_item_id in to_delete:
-                try:
-                    self.client.tool.groups.delete([InternalId(id=delete_item_id)])
-                except CogniteNotFoundError:
-                    # If the group is already deleted, we can ignore the error
-                    ...
-                except CogniteAPIError as e:
-                    error_str = str(e)
-                    failed_deletes.append(delete_item_id)
-        except CogniteAPIError as e:
-            error_str = str(e)
-            failed_deletes.extend(to_delete)
+        except ToolkitAPIError as e:
+            if e.missing:
+                # Fallback to delete one by one
+                for delete_item_id in to_delete:
+                    try:
+                        self.client.tool.groups.delete([InternalId(id=delete_item_id)])
+                    except ToolkitAPIError as inner_e:
+                        if inner_e.missing:
+                            # If the error is that the group is already deleted, we can ignore it.
+                            continue
+                        error_str = str(inner_e)
+                        failed_deletes.append(delete_item_id)
+            else:
+                error_str = str(e)
+                failed_deletes.extend(to_delete)
         if failed_deletes:
             MediumSeverityWarning(
                 f"Failed to delete groups: {humanize_collection(to_delete)}. "
