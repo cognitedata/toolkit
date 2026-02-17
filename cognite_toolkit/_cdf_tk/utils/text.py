@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 
 INVALID_TITLE_REGEX = re.compile(r"[\\*?:/\[\]]")
+_INVALID_SPACE_CHARS_PATTERN = re.compile(r"[^a-zA-Z0-9_-]")
 
 
 def suffix_description(
@@ -113,3 +114,21 @@ def sanitize_instance_external_id(external_id: str) -> str:
     hash_digest = hasher.hexdigest()[:8]
     sanitized_external_id = f"{external_id[:247]}_{hash_digest}"
     return sanitized_external_id
+
+
+def warn_invalid_space_name(name: str) -> None:
+    """Warn if a space name does not match ``^[a-zA-Z][a-zA-Z0-9_-]{0,41}[a-zA-Z0-9]?$``."""
+    issues: list[str] = []
+    invalid_chars = sorted(set(_INVALID_SPACE_CHARS_PATTERN.findall(name)))
+    if invalid_chars:
+        issues.append(f"contains invalid characters: {', '.join(repr(c) for c in invalid_chars)}")
+    if name and not name[0].isalpha():
+        issues.append("does not start with a letter")
+    if len(name) > 43:
+        issues.append(f"exceeds 43 characters (length {len(name)})")
+    if issues:
+        LowSeverityWarning(
+            f"Space name {name!r} derived from data set external ID is not a valid space identifier: "
+            + "; ".join(issues)
+            + ". Please fix the space name manually before deploying."
+        ).print_warning()

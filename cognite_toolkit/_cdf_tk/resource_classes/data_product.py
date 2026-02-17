@@ -1,5 +1,7 @@
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+
 from .base import ToolkitResource
 
 
@@ -31,3 +33,6 @@ class DataProductYAML(ToolkitResource):
     tags: list[str] | None = Field(
         default=None, description="A list of distinct tags for categorization and filtering.", max_length=10
     )
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
