@@ -167,6 +167,7 @@ class TestGroupResponse:
                     }
                 }
             ],
+            "id": 37,
         }
 
         GroupResponse.model_validate(data)
