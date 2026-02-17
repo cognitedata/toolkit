@@ -3,23 +3,21 @@ from types import MappingProxyType
 from typing import ClassVar, cast
 
 from cognite.client.data_classes.aggregations import Count
+from cognite.client.data_classes.data_modeling import ViewId
+from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerReference,
-    EdgeRequest,
     InstanceRequest,
     InstanceResponse,
-    NodeRequest,
     SpaceReference,
     ViewReference,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceRequestAdapter
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
-    TypedEdgeIdentifier,
-    TypedInstanceIdentifier,
-    TypedNodeIdentifier,
     TypedViewReference,
 )
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewCRUD
@@ -29,7 +27,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
 from ._base import ConfigurableStorageIO, Page, UploadableStorageIO
-from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector
+from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector, SelectedView
 
 
 class InstanceIO(
@@ -103,11 +101,13 @@ class InstanceIO(
             space=space,
         )
 
-    def _filter_readonly_properties(self, instance: NodeRequest | EdgeRequest) -> None:
+    def _filter_readonly_properties(self, instance: InstanceRequest) -> None:
         """Filter out read-only properties from the instance.
 
-        Args:
-            instance: The instance to filter readonly properties from.
+        Warnings: This mutates the instance in-place.
+
+        This is as of 17/02/26, the path, root, and pathLastUpdatedTime time in the CogniteAsset container,
+        and isUploaded and uploadedTime in the CogniteFile container.
         """
         if not instance.sources:
             return
@@ -125,45 +125,36 @@ class InstanceIO(
             elif isinstance(source.source, ContainerReference):
                 if source.source.as_tuple() in constants.READONLY_CONTAINER_PROPERTIES:
                     readonly_properties = constants.READONLY_CONTAINER_PROPERTIES[source.source.as_tuple()]
-
+            if not readonly_properties:
+                continue
             source.properties = {k: v for k, v in source.properties.items() if k not in readonly_properties}
 
     def stream_data(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[Page]:
         if isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
             instance_filter = self._build_instance_filter(selector)
             total = 0
-            for page in self.client.tool.instances.iterate(instance_filter, limit=self.CHUNK_SIZE):
-                if limit is not None:
-                    remaining = limit - total
-                    if remaining <= 0:
-                        break
-                    page = page[:remaining]
-                total += len(page)
+            cursor: str | None = None
+            while cursor is not None or total == 0:
+                page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
+                page = self.client.tool.instances.paginate(instance_filter, limit=page_limit, cursor=cursor)
+                total += len(page.items)
                 if page:
-                    yield Page(worker_id="main", items=page)
+                    yield Page(worker_id="main", items=page.items, next_cursor=page.next_cursor)
+                if page.next_cursor is None or (limit is not None and total >= limit):
+                    break
+                cursor = page.next_cursor
         elif isinstance(selector, InstanceFileSelector):
-            node_ids = [TypedNodeIdentifier(space=nid.space, external_id=nid.external_id) for nid in selector.node_ids]
-            for chunk in chunker_sequence(node_ids, self.CHUNK_SIZE):
-                yield Page(worker_id="main", items=self.client.tool.instances.retrieve(chunk))
-            edge_ids = [TypedEdgeIdentifier(space=eid.space, external_id=eid.external_id) for eid in selector.edge_ids]
-            for chunk in chunker_sequence(edge_ids, self.CHUNK_SIZE):
+            for chunk in chunker_sequence(selector.as_ids(), self.CHUNK_SIZE):
                 yield Page(worker_id="main", items=self.client.tool.instances.retrieve(chunk))
         else:
             raise NotImplementedError()
 
-    def download_ids(
-        self, selector: InstanceSelector, limit: int | None = None
-    ) -> Iterable[list[TypedInstanceIdentifier]]:
+    def download_ids(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[list[InstanceId]]:
         if isinstance(selector, InstanceFileSelector) and selector.validate_instance is False:
-            typed_ids: list[TypedInstanceIdentifier] = [
-                TypedNodeIdentifier(space=item.space, external_id=item.external_id)
-                if item.instance_type == "node"
-                else TypedEdgeIdentifier(space=item.space, external_id=item.external_id)
-                for item in selector.items
-            ]
+            instances_to_yield = selector.instance_ids
             if limit is not None:
-                typed_ids = typed_ids[:limit]
-            yield from chunker_sequence(typed_ids, self.CHUNK_SIZE)
+                instances_to_yield = instances_to_yield[:limit]
+            yield from chunker_sequence(instances_to_yield, self.CHUNK_SIZE)
         else:
             yield from ([instance.as_id() for instance in chunk.items] for chunk in self.stream_data(selector, limit))
 
@@ -171,9 +162,9 @@ class InstanceIO(
         if isinstance(selector, InstanceViewSelector) or (
             isinstance(selector, InstanceSpaceSelector) and selector.view
         ):
+            view_id = cast(SelectedView, selector.view)
             result = self.client.data_modeling.instances.aggregate(
-                # MyPy do not understand that selector.view is always defined here.
-                view=selector.view.as_id(),  # type: ignore[union-attr]
+                view=ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
                 aggregates=Count("externalId"),
                 instance_type=selector.instance_type,
                 space=selector.get_instance_spaces(),
@@ -190,7 +181,7 @@ class InstanceIO(
             # This should never happen due to validation in the selector.
             raise ValueError(f"Unknown instance type {selector.instance_type!r}")
         elif isinstance(selector, InstanceFileSelector):
-            return len(selector.instance_ids)
+            return len(selector.items)
         raise NotImplementedError()
 
     def data_to_json_chunk(
@@ -198,18 +189,11 @@ class InstanceIO(
     ) -> list[dict[str, JsonVal]]:
         return [instance.as_request_resource().dump() for instance in data_chunk]
 
-    def json_to_resource(self, item_json: dict[str, JsonVal]) -> NodeRequest | EdgeRequest:
-        instance_type = item_json.get("instanceType")
-        item_to_load = dict(item_json)
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceRequest:
+        item_to_load = item_json.copy()
         if self._remove_existing_version and "existingVersion" in item_to_load:
             del item_to_load["existingVersion"]
-        instance: NodeRequest | EdgeRequest
-        if instance_type == "node":
-            instance = NodeRequest.model_validate(item_to_load)
-        elif instance_type == "edge":
-            instance = EdgeRequest.model_validate(item_to_load)
-        else:
-            raise ValueError(f"Unknown instance type {instance_type!r}")
+        instance = InstanceRequestAdapter.validate_python(item_to_load)
         self._filter_readonly_properties(instance)
         return instance
 
@@ -233,13 +217,8 @@ class InstanceIO(
             )
         if not selector.view:
             return
-        view_ref = ViewReference(
-            space=selector.view.space,
-            external_id=selector.view.external_id,
-            version=cast(str, selector.view.version),
-        )
         view_crud = ViewCRUD(self.client, None, None, topological_sort_implements=True)
-        views = view_crud.retrieve([view_ref])
+        views = view_crud.retrieve([selector.view.as_id()])
         views = [view for view in views if not view.is_global]
         if not views:
             return

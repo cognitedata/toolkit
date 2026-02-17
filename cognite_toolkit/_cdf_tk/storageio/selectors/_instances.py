@@ -1,16 +1,17 @@
 from abc import ABC, abstractmethod
-from functools import cached_property
+from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-from cognite.client.data_classes.data_modeling import EdgeId, NodeId, ViewId
+from cognite.client.data_classes.data_modeling import EdgeId, NodeId
 from cognite.client.utils._identifier import InstanceId
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedInstanceIdentifier
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
 from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceIdCSVList
-
-from ._base import DataSelector, SelectorObject
+from cognite_toolkit._cdf_tk.storageio.selectors._base import DataSelector, SelectorObject
 
 
 class SelectedView(SelectorObject):
@@ -33,13 +34,14 @@ class SelectedView(SelectorObject):
         pattern=DM_VERSION_PATTERN,
     )
 
-    def as_id(self) -> ViewId:
-        return ViewId(space=self.space, external_id=self.external_id, version=self.version)
+    def as_id(self) -> ViewReference:
+        return ViewReference(space=self.space, external_id=self.external_id, version=self.version or "latest")
 
     def __str__(self) -> str:
+        base_str = f"{self.space}:{self.external_id}"
         if self.version:
-            return f"{self.space}_{self.external_id}_{self.version}"
-        return f"{self.space}_{self.external_id}"
+            return f"{base_str}(version={self.version})"
+        return base_str
 
 
 class InstanceSelector(DataSelector, ABC):
@@ -130,6 +132,13 @@ class InstanceFileSelector(InstanceSelector):
     @cached_property
     def items(self) -> InstanceIdCSVList:
         return InstanceIdCSVList.read_csv_file(self.datafile)
+
+    @lru_cache(maxsize=1)
+    def as_ids(self) -> list[TypedInstanceIdentifier]:
+        return [
+            TypedInstanceIdentifier(space=item.space, external_id=item.external_id, instance_type=item.instance_type)
+            for item in self.items
+        ]
 
     @cached_property
     def _ids_by_type(self) -> tuple[list[NodeId], list[EdgeId]]:
