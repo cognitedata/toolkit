@@ -561,19 +561,6 @@ class UnknownAcl(BaseModelObject):
     actions: Sequence[str]
     scope: dict[str, JsonValue]
 
-    @model_serializer
-    def convert_scope_to_api_format(self) -> dict[str, Any]:
-        """Serialize unknown ACL, preserving original scope structure."""
-        return {"actions": list(self.actions), "scope": self.scope}
-
-    @model_validator(mode="before")
-    @classmethod
-    def convert_scope_format(cls, value: Any) -> Any:
-        """Preserve original scope for unknown ACLs."""
-        if not isinstance(value, dict):
-            return value
-        return value
-
 
 def _get_acl_name(cls: type[Acl]) -> str | None:
     """Get the acl_name default value from a Pydantic model class."""

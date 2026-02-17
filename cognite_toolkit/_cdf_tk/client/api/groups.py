@@ -68,11 +68,11 @@ class GroupsAPI(CDFResourceAPI[InternalId, GroupRequest, GroupResponse]):
     def list(self, all_groups: bool = False) -> list[GroupResponse]:
         """List all groups in CDF.
 
-                Args:
-                    all_groups: Whether to return all groups (requires admin permissions).
-        .
-                Returns:
-                    List of GroupResponse objects.
+        Args:
+            all_groups: Whether to return all groups (requires admin permissions).
+
+        Returns:
+            List of GroupResponse objects.
         """
         endpoint = self._method_endpoint_map["list"]
         response = self._http_client.request_single_retries(
