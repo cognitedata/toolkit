@@ -6,7 +6,13 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
-from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupRequest, GroupResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    AllScope,
+    AssetsAcl,
+    GroupCapability,
+    GroupRequest,
+    GroupResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.cruds import (
     DataSetsCRUD,
@@ -216,7 +222,7 @@ class TestGroupLoader:
     ) -> None:
         loader = GroupAllScopedCRUD.create_loader(env_vars_with_client.get_client())
         local_group = """name: gp_no_metadata
-sourceId: 123
+sourceId: '123'
 capabilities:
 - assetsAcl:
     actions:
@@ -227,14 +233,7 @@ capabilities:
         cdf_group = GroupResponse(
             name="gp_no_metadata",
             source_id="123",
-            capabilities=[
-                {
-                    "assetsAcl": {
-                        "actions": ["READ"],
-                        "scope": {"all": {}},
-                    }
-                }
-            ],
+            capabilities=[GroupCapability(acl=AssetsAcl(actions=["READ"], scope=AllScope()))],
             metadata={},
             id=3760258445038144,
             is_deleted=False,
