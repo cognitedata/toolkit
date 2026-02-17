@@ -393,7 +393,12 @@ class GroupFinder(ResourceFinder[tuple[str, ...]]):
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         if self.groups:
-            yield [], [group for group in self.groups if group.name in self.identifier], GroupCRUD.create_loader(self.client), None
+            yield (
+                [],
+                [group for group in self.groups if group.name in self.identifier],
+                GroupCRUD.create_loader(self.client),
+                None,
+            )
         else:
             yield [NameId(name=name) for name in self.identifier], None, GroupCRUD.create_loader(self.client), None
 

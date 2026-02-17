@@ -104,9 +104,7 @@ class TestGroupLoader:
         )
         toolkit_client_approval.append(GroupResponse, [cdf_group])
 
-        new_group = GroupRequest(
-            name="new_group", source_id="123", capabilities=loaded.capabilities
-        )
+        new_group = GroupRequest(name="new_group", source_id="123", capabilities=loaded.capabilities)
         new_file = MagicMock(spec=Path)
         new_file.read_text.return_value = new_group.dump_yaml()
         worker = ResourceWorker(loader, "deploy")

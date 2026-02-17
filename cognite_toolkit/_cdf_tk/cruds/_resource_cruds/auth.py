@@ -60,6 +60,7 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 
+
 @dataclass
 class _ReplaceMethod:
     """This is a small helper class used in the

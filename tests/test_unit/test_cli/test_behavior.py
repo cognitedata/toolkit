@@ -8,12 +8,7 @@ import pytest
 import yaml
 from cognite.client.data_classes import (
     DataSet,
-    Group,
-    GroupWrite,
 )
-from cognite.client.data_classes.capabilities import AssetsAcl, EventsAcl, TimeSeriesAcl
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId
-from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupRequest, GroupResponse
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk import cdf_toml
@@ -34,7 +29,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import ConstraintOrIndexState
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupRequest, GroupResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId, WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterResponse,
 )

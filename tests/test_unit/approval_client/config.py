@@ -117,7 +117,6 @@ from cognite.client.data_classes.transformations.notifications import (
 )
 
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupRequest, GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
     APMConfigResponse,
@@ -156,6 +155,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
     FunctionScheduleResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupRequest, GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationRequest,
     HostedExtractorDestinationResponse,

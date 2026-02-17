@@ -10,9 +10,6 @@ from cognite.client.data_classes import (
     FileMetadataList,
 )
 from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
-from cognite.client.data_classes.capabilities import (
-    TimeSeriesAcl,
-)
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.exceptions import CogniteAPIError
@@ -20,7 +17,6 @@ from questionary import Choice
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse, AskDocument
-from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
     SpaceResponse,
@@ -30,6 +26,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse

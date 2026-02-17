@@ -39,7 +39,6 @@ from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 
 from ._toolkit_client import ToolAPI
 from .api.agents import AgentsAPI
-from .api.groups import GroupsAPI
 from .api.assets import AssetsAPI
 from .api.data_products import DataProductsAPI
 from .api.datasets import DataSetsAPI
@@ -49,6 +48,7 @@ from .api.extraction_pipelines import ExtractionPipelinesAPI
 from .api.filemetadata import FileMetadataAPI
 from .api.function_schedules import FunctionSchedulesAPI
 from .api.functions import FunctionsAPI
+from .api.groups import GroupsAPI
 from .api.hosted_extractor_destinations import HostedExtractorDestinationsAPI
 from .api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from .api.hosted_extractor_mappings import HostedExtractorMappingsAPI
