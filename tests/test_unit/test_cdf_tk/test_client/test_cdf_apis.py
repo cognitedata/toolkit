@@ -107,7 +107,10 @@ class TestCDFResourceAPI:
         if hasattr(api, "list"):
             self._mock_endpoint(api, "list", {"items": [resource.example_data]}, respx_mock)
 
-            listed = api.list(limit=10)
+            try:
+                listed = api.list(limit=10)
+            except TypeError:
+                listed = api.list()  # Some APIs do not support limit parameter
             assert len(listed) >= 1
             assert listed[0].dump() == resource.example_data
         if hasattr(api, "paginate"):
