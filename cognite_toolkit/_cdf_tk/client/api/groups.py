@@ -4,7 +4,7 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 """
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -65,55 +65,21 @@ class GroupsAPI(CDFResourceAPI[InternalId, GroupRequest, GroupResponse]):
             response = self._http_client.request_single_retries(request)
             response.get_success_or_raise()
 
-    def paginate(
-        self,
-        all_groups: bool = False,
-        limit: int = 100,
-        cursor: str | None = None,
-    ) -> PagedResponse[GroupResponse]:
-        """Get a page of groups from CDF.
-
-        Args:
-            all_groups: Whether to return all groups (requires admin permissions).
-            limit: Maximum number of groups to return.
-            cursor: Cursor for pagination.
-
-        Returns:
-            PagedResponse of GroupResponse objects.
-        """
-        return self._paginate(
-            cursor=cursor,
-            limit=limit,
-            params={"all": all_groups} if all_groups else None,
-        )
-
-    def iterate(
-        self,
-        all_groups: bool = False,
-        limit: int | None = None,
-    ) -> Iterable[list[GroupResponse]]:
-        """Iterate over all groups in CDF.
-
-        Args:
-            all_groups: Whether to return all groups (requires admin permissions).
-            limit: Maximum total number of groups to return.
-
-        Returns:
-            Iterable of lists of GroupResponse objects.
-        """
-        return self._iterate(
-            limit=limit,
-            params={"all": all_groups} if all_groups else None,
-        )
-
-    def list(self, all_groups: bool = False, limit: int | None = None) -> list[GroupResponse]:
+    def list(self, all_groups: bool = False) -> list[GroupResponse]:
         """List all groups in CDF.
 
-        Args:
-            all_groups: Whether to return all groups (requires admin permissions).
-            limit: Maximum total number of groups to return.
-
-        Returns:
-            List of GroupResponse objects.
+                Args:
+                    all_groups: Whether to return all groups (requires admin permissions).
+        .
+                Returns:
+                    List of GroupResponse objects.
         """
-        return self._list(limit=limit, params={"all": all_groups} if all_groups else None)
+        endpoint = self._method_endpoint_map["list"]
+        response = self._http_client.request_single_retries(
+            RequestMessage(
+                endpoint_url=self._make_url(endpoint.path),
+                method=endpoint.method,
+                parameters={"all": all_groups},
+            )
+        ).get_success_or_raise()
+        return self._validate_page_response(response).items

@@ -451,8 +451,7 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[GroupResponse]:
-        for items in self.client.tool.groups.iterate(all_groups=True):
-            yield from items
+        yield from self.client.tool.groups.list(all_groups=True)
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]

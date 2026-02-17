@@ -550,7 +550,7 @@ class SimulatorsAcl(Acl):
     """ACL for Simulators resources."""
 
     acl_name: Literal["simulatorsAcl"] = Field("simulatorsAcl", exclude=True)
-    actions: Sequence[Literal["READ", "WRITE"]]
+    actions: Sequence[Literal["READ", "WRITE", "DELETE", "RUN", "MANAGE"]]
     scope: AllScope | DataSetScope
 
 
