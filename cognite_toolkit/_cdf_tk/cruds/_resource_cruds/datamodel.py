@@ -765,7 +765,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
         """Looks up views by their IDs and caches them."""
         missing_ids = [view_id for view_id in view_ids if view_id not in self._view_by_id]
         if missing_ids:
-            retrieved_views = self.client.tool.views.retrieve(missing_ids, include_inherited_properties=False)
+            retrieved_views = self.client.tool.views.retrieve(missing_ids, include_inherited_properties=True)
             for view in retrieved_views:
                 self._view_by_id[view.as_id()] = view
         return {view_id: self._view_by_id[view_id] for view_id in view_ids if view_id in self._view_by_id}
