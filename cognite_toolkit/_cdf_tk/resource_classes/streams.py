@@ -2,6 +2,7 @@ from typing import Literal
 
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import StreamTemplateName
 
 from .base import BaseModelResource, ToolkitResource
@@ -27,3 +28,6 @@ class StreamYAML(ToolkitResource):
     settings: StreamSettings = Field(
         description="Stream settings which should be applied to a stream.",
     )
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

@@ -2,6 +2,7 @@ from typing import Literal
 
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import INSTANCE_EXTERNAL_ID_PATTERN
 
 from .base import ToolkitResource
@@ -26,3 +27,6 @@ class ResourceViewMappingYAML(ToolkitResource):
     property_mapping: dict[str, str] = Field(
         description="A dictionary mapping from resource property to view property.",
     )
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

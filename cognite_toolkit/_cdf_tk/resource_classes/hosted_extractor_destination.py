@@ -1,5 +1,7 @@
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+
 from .authentication import AuthenticationClientIdSecret
 from .base import ToolkitResource
 
@@ -17,3 +19,6 @@ class HostedExtractorDestinationYAML(ToolkitResource):
         description="The external ID of the target data set where the extractor will write data.",
         max_length=255,
     )
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

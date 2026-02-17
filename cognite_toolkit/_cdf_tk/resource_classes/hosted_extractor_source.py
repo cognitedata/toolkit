@@ -14,6 +14,7 @@ from pydantic import (
 )
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
@@ -210,6 +211,9 @@ class HostedExtractorSourceYAML(ToolkitResource):
             )
         cls_ = _SOURCE_CLS_BY_TYPE[type_]
         return cast(Self, cls_.model_validate({k: v for k, v in data.items() if k != "type"}))
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
 
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def include_type(self, handler: SerializerFunctionWrapHandler) -> dict:

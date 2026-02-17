@@ -1,5 +1,6 @@
 from pydantic import Field, field_validator
 
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from cognite_toolkit._cdf_tk.constants import FORBIDDEN_SPACES, SPACE_FORMAT_PATTERN
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
@@ -15,6 +16,9 @@ class SpaceYAML(ToolkitResource):
     )
     name: str | None = Field(None, description="Name of the space.", max_length=1024)
     description: str | None = Field(None, description="The description of the space.", max_length=255)
+
+    def as_id(self) -> SpaceReference:
+        return SpaceReference(space=self.space)
 
     @field_validator("space")
     @classmethod

@@ -2,6 +2,8 @@ from typing import Any, Literal
 
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+
 from .base import ToolkitResource
 
 
@@ -19,3 +21,6 @@ class AssetYAML(ToolkitResource):
         None, description="A list of labels associated with this resource.", max_length=10
     )
     geo_location: dict[str, Any] | None = Field(None, description="The geographic metadata of the asset")
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
