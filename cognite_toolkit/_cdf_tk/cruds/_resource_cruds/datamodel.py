@@ -68,7 +68,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._references import ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
     TypedEdgeIdentifier,
     TypedNodeIdentifier,
