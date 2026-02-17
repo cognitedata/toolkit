@@ -117,6 +117,7 @@ from cognite.client.data_classes.transformations.notifications import (
 )
 
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupRequest, GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
     APMConfigResponse,
@@ -847,6 +848,19 @@ API_RESOURCES = [
             "retrieve": [
                 Method(api_class_method="list", mock_class_method="list"),
             ],
+        },
+    ),
+    APIResource(
+        api_name="tool.groups",
+        resource_cls=GroupResponse,
+        _write_cls=GroupRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="list", mock_class_method="list"),
+                Method(api_class_method="iterate", mock_class_method="iterate"),
+            ],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
         },
     ),
     APIResource(
