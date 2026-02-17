@@ -872,7 +872,9 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                     view_dependencies[view_id].update(container_to_views[required_container])
 
         cyclic_views: list[ViewReference] = []
-        for _ in range(len(view_dependencies)):  # Ensure an upper bound on the number of iterations to avoid cycles.
+        for _ in range(
+            len(view_dependencies)
+        ):  # Ensure an upper bound on the number of iterations we do when removing cycles.
             try:
                 TopologicalSorter(view_dependencies).prepare()
                 break
