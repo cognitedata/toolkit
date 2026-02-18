@@ -69,7 +69,6 @@ class ViewFilter(DataModelingFilter):
 
 
 class DataModelFilter(DataModelingFilter):
-    inline_views: bool | None = None
     all_versions: bool | None = None
 
 

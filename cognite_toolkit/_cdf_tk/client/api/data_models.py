@@ -4,11 +4,12 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Data-models/operation/createDataModels
 """
 
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Literal, overload
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelReference,
@@ -145,11 +146,28 @@ class DataModelsAPI(CDFResourceAPI[DataModelReference, DataModelRequest, DataMod
             params=filter.dump() if filter else None,
         )
 
+    @overload
     def list(
         self,
+        inline_views: Literal[True],
         filter: DataModelFilter | None = None,
         limit: int | None = None,
-    ) -> list[DataModelResponse]:
+    ) -> list[DataModelResponseWithViews]: ...
+
+    @overload
+    def list(
+        self,
+        inline_views: Literal[False] = False,
+        filter: DataModelFilter | None = None,
+        limit: int | None = None,
+    ) -> builtins.list[DataModelResponse]: ...
+
+    def list(
+        self,
+        inline_views: bool = False,
+        filter: DataModelFilter | None = None,
+        limit: int | None = None,
+    ) -> builtins.list[DataModelResponse] | builtins.list[DataModelResponseWithViews]:
         """List all data models in CDF.
 
         Args:
@@ -159,4 +177,32 @@ class DataModelsAPI(CDFResourceAPI[DataModelReference, DataModelRequest, DataMod
         Returns:
             List of DataModelResponse objects.
         """
-        return self._list(limit=limit, params=filter.dump() if filter else None)
+        if not inline_views:
+            return self._list(limit=limit, params=filter.dump() if filter else None)
+        else:
+            response_items: list[DataModelResponseWithViews] = []
+            cursor: str | None = None
+            total = 0
+            endpoint = self._method_endpoint_map["list"]
+            while True:
+                page_limit = endpoint.item_limit if limit is None else min(limit - total, endpoint.item_limit)
+                parameters = filter.dump() if filter else {}
+                parameters["inlineViews"] = True
+                parameters["limit"] = page_limit
+                if cursor is not None:
+                    parameters["cursor"] = cursor
+                request = RequestMessage(
+                    endpoint_url=self._make_url(endpoint.path),
+                    method=endpoint.method,
+                    parameters=parameters,
+                    disable_gzip=self._disable_gzip,
+                    api_version=self._api_version,
+                )
+                response = self._http_client.request_single_retries(request).get_success_or_raise()
+                page = PagedResponse[DataModelResponseWithViews].model_validate_json(response.body)
+                response_items.extend(page.items)
+                total += len(page.items)
+                if page.next_cursor is None or (limit is not None and total >= limit):
+                    break
+                cursor = page.next_cursor
+            return response_items
