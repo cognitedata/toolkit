@@ -619,6 +619,7 @@ class DataModelingSelect:
                 inline_views=True,
                 message=f"Select the data model through which to {self.operation}:",
                 schema_space=filter.schema_space,
+                include_global=filter.include_global,
             )
             views = datamodel.views or []
             parents = {parent for view in views for parent in view.implements or []}
@@ -642,6 +643,7 @@ class DataModelingSelect:
         inline_views: Literal[False] = False,
         message: str | None = None,
         schema_space: str | None = None,
+        include_global: bool | None = None,
     ) -> DataModelResponse: ...
 
     @overload
@@ -650,6 +652,7 @@ class DataModelingSelect:
         inline_views: Literal[True],
         message: str | None = None,
         schema_space: str | None = None,
+        include_global: bool | None = None,
     ) -> DataModelResponseWithViews: ...
 
     def select_data_model(
@@ -657,10 +660,11 @@ class DataModelingSelect:
         inline_views: Literal[True, False] = False,
         message: str | None = None,
         schema_space: str | None = None,
+        include_global: bool | None = None,
     ) -> DataModelResponse | DataModelResponseWithViews:
         datamodels = self.client.tool.data_models.list(
             inline_views=inline_views,
-            filter=DataModelFilter(space=schema_space, all_versions=False),
+            filter=DataModelFilter(space=schema_space, all_versions=False, include_global=include_global),
             limit=None,
         )
         if not datamodels:
