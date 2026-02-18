@@ -164,7 +164,7 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
 
         for dp_ext_id in dp_ext_ids:
             for versions in self.client.tool.data_products.versions.iterate(dp_ext_id, limit=None):
-                yield from versions
+                yield from versions  # type: ignore[attr-defined]
 
     @staticmethod
     def _group_by_parent(items: Sequence[DataProductVersionRequest]) -> dict[str, list[DataProductVersionRequest]]:

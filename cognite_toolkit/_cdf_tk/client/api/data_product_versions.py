@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import builtins
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
@@ -49,10 +48,10 @@ class DataProductVersionsAPI(
 
     def create(
         self, data_product_external_id: str, items: Sequence[DataProductVersionRequest]
-    ) -> builtins.list[DataProductVersionResponse]:
+    ) -> list[DataProductVersionResponse]:
         endpoint = self._method_endpoint_map["create"]
         path = endpoint.path.format(externalId=data_product_external_id)
-        results: builtins.list[DataProductVersionResponse] = []
+        results: list[DataProductVersionResponse] = []
         for item in items:
             response = self._http_client.request_single_retries(
                 RequestMessage(
@@ -144,10 +143,10 @@ class DataProductVersionsAPI(
             )
         ).get_success_or_raise()
 
-    def list(self, data_product_external_id: str, limit: int | None = 10) -> builtins.list[DataProductVersionResponse]:
+    def list(self, data_product_external_id: str, limit: int | None = 10) -> list[DataProductVersionResponse]:
         endpoint = self._method_endpoint_map["list"]
         path = endpoint.path.format(externalId=data_product_external_id)
-        all_items: builtins.list[DataProductVersionResponse] = []
+        all_items: list[DataProductVersionResponse] = []
         cursor: str | None = None
         remaining = limit
 
@@ -182,7 +181,7 @@ class DataProductVersionsAPI(
 
     def iterate(
         self, data_product_external_id: str, limit: int | None = 10
-    ) -> Iterable[builtins.list[DataProductVersionResponse]]:
+    ) -> Iterable[list[DataProductVersionResponse]]:  # type: ignore[valid-type]
         endpoint = self._method_endpoint_map["list"]
         path = endpoint.path.format(externalId=data_product_external_id)
         cursor: str | None = None
