@@ -105,7 +105,7 @@ class InstanceSpaceSelector(InstanceSelector):
 
 
 class InstanceFileSelector(InstanceSelector):
-    """This if for purge"""
+    """This is used for the purge command"""
 
     type: Literal["instanceFile"] = "instanceFile"
 
