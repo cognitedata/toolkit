@@ -1,6 +1,8 @@
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Sequence
 from functools import partial
 from pathlib import Path
+
+from rich.table import Table
 
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
@@ -29,7 +31,7 @@ from ._base import ToolkitCommand
 class DownloadCommand(ToolkitCommand):
     def download(
         self,
-        selectors: Iterable[T_Selector],
+        selectors: Sequence[T_Selector],
         io: StorageIO[T_Selector, T_ResourceResponse],
         output_dir: Path,
         verbose: bool,
@@ -49,14 +51,26 @@ class DownloadCommand(ToolkitCommand):
             limit: The maximum number of items to download for each selected set. If None, all items will be downloaded.
         """
         compression_cls = Compression.from_name(compression)
-
         console = io.client.console
+
+        counts_by_selector: dict[T_Selector, int | None] = {}
+        table = Table(title="Planned Downloads")
+        table.add_column("Data Type", style="cyan")
+        table.add_column("Item Count", justify="right", style="green")
+        for selector in selectors:
+            total = io.count(selector)
+            counts_by_selector[selector] = total
+            item_count = str(total) if total is not None else "Unknown"
+            table.add_row(str(selector), item_count)
+        console.print(table)
+
         for selector in selectors:
             target_dir = output_dir / sanitize_filename(selector.group)
             if verbose:
                 console.print(f"Downloading {selector.display_name} '{selector!s}' to {target_dir.as_posix()!r}")
 
-            iteration_count = self._get_iteration_count(io, selector, limit)
+            total = counts_by_selector[selector]
+            iteration_count = self._get_iteration_count(total, limit, io.CHUNK_SIZE)
             filestem = sanitize_filename(str(selector))
             if self._already_downloaded(target_dir, filestem):
                 warning = LowSeverityWarning(
@@ -105,16 +119,15 @@ class DownloadCommand(ToolkitCommand):
 
     @staticmethod
     def _get_iteration_count(
-        io: StorageIO[T_Selector, T_ResourceResponse],
-        selector: T_Selector,
+        total: int | None,
         limit: int | None,
+        chunk_size: int,
     ) -> int | None:
-        total = io.count(selector)
         if total is not None and limit is not None and total > limit:
             total = limit
         iteration_count: int | None = None
         if total is not None:
-            iteration_count = total // io.CHUNK_SIZE + (1 if total % io.CHUNK_SIZE > 0 else 0)
+            iteration_count = total // chunk_size + (1 if total % chunk_size > 0 else 0)
         return iteration_count
 
     @staticmethod
