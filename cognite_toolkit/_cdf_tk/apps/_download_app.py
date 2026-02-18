@@ -789,7 +789,6 @@ class DownloadApp(typer.Typer):
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = DownloadCommand(client=client)
 
-        client = EnvironmentVariables.create_from_environment().get_client()
         selectors: list[InstanceSelector]
         if instance_space is None:
             selector = DataModelingSelect(client, "download instances")
