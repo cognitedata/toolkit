@@ -81,7 +81,7 @@ class InstanceViewSelector(InstanceSelector):
 
 
 class InstanceSpaceSelector(InstanceSelector):
-    """This if for purge"""
+    """This is used for purge"""
 
     type: Literal["instanceSpace"] = "instanceSpace"
     instance_space: str
