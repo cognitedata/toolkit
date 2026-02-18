@@ -1,5 +1,4 @@
 from collections.abc import Iterable, Sequence
-from functools import lru_cache
 from typing import Any
 
 from cognite.client.data_classes import Annotation, AnnotationFilter
@@ -46,7 +45,6 @@ class AnnotationIO(StorageIO[AssetCentricSelector, Annotation]):
                 if limit is not None and total >= limit:
                     break
 
-    @lru_cache(maxsize=1)
     def count(self, selector: AssetCentricSelector) -> int | None:
         """There is no efficient way to count annotations in CDF."""
         return None

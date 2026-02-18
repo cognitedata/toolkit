@@ -1,5 +1,4 @@
 from collections.abc import Iterable, Mapping, Sequence
-from functools import lru_cache
 from types import MappingProxyType
 from typing import ClassVar, cast
 
@@ -168,7 +167,6 @@ class InstanceIO(
                 for chunk in self.stream_data(selector, limit)
             )
 
-    @lru_cache(maxsize=1)
     def count(self, selector: InstanceSelector) -> int | None:
         if isinstance(selector, InstanceViewSelector) or (
             isinstance(selector, InstanceSpaceSelector) and selector.view

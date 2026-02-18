@@ -1,4 +1,4 @@
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Sequence
 from functools import partial
 from pathlib import Path
 
@@ -31,7 +31,7 @@ from ._base import ToolkitCommand
 class DownloadCommand(ToolkitCommand):
     def download(
         self,
-        selectors: Iterable[T_Selector],
+        selectors: Sequence[T_Selector],
         io: StorageIO[T_Selector, T_ResourceResponse],
         output_dir: Path,
         verbose: bool,
@@ -53,11 +53,13 @@ class DownloadCommand(ToolkitCommand):
         compression_cls = Compression.from_name(compression)
         console = io.client.console
 
+        counts_by_selector: dict[T_Selector, int | None] = {}
         table = Table(title="Planned Downloads")
         table.add_column("Data Type", style="cyan")
         table.add_column("Item Count", justify="right", style="green")
         for selector in selectors:
             total = io.count(selector)
+            counts_by_selector[selector] = total
             item_count = str(total) if total is not None else "Unknown"
             table.add_row(str(selector), item_count)
         console.print(table)
@@ -67,7 +69,7 @@ class DownloadCommand(ToolkitCommand):
             if verbose:
                 console.print(f"Downloading {selector.display_name} '{selector!s}' to {target_dir.as_posix()!r}")
 
-            total = io.count(selector)
+            total = counts_by_selector[selector]
             iteration_count = self._get_iteration_count(total, limit, io.CHUNK_SIZE)
             filestem = sanitize_filename(str(selector))
             if self._already_downloaded(target_dir, filestem):
