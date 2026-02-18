@@ -1,4 +1,5 @@
 from collections import defaultdict
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +30,7 @@ class ModuleSourceParser:
         if errors:
             self.errors.extend(errors)
             return []
-        selected_modules = self._select_modules(files_by_module, self.selected_modules)
+        selected_modules = self._select_modules(files_by_module.keys(), self.selected_modules)
         build_variables, errors = self._parse_variables(variables, set(files_by_module.keys()), set(selected_modules))
         if errors:
             self.errors.extend(errors)
@@ -96,11 +97,11 @@ class ModuleSourceParser:
 
     @classmethod
     def _select_modules(
-        cls, files_by_module: dict[RelativeDirPath, list[RelativeDirPath]], selection: set[RelativeDirPath | str]
+        cls, module_paths: Iterable[RelativeDirPath], selection: set[RelativeDirPath | str]
     ) -> list[RelativeDirPath]:
         return [
             module_path
-            for module_path in files_by_module.keys()
+            for module_path in module_paths
             if module_path in selection
             or module_path.name in selection
             or any(parent in selection for parent in module_path.parents)
