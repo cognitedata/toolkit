@@ -1,6 +1,5 @@
 """Data Product Versions API for managing versions of CDF data products."""
 
-from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 
