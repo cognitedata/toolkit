@@ -35,6 +35,7 @@ class DownloadCommand(ToolkitCommand):
         verbose: bool,
         file_format: str,
         compression: str,
+        dry_run: bool = False,
         limit: int | None = 100_000,
     ) -> None:
         """Downloads data from CDF to the specified output directory.
@@ -57,6 +58,12 @@ class DownloadCommand(ToolkitCommand):
                 console.print(f"Downloading {selector.display_name} '{selector!s}' to {target_dir.as_posix()!r}")
 
             total = io.count(selector)
+            if dry_run:
+                if total is not None:
+                    console.print(f"{total} items would be downloaded for {selector!s}.")
+                else:
+                    console.print("Total number of items to download for {selector!s} is unknown.")
+                continue
             iteration_count = self._get_iteration_count(total, limit, io.CHUNK_SIZE)
             filestem = sanitize_filename(str(selector))
             if self._already_downloaded(target_dir, filestem):
