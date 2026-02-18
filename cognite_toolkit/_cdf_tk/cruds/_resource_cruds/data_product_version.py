@@ -36,16 +36,9 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
     @classmethod
     def get_id(cls, item: DataProductVersionRequest | DataProductVersionResponse | dict) -> DataProductVersionId:
         if isinstance(item, dict):
-            if "dataModel" in item:
-                return DataProductVersionId(
-                    data_product_external_id=item["dataProductExternalId"],
-                    data_model_external_id=item["dataModel"]["externalId"],
-                    data_model_version=item["dataModel"]["version"],
-                )
             return DataProductVersionId(
                 data_product_external_id=item["dataProductExternalId"],
-                data_model_external_id=item["dataModelExternalId"],
-                data_model_version=item["dataModelVersion"],
+                version=item["version"],
             )
         return item.as_id()
 
@@ -57,7 +50,6 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
     def get_required_capability(
         cls, items: Sequence[DataProductVersionRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
-        # dataproductsAcl is not yet in the SDK
         return []
 
     @classmethod
@@ -93,58 +85,42 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
     def retrieve(self, ids: SequenceNotStr[DataProductVersionId]) -> list[DataProductVersionResponse]:
         if not ids:
             return []
-        dp_ext_ids = {id_.data_product_external_id for id_ in ids}
-        all_versions: list[DataProductVersionResponse] = []
-        for dp_ext_id in dp_ext_ids:
-            all_versions.extend(self.client.tool.data_products.versions.list(dp_ext_id, limit=None))
-
-        id_set = set(ids)
-        return [v for v in all_versions if v.as_id() in id_set]
+        results: list[DataProductVersionResponse] = []
+        for id_ in ids:
+            ver = self.client.tool.data_products.versions.retrieve(
+                id_.data_product_external_id, id_.version, ignore_unknown_ids=True
+            )
+            if ver is not None:
+                results.append(ver)
+        return results
 
     def update(self, items: Sequence[DataProductVersionRequest]) -> list[DataProductVersionResponse]:
         if not items:
             return []
-        # We need the CDF versionId to update. Retrieve all existing versions for the affected data products.
-        dp_ext_ids = {item.data_product_external_id for item in items}
-        cdf_versions: list[DataProductVersionResponse] = []
-        for dp_ext_id in dp_ext_ids:
-            cdf_versions.extend(self.client.tool.data_products.versions.list(dp_ext_id, limit=None))
-
-        cdf_by_id = {v.as_id(): v for v in cdf_versions}
         results: list[DataProductVersionResponse] = []
         for item in items:
-            item_id = item.as_id()
-            cdf_version = cdf_by_id.get(item_id)
-            if cdf_version is None:
+            existing = self.client.tool.data_products.versions.retrieve(
+                item.data_product_external_id, item.version, ignore_unknown_ids=True
+            )
+            if existing is None:
                 results.extend(self.client.tool.data_products.versions.create(item.data_product_external_id, [item]))
             else:
                 results.append(
-                    self.client.tool.data_products.versions.update(
-                        item.data_product_external_id, cdf_version.version_id, item
-                    )
+                    self.client.tool.data_products.versions.update(item.data_product_external_id, item.version, item)
                 )
         return results
 
     def delete(self, ids: SequenceNotStr[DataProductVersionId]) -> int:
         if not ids:
             return 0
-        # We need the CDF versionId to delete. Retrieve existing versions.
-        dp_ext_ids = {id_.data_product_external_id for id_ in ids}
-        cdf_versions: list[DataProductVersionResponse] = []
-        for dp_ext_id in dp_ext_ids:
-            cdf_versions.extend(self.client.tool.data_products.versions.list(dp_ext_id, limit=None))
-
-        cdf_by_id = {v.as_id(): v for v in cdf_versions}
-        to_delete: defaultdict[str, list[int]] = defaultdict(list)
+        by_parent: defaultdict[str, list[str]] = defaultdict(list)
         for id_ in ids:
-            cdf_version = cdf_by_id.get(id_)
-            if cdf_version is not None:
-                to_delete[id_.data_product_external_id].append(cdf_version.version_id)
+            by_parent[id_.data_product_external_id].append(id_.version)
 
         count = 0
-        for dp_ext_id, version_ids in to_delete.items():
-            self.client.tool.data_products.versions.delete(dp_ext_id, version_ids)
-            count += len(version_ids)
+        for dp_ext_id, versions in by_parent.items():
+            self.client.tool.data_products.versions.delete(dp_ext_id, versions)
+            count += len(versions)
         return count
 
     def _iterate(

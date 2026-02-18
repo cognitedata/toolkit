@@ -24,6 +24,7 @@ class DataProductVersionsAPI(
     """API for managing data product versions.
 
     All endpoints are scoped under a parent data product: /dataproducts/{externalId}/versions.
+    Versions are identified by a user-specified semantic version string (major.minor.patch).
     """
 
     def __init__(self, http_client: HTTPClient) -> None:
@@ -31,9 +32,7 @@ class DataProductVersionsAPI(
             http_client=http_client,
             method_endpoint_map={
                 "create": Endpoint(method="POST", path="/dataproducts/{externalId}/versions", item_limit=1),
-                "retrieve": Endpoint(
-                    method="GET", path="/dataproducts/{externalId}/versions/{versionId}", item_limit=1
-                ),
+                "retrieve": Endpoint(method="GET", path="/dataproducts/{externalId}/versions/{version}", item_limit=1),
                 "update": Endpoint(method="POST", path="/dataproducts/{externalId}/versions/update", item_limit=1),
                 "delete": Endpoint(method="POST", path="/dataproducts/{externalId}/versions/delete", item_limit=10),
                 "list": Endpoint(method="GET", path="/dataproducts/{externalId}/versions", item_limit=10),
@@ -67,14 +66,14 @@ class DataProductVersionsAPI(
             results.extend(page.items)
         return results
 
-    def retrieve_by_version_id(
+    def retrieve(
         self,
         data_product_external_id: str,
-        version_id: int,
+        version: str,
         ignore_unknown_ids: bool = False,
     ) -> DataProductVersionResponse | None:
         endpoint = self._method_endpoint_map["retrieve"]
-        path = endpoint.path.format(externalId=data_product_external_id, versionId=version_id)
+        path = endpoint.path.format(externalId=data_product_external_id, version=version)
         response = self._http_client.request_single_retries(
             RequestMessage(
                 endpoint_url=self._make_url(path),
@@ -83,9 +82,9 @@ class DataProductVersionsAPI(
             )
         )
         if isinstance(response, SuccessResponse):
-            version = DataProductVersionResponse.model_validate_json(response.body)
-            version.data_product_external_id = data_product_external_id
-            return version
+            ver = DataProductVersionResponse.model_validate_json(response.body)
+            ver.data_product_external_id = data_product_external_id
+            return ver
         if ignore_unknown_ids:
             return None
         _ = response.get_success_or_raise()
@@ -94,13 +93,13 @@ class DataProductVersionsAPI(
     def update(
         self,
         data_product_external_id: str,
-        version_id: int,
+        version: str,
         item: DataProductVersionRequest,
     ) -> DataProductVersionResponse:
         endpoint = self._method_endpoint_map["update"]
         path = endpoint.path.format(externalId=data_product_external_id)
 
-        update_body: dict = {"versionId": version_id, "update": {}}
+        update_body: dict = {"version": version, "update": {}}
         if item.status is not None:
             update_body["update"]["status"] = {"set": item.status}
         if item.description is not None:
@@ -127,18 +126,18 @@ class DataProductVersionsAPI(
             )
         )
         page = self._validate_page_response(response.get_success_or_raise())
-        for version in page.items:
-            version.data_product_external_id = data_product_external_id
+        for ver in page.items:
+            ver.data_product_external_id = data_product_external_id
         return page.items[0]
 
-    def delete(self, data_product_external_id: str, version_ids: Sequence[int]) -> None:
+    def delete(self, data_product_external_id: str, versions: Sequence[str]) -> None:
         endpoint = self._method_endpoint_map["delete"]
         path = endpoint.path.format(externalId=data_product_external_id)
         self._http_client.request_single_retries(
             RequestMessage(
                 endpoint_url=self._make_url(path),
                 method=endpoint.method,
-                body_content={"items": [{"versionId": vid} for vid in version_ids]},
+                body_content={"items": [{"version": v} for v in versions]},
                 api_version=self._api_version,
             )
         ).get_success_or_raise()
@@ -165,8 +164,8 @@ class DataProductVersionsAPI(
                 )
             )
             page = self._validate_page_response(response.get_success_or_raise())
-            for version in page.items:
-                version.data_product_external_id = data_product_external_id
+            for ver in page.items:
+                ver.data_product_external_id = data_product_external_id
             all_items.extend(page.items)
 
             if remaining is not None:
@@ -202,8 +201,8 @@ class DataProductVersionsAPI(
                 )
             )
             page = self._validate_page_response(response.get_success_or_raise())
-            for version in page.items:
-                version.data_product_external_id = data_product_external_id
+            for ver in page.items:
+                ver.data_product_external_id = data_product_external_id
 
             if page.items:
                 yield page.items

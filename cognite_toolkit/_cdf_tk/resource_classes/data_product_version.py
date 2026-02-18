@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import DataProductVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import DataProductVersionId, SemanticVersion
 
 from .base import BaseModelResource, ToolkitResource
 
@@ -49,6 +49,9 @@ class DataProductVersionYAML(ToolkitResource):
         max_length=100,
         pattern=r"^[a-z]([a-z0-9_-]{0,98}[a-z0-9])?$",
     )
+    version: SemanticVersion = Field(
+        description="Semantic version of this data product version (major.minor.patch).",
+    )
     data_model: DataProductVersionDataModel = Field(
         description="Immutable reference to the data model version associated with this data product version.",
     )
@@ -69,6 +72,5 @@ class DataProductVersionYAML(ToolkitResource):
     def as_id(self) -> DataProductVersionId:
         return DataProductVersionId(
             data_product_external_id=self.data_product_external_id,
-            data_model_external_id=self.data_model.external_id,
-            data_model_version=self.data_model.version,
+            version=self.version,
         )

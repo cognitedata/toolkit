@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     UpdatableRequestResource,
 )
 
-from .identifiers import DataProductVersionId
+from .identifiers import DataProductVersionId, SemanticVersion
 
 
 class ViewInstanceSpaces(BaseModelObject):
@@ -34,6 +34,7 @@ class DataProductVersionTerms(BaseModelObject):
 
 class DataProductVersion(BaseModelObject):
     data_product_external_id: str = Field(exclude=True)
+    version: SemanticVersion
     data_model: DataProductVersionDataModel
     status: Literal["draft", "published", "deprecated"] = "draft"
     description: str | None = None
@@ -42,8 +43,7 @@ class DataProductVersion(BaseModelObject):
     def as_id(self) -> DataProductVersionId:
         return DataProductVersionId(
             data_product_external_id=self.data_product_external_id,
-            data_model_external_id=self.data_model.external_id,
-            data_model_version=self.data_model.version,
+            version=self.version,
         )
 
 
@@ -55,7 +55,6 @@ class DataProductVersionRequest(DataProductVersion, UpdatableRequestResource):
 
 
 class DataProductVersionResponse(DataProductVersion, ResponseResource[DataProductVersionRequest]):
-    version_id: int
     created_time: int
     last_updated_time: int
 
