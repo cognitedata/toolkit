@@ -14,6 +14,7 @@ from .cognitefile import CogniteFileYAML
 from .containers import ContainerYAML
 from .data_model import DataModelYAML
 from .data_product import DataProductYAML
+from .data_product_version import DataProductVersionYAML
 from .datapoint_subscription import DatapointSubscriptionYAML
 from .dataset import DataSetYAML
 from .event import EventYAML
@@ -65,6 +66,7 @@ __all__ = [
     "CogniteFileYAML",
     "ContainerYAML",
     "DataModelYAML",
+    "DataProductVersionYAML",
     "DataProductYAML",
     "DataSetYAML",
     "DatabaseYAML",

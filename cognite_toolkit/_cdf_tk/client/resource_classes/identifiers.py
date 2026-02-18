@@ -130,6 +130,18 @@ class DataSetId(Identifier):
         return f"dataSetId={self.data_set_id}"
 
 
+class DataProductVersionId(Identifier):
+    data_product_external_id: str
+    data_model_external_id: str
+    data_model_version: str
+
+    def __str__(self) -> str:
+        return (
+            f"dataProductExternalId='{self.data_product_external_id}', "
+            f"dataModel=(externalId='{self.data_model_external_id}', version='{self.data_model_version}')"
+        )
+
+
 class TransformationNotificationId(Identifier):
     transformation_external_id: str
     destination: str
