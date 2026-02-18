@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Mapping, Sequence
+from functools import lru_cache
 from itertools import groupby
 from typing import Any, ClassVar, cast
 
@@ -203,6 +204,7 @@ class DatapointsIO(
         data_response: DataPointListResponse = DataPointListResponse.FromString(response.content)
         return Page("Main", [data_response])
 
+    @lru_cache(maxsize=1)
     def count(self, selector: DataPointsSelector) -> int | None:
         if isinstance(selector, DataPointsDataSetSelector):
             return self.client.time_series.aggregate_count(

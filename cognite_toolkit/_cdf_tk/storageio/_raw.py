@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Sequence
+from functools import lru_cache
 from itertools import chain
 from uuid import uuid4
 
@@ -39,6 +40,7 @@ class RawIO(
     def as_id(self, item: Row) -> str:
         return str(item.key)
 
+    @lru_cache(maxsize=1)
     def count(self, selector: RawTableSelector) -> int | None:
         # Raw tables do not support aggregation queries, so we do not know the count
         # up front.

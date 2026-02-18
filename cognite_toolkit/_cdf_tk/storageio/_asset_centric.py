@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
+from functools import lru_cache
 from typing import Any, ClassVar, Generic
 
 from cognite.client.data_classes import Label, LabelDefinition
@@ -73,6 +74,7 @@ class AssetCentricIO(
     def retrieve(self, ids: Sequence[int]) -> Sequence[T_ResourceResponse]:
         raise NotImplementedError()
 
+    @lru_cache(maxsize=1)
     def count(self, selector: AssetCentricSelector) -> int | None:
         if isinstance(selector, DataSetSelector):
             return self._aggregator.count(data_set_external_id=selector.data_set_external_id)
@@ -690,6 +692,7 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResour
     ) -> Iterable[Page[AssetCentricResource]]:
         yield from self.get_resource_io(selector.kind).stream_data(selector, limit)
 
+    @lru_cache(maxsize=1)
     def count(self, selector: AssetCentricSelector) -> int | None:
         return self.get_resource_io(selector.kind).count(selector)
 

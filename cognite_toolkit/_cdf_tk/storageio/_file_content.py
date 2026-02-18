@@ -2,6 +2,7 @@ import json
 import mimetypes
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, cast
 
@@ -206,6 +207,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         except (KeyError, IndexError):
             return None
 
+    @lru_cache(maxsize=1)
     def count(self, selector: FileContentSelector) -> int | None:
         if isinstance(selector, FileIdentifierSelector):
             return len(selector.identifiers)

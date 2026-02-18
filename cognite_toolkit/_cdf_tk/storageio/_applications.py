@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Sequence
+from functools import lru_cache
 from itertools import zip_longest
 from typing import Any
 
@@ -64,6 +65,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
         for chunk in chunker_sequence(selected_charts, self.CHUNK_SIZE):
             yield Page(worker_id="main", items=chunk)
 
+    @lru_cache(maxsize=1)
     def count(self, selector: ChartSelector) -> int | None:
         # There is no way to get the count of charts up front.
         return None
@@ -179,6 +181,7 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
                     )
             yield Page(worker_id="main", items=items)
 
+    @lru_cache(maxsize=1)
     def count(self, selector: CanvasSelector) -> int | None:
         if not isinstance(selector, CanvasExternalIdSelector):
             raise ToolkitNotImplementedError(f"Unsupported selector type {type(selector).__name__!r} for CanvasIO")
