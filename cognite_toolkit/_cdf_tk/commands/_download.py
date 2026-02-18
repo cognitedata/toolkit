@@ -2,6 +2,8 @@ from collections.abc import Callable, Iterable
 from functools import partial
 from pathlib import Path
 
+from rich.table import Table
+
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.protocols import T_ResourceResponse
@@ -35,7 +37,6 @@ class DownloadCommand(ToolkitCommand):
         verbose: bool,
         file_format: str,
         compression: str,
-        dry_run: bool = False,
         limit: int | None = 100_000,
     ) -> None:
         """Downloads data from CDF to the specified output directory.
@@ -50,20 +51,23 @@ class DownloadCommand(ToolkitCommand):
             limit: The maximum number of items to download for each selected set. If None, all items will be downloaded.
         """
         compression_cls = Compression.from_name(compression)
-
         console = io.client.console
+
+        table = Table(title="Planned Downloads")
+        table.add_column("Data Type", style="cyan")
+        table.add_column("Item Count", justify="right", style="green")
+        for selector in selectors:
+            total = io.count(selector)
+            item_count = str(total) if total is not None else "Unknown"
+            table.add_row(str(selector), item_count)
+        console.print(table)
+
         for selector in selectors:
             target_dir = output_dir / sanitize_filename(selector.group)
             if verbose:
                 console.print(f"Downloading {selector.display_name} '{selector!s}' to {target_dir.as_posix()!r}")
 
             total = io.count(selector)
-            if dry_run:
-                if total is not None:
-                    console.print(f"{total} items would be downloaded for {selector!s}.")
-                else:
-                    console.print("Total number of items to download for {selector!s} is unknown.")
-                continue
             iteration_count = self._get_iteration_count(total, limit, io.CHUNK_SIZE)
             filestem = sanitize_filename(str(selector))
             if self._already_downloaded(target_dir, filestem):
