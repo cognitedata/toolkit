@@ -37,7 +37,7 @@ class Group(BaseModelObject):
     capabilities: list[GroupCapability] | None = None
     metadata: dict[str, str] | None = None
     attributes: GroupAttributes | None = None
-    source_id: str | None = None
+    source_id: str | None = Field(None, coerce_numbers_to_str=True)
     members: list[str] | Literal["allUserAccounts"] | None = None
 
 

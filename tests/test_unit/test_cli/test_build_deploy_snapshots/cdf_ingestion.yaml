@@ -1,4 +1,4 @@
-Group:
+GroupResponse:
 - capabilities:
   - projectsAcl:
       actions:
@@ -36,10 +36,8 @@ Group:
       scope:
         tableScope:
           dbsToTables:
-            contextualizationState:
-              tables: []
-            ingestion:
-              tables: []
+            contextualizationState: []
+            ingestion: []
   - dataModelInstancesAcl:
       actions:
       - READ
@@ -150,10 +148,8 @@ Group:
       scope:
         tableScope:
           dbsToTables:
-            contextualizationState:
-              tables: []
-            ingestion:
-              tables: []
+            contextualizationState: []
+            ingestion: []
   - dataModelInstancesAcl:
       actions:
       - READ

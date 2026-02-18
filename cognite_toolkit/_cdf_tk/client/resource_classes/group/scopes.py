@@ -6,7 +6,7 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BeforeValidator, Field, TypeAdapter
+from pydantic import BeforeValidator, Field, TypeAdapter, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import SCOPE_NAME
@@ -71,6 +71,28 @@ class TableScope(ScopeDefinition):
 
     scope_name: Literal["tableScope"] = Field("tableScope", exclude=True)
     dbs_to_tables: dict[str, list[str]]
+
+    @field_validator("dbs_to_tables", mode="before")
+    @classmethod
+    def standardize_format(cls, value: Any) -> dict[str, list[str]]:
+        """The API returns the dbsToTables field in a different format
+        than the documentation specifies. This validator standardizes the format to match the documentation."""
+        if not isinstance(value, dict):
+            # Let pydantic handle the type error
+            return value
+        standardized: dict[str, list[str]] = {}
+        for db, tables in value.items():
+            if isinstance(tables, list):
+                standardized[db] = tables
+            elif isinstance(tables, dict) and "tables" in tables and isinstance(tables["tables"], list):
+                standardized[db] = tables["tables"]
+            elif tables == {}:
+                standardized[db] = []
+            else:
+                raise ValueError(
+                    f"Invalid format for dbsToTables: expected dict[str, list[str]] or dict[str, dict[tables: list[str]]], got {type(tables).__name__} for db '{db}'"
+                )
+        return standardized
 
 
 class ExtractionPipelineScope(ScopeDefinition):
