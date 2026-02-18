@@ -1347,11 +1347,11 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelReference, GraphQLDataModelRequ
 
     def delete(self, ids: SequenceNotStr[DataModelReference]) -> int:
         retrieved = self.retrieve(ids)
-        views = [view for dml in retrieved for view in dml.views or []]
+        views = {view for dml in retrieved for view in dml.views or []}
         self.client.tool.graphql_data_models.delete(list(ids))
         deleted = len(ids)
         if views:
-            self.client.tool.views.delete(views)
+            self.client.tool.views.delete(list(views))
             deleted += len(views)
         return deleted
 
