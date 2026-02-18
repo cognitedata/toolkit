@@ -1,4 +1,5 @@
 import contextlib
+from enum import Enum
 from pathlib import Path
 from typing import Annotated
 
@@ -8,10 +9,16 @@ from rich import print
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, PullCommand
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
 
 CDF_TOML = CDFToml.load(Path.cwd())
+
+
+class ModulesListFormats(str, Enum):
+    table = "table"
+    json = "json"
 
 
 class ModulesApp(typer.Typer):
@@ -235,6 +242,15 @@ class ModulesApp(typer.Typer):
                 help="Build environment to use.",
             ),
         ] = CDF_TOML.cdf.default_env,
+        output_format: Annotated[
+            ModulesListFormats,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Output format for modules list. Supported formats: table, json.",
+                hidden=not Flags.MODULES_LIST_JSON.is_enabled(),
+            ),
+        ] = ModulesListFormats.table,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -252,4 +268,10 @@ class ModulesApp(typer.Typer):
             client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = ModulesCommand(client=client)
-        cmd.run(lambda: cmd.list(organization_dir=organization_dir, build_env_name=build_env))
+        cmd.run(
+            lambda: cmd.list(
+                organization_dir=organization_dir,
+                build_env_name=build_env,
+                output_format=output_format.value,
+            )
+        )

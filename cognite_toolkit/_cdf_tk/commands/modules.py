@@ -1,3 +1,4 @@
+import json
 import shutil
 import sys
 import tempfile
@@ -37,6 +38,7 @@ from cognite_toolkit._cdf_tk.commands._changes import (
 )
 from cognite_toolkit._cdf_tk.commands._questionary_style import custom_style_fancy
 from cognite_toolkit._cdf_tk.constants import (
+    DEFAULT_ENV,
     MODULES,
     RESOURCES_PATH,
     SUPPORT_MODULE_UPGRADE_FROM_VERSION,
@@ -44,6 +46,7 @@ from cognite_toolkit._cdf_tk.constants import (
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
+    BuiltModule,
     Environment,
     InitConfigYAML,
     ModuleLocation,
@@ -694,13 +697,41 @@ class ModulesCommand(ToolkitCommand):
             )
         return parse_version(content.get("cdf_toolkit_version", "0.0.0"))
 
-    def list(self, organization_dir: Path, build_env_name: str | None) -> None:
+    @staticmethod
+    def _list_row_from_module(module: BuiltModule) -> dict[str, str | int]:
+        return {
+            "module_name": module.name,
+            "resource_folders": len(module.resources),
+            "resources": sum(len(resources) for resources in module.resources.values()),
+            "build_warnings": module.warning_count,
+            "build_result": module.status,
+            "location": module.location.path.as_posix(),
+        }
+
+    def list(
+        self,
+        organization_dir: Path,
+        build_env_name: str | None,
+        output_format: Literal["table", "json"] = "table",
+    ) -> None:
         if organization_dir in {Path("."), Path("./")}:
             organization_dir = Path.cwd()
-        verify_module_directory(organization_dir, build_env_name)
-        modules = ModuleResources(organization_dir, build_env_name)
+        effective_build_env = build_env_name or DEFAULT_ENV
+        verify_module_directory(organization_dir, effective_build_env)
+        modules = ModuleResources(organization_dir, effective_build_env)
+        module_list = modules.list()
 
-        table = Table(title=f"{build_env_name} {organization_dir.name} modules")
+        if output_format == "json":
+            output = {
+                "environment": effective_build_env,
+                "organization_dir": organization_dir.as_posix(),
+                "modules": [self._list_row_from_module(module) for module in module_list],
+            }
+            # Use plain stdout to keep output machine-parseable and avoid Rich markup processing.
+            sys.stdout.write(f"{json.dumps(output, indent=2, sort_keys=True)}\n")
+            return
+
+        table = Table(title=f"{effective_build_env} {organization_dir.name} modules")
         table.add_column("Module Name", style="bold")
         table.add_column("Resource Folders", style="bold")
         table.add_column("Resources", style="bold")
@@ -708,7 +739,7 @@ class ModulesCommand(ToolkitCommand):
         table.add_column("Build Result", style="bold")
         table.add_column("Location", style="bold")
 
-        for module in modules.list():
+        for module in module_list:
             if module.status == "Success":
                 status = f"[green]{module.status}[/]"
             else:

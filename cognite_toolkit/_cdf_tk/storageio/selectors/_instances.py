@@ -58,7 +58,31 @@ class InstanceSelector(DataSelector, ABC):
         raise NotImplementedError()
 
 
+class InstanceViewSelector(InstanceSelector):
+    """This is used for download"""
+
+    type: Literal["instanceView"] = "instanceView"
+    view: SelectedView
+    instance_type: Literal["node", "edge"] = "node"
+    instance_spaces: tuple[str, ...] | None = None
+
+    def get_schema_spaces(self) -> list[str] | None:
+        return [self.view.space]
+
+    def get_instance_spaces(self) -> list[str] | None:
+        return list(self.instance_spaces) if self.instance_spaces else None
+
+    @property
+    def group(self) -> str:
+        return self.view.space
+
+    def __str__(self) -> str:
+        return f"{self.view.external_id}_{self.view.version}_{self.instance_type}"
+
+
 class InstanceSpaceSelector(InstanceSelector):
+    """This is used for purge"""
+
     type: Literal["instanceSpace"] = "instanceSpace"
     instance_space: str
     instance_type: Literal["node", "edge"] = "node"
@@ -80,27 +104,9 @@ class InstanceSpaceSelector(InstanceSelector):
         return f"{self.view}_{self.instance_type}"
 
 
-class InstanceViewSelector(InstanceSelector):
-    type: Literal["instanceView"] = "instanceView"
-    view: SelectedView
-    instance_type: Literal["node", "edge"] = "node"
-    instance_spaces: tuple[str, ...] | None = None
-
-    def get_schema_spaces(self) -> list[str] | None:
-        return [self.view.space]
-
-    def get_instance_spaces(self) -> list[str] | None:
-        return list(self.instance_spaces) if self.instance_spaces else None
-
-    @property
-    def group(self) -> str:
-        return self.view.space
-
-    def __str__(self) -> str:
-        return f"{self.view.external_id}_{self.view.version}_{self.instance_type}"
-
-
 class InstanceFileSelector(InstanceSelector):
+    """This is used for the purge command"""
+
     type: Literal["instanceFile"] = "instanceFile"
 
     datafile: Path
