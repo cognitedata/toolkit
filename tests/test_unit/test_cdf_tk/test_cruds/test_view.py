@@ -273,7 +273,7 @@ class TestViewLoader:
     def test_topological_sort_container_constraints_cyclical_dependency(
         self, toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
-        """Test that cyclical dependencies are warned about but don't fail."""
+        """Test that views with cyclical dependencies are returned separately from the sorted views."""
 
         loader = ViewCRUD.create_loader(toolkit_client_approval.mock_client)
 
@@ -281,8 +281,8 @@ class TestViewLoader:
         container_a = _create_test_container(
             "ContainerA",
             {
-                "refC": ContainerPropertyDefinition(
-                    type=DirectNodeRelation(container=ContainerReference(space="my_space", external_id="ContainerC")),
+                "refB": ContainerPropertyDefinition(
+                    type=DirectNodeRelation(container=ContainerReference(space="my_space", external_id="ContainerB")),
                     nullable=True,
                     immutable=False,
                     auto_increment=False,
@@ -292,12 +292,14 @@ class TestViewLoader:
         container_b = _create_test_container(
             "ContainerB",
             {
-                "refA": ContainerPropertyDefinition(
-                    type=DirectNodeRelation(container=ContainerReference(space="my_space", external_id="ContainerA")),
-                    nullable=True,
-                    immutable=False,
-                    auto_increment=False,
-                )
+                "name": ContainerPropertyDefinition(
+                    type=TextProperty(), nullable=True, immutable=False, auto_increment=False
+                ),
+            },
+            {
+                "requiresA": RequiresConstraintDefinition(
+                    require=ContainerReference(space="my_space", external_id="ContainerA")
+                ),
             },
         )
         container_c = _create_test_container(
@@ -307,13 +309,7 @@ class TestViewLoader:
                     type=TextProperty(), nullable=True, immutable=False, auto_increment=False
                 ),
             },
-            {
-                "requiresB": RequiresConstraintDefinition(
-                    require=ContainerReference(space="my_space", external_id="ContainerB")
-                ),
-            },
         )
-
         view_a = _create_test_view("ViewA", container_a)
         view_b = _create_test_view("ViewB", container_b)
         view_c = _create_test_view("ViewC", container_c)
@@ -325,8 +321,8 @@ class TestViewLoader:
 
         sorted_views, cyclic_views = loader.topological_sort_container_constraints(view_ids)
 
-        assert set(sorted_views + cyclic_views) == set(view_ids)
-        assert len(cyclic_views) > 0
+        assert sorted_views == [view_c.as_id()]
+        assert set(cyclic_views) == {view_a.as_id(), view_b.as_id()}
 
     @pytest.mark.parametrize(
         "view_id,expected_readonly_props",
