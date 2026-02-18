@@ -52,7 +52,8 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     InteractiveCanvasSelect,
     InteractiveChartSelect,
     RawTableInteractiveSelect,
-    TimeSeriesInteractiveSelect, ViewSelectFilter,
+    TimeSeriesInteractiveSelect,
+    ViewSelectFilter,
 )
 
 
@@ -801,7 +802,7 @@ class DownloadApp(typer.Typer):
                     instance_type=selected_instance_type,
                     include_global=True,
                     schema_space=selected_schema_space,
-                )
+                ),
             )
             selectors: list[InstanceSpaceSelector] = [
                 InstanceSpaceSelector(
