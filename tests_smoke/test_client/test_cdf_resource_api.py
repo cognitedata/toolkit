@@ -14,7 +14,6 @@ from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
-from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from cognite_toolkit._cdf_tk.client.api.infield import APMConfigAPI, InFieldCDMConfigAPI
 from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI, WrappedInstancesAPI
@@ -238,12 +237,14 @@ def crud_cdf_resource_apis() -> Iterable[tuple]:
                 for no, example in enumerate(examples, start=1):
                     yield pytest.param(example, request_cls, api_cls, id=f"{id_str} example {no}")
 
+
 GRAPHQL_MODEL = """"The smoke tests for GraphQL"
 type SmokeTest {
   name: String! @limits(maxTextSize: 255)
   data: JSONObject!
 }
 """
+
 
 def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[dict[str, Any]]:
     """Return an example with the only required and identifier fields for the given resource class."""
@@ -330,7 +331,14 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
             }
         ],
         HostedExtractorDestinationRequest: [{"externalId": "smoke-test-extractor-destination"}],
-        GraphQLDataModelRequest: [{"space": SMOKE_SPACE, "externalId": "smoke_test_graphql_data_model", "version": "v1", "graphQlDml": GRAPHQL_MODEL}],
+        GraphQLDataModelRequest: [
+            {
+                "space": SMOKE_SPACE,
+                "externalId": "smoke_test_graphql_data_model",
+                "version": "v1",
+                "graphQlDml": GRAPHQL_MODEL,
+            }
+        ],
         InFieldCDMLocationConfigRequest: [
             {
                 "space": SMOKE_SPACE,
