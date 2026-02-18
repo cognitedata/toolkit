@@ -600,7 +600,7 @@ class DataModelingSelect:
             selected_space = (
                 filter.schema_space
                 or self.select_schema_space(
-                    filter.include_global,
+                    filter.include_global or False,
                     message=f"In which Spaces is the view you will use to select instances to {self.operation}?",
                 ).space
             )
