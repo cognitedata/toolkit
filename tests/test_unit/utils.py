@@ -426,6 +426,8 @@ class FakeCogniteResourceGenerator:
 
         if var_name == "external_id" and type_ is str:
             return self._random_string(50, sample_from=string.ascii_uppercase + string.digits)
+        elif var_name == "version" and type_ is str:
+            return f"{self._random.randint(0, 99)}.{self._random.randint(0, 99)}.{self._random.randint(0, 99)}"
         elif var_name == "id" and type_ is int:
             return self._random.choice(range(1, MAX_VALID_INTERNAL_ID + 1))
         if type_ is str or type_ is Any:
