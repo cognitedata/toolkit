@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
@@ -17,6 +19,7 @@ class GraphQLDataModel(BaseModelObject):
     version: str
     name: str | None = None
     description: str | None = None
+    graph_ql_dml: str | None = None
 
     def as_id(self) -> DataModelReference:
         return DataModelReference(space=self.space, external_id=self.external_id, version=self.version)
@@ -26,7 +29,6 @@ class GraphQLDataModelRequest(GraphQLDataModel, RequestResource):
     """Request resource for creating/updating GraphQL data models."""
 
     previous_version: str | None = None
-    graph_ql_dml: str | None = None
     preserve_dml: bool | None = None
     # Used in the loading process, but not part of the API payload.
     graphql_file: str | None = Field(None, exclude=True)
@@ -35,9 +37,8 @@ class GraphQLDataModelRequest(GraphQLDataModel, RequestResource):
 class GraphQLDataModelResponse(GraphQLDataModel, ResponseResource[GraphQLDataModelRequest]):
     """Response resource for GraphQL data models."""
 
-    is_global: bool
-    created_time: int
-    last_updated_time: int
+    created_time: datetime
+    last_updated_time: datetime
     views: list[ViewReference] | None = None
 
     def as_request_resource(self) -> GraphQLDataModelRequest:

@@ -6,8 +6,9 @@ This API provides a wrapper around the legacy DML API for managing GraphQL data 
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
+
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
-from cognite_toolkit._cdf_tk.client.cdf_client.responses import GraphQLUpsertResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsSuccessResponse,
@@ -22,6 +23,28 @@ from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
     GraphQLDataModelRequest,
     GraphQLDataModelResponse,
 )
+from cognite_toolkit._cdf_tk.utils import humanize_collection
+
+
+class UpsertResponseData(BaseModel):
+    errors: dict[str, Any] | None = None
+    result: GraphQLDataModelResponse
+
+
+class GraphQLUpsertResponse(BaseModel):
+    upsert_graph_ql_dml_version: UpsertResponseData = Field(alias="upsertGraphQlDmlVersion")
+
+
+class GraphQLErrors(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    message: str | None = None
+    locations: list[dict[str, int]] | None = None
+    extensions: dict[str, JsonValue] | None = None
+
+
+class GraphQLResponse(BaseModel):
+    data: GraphQLUpsertResponse
+    errors: list[GraphQLErrors] | None = None
 
 
 class GraphQLDataModelsAPI(CDFResourceAPI[DataModelReference, GraphQLDataModelRequest, GraphQLDataModelResponse]):
@@ -56,10 +79,12 @@ class GraphQLDataModelsAPI(CDFResourceAPI[DataModelReference, GraphQLDataModelRe
         )
         result = self._http_client.request_single_retries(request)
         response = result.get_success_or_raise()
-        parsed = GraphQLUpsertResponse.model_validate_json(response.body)
-        if errors := parsed.upsert_graph_ql_dml_version.errors:
-            raise ToolkitAPIError(f"Failed GraphQL errors: {errors}")
-        return parsed
+        parsed = GraphQLResponse.model_validate_json(response.body)
+        if errors := parsed.errors:
+            raise ToolkitAPIError(
+                f"Failed GraphQL errors: {humanize_collection([error.message for error in errors if error.message])}"
+            )
+        return parsed.data
 
     def create(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
         """Apply (create or update) GraphQL data models in CDF.
@@ -72,22 +97,13 @@ class GraphQLDataModelsAPI(CDFResourceAPI[DataModelReference, GraphQLDataModelRe
         """
         results: list[GraphQLDataModelResponse] = []
         for item in items:
-            payload = {"query": UPSERT_BODY, "variables": {"dmCreate": item.dump()}}
+            payload = {
+                "query": UPSERT_BODY,
+                "variables": {"dmCreate": item.model_dump(mode="json", by_alias=True, exclude_unset=False)},
+            }
             response = self._post_graphql(payload)
-
-            results.append(response.upsert_graph_ql_dml_version.data)
-
+            results.append(response.upsert_graph_ql_dml_version.result)
         return results
-
-    def update(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
-        """Update GraphQL data models in CDF.
-
-        Args:
-            items: List of GraphQLDataModelRequest objects to update.
-        Returns:
-            List of updated GraphQLDataModelResponse objects.
-        """
-        return self.create(items)
 
     def retrieve(
         self, items: Sequence[DataModelReference], inline_views: bool = False
