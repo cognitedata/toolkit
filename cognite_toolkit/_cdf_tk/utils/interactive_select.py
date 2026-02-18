@@ -600,7 +600,7 @@ class DataModelingSelect:
             selected_space = (
                 filter.schema_space
                 or self.select_schema_space(
-                    filter.include_global or False,
+                    filter.include_global,
                     message=f"In which Spaces is the view you will use to select instances to {self.operation}?",
                 ).space
             )
@@ -620,9 +620,7 @@ class DataModelingSelect:
                 and (filter.mapped_container is None or filter.mapped_container in view.mapped_containers)
             ]
             if not views:
-                raise ToolkitMissingResourceError(
-                    f"No views found in space {selected_space!r} that match the filter: {filter!s}"
-                )
+                raise ToolkitMissingResourceError(f"No views found that matches {filter!s}")
             return views
         else:
             raise NotImplementedError(f"Strategy {filter.strategy} is not implemented.")
