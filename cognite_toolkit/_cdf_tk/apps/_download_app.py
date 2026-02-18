@@ -796,7 +796,7 @@ class DownloadApp(typer.Typer):
                 multiselect=True,
                 message="Select views to download instance properties from.",
                 filter=ViewSelectFilter(
-                    strategy="data_model",
+                    strategy="dataModel",
                     include_global=True,
                 ),
             )

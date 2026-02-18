@@ -507,7 +507,7 @@ class ViewSelectFilter:
 
     """
 
-    strategy: Literal["schemaSpace", "data_model"] = "schemaSpace"
+    strategy: Literal["schemaSpace", "dataModel"] = "schemaSpace"
     include_global: bool | None = None
     schema_space: str | None = None
     instance_type: Literal["node", "edge", "all"] | None = None
@@ -614,7 +614,7 @@ class DataModelingSelect:
                 ),
                 limit=None,
             )
-        elif filter.strategy == "data_model":
+        elif filter.strategy == "dataModel":
             datamodel = self.select_data_model(
                 inline_views=True,
                 message=f"Select the data model through which to {self.operation}:",

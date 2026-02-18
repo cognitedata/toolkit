@@ -186,7 +186,7 @@ class DataModelsAPI(CDFResourceAPI[DataModelReference, DataModelRequest, DataMod
             endpoint = self._method_endpoint_map["list"]
             while True:
                 page_limit = endpoint.item_limit if limit is None else min(limit - total, endpoint.item_limit)
-                parameters: dict[str, Any] = self._filter_out_none_values(filter.dump()) or {} if filter else {}
+                parameters: dict[str, Any] = (self._filter_out_none_values(filter.dump()) or {}) if filter else {}
                 parameters["inlineViews"] = True
                 parameters["limit"] = page_limit
                 if cursor is not None:
