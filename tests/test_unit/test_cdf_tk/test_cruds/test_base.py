@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import cast, get_origin
+from typing import cast, get_args, get_origin
 from unittest.mock import MagicMock
 
 import pytest
@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import (
     CRUD_LIST,
     CRUDS_BY_FOLDER_NAME,
+    CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA,
     RESOURCE_CRUD_LIST,
     DatapointsCRUD,
     FileMetadataCRUD,
@@ -508,3 +509,15 @@ class TestLoaders:
             duplicates.pop(loader.create_loader(env_vars_with_client.get_client()).display_name, None)
 
         assert not duplicates, f"Duplicate display names: {duplicates}"
+
+
+class TestConstants:
+    @pytest.mark.parametrize(
+        "folder_names",
+        [
+            pytest.param(set(CRUDS_BY_FOLDER_NAME.keys()), id="CRUDS_BY_FOLDER_NAME"),
+            pytest.param(set(CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA.keys()), id="CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA"),
+        ],
+    )
+    def test_resource_key_is_a_resource_type(self, folder_names: set[str]) -> None:
+        assert folder_names <= set(get_args(ResourceTypes))
