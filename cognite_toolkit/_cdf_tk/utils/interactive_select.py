@@ -617,7 +617,7 @@ class DataModelingSelect:
         elif filter.strategy == "data_model":
             datamodel = self.select_data_model(
                 inline_views=True,
-                message=f"Select the data model that contains the view you want to use to select instances to {self.operation}:",
+                message=f"Select the data model that contains to find views in to {self.operation}:",
                 schema_space=filter.schema_space,
             )
             views = datamodel.views or []

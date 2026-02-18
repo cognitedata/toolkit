@@ -705,8 +705,9 @@ class DownloadApp(typer.Typer):
             )
         )
 
-    @staticmethod
+    @classmethod
     def download_instances_cmd(
+        cls,
         ctx: typer.Context,
         instance_space: Annotated[
             str | None,
@@ -812,7 +813,7 @@ class DownloadApp(typer.Typer):
             for view in selected_views:
                 view_instance_type = selector.select_instance_type(
                     view.used_for,
-                    message="fSelect instance type to download for view {view.space}:{view.external_id}(version={view.version})",
+                    message=f"Select instance type to download for view {view.space}:{view.external_id}(version={view.version})",
                 )
                 selectors.append(
                     InstanceViewSelector(
@@ -825,6 +826,9 @@ class DownloadApp(typer.Typer):
                         instance_type=view_instance_type,
                     )
                 )
+            output_dir, file_format, compression, limit = cls._interactive_select_shared(  # type: ignore[assignment]
+                output_dir, file_format, InstanceFormats, compression, limit, "instances", "view"
+            )
         elif schema_space is None and view_external_ids is None:
             selectors = [InstanceSpaceSelector(instance_space=instance_space, instance_type=instance_type.value)]
         elif schema_space is not None and view_external_ids is not None:
@@ -857,6 +861,46 @@ class DownloadApp(typer.Typer):
                 verbose=verbose,
             )
         )
+
+    @classmethod
+    def _interactive_select_shared(
+        cls,
+        output_dir: Path,
+        file_format: Enum,
+        file_format_options: type[Enum],
+        compression: CompressionFormat,
+        limit: int,
+        display_name: str,
+        selector_type: str,
+    ) -> tuple[Path, Enum, Enum, int]:
+        """Interactive selection of output_dir, file_format, compression and limit for the download commands."""
+        selected_output_dir = Path(
+            questionary.path("Where to download the data:", default=str(output_dir), only_directories=True).unsafe_ask()
+        )
+
+        file_formats = [Choice(title=format_.value, value=format_) for format_ in file_format_options]
+        if len(file_formats) == 1:
+            selected_file_format = file_formats[0].value
+        else:
+            selected_file_format = questionary.select(
+                "Select format to download the data in:",
+                choices=file_formats,
+                default=file_format,  # type: ignore[arg-type]
+            ).unsafe_ask()
+
+        selected_compression = questionary.select(
+            "Select compression format to use when downloading the data:",
+            choices=[Choice(title=comp.value, value=comp) for comp in CompressionFormat],
+            default=compression,
+        ).unsafe_ask()
+        selected_limit = int(
+            questionary.text(
+                f"The maximum number of {display_name} to download per {selector_type}. Use -1 to download all {display_name}.",
+                default=str(limit),
+                validate=lambda value: value.lstrip("-").isdigit() and (int(value) == -1 or int(value) > 0),
+            ).unsafe_ask()
+        )
+        return selected_output_dir, selected_file_format, selected_compression, selected_limit  # type: ignore[return-value]
 
     @staticmethod
     def download_datapoints_cmd(
