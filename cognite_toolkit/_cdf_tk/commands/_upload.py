@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.storageio._base import TableUploadableStorageIO, Up
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, load_selector
 from cognite_toolkit._cdf_tk.storageio.selectors._instances import InstanceSpaceSelector
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
@@ -133,7 +134,7 @@ class UploadCommand(ToolkitCommand):
         )
         if cyclic_views:
             MediumSeverityWarning(
-                f"Cyclic dependencies detected between views: {', '.join(str(view) for view in cyclic_views)}. "
+                f"Cyclic dependencies detected between views: {humanize_collection(cyclic_views)}. "
                 f"If their constraints are not already satisfied by instances in existing containers / views "
                 f"in CDF, the upload may fail for these views."
             ).print_warning(console=client.console)
