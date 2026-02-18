@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     WorkflowTriggerCRUD,
 )
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.data_product import DataProductCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.data_product_version import DataProductVersionCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.location import LocationFilterCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeployResult
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -101,7 +102,7 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
     # Data Products API is not yet available on the test server.
     # The alpha flag is turned off in cdf.toml so data products are not built,
     # but we still exclude the CRUD to be safe.
-    _skip_cruds = {DataProductCRUD}
+    _skip_cruds = {DataProductCRUD, DataProductVersionCRUD}
     with (
         patch.dict(
             os.environ,
@@ -139,7 +140,7 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
         if loader_cls in {HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD}:
             # These resources we have no way of knowing if they have changed. So they are always redeployed.
             continue
-        if loader_cls is DataProductCRUD:
+        if loader_cls in {DataProductCRUD, DataProductVersionCRUD}:
             # Data Products API is not yet available on the test server.
             continue
         loader = loader_cls.create_loader(client, build_dir)
@@ -175,7 +176,7 @@ def get_changed_source_files(
             # SearchConfigLoader is not supported in pull and post that also will require special handling
             or loader_cls is SearchConfigCRUD
             # Data Products API is not yet available on the test server.
-            or loader_cls is DataProductCRUD
+            or loader_cls in {DataProductCRUD, DataProductVersionCRUD}
         ):
             continue
         loader = loader_cls.create_loader(env_vars.get_client(), build_dir)
