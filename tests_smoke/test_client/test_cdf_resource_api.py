@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.functions import FunctionsAPI
+from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from cognite_toolkit._cdf_tk.client.api.infield import APMConfigAPI, InFieldCDMConfigAPI
 from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI, WrappedInstancesAPI
@@ -70,6 +71,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config 
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationRequest,
@@ -193,6 +195,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         TransformationsAPI,
         TransformationSchedulesAPI,
         TransformationNotificationsAPI,
+        # Requires special handling of requests.
+        # GraphQLDataModelsAPI,
         # List method requires an argument,
         SequenceRowsAPI,
         # The dataproduct API is not yet supported in CDF.
@@ -234,6 +238,12 @@ def crud_cdf_resource_apis() -> Iterable[tuple]:
                 for no, example in enumerate(examples, start=1):
                     yield pytest.param(example, request_cls, api_cls, id=f"{id_str} example {no}")
 
+GRAPHQL_MODEL = """"The smoke tests for GraphQL"
+type SmokeTest {
+  name: String! @limits(maxTextSize: 255)
+  data: JSONObject!
+}
+"""
 
 def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[dict[str, Any]]:
     """Return an example with the only required and identifier fields for the given resource class."""
@@ -320,6 +330,7 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
             }
         ],
         HostedExtractorDestinationRequest: [{"externalId": "smoke-test-extractor-destination"}],
+        GraphQLDataModelRequest: [{"space": SMOKE_SPACE, "externalId": "smoke_test_graphql_data_model", "version": "v1", "graphQlDml": GRAPHQL_MODEL}],
         InFieldCDMLocationConfigRequest: [
             {
                 "space": SMOKE_SPACE,
@@ -1647,3 +1658,40 @@ class TestCDFResourceAPI:
             if schedule_id is not None:
                 client.tool.transformations.schedules.delete([schedule_id], ignore_unknown_ids=True)
             client.tool.transformations.delete([transformation_id], ignore_unknown_ids=True)
+
+    # def test_graphql_model_crudl(self, toolkit_client: ToolkitClient) -> None:
+    #     client = toolkit_client
+    #
+    #     model_example = get_examples_minimum_requests(GraphQLDataModelRequest)[0]
+    #     model_request = GraphQLDataModelRequest.model_validate(model_example)
+    #     model_id = model_request.as_id()
+    #
+    #     try:
+    #         # Create GraphQL data model
+    #         create_endpoint = client.tool.graphql_data_models._method_endpoint_map["create"]
+    #         try:
+    #             created = client.tool.graphql_data_models.create([model_request])
+    #         except ToolkitAPIError:
+    #             raise EndpointAssertionError(create_endpoint.path, "Creating GraphQL data model instance failed.")
+    #         if len(created) != 1:
+    #             raise EndpointAssertionError(create_endpoint.path, f"Expected 1 created GraphQL data model, got {len(created)}")
+    #         if created[0].as_id() != model_id:
+    #             raise EndpointAssertionError(create_endpoint.path, "Created GraphQL data model ID does not match requested ID.")
+    #
+    #         # Retrieve GraphQL data model
+    #         retrieve_endpoint = client.tool.graphql_data_models._method_endpoint_map["retrieve"]
+    #         self.assert_endpoint_method(
+    #             lambda: client.tool.graphql_data_models.retrieve([model_id]),
+    #             "retrieve",
+    #             retrieve_endpoint,
+    #             model_id,
+    #         )
+    #
+    #         # List GraphQL data models
+    #         list_endpoint = client.tool.graphql_data_models._method_endpoint_map["list"]
+    #         listed = list(client.tool.graphql_data_models.list(limit=1))
+    #         if len(listed) == 0:
+    #             raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed GraphQL data model, got 0")
+    #     finally:
+    #         # Clean up
+    #         client.tool.graphql_data_models.delete([model_id])

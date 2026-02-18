@@ -26,7 +26,7 @@ class GraphQLDataModelRequest(GraphQLDataModel, RequestResource):
     """Request resource for creating/updating GraphQL data models."""
 
     previous_version: str | None = None
-    dml: str | None = None
+    graph_ql_dml: str | None = None
     preserve_dml: bool | None = None
     # Used in the loading process, but not part of the API payload.
     graphql_file: str | None = Field(None, exclude=True)

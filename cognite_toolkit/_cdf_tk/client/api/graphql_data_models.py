@@ -34,6 +34,7 @@ class GraphQLDataModelsAPI(CDFResourceAPI[DataModelReference, GraphQLDataModelRe
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
+                "create": Endpoint(method="POST", path="/dml/graphql", item_limit=1),
                 "retrieve": Endpoint(method="POST", path="/models/datamodels/byids", item_limit=100),
                 "delete": Endpoint(method="POST", path="/models/datamodels/delete", item_limit=100),
                 "list": Endpoint(method="GET", path="/models/datamodels", item_limit=1000),
@@ -47,9 +48,10 @@ class GraphQLDataModelsAPI(CDFResourceAPI[DataModelReference, GraphQLDataModelRe
 
     def _post_graphql(self, payload: dict[str, Any]) -> GraphQLUpsertResponse:
         """Execute a GraphQL query against the DML endpoint."""
+        endpoint = self._method_endpoint_map["create"]
         request = RequestMessage(
-            endpoint_url=self._make_url("/dml/graphql"),
-            method="POST",
+            endpoint_url=self._make_url(endpoint.path),
+            method=endpoint.method,
             body_content=payload,
         )
         result = self._http_client.request_single_retries(request)
