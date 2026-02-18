@@ -52,7 +52,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     InteractiveCanvasSelect,
     InteractiveChartSelect,
     RawTableInteractiveSelect,
-    TimeSeriesInteractiveSelect,
+    TimeSeriesInteractiveSelect, ViewSelectFilter,
 )
 
 
@@ -793,12 +793,15 @@ class DownloadApp(typer.Typer):
             selected_schema_space = selector.select_schema_space(
                 include_global=True, message="In which space is the views with instance properties located?"
             ).space
+
             selected_views = selector.select_view(
                 multiselect=True,
-                space=selected_schema_space,
                 message="Select views to download instance properties from.",
-                include_global=True,
-                instance_type=selected_instance_type,
+                filter=ViewSelectFilter(
+                    instance_type=selected_instance_type,
+                    include_global=True,
+                    schema_space=selected_schema_space,
+                )
             )
             selectors: list[InstanceSpaceSelector] = [
                 InstanceSpaceSelector(

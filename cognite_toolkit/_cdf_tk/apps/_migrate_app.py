@@ -50,7 +50,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     InteractiveCanvasSelect,
     InteractiveChartSelect,
     ResourceViewMappingInteractiveSelect,
-    ThreeDInteractiveSelect,
+    ThreeDInteractiveSelect, ViewSelectFilter,
 )
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
@@ -409,9 +409,12 @@ class MigrateApp(typer.Typer):
                 DataModelingSelect(client, "migrate")
                 .select_view(
                     multiselect=False,
-                    include_global=True,
-                    instance_type="node",
-                    mapped_container=container_id,
+                    filter=ViewSelectFilter(
+                        include_global=True,
+                        mapped_container=container_id,
+                        instance_type="node",
+
+                    )
                 )
                 .as_id()
             )
