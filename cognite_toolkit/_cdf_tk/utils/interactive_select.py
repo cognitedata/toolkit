@@ -507,7 +507,7 @@ class ViewSelectFilter:
 
     """
 
-    strategy: Literal["schemaSpace", "datamodel"] = "schemaSpace"
+    strategy: Literal["schemaSpace", "data_model"] = "schemaSpace"
     include_global: bool | None = None
     schema_space: str | None = None
     instance_type: Literal["node", "edge", "all"] | None = None
@@ -620,7 +620,7 @@ class DataModelingSelect:
                 message=f"Select the data model that contains the view you want to use to select instances to {self.operation}:",
                 schema_space=filter.schema_space,
             )
-            views = datamodel.views
+            views = datamodel.views or []
             parents = {parent for view in views for parent in view.implements or []}
             # We only allow the user to select child views
             views = [view for view in views if view.as_id() not in parents]

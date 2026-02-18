@@ -6,7 +6,7 @@ https://api-docs.cognite.com/20230101/tag/Data-models/operation/createDataModels
 
 import builtins
 from collections.abc import Iterable, Sequence
-from typing import Literal, overload
+from typing import Any, Literal, overload
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
@@ -186,7 +186,7 @@ class DataModelsAPI(CDFResourceAPI[DataModelReference, DataModelRequest, DataMod
             endpoint = self._method_endpoint_map["list"]
             while True:
                 page_limit = endpoint.item_limit if limit is None else min(limit - total, endpoint.item_limit)
-                parameters = filter.dump() if filter else {}
+                parameters: dict[str, Any] = self._filter_out_none_values(filter.dump()) or {} if filter else {}
                 parameters["inlineViews"] = True
                 parameters["limit"] = page_limit
                 if cursor is not None:
