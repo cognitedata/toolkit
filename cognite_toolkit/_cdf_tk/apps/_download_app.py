@@ -35,7 +35,9 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     DataPointsDataSetSelector,
     DataSetSelector,
     FileIdentifierSelector,
+    InstanceSelector,
     InstanceSpaceSelector,
+    InstanceViewSelector,
     RawTableSelector,
     SelectedTable,
     SelectedView,
@@ -787,35 +789,42 @@ class DownloadApp(typer.Typer):
         cmd = DownloadCommand(client=client)
 
         client = EnvironmentVariables.create_from_environment().get_client()
+        selectors: list[InstanceSelector]
         if instance_space is None:
             selector = DataModelingSelect(client, "download instances")
-            selected_instance_space = selector.select_instance_space(multiselect=False)
-            selected_instance_type = selector.select_instance_type()
-            selected_schema_space = selector.select_schema_space(
-                include_global=True, message="In which space is the views with instance properties located?"
-            ).space
-
             selected_views = selector.select_view(
                 multiselect=True,
                 message="Select views to download instance properties from.",
                 filter=ViewSelectFilter(
-                    instance_type=selected_instance_type,
+                    strategy="data_model",
                     include_global=True,
-                    schema_space=selected_schema_space,
                 ),
             )
-            selectors: list[InstanceSpaceSelector] = [
-                InstanceSpaceSelector(
-                    instance_space=selected_instance_space,
-                    view=SelectedView(
-                        space=selected_schema_space,
-                        external_id=view.external_id,
-                        version=view.version,
-                    ),
-                    instance_type=selected_instance_type,
+            select_instance_space = questionary.confirm(
+                "Do you want to select an instance space to download from? If no, all instances from the selected views will be downloaded.",
+                default=False,
+            ).unsafe_ask()
+            instance_spaces: tuple[str, ...] | None = None
+            if select_instance_space:
+                instance_space = selector.select_instance_space(multiselect=False)
+                instance_spaces = (instance_space,)
+            selectors = []
+            for view in selected_views:
+                view_instance_type = selector.select_instance_type(
+                    view.used_for,
+                    message="fSelect instance type to download for view {view.space}:{view.external_id}(version={view.version})",
                 )
-                for view in selected_views
-            ]
+                selectors.append(
+                    InstanceViewSelector(
+                        view=SelectedView(
+                            space=view.space,
+                            external_id=view.external_id,
+                            version=view.version,
+                        ),
+                        instance_spaces=instance_spaces,
+                        instance_type=view_instance_type,
+                    )
+                )
         elif schema_space is None and view_external_ids is None:
             selectors = [InstanceSpaceSelector(instance_space=instance_space, instance_type=instance_type.value)]
         elif schema_space is not None and view_external_ids is not None:

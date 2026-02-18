@@ -705,7 +705,7 @@ class DataModelingSelect:
         return selected_space
 
     def select_instance_type(
-        self, view_used_for: Literal["node", "edge", "all"] | None = None
+        self, view_used_for: Literal["node", "edge", "all"] | None = None, message: str | None = None
     ) -> Literal["node", "edge"]:
         """Selects an instance type (node or edge) interactively.
 
@@ -719,7 +719,7 @@ class DataModelingSelect:
         if view_used_for is not None and view_used_for != "all":
             return view_used_for
         selected_instance_type = questionary.select(
-            f"What type of instances do you want to {self.operation}?",
+            message or f"What type of instances do you want to {self.operation}?",
             choices=[
                 Choice(title="Nodes", value="node"),
                 Choice(title="Edges", value="edge"),
