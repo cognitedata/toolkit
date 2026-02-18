@@ -50,6 +50,8 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
     def get_required_capability(
         cls, items: Sequence[DataProductVersionRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
+        # TODO: dataproductsAcl is not yet in the SDK — return empty to skip capability verification.
+        # Once available, require: READ + UPDATE (all version mutations use dataproductsAcl:UPDATE).
         return []
 
     @classmethod
@@ -99,15 +101,9 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
             return []
         results: list[DataProductVersionResponse] = []
         for item in items:
-            existing = self.client.tool.data_products.versions.retrieve(
-                item.data_product_external_id, item.version, ignore_unknown_ids=True
+            results.append(
+                self.client.tool.data_products.versions.update(item.data_product_external_id, item.version, item)
             )
-            if existing is None:
-                results.extend(self.client.tool.data_products.versions.create(item.data_product_external_id, [item]))
-            else:
-                results.append(
-                    self.client.tool.data_products.versions.update(item.data_product_external_id, item.version, item)
-                )
         return results
 
     def delete(self, ids: SequenceNotStr[DataProductVersionId]) -> int:

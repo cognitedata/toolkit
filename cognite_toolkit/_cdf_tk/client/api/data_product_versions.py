@@ -143,74 +143,17 @@ class DataProductVersionsAPI(
         ).get_success_or_raise()
 
     def list(self, data_product_external_id: str, limit: int | None = 10) -> list[DataProductVersionResponse]:
-        endpoint = self._method_endpoint_map["list"]
-        path = endpoint.path.format(externalId=data_product_external_id)
-        all_items: list[DataProductVersionResponse] = []
-        cursor: str | None = None
-        remaining = limit
-
-        while True:
-            page_limit = min(remaining, 10) if remaining is not None else 10
-            params: dict = {"limit": page_limit}
-            if cursor:
-                params["cursor"] = cursor
-
-            response = self._http_client.request_single_retries(
-                RequestMessage(
-                    endpoint_url=self._make_url(path),
-                    method=endpoint.method,
-                    parameters=params,
-                    api_version=self._api_version,
-                )
-            )
-            page = self._validate_page_response(response.get_success_or_raise())
-            for ver in page.items:
-                ver.data_product_external_id = data_product_external_id
-            all_items.extend(page.items)
-
-            if remaining is not None:
-                remaining -= len(page.items)
-                if remaining <= 0:
-                    break
-            if page.next_cursor is None:
-                break
-            cursor = page.next_cursor
-
-        return all_items
+        path = self._method_endpoint_map["list"].path.format(externalId=data_product_external_id)
+        items = self._list(limit=limit, endpoint_path=path)
+        for item in items:
+            item.data_product_external_id = data_product_external_id
+        return items
 
     def iterate(
         self, data_product_external_id: str, limit: int | None = 10
     ) -> Iterable[list[DataProductVersionResponse]]:  # type: ignore[valid-type]
-        endpoint = self._method_endpoint_map["list"]
-        path = endpoint.path.format(externalId=data_product_external_id)
-        cursor: str | None = None
-        remaining = limit
-
-        while True:
-            page_limit = min(remaining, 10) if remaining is not None else 10
-            params: dict = {"limit": page_limit}
-            if cursor:
-                params["cursor"] = cursor
-
-            response = self._http_client.request_single_retries(
-                RequestMessage(
-                    endpoint_url=self._make_url(path),
-                    method=endpoint.method,
-                    parameters=params,
-                    api_version=self._api_version,
-                )
-            )
-            page = self._validate_page_response(response.get_success_or_raise())
-            for ver in page.items:
-                ver.data_product_external_id = data_product_external_id
-
-            if page.items:
-                yield page.items
-
-            if remaining is not None:
-                remaining -= len(page.items)
-                if remaining <= 0:
-                    break
-            if page.next_cursor is None:
-                break
-            cursor = page.next_cursor
+        path = self._method_endpoint_map["list"].path.format(externalId=data_product_external_id)
+        for batch in self._iterate(limit=limit, endpoint_path=path):
+            for item in batch:
+                item.data_product_external_id = data_product_external_id
+            yield batch

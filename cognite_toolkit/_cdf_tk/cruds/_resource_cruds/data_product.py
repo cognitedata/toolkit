@@ -51,8 +51,9 @@ class DataProductCRUD(ResourceCRUD[ExternalId, DataProductRequest, DataProductRe
         cls, items: Sequence[DataProductRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
 
-        # dataproductsAcl is not yet in the SDK — return empty to skip capability verification.
+        # TODO: dataproductsAcl is not yet in the SDK — return empty to skip capability verification.
         # Cannot use UnknownACL due to bug in the SDK.
+        # Once available, require: CREATE, READ, UPDATE, DELETE (all four actions).
         return []
 
     def dump_resource(self, resource: DataProductResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
