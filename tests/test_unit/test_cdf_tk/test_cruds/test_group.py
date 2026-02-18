@@ -4,9 +4,15 @@ from unittest.mock import MagicMock
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
-from cognite.client.data_classes import Group, GroupWrite
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    AllScope,
+    AssetsAcl,
+    GroupCapability,
+    GroupRequest,
+    GroupResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.cruds import (
     DataSetsCRUD,
@@ -52,12 +58,12 @@ class TestGroupLoader:
         assert loaded.name == "scoped_group_name"
         assert len(loaded.capabilities) == 4
 
-        caps = {str(type(element).__name__): element for element in loaded.capabilities}
+        caps = {type(cap.acl).__name__: cap.acl for cap in loaded.capabilities}
 
         assert all(isinstance(item, int) for item in caps["DataSetsAcl"].scope.ids)
         assert all(isinstance(item, int) for item in caps["AssetsAcl"].scope.ids)
         assert all(isinstance(item, int) for item in caps["ExtractionConfigsAcl"].scope.ids)
-        assert caps["SessionsAcl"].scope._scope_name == "all"
+        assert caps["SessionsAcl"].scope.scope_name == "all"
 
     def test_load_group_list_resource_scoped_only(
         self, env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
@@ -68,7 +74,7 @@ class TestGroupLoader:
         )
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
 
-        assert isinstance(loaded, GroupWrite)
+        assert isinstance(loaded, GroupRequest)
         assert loaded.name == "scoped_group_name"
 
     def test_load_group_list_all_scoped_only(
@@ -80,7 +86,7 @@ class TestGroupLoader:
         )
         loaded = loader.load_resource(raw_list[1], is_dry_run=False)
 
-        assert isinstance(loaded, GroupWrite)
+        assert isinstance(loaded, GroupRequest)
         assert loaded.name == "unscoped_group_name"
 
     def test_unchanged_new_group(
@@ -93,25 +99,20 @@ class TestGroupLoader:
         raw_list = loader.load_resource_file(LOAD_DATA / "auth" / "1.my_group_scoped.yaml", env_vars_with_client.dump())
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
 
-        # Simulate that one group is is already in CDF
-        toolkit_client_approval.append(
-            Group,
-            [
-                Group(
-                    id=123,
-                    name=loaded.name,
-                    source_id=loaded.source_id,
-                    capabilities=loaded.capabilities,
-                    metadata=loaded.metadata,
-                    is_deleted=False,
-                )
-            ],
+        # Simulate that one group is already in CDF
+        cdf_group = GroupResponse(
+            id=123,
+            name=loaded.name,
+            source_id=loaded.source_id,
+            capabilities=loaded.capabilities,
+            metadata=loaded.metadata,
+            is_deleted=False,
         )
+        toolkit_client_approval.append(GroupResponse, [cdf_group])
 
+        new_group = GroupRequest(name="new_group", source_id="123", capabilities=loaded.capabilities)
         new_file = MagicMock(spec=Path)
-        new_file.read_text.return_value = GroupWrite(
-            name="new_group", source_id="123", capabilities=loaded.capabilities
-        ).dump_yaml()
+        new_file.read_text.return_value = new_group.dump_yaml()
         worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources(
             [
@@ -136,21 +137,16 @@ class TestGroupLoader:
         raw_list = loader.load_resource_file(LOAD_DATA / "auth" / "1.my_group_scoped.yaml", env_vars_with_client.dump())
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
 
-        # Simulate that the group is is already in CDF, but with fewer capabilities
-        # Simulate that one group is is already in CDF
-        toolkit_client_approval.append(
-            Group,
-            [
-                Group(
-                    id=123,
-                    name=loaded.name,
-                    source_id=loaded.source_id,
-                    capabilities=loaded.capabilities[0:1],
-                    metadata=loaded.metadata,
-                    is_deleted=False,
-                )
-            ],
+        # Simulate that the group is already in CDF, but with fewer capabilities
+        cdf_group = GroupResponse(
+            id=123,
+            name=loaded.name,
+            source_id=loaded.source_id,
+            capabilities=loaded.capabilities[0:1],
+            metadata=loaded.metadata,
+            is_deleted=False,
         )
+        toolkit_client_approval.append(GroupResponse, [cdf_group])
 
         # group exists, no changes
         worker = ResourceWorker(loader, "deploy")
@@ -226,7 +222,7 @@ class TestGroupLoader:
     ) -> None:
         loader = GroupAllScopedCRUD.create_loader(env_vars_with_client.get_client())
         local_group = """name: gp_no_metadata
-sourceId: 123
+sourceId: '123'
 capabilities:
 - assetsAcl:
     actions:
@@ -234,25 +230,17 @@ capabilities:
     scope:
       all: {}
 """
-        cdf_group = Group.load("""name: gp_no_metadata
-sourceId: 123
-capabilities:
-- assetsAcl:
-    actions:
-    - READ
-    scope:
-      all: {}
-metadata: {}
-id: 3760258445038144
-isDeleted: false
-deletedTime: -1
-""")
-
-        # Simulate that one group is is already in CDF
-        toolkit_client_approval.append(
-            Group,
-            [cdf_group],
+        cdf_group = GroupResponse(
+            name="gp_no_metadata",
+            source_id="123",
+            capabilities=[GroupCapability(acl=AssetsAcl(actions=["READ"], scope=AllScope()))],
+            metadata={},
+            id=3760258445038144,
+            is_deleted=False,
         )
+
+        # Simulate that one group is already in CDF
+        toolkit_client_approval.append(GroupResponse, [cdf_group])
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_group
 
@@ -284,29 +272,30 @@ capabilities:
          'db_name':
            - labels
         """
-        cdf_group = Group.load("""name: gp_raw_acl_table_scoped
-sourceId: '123'
-capabilities:
-- rawAcl:
-    actions:
-    - READ
-    scope:
-      tableScope:
-        dbsToTables:
-          'db_name':
-            tables:
-            - labels
-metadata: {}
-id: 3760258445038144
-isDeleted: false
-deletedTime: -1
-        """)
-
-        # Simulate that one group is is already in CDF
-        toolkit_client_approval.append(
-            Group,
-            [cdf_group],
+        cdf_group = GroupResponse(
+            name="gp_raw_acl_table_scoped",
+            source_id="123",
+            capabilities=[
+                {
+                    "rawAcl": {
+                        "actions": ["READ"],
+                        "scope": {
+                            "tableScope": {
+                                "dbsToTables": {
+                                    "db_name": ["labels"],
+                                }
+                            }
+                        },
+                    }
+                }
+            ],
+            metadata={},
+            id=3760258445038144,
+            is_deleted=False,
         )
+
+        # Simulate that one group is already in CDF
+        toolkit_client_approval.append(GroupResponse, [cdf_group])
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_group
 

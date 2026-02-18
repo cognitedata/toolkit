@@ -155,6 +155,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
     FunctionScheduleResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupRequest, GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationRequest,
     HostedExtractorDestinationResponse,
@@ -847,6 +848,18 @@ API_RESOURCES = [
             "retrieve": [
                 Method(api_class_method="list", mock_class_method="list"),
             ],
+        },
+    ),
+    APIResource(
+        api_name="tool.groups",
+        resource_cls=GroupResponse,
+        _write_cls=GroupRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="list", mock_class_method="list"),
+            ],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
         },
     ),
     APIResource(

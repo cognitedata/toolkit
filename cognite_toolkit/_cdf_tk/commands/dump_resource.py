@@ -12,8 +12,6 @@ import questionary
 import typer
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
-    Group,
-    GroupList,
     filters,
 )
 from cognite.client.data_classes.data_modeling import ViewId
@@ -46,8 +44,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
     ExternalId,
+    NameId,
     WorkflowVersionId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
@@ -366,16 +366,16 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
 class GroupFinder(ResourceFinder[tuple[str, ...]]):
     def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
         super().__init__(client, identifier)
-        self.groups: list[Group] | None = None
+        self.groups: list[GroupResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        groups = self.client.iam.groups.list(all=True)
+        groups = self.client.tool.groups.list(all_groups=True)
         if not groups:
             raise ToolkitMissingResourceError("No groups found")
-        groups_by_name: dict[str, list[Group]] = defaultdict(list)
+        groups_by_name: dict[str, list[GroupResponse]] = defaultdict(list)
         for group in groups:
             groups_by_name[group.name].append(group)
-        selected_groups: list[list[Group]] | None = questionary.checkbox(
+        selected_groups: list[list[GroupResponse]] | None = questionary.checkbox(
             "Which group(s) would you like to dump?",
             choices=[
                 Choice(f"{group_name} ({len(group_list)} group{'s' if len(group_list) > 1 else ''})", value=group_list)
@@ -393,9 +393,14 @@ class GroupFinder(ResourceFinder[tuple[str, ...]]):
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         if self.groups:
-            yield [], GroupList(self.groups), GroupCRUD.create_loader(self.client), None
+            yield (
+                [],
+                [group for group in self.groups if group.name in self.identifier],
+                GroupCRUD.create_loader(self.client),
+                None,
+            )
         else:
-            yield list(self.identifier), None, GroupCRUD.create_loader(self.client), None
+            yield [NameId(name=name) for name in self.identifier], None, GroupCRUD.create_loader(self.client), None
 
 
 class AgentFinder(ResourceFinder[tuple[str, ...]]):

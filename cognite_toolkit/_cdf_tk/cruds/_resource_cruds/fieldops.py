@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldCDMLocationConfigRequest,
     InFieldCDMLocationConfigResponse,
@@ -134,7 +134,7 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
             for key in cls._group_keys:
                 for group in config.get(key, []):
                     if isinstance(group, str):
-                        yield GroupResourceScopedCRUD, group
+                        yield GroupResourceScopedCRUD, NameId(name=group)
             data_filters = config.get("dataFilters")
             if not isinstance(data_filters, dict):
                 continue

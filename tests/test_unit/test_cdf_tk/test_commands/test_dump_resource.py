@@ -8,13 +8,8 @@ from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     FileMetadataList,
-    Group,
-    GroupList,
 )
 from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
-from cognite.client.data_classes.capabilities import (
-    TimeSeriesAcl,
-)
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.exceptions import CogniteAPIError
@@ -31,6 +26,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
@@ -448,33 +444,32 @@ class TestDumpExtractionPipeline:
 
 
 @pytest.fixture()
-def three_groups() -> GroupList:
-    return GroupList(
-        [
-            Group(
-                "Group A",
-                source_id="123",
-                capabilities=[TimeSeriesAcl([TimeSeriesAcl.Action.Read], TimeSeriesAcl.Scope.All())],
-            ),
-            Group(
-                "Group B",
-                source_id="456",
-                capabilities=[TimeSeriesAcl([TimeSeriesAcl.Action.Write], TimeSeriesAcl.Scope.All())],
-            ),
-            Group(
-                "Group C",
-                source_id="789",
-                capabilities=[
-                    TimeSeriesAcl([TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write], TimeSeriesAcl.Scope.All())
-                ],
-            ),
-        ]
-    )
+def three_groups() -> list[GroupResponse]:
+    return [
+        GroupResponse(
+            id=1,
+            name="Group A",
+            source_id="123",
+            capabilities=[{"timeSeriesAcl": {"actions": ["READ"], "scope": {"all": {}}}}],
+        ),
+        GroupResponse(
+            id=2,
+            name="Group B",
+            source_id="456",
+            capabilities=[{"timeSeriesAcl": {"actions": ["WRITE"], "scope": {"all": {}}}}],
+        ),
+        GroupResponse(
+            id=3,
+            name="Group C",
+            source_id="789",
+            capabilities=[{"timeSeriesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}}],
+        ),
+    ]
 
 
 class TestGroupFinder:
-    def test_select_groups(self, three_groups: GroupList, monkeypatch: MonkeyPatch) -> None:
-        def select_groups(choices: list[Choice]) -> list[list[Group]]:
+    def test_select_groups(self, three_groups: list[GroupResponse], monkeypatch: MonkeyPatch) -> None:
+        def select_groups(choices: list[Choice]) -> list[list[GroupResponse]]:
             assert len(choices) == len(three_groups)
             return [choices[1].value, choices[2].value]
 
@@ -484,7 +479,7 @@ class TestGroupFinder:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(GroupFinder.__module__, monkeypatch, answers),
         ):
-            client.iam.groups.list.return_value = three_groups
+            client.tool.groups.list.return_value = three_groups
             finder = GroupFinder(client, None)
             selected = finder._interactive_select()
 
@@ -492,9 +487,9 @@ class TestGroupFinder:
 
 
 class TestDumpGroups:
-    def test_dump_groups(self, three_groups: GroupList, tmp_path: Path) -> None:
+    def test_dump_groups(self, three_groups: list[GroupResponse], tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
-            client.iam.groups.list.return_value = three_groups
+            client.tool.groups.list.return_value = three_groups
 
             cmd = DumpResourceCommand(silent=True)
             cmd.dump_to_yamls(
