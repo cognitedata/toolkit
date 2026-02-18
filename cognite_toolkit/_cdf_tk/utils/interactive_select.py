@@ -620,7 +620,9 @@ class DataModelingSelect:
                 and (filter.mapped_container is None or filter.mapped_container in view.mapped_containers)
             ]
             if not views:
-                raise ToolkitMissingResourceError(f"No views found in space {selected_space!r} that match the filter: {filter!s}")
+                raise ToolkitMissingResourceError(
+                    f"No views found in space {selected_space!r} that match the filter: {filter!s}"
+                )
             return views
         else:
             raise NotImplementedError(f"Strategy {filter.strategy} is not implemented.")
