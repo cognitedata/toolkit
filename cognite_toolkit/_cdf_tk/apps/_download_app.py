@@ -806,8 +806,7 @@ class DownloadApp(typer.Typer):
             ).unsafe_ask()
             instance_spaces: tuple[str, ...] | None = None
             if select_instance_space:
-                instance_space = selector.select_instance_space(multiselect=False)
-                instance_spaces = (instance_space,)
+                instance_spaces = tuple(selector.select_instance_space(multiselect=True))
             selectors = []
             for view in selected_views:
                 view_instance_type = selector.select_instance_type(
