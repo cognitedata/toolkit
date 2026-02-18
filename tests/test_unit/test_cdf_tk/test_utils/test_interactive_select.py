@@ -51,6 +51,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     ResourceViewMappingInteractiveSelect,
     ThreeDInteractiveSelect,
     TimeSeriesInteractiveSelect,
+    ViewSelectFilter,
 )
 from tests.test_unit.utils import MockQuestionary
 
@@ -662,7 +663,7 @@ class TestDataModelingInteractiveSelect:
             client.data_modeling.statistics.spaces.list.return_value = space_stats
 
             selector = DataModelingSelect(client, "test_operation")
-            selected_view = selector.select_view(multiselect=multiselect, space=space)
+            selected_view = selector.select_view(multiselect=multiselect, filter=ViewSelectFilter(schema_space=space))
         if multiselect:
             assert isinstance(selected_view, list)
             assert {view.external_id for view in selected_view} == expected
@@ -706,7 +707,7 @@ class TestDataModelingInteractiveSelect:
             client.data_modeling.statistics.spaces.list.return_value = space_stats
             client.tool.views.list.return_value = views
             selector = DataModelingSelect(client, "test_operation")
-            selected_view = selector.select_view(mapped_container=mapped_container)
+            selected_view = selector.select_view(filter=ViewSelectFilter(mapped_container=mapped_container))
 
         assert selected_view.external_id == "view2"
 
