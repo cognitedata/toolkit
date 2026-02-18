@@ -606,7 +606,6 @@ class DataModelingSelect:
                     message=f"In which Spaces is the view you will use to select instances to {self.operation}?",
                 ).space
             )
-
             views = self.client.tool.views.list(
                 filter=ViewFilter(
                     space=selected_space,
@@ -615,19 +614,27 @@ class DataModelingSelect:
                 ),
                 limit=None,
             )
-            views = [
-                view
-                for view in views
-                if filter.instance_type in (None, "all", view.used_for)
-                and (filter.mapped_container is None or filter.mapped_container in view.mapped_containers)
-            ]
-            if not views:
-                raise ToolkitMissingResourceError(
-                    f"No views found in space {selected_space!r} that match the filter: {filter!s}"
-                )
-            return views
+        elif filter.strategy == "data_model":
+            datamodel = self.select_data_model(
+                inline_views=True,
+                message=f"Select the data model that contains the view you want to use to select instances to {self.operation}:",
+                schema_space=filter.schema_space,
+            )
+            views = datamodel.views
+            parents = {parent for view in views for parent in view.implements or []}
+            # We only allow the user to select child views
+            views = [view for view in views if view.as_id() not in parents]
         else:
             raise NotImplementedError(f"Strategy {filter.strategy} is not implemented.")
+        views = [
+            view
+            for view in views
+            if filter.instance_type in (None, "all", view.used_for)
+            and (filter.mapped_container is None or filter.mapped_container in view.mapped_containers)
+        ]
+        if not views:
+            raise ToolkitMissingResourceError(f"No views found that match the filter: {filter!s}")
+        return views
 
     @overload
     def select_data_model(
