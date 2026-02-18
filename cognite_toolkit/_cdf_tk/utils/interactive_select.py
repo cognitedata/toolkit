@@ -496,7 +496,7 @@ class ViewSelectFilter:
     This filter is used to narrow down the list of views presented to the user when they are asked to select a view.
 
     Args:
-        stratedy: The strategy used to create the view options.
+        strategy: The strategy used to create the view options.
             - "SchemaSpace": Ask the user to select a schema space first.
         include_global: Whether to include global views in the options.
         schema_space : The schema space to look for view in.
