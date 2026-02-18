@@ -56,7 +56,8 @@ class DownloadCommand(ToolkitCommand):
             if verbose:
                 console.print(f"Downloading {selector.display_name} '{selector!s}' to {target_dir.as_posix()!r}")
 
-            iteration_count = self._get_iteration_count(io, selector, limit)
+            total = io.count(selector)
+            iteration_count = self._get_iteration_count(total, limit, io.CHUNK_SIZE)
             filestem = sanitize_filename(str(selector))
             if self._already_downloaded(target_dir, filestem):
                 warning = LowSeverityWarning(
@@ -105,16 +106,15 @@ class DownloadCommand(ToolkitCommand):
 
     @staticmethod
     def _get_iteration_count(
-        io: StorageIO[T_Selector, T_ResourceResponse],
-        selector: T_Selector,
+        total: int | None,
         limit: int | None,
+        chunk_size: int,
     ) -> int | None:
-        total = io.count(selector)
         if total is not None and limit is not None and total > limit:
             total = limit
         iteration_count: int | None = None
         if total is not None:
-            iteration_count = total // io.CHUNK_SIZE + (1 if total % io.CHUNK_SIZE > 0 else 0)
+            iteration_count = total // chunk_size + (1 if total % chunk_size > 0 else 0)
         return iteration_count
 
     @staticmethod
