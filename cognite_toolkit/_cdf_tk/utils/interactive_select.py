@@ -720,7 +720,7 @@ class DataModelingSelect:
             selected_spaces = questionary.checkbox(
                 message,
                 choices=choices,
-                validate=lambda choises: True if choises else "You must select at least one space.",
+                validate=lambda choices: True if choices else "You must select at least one space.",
             ).unsafe_ask()
         else:
             selected_spaces = questionary.select(message, choices=choices).unsafe_ask()
@@ -732,6 +732,7 @@ class DataModelingSelect:
 
     @overload
     def select_empty_spaces(self, multiselect: Literal[False]) -> str: ...
+
     @overload
     def select_empty_spaces(self, multiselect: Literal[True]) -> list[str]: ...
 
