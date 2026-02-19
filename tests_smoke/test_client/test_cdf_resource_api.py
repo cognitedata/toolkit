@@ -1687,6 +1687,8 @@ class TestCDFResourceAPI:
         subscription_request = DatapointSubscriptionRequest.model_validate(subscription_example)
         subscription_id = subscription_request.as_id()
 
+        client.tool.datapoint_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
+
         try:
             endpoint_map = client.tool.datapoint_subscriptions._method_endpoint_map
             # Create datapoints subscription

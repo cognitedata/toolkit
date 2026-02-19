@@ -249,8 +249,9 @@ class DatapointSubscriptionCRUD(
             created = self.client.tool.datapoint_subscriptions.create([to_create])
             if update_batches:
                 created = self.client.tool.datapoint_subscriptions.update(update_batches)
-            # The last batch contains all the time series IDs, so it represents the fully created subscription.
-            created_list.append(created[-1])
+            if created:
+                # The last batch contains all the time series IDs, so it represents the fully created subscription.
+                created_list.append(created[-1])
         return created_list
 
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[DatapointSubscriptionResponse]:
