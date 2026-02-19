@@ -81,9 +81,5 @@ class DataPointsDataSetSelector(DataPointsSelector):
     end: int | str | None = None
     data_type: Literal["numeric", "string"] = "numeric"
 
-    @property
-    def group(self) -> str:
-        return f"DataSet_{self.data_set_external_id}"
-
     def __str__(self) -> str:
         return f"datapoints_dataset_{self.data_set_external_id}"

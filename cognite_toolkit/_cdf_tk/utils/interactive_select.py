@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilt
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerReference,
+    DataModelReference,
     DataModelResponse,
     DataModelResponseWithViews,
     SpaceResponse,
@@ -512,6 +513,7 @@ class ViewSelectFilter:
     schema_space: str | None = None
     instance_type: Literal["node", "edge", "all"] | None = None
     mapped_container: ContainerReference | None = None
+    data_model: DataModelReference | None = None
 
     def __str__(self) -> str:
         message: list[str] = []

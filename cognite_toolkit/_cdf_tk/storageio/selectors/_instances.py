@@ -94,10 +94,6 @@ class InstanceSpaceSelector(InstanceSelector):
     def get_instance_spaces(self) -> list[str] | None:
         return [self.instance_space]
 
-    @property
-    def group(self) -> str:
-        return self.instance_space
-
     def __str__(self) -> str:
         if self.view is None:
             return self.instance_type

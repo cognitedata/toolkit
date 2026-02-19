@@ -1,6 +1,6 @@
 from abc import ABC
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
@@ -18,15 +18,8 @@ class DataSetSelector(AssetCentricSelector):
 
     data_set_external_id: str
 
-    @property
-    def group(self) -> str:
-        return f"DataSet_{self.data_set_external_id}"
-
     def __str__(self) -> str:
         return self.kind
-
-    def as_filter(self) -> dict[str, Any]:
-        return {"dataSetIds": [{"externalId": self.data_set_external_id}]}
 
 
 class AssetSubtreeSelector(AssetCentricSelector):
@@ -35,15 +28,8 @@ class AssetSubtreeSelector(AssetCentricSelector):
     type: Literal["assetSubtree"] = "assetSubtree"
     hierarchy: str
 
-    @property
-    def group(self) -> str:
-        return f"Hierarchy_{self.hierarchy}"
-
     def __str__(self) -> str:
         return self.kind
-
-    def as_filter(self) -> dict[str, Any]:
-        return {"assetSubtreeIds": [{"externalId": self.hierarchy}]}
 
 
 class AssetCentricFileSelector(AssetCentricSelector):
