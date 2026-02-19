@@ -18,7 +18,7 @@ from .api.cognite_files import CogniteFilesAPI
 from .api.containers import ContainersAPI
 from .api.data_models import DataModelsAPI
 from .api.data_products import DataProductsAPI
-from .api.datapoint_subscription import DatapointSubscriptionAPI
+from .api.datapoint_subscription import DatapointSubscriptionsAPI
 from .api.datasets import DataSetsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
@@ -61,7 +61,7 @@ class ToolAPI:
         self.assets = AssetsAPI(http_client)
         self.cognite_files = CogniteFilesAPI(http_client)
         self.datasets = DataSetsAPI(http_client)
-        self.datapoint_subscriptions = DatapointSubscriptionAPI(http_client)
+        self.datapoint_subscriptions = DatapointSubscriptionsAPI(http_client)
         self.events = EventsAPI(http_client)
         self.extraction_pipelines = ExtractionPipelinesAPI(http_client)
         self.functions = FunctionsAPI(http_client)

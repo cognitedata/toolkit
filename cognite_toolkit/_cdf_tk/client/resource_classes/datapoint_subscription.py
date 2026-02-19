@@ -1,6 +1,6 @@
-from typing import Generic, Literal, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 
-from pydantic import JsonValue
+from pydantic import JsonValue, field_serializer
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -23,7 +23,12 @@ class Set(BaseModelObject, Generic[T_Value]):
 
 
 class SetNull(BaseModelObject):
-    setNull: Literal[True] = True
+    set_null: Literal[True] = True
+
+    @field_serializer("set_null")
+    def serialize_set_null(self, value: Literal[True]) -> bool:
+        # This value must always be serialized even if model_dump(exclude_unset=True) is used.
+        return value
 
 
 class AddRemove(BaseModelObject, Generic[T_Value]):
@@ -69,17 +74,22 @@ class DatapointSubscriptionRequest(DatapointSubscription, RequestResource):
     instance_ids: list[NodeReference] | None = None
 
     def as_update(self) -> DatapointSubscriptionUpdateRequest:
-        data = DataPointSubscriptionUpdate()
         if self.time_series_ids is not None:
             raise NotImplementedError("Bug in Toolkit. Trying to update timeSeriesIds without an update object")
         if self.instance_ids is not None:
             raise NotImplementedError("Bug in Toolkit. Trying to update instanceIds without an update object")
-        data.name = Set(set=self.name) if self.name is not None else SetNull()
-        data.description = Set(set=self.description) if self.description is not None else SetNull()
-        data.data_set_id = Set(set=self.data_set_id) if self.data_set_id is not None else SetNull()
+        filter_arg: dict[str, Any] = {}
         if self.filter is not None:
-            data.filter = Set(set=self.filter)
-        return DatapointSubscriptionUpdateRequest(external_id=self.external_id, update=data)
+            filter_arg["filter"] = Set(set=self.filter)
+        return DatapointSubscriptionUpdateRequest(
+            external_id=self.external_id,
+            update=DataPointSubscriptionUpdate(
+                name=SetNull() if self.name is None else Set(set=self.name),
+                description=SetNull() if self.description is None else Set(set=self.description),
+                data_set_id=SetNull() if self.data_set_id is None else Set(set=self.data_set_id),
+                **filter_arg,
+            ),
+        )
 
 
 class DatapointSubscriptionResponse(DatapointSubscription, ResponseResource[DatapointSubscriptionRequest]):
