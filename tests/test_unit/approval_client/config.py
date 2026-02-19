@@ -155,6 +155,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
     FunctionScheduleResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
+    GraphQLDataModelRequest,
+    GraphQLDataModelResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupRequest, GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationRequest,
@@ -1299,6 +1303,17 @@ API_RESOURCES = [
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [Method(api_class_method="retrieve", mock_class_method="retrieve")],
+        },
+    ),
+    APIResource(
+        api_name="tool.graphql_data_models",
+        resource_cls=GraphQLDataModelResponse,
+        _write_cls=GraphQLDataModelRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
         },
     ),
     APIResource(

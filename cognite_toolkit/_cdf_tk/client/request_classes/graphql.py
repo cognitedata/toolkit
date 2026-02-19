@@ -19,7 +19,6 @@ mutation UpsertGraphQlDmlVersion($dmCreate: GraphQlDmlVersionUpsert!) {
             name
             description
             graphQlDml
-            isGlobal
             createdTime
             lastUpdatedTime
         }
