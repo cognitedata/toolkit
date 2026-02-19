@@ -30,7 +30,6 @@ from cognite.client.data_classes.capabilities import (
     DataModelsAcl,
 )
 from cognite.client.data_classes.data_modeling import ContainerId, DataModelId, ViewId
-from cognite.client.data_classes.data_modeling.graphql import DMLApplyResult
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.console import Console
@@ -68,15 +67,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
+    GraphQLDataModelRequest,
+    GraphQLDataModelResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
     TypedEdgeIdentifier,
     TypedNodeIdentifier,
     TypedViewReference,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import (
-    GraphQLDataModel,
-    GraphQLDataModelList,
-    GraphQLDataModelWrite,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HAS_DATA_FILTER_LIMIT
 from cognite_toolkit._cdf_tk.cruds._base_cruds import (
@@ -765,7 +763,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
         """Looks up views by their IDs and caches them."""
         missing_ids = [view_id for view_id in view_ids if view_id not in self._view_by_id]
         if missing_ids:
-            retrieved_views = self.client.tool.views.retrieve(missing_ids, include_inherited_properties=False)
+            retrieved_views = self.client.tool.views.retrieve(missing_ids, include_inherited_properties=True)
             for view in retrieved_views:
                 self._view_by_id[view.as_id()] = view
         return {view_id: self._view_by_id[view_id] for view_id in view_ids if view_id in self._view_by_id}
@@ -1189,10 +1187,10 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
-class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelWrite, GraphQLDataModel]):
+class GraphQLCRUD(ResourceContainerCRUD[DataModelReference, GraphQLDataModelRequest, GraphQLDataModelResponse]):
     folder_name = "data_modeling"
-    resource_cls = GraphQLDataModel
-    resource_write_cls = GraphQLDataModelWrite
+    resource_cls = GraphQLDataModelResponse
+    resource_write_cls = GraphQLDataModelRequest
     kind = "GraphQLSchema"
     dependencies = frozenset({SpaceCRUD, ContainerCRUD})
     item_name = "views"
@@ -1202,30 +1200,30 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelWrite, Grap
 
     def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None) -> None:
         super().__init__(client, build_dir, console)
-        self._graphql_filepath_cache: dict[DataModelId, Path] = {}
-        self._datamodels_by_view_id: dict[ViewId, set[DataModelId]] = defaultdict(set)
-        self._dependencies_by_datamodel_id: dict[DataModelId, set[ViewId | DataModelId]] = {}
+        self._graphql_filepath_cache: dict[DataModelReference, Path] = {}
+        self._datamodels_by_view_id: dict[ViewReference, set[DataModelReference]] = defaultdict(set)
+        self._dependencies_by_datamodel_id: dict[DataModelReference, set[ViewReference | DataModelReference]] = {}
 
     @property
     def display_name(self) -> str:
         return "graph QL schemas"
 
     @classmethod
-    def get_id(cls, item: GraphQLDataModelWrite | GraphQLDataModel | dict) -> DataModelId:
+    def get_id(cls, item: GraphQLDataModelRequest | GraphQLDataModelResponse | dict) -> DataModelReference:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return DataModelId(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
-        return DataModelId(item.space, item.external_id, str(item.version))
+            return DataModelReference(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
+        return item.as_id()
 
     @classmethod
-    def dump_id(cls, id: DataModelId) -> dict[str, Any]:
-        return id.dump(include_type=False)
+    def dump_id(cls, id: DataModelReference) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[GraphQLDataModelWrite] | None, read_only: bool
+        cls, items: Sequence[GraphQLDataModelRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -1272,11 +1270,25 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelWrite, Grap
             self._graphql_filepath_cache[model_id] = graphql_file
             graphql_content = safe_read(graphql_file, encoding=BUILD_FOLDER_ENCODING)
 
-            parser = GraphQLParser(graphql_content, model_id)
+            sdk_model_id = DataModelId(space=model_id.space, external_id=model_id.external_id, version=model_id.version)
+            parser = GraphQLParser(graphql_content, sdk_model_id)
             try:
                 for view in parser.get_views():
-                    self._datamodels_by_view_id[view].add(model_id)
-                self._dependencies_by_datamodel_id[model_id] = parser.get_dependencies()
+                    view_ref = ViewReference(
+                        space=view.space, external_id=view.external_id, version=str(view.version or "")
+                    )
+                    self._datamodels_by_view_id[view_ref].add(model_id)
+                deps: set[ViewReference | DataModelReference] = set()
+                for dep in parser.get_dependencies():
+                    if isinstance(dep, DataModelId):
+                        deps.add(
+                            DataModelReference(space=dep.space, external_id=dep.external_id, version=str(dep.version))
+                        )
+                    elif isinstance(dep, ViewId):
+                        deps.add(
+                            ViewReference(space=dep.space, external_id=dep.external_id, version=str(dep.version or ""))
+                        )
+                self._dependencies_by_datamodel_id[model_id] = deps
             except Exception as e:
                 # We catch a broad exception here to give a more user-friendly error message.
                 raise GraphQLParseError(f"Failed to parse GraphQL file {graphql_file.as_posix()}: {e}") from e
@@ -1293,8 +1305,8 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelWrite, Grap
             item["graphqlFile"] = hash_
         return raw_list
 
-    def dump_resource(self, resource: GraphQLDataModel, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+    def dump_resource(self, resource: GraphQLDataModelResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump()
         local = local or {}
         for key in ["dml", "preserveDml"]:
             # Local values that are not returned from the API
@@ -1306,45 +1318,41 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelWrite, Grap
             dumped["graphqlFile"] = match.group(3)
         return dumped
 
-    def create(self, items: Sequence[GraphQLDataModelWrite]) -> list[DMLApplyResult]:
+    def create(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
         creation_order = self._topological_sort(items)
 
-        created_list: list[DMLApplyResult] = []
+        created_list: list[GraphQLDataModelResponse] = []
         for item in creation_order:
             item_id = item.as_id()
             graphql_file_content = self._get_graphql_content(item_id)
             if "--verbose" in sys.argv:
                 print(f"Deploying GraphQL schema {item_id}")
 
-            created = self.client.dml.apply_dml(
-                item.as_id(),
-                dml=graphql_file_content,
-                name=item.name,
-                description=item.description,
-                previous_version=item.previous_version,
-                preserve_dml=item.preserve_dml,
-            )
-            created_list.append(created)
+            item_with_dml = item.model_copy(update={"dml": graphql_file_content})
+            created = self.client.tool.graphql_data_models.create([item_with_dml])
+            created_list.extend(created)
         return created_list
 
-    def _get_graphql_content(self, data_model_id: DataModelId) -> str:
+    def _get_graphql_content(self, data_model_id: DataModelReference) -> str:
         filepath = self._graphql_filepath_cache.get(data_model_id)
         if filepath is None:
             raise ToolkitFileNotFoundError(f"Could not find the GraphQL file for {data_model_id}")
         return safe_read(filepath)
 
-    def retrieve(self, ids: SequenceNotStr[DataModelId]) -> GraphQLDataModelList:
-        result = self.client.data_modeling.data_models.retrieve(list(ids), inline_views=False)
-        return GraphQLDataModelList([GraphQLDataModel._load(d.dump()) for d in result])
+    def retrieve(self, ids: SequenceNotStr[DataModelReference]) -> list[GraphQLDataModelResponse]:
+        return self.client.tool.graphql_data_models.retrieve(list(ids), inline_views=False)
 
-    def update(self, items: Sequence[GraphQLDataModelWrite]) -> list[DMLApplyResult]:
+    def update(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
         return self.create(items)
 
-    def delete(self, ids: SequenceNotStr[DataModelId]) -> int:
+    def delete(self, ids: SequenceNotStr[DataModelReference]) -> int:
         retrieved = self.retrieve(ids)
         views = {view for dml in retrieved for view in dml.views or []}
-        deleted = len(self.client.data_modeling.data_models.delete(list(ids)))
-        deleted += len(self.client.data_modeling.views.delete(list(views)))
+        self.client.tool.graphql_data_models.delete(list(ids))
+        deleted = len(ids)
+        if views:
+            self.client.tool.views.delete(list(views))
+            deleted += len(views)
         return deleted
 
     def _iterate(
@@ -1352,26 +1360,28 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelWrite, Grap
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[GraphQLDataModel]:
-        return iter(GraphQLDataModel._load(d.dump()) for d in self.client.data_modeling.data_models)
+    ) -> Iterable[GraphQLDataModelResponse]:
+        filter_ = DataModelFilter(space=space) if space else None
+        for batch in self.client.tool.graphql_data_models.iterate(filter=filter_):
+            yield from batch
 
-    def count(self, ids: SequenceNotStr[DataModelId]) -> int:
+    def count(self, ids: SequenceNotStr[DataModelReference]) -> int:
         retrieved = self.retrieve(ids)
         return sum(len(d.views or []) for d in retrieved)
 
-    def drop_data(self, ids: SequenceNotStr[DataModelId]) -> int:
+    def drop_data(self, ids: SequenceNotStr[DataModelReference]) -> int:
         return self.delete(ids)
 
-    def _topological_sort(self, items: Sequence[GraphQLDataModelWrite]) -> list[GraphQLDataModelWrite]:
+    def _topological_sort(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelRequest]:
         to_sort = {item.as_id(): item for item in items}
-        dependencies: dict[DataModelId, set[DataModelId]] = {}
+        dependencies: dict[DataModelReference, set[DataModelReference]] = {}
         for item in items:
             item_id = item.as_id()
             dependencies[item_id] = set()
             for dependency in self._dependencies_by_datamodel_id.get(item_id, []):
-                if isinstance(dependency, DataModelId) and dependency in to_sort:
+                if isinstance(dependency, DataModelReference) and dependency in to_sort:
                     dependencies[item_id].add(dependency)
-                elif isinstance(dependency, ViewId):
+                elif isinstance(dependency, ViewReference):
                     for model_id in self._datamodels_by_view_id.get(dependency, set()):
                         if model_id in to_sort:
                             dependencies[item_id].add(model_id)

@@ -1,9 +1,12 @@
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
+from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
+from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.request_classes.filters import TransformationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest, TransformationResponse
 
@@ -20,6 +23,8 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
                 "list": Endpoint(method="POST", path="/transformations/filter", item_limit=1000),
             },
         )
+        self.schedules = TransformationSchedulesAPI(http_client)
+        self.notifications = TransformationNotificationsAPI(http_client)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
@@ -82,12 +87,14 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
 
     def paginate(
         self,
+        filter: TransformationFilter | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[TransformationResponse]:
         """Iterate over all transformations in CDF.
 
         Args:
+            filter: TransformationFilter object to filter transformations.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
 
@@ -97,16 +104,18 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            body={"filter": {}},
+            body={"filter": filter.model_dump(by_alias=True) if filter else {}},
         )
 
     def iterate(
         self,
-        limit: int = 100,
+        filter: TransformationFilter | None = None,
+        limit: int | None = 100,
     ) -> Iterable[list[TransformationResponse]]:
         """Iterate over all transformations in CDF.
 
         Args:
+            filter: TransformationFilter object to filter transformations.
             limit: Maximum number of items to return per page.
 
         Returns:
@@ -114,16 +123,21 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
         """
         return self._iterate(
             limit=limit,
-            body={"filter": {}},
+            body={"filter": filter.model_dump(by_alias=True) if filter else {}},
         )
 
     def list(
         self,
+        filter: TransformationFilter | None = None,
         limit: int | None = 100,
     ) -> list[TransformationResponse]:
         """List all transformations in CDF.
 
+        Args:
+            filter: TransformationFilter object to filter transformations.
+            limit: Maximum number of items to return.
+
         Returns:
             List of TransformationResponse objects.
         """
-        return self._list(limit=limit, body={"filter": {}})
+        return self._list(limit=limit, body={"filter": filter.model_dump(by_alias=True) if filter else {}})

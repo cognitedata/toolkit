@@ -86,6 +86,14 @@ class Flags(Enum):
         visible=False,
         description="Enables the respace command for moving nodes between spaces",
     )
+    DATA_PRODUCTS = FlagMetadata(
+        visible=False,
+        description="Enables the support for data product resources",
+    )
+    MODULES_LIST_JSON = FlagMetadata(
+        visible=True,
+        description="Enables JSON output format for the modules list command",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)

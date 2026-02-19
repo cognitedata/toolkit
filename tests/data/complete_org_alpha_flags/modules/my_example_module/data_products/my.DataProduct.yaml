@@ -1,0 +1,7 @@
+externalId: my_data_product
+name: My Data Product
+description: Curated data product.
+isGoverned: true
+tags:
+  - tag
+schemaSpace: sp_schema

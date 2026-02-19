@@ -1,14 +1,15 @@
 from datetime import datetime
 
-from pydantic import Field, JsonValue
+from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
 from cognite_toolkit._cdf_tk.constants import (
     INSTANCE_EXTERNAL_ID_PATTERN,
     SPACE_FORMAT_PATTERN,
 )
 
 from .base import ToolkitResource
-from .view_field_definitions import DirectRelationReference, ViewReference
+from .view_field_definitions import DirectRelationReference
 
 
 class CogniteFileYAML(ToolkitResource):
@@ -45,7 +46,6 @@ class CogniteFileYAML(ToolkitResource):
     )
     existing_version: int | None = Field(default=None, description="Existing version of the file.")
     type: DirectRelationReference | None = Field(default=None, description="Direct relation to the type of the file.")
-    node_source: ViewReference | None = Field(default=None, description="The source view for this file.")
-    extra_properties: dict[str, JsonValue] | None = Field(
-        default=None, description="Additional custom properties for the file."
-    )
+
+    def as_id(self) -> TypedNodeIdentifier:
+        return TypedNodeIdentifier(space=self.space, external_id=self.external_id)

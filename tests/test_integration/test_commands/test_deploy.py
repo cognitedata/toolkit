@@ -13,6 +13,7 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, PullCommand
 from cognite_toolkit._cdf_tk.cruds import (
+    CRUDS_BY_FOLDER_NAME,
     RESOURCE_CRUD_LIST,
     FunctionCRUD,
     FunctionScheduleCRUD,
@@ -26,6 +27,8 @@ from cognite_toolkit._cdf_tk.cruds import (
     TransformationCRUD,
     WorkflowTriggerCRUD,
 )
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.data_product import DataProductCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.data_product_version import DataProductVersionCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.location import LocationFilterCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeployResult
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -96,9 +99,20 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
     deploy_command = DeployCommand(silent=False, skip_tracking=True)
     client_id = os.environ["IDP_CLIENT_ID"]
     client_secret = os.environ["IDP_CLIENT_SECRET"]
-    with patch.dict(
-        os.environ,
-        {"EVENTHUB_CLIENT_ID": client_id, "EVENTHUB_CLIENT_SECRET": client_secret},
+    # Data Products API is not yet available on the test server.
+    # The alpha flag is turned off in cdf.toml so data products are not built,
+    # but we still exclude the CRUD to be safe.
+    _skip_cruds = {DataProductCRUD, DataProductVersionCRUD}
+    with (
+        patch.dict(
+            os.environ,
+            {"EVENTHUB_CLIENT_ID": client_id, "EVENTHUB_CLIENT_SECRET": client_secret},
+        ),
+        patch.dict(
+            "cognite_toolkit._cdf_tk.cruds.CRUDS_BY_FOLDER_NAME",
+            {f: [c for c in cs if c not in _skip_cruds] for f, cs in CRUDS_BY_FOLDER_NAME.items()},
+            clear=True,
+        ),
     ):
         deploy_command.deploy_build_directory(
             env_vars,
@@ -125,6 +139,9 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
     for loader_cls in RESOURCE_CRUD_LIST:
         if loader_cls in {HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD}:
             # These resources we have no way of knowing if they have changed. So they are always redeployed.
+            continue
+        if loader_cls in {DataProductCRUD, DataProductVersionCRUD}:
+            # Data Products API is not yet available on the test server.
             continue
         loader = loader_cls.create_loader(client, build_dir)
         worker = ResourceWorker(loader, "deploy")
@@ -158,6 +175,8 @@ def get_changed_source_files(
             or loader_cls is LocationFilterCRUD
             # SearchConfigLoader is not supported in pull and post that also will require special handling
             or loader_cls is SearchConfigCRUD
+            # Data Products API is not yet available on the test server.
+            or loader_cls in {DataProductCRUD, DataProductVersionCRUD}
         ):
             continue
         loader = loader_cls.create_loader(env_vars.get_client(), build_dir)

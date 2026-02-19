@@ -3,7 +3,18 @@ DataSetResponse:
     ingesting data into Cognite Data Fusion.
   externalId: ingestion
   name: Ingestion
-ExtractionPipeline:
+ExtractionPipelineConfigResponse:
+- config: "state:\n  rawDatabase: contextualizationState\n  rawTable: diagramParsing\n\
+    data:\n  annotationSpace: 'springfield_instances'\n  directRelationMappings:\n\
+    \    - startNodeView:\n        space: cdf_cdm\n        externalId: CogniteFile\n\
+    \        version: v1\n        directRelationProperty: assets\n      endNodeView:\n\
+    \        space: cdf_cdm\n        externalId: CogniteAsset\n        version: v1\n\
+    \    - startNodeView:\n        type: view\n        space: cdf_cdm\n        externalId:\
+    \ CogniteFile\n        version: v1\n      endNodeView:\n        type: viewProperty\n\
+    \        space: cdf_cdm\n        externalId: CogniteEquipment\n        version:\
+    \ v1\n        directRelationProperty: files\n"
+  externalId: ctx_files_direct_relation_write
+ExtractionPipelineResponse:
 - createdBy: unknown
   dataSetId: 316416785021717804
   description: Writes direct relations based on annotations.
@@ -29,17 +40,6 @@ ExtractionPipeline:
     \ the start or end node.\n```\n"
   externalId: ctx_files_direct_relation_write
   name: Direct Relation Writer
-ExtractionPipelineConfig:
-- config: "state:\n  rawDatabase: contextualizationState\n  rawTable: diagramParsing\n\
-    data:\n  annotationSpace: 'springfield_instances'\n  directRelationMappings:\n\
-    \    - startNodeView:\n        space: cdf_cdm\n        externalId: CogniteFile\n\
-    \        version: v1\n        directRelationProperty: assets\n      endNodeView:\n\
-    \        space: cdf_cdm\n        externalId: CogniteAsset\n        version: v1\n\
-    \    - startNodeView:\n        type: view\n        space: cdf_cdm\n        externalId:\
-    \ CogniteFile\n        version: v1\n      endNodeView:\n        type: viewProperty\n\
-    \        space: cdf_cdm\n        externalId: CogniteEquipment\n        version:\
-    \ v1\n        directRelationProperty: files\n"
-  externalId: ctx_files_direct_relation_write
 FileMetadata:
 - data_set_id: 316416785021717804
   external_id: contextualization_connection_writer

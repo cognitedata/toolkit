@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import cast, get_origin
+from typing import cast, get_args, get_origin
 from unittest.mock import MagicMock
 
 import pytest
@@ -14,7 +14,6 @@ import yaml
 from cognite.client.data_classes import (
     CreatedSession,
     FileMetadata,
-    Transformation,
     TransformationSchedule,
 )
 from cognite.client.data_classes.data_modeling import Edge, Node
@@ -23,14 +22,16 @@ from pytest import MonkeyPatch
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import GraphQLDataModel
+from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import (
     CRUD_LIST,
     CRUDS_BY_FOLDER_NAME,
+    CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA,
     RESOURCE_CRUD_LIST,
     DatapointsCRUD,
     FileMetadataCRUD,
@@ -139,7 +140,7 @@ class TestFormatConsistency:
     ) -> None:
         loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
 
-        if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel, Streamlit]:
+        if loader.resource_cls in [TransformationResponse, FileMetadata, GraphQLDataModelResponse, Streamlit]:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
@@ -176,7 +177,7 @@ class TestFormatConsistency:
     ) -> None:
         loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
 
-        if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel, Streamlit]:
+        if loader.resource_cls in [TransformationResponse, FileMetadata, GraphQLDataModelResponse, Streamlit]:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
@@ -233,6 +234,8 @@ def test_resource_types_is_up_to_date() -> None:
         extra.discard("streams")
     if not FeatureFlag.is_enabled(Flags.SIMULATORS):
         extra.discard("simulators")
+    if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
+        extra.discard("data_products")
     assert not missing, f"Missing {missing=}"
     assert not extra, f"Extra {extra=}"
 
@@ -506,3 +509,15 @@ class TestLoaders:
             duplicates.pop(loader.create_loader(env_vars_with_client.get_client()).display_name, None)
 
         assert not duplicates, f"Duplicate display names: {duplicates}"
+
+
+class TestConstants:
+    @pytest.mark.parametrize(
+        "folder_names",
+        [
+            pytest.param(set(CRUDS_BY_FOLDER_NAME.keys()), id="CRUDS_BY_FOLDER_NAME"),
+            pytest.param(set(CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA.keys()), id="CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA"),
+        ],
+    )
+    def test_resource_key_is_a_resource_type(self, folder_names: set[str]) -> None:
+        assert folder_names <= set(get_args(ResourceTypes))

@@ -5,7 +5,7 @@ import httpx
 import pytest
 import responses
 import respx
-from cognite.client.data_classes.data_modeling import EdgeApply, Node, NodeApply
+from cognite.client.data_classes.data_modeling import EdgeApply, NodeApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -13,9 +13,11 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsFailedResponse,
     ItemsSuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    NodeResponse,
+    ViewResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceList
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.storageio import InstanceIO, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSpaceSelector, InstanceViewSelector, SelectedView
@@ -23,7 +25,9 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 class TestInstanceIO:
-    def test_download_instance_ids(self, rsps: responses.RequestsMock, toolkit_config: ToolkitClientConfig) -> None:
+    def test_download_instance_ids(
+        self, rsps: responses.RequestsMock, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
+    ) -> None:
         client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
         url = toolkit_config.create_api_url("/models/instances/list")
         selector = InstanceViewSelector(
@@ -45,24 +49,59 @@ class TestInstanceIO:
                 ]
             },
         )
-        rsps.add(
-            responses.POST,
-            url,
-            status=200,
-            json={
-                "items": [
-                    {
-                        "externalId": f"instance_{i}",
-                        "space": "my_space",
-                        "instanceType": "node",
-                        "createdTime": 0,
-                        "lastUpdatedTime": 0,
-                        "version": 1,
-                    }
-                    for i in range(N)
-                ]
-            },
-        )
+
+        respx_mock.post(url).side_effect = [
+            httpx.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "externalId": f"instance_{i}",
+                            "space": "my_space",
+                            "instanceType": "node",
+                            "createdTime": 0,
+                            "lastUpdatedTime": 0,
+                            "version": 1,
+                        }
+                        for i in range(1000)
+                    ],
+                    "nextCursor": "cursor_1",
+                },
+            ),
+            httpx.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "externalId": f"instance_{i}",
+                            "space": "my_space",
+                            "instanceType": "node",
+                            "createdTime": 0,
+                            "lastUpdatedTime": 0,
+                            "version": 1,
+                        }
+                        for i in range(1000, 2000)
+                    ],
+                    "nextCursor": "cursor_2",
+                },
+            ),
+            httpx.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "externalId": f"instance_{i}",
+                            "space": "my_space",
+                            "instanceType": "node",
+                            "createdTime": 0,
+                            "lastUpdatedTime": 0,
+                            "version": 1,
+                        }
+                        for i in range(2000, N)
+                    ]
+                },
+            ),
+        ]
         io = InstanceIO(client)
         ids = list(io.download_ids(selector))
         count = io.count(selector)
@@ -144,29 +183,28 @@ class TestInstanceIO:
         client = ToolkitClient(config)
         monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
         monkeypatch.setenv("CDF_PROJECT", config.project)
-        some_instance_data = InstanceList(
-            [
-                Node(
-                    space="my_insta_space",
-                    external_id=f"node_{i}",
-                    version=0,
-                    last_updated_time=1,
-                    created_time=0,
-                    deleted_time=None,
-                    properties=None,
-                    type=None,
-                )
-                for i in range(100)
-            ]
-        )
+        some_instance_data = [
+            NodeResponse(
+                space="my_insta_space",
+                external_id=f"node_{i}",
+                version=0,
+                last_updated_time=1,
+                created_time=0,
+                deleted_time=None,
+                properties=None,
+                type=None,
+            )
+            for i in range(100)
+        ]
 
         def instance_create_callback(request: httpx.Request) -> httpx.Response:
             payload = json.loads(request.content)
             assert "items" in payload
             items = payload["items"]
             assert isinstance(items, list)
-            assert items == [asset.as_write().dump() for asset in some_instance_data]
-            return httpx.Response(status_code=200, json={"items": some_instance_data.dump()})
+            assert len(items) == len(some_instance_data)
+            assert {item["externalId"] for item in items} == {inst.external_id for inst in some_instance_data}
+            return httpx.Response(status_code=200, json={"items": [inst.dump() for inst in some_instance_data]})
 
         # Download count
         rsps.post(
@@ -182,10 +220,9 @@ class TestInstanceIO:
             status=200,
         )
         # Download data
-        rsps.post(
-            config.create_api_url("models/instances/list"),
-            json={"items": some_instance_data.dump()},
-            status=200,
+        respx_mock.post(config.create_api_url("/models/instances/list")).respond(
+            json={"items": [inst.dump() for inst in some_instance_data]},
+            status_code=200,
         )
         # Space
         respx_mock.post(config.create_api_url("/models/spaces/byids")).respond(
@@ -295,7 +332,7 @@ class TestInstanceIO:
             kind=InstanceIO.KIND,
         )
 
-        assert len(respx_mock.calls) == 3
+        assert len(respx_mock.calls) == 4
 
     @pytest.mark.parametrize(
         "item_json,expected_properties",

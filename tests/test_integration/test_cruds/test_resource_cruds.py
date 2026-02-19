@@ -19,14 +19,11 @@ from cognite.client.data_classes import (
     FunctionSchedulesList,
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
-    GroupWrite,
     TimeSeriesList,
     TimeSeriesWrite,
     TimeSeriesWriteList,
-    TransformationWrite,
     filters,
 )
-from cognite.client.data_classes.capabilities import IDScopeLowerCase, TimeSeriesAcl
 from cognite.client.data_classes.data_modeling import NodeApplyList, NodeList, Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply, CogniteTimeSeries, CogniteTimeSeriesApply
 from cognite.client.data_classes.datapoints_subscriptions import (
@@ -46,6 +43,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    GroupCapability,
+    GroupRequest,
+    IDScopeLowerCase,
+    TimeSeriesAcl,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
@@ -58,6 +61,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotCapabilityResponse,
     RobotDataPostProcessingRequest,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     FunctionTaskParameters,
     WorkflowVersionRequest,
@@ -775,7 +780,7 @@ fileCategory: Document
 
 class TestGroupLoader:
     def test_dump_cdf_group_with_invalid_reference(self, toolkit_client: ToolkitClient) -> None:
-        to_delete = TimeSeriesWrite(
+        to_delete = TimeSeriesRequest(
             external_id="test_dump_cdf_group_with_invalid_reference",
             name="Test dump CDF group with invalid reference",
             is_step=False,
@@ -783,17 +788,19 @@ class TestGroupLoader:
         )
         group_id: int | None = None
         try:
-            created_ts = toolkit_client.time_series.create(to_delete)
-            group = GroupWrite(
+            created_ts = toolkit_client.tool.timeseries.create([to_delete])[0]
+            group = GroupRequest(
                 name="test_dump_cdf_group_with_invalid_reference",
                 source_id="1234-dummy",
                 capabilities=[
-                    TimeSeriesAcl(actions=[TimeSeriesAcl.Action.Read], scope=IDScopeLowerCase([created_ts.id]))
+                    GroupCapability(acl=TimeSeriesAcl(actions=["READ"], scope=IDScopeLowerCase(ids=[created_ts.id])))
                 ],
             )
-            created_group = toolkit_client.iam.groups.create(group)
-            group_id = created_group.id
-            toolkit_client.time_series.delete(id=created_ts.id)
+            created_group_list = toolkit_client.tool.groups.create([group])
+            assert len(created_group_list) == 1
+            created_group = created_group_list[0]
+            group_id = created_group.as_request_resource().as_id()
+            toolkit_client.tool.timeseries.delete([to_delete.as_id()])
 
             loader = GroupCRUD.create_loader(toolkit_client)
 
@@ -804,10 +811,10 @@ class TestGroupLoader:
             assert len(capabilities) == 1
             assert capabilities[0] == {"timeSeriesAcl": {"actions": ["READ"], "scope": {"idscope": {"ids": []}}}}
         finally:
-            toolkit_client.time_series.delete(external_id=to_delete.external_id, ignore_unknown_ids=True)
+            toolkit_client.tool.timeseries.delete([to_delete.as_id()], ignore_unknown_ids=True)
             if group_id:
                 with suppress(CogniteAPIError):
-                    toolkit_client.iam.groups.delete(id=group_id)
+                    toolkit_client.tool.groups.delete([group_id])
 
 
 class TestWorkflowVersionLoader:
@@ -1030,8 +1037,9 @@ ignoreNullFields: true
         resource_dict = crud.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
         resource = crud.load_resource(resource_dict[0])
-        assert isinstance(resource, TransformationWrite)
-        if not crud.retrieve([resource.external_id]):
+        external_id = crud.get_id(resource)
+        assert isinstance(resource, TransformationRequest)
+        if not crud.retrieve([external_id]):
             _ = crud.create([resource])
 
         worker = ResourceWorker(crud, "deploy")

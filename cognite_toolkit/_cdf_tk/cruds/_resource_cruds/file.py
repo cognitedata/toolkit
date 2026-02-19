@@ -22,20 +22,16 @@ from cognite.client.data_classes.capabilities import (
     DataModelInstancesAcl,
     FilesAcl,
 )
-from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeId
-from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._time import convert_data_modelling_timestamp
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference, ViewReference
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, SpaceReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId, NameId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import (
-    ExtendableCogniteFile,
-    ExtendableCogniteFileApply,
-    ExtendableCogniteFileList,
-)
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
@@ -49,7 +45,7 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_lis
 from .auth import GroupAllScopedCRUD, SecurityCategoryCRUD
 from .classic import AssetCRUD
 from .data_organization import DataSetsCRUD, LabelCRUD
-from .datamodel import SpaceCRUD, ViewCRUD
+from .datamodel import NodeCRUD, SpaceCRUD, ViewCRUD
 
 
 @final
@@ -179,13 +175,13 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
 
 
 @final
-class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, ExtendableCogniteFile]):
+class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, CogniteFileResponse]):
     template_pattern = "$FILENAME"
     item_name = "file contents"
     folder_name = "files"
     kind = "CogniteFile"
-    resource_cls = ExtendableCogniteFile
-    resource_write_cls = ExtendableCogniteFileApply
+    resource_cls = CogniteFileResponse
+    resource_write_cls = CogniteFileRequest
     yaml_cls = CogniteFileYAML
     dependencies = frozenset({GroupAllScopedCRUD, SpaceCRUD, ViewCRUD})
 
@@ -196,22 +192,20 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, 
         return "cognite files"
 
     @classmethod
-    def get_id(cls, item: ExtendableCogniteFile | ExtendableCogniteFileApply | dict) -> NodeId:
+    def get_id(cls, item: CogniteFileResponse | CogniteFileRequest | dict) -> NodeReference:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"space", "externalId"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return NodeId(space=item["space"], external_id=item["externalId"])
-        return item.as_id()
+            return NodeReference(space=item["space"], external_id=item["externalId"])
+        return NodeReference(space=item.space, external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: NodeId) -> dict[str, Any]:
-        return id.dump(include_instance_type=False)
+    def dump_id(cls, id: NodeReference) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[ExtendableCogniteFileApply] | None, read_only: bool
-    ) -> list[Capability]:
+    def get_required_capability(cls, items: Sequence[CogniteFileRequest] | None, read_only: bool) -> list[Capability]:
         if not items and items is not None:
             return []
 
@@ -231,8 +225,8 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, 
             DataModelInstancesAcl(instance_actions, scope),
         ]
 
-    def dump_resource(self, resource: ExtendableCogniteFile, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump(context="local")
+    def dump_resource(self, resource: CogniteFileResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump(context="toolkit")
         local = local or {}
         if "existingVersion" not in local:
             # Existing version is typically not set when creating nodes, but we get it back
@@ -241,7 +235,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, 
         for key in list(dumped.keys()):
             value = dumped[key]
             if key not in local:
-                if value is None:
+                if value is None or value in ([], {}):
                     dumped.pop(key)
                 continue
             local_value = local[key]
@@ -250,8 +244,6 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, 
             elif isinstance(local_value, date) and isinstance(value, str):
                 dumped[key] = date.fromisoformat(value)
 
-        if "nodeSource" in local:
-            dumped["nodeSource"] = local["nodeSource"]
         if dumped.get("instanceType") == "node" and "instanceType" not in local:
             dumped.pop("instanceType")
         return dumped
@@ -265,61 +257,41 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, 
             return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
         return super().diff_list(local, cdf, json_path)
 
-    def create(self, items: Sequence[ExtendableCogniteFileApply]) -> NodeApplyResultList:
-        created = self.client.data_modeling.instances.apply(
-            nodes=items, replace=False, skip_on_version_conflict=True, auto_create_direct_relations=True
+    def create(self, items: Sequence[CogniteFileRequest]) -> list[InstanceSlimDefinition]:
+        return self.client.tool.cognite_files.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[NodeReference]) -> list[CogniteFileResponse]:
+        return self.client.tool.cognite_files.retrieve(
+            [TypedNodeIdentifier(space=id_.space, external_id=id_.external_id) for id_ in ids]
         )
-        return created.nodes
 
-    def retrieve(self, ids: SequenceNotStr[NodeId]) -> ExtendableCogniteFileList:
-        # Todo: Problem, if you extend the CogniteFiles with a custom view, we need to know
-        #   the ID of the custom view to retrieve data from it. This is not possible with the current
-        #   structure. Need to reconsider how to handle this.
-        items = self.client.data_modeling.instances.retrieve_nodes(  # type: ignore[call-overload]
-            nodes=ids,
-            node_cls=ExtendableCogniteFile,
+    def update(self, items: Sequence[CogniteFileRequest]) -> list[InstanceSlimDefinition]:
+        return self.client.tool.cognite_files.create(items)
+
+    def delete(self, ids: SequenceNotStr[NodeReference]) -> int:
+        return len(
+            self.client.tool.cognite_files.delete(
+                [TypedNodeIdentifier(space=id_.space, external_id=id_.external_id) for id_ in ids]
+            )
         )
-        return ExtendableCogniteFileList(items)
-
-    def update(self, items: Sequence[ExtendableCogniteFileApply]) -> NodeApplyResultList:
-        updated = self.client.data_modeling.instances.apply(nodes=items, replace=True)
-        return updated.nodes
-
-    def delete(self, ids: SequenceNotStr[NodeId]) -> int:
-        try:
-            deleted = self.client.data_modeling.instances.delete(nodes=list(ids))
-        except CogniteAPIError as e:
-            if "not exist" in e.message and "space" in e.message.lower():
-                return 0
-            raise e
-        return len(deleted.nodes)
 
     def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[ExtendableCogniteFile]:
+    ) -> Iterable[CogniteFileResponse]:
         # We do not have a way to know the source of the file, so we cannot filter on that.
         return []
 
-    def count(self, ids: SequenceNotStr[NodeId]) -> int:
-        return sum(
-            [
-                bool(n.is_uploaded or False)
-                for n in self.client.data_modeling.instances.retrieve_nodes(nodes=ids, node_cls=ExtendableCogniteFile)  # type: ignore[call-overload]
-            ]
-        )
+    def count(self, ids: SequenceNotStr[NodeReference]) -> int:
+        return sum(bool(file.is_uploaded or False) for file in self.retrieve(ids))
 
-    def drop_data(self, ids: SequenceNotStr[NodeId]) -> int:
-        existing_meta = self.client.files.retrieve_multiple(instance_ids=list(ids), ignore_unknown_ids=True)
-        existing_node = self.retrieve(ids)
-
-        # File and FileMetadata is tightly coupled, so we need to delete the metadata and recreate it
-        # without the source set to delete the file.
-        self.client.files.delete(id=existing_meta.as_ids())
-        self.create(existing_node.as_write())
-        return len(existing_meta)
+    def drop_data(self, ids: SequenceNotStr[NodeReference]) -> int:
+        # Deleting and recreating the file, will remove the file contents but keep the metadata.
+        retrieved = self.retrieve(ids)
+        self.delete(ids)
+        return len(self.create([file.as_request_resource() for file in retrieved]))
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -330,6 +302,10 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, 
         """
         if "space" in item:
             yield SpaceCRUD, SpaceReference(space=item["space"])
-        if "nodeSource" in item:
-            if in_dict(("space", "externalId", "version", "type"), item["nodeSource"]):
-                yield ViewCRUD, ViewReference.model_validate(item["nodeSource"])
+        for key in ["source", "category", "type"]:
+            if key in item and in_dict(("space", "externalId"), item[key]):
+                yield NodeCRUD, TypedNodeIdentifier(space=item[key]["space"], external_id=item[key]["externalId"])
+        if "assets" in item:
+            for asset in item["assets"]:
+                if isinstance(asset, dict) and in_dict(("space", "externalId"), asset):
+                    yield NodeCRUD, TypedNodeIdentifier(space=asset["space"], external_id=asset["externalId"])

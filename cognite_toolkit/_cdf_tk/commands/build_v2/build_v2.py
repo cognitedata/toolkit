@@ -25,7 +25,8 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ResourceType,
     ValidationType,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxError, Recommendation
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxError
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._plugins import NeatPlugin
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, MODULES
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
@@ -307,32 +308,12 @@ class BuildV2Command(ToolkitCommand):
                 continue
 
             if files_by_resource_type := built_module.resource_by_type.get(DataModelCRUD.folder_name):
-                built_module.insights.extend(self._validate_with_neat(files_by_resource_type, client))
-
-    def _validate_with_neat(
-        self, files_by_resource_type: dict[str, list[Path]], client: ToolkitClient | None
-    ) -> InsightList:
-        """Placeholder for NEAT validation."""
-
-        insights = InsightList()
-
-        try:
-            from cognite.neat._issues import Recommendation as NeatRecommendation
-
-            neat_insight = NeatRecommendation(
-                message="Good job! You are using Neat!",
-                code="NEAT-USER",
-            )
-            insights.append(Recommendation.model_validate(neat_insight.model_dump()))
-        except ImportError:
-            local_insight = Recommendation(
-                message="It is always a good idea to use Neat!",
-                code="NEAT-EVANGELISM",
-                fix="pip install cognite-toolkit[v08]",
-            )
-            insights.append(local_insight)
-
-        return insights
+                if NeatPlugin.installed() and client and DataModelCRUD.kind in files_by_resource_type:
+                    neat = NeatPlugin(client)
+                    for data_model_file in files_by_resource_type[DataModelCRUD.kind]:
+                        for insight in neat.validate(data_model_file.parent, data_model_file):
+                            if insight not in built_module.insights:
+                                built_module.insights.append(insight)
 
     def _write_results(self, build_folder: BuildFolder) -> None:
         return None

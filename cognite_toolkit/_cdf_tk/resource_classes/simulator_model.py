@@ -1,5 +1,7 @@
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+
 from .base import ToolkitResource
 
 
@@ -15,3 +17,6 @@ class SimulatorModelYAML(ToolkitResource):
     description: str | None = Field(None, description="Description of the simulator model.", max_length=500)
     data_set_external_id: str = Field(description="The external ID of the dataset this simulator model belongs to.")
     type: str = Field(description="The type of the simulator model.", min_length=1, max_length=50)
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

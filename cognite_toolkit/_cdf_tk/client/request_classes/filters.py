@@ -45,6 +45,15 @@ class ClassicFilter(Filter):
         return [ExternalId(external_id=item) if isinstance(item, str) else InternalId(id=item) for item in ids]
 
 
+class TransformationFilter(Filter):
+    data_set_ids: list[ExternalId | InternalId] | None = None
+
+
+class TransformationNotificationFilter(Filter):
+    transformation_external_id: str | None = None
+    destination: str | None = None
+
+
 class DataModelingFilter(Filter):
     space: str | None = None
     include_global: bool | None = None
@@ -60,7 +69,6 @@ class ViewFilter(DataModelingFilter):
 
 
 class DataModelFilter(DataModelingFilter):
-    inline_views: bool | None = None
     all_versions: bool | None = None
 
 
@@ -122,6 +130,13 @@ class ThreeDAssetMapping3DNodeFilter(ThreeDAssetMappingFilter):
 
 class ThreeDAssetMappingTreeIndexFilter(ThreeDAssetMappingFilter):
     tree_indexes: list[int] = Field(max_length=100)
+
+
+class SequenceRowFilter(Filter):
+    external_id: str
+    start: int | None = None
+    end: int | None = None
+    columns: list[str] | None = None
 
 
 class SimulatorFilter(Filter):

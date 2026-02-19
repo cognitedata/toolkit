@@ -1,5 +1,7 @@
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+
 from .base import ToolkitResource
 
 
@@ -16,3 +18,6 @@ class SimulatorRoutineYAML(ToolkitResource):
     )
     name: str = Field(description="Name of the simulator routine.", min_length=1, max_length=50)
     description: str | None = Field(None, description="Description of the simulator routine.", max_length=500)
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

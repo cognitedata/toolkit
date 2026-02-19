@@ -16,7 +16,11 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
-from cognite_toolkit._cdf_tk.utils.interactive_select import AssetInteractiveSelect, DataModelingSelect
+from cognite_toolkit._cdf_tk.utils.interactive_select import (
+    AssetInteractiveSelect,
+    DataModelingSelect,
+    ViewSelectFilter,
+)
 
 
 class InstanceTypeEnum(str, Enum):
@@ -325,7 +329,7 @@ class PurgeApp(typer.Typer):
         selector: InstanceSelector
         if is_interactive:
             interactive = DataModelingSelect(client, operation="purge")
-            select_view = interactive.select_view(include_global=True)
+            select_view = interactive.select_view(filter=ViewSelectFilter(include_global=True))
             selected_instance_type = interactive.select_instance_type(select_view.used_for)
             instance_space = interactive.select_instance_space(True, select_view.as_id(), selected_instance_type)
             selector = InstanceViewSelector(

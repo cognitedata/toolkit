@@ -6,7 +6,6 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.dml import DMLAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.extended_data_modeling import ExtendedDataModelingAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
@@ -15,13 +14,17 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 
 from .api.agents import AgentsAPI
 from .api.assets import AssetsAPI
+from .api.cognite_files import CogniteFilesAPI
 from .api.containers import ContainersAPI
 from .api.data_models import DataModelsAPI
+from .api.data_products import DataProductsAPI
 from .api.datasets import DataSetsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
 from .api.filemetadata import FileMetadataAPI
 from .api.functions import FunctionsAPI
+from .api.graphql_data_models import GraphQLDataModelsAPI
+from .api.groups import GroupsAPI
 from .api.hosted_extractors import HostedExtractorsAPI
 from .api.infield import InfieldAPI
 from .api.instances import InstancesAPI
@@ -55,16 +58,19 @@ class ToolAPI:
         self.http_client = http_client
         self.agents = AgentsAPI(http_client)
         self.assets = AssetsAPI(http_client)
+        self.cognite_files = CogniteFilesAPI(http_client)
         self.datasets = DataSetsAPI(http_client)
         self.events = EventsAPI(http_client)
         self.extraction_pipelines = ExtractionPipelinesAPI(http_client)
         self.functions = FunctionsAPI(http_client)
+        self.groups = GroupsAPI(http_client)
         self.hosted_extractors = HostedExtractorsAPI(http_client)
         self.instances = InstancesAPI(http_client)
         self.spaces = SpacesAPI(http_client)
         self.views = ViewsAPI(http_client)
         self.containers = ContainersAPI(http_client)
         self.data_models = DataModelsAPI(http_client)
+        self.graphql_data_models = GraphQLDataModelsAPI(http_client)
         self.labels = LabelsAPI(http_client)
         self.location_filters = LocationFiltersAPI(http_client)
         self.filemetadata = FileMetadataAPI(http_client)
@@ -79,6 +85,7 @@ class ToolAPI:
         self.timeseries = TimeSeriesAPI(http_client)
         self.transformations = TransformationsAPI(http_client)
         self.workflows = WorkflowsAPI(http_client)
+        self.data_products = DataProductsAPI(http_client)
 
 
 class ToolkitClient(CogniteClient):
@@ -97,7 +104,7 @@ class ToolkitClient(CogniteClient):
         self.dml = DMLAPI(self._config, self._API_VERSION, self)
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self, self.console)
-        self.data_modeling: ExtendedDataModelingAPI = ExtendedDataModelingAPI(self._config, self._API_VERSION, self)
+        # self.data_modeling: ExtendedDataModelingAPI = ExtendedDataModelingAPI(self._config, self._API_VERSION, self)
         if enable_set_pending_ids:
             self.time_series: ExtendedTimeSeriesAPI = ExtendedTimeSeriesAPI(self._config, self._API_VERSION, self)
             self.files: ExtendedFileMetadataAPI = ExtendedFileMetadataAPI(self._config, self._API_VERSION, self)

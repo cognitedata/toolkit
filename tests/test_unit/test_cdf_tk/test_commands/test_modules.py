@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import zipfile
 from pathlib import Path
@@ -421,3 +422,42 @@ class TestModulesCommand:
         # Expect: two SHA256 hex hashes in the message, one for provided and one for calculated
         pattern = r"^The provided checksum sha256:[0-9a-f]{64} does not match downloaded file hash sha256:[0-9a-f]{64}"
         assert re.search(pattern, warning.message_raw)
+
+    def test_list_json_output_is_parseable(self, tmp_path: Path, monkeypatch: MonkeyPatch, capsys) -> None:
+        location = MagicMock()
+        location.path = Path("modules/my_module")
+
+        module = MagicMock()
+        module.name = "my_module"
+        module.resources = {"data_models": [1, 2], "raw": [1]}
+        module.warning_count = 1
+        module.status = "Success"
+        module.location = location
+
+        class FakeModuleResources:
+            def __init__(self, organization_dir: Path, build_env: str | None) -> None:
+                self._organization_dir = organization_dir
+                self._build_env = build_env
+
+            def list(self) -> list[MagicMock]:
+                return [module]
+
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.modules.verify_module_directory", lambda *_: None)
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.modules.ModuleResources", FakeModuleResources)
+
+        cmd = ModulesCommand(print_warning=False, skip_tracking=True)
+        cmd.list(organization_dir=tmp_path, build_env_name="dev", output_format="json")
+
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["environment"] == "dev"
+        assert payload["organization_dir"] == tmp_path.as_posix()
+        assert payload["modules"] == [
+            {
+                "build_result": "Success",
+                "build_warnings": 1,
+                "location": "modules/my_module",
+                "module_name": "my_module",
+                "resource_folders": 2,
+                "resources": 3,
+            }
+        ]

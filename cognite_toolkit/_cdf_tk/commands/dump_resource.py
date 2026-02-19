@@ -12,17 +12,10 @@ import questionary
 import typer
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
-    ExtractionPipelineList,
-    Group,
-    GroupList,
-    TransformationList,
-    TransformationNotificationList,
-    TransformationScheduleList,
     filters,
 )
 from cognite.client.data_classes.data_modeling import ViewId
 from cognite.client.data_classes.documents import SourceFileProperty
-from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.functions import (
     Function,
 )
@@ -49,9 +42,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
     ExternalId,
+    NameId,
     WorkflowVersionId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
@@ -59,6 +55,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import St
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
 from cognite_toolkit._cdf_tk.cruds import (
@@ -316,10 +313,10 @@ class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
 class TransformationFinder(ResourceFinder[tuple[str, ...]]):
     def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
         super().__init__(client, identifier)
-        self.transformations: TransformationList | None = None
+        self.transformations: list[TransformationResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        self.transformations = self.client.transformations.list(limit=-1)
+        self.transformations = self.client.tool.transformations.list(limit=None)
         if self.transformations and not any(transformation.external_id for transformation in self.transformations):
             raise ToolkitValueError(
                 "ExternalID is required for dumping transformations. "
@@ -347,39 +344,38 @@ class TransformationFinder(ResourceFinder[tuple[str, ...]]):
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
+        external_ids = [ExternalId(external_id=id_) for id_ in self.identifier]
         if self.transformations:
             yield (
                 [],
-                TransformationList([t for t in self.transformations if t.external_id in self.identifier]),
+                [t for t in self.transformations if t.external_id in self.identifier],
                 TransformationCRUD.create_loader(self.client),
                 None,
             )
         else:
-            yield list(self.identifier), None, TransformationCRUD.create_loader(self.client), None
+            yield external_ids, None, TransformationCRUD.create_loader(self.client), None
 
         schedule_loader = TransformationScheduleCRUD.create_loader(self.client)
-        schedule_list = TransformationScheduleList(list(schedule_loader.iterate(parent_ids=list(self.identifier))))
+        schedule_list = list(schedule_loader.iterate(parent_ids=external_ids))
         yield [], schedule_list, schedule_loader, None
         notification_loader = TransformationNotificationCRUD.create_loader(self.client)
-        notification_list = TransformationNotificationList(
-            list(notification_loader.iterate(parent_ids=list(self.identifier)))
-        )
+        notification_list = list(notification_loader.iterate(parent_ids=external_ids))
         yield [], notification_list, notification_loader, None
 
 
 class GroupFinder(ResourceFinder[tuple[str, ...]]):
     def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
         super().__init__(client, identifier)
-        self.groups: list[Group] | None = None
+        self.groups: list[GroupResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        groups = self.client.iam.groups.list(all=True)
+        groups = self.client.tool.groups.list(all_groups=True)
         if not groups:
             raise ToolkitMissingResourceError("No groups found")
-        groups_by_name: dict[str, list[Group]] = defaultdict(list)
+        groups_by_name: dict[str, list[GroupResponse]] = defaultdict(list)
         for group in groups:
             groups_by_name[group.name].append(group)
-        selected_groups: list[list[Group]] | None = questionary.checkbox(
+        selected_groups: list[list[GroupResponse]] | None = questionary.checkbox(
             "Which group(s) would you like to dump?",
             choices=[
                 Choice(f"{group_name} ({len(group_list)} group{'s' if len(group_list) > 1 else ''})", value=group_list)
@@ -397,9 +393,14 @@ class GroupFinder(ResourceFinder[tuple[str, ...]]):
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         if self.groups:
-            yield [], GroupList(self.groups), GroupCRUD.create_loader(self.client), None
+            yield (
+                [],
+                [group for group in self.groups if group.name in self.identifier],
+                GroupCRUD.create_loader(self.client),
+                None,
+            )
         else:
-            yield list(self.identifier), None, GroupCRUD.create_loader(self.client), None
+            yield [NameId(name=name) for name in self.identifier], None, GroupCRUD.create_loader(self.client), None
 
 
 class AgentFinder(ResourceFinder[tuple[str, ...]]):
@@ -551,16 +552,15 @@ class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
 class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
     def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
         super().__init__(client, identifier)
-        self.extraction_pipelines: ExtractionPipelineList | None = None
+        self.extraction_pipelines: list[ExtractionPipelineResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        self.extraction_pipelines = self.client.extraction_pipelines.list(limit=-1)
+        self.extraction_pipelines = self.client.tool.extraction_pipelines.list(limit=None)
         if not self.extraction_pipelines:
             raise ToolkitMissingResourceError("No extraction pipelines found")
         choices = [
             Choice(f"{pipeline.name} ({pipeline.external_id})", value=pipeline.external_id)
             for pipeline in sorted(self.extraction_pipelines, key=lambda p: p.name or "")
-            if pipeline.external_id
         ]
         selected_pipeline_ids: tuple[str, ...] | None = questionary.checkbox(
             "Which extraction pipeline(s) would you like to dump?",
@@ -575,16 +575,15 @@ class ExtractionPipelineFinder(ResourceFinder[tuple[str, ...]]):
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
+        external_ids = [ExternalId(external_id=ext_id) for ext_id in self.identifier]
         pipeline_loader = ExtractionPipelineCRUD.create_loader(self.client)
         if self.extraction_pipelines:
-            selected_pipelines = ExtractionPipelineList(
-                [p for p in self.extraction_pipelines if p.external_id in self.identifier]
-            )
+            selected_pipelines = [p for p in self.extraction_pipelines if p.external_id in self.identifier]
             yield [], selected_pipelines, pipeline_loader, None
         else:
-            yield list(self.identifier), None, pipeline_loader, None
+            yield external_ids, None, pipeline_loader, None
         config_loader = ExtractionPipelineConfigCRUD.create_loader(self.client)
-        configs = ExtractionPipelineConfigList(list(config_loader.iterate(parent_ids=list(self.identifier))))
+        configs = list(config_loader.iterate(parent_ids=external_ids))
         yield [], configs, config_loader, None
 
 

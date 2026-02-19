@@ -62,6 +62,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from pydantic import BaseModel, JsonValue
 from questionary import Choice
 
+from cognite_toolkit._cdf_tk.client.resource_classes.group.capability import GroupCapability
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.sequences import ToolkitSequenceRows
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.constants import MODULES
@@ -346,6 +347,9 @@ class FakeCogniteResourceGenerator:
         return resource_cls(*positional_arguments, **keyword_arguments)
 
     def create_pydantic_instance(self, model_cls: type[BaseModel], skip_defaulted_args: bool = False) -> BaseModel:
+        if model_cls is GroupCapability:
+            return GroupCapability.model_validate({"assetsAcl": {"actions": ["READ"], "scope": {"all": {}}}})
+
         keyword_arguments: dict[str, Any] = {}
         for field_id, field in model_cls.model_fields.items():
             if skip_defaulted_args and field.default is not None:
@@ -392,7 +396,12 @@ class FakeCogniteResourceGenerator:
             return None
 
         if container_type is Annotated:
-            return self.create_value(get_args(type_)[0], var_name=var_name)
+            base_type, *metadata_args = get_args(type_)
+            if base_type is str:
+                constraints = self._extract_str_constraints(metadata_args)
+                if constraints.get("pattern"):
+                    return self._random_constrained_string(constraints)
+            return self.create_value(base_type, var_name=var_name)
         elif container_type in UNION_TYPES:
             return self.create_value(first_not_none)
         elif container_type is typing.Literal:
@@ -426,6 +435,8 @@ class FakeCogniteResourceGenerator:
 
         if var_name == "external_id" and type_ is str:
             return self._random_string(50, sample_from=string.ascii_uppercase + string.digits)
+        elif var_name == "version" and type_ is str:
+            return f"{self._random.randint(0, 99)}.{self._random.randint(0, 99)}.{self._random.randint(0, 99)}"
         elif var_name == "id" and type_ is int:
             return self._random.choice(range(1, MAX_VALID_INTERNAL_ID + 1))
         if type_ is str or type_ is Any:
@@ -502,6 +513,28 @@ class FakeCogniteResourceGenerator:
     ) -> str:
         k = size or self._random.randint(1, 100)
         return "".join(self._random.choices(sample_from, k=k))
+
+    @staticmethod
+    def _extract_str_constraints(metadata: list[Any]) -> dict[str, Any]:
+        attrs = ("pattern", "min_length", "max_length")
+        constraints: dict[str, Any] = {}
+        for m in metadata:
+            for attr in attrs:
+                if (val := getattr(m, attr, None)) is not None:
+                    constraints[attr] = val
+            for nested in getattr(m, "metadata", []):
+                for attr in attrs:
+                    if (val := getattr(nested, attr, None)) is not None:
+                        constraints[attr] = val
+        return constraints
+
+    def _random_constrained_string(self, constraints: dict[str, Any]) -> str:
+        min_len = constraints.get("min_length", 1)
+        max_len = constraints.get("max_length", 10)
+        length = min(max(min_len, 4), max_len)
+        first = self._random.choice(string.ascii_lowercase)
+        rest = self._random_string(length - 1, sample_from=string.ascii_lowercase + string.digits)
+        return first + rest
 
     @classmethod
     def _type_checking(cls) -> dict[str, Any]:

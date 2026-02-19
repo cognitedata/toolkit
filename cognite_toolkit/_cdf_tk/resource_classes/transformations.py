@@ -1,8 +1,9 @@
 from typing import Any, Literal
 
-from cognite.client.data_classes import TransformationWrite
 from pydantic import Field, field_validator, model_serializer
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
+
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
 from .authentication import AuthenticationClientIdSecret, OIDCCredential
 from .base import ToolkitResource
@@ -10,7 +11,6 @@ from .transformation_destination import Destination
 
 
 class TransformationYAML(ToolkitResource):
-    _cdf_resource = TransformationWrite
     external_id: str = Field(description="The external ID provided by the client.")
     name: str = Field(description="Name of the transformation.")
     ignore_null_fields: bool = Field(
@@ -48,6 +48,9 @@ class TransformationYAML(ToolkitResource):
         default=None,
         description="Used by Toolkit: Path to the SQL file containing the query for the transformation.",
     )
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
 
     @model_serializer(mode="wrap")
     def serialize_transformation(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:

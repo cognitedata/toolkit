@@ -2,10 +2,10 @@ import sys
 from types import MappingProxyType
 from typing import Any, ClassVar, cast
 
-from cognite.client.data_classes import WorkflowTrigger
 from pydantic import Field, JsonValue, ModelWrapValidatorHandler, model_serializer, model_validator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .authentication import AuthenticationClientIdSecret
@@ -78,7 +78,6 @@ class DataModelingTrigger(TriggerRuleYAML):
 
 
 class WorkflowTriggerYAML(ToolkitResource):
-    _cdf_resource = WorkflowTrigger
     external_id: str = Field(
         max_length=255,
         description="Identifier for a trigger. Must be unique for the project. "
@@ -98,6 +97,9 @@ class WorkflowTriggerYAML(ToolkitResource):
         " leading whitespace and no null characters allowed.",
     )
     authentication: AuthenticationClientIdSecret = Field(description="Credentials required for the authentication.")
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
 
     @model_serializer(mode="wrap")
     def serialize_trigger_rules(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:

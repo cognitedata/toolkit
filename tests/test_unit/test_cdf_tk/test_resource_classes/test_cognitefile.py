@@ -35,8 +35,6 @@ def valid_cognitefile_test_cases() -> Iterable:
             "category": {"space": "category_space", "externalId": "document_category"},
             "existingVersion": 3,
             "type": {"space": "type_space", "externalId": "report_type"},
-            "nodeSource": {"type": "view", "space": "view_space", "externalId": "file_view", "version": "v1"},
-            "extraProperties": {"custom_field": "custom_value", "priority": 5, "is_public": True},
         },
         id="complete-file-with-all-fields",
     )
@@ -46,7 +44,6 @@ def valid_cognitefile_test_cases() -> Iterable:
             "externalId": "data_types_test",
             "name": "Data Types Test",
             "existingVersion": 0,
-            "extraProperties": {"number": 42, "boolean": False, "nested": {"key": "value"}},
         },
         id="file-with-various-data-types",
     )
@@ -63,15 +60,6 @@ def invalid_cognitefile_test_cases() -> Iterable:
         {"space": "my_space", "externalId": "my_file", "source": {"space": "source_space"}},
         {"In source missing required field: 'externalId'"},
         id="invalid-DirectRelationReference-missing-externalId",
-    )
-    yield pytest.param(
-        {
-            "space": "my_space",
-            "externalId": "my_file",
-            "nodeSource": {"type": "view", "space": "view_space", "externalId": "file_view"},
-        },
-        {"In nodeSource missing required field: 'version'"},
-        id="invalid-ViewReference-missing-version",
     )
     yield pytest.param(
         {"space": "my_space", "externalId": "my_file", "existingVersion": "not_a_number"},

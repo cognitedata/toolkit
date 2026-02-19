@@ -1,5 +1,7 @@
 from pydantic import Field, JsonValue
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+
 from .base import ToolkitResource
 
 
@@ -13,3 +15,6 @@ class ExtractionPipelineConfigYAML(ToolkitResource):
     config: str | dict[str, JsonValue] = Field(
         description="Configuration content. Can be either a JSON string or a dictionary."
     )
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

@@ -5,6 +5,15 @@ from pydantic import AliasChoices, Field, model_serializer, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 
+SemanticVersion = Annotated[
+    str,
+    Field(
+        min_length=5,
+        max_length=14,
+        pattern=r"^(0|[1-9]\d{0,3})\.(0|[1-9]\d{0,3})\.(0|[1-9]\d{0,3})$",
+    ),
+]
+
 
 class InternalOrExternalIdDefinition(Identifier):
     type: str
@@ -90,6 +99,23 @@ class RawTableId(Identifier):
         return f"dbName='{self.db_name}', name='{self.name}'"
 
 
+class SequenceRowId(Identifier):
+    external_id: str = Field(description="ExternalId of the sequence")
+    rows: tuple[int, ...]
+
+    def __str__(self) -> str:
+        rows_str = ", ".join(str(row) for row in self.rows)
+        return f"externalId='{self.external_id}', rows=[{rows_str}]"
+
+
+class ExtractionPipelineConfigId(Identifier):
+    external_id: str
+    revision: int | None = None
+
+    def __str__(self) -> str:
+        return f"externalId='{self.external_id}', revision={self.revision}"
+
+
 class WorkflowVersionId(Identifier):
     workflow_external_id: str
     version: str
@@ -98,8 +124,32 @@ class WorkflowVersionId(Identifier):
         return f"workflowExternalId='{self.workflow_external_id}', version='{self.version}'"
 
 
+class ThreeDModelRevisionId(Identifier):
+    model_id: int = Field(exclude=True)
+    id: int
+
+    def __str__(self) -> str:
+        return f"modelId={self.model_id}, id={self.id}"
+
+
 class DataSetId(Identifier):
     data_set_id: int
 
     def __str__(self) -> str:
         return f"dataSetId={self.data_set_id}"
+
+
+class DataProductVersionId(Identifier):
+    data_product_external_id: str
+    version: SemanticVersion
+
+    def __str__(self) -> str:
+        return f"dataProductExternalId='{self.data_product_external_id}', version='{self.version}'"
+
+
+class TransformationNotificationId(Identifier):
+    transformation_external_id: str
+    destination: str
+
+    def __str__(self) -> str:
+        return f"transformationExternalId='{self.transformation_external_id}', destination='{self.destination}'"

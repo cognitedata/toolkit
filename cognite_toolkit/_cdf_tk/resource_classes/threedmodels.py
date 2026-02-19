@@ -1,5 +1,7 @@
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId
+
 from .base import ToolkitResource
 
 
@@ -17,3 +19,6 @@ class ThreeDModelYAML(ToolkitResource):
         description="Custom, application-specific metadata.",
         max_length=16,
     )
+
+    def as_id(self) -> NameId:
+        return NameId(name=self.name)

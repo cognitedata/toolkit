@@ -5,16 +5,19 @@ from unittest.mock import MagicMock
 import pytest
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
-from cognite.client.data_classes import Transformation, TransformationWrite
-from cognite.client.data_classes.transformations import NonceCredentials
-from cognite.client.exceptions import CogniteAPIError
 
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelReference,
     SpaceReference,
     ViewReference,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    NonceCredentials,
+    TransformationRequest,
+    TransformationResponse,
+)
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import (
     DataModelCRUD,
@@ -61,8 +64,8 @@ conflictMode: upsert
         raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
 
-        assert loaded.destination_oidc_credentials is None
-        assert loaded.source_oidc_credentials is None
+        assert loaded.destination_nonce is None
+        assert loaded.source_nonce is None
 
     def test_oidc_auth_load(
         self,
@@ -107,6 +110,8 @@ conflictMode: upsert
         local_content = """name: my-transformation
 externalId: my_transformation
 ignoreNullFields: true
+destination:
+  type: assets
 query: SELECT * FROM my_table
 authentication:
   clientId: my-client-id
@@ -117,11 +122,21 @@ authentication:
         """
         auth_dict = {"authentication": yaml.CSafeLoader(local_content).get_data()["authentication"]}
         auth_hash = calculate_secure_hash(auth_dict, shorten=True)
-        cdf_transformation = Transformation(
+        cdf_transformation = TransformationResponse(
+            id=1,
             name="my-transformation",
             external_id="my_transformation",
             query=f"{TransformationCRUD._hash_key}: {auth_hash}\nSELECT * FROM my_table",
             ignore_null_fields=True,
+            created_time=1,
+            last_updated_time=1,
+            is_public=True,
+            conflict_mode="upsert",
+            destination={"type": "assets"},
+            owner="test",
+            owner_is_current_user=True,
+            has_source_oidc_credentials=False,
+            has_destination_oidc_credentials=False,
         )
         with monkeypatch_toolkit_client() as client:
             loader = TransformationCRUD(client, None, None)
@@ -206,7 +221,7 @@ authentication:
 
     def test_create_session_nonce_error(self) -> None:
         transformations = [
-            TransformationWrite(
+            TransformationRequest(
                 external_id=f"transformation_{i}",
                 name=f"Transformation {i}",
                 ignore_null_fields=True,
@@ -217,27 +232,34 @@ authentication:
             for i in range(3)
         ]
 
-        def create_transformations(transformation: list[TransformationWrite]) -> list[Transformation]:
+        def create_transformations(transformation: list[TransformationRequest]) -> list[TransformationResponse]:
             if len(transformation) > 1:
-                raise CogniteAPIError(
+                raise ToolkitAPIError(
                     message="Failed to bind session using nonce for: 123",
                     code=400,
-                    x_request_id="b0f7f97c-ae36-9db5-95a8-d1a80c185c99",
-                    failed=[t.external_id for t in transformation],
-                    cluster="bluefield",
                 )
             return [
-                Transformation(
+                TransformationResponse(
+                    id=i,
                     external_id=t.external_id,
                     name=t.name,
                     ignore_null_fields=t.ignore_null_fields,
-                    query=t.query,
+                    query=t.query or "",
+                    created_time=1,
+                    last_updated_time=1,
+                    is_public=True,
+                    conflict_mode="upsert",
+                    destination={"type": "assets"},
+                    owner="test",
+                    owner_is_current_user=True,
+                    has_source_oidc_credentials=False,
+                    has_destination_oidc_credentials=False,
                 )
-                for t in transformation
+                for i, t in enumerate(transformation)
             ]
 
         with monkeypatch_toolkit_client() as client:
-            client.transformations.create.side_effect = create_transformations
+            client.tool.transformations.create.side_effect = create_transformations
             crud = TransformationCRUD(client, None, None)
             created = crud.create(transformations)
 

@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.api.agents import AgentsAPI
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.containers import ContainersAPI
 from cognite_toolkit._cdf_tk.client.api.data_models import DataModelsAPI
+from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.events import EventsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipelines import ExtractionPipelinesAPI
@@ -36,8 +37,9 @@ from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsA
 from cognite_toolkit._cdf_tk.client.api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_routines import SimulatorRoutinesAPI
 from cognite_toolkit._cdf_tk.client.api.spaces import SpacesAPI
-from cognite_toolkit._cdf_tk.client.api.three_d import ThreeDClassicModelsAPI
 from cognite_toolkit._cdf_tk.client.api.timeseries import TimeSeriesAPI
+from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
+from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
 from cognite_toolkit._cdf_tk.client.api.views import ViewsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI
@@ -60,6 +62,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewRequest,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
@@ -155,9 +158,20 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest, StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicRequest, ThreeDModelResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
+    ThreeDModelClassicRequest,
+    ThreeDModelClassicResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest, TransformationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_notification import (
+    TransformationNotificationRequest,
+    TransformationNotificationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule import (
+    TransformationScheduleRequest,
+    TransformationScheduleResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     WorkflowTriggerRequest,
@@ -485,6 +499,21 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
+        TransformationScheduleResponse: {
+            "id": 301,
+            "externalId": "transformation_schedule_001",
+            "interval": "0 0 * * *",
+            "isPaused": False,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        TransformationNotificationResponse: {
+            "id": 302,
+            "destination": "user@example.com",
+            "transformationId": 205,
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
         WorkflowResponse: {
             "externalId": "workflow_001",
             "createdTime": 1622547800000,
@@ -548,9 +577,8 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "space": "my_space",
             "externalId": "my_graphql_model",
             "version": "1",
-            "isGlobal": False,
-            "createdTime": 1622547800000,
-            "lastUpdatedTime": 1622547800000,
+            "createdTime": "2021-06-01T11:43:20Z",
+            "lastUpdatedTime": "2021-06-01T11:43:20Z",
         },
         FunctionResponse: {
             "id": 456,
@@ -639,10 +667,10 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
         CogniteFileResponse: {
             "space": "my_space",
             "externalId": "cognite_file_001",
-            "name": "Example File",
             "version": 1,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
+            "properties": {"cdf_cdm": {"CogniteFile/v1": {"name": "Example File"}}},
         },
         ResourceViewMappingResponse: {
             "externalId": "mapping_001",
@@ -677,10 +705,20 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "createdFromTemplate": "ImmutableTestStream",
             "type": "Immutable",
         },
-        ThreeDModelResponse: {
+        ThreeDModelClassicResponse: {
             "id": 123,
             "name": "Example 3D Model",
             "createdTime": 1622547800000,
+        },
+        DataProductResponse: {
+            "externalId": "dp_001",
+            "name": "Example Data Product",
+            "isGoverned": True,
+            "schemaSpace": "dp_001",
+            "tags": ["sales"],
+            "domains": [],
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
         },
     }
     try:
@@ -963,6 +1001,24 @@ def iterate_cdf_resources() -> Iterable[tuple]:
         ),
         id="Transformation",
     )
+    yield pytest.param(
+        CDFResource(
+            response_cls=TransformationScheduleResponse,
+            request_cls=TransformationScheduleRequest,
+            example_data=get_example_minimum_responses(TransformationScheduleResponse),
+            api_class=TransformationSchedulesAPI,
+        ),
+        id="TransformationSchedule",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=TransformationNotificationResponse,
+            request_cls=TransformationNotificationRequest,
+            example_data=get_example_minimum_responses(TransformationNotificationResponse),
+            api_class=TransformationNotificationsAPI,
+        ),
+        id="TransformationNotification",
+    )
 
     yield pytest.param(
         CDFResource(
@@ -1170,10 +1226,19 @@ def iterate_cdf_resources() -> Iterable[tuple]:
     )
     yield pytest.param(
         CDFResource(
-            response_cls=ThreeDModelResponse,
+            response_cls=ThreeDModelClassicResponse,
             request_cls=ThreeDModelClassicRequest,
-            example_data=get_example_minimum_responses(ThreeDModelResponse),
-            api_class=ThreeDClassicModelsAPI,
+            example_data=get_example_minimum_responses(ThreeDModelClassicResponse),
+            # Needs custom mocking due to the retrieve method requires modelId in the path parameter.
         ),
         id="ThreeDClassicModel",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=DataProductResponse,
+            request_cls=DataProductRequest,
+            example_data=get_example_minimum_responses(DataProductResponse),
+            api_class=DataProductsAPI,
+        ),
+        id="DataProduct",
     )

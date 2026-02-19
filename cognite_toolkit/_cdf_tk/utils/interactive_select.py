@@ -20,10 +20,12 @@ from questionary import Choice
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ViewFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter, ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerReference,
+    DataModelResponse,
+    DataModelResponseWithViews,
     SpaceResponse,
     ViewReference,
     ViewResponse,
@@ -34,7 +36,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import Canvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList, Visibility
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
 from . import humanize_collection
@@ -489,6 +491,41 @@ class AssetCentricDestinationSelect:
         return cls.validate(destination_type)
 
 
+@dataclass
+class ViewSelectFilter:
+    """Filter for creating view options when selecting views for instance selection.
+
+    This filter is used to narrow down the list of views presented to the user when they are asked to select a view.
+
+    Args:
+        strategy: The strategy used to create the view options.
+            - "SchemaSpace": Ask the user to select a schema space first.
+        include_global: Whether to include global views in the options.
+        schema_space : The schema space to look for view in.
+        instance_type: If set, only include views that can be used for the given instance type ("node", "edge", or "all").
+        mapped_container: If set, only include views that have the given container in their mapped containers.
+
+    """
+
+    strategy: Literal["schemaSpace", "dataModel"] = "schemaSpace"
+    include_global: bool | None = None
+    schema_space: str | None = None
+    instance_type: Literal["node", "edge", "all"] | None = None
+    mapped_container: ContainerReference | None = None
+
+    def __str__(self) -> str:
+        message: list[str] = []
+        if self.include_global:
+            message.append("including global")
+        if self.schema_space:
+            message.append(f"in schema space {self.schema_space!r}")
+        if self.instance_type and self.instance_type != "all":
+            message.append(f"for instance type {self.instance_type!r}")
+        if self.mapped_container:
+            message.append(f"with mapped container {self.mapped_container!r}")
+        return f"Views {humanize_collection(message)}"
+
+
 class DataModelingSelect:
     """A utility class to select Data Modeling nodes interactively."""
 
@@ -507,45 +544,31 @@ class DataModelingSelect:
     def select_view(
         self,
         multiselect: Literal[False] = False,
-        include_global: bool = False,
-        space: str | None = None,
         message: str | None = None,
-        instance_type: Literal["node", "edge", "all"] | None = None,
-        mapped_container: ContainerReference | None = None,
+        filter: ViewSelectFilter | None = None,
     ) -> ViewResponse: ...
 
     @overload
     def select_view(
         self,
         multiselect: Literal[True],
-        include_global: bool = False,
-        space: str | None = None,
         message: str | None = None,
-        instance_type: Literal["node", "edge", "all"] | None = None,
-        mapped_container: ContainerReference | None = None,
+        filter: ViewSelectFilter | None = None,
     ) -> list[ViewResponse]: ...
 
     def select_view(
         self,
         multiselect: bool = False,
-        include_global: bool = False,
-        space: str | None = None,
         message: str | None = None,
-        instance_type: Literal["node", "edge", "all"] | None = None,
-        mapped_container: ContainerReference | None = None,
+        filter: ViewSelectFilter | None = None,
     ) -> ViewResponse | list[ViewResponse]:
         """Select one or more views interactively.
 
         Args:
             multiselect: Whether to allow selecting multiple views.
-            include_global: Whether to include global views in the selection.
-            space: The space to select views from. If None, the user will be prompted to
-                select a space.
-            message: The message to display when prompting for a view. If None, a default message
+             message: The message to display when prompting for a view. If None, a default message
                 will be used.
-            instance_type: If 'node' or 'edge', only views of that type will be shown.
-            mapped_container: Only selects view(s) that are mapping the given container.
-
+            filter: Optional filter to apply when listing views. If None, no additional filtering will be applied.
         Returns:
             The selected view(s).
 
@@ -554,48 +577,117 @@ class DataModelingSelect:
             ToolkitMissingResourceError: If no views are found in the selected space.
 
         """
-        selected_space = (
-            space
-            or self.select_schema_space(
-                include_global,
-                message=f"In which Spaces is the view you will use to select instances to {self.operation}?",
-            ).space
-        )
-
-        views = self.client.tool.views.list(
-            filter=ViewFilter(
-                space=selected_space,
-                include_inherited_properties=True,
-                include_global=include_global,
-            ),
-            limit=None,
-        )
-        views = [
-            view
-            for view in views
-            if instance_type in (None, "all", view.used_for)
-            and (mapped_container is None or mapped_container in view.mapped_containers)
-        ]
-        if not views:
-            raise ToolkitMissingResourceError(f"No views found in space {selected_space!r}.")
+        views = self._get_view_options(filter or ViewSelectFilter())
         question = message or f"Which view do you want to use to select instances to {self.operation}?"
-        choices = [Choice(title=f"{view.external_id} (version={view.version})", value=view) for view in views]
+        choices = [
+            Choice(title=f"{view.space}:{view.external_id}(version={view.version})", value=view) for view in views
+        ]
         if multiselect:
             selected_views = questionary.checkbox(
                 question,
                 choices=choices,
                 validate=lambda choises: True if choises else "You must select at least one view.",
             ).unsafe_ask()
-        else:
-            selected_views = questionary.select(question, choices=choices).unsafe_ask()
-        if multiselect:
             if not isinstance(selected_views, list) or not all(isinstance(v, ViewResponse) for v in selected_views):
                 raise ToolkitValueError(f"Selected views is not a valid list of View objects: {selected_views!r}")
             return selected_views
         else:
+            selected_views = questionary.select(question, choices=choices).unsafe_ask()
             if not isinstance(selected_views, ViewResponse):
                 raise ToolkitValueError(f"Selected view is not a valid View object: {selected_views!r}")
             return selected_views
+
+    def _get_view_options(self, filter: ViewSelectFilter) -> list[ViewResponse]:
+        if filter.strategy == "schemaSpace":
+            selected_space = (
+                filter.schema_space
+                or self.select_schema_space(
+                    filter.include_global or False,
+                    message=f"In which Spaces is the view you will use to select instances to {self.operation}?",
+                ).space
+            )
+            views = self.client.tool.views.list(
+                filter=ViewFilter(
+                    space=selected_space,
+                    include_inherited_properties=True,
+                    include_global=filter.include_global,
+                ),
+                limit=None,
+            )
+        elif filter.strategy == "dataModel":
+            datamodel = self.select_data_model(
+                inline_views=True,
+                message=f"Select the data model through which to {self.operation}:",
+                schema_space=filter.schema_space,
+                include_global=filter.include_global,
+            )
+            views = datamodel.views or []
+            parents = {parent for view in views for parent in view.implements or []}
+            # We only allow the user to select child views
+            views = [view for view in views if view.as_id() not in parents]
+        else:
+            raise NotImplementedError(f"Strategy {filter.strategy} is not implemented.")
+        views = [
+            view
+            for view in views
+            if filter.instance_type in (None, "all", view.used_for)
+            and (filter.mapped_container is None or filter.mapped_container in view.mapped_containers)
+        ]
+        if not views:
+            raise ToolkitMissingResourceError(f"No views found that match the filter: {filter!s}")
+        return views
+
+    @overload
+    def select_data_model(
+        self,
+        inline_views: Literal[False] = False,
+        message: str | None = None,
+        schema_space: str | None = None,
+        include_global: bool | None = None,
+    ) -> DataModelResponse: ...
+
+    @overload
+    def select_data_model(
+        self,
+        inline_views: Literal[True],
+        message: str | None = None,
+        schema_space: str | None = None,
+        include_global: bool | None = None,
+    ) -> DataModelResponseWithViews: ...
+
+    def select_data_model(
+        self,
+        inline_views: Literal[True, False] = False,
+        message: str | None = None,
+        schema_space: str | None = None,
+        include_global: bool | None = None,
+    ) -> DataModelResponse | DataModelResponseWithViews:
+        datamodels = self.client.tool.data_models.list(
+            inline_views=inline_views,
+            filter=DataModelFilter(space=schema_space, all_versions=False, include_global=include_global),
+            limit=None,
+        )
+        if not datamodels:
+            raise ToolkitMissingResourceError(
+                f"No data models found {f'in schema space {schema_space!r}' if schema_space else ''}."
+            )
+
+        message = message or f"Select a data model to {self.operation}:"
+        selected_datamodel = questionary.select(
+            message,
+            choices=[
+                Choice(
+                    title=f"{dm.space}:{dm.external_id} (version={dm.version})",
+                    value=dm,
+                )
+                for dm in datamodels
+            ],
+        ).unsafe_ask()
+        if not isinstance(selected_datamodel, DataModelResponse | DataModelResponseWithViews):
+            raise ToolkitValueError(
+                f"Selected data model is not a valid DataModelResponse object: {selected_datamodel!r}"
+            )
+        return selected_datamodel
 
     def select_schema_space(self, include_global: bool, message: str | None = None) -> SpaceResponse:
         message = message or f"Select the space to {self.operation}:"
@@ -617,7 +709,7 @@ class DataModelingSelect:
         return selected_space
 
     def select_instance_type(
-        self, view_used_for: Literal["node", "edge", "all"] | None = None
+        self, view_used_for: Literal["node", "edge", "all"] | None = None, message: str | None = None
     ) -> Literal["node", "edge"]:
         """Selects an instance type (node or edge) interactively.
 
@@ -631,7 +723,7 @@ class DataModelingSelect:
         if view_used_for is not None and view_used_for != "all":
             return view_used_for
         selected_instance_type = questionary.select(
-            f"What type of instances do you want to {self.operation}?",
+            message or f"What type of instances do you want to {self.operation}?",
             choices=[
                 Choice(title="Nodes", value="node"),
                 Choice(title="Edges", value="edge"),
@@ -720,7 +812,7 @@ class DataModelingSelect:
             selected_spaces = questionary.checkbox(
                 message,
                 choices=choices,
-                validate=lambda choises: True if choises else "You must select at least one space.",
+                validate=lambda choices: True if choices else "You must select at least one space.",
             ).unsafe_ask()
         else:
             selected_spaces = questionary.select(message, choices=choices).unsafe_ask()
@@ -732,6 +824,7 @@ class DataModelingSelect:
 
     @overload
     def select_empty_spaces(self, multiselect: Literal[False]) -> str: ...
+
     @overload
     def select_empty_spaces(self, multiselect: Literal[True]) -> list[str]: ...
 
@@ -837,7 +930,9 @@ class ThreeDInteractiveSelect:
         self.client = client
         self.operation = operation
 
-    def select_three_d_models(self, model_type: Literal["classic", "dm"] | None = None) -> list[ThreeDModelResponse]:
+    def select_three_d_models(
+        self, model_type: Literal["classic", "dm"] | None = None
+    ) -> list[ThreeDModelClassicResponse]:
         """Select multiple 3D models interactively."""
         if model_type is None:
             model_type = questionary.select(

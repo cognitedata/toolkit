@@ -1,5 +1,7 @@
 from typing import Any
 
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
+
 from .base import BaseModelResource, ToolkitResource
 
 
@@ -107,3 +109,6 @@ class InFieldCDMLocationConfigYAML(ToolkitResource):
     view_mappings: ViewMappings | None = None
     disciplines: list[Discipline] | None = None
     data_exploration_config: dict[str, Any] | None = None
+
+    def as_id(self) -> TypedNodeIdentifier:
+        return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
