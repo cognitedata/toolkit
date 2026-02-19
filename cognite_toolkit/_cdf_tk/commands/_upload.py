@@ -4,6 +4,7 @@ from functools import partial
 from pathlib import Path
 
 from rich.console import Console
+from rich.markup import escape
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -305,15 +306,15 @@ class UploadCommand(ToolkitCommand):
                     tracker.set_progress(id_, step=cls._UPLOAD, status="failed")
                 if verbose:
                     if isinstance(message, ItemsFailedResponse):
-                        error_description = f"(HTTP {message.status_code}): {message.error.message}"
+                        error_description = f"(HTTP {message.status_code}): {escape(message.error.message)}"
                         failures_by_error.setdefault(error_description, []).extend(message.ids)
                     elif isinstance(message, ItemsFailedRequest):
-                        failures_by_error.setdefault(message.error_message, []).extend(message.ids)
+                        failures_by_error.setdefault(escape(message.error_message), []).extend(message.ids)
             else:
-                console.log(f"[red]Unexpected result from upload: {str(message)!r}[/red]")
+                console.log(f"[red]Unexpected result from upload: {escape(str(message))!r}[/red]")
         if verbose:
             for error_description, failed_ids in failures_by_error.items():
-                ids_display = ", ".join(failed_ids[: cls._MAX_VERBOSE_PRINTED_FAILED_IDS])
+                ids_display = escape(", ".join(failed_ids[: cls._MAX_VERBOSE_PRINTED_FAILED_IDS]))
                 if len(failed_ids) > cls._MAX_VERBOSE_PRINTED_FAILED_IDS:
                     ids_display += f" ... and {len(failed_ids) - cls._MAX_VERBOSE_PRINTED_FAILED_IDS} more"
                 console.print(
