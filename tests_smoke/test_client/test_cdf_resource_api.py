@@ -196,9 +196,10 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         TransformationNotificationsAPI,
         # List method requires an argument
         SequenceRowsAPI,
-        DataProductVersionsAPI,
         # The dataproduct API is not yet supported in CDF.
         DataProductsAPI,
+        DataProductVersionsAPI,
+
     }
 )
 
