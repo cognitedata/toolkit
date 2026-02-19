@@ -142,7 +142,10 @@ class TestUploadCommand:
             limit=100_000,
         )
 
-        download_file = tmp_path / "download" / selector.group / f"{selector!s}-part-0000.{DatapointsIO.KIND}.csv"
+        assert selector.download_dir_name is None
+        download_file = (
+            tmp_path / "download" / selector.download_dir_name / f"{selector!s}-part-0000.{DatapointsIO.KIND}.csv"
+        )
         assert download_file.exists(), f"Downloaded file {download_file} does not exist"
         actual_output = download_file.read_text(encoding="utf-8-sig")
         assert actual_output.removesuffix("\n") == csv_content, "Downloaded content does not match uploaded content"

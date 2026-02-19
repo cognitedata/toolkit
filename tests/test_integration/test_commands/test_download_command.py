@@ -15,9 +15,8 @@ class TestDownloadCommand:
     def test_download_raw_table(self, toolkit_client: ToolkitClient, aggregator_raw_db: str, tmp_path: Path) -> None:
         cmd = DownloadCommand(silent=True, skip_tracking=True)
         table = RawTableSelector(
-            table=SelectedTable(
-                db_name=aggregator_raw_db, table_name=TIMESERIES_TABLE, download_dir_name=aggregator_raw_db
-            )
+            table=SelectedTable(db_name=aggregator_raw_db, table_name=TIMESERIES_TABLE),
+            download_dir_name=aggregator_raw_db,
         )
         cmd.download(
             [table],

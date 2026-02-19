@@ -214,7 +214,10 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=[
-                    RawTableSelector(table=SelectedTable(db_name=item.db_name, table_name=item.table_name))
+                    RawTableSelector(
+                        table=SelectedTable(db_name=item.db_name, table_name=item.table_name),
+                        download_dir_name=item.db_name,
+                    )
                     for item in selectors
                 ],
                 io=RawIO(client),
