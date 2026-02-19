@@ -142,7 +142,7 @@ class TestUploadCommand:
             limit=100_000,
         )
 
-        assert selector.download_dir_name is None
+        assert selector.download_dir_name is not None
         download_file = (
             tmp_path / "download" / selector.download_dir_name / f"{selector!s}-part-0000.{DatapointsIO.KIND}.csv"
         )
