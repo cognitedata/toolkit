@@ -101,6 +101,7 @@ class TestUploadCommand:
             data_set_external_id=client.lookup.data_sets.external_id(ts1.data_set_id),
             start=int(datetime.fromisoformat("1989-01-01T00:00:00Z").timestamp() * 1000),
             end=int(datetime.fromisoformat("1989-01-02T00:00:00Z").timestamp() * 1000),
+            download_dir_name="datapoints",
         )
         selector.dump_to_file(upload_dir)
         csv_file = upload_dir / f"{selector!s}.{DatapointsIO.KIND}.csv"
@@ -141,7 +142,10 @@ class TestUploadCommand:
             limit=100_000,
         )
 
-        download_file = tmp_path / "download" / selector.group / f"{selector!s}-part-0000.{DatapointsIO.KIND}.csv"
+        assert selector.download_dir_name is not None
+        download_file = (
+            tmp_path / "download" / selector.download_dir_name / f"{selector!s}-part-0000.{DatapointsIO.KIND}.csv"
+        )
         assert download_file.exists(), f"Downloaded file {download_file} does not exist"
         actual_output = download_file.read_text(encoding="utf-8-sig")
         assert actual_output.removesuffix("\n") == csv_content, "Downloaded content does not match uploaded content"

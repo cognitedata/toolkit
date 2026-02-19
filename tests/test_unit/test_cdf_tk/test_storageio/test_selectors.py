@@ -355,9 +355,6 @@ class TestDataSelectors:
         # Assert __str__ is implemented
         assert str(instance), f"__str__ not implemented for {type(instance).__name__}"
 
-        # Assert group is implemented
-        assert instance.group, f"group property not implemented for {type(instance).__name__}"
-
         # Assert correct IO type
         if expected_io is not None:
             # If expected_io is None, the selector is not yet supported for upload/download

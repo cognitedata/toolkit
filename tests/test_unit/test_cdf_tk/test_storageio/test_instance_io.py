@@ -309,6 +309,7 @@ class TestInstanceIO:
             instance_space="my_insta_space",
             instance_type="node",
             view=SelectedView(space="my_schema_space", external_id="my_view", version="v1"),
+            download_dir_name="instances",
         )
         download_command = DownloadCommand(silent=True, skip_tracking=True)
         upload_command = UploadCommand(silent=True, skip_tracking=True)
@@ -324,7 +325,7 @@ class TestInstanceIO:
         )
 
         upload_command.upload(
-            input_dir=tmp_path / selector.group,
+            input_dir=tmp_path / selector.download_dir_name,
             client=client,
             deploy_resources=False,
             dry_run=False,

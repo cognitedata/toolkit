@@ -155,10 +155,6 @@ class FileIdentifierSelector(FileContentSelector):
     use_metadata_directory: bool = True
     identifiers: tuple[FileIdentifier, ...]
 
-    @property
-    def group(self) -> str:
-        return "Files"
-
     def __str__(self) -> str:
         hash_ = hashlib.md5(",".join(sorted(str(self.identifiers))).encode()).hexdigest()[:8]
         return f"file_{len(self.identifiers)}_identifiers_{hash_}"

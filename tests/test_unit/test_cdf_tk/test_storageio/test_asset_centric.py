@@ -335,7 +335,7 @@ class TestAssetIO:
 
         respx_mock.post(config.create_api_url("/assets")).mock(side_effect=asset_create_callback)
 
-        selector = AssetSubtreeSelector(hierarchy="test_hierarchy", kind="Assets")
+        selector = AssetSubtreeSelector(hierarchy="test_hierarchy", kind="Assets", download_dir_name="assets")
 
         io = AssetIO(asset_centric_client)
 
@@ -352,11 +352,11 @@ class TestAssetIO:
             limit=100,
         )
 
-        csv_files = list((tmp_path / selector.group).glob("*.csv"))
+        csv_files = list((tmp_path / selector.download_dir_name).glob("*.csv"))
         assert len(csv_files) == 1
 
         upload_command.upload(
-            input_dir=tmp_path / selector.group,
+            input_dir=tmp_path / selector.download_dir_name,
             client=asset_centric_client,
             deploy_resources=True,
             dry_run=False,
