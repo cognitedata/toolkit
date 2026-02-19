@@ -865,7 +865,7 @@ class DownloadApp(typer.Typer):
                 InstanceSpaceSelector(
                     instance_space=instance_space,
                     instance_type=instance_type.value,
-                    download_dir_name=instance_type,
+                    download_dir_name=instance_space,
                 )
             ]
         elif schema_space is not None and view_external_ids is not None:
