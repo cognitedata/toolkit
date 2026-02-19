@@ -1,4 +1,6 @@
+from collections import defaultdict
 from collections.abc import Iterable
+from itertools import groupby
 from pathlib import Path
 from typing import Any, cast
 
@@ -11,7 +13,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     RelativeFilePath,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import BuildVariable
-from cognite_toolkit._cdf_tk.constants import EXCL_FILES
+from cognite_toolkit._cdf_tk.constants import EXCL_FILES, MODULES
 from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA, ResourceTypes
 
 
@@ -36,6 +38,14 @@ class ModuleSourceParser:
         if errors:
             self.errors.extend(errors)
             return []
+        return self._create_module_soruces(selected_modules, source_by_module_id, build_variables)
+
+    def _create_module_soruces(
+        self,
+        selected_modules: list[Path],
+        source_by_module_id: dict[Path, ModuleSource],
+        build_variables: dict[Path, list[BuildVariable]],
+    ) -> list[ModuleSource]:
         module_sources: list[ModuleSource] = []
         for module in selected_modules:
             source = source_by_module_id[module]
@@ -110,10 +120,86 @@ class ModuleSourceParser:
         ]
 
     @classmethod
-    def _parse_variables(
+    def _parse_module_variables(
         cls,
         variables: dict[str, Any],
         available_modules: set[RelativeDirPath],
         selected_modules: set[RelativeDirPath],
-    ) -> tuple[dict[RelativeDirPath, list[list[BuildVariable]]], list[ModelSyntaxError]]:
-        return {}, []
+    ) -> tuple[dict[RelativeDirPath, dict[int, list[BuildVariable]]], list[ModelSyntaxError]]:
+        all_available_paths = (
+            {Path("")} | available_modules | {parent for module in available_modules for parent in module.parents}
+        )
+        selected_paths = (
+            {Path("")} | selected_modules | {parent for module in selected_modules for parent in module.parents}
+        )
+        parsed_variables, errors = cls._parse_variables(variables, all_available_paths, selected_paths)
+        variable_by_module = cls._organize_variables_by_module(parsed_variables, selected_modules)
+        return variable_by_module, errors
+
+    @classmethod
+    def _parse_variables(
+        cls, variables: dict[str, Any], available_paths: set[RelativeDirPath], selected_paths: set[RelativeDirPath]
+    ) -> tuple[dict[RelativeDirPath, list[BuildVariable]], list[ModelSyntaxError]]:
+        variables_by_path: dict[RelativeDirPath, list[BuildVariable]] = defaultdict(list)
+        errors: list[ModelSyntaxError] = []
+        to_check: list[tuple[RelativeDirPath, int | None, dict[str, Any]]] = [(Path(""), None, variables)]
+        while to_check:
+            path, iteration, subdict = to_check.pop()
+            for key, value in subdict.items():
+                subpath = path / key
+                if isinstance(value, str | float | int | bool):
+                    variables_by_path[path].append(
+                        BuildVariable(id=subpath, value=value, is_selected=path in selected_paths, iteration=iteration)
+                    )
+                elif isinstance(value, dict):
+                    if subpath in available_paths:
+                        to_check.append((subpath, iteration, value))
+                    else:
+                        errors.append(
+                            ModelSyntaxError(
+                                code=cls.VARIABLE_ERROR_CODE,
+                                message=f"Invalid variable path: {'.'.join(subpath.parts)}. This does not correspond to the "
+                                f"folder structure inside the {MODULES} directory.",
+                                fix="Ensure that the variable paths correspond to the folder structure inside the modules directory.",
+                            )
+                        )
+                elif isinstance(value, list):
+                    if all(isinstance(item, str | float | int | bool) for item in value):
+                        variables_by_path[path].append(
+                            BuildVariable(
+                                id=subpath, value=value, is_selected=path in selected_paths, iteration=iteration
+                            )
+                        )
+                    elif all(isinstance(item, dict) for item in value):
+                        for idx, item in enumerate(value, start=1):
+                            to_check.append((subpath, idx, item))
+                    else:
+                        errors.append(
+                            ModelSyntaxError(
+                                code=cls.VARIABLE_ERROR_CODE,
+                                message=f"Invalid variable type in list for variable {'.'.join(subpath.parts)}.",
+                                fix="Ensure that all items in the list are of the same supported type either (str, int, float, bool) or dict.",
+                            )
+                        )
+                else:
+                    raise NotImplementedError(f"Unsupported variable type: {type(value)} for variable {subpath}")
+        return variables_by_path, errors
+
+    @classmethod
+    def _organize_variables_by_module(
+        cls, variables_by_path: dict[RelativeDirPath, list[BuildVariable]], selected_modules: set[RelativeDirPath]
+    ) -> dict[RelativeDirPath, dict[int, list[BuildVariable]]]:
+        module_path_by_relative_paths: dict[frozenset[RelativeDirPath], RelativeDirPath] = {
+            frozenset([module, *list(module.parents)]): module for module in selected_modules
+        }
+        variables_by_module: dict[RelativeDirPath, dict[int, list[BuildVariable]]] = defaultdict(
+            lambda: defaultdict(list)
+        )
+        for variable_path, variables in variables_by_path.items():
+            for module_paths, module in module_path_by_relative_paths.items():
+                if variable_path in module_paths:
+                    for iteration, variable in groupby(
+                        sorted(variables, key=lambda v: v.iteration or 0), key=lambda v: v.iteration or 0
+                    ):
+                        variables_by_module[module][iteration or 0].extend(variable)
+        return dict(variables_by_module)

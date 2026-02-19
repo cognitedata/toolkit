@@ -7,7 +7,15 @@ from ._insights import InsightList
 from ._types import AbsoluteFilePath, RelativeDirPath
 
 
-class BuildVariable(BaseModel): ...
+class BuildVariable(BaseModel):
+    id: RelativeDirPath
+    value: str | bool | int | float | list[str | bool | int | float]
+    is_selected: bool
+    iteration: int | None = None
+
+    @property
+    def name(self) -> str:
+        return self.id.name
 
 
 class ModuleSource(BaseModel):
