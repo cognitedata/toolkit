@@ -1,13 +1,23 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from pathlib import Path
+from typing import Annotated, TypeAlias
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, PlainValidator
 from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX
 from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.text import to_sentence_case
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
+
+
+def _check_is_sanitized_filename(value: str) -> str:
+    if value != sanitize_filename(value):
+        raise ValueError(f"Value {value!r} is not a sanitized filename.")
+    return value
+
+
+DirectoryName: TypeAlias = Annotated[str, PlainValidator(_check_is_sanitized_filename)]
 
 
 class SelectorObject(BaseModel):
@@ -24,10 +34,13 @@ class DataSelector(SelectorObject, ABC):
     Args:
         type: The type of selector.
         kind: The kind of data the selector is for (e.g., 'RawRows', 'Assets').
+        download_dir_name: (Required for download) The name of the directory where the data files
+            should be downloaded.
     """
 
     type: str
     kind: str
+    download_dir_name: DirectoryName | None = Field(exclude=True)
 
     def dump(self) -> dict[str, JsonVal]:
         return self.model_dump(by_alias=True)
@@ -45,18 +58,6 @@ class DataSelector(SelectorObject, ABC):
         filepath.parent.mkdir(parents=True, exist_ok=True)
         safe_write(file=filepath, content=yaml_safe_dump(self.model_dump(mode="json", by_alias=True)), encoding="utf-8")
         return filepath
-
-    @property
-    @abstractmethod
-    def group(self) -> str:
-        """A string representing the group of the selector, used for organizing files.
-
-        It is used when downloading to determine the subdirectory within the output directory.
-
-        For example, for raw table, the group would be the database name, while the selector itself
-        would be the table name.
-        """
-        raise NotImplementedError()
 
     @property
     def display_name(self) -> str:
