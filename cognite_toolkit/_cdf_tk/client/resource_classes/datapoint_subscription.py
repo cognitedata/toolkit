@@ -1,6 +1,6 @@
 from typing import Any, Generic, Literal, TypeVar
 
-from pydantic import JsonValue, field_serializer
+from pydantic import JsonValue, model_serializer
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -25,10 +25,11 @@ class Set(BaseModelObject, Generic[T_Value]):
 class SetNull(BaseModelObject):
     set_null: Literal[True] = True
 
-    @field_serializer("set_null")
-    def serialize_set_null(self, value: Literal[True]) -> bool:
-        # This value must always be serialized even if model_dump(exclude_unset=True) is used.
-        return value
+    @model_serializer(mode="plain", when_used="always", return_type="dict")
+    def serialize(self) -> dict[str, bool]:
+        # This is to ensure that setNull is always serialized,
+        # even if .model_dump(exclude_unset=True) is used.
+        return {"setNull": self.set_null}
 
 
 class AddRemove(BaseModelObject, Generic[T_Value]):
