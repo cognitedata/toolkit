@@ -1,5 +1,4 @@
 from collections.abc import Iterable, Sequence
-from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -7,6 +6,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessR
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (
     DatapointSubscriptionRequest,
     DatapointSubscriptionResponse,
+    DatapointSubscriptionUpdateRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
@@ -54,9 +54,7 @@ class DatapointSubscriptionAPI(CDFResourceAPI[ExternalId, DatapointSubscriptionR
             items, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
         )
 
-    def update(
-        self, items: Sequence[DatapointSubscriptionRequest], mode: Literal["patch", "replace"] = "replace"
-    ) -> list[DatapointSubscriptionResponse]:
+    def update(self, items: Sequence[DatapointSubscriptionUpdateRequest]) -> list[DatapointSubscriptionResponse]:
         """Update datapoint subscriptions in CDF.
 
         Args:
@@ -66,7 +64,7 @@ class DatapointSubscriptionAPI(CDFResourceAPI[ExternalId, DatapointSubscriptionR
         Returns:
             List of updated DatapointSubscriptionResponse objects.
         """
-        return self._update(items, mode=mode)
+        return self._request_item_response(items, "update")
 
     def delete(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
         """Delete datapoint subscriptions from CDF.

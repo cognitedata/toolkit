@@ -1,15 +1,51 @@
-from typing import Any, ClassVar, Literal
+from typing import Generic, Literal, TypeVar
 
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
+    RequestResource,
     ResponseResource,
-    UpdatableRequestResource,
 )
 
 from .data_modeling import NodeReference
 from .identifiers import ExternalId
+
+# Unlike other resources, datapoints subscriptions have a separate update resource. This
+# is because datapoint subscriptions need to handle add/removing operations for timeSeriesIds and
+# instanceIds.
+
+T_Value = TypeVar("T_Value")
+
+
+class Set(BaseModelObject, Generic[T_Value]):
+    set: T_Value
+
+
+class SetNull(BaseModelObject):
+    setNull: Literal[True] = True
+
+
+class AddRemove(BaseModelObject, Generic[T_Value]):
+    add: T_Value | None = None
+    remove: T_Value | None = None
+
+
+class DataPointSubscriptionUpdate(BaseModelObject):
+    time_series_ids: AddRemove[list[str]] | Set[list[str]] | None = None
+    instance_ids: AddRemove[list[NodeReference]] | Set[list[NodeReference]] | None = None
+    name: Set[str] | SetNull | None = None
+    description: Set[str] | SetNull | None = None
+    data_set_id: Set[int] | SetNull | None = None
+    filter: Set[JsonValue] | None = None
+
+
+class DatapointSubscriptionUpdateRequest(RequestResource):
+    external_id: str
+    update: DataPointSubscriptionUpdate
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
 
 
 class DatapointSubscription(BaseModelObject):
@@ -26,16 +62,7 @@ class DatapointSubscription(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class DatapointSubscriptionRequest(DatapointSubscription, UpdatableRequestResource):
-    container_fields: ClassVar[frozenset[str]] = frozenset({"time_series_ids", "instance_ids"})
-    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"filter"})
-
-    def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
-        dumped = super().as_update(mode)
-        update = dumped["update"] if "update" in dumped else dumped
-        # partitionCount is immutable in CDF, so we remove it from update payloads
-        update.pop("partitionCount", None)
-        return dumped
+class DatapointSubscriptionRequest(DatapointSubscription, RequestResource): ...
 
 
 class DatapointSubscriptionResponse(DatapointSubscription, ResponseResource[DatapointSubscriptionRequest]):
