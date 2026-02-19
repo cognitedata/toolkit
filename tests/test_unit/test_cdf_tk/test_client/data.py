@@ -577,9 +577,8 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "space": "my_space",
             "externalId": "my_graphql_model",
             "version": "1",
-            "isGlobal": False,
-            "createdTime": 1622547800000,
-            "lastUpdatedTime": 1622547800000,
+            "createdTime": "2021-06-01T11:43:20Z",
+            "lastUpdatedTime": "2021-06-01T11:43:20Z",
         },
         FunctionResponse: {
             "id": 456,
