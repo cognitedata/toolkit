@@ -23,6 +23,7 @@ from .api.events import EventsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
 from .api.filemetadata import FileMetadataAPI
 from .api.functions import FunctionsAPI
+from .api.graphql_data_models import GraphQLDataModelsAPI
 from .api.groups import GroupsAPI
 from .api.hosted_extractors import HostedExtractorsAPI
 from .api.infield import InfieldAPI
@@ -69,6 +70,7 @@ class ToolAPI:
         self.views = ViewsAPI(http_client)
         self.containers = ContainersAPI(http_client)
         self.data_models = DataModelsAPI(http_client)
+        self.graphql_data_models = GraphQLDataModelsAPI(http_client)
         self.labels = LabelsAPI(http_client)
         self.location_filters = LocationFiltersAPI(http_client)
         self.filemetadata = FileMetadataAPI(http_client)
