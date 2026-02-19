@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import DataProductVersionYAML
 
 from .data_product import DataProductCRUD
+from .datamodel import DataModelCRUD
 
 
 @final
@@ -22,7 +23,7 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
     resource_write_cls = DataProductVersionRequest
     kind = "DataProductVersion"
     yaml_cls = DataProductVersionYAML
-    dependencies = frozenset({DataProductCRUD})
+    dependencies = frozenset({DataProductCRUD, DataModelCRUD})
     parent_resource = frozenset({DataProductCRUD})
     support_drop = True
     support_update = True
