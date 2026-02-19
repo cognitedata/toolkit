@@ -65,7 +65,9 @@ class DownloadCommand(ToolkitCommand):
         console.print(table)
 
         for selector in selectors:
-            target_dir = output_dir / sanitize_filename(selector.group)
+            if selector.download_dir_name is None:
+                raise NotImplementedError(f"Bug in Toolkit. The download_dir_name field is missing for {selector!r}.")
+            target_dir = output_dir / sanitize_filename(selector.download_dir_name)
             if verbose:
                 console.print(f"Downloading {selector.display_name} '{selector!s}' to {target_dir.as_posix()!r}")
 
