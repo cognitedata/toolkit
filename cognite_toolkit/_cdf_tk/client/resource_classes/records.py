@@ -46,7 +46,7 @@ class RecordResponse(ResponseResource[RecordRequest]):
     def parse_reference(cls, value: Any) -> Any:
         if not isinstance(value, dict):
             return value
-        parsed: dict[ContainerReference, dict[str, Any]] = {}
+        parsed: dict[ContainerReference, dict[str, JsonValue]] = {}
         for space, inner_dict in value.items():
             if isinstance(space, ContainerReference):
                 parsed[space] = inner_dict
@@ -62,10 +62,12 @@ class RecordResponse(ResponseResource[RecordRequest]):
         return parsed
 
     @field_serializer("properties", mode="plain")
-    def serialize_properties(self, value: dict[ContainerReference, dict[str, Any]] | None) -> Any:
+    def serialize_properties(
+        self, value: dict[ContainerReference, dict[str, JsonValue]] | None
+    ) -> dict[str, dict[str, dict[str, JsonValue]]] | None:
         if value is None:
             return None
-        serialized: dict[str, dict[str, Any]] = {}
+        serialized: dict[str, dict[str, dict[str, JsonValue]]] = {}
         for source_ref, props in value.items():
             space = source_ref.space
             if space not in serialized:
