@@ -1059,7 +1059,7 @@ class DownloadApp(typer.Typer):
             start=start_time,
             end=end_time,
             data_type=datapoint_type.value,
-            download_dir_name=f"dataset_{dataset}",
+            download_dir_name=f"dataset-{dataset}",
         )
         cmd.run(
             lambda: cmd.download(
