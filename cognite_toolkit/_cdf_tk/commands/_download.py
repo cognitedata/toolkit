@@ -72,6 +72,9 @@ class DownloadCommand(ToolkitCommand):
                 console.print(f"Downloading {selector.display_name} '{selector!s}' to {target_dir.as_posix()!r}")
 
             total = counts_by_selector[selector]
+            if total == 0:
+                console.print(f"No items to download for {selector!s}. Skipping.")
+                continue
             iteration_count = self._get_iteration_count(total, limit, io.CHUNK_SIZE)
             filestem = sanitize_filename(str(selector))
             if self._already_downloaded(target_dir, filestem):
