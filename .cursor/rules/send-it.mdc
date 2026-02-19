@@ -40,11 +40,14 @@ When the user says **"send it"**:
     ### Added/Changed/Improved/Removed/Fixed
     - <list of changes>
     ```
-  - Show the proposed `gh pr create` command and **ask for confirmation** before running it.
-  - If the user confirms, run `gh pr create` to create the PR.
-  - **Cursor auto-appends a "Made with Cursor" footer** to PR bodies created via `gh pr create` / `gh pr edit`. This breaks the changelog validator. Immediately after creating or editing the PR, strip the footer by running:
+  - Show the proposed PR title and body to the user and **ask for confirmation** before creating it.
+  - **Do NOT use `gh pr create`** — Cursor auto-appends a "Made with Cursor" footer that breaks the changelog validator. Instead, create the PR via the GitHub API directly:
     ```
-    gh api repos/{owner}/{repo}/pulls/{number} --method PATCH --field body='<clean body without footer>'
+    gh api repos/{owner}/{repo}/pulls --method POST \
+      -f title='<title>' \
+      -f body='<body>' \
+      -f head='<branch>' \
+      -f base='main'
     ```
   - Comment "/gemini review" on the PR to request a review from Gemini.
 
