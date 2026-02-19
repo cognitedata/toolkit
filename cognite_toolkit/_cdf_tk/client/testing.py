@@ -49,6 +49,7 @@ from .api.extraction_pipelines import ExtractionPipelinesAPI
 from .api.filemetadata import FileMetadataAPI
 from .api.function_schedules import FunctionSchedulesAPI
 from .api.functions import FunctionsAPI
+from .api.groups import GroupsAPI
 from .api.hosted_extractor_destinations import HostedExtractorDestinationsAPI
 from .api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from .api.hosted_extractor_mappings import HostedExtractorMappingsAPI
@@ -183,6 +184,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.events = MagicMock(spec_set=EventsAPI)
         self.tool.functions = MagicMock(spec=FunctionsAPI)
         self.tool.functions.schedules = MagicMock(spec_set=FunctionSchedulesAPI)
+        self.tool.groups = MagicMock(spec_set=GroupsAPI)
         self.tool.search_configurations = MagicMock(spec_set=SearchConfigurationsAPI)
         self.tool.simulators = MagicMock(spec=SimulatorsAPI)
         self.tool.simulators.models = MagicMock(spec_set=SimulatorModelsAPI)

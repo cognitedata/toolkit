@@ -7,7 +7,7 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BeforeValidator, Field, TypeAdapter, model_serializer, model_validator
+from pydantic import BeforeValidator, Field, JsonValue, TypeAdapter, model_serializer, model_validator
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
@@ -550,16 +550,16 @@ class SimulatorsAcl(Acl):
     """ACL for Simulators resources."""
 
     acl_name: Literal["simulatorsAcl"] = Field("simulatorsAcl", exclude=True)
-    actions: Sequence[Literal["READ", "WRITE"]]
+    actions: Sequence[Literal["READ", "WRITE", "DELETE", "RUN", "MANAGE"]]
     scope: AllScope | DataSetScope
 
 
-class UnknownAcl(Acl):
+class UnknownAcl(BaseModelObject):
     """Fallback for unknown ACL types."""
 
-    acl_name: Literal["unknownAcl"] = Field("unknownAcl", exclude=True)
+    acl_name: str = Field("unknownAcl", exclude=True)
     actions: Sequence[str]
-    scope: AllScope
+    scope: dict[str, JsonValue]
 
 
 def _get_acl_name(cls: type[Acl]) -> str | None:
@@ -578,7 +578,9 @@ _KNOWN_ACLS = {
 
 
 def _handle_unknown_acl(value: Any) -> Any:
-    if isinstance(value, dict) and isinstance(acl_name := value[ACL_NAME], str):
+    if isinstance(value, Acl | UnknownAcl):
+        return value
+    if isinstance(value, dict) and isinstance(acl_name := value.get(ACL_NAME), str):
         acl_class = _KNOWN_ACLS.get(acl_name)
         if acl_class:
             return TypeAdapter(acl_class).validate_python(value)

@@ -8,10 +8,7 @@ import pytest
 import yaml
 from cognite.client.data_classes import (
     DataSet,
-    Group,
-    GroupWrite,
 )
-from cognite.client.data_classes.capabilities import AssetsAcl, EventsAcl, TimeSeriesAcl
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk import cdf_toml
@@ -32,7 +29,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import ConstraintOrIndexState
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupRequest, GroupResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId, WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterResponse,
 )
@@ -335,17 +333,17 @@ def test_pull_group(
     local_path.write_text(local_file)
     (org_dir / "config.dev.yaml").write_text(default_config_dev_yaml, encoding="utf-8")
 
-    cdf_group = Group(
+    cdf_group = GroupResponse(
         name="my_group",
         source_id="123-456",
         capabilities=[
-            AssetsAcl(scope=AssetsAcl.Scope.All(), actions=[AssetsAcl.Action.Read]),
-            TimeSeriesAcl(scope=TimeSeriesAcl.Scope.All(), actions=[TimeSeriesAcl.Action.Read]),
-            EventsAcl(scope=EventsAcl.Scope.All(), actions=[EventsAcl.Action.Read]),
+            {"assetsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
+            {"timeSeriesAcl": {"actions": ["READ"], "scope": {"all": {}}}},
+            {"eventsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
         ],
         id=123,
     )
-    toolkit_client_approval.append(Group, cdf_group)
+    toolkit_client_approval.append(GroupResponse, cdf_group)
 
     cmd = PullCommand(skip_tracking=True, silent=True)
     cmd.pull_module(
@@ -357,9 +355,9 @@ def test_pull_group(
         env_vars=env_vars_with_client,
     )
 
-    reloaded = GroupWrite.load(local_path.read_text())
+    reloaded = GroupRequest._load(yaml.safe_load(local_path.read_text()))
 
-    assert reloaded.dump() == cdf_group.as_write().dump()
+    assert reloaded.dump() == cdf_group.as_request_resource().dump()
 
 
 def test_dump_datamodel(
@@ -638,9 +636,9 @@ def test_deploy_group_with_unknown_acl(
         force_update=False,
     )
 
-    groups = toolkit_client_approval.created_resources["Group"]
+    groups = toolkit_client_approval.created_resources["GroupResponse"]
     assert len(groups) == 1
-    group = cast(GroupWrite, groups[0])
+    group = cast(GroupRequest, groups[0])
     assert group.name == "my_group_with_unknown_acl"
     assert len(group.capabilities) == 1
     assert group.capabilities[0].dump() == {
@@ -1013,4 +1011,5 @@ capabilities:
     warning = cmd.warning_list[0]
     assert isinstance(warning, MissingDependencyWarning)
     assert warning.identifier == SpaceReference(space="my_non_existent_space")
-    assert warning.required_by == {("scoped_group", yaml_filepath.relative_to(my_org))}
+
+    assert warning.required_by == {(NameId(name="scoped_group"), yaml_filepath.relative_to(my_org))}

@@ -62,6 +62,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from pydantic import BaseModel, JsonValue
 from questionary import Choice
 
+from cognite_toolkit._cdf_tk.client.resource_classes.group.capability import GroupCapability
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.sequences import ToolkitSequenceRows
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.constants import MODULES
@@ -346,6 +347,9 @@ class FakeCogniteResourceGenerator:
         return resource_cls(*positional_arguments, **keyword_arguments)
 
     def create_pydantic_instance(self, model_cls: type[BaseModel], skip_defaulted_args: bool = False) -> BaseModel:
+        if model_cls is GroupCapability:
+            return GroupCapability.model_validate({"assetsAcl": {"actions": ["READ"], "scope": {"all": {}}}})
+
         keyword_arguments: dict[str, Any] = {}
         for field_id, field in model_cls.model_fields.items():
             if skip_defaulted_args and field.default is not None:
