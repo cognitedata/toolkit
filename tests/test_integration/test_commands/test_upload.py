@@ -101,6 +101,7 @@ class TestUploadCommand:
             data_set_external_id=client.lookup.data_sets.external_id(ts1.data_set_id),
             start=int(datetime.fromisoformat("1989-01-01T00:00:00Z").timestamp() * 1000),
             end=int(datetime.fromisoformat("1989-01-02T00:00:00Z").timestamp() * 1000),
+            download_dir_name="datapoints",
         )
         selector.dump_to_file(upload_dir)
         csv_file = upload_dir / f"{selector!s}.{DatapointsIO.KIND}.csv"

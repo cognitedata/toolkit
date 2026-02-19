@@ -14,7 +14,11 @@ from tests.test_integration.constants import TIMESERIES_COUNT, TIMESERIES_TABLE
 class TestDownloadCommand:
     def test_download_raw_table(self, toolkit_client: ToolkitClient, aggregator_raw_db: str, tmp_path: Path) -> None:
         cmd = DownloadCommand(silent=True, skip_tracking=True)
-        table = RawTableSelector(table=SelectedTable(db_name=aggregator_raw_db, table_name=TIMESERIES_TABLE))
+        table = RawTableSelector(
+            table=SelectedTable(
+                db_name=aggregator_raw_db, table_name=TIMESERIES_TABLE, download_dir_name=aggregator_raw_db
+            )
+        )
         cmd.download(
             [table],
             RawIO(toolkit_client),
@@ -45,7 +49,11 @@ class TestDownloadCommand:
         self, toolkit_client: ToolkitClient, migration_hierarchy_minimal: HierarchyMinimal, tmp_path: Path
     ) -> None:
         cmd = DownloadCommand(silent=True, skip_tracking=True)
-        selected = DataSetSelector(kind="Assets", data_set_external_id=migration_hierarchy_minimal.dataset.external_id)
+        selected = DataSetSelector(
+            kind="Assets",
+            data_set_external_id=migration_hierarchy_minimal.dataset.external_id,
+            download_dir_name="assets",
+        )
         cmd.download(
             [selected],
             AssetIO(toolkit_client),

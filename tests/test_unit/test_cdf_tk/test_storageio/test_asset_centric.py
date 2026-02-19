@@ -335,7 +335,7 @@ class TestAssetIO:
 
         respx_mock.post(config.create_api_url("/assets")).mock(side_effect=asset_create_callback)
 
-        selector = AssetSubtreeSelector(hierarchy="test_hierarchy", kind="Assets")
+        selector = AssetSubtreeSelector(hierarchy="test_hierarchy", kind="Assets", download_dir_name="assets")
 
         io = AssetIO(asset_centric_client)
 
