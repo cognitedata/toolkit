@@ -3,6 +3,7 @@ from collections.abc import Mapping
 from graphlib import CycleError
 from pathlib import Path
 
+from rich.markup import escape
 from yaml import YAMLError
 
 if sys.version_info >= (3, 11):
@@ -221,7 +222,7 @@ class ToolkitMissingDependencyError(ToolkitError):
     """Error raised when a required dependency is missing."""
 
     def __init__(self, message: str) -> None:
-        super().__init__(message)
+        super().__init__(escape(message))
 
 
 class ToolkitThrottledError(ToolkitError):
