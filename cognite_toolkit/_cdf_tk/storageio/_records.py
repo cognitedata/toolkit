@@ -11,15 +11,15 @@ from ._base import Page, UploadableStorageIO, UploadItem
 from .selectors import RecordContainerSelector
 
 
-class RecordIO(UploadableStorageIO[RecordContainerSelector, RecordResponse, RecordRequest]):  # type: ignore[type-var]
+class RecordIO(UploadableStorageIO[RecordContainerSelector, RecordResponse, RecordRequest]):  # pyright: ignore[reportInvalidTypeArguments]
     KIND = "Records"
     SUPPORTED_READ_FORMATS: ClassVar[frozenset[str]] = frozenset({".ndjson"})
     UPLOAD_ENDPOINT = "/streams/{streamId}/records"
     CHUNK_SIZE = 1000
     BASE_SELECTOR = RecordContainerSelector
 
-    def as_id(self, item: None) -> str:
-        raise NotImplementedError()
+    def as_id(self, item: RecordResponse) -> str:
+        return f"{item.space}:{item.external_id}"
 
     def count(self, selector: RecordContainerSelector) -> int | None:
         return None
@@ -28,7 +28,7 @@ class RecordIO(UploadableStorageIO[RecordContainerSelector, RecordResponse, Reco
         raise NotImplementedError()
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[None], selector: RecordContainerSelector | None = None
+        self, data_chunk: Sequence[RecordResponse], selector: RecordContainerSelector | None = None
     ) -> list[dict[str, JsonVal]]:
         raise NotImplementedError()
 
@@ -37,7 +37,7 @@ class RecordIO(UploadableStorageIO[RecordContainerSelector, RecordResponse, Reco
 
     def upload_items(
         self,
-        data_chunk: Sequence[UploadItem[RecordRequest]],  # type: ignore[type-var]
+        data_chunk: Sequence[UploadItem[RecordRequest]],  # pyright: ignore[reportInvalidTypeArguments]
         http_client: HTTPClient,
         selector: RecordContainerSelector | None = None,
     ) -> ItemsResultList:

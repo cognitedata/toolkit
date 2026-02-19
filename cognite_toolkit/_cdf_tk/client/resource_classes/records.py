@@ -57,7 +57,7 @@ class RecordResponse(ResponseResource[RecordRequest]):
                     f"got: dict[{type(space).__name__}, {type(inner_dict).__name__}]"
                 )
             for container_external_id, props in inner_dict.items():
-                source_ref = ContainerReference(space=space, external_id=container_external_id)  # type: ignore[call-arg]
+                source_ref = ContainerReference(space=space, external_id=container_external_id)  # pyright: ignore[reportCallIssue]
                 parsed[source_ref] = props
         return parsed
 
