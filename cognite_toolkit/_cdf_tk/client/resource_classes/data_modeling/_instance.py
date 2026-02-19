@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Annotated, Any, Generic, Literal, TypeAlias
 
-from pydantic import Field, JsonValue, field_serializer, field_validator, model_serializer
+from pydantic import Field, JsonValue, TypeAdapter, field_serializer, field_validator, model_serializer
 from pydantic_core.core_schema import FieldSerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
@@ -184,3 +184,5 @@ InstanceResponse: TypeAlias = Annotated[
     NodeResponse | EdgeResponse,
     Field(discriminator="instance_type"),
 ]
+
+InstanceRequestAdapter: TypeAdapter[InstanceRequest] = TypeAdapter(InstanceRequest)

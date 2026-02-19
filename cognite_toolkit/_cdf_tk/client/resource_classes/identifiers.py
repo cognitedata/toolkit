@@ -5,6 +5,15 @@ from pydantic import AliasChoices, Field, model_serializer, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 
+SemanticVersion = Annotated[
+    str,
+    Field(
+        min_length=5,
+        max_length=14,
+        pattern=r"^(0|[1-9]\d{0,3})\.(0|[1-9]\d{0,3})\.(0|[1-9]\d{0,3})$",
+    ),
+]
+
 
 class InternalOrExternalIdDefinition(Identifier):
     type: str
@@ -128,6 +137,14 @@ class DataSetId(Identifier):
 
     def __str__(self) -> str:
         return f"dataSetId={self.data_set_id}"
+
+
+class DataProductVersionId(Identifier):
+    data_product_external_id: str
+    version: SemanticVersion
+
+    def __str__(self) -> str:
+        return f"dataProductExternalId='{self.data_product_external_id}', version='{self.version}'"
 
 
 class TransformationNotificationId(Identifier):

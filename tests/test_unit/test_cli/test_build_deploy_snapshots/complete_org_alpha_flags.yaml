@@ -58,6 +58,20 @@ DataProductResponse:
   schemaSpace: sp_schema
   tags:
   - tag
+DataProductVersionResponse:
+- dataModel:
+    externalId: my_data_model
+    version: '1'
+    views:
+    - externalId: my_view
+      instanceSpaces:
+        read:
+        - sp_data
+        write:
+        - sp_data
+  description: Initial version of the data product.
+  status: published
+  version: 1.0.0
 DataSetResponse:
 - description: This is the dataset for all assets on Drammen
   externalId: ds_Drammen_assets
@@ -110,7 +124,7 @@ FunctionResponse:
   name: Multi File Function
   owner: doctrino
   runtime: py311
-GraphQLDataModel:
+GraphQLDataModelResponse:
 - description: The Enterprise Data Model. CDFToolkitHash:9e20f6cf
   dml: "### Asset Hierarchy Data Model\ntype ProcessType {\n  name: String\n  description:\
     \ String\n  code: String\n}\n\ntype GeoRegion {\n  name: String!\n  description:\

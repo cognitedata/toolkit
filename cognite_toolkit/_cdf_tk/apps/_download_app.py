@@ -35,7 +35,9 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     DataPointsDataSetSelector,
     DataSetSelector,
     FileIdentifierSelector,
+    InstanceSelector,
     InstanceSpaceSelector,
+    InstanceViewSelector,
     RawTableSelector,
     SelectedTable,
     SelectedView,
@@ -53,6 +55,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     InteractiveChartSelect,
     RawTableInteractiveSelect,
     TimeSeriesInteractiveSelect,
+    ViewSelectFilter,
 )
 
 
@@ -702,8 +705,9 @@ class DownloadApp(typer.Typer):
             )
         )
 
-    @staticmethod
+    @classmethod
     def download_instances_cmd(
+        cls,
         ctx: typer.Context,
         instance_space: Annotated[
             str | None,
@@ -785,33 +789,44 @@ class DownloadApp(typer.Typer):
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = DownloadCommand(client=client)
 
-        client = EnvironmentVariables.create_from_environment().get_client()
+        selectors: list[InstanceSelector]
         if instance_space is None:
             selector = DataModelingSelect(client, "download instances")
-            selected_instance_space = selector.select_instance_space(multiselect=False)
-            selected_instance_type = selector.select_instance_type()
-            selected_schema_space = selector.select_schema_space(
-                include_global=True, message="In which space is the views with instance properties located?"
-            ).space
             selected_views = selector.select_view(
                 multiselect=True,
-                space=selected_schema_space,
                 message="Select views to download instance properties from.",
-                include_global=True,
-                instance_type=selected_instance_type,
+                filter=ViewSelectFilter(
+                    strategy="dataModel",
+                    include_global=True,
+                ),
             )
-            selectors: list[InstanceSpaceSelector] = [
-                InstanceSpaceSelector(
-                    instance_space=selected_instance_space,
-                    view=SelectedView(
-                        space=selected_schema_space,
-                        external_id=view.external_id,
-                        version=view.version,
-                    ),
-                    instance_type=selected_instance_type,
+            select_instance_space = questionary.confirm(
+                "Do you want to select an instance space to download from? If no, all instances from the selected views will be downloaded.",
+                default=False,
+            ).unsafe_ask()
+            instance_spaces: tuple[str, ...] | None = None
+            if select_instance_space:
+                instance_spaces = tuple(selector.select_instance_space(multiselect=True))
+            selectors = []
+            for view in selected_views:
+                view_instance_type = selector.select_instance_type(
+                    view.used_for,
+                    message=f"Select instance type to download for view {view.space}:{view.external_id}(version={view.version})",
                 )
-                for view in selected_views
-            ]
+                selectors.append(
+                    InstanceViewSelector(
+                        view=SelectedView(
+                            space=view.space,
+                            external_id=view.external_id,
+                            version=view.version,
+                        ),
+                        instance_spaces=instance_spaces,
+                        instance_type=view_instance_type,
+                    )
+                )
+            output_dir, file_format, compression, limit = cls._interactive_select_shared(  # type: ignore[assignment]
+                output_dir, file_format, InstanceFormats, compression, limit, "instances", "view"
+            )
         elif schema_space is None and view_external_ids is None:
             selectors = [InstanceSpaceSelector(instance_space=instance_space, instance_type=instance_type.value)]
         elif schema_space is not None and view_external_ids is not None:
@@ -844,6 +859,46 @@ class DownloadApp(typer.Typer):
                 verbose=verbose,
             )
         )
+
+    @classmethod
+    def _interactive_select_shared(
+        cls,
+        output_dir: Path,
+        file_format: Enum,
+        file_format_options: type[Enum],
+        compression: CompressionFormat,
+        limit: int,
+        display_name: str,
+        selector_type: str,
+    ) -> tuple[Path, Enum, Enum, int]:
+        """Interactive selection of output_dir, file_format, compression and limit for the download commands."""
+        selected_output_dir = Path(
+            questionary.path("Where to download the data:", default=str(output_dir), only_directories=True).unsafe_ask()
+        )
+
+        file_formats = [Choice(title=format_.value, value=format_) for format_ in file_format_options]
+        if len(file_formats) == 1:
+            selected_file_format = file_formats[0].value
+        else:
+            selected_file_format = questionary.select(
+                "Select format to download the data in:",
+                choices=file_formats,
+                default=file_format,  # type: ignore[arg-type]
+            ).unsafe_ask()
+
+        selected_compression = questionary.select(
+            "Select compression format to use when downloading the data:",
+            choices=[Choice(title=comp.value, value=comp) for comp in CompressionFormat],
+            default=compression,
+        ).unsafe_ask()
+        selected_limit = int(
+            questionary.text(
+                f"The maximum number of {display_name} to download per {selector_type}. Use -1 to download all {display_name}.",
+                default=str(limit),
+                validate=lambda value: value.lstrip("-").isdigit() and (int(value) == -1 or int(value) > 0),
+            ).unsafe_ask()
+        )
+        return selected_output_dir, selected_file_format, selected_compression, selected_limit  # type: ignore[return-value]
 
     @staticmethod
     def download_datapoints_cmd(
