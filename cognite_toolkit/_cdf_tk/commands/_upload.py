@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.storageio import (
 )
 from cognite_toolkit._cdf_tk.storageio._base import TableUploadableStorageIO, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, load_selector
-from cognite_toolkit._cdf_tk.storageio.selectors._instances import InstanceSpaceSelector
+from cognite_toolkit._cdf_tk.storageio.selectors._instances import InstanceSpaceSelector, InstanceViewSelector
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
@@ -110,12 +110,12 @@ class UploadCommand(ToolkitCommand):
             A dictionary mapping selectors to their data files with necessary preprocessing.
         """
         counts = Counter(type(selector) for selector in data_files_by_selector.keys())
-        if counts[InstanceSpaceSelector] <= 1:
+        if (counts[InstanceSpaceSelector] + counts[InstanceViewSelector]) <= 1:
             return data_files_by_selector
 
         selector_by_view_id: dict[ViewReference, Selector] = {}
         for selector in data_files_by_selector:
-            if isinstance(selector, InstanceSpaceSelector) and selector.view is not None:
+            if isinstance(selector, InstanceSpaceSelector | InstanceViewSelector) and selector.view is not None:
                 view_ref = selector.view.as_id()
                 if not isinstance(view_ref, ViewReference):
                     raise RuntimeError(

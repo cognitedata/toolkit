@@ -209,7 +209,7 @@ class TestUploadCommand:
         # Check that all subclasses of InstanceSelector are part of the test data
         subclasses = set(get_concrete_subclasses(InstanceSelector))
         exceptions = {InstanceFileSelector}
-        missing = subclasses - (set(data_files_by_selector.keys()) | exceptions)
+        missing = subclasses - ({type(selector) for selector in data_files_by_selector.keys()} | exceptions)
         # All instance selector subclasses should do topological sorting, except for the ones in exceptions
         assert not missing, f"Test data is missing selectors for the following InstanceSelector subclasses: {missing}"
 
