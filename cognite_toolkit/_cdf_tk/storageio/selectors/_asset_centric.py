@@ -38,9 +38,5 @@ class AssetCentricFileSelector(AssetCentricSelector):
     type: Literal["assetFile"] = "assetFile"
     datafile: Path
 
-    @property
-    def group(self) -> str:
-        return "AssetCentric"
-
     def __str__(self) -> str:
         return f"file_{self.datafile.name}"

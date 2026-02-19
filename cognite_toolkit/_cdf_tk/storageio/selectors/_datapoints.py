@@ -60,10 +60,6 @@ class DataPointsFileSelector(DataPointsSelector):
     timestamp_column: str
     columns: tuple[TimeSeriesColumn, ...]
 
-    @property
-    def group(self) -> str:
-        return "Datapoints"
-
     def __str__(self) -> str:
         return "datapoints_file"
 

@@ -72,10 +72,6 @@ class InstanceViewSelector(InstanceSelector):
     def get_instance_spaces(self) -> list[str] | None:
         return list(self.instance_spaces) if self.instance_spaces else None
 
-    @property
-    def group(self) -> str:
-        return self.view.space
-
     def __str__(self) -> str:
         return f"{self.view.external_id}_{self.view.version}_{self.instance_type}"
 
@@ -107,10 +103,6 @@ class InstanceFileSelector(InstanceSelector):
 
     datafile: Path
     validate_instance: bool = True
-
-    @property
-    def group(self) -> str:
-        return "Instances"
 
     def __str__(self) -> str:
         return f"file_{self.datafile.as_posix()}"
