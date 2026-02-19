@@ -878,7 +878,7 @@ class DownloadApp(typer.Typer):
                         version=view_id_str.split("/", maxsplit=1)[1] if "/" in view_id_str else None,
                     ),
                     instance_type=instance_type.value,
-                    download_dir_name=instance_type,
+                    download_dir_name=instance_space,
                 )
                 for view_id_str in view_external_ids
             ]
