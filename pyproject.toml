@@ -71,6 +71,7 @@ dev = [
     "responses>=0.25.7",
     "respx>=0.22.0",
     "pytest-json-report>=1.5.0", # For generating JSON reports from tests, this is used in the smoke tests
+    "jupyter>=1.1.1", # Nikola likes to do atomic testing in notebooks
 ]
 
 [project.optional-dependencies]
@@ -83,7 +84,7 @@ sql = [
 ]
 v08 = [
 
-    "cognite-neat >=1.0.37"
+    "cognite-neat >=1.0.39"
 ]
 
 [project.scripts]
