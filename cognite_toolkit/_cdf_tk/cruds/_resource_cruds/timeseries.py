@@ -273,6 +273,8 @@ class DatapointSubscriptionCRUD(
             # The last batch contains all the time series IDs, so it represents the fully updated subscription.
             if updated:
                 updated_list.append(updated[-1])
+            else:
+                updated_list.extend(self.client.tool.datapoint_subscriptions.retrieve([item.as_id()]))
         return updated_list
 
     def delete(self, ids: SequenceNotStr[ExternalId]) -> int:

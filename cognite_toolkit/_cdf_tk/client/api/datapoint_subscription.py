@@ -63,8 +63,7 @@ class DatapointSubscriptionsAPI(
         """Update datapoint subscriptions in CDF.
 
         Args:
-            items: List of DatapointSubscriptionRequest objects to update.
-            mode: Update mode, either "patch" or "replace".
+            items: List of DatapointSubscriptionUpdateRequest objects to update.
 
         Returns:
             List of updated DatapointSubscriptionResponse objects.
