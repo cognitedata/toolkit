@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilt
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerReference,
+    DataModelReference,
     DataModelResponse,
     DataModelResponseWithViews,
     SpaceResponse,
@@ -512,6 +513,7 @@ class ViewSelectFilter:
     schema_space: str | None = None
     instance_type: Literal["node", "edge", "all"] | None = None
     mapped_container: ContainerReference | None = None
+    data_model: DataModelReference | None = None
 
     def __str__(self) -> str:
         message: list[str] = []
@@ -615,12 +617,20 @@ class DataModelingSelect:
                 limit=None,
             )
         elif filter.strategy == "dataModel":
-            datamodel = self.select_data_model(
-                inline_views=True,
-                message=f"Select the data model through which to {self.operation}:",
-                schema_space=filter.schema_space,
-                include_global=filter.include_global,
-            )
+            if filter.data_model:
+                data_models = self.client.tool.data_models.retrieve([filter.data_model], inline_views=True)
+                if not data_models or not data_models[0].views:
+                    raise ToolkitMissingResourceError(
+                        f"No views found in data model {filter.data_model!r} for filter: {filter!s}"
+                    )
+                datamodel = data_models[0]
+            else:
+                datamodel = self.select_data_model(
+                    inline_views=True,
+                    message=f"Select the data model through which to {self.operation}:",
+                    schema_space=filter.schema_space,
+                    include_global=filter.include_global,
+                )
             views = datamodel.views or []
             parents = {parent for view in views for parent in view.implements or []}
             # We only allow the user to select child views

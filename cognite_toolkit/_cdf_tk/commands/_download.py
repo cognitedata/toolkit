@@ -65,11 +65,16 @@ class DownloadCommand(ToolkitCommand):
         console.print(table)
 
         for selector in selectors:
-            target_dir = output_dir / sanitize_filename(selector.group)
+            if selector.download_dir_name is None:
+                raise NotImplementedError(f"Bug in Toolkit. The download_dir_name field is missing for {selector!r}.")
+            target_dir = output_dir / sanitize_filename(selector.download_dir_name)
             if verbose:
                 console.print(f"Downloading {selector.display_name} '{selector!s}' to {target_dir.as_posix()!r}")
 
             total = counts_by_selector[selector]
+            if total == 0:
+                console.print(f"No items to download for {selector!s}. Skipping.")
+                continue
             iteration_count = self._get_iteration_count(total, limit, io.CHUNK_SIZE)
             filestem = sanitize_filename(str(selector))
             if self._already_downloaded(target_dir, filestem):

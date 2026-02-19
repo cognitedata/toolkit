@@ -8,10 +8,6 @@ from ._base import DataSelector
 class ThreeDSelector(DataSelector, ABC):
     kind: Literal["3D"] = "3D"
 
-    @property
-    def group(self) -> str:
-        return "3DModels"
-
 
 class ThreeDModelFilteredSelector(ThreeDSelector):
     type: Literal["3DFiltered"] = "3DFiltered"

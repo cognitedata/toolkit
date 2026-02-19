@@ -39,7 +39,7 @@ class TestDownloadCommand:
             )
 
             cmd.download(
-                selectors=[DataSetSelector(kind="Assets", data_set_external_id=dataset)],
+                selectors=[DataSetSelector(kind="Assets", data_set_external_id=dataset, download_dir_name="assets")],
                 io=AssetIO(client=client),
                 output_dir=tmp_path,
                 verbose=True,
