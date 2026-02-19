@@ -8,6 +8,8 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessR
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
+from .data_product_versions import DataProductVersionsAPI
+
 
 class DataProductsAPI(CDFResourceAPI[ExternalId, DataProductRequest, DataProductResponse]):
     """API for managing CDF data products."""
@@ -24,6 +26,7 @@ class DataProductsAPI(CDFResourceAPI[ExternalId, DataProductRequest, DataProduct
             },
             api_version="alpha",
         )
+        self.versions = DataProductVersionsAPI(http_client)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
