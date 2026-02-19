@@ -108,8 +108,11 @@ class DatapointSubscriptionsAPI(
             ).get_success_or_raise()
             page_response = PagedResponse[DatapointSubscriptionTimeSeriesId].model_validate_json(response.body)
             result.extend(page_response.items)
-            cursor = page_response.next_cursor
             total += len(page_response.items)
+            if (limit is not None and total >= limit) or not page_response.items:
+                break
+            cursor = page_response.next_cursor
+
         return result
 
     def paginate(self, limit: int = 100, cursor: str | None = None) -> PagedResponse[DatapointSubscriptionResponse]:
