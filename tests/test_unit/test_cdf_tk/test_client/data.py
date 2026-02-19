@@ -111,6 +111,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWTableRequest,
     RAWTableResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest, RecordResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     ResourceViewMappingRequest,
@@ -720,6 +721,17 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
+        RecordResponse: {
+            "space": "my_space",
+            "externalId": "record_001",
+            "properties": {
+                "my_space": {
+                    "my_container": {
+                        "name": "Example Record",
+                    }
+                }
+            },
+        },
     }
     try:
         return responses[resource_cls]
@@ -1241,4 +1253,12 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             api_class=DataProductsAPI,
         ),
         id="DataProduct",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RecordResponse,
+            request_cls=RecordRequest,
+            example_data=get_example_minimum_responses(RecordResponse),
+        ),
+        id="Record",
     )
