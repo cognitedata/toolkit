@@ -377,7 +377,6 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
         client: ToolkitClient,
         hierarchy: str | None = None,
         profile_row_limit: int = max_profile_row_limit,
-        verbose: bool = False,
     ) -> list[dict[str, CellValue]]:
         """
         Profile assets in the given hierarchy.
