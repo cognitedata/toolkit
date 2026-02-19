@@ -202,7 +202,6 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # The dataproduct API is not yet supported in CDF.
         DataProductsAPI,
         DataProductVersionsAPI,
-
     }
 )
 

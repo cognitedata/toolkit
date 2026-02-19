@@ -80,7 +80,11 @@ class DataProductVersionsAPI(
     ) -> list[DataProductVersionResponse]:
         results: list[DataProductVersionResponse] = []
         for item in items:
-            url = self._make_url(self._method_endpoint_map["retrieve"].path.format(externalId=item.data_product_external_id, version=item.version))
+            url = self._make_url(
+                self._method_endpoint_map["retrieve"].path.format(
+                    externalId=item.data_product_external_id, version=item.version
+                )
+            )
             response = self._http_client.request_single_retries(
                 RequestMessage(
                     endpoint_url=url,
