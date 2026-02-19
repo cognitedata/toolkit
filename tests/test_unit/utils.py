@@ -398,20 +398,9 @@ class FakeCogniteResourceGenerator:
         if container_type is Annotated:
             base_type, *metadata_args = get_args(type_)
             if base_type is str:
-                from pydantic.fields import FieldInfo as PydanticFieldInfo
-
-                for m in metadata_args:
-                    if isinstance(m, PydanticFieldInfo):
-                        has_pattern = any(hasattr(c, "pattern") for c in getattr(m, "metadata", []))
-                        if has_pattern:
-                            max_len = next(
-                                (c.max_length for c in getattr(m, "metadata", []) if hasattr(c, "max_length")),
-                                8,
-                            )
-                            length = min(8, max_len or 8)
-                            first = self._random.choice(string.ascii_lowercase)
-                            rest = self._random_string(length - 1, sample_from=string.ascii_lowercase + string.digits)
-                            return first + rest
+                constraints = self._extract_str_constraints(metadata_args)
+                if constraints.get("pattern"):
+                    return self._random_constrained_string(constraints)
             return self.create_value(base_type, var_name=var_name)
         elif container_type in UNION_TYPES:
             return self.create_value(first_not_none)
@@ -524,6 +513,28 @@ class FakeCogniteResourceGenerator:
     ) -> str:
         k = size or self._random.randint(1, 100)
         return "".join(self._random.choices(sample_from, k=k))
+
+    @staticmethod
+    def _extract_str_constraints(metadata: list[Any]) -> dict[str, Any]:
+        attrs = ("pattern", "min_length", "max_length")
+        constraints: dict[str, Any] = {}
+        for m in metadata:
+            for attr in attrs:
+                if (val := getattr(m, attr, None)) is not None:
+                    constraints[attr] = val
+            for nested in getattr(m, "metadata", []):
+                for attr in attrs:
+                    if (val := getattr(nested, attr, None)) is not None:
+                        constraints[attr] = val
+        return constraints
+
+    def _random_constrained_string(self, constraints: dict[str, Any]) -> str:
+        min_len = constraints.get("min_length", 1)
+        max_len = constraints.get("max_length", 10)
+        length = min(max(min_len, 4), max_len)
+        first = self._random.choice(string.ascii_lowercase)
+        rest = self._random_string(length - 1, sample_from=string.ascii_lowercase + string.digits)
+        return first + rest
 
     @classmethod
     def _type_checking(cls) -> dict[str, Any]:
