@@ -352,11 +352,11 @@ class TestAssetIO:
             limit=100,
         )
 
-        csv_files = list((tmp_path / selector.group).glob("*.csv"))
+        csv_files = list((tmp_path / selector.download_dir_name).glob("*.csv"))
         assert len(csv_files) == 1
 
         upload_command.upload(
-            input_dir=tmp_path / selector.group,
+            input_dir=tmp_path / selector.download_dir_name,
             client=asset_centric_client,
             deploy_resources=True,
             dry_run=False,
