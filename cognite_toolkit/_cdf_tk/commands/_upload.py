@@ -100,7 +100,7 @@ class UploadCommand(ToolkitCommand):
     def _topological_sort_if_instance_selector(
         self, data_files_by_selector: dict[Selector, list[Path]], client: ToolkitClient
     ) -> dict[Selector, list[Path]]:
-        """Topologically sorts InstanceSpaceSelectors (if they are present) to determine the order of upload based on container dependencies from the views.
+        """Topologically sorts InstanceSelectors (if they are present) to determine the order of upload based on container dependencies from the views.
 
         Args:
             data_files_by_selector: A dictionary mapping selectors to their data files.
