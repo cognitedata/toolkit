@@ -311,7 +311,7 @@ class UploadCommand(ToolkitCommand):
                     elif isinstance(message, ItemsFailedRequest):
                         failures_by_error.setdefault(escape(message.error_message), []).extend(message.ids)
             else:
-                console.log(f"[red]Unexpected result from upload: {escape(str(message))!r}[/red]")
+                console.log(f"[red]Unexpected result from upload: {escape(str(message))}[/red]")
         if verbose:
             for error_description, failed_ids in failures_by_error.items():
                 ids_display = escape(", ".join(failed_ids[: cls._MAX_VERBOSE_PRINTED_FAILED_IDS]))
