@@ -396,7 +396,23 @@ class FakeCogniteResourceGenerator:
             return None
 
         if container_type is Annotated:
-            return self.create_value(get_args(type_)[0], var_name=var_name)
+            base_type, *metadata_args = get_args(type_)
+            if base_type is str:
+                from pydantic.fields import FieldInfo as PydanticFieldInfo
+
+                for m in metadata_args:
+                    if isinstance(m, PydanticFieldInfo):
+                        has_pattern = any(hasattr(c, "pattern") for c in getattr(m, "metadata", []))
+                        if has_pattern:
+                            max_len = next(
+                                (c.max_length for c in getattr(m, "metadata", []) if hasattr(c, "max_length")),
+                                8,
+                            )
+                            length = min(8, max_len or 8)
+                            first = self._random.choice(string.ascii_lowercase)
+                            rest = self._random_string(length - 1, sample_from=string.ascii_lowercase + string.digits)
+                            return first + rest
+            return self.create_value(base_type, var_name=var_name)
         elif container_type in UNION_TYPES:
             return self.create_value(first_not_none)
         elif container_type is typing.Literal:
