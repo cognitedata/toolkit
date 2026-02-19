@@ -5,7 +5,6 @@ from collections.abc import Iterable, Sequence
 from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
-from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsSuccessResponse,
@@ -46,13 +45,6 @@ class DataProductVersionsAPI(
     ) -> PagedResponse[DataProductVersionResponse]:
         return PagedResponse[DataProductVersionResponse].model_validate_json(response.body)
 
-    def _resolve(
-        self, method: APIMethod, **kwargs: str
-    ) -> tuple[Literal["GET", "POST", "PUT", "PATCH", "DELETE"], str]:
-        """Return (http_method, full_url) for the given API method with path parameters substituted."""
-        endpoint = self._method_endpoint_map[method]
-        return endpoint.method, self._make_url(endpoint.path.format(**kwargs))
-
     @staticmethod
     def _group_by_parent(
         items: Sequence[DataProductVersionRequest],
@@ -65,12 +57,12 @@ class DataProductVersionsAPI(
     def create(self, items: Sequence[DataProductVersionRequest]) -> list[DataProductVersionResponse]:
         results: list[DataProductVersionResponse] = []
         for dp_ext_id, group in self._group_by_parent(items).items():
-            http_method, url = self._resolve("create", externalId=dp_ext_id)
+            url = self._make_url(self._method_endpoint_map["create"].path.format(externalId=dp_ext_id))
             for item in group:
                 response = self._http_client.request_single_retries(
                     RequestMessage(
                         endpoint_url=url,
-                        method=http_method,
+                        method="POST",
                         body_content={"items": [item.dump()]},
                         api_version=self._api_version,
                     )
@@ -88,11 +80,11 @@ class DataProductVersionsAPI(
     ) -> list[DataProductVersionResponse]:
         results: list[DataProductVersionResponse] = []
         for item in items:
-            http_method, url = self._resolve("retrieve", externalId=item.data_product_external_id, version=item.version)
+            url = self._make_url(self._method_endpoint_map["retrieve"].path.format(externalId=item.data_product_external_id, version=item.version))
             response = self._http_client.request_single_retries(
                 RequestMessage(
                     endpoint_url=url,
-                    method=http_method,
+                    method="GET",
                     api_version=self._api_version,
                 )
             )
@@ -113,12 +105,12 @@ class DataProductVersionsAPI(
     ) -> list[DataProductVersionResponse]:
         results: list[DataProductVersionResponse] = []
         for dp_ext_id, group in self._group_by_parent(items).items():
-            http_method, url = self._resolve("update", externalId=dp_ext_id)
+            url = self._make_url(self._method_endpoint_map["update"].path.format(externalId=dp_ext_id))
             for item in group:
                 response = self._http_client.request_single_retries(
                     RequestMessage(
                         endpoint_url=url,
-                        method=http_method,
+                        method="POST",
                         body_content={"items": [item.as_update(mode=mode)]},
                         api_version=self._api_version,
                     )
@@ -134,11 +126,11 @@ class DataProductVersionsAPI(
         for id_ in ids:
             by_parent[id_.data_product_external_id].append(id_.version)
         for dp_ext_id, versions in by_parent.items():
-            http_method, url = self._resolve("delete", externalId=dp_ext_id)
+            url = self._make_url(self._method_endpoint_map["delete"].path.format(externalId=dp_ext_id))
             self._http_client.request_single_retries(
                 RequestMessage(
                     endpoint_url=url,
-                    method=http_method,
+                    method="POST",
                     body_content={"items": [{"version": v} for v in versions]},
                     api_version=self._api_version,
                 )
