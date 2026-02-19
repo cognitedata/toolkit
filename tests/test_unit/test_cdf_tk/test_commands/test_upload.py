@@ -24,6 +24,8 @@ from cognite_toolkit._cdf_tk.storageio import RawIO
 from cognite_toolkit._cdf_tk.storageio._asset_centric import AssetIO
 from cognite_toolkit._cdf_tk.storageio._base import UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import (
+    InstanceFileSelector,
+    InstanceSelector,
     InstanceSpaceSelector,
     InstanceViewSelector,
     RawTableSelector,
@@ -32,6 +34,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     Selector,
 )
 from cognite_toolkit._cdf_tk.storageio.selectors._asset_centric import DataSetSelector
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -195,13 +198,20 @@ class TestUploadCommand:
 
         # Verify instance selectors are sorted by dependencies
         result_keys = list(result.keys())
+
         assert result_keys.index(source_system_selector) < result_keys.index(cognite_asset_selector), (
             f"CogniteSourceSystem should come before CogniteAsset due to dependencies, but got order {result_keys}"
         )
-
         # Verify non-instance selectors are preserved
         assert raw_selector in result, f"Raw selector should be preserved, not found in {result_keys}"
         assert len(result) == 3, f"Expected 3 selectors, got {len(result)}: {result_keys}"
+
+        # Check that all subclasses of InstanceSelector are part of the test data
+        subclasses = set(get_concrete_subclasses(InstanceSelector))
+        exceptions = {InstanceFileSelector}
+        missing = subclasses - (set(data_files_by_selector.keys()) | exceptions)
+        # All instance selector subclasses should do topological sorting, except for the ones in exceptions
+        assert not missing, f"Test data is missing selectors for the following InstanceSelector subclasses: {missing}"
 
     @pytest.mark.usefixtures("disable_gzip")
     def test_early_stopping_when_all_items_fail(
