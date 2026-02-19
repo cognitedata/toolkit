@@ -47,14 +47,16 @@ class DatapointSubscriptionUpdateRequest(RequestResource):
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
+    def has_data(self) -> bool:
+        """Check if the update request contains any data to update."""
+        return self.update.model_dump(exclude_none=True) != {}
+
 
 class DatapointSubscription(BaseModelObject):
     external_id: str
     name: str | None = None
     description: str | None = None
     data_set_id: int | None = None
-    time_series_ids: list[str] | None = None
-    instance_ids: list[NodeReference] | None = None
     partition_count: int
     filter: JsonValue | None = None
 
@@ -62,7 +64,22 @@ class DatapointSubscription(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class DatapointSubscriptionRequest(DatapointSubscription, RequestResource): ...
+class DatapointSubscriptionRequest(DatapointSubscription, RequestResource):
+    time_series_ids: list[str] | None = None
+    instance_ids: list[NodeReference] | None = None
+
+    def as_update(self) -> DatapointSubscriptionUpdateRequest:
+        data = DataPointSubscriptionUpdate()
+        if self.time_series_ids is not None:
+            raise NotImplementedError("Bug in Toolkit. Trying to update timeSeriesIds without an update object")
+        if self.instance_ids is not None:
+            raise NotImplementedError("Bug in Toolkit. Trying to update instanceIds without an update object")
+        data.name = Set(set=self.name) if self.name is not None else SetNull()
+        data.description = Set(set=self.description) if self.description is not None else SetNull()
+        data.data_set_id = Set(set=self.data_set_id) if self.data_set_id is not None else SetNull()
+        if self.filter is not None:
+            data.filter = Set(set=self.filter)
+        return DatapointSubscriptionUpdateRequest(external_id=self.external_id, update=data)
 
 
 class DatapointSubscriptionResponse(DatapointSubscription, ResponseResource[DatapointSubscriptionRequest]):

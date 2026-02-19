@@ -1,8 +1,10 @@
 from collections.abc import Iterable, Sequence
+from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._references import DatapointSubscriptionTimeSeriesId
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (
     DatapointSubscriptionRequest,
     DatapointSubscriptionResponse,
@@ -23,6 +25,7 @@ class DatapointSubscriptionAPI(CDFResourceAPI[ExternalId, DatapointSubscriptionR
                 "list": Endpoint(method="GET", path="/timeseries/subscriptions", item_limit=100),
             },
         )
+        self._list_members = Endpoint(method="GET", path="/timeseries/subscriptions/members", item_limit=100)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
@@ -74,6 +77,38 @@ class DatapointSubscriptionAPI(CDFResourceAPI[ExternalId, DatapointSubscriptionR
             ignore_unknown_ids: Whether to ignore unknown IDs.
         """
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
+
+    def list_members(self, external_id: str, limit: int | None = 100) -> list[DatapointSubscriptionTimeSeriesId]:
+        """List time series IDs subscribed to by a datapoint subscription.
+
+        Args:
+            external_id: External ID of the datapoint subscription.
+            limit: Maximum number of items to return.
+
+        Returns:
+            List of time series IDs subscribed to by the datapoint subscription.
+        """
+        cursor: str | None = None
+        total: int = 0
+        endpoint = self._list_members
+        result: list[DatapointSubscriptionTimeSeriesId] = []
+        while cursor is not None or total == 0:
+            page_limit = endpoint.item_limit if limit is None else min(limit - total, endpoint.item_limit)
+            parameters: dict[str, Any] = {"externalId": external_id, "limit": page_limit}
+            if cursor is not None:
+                parameters["cursor"] = cursor
+            response = self._http_client.request_single_retries(
+                RequestMessage(
+                    endpoint_url=self._http_client.config.create_api_url(endpoint.path),
+                    method=endpoint.method,
+                    parameters=parameters,
+                )
+            ).get_success_or_raise()
+            page_response = PagedResponse[DatapointSubscriptionTimeSeriesId].model_validate_json(response.body)
+            result.extend(page_response.items)
+            cursor = page_response.next_cursor
+            total += len(page_response.items)
+        return result
 
     def paginate(self, limit: int = 100, cursor: str | None = None) -> PagedResponse[DatapointSubscriptionResponse]:
         """Paginate over datapoint subscriptions in CDF.
