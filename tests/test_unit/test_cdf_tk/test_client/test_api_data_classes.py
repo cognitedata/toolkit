@@ -5,6 +5,9 @@ import pytest
 from cognite_toolkit._cdf_tk.client._resource_base import UpdatableRequestResource
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (
+    DatapointSubscriptionRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
 from tests.test_unit.test_cdf_tk.test_client.data import CDFResource, iterate_cdf_resources
 
@@ -171,3 +174,21 @@ class TestGroupResponse:
         }
 
         GroupResponse.model_validate(data)
+
+
+class TestDatapointSubscriptionUpdateRequest:
+    def test_as_update(self) -> None:
+        request = DatapointSubscriptionRequest(
+            external_id="subscription_1",
+            name="Subscription 1",
+            partition_count=1,
+        )
+
+        assert request.as_update().dump() == {
+            "externalId": "subscription_1",
+            "update": {
+                "name": {"set": "Subscription 1"},
+                "description": {"setNull": True},
+                "dataSetId": {"setNull": True},
+            },
+        }
