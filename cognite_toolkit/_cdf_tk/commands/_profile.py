@@ -342,20 +342,6 @@ class AssetIndex:
 
 
 class ProfileAssetCommand(ProfileCommand[AssetIndex]):
-    def __init__(
-        self,
-        output_spreadsheet: Path | None = None,
-        print_warning: bool = True,
-        skip_tracking: bool = False,
-        silent: bool = False,
-        client: ToolkitClient | None = None,
-    ) -> None:
-        super().__init__(output_spreadsheet, print_warning, skip_tracking, silent, client)
-        self.table_title = "Asset Profile for Hierarchy"
-        self.hierarchy: str | None = None
-        self.aggregators: dict[str, MetadataAggregator] = {}
-        self.profile_row_limit = self.max_profile_row_limit
-
     class Columns:
         Resource = "Resource"
         Count = "Count"
@@ -371,6 +357,20 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
     # The actual limit is 256 MB of data.
     # Ref https://github.com/cognitedata/profiler-api/blob/main/src/main/scala/com/cognite/raw_profiler/Profile.scala#L37
     profile_timeout_seconds = 60 * 4  # Timeout for the profiling operation in seconds,
+
+    def __init__(
+        self,
+        output_spreadsheet: Path | None = None,
+        print_warning: bool = True,
+        skip_tracking: bool = False,
+        silent: bool = False,
+        client: ToolkitClient | None = None,
+    ) -> None:
+        super().__init__(output_spreadsheet, print_warning, skip_tracking, silent, client)
+        self.table_title = "Asset Profile for Hierarchy"
+        self.hierarchy: str | None = None
+        self.aggregators: dict[str, MetadataAggregator] = {}
+        self.profile_row_limit = self.max_profile_row_limit
 
     def assets(
         self,
