@@ -95,7 +95,6 @@ class UploadCommand(ToolkitCommand):
         self._deploy_resource_folder(input_dir / DATA_RESOURCE_DIR, deploy_resources, client, console, dry_run, verbose)
 
         data_files_by_selector = self._topological_sort_if_instance_selector(data_files_by_selector, client)
-
         self._upload_data(data_files_by_selector, client, dry_run, input_dir, console, verbose)
 
     def _topological_sort_if_instance_selector(
