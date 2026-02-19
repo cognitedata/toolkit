@@ -1,4 +1,3 @@
-from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, final
 
@@ -78,46 +77,23 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
     def create(self, items: Sequence[DataProductVersionRequest]) -> list[DataProductVersionResponse]:
         if not items:
             return []
-        by_parent = self._group_by_parent(items)
-        results: list[DataProductVersionResponse] = []
-        for dp_ext_id, group in by_parent.items():
-            results.extend(self.client.tool.data_products.versions.create(dp_ext_id, group))
-        return results
+        return self.client.tool.data_products.versions.create(list(items))
 
     def retrieve(self, ids: SequenceNotStr[DataProductVersionId]) -> list[DataProductVersionResponse]:
         if not ids:
             return []
-        results: list[DataProductVersionResponse] = []
-        for id_ in ids:
-            ver = self.client.tool.data_products.versions.retrieve(
-                id_.data_product_external_id, id_.version, ignore_unknown_ids=True
-            )
-            if ver is not None:
-                results.append(ver)
-        return results
+        return self.client.tool.data_products.versions.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[DataProductVersionRequest]) -> list[DataProductVersionResponse]:
         if not items:
             return []
-        results: list[DataProductVersionResponse] = []
-        for item in items:
-            results.append(
-                self.client.tool.data_products.versions.update(item.data_product_external_id, item.version, item)
-            )
-        return results
+        return self.client.tool.data_products.versions.update(list(items))
 
     def delete(self, ids: SequenceNotStr[DataProductVersionId]) -> int:
         if not ids:
             return 0
-        by_parent: defaultdict[str, list[str]] = defaultdict(list)
-        for id_ in ids:
-            by_parent[id_.data_product_external_id].append(id_.version)
-
-        count = 0
-        for dp_ext_id, versions in by_parent.items():
-            self.client.tool.data_products.versions.delete(dp_ext_id, versions)
-            count += len(versions)
-        return count
+        self.client.tool.data_products.versions.delete(list(ids))
+        return len(ids)
 
     def _iterate(
         self,
@@ -137,10 +113,3 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
         for dp_ext_id in dp_ext_ids:
             for versions in self.client.tool.data_products.versions.iterate(dp_ext_id, limit=None):
                 yield from versions  # type: ignore[attr-defined]
-
-    @staticmethod
-    def _group_by_parent(items: Sequence[DataProductVersionRequest]) -> dict[str, list[DataProductVersionRequest]]:
-        by_parent: defaultdict[str, list[DataProductVersionRequest]] = defaultdict(list)
-        for item in items:
-            by_parent[item.data_product_external_id].append(item)
-        return dict(by_parent)

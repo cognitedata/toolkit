@@ -1,17 +1,20 @@
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import DataProductVersionId, SemanticVersion
+from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
 
+SpaceId = Annotated[str, Field(pattern=SPACE_FORMAT_PATTERN, max_length=43)]
+
 
 class ViewInstanceSpaces(BaseModelResource):
-    read: list[str] = Field(
+    read: list[SpaceId] = Field(
         default_factory=list, description="Instance space IDs from which you can read through this view."
     )
-    write: list[str] = Field(
+    write: list[SpaceId] = Field(
         default_factory=list, description="Instance space IDs to which you can write through this view."
     )
 

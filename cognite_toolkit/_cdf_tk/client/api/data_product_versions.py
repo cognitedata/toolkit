@@ -1,10 +1,11 @@
 """Data Product Versions API for managing versions of CDF data products."""
 
-from __future__ import annotations
-
+from collections import defaultdict
 from collections.abc import Iterable, Sequence
+from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
+from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsSuccessResponse,
@@ -45,102 +46,103 @@ class DataProductVersionsAPI(
     ) -> PagedResponse[DataProductVersionResponse]:
         return PagedResponse[DataProductVersionResponse].model_validate_json(response.body)
 
-    def create(
-        self, data_product_external_id: str, items: Sequence[DataProductVersionRequest]
-    ) -> list[DataProductVersionResponse]:
-        endpoint = self._method_endpoint_map["create"]
-        path = endpoint.path.format(externalId=data_product_external_id)
-        results: list[DataProductVersionResponse] = []
+    def _resolve(
+        self, method: APIMethod, **kwargs: str
+    ) -> tuple[Literal["GET", "POST", "PUT", "PATCH", "DELETE"], str]:
+        """Return (http_method, full_url) for the given API method with path parameters substituted."""
+        endpoint = self._method_endpoint_map[method]
+        return endpoint.method, self._make_url(endpoint.path.format(**kwargs))
+
+    @staticmethod
+    def _group_by_parent(
+        items: Sequence[DataProductVersionRequest],
+    ) -> dict[str, list[DataProductVersionRequest]]:
+        by_parent: dict[str, list[DataProductVersionRequest]] = {}
         for item in items:
-            response = self._http_client.request_single_retries(
-                RequestMessage(
-                    endpoint_url=self._make_url(path),
-                    method=endpoint.method,
-                    body_content={"items": [item.dump()]},
-                    api_version=self._api_version,
+            by_parent.setdefault(item.data_product_external_id, []).append(item)
+        return by_parent
+
+    def create(self, items: Sequence[DataProductVersionRequest]) -> list[DataProductVersionResponse]:
+        results: list[DataProductVersionResponse] = []
+        for dp_ext_id, group in self._group_by_parent(items).items():
+            http_method, url = self._resolve("create", externalId=dp_ext_id)
+            for item in group:
+                response = self._http_client.request_single_retries(
+                    RequestMessage(
+                        endpoint_url=url,
+                        method=http_method,
+                        body_content={"items": [item.dump()]},
+                        api_version=self._api_version,
+                    )
                 )
-            )
-            page = self._validate_page_response(response.get_success_or_raise())
-            for version in page.items:
-                version.data_product_external_id = data_product_external_id
-            results.extend(page.items)
+                page = self._validate_page_response(response.get_success_or_raise())
+                for version in page.items:
+                    version.data_product_external_id = dp_ext_id
+                results.extend(page.items)
         return results
 
     def retrieve(
         self,
-        data_product_external_id: str,
-        version: str,
+        items: Sequence[DataProductVersionId],
         ignore_unknown_ids: bool = False,
-    ) -> DataProductVersionResponse | None:
-        endpoint = self._method_endpoint_map["retrieve"]
-        path = endpoint.path.format(externalId=data_product_external_id, version=version)
-        response = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=self._make_url(path),
-                method=endpoint.method,
-                api_version=self._api_version,
+    ) -> list[DataProductVersionResponse]:
+        results: list[DataProductVersionResponse] = []
+        for item in items:
+            http_method, url = self._resolve("retrieve", externalId=item.data_product_external_id, version=item.version)
+            response = self._http_client.request_single_retries(
+                RequestMessage(
+                    endpoint_url=url,
+                    method=http_method,
+                    api_version=self._api_version,
+                )
             )
-        )
-        if isinstance(response, SuccessResponse):
-            ver = DataProductVersionResponse.model_validate_json(response.body)
-            ver.data_product_external_id = data_product_external_id
-            return ver
-        if ignore_unknown_ids:
-            return None
-        _ = response.get_success_or_raise()
-        return None
+            if isinstance(response, SuccessResponse):
+                ver = DataProductVersionResponse.model_validate_json(response.body)
+                ver.data_product_external_id = item.data_product_external_id
+                results.append(ver)
+            elif ignore_unknown_ids:
+                continue
+            else:
+                _ = response.get_success_or_raise()
+        return results
 
     def update(
         self,
-        data_product_external_id: str,
-        version: str,
-        item: DataProductVersionRequest,
-    ) -> DataProductVersionResponse:
-        endpoint = self._method_endpoint_map["update"]
-        path = endpoint.path.format(externalId=data_product_external_id)
+        items: Sequence[DataProductVersionRequest],
+        mode: Literal["patch", "replace"] = "replace",
+    ) -> list[DataProductVersionResponse]:
+        results: list[DataProductVersionResponse] = []
+        for dp_ext_id, group in self._group_by_parent(items).items():
+            http_method, url = self._resolve("update", externalId=dp_ext_id)
+            for item in group:
+                response = self._http_client.request_single_retries(
+                    RequestMessage(
+                        endpoint_url=url,
+                        method=http_method,
+                        body_content={"items": [item.as_update(mode=mode)]},
+                        api_version=self._api_version,
+                    )
+                )
+                page = self._validate_page_response(response.get_success_or_raise())
+                for ver in page.items:
+                    ver.data_product_external_id = dp_ext_id
+                results.extend(page.items)
+        return results
 
-        update_body: dict = {"version": version, "update": {}}
-        if item.status is not None:
-            update_body["update"]["status"] = {"set": item.status}
-        if item.description is not None:
-            update_body["update"]["description"] = {"set": item.description}
-        if item.terms is not None:
-            terms_modify: dict = {}
-            if item.terms.usage is not None:
-                terms_modify["usage"] = {"set": item.terms.usage}
-            if item.terms.limitations is not None:
-                terms_modify["limitations"] = {"set": item.terms.limitations}
-            if terms_modify:
-                update_body["update"]["terms"] = {"modify": terms_modify}
-        if item.data_model and item.data_model.views is not None:
-            update_body["update"]["dataModel"] = {
-                "modify": {"views": {"set": [v.dump() for v in item.data_model.views]}}
-            }
-
-        response = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=self._make_url(path),
-                method=endpoint.method,
-                body_content={"items": [update_body]},
-                api_version=self._api_version,
-            )
-        )
-        page = self._validate_page_response(response.get_success_or_raise())
-        for ver in page.items:
-            ver.data_product_external_id = data_product_external_id
-        return page.items[0]
-
-    def delete(self, data_product_external_id: str, versions: Sequence[str]) -> None:
-        endpoint = self._method_endpoint_map["delete"]
-        path = endpoint.path.format(externalId=data_product_external_id)
-        self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=self._make_url(path),
-                method=endpoint.method,
-                body_content={"items": [{"version": v} for v in versions]},
-                api_version=self._api_version,
-            )
-        ).get_success_or_raise()
+    def delete(self, ids: Sequence[DataProductVersionId]) -> None:
+        by_parent: defaultdict[str, list[str]] = defaultdict(list)
+        for id_ in ids:
+            by_parent[id_.data_product_external_id].append(id_.version)
+        for dp_ext_id, versions in by_parent.items():
+            http_method, url = self._resolve("delete", externalId=dp_ext_id)
+            self._http_client.request_single_retries(
+                RequestMessage(
+                    endpoint_url=url,
+                    method=http_method,
+                    body_content={"items": [{"version": v} for v in versions]},
+                    api_version=self._api_version,
+                )
+            ).get_success_or_raise()
 
     def list(self, data_product_external_id: str, limit: int | None = 10) -> list[DataProductVersionResponse]:
         path = self._method_endpoint_map["list"].path.format(externalId=data_product_external_id)

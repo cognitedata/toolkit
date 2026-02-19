@@ -9,6 +9,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
+from cognite_toolkit._cdf_tk.client.api.data_product_versions import DataProductVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
@@ -191,8 +192,9 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         TransformationsAPI,
         TransformationSchedulesAPI,
         TransformationNotificationsAPI,
-        # List method requires an argument,
+        # List method requires an argument
         SequenceRowsAPI,
+        DataProductVersionsAPI,
     }
 )
 
