@@ -88,6 +88,7 @@ class DataProductVersionRequest(DataProductVersion, UpdatableRequestResource):
 
 
 class DataProductVersionResponse(DataProductVersion, ResponseResource[DataProductVersionRequest]):
+    data_product_external_id: str = Field(default="", exclude=True)
     created_time: int
     last_updated_time: int
 
