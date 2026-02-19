@@ -1,4 +1,6 @@
-from pydantic import JsonValue
+from typing import Any
+
+from pydantic import JsonValue, field_serializer
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Identifier, RequestResource, ResponseResource
 
@@ -16,6 +18,10 @@ class RecordIdentifier(Identifier):
 class RecordSource(BaseModelObject):
     source: ContainerReference
     properties: dict[str, JsonValue]
+
+    @field_serializer("source", mode="plain")
+    def serialize_source(self, value: ContainerReference) -> Any:
+        return {**value.dump(), "type": value.type}
 
 
 class RecordRequest(RequestResource):
