@@ -40,7 +40,7 @@ class DataSelector(SelectorObject, ABC):
 
     type: str
     kind: str
-    download_dir_name: DirectoryName | None = Field(exclude=True)
+    download_dir_name: DirectoryName | None = Field(None, exclude=True)
 
     def dump(self) -> dict[str, JsonVal]:
         return self.model_dump(by_alias=True)
