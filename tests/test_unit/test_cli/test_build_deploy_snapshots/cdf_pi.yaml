@@ -15,7 +15,7 @@ ExtractionPipelineResponse:
   - dbName: ingestion
     tableName: timeseries_metadata
   source: Springfield AVEVA PI
-Group:
+GroupResponse:
 - capabilities:
   - projectsAcl:
       actions:
@@ -38,8 +38,7 @@ Group:
       scope:
         tableScope:
           dbsToTables:
-            ingestion:
-              tables: []
+            ingestion: []
   - dataModelInstancesAcl:
       actions:
       - READ

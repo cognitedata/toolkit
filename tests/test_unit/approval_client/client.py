@@ -1105,6 +1105,8 @@ class ApprovalToolkitClient:
                             return v["transformationExternalId"] + v["destination"]
                         if "view" in v and "space" in v["view"] and "externalId" in v["view"]:
                             return v["view"]["space"] + "/" + v["view"]["externalId"]
+                        if "version" in v:
+                            return v["version"]
                         raise ValueError(f"Could not find identifier in {v}")
 
                     try:

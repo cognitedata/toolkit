@@ -4,6 +4,7 @@ from .classic import AssetCRUD, EventCRUD, SequenceCRUD, SequenceRowCRUD
 from .configuration import SearchConfigCRUD
 from .data_organization import DataSetsCRUD, LabelCRUD
 from .data_product import DataProductCRUD
+from .data_product_version import DataProductVersionCRUD
 from .datamodel import (
     ContainerCRUD,
     DataModelCRUD,
@@ -55,6 +56,7 @@ __all__ = [
     "ContainerCRUD",
     "DataModelCRUD",
     "DataProductCRUD",
+    "DataProductVersionCRUD",
     "DataSetsCRUD",
     "DatapointSubscriptionCRUD",
     "EdgeCRUD",

@@ -11,10 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReference,
     ViewResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import (
-    GraphQLDataModel,
-    GraphQLDataModelWriteList,
-)
+from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import DataModelCRUD, ResourceWorker
 from cognite_toolkit._cdf_tk.cruds._resource_cruds import GraphQLCRUD, ViewCRUD
@@ -129,11 +126,11 @@ type GeneratingUnit {
         items = loader.load_resource_file(first_file, {})
         items.extend(loader.load_resource_file(second_file, {}))
 
-        resources = GraphQLDataModelWriteList([loader.load_resource(item) for item in items])
+        resources = [loader.load_resource(item) for item in items]
 
         loader.create(resources)
 
-        created = toolkit_client_approval.created_resources_of_type(GraphQLDataModel)
+        created = toolkit_client_approval.created_resources_of_type(GraphQLDataModelResponse)
 
         assert len(created) == 2
         assert created[0].external_id == "GeneratingUnitModel"
@@ -160,7 +157,7 @@ name: String}""",
 
         items = loader.load_resource_file(first_file, {})
         items.extend(loader.load_resource_file(second_file, {}))
-        resources = GraphQLDataModelWriteList([loader.load_resource(item) for item in items])
+        resources = [loader.load_resource(item) for item in items]
         with pytest.raises(ToolkitCycleError) as e:
             loader.create(resources)
 

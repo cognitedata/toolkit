@@ -1,54 +1,166 @@
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+import respx
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, RelativeDirPath
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxError, Recommendation
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    ConsistencyError,
+    ModelSyntaxError,
+    Recommendation,
+)
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import SpaceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
 
+BASE_URL = "http://neat.cognitedata.com"
 
-def create_space_resource_file(organization_dir: Path) -> Path:
-    resource_file = organization_dir / MODULES / "my_module" / SpaceCRUD.folder_name / f"my_space.{SpaceCRUD.kind}.yaml"
-    resource_file.parent.mkdir(parents=True)
-    space_yaml = """space: my_space
+
+@pytest.fixture
+def example_statistics_response() -> dict:
+    """Example DMS statistics API response."""
+    return {
+        "spaces": {"count": 5, "limit": 100},
+        "containers": {"count": 42, "limit": 1000},
+        "views": {"count": 123, "limit": 2000},
+        "dataModels": {"count": 8, "limit": 500},
+        "containerProperties": {"count": 1234, "limit": 100},
+        "instances": {
+            "edges": 5000,
+            "softDeletedEdges": 100,
+            "nodes": 10000,
+            "softDeletedNodes": 200,
+            "instances": 15000,
+            "instancesLimit": 5000000,
+            "softDeletedInstances": 300,
+            "softDeletedInstancesLimit": 10000000,
+        },
+        "concurrentReadLimit": 10,
+        "concurrentWriteLimit": 5,
+        "concurrentDeleteLimit": 3,
+    }
+
+
+@pytest.fixture()
+def tlk_client(toolkit_config: ToolkitClientConfig) -> ToolkitClient:
+    return ToolkitClient(config=toolkit_config)
+
+
+@pytest.fixture()
+def empty_cdf(
+    toolkit_config: ToolkitClientConfig, example_statistics_response: dict, respx_mock: respx.MockRouter
+) -> respx.MockRouter:
+    config = toolkit_config
+    empty_response: dict[str, Any] = {
+        "items": [],
+        "nextCursor": None,
+    }
+    for endpoint in [
+        "/models/spaces/byids",
+        "/models/containers/byids",
+        "/models/views/byids",
+        "/models/datamodels/byids",
+    ]:
+        respx_mock.post(
+            config.create_api_url(endpoint),
+        ).respond(
+            status_code=200,
+            json=empty_response,
+        )
+
+    for endpoint, response in [
+        ("/models/containers", empty_response),
+        ("/models/views", empty_response),
+        ("/models/datamodels", empty_response),
+        ("/models/spaces", empty_response),
+        ("/models/statistics", example_statistics_response),
+    ]:
+        respx_mock.get(
+            config.create_api_url(endpoint),
+        ).respond(
+            status_code=200,
+            json=response,
+        )
+    return respx_mock
+
+
+SPACE_YAML = """space: my_space
 name: My Space
 """
-    resource_file.write_text(space_yaml)
+
+DM_YAML = """space: my_space
+externalId: MyModel
+version: v1
+views:
+- type: view
+  space: my_space
+  externalId: View1
+  version: v1
+"""
+
+VIEW_YAML = """space: my_space
+externalId: View1
+version: v1
+properties:
+  name:
+    container:
+      type: container
+      space: cdm
+      externalId: CogniteDescribable
+    containerPropertyIdentifier: name
+"""
+
+
+def create_resource_file(organization_dir: Path, crud: type[ResourceContainerCRUD], resource_yaml: str) -> Path:
+    resource_file = organization_dir / MODULES / "my_module" / crud.folder_name / f"my_space.{crud.kind}.yaml"
+    resource_file.parent.mkdir(parents=True, exist_ok=True)
+    resource_file.write_text(resource_yaml)
     return resource_file
 
 
+@pytest.mark.usefixtures("empty_cdf")
 class TestBuildCommand:
-    def test_end_to_end(self, tmp_path: Path) -> None:
+    def test_end_to_end(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
         cmd = BuildV2Command()
 
         # Set up a simple organization with modules folder.
         org = tmp_path / "org"
-        resource_file = create_space_resource_file(org)
+
+        space_file = create_resource_file(org, SpaceCRUD, SPACE_YAML)
+        dm_file = create_resource_file(org, DataModelCRUD, DM_YAML)
+        view_file = create_resource_file(org, ViewCRUD, VIEW_YAML)
 
         build_dir = tmp_path / "build"
         parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
 
-        folder = cmd.build(parameters)
+        folder = cmd.build(parameters, tlk_client)
 
         assert "my_module" in folder.built_modules_by_success[True]
 
         built_space = list(build_dir.rglob(f"*.{SpaceCRUD.kind}.yaml"))
         assert len(built_space) == 1
-        assert built_space[0].read_text() == resource_file.read_text()
+        assert built_space[0].read_text() == space_file.read_text()
 
-        assert SpaceCRUD.folder_name in folder.built_modules[0].resource_by_type
-        assert str(folder.built_modules[0].resource_by_type[SpaceCRUD.folder_name][SpaceCRUD.kind][0]) == str(
-            built_space[0]
-        )
-        assert len(folder.insights) == 1
-        assert isinstance(folder.insights[0], Recommendation)
+        built_dm = list(build_dir.rglob(f"*.{DataModelCRUD.kind}.yaml"))
+        assert len(built_dm) == 1
+        assert built_dm[0].read_text() == dm_file.read_text()
 
-    def test_end_to_end_failed_build(self, tmp_path: Path) -> None:
+        built_view = list(build_dir.rglob(f"*.{ViewCRUD.kind}.yaml"))
+        assert len(built_view) == 1
+        assert built_view[0].read_text() == view_file.read_text()
+
+        assert len(folder.insights) == 8
+        assert {Recommendation, ConsistencyError} == set(folder.insights.by_type().keys())
+
+    def test_end_to_end_failed_build(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
         cmd = BuildV2Command()
 
         # Set up a simple organization with modules folder.
@@ -62,7 +174,7 @@ name: My Space
         build_dir = tmp_path / "build"
         parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
 
-        folder = cmd.build(parameters)
+        folder = cmd.build(parameters, tlk_client)
 
         assert "my_module" in folder.built_modules_by_success[False]
         assert len(folder.insights) == 1
@@ -161,7 +273,7 @@ class TestReadFileSystem:
   selected:
   - modules/ignore_selection
 """)
-        resource_file = create_space_resource_file(tmp_path)
+        resource_file = create_resource_file(tmp_path, SpaceCRUD, SPACE_YAML)
 
         parameters = BuildParameters(
             organization_dir=tmp_path,
@@ -189,7 +301,7 @@ class TestReadFileSystem:
     selected:
     - modules/
 """)
-        _ = create_space_resource_file(tmp_path)
+        _ = create_resource_file(tmp_path, SpaceCRUD, SPACE_YAML)
         parameters = BuildParameters(organization_dir=tmp_path, build_dir=Path("build"), config_yaml_name="dev")
         with pytest.raises(ToolkitValueError) as exc_info:
             BuildV2Command._read_file_system(parameters)

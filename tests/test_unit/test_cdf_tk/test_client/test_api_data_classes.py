@@ -5,6 +5,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client._resource_base import UpdatableRequestResource
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
 from tests.test_unit.test_cdf_tk.test_client.data import CDFResource, iterate_cdf_resources
 
 
@@ -152,3 +153,21 @@ class TestAgentRequest:
         }
         agent_request = AgentRequest.model_validate(data)
         assert agent_request.dump() == data
+
+
+class TestGroupResponse:
+    def test_load_table_scope(self) -> None:
+        data = {
+            "name": "Group 1",
+            "capabilities": [
+                {
+                    "rawAcl": {
+                        "actions": ["READ"],
+                        "scope": {"tableScope": {"dbsToTables": {"contextualizationState": {}, "ingestion": {}}}},
+                    }
+                }
+            ],
+            "id": 37,
+        }
+
+        GroupResponse.model_validate(data)

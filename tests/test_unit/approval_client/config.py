@@ -139,6 +139,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import (
+    DataProductVersionRequest,
+    DataProductVersionResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
@@ -155,6 +159,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
     FunctionScheduleResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
+    GraphQLDataModelRequest,
+    GraphQLDataModelResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupRequest, GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationRequest,
     HostedExtractorDestinationResponse,
@@ -850,6 +859,18 @@ API_RESOURCES = [
         },
     ),
     APIResource(
+        api_name="tool.groups",
+        resource_cls=GroupResponse,
+        _write_cls=GroupRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="list", mock_class_method="list"),
+            ],
+            "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
+        },
+    ),
+    APIResource(
         api_name="tool.labels",
         resource_cls=LabelResponse,
         _write_cls=LabelRequest,
@@ -1289,6 +1310,17 @@ API_RESOURCES = [
         },
     ),
     APIResource(
+        api_name="tool.graphql_data_models",
+        resource_cls=GraphQLDataModelResponse,
+        _write_cls=GraphQLDataModelRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
         api_name="tool.datasets",
         resource_cls=DataSetResponse,
         _write_cls=DataSetRequest,
@@ -1329,6 +1361,19 @@ API_RESOURCES = [
         api_name="tool.data_products",
         resource_cls=DataProductResponse,
         _write_cls=DataProductRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+                Method(api_class_method="iterate", mock_class_method="iterate"),
+                Method(api_class_method="list", mock_class_method="list"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.data_products.versions",
+        resource_cls=DataProductVersionResponse,
+        _write_cls=DataProductVersionRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
