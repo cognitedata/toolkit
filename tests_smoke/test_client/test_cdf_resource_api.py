@@ -61,6 +61,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     SpaceRequest,
     ViewRequest,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import DatapointSubscriptionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
@@ -259,6 +260,13 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
         ],
         AssetRequest: [{"name": "smoke-test-asset", "externalId": "smoke-test-asset"}],
         CogniteFileRequest: [{"externalId": "smoke-test-file", "space": SMOKE_SPACE}],
+        DatapointSubscriptionRequest: [
+            {
+                "externalId": "smoke-test-datapoint-subscription",
+                "partitionCount": 1,
+                "filter": {"prefix": {"property": ["externalId"], "value": "smoke-test"}},
+            }
+        ],
         DataSetRequest: [{"externalId": "smoke-tests-crudl-dataset"}],
         EventRequest: [{"externalId": "smoke-test-event"}],
         FileMetadataRequest: [{"name": "smoke-test-file", "externalId": "smoke-test-file"}],
