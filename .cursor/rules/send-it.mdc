@@ -1,0 +1,58 @@
+---
+description: When the user says "send it", commit staged changes, push, and monitor CI. Fix pre-commit failures and retry.
+alwaysApply: true
+---
+
+# Send It
+
+When the user says **"send it"**:
+
+## 1. Commit
+
+- Run `git diff --cached --stat` to check for staged changes, and `git log --oneline -5` to match the repo's commit style.
+- If there are **no staged changes**, run "stage it" first (see `stage-it.mdc`) and wait for user confirmation before continuing.
+- Write a concise commit message summarizing the staged changes.
+- Run `uv run git commit` with that message (`uv run` ensures hooks use the correct Python environment).
+- If pre-commit hooks fail, fix every reported issue, stage the fixes, and retry. Repeat until the commit succeeds.
+
+## 2. Sync and push
+
+- Run `git pull origin main` to merge latest main into the branch.
+- Run `git pull origin` to sync the current branch (ignore errors if the remote branch doesn't exist yet).
+- Run `git push -u origin HEAD` to push (sets upstream if needed).
+
+## 3. PR creation (if needed)
+
+- Check if a PR exists: `gh pr view --json url 2>/dev/null`.
+- **If no PR exists**, suggest creating one:
+  - Ask the user for the Jira ticket ID.
+  - Propose a title: `[TICKET-ID] Description of changes`.
+  - Draft a body using `git log main..HEAD --oneline` and conforming to `.github/pull_request_template.md`:
+    ```
+    # Description
+    <summary of all commits on the branch>
+
+    ## Bump
+    - [ ] Patch
+    - [ ] Skip
+
+    ## Changelog
+    ### Added/Changed/Improved/Removed/Fixed
+    - <list of changes>
+    ```
+  - Show the proposed `gh pr create` command and **ask for confirmation** before running it.
+  - If the user confirms, run `gh pr create` to create the PR.
+  - **Cursor auto-appends a "Made with Cursor" footer** to PR bodies created via `gh pr create` / `gh pr edit`. This breaks the changelog validator. Immediately after creating or editing the PR, strip the footer by running:
+    ```
+    gh api repos/{owner}/{repo}/pulls/{number} --method PATCH --field body='<clean body without footer>'
+    ```
+  - Comment "/gemini review" on the PR to request a review from Gemini.
+
+## 4. Monitor CI
+
+- Launch a **background agent** (`subagent_type="shell"`) to run `gh pr checks --watch`.
+- When checks complete, report back: **green** (all passing) or **red** (with names of failed checks).
+- **If checks fail:**
+  - For each failed check, fetch its logs with `gh pr checks` and `gh run view <run-id> --log-failed`.
+  - **Transient failures** (network timeouts, flaky tests, rate limits, runner issues): re-run the failed job once with `gh run rerun <run-id> --failed`.
+  - **Non-transient failures** (lint errors, test assertions, type errors, build failures): read the logs, fix the underlying code issue, then run the full "send it" flow again (stage, commit, push, monitor).

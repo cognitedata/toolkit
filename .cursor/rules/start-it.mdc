@@ -1,0 +1,64 @@
+---
+description: When the user says "start it", ask for a Jira ticket ID, fetch task details via MCP, create a branch, and begin implementation.
+alwaysApply: true
+---
+
+# Start It
+
+When the user says **"start it"**:
+
+## 1. Get the Jira ticket
+
+- Ask the user for the **Jira ticket ID** (e.g. `CDF-1234`).
+
+## 2. Fetch task details
+
+- Use the **Atlassian MCP tool** to retrieve the ticket details (summary, description, acceptance criteria, subtasks, etc.).
+- Present a brief summary of the task to the user so they can confirm it's the right ticket.
+
+## 3. Create a working branch
+
+- Run `git fetch origin main && git switch main && git pull origin main` to start from the latest main.
+- Create and switch to a new branch: `git switch -c <branch-name>`.
+  - Derive the branch name from the ticket: lowercase ticket ID + short slug from the summary.
+  - Example: `CDF-1234` with summary "Add data product validation" → `cdf-1234/add-data-product-validation`.
+- Confirm the branch name with the user before creating it.
+
+## 4. Plan and start working
+
+- Based on the Jira ticket details, create a **todo list** breaking the task into concrete implementation steps.
+- Explore the codebase to understand relevant files and patterns before making changes.
+- Begin working on the first todo item immediately.
+
+## Coding conventions
+
+- **Never** add `from __future__ import annotations`. It is not required in this codebase.
+- Use Pydantic where appropriate.
+- Always add imports on top of the file.
+
+## Implementation patterns (lessons learned)
+
+### Resource API classes (`client/api/`)
+- Keep API method signatures clean: always accept a `Sequence` of the dataclass, even for single-item endpoints. The API class handles the batching/looping internally.
+- The base `CDFResourceAPI` has `_paginate`, `_iterate`, and `_list` helpers that handle pagination. For parent-scoped endpoints (paths with `{externalId}`), pass the formatted path via `endpoint_path=` instead of reimplementing pagination.
+- Use `_request_item_response` / `_update` / `_request_no_response` for standard CRUD operations when the endpoint follows the normal pattern.
+- For custom update formats (e.g. nested `modify` patches), build the update body in the API class — this is acceptable when the base `as_update()` can't express the format.
+
+### CRUD classes (`cruds/_resource_cruds/`)
+- The deploy worker (`_worker.py`) already diffs local vs CDF resources and categorizes into `to_create`, `to_update`, `unchanged`. **Don't add existence checks in `CRUD.update()`** — if the worker calls update, the resource exists.
+- When the SDK is missing an ACL type, return `[]` from `get_required_capability` with a `# TODO` documenting which capabilities will be needed.
+- Check how sibling CRUDs (e.g. `DataProductCRUD`, `WorkflowVersionCRUD`) handle similar patterns before inventing new ones.
+
+### Resource models (`client/resource_classes/`, `resource_classes/`)
+- Use `Annotated` types for reusable validation (e.g. `SemanticVersion` in `identifiers.py`) so constraints live in one place.
+- Fields that come from the URL path (not the response body) should use `Field(exclude=True)` and be manually set after deserialization.
+- The YAML resource class validates user input strictly (patterns, lengths). The client resource class can reuse the same `Annotated` types.
+
+### Testing
+- After adding a new CRUD, add a sample YAML file under `tests/data/complete_org_alpha_flags/` to satisfy `test_complete_org_is_complete`.
+- Skip new CRUDs in integration tests (`test_deploy.py`) if the API is not yet available on the test server.
+- The `ToolkitClientMock` in `client/testing.py` needs a mock for any new sub-API (use `spec=` for parent APIs that gain sub-attributes, `spec_set=` for leaf APIs).
+
+### General
+- Always check the OpenAPI spec for `x-capability` entries and document them, even if the SDK doesn't support them yet.
+- When an API spec changes, generate a simplified markdown reference for the team to review alongside the code.
