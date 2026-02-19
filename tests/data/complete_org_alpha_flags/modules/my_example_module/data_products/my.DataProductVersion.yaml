@@ -1,0 +1,14 @@
+dataProductExternalId: my_data_product
+version: "1.0.0"
+dataModel:
+  externalId: my_data_model
+  version: "1"
+  views:
+    - externalId: my_view
+      instanceSpaces:
+        read:
+          - sp_data
+        write:
+          - sp_data
+status: published
+description: Initial version of the data product.

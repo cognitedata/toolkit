@@ -9,6 +9,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
+from cognite_toolkit._cdf_tk.client.api.data_product_versions import DataProductVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
@@ -70,6 +71,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config 
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationRequest,
@@ -193,10 +195,13 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         TransformationsAPI,
         TransformationSchedulesAPI,
         TransformationNotificationsAPI,
+        # Requires special handling of requests.
+        # GraphQLDataModelsAPI,
         # List method requires an argument,
         SequenceRowsAPI,
         # The dataproduct API is not yet supported in CDF.
         DataProductsAPI,
+        DataProductVersionsAPI,
     }
 )
 
@@ -233,6 +238,14 @@ def crud_cdf_resource_apis() -> Iterable[tuple]:
             else:
                 for no, example in enumerate(examples, start=1):
                     yield pytest.param(example, request_cls, api_cls, id=f"{id_str} example {no}")
+
+
+GRAPHQL_MODEL = """"The smoke tests for GraphQL"
+type SmokeTest {
+  name: String! @limits(maxTextSize: 255)
+  data: JSONObject!
+}
+"""
 
 
 def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[dict[str, Any]]:
@@ -320,6 +333,14 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
             }
         ],
         HostedExtractorDestinationRequest: [{"externalId": "smoke-test-extractor-destination"}],
+        GraphQLDataModelRequest: [
+            {
+                "space": SMOKE_SPACE,
+                "externalId": "smoke_test_graphql_data_model",
+                "version": "v1",
+                "graphQlDml": GRAPHQL_MODEL,
+            }
+        ],
         InFieldCDMLocationConfigRequest: [
             {
                 "space": SMOKE_SPACE,

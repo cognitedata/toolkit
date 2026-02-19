@@ -2,8 +2,6 @@ from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field, JsonValue
 
-from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
-
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -27,12 +25,3 @@ class QueryResponse(BaseModel):
     typing: dict[str, JsonValue] | None = None
     next_cursor: dict[str, str] = Field(alias="nextCursor")
     debug: dict[str, JsonValue] | None = None
-
-
-class GraphQLResponse(BaseModel):
-    data: GraphQLDataModelResponse
-    errors: list[dict[str, JsonValue]] | None = None
-
-
-class GraphQLUpsertResponse(BaseModel):
-    upsert_graph_ql_dml_version: GraphQLResponse = Field(alias="upsertGraphQlDmlVersion")

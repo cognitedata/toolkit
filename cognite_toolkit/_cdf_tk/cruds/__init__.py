@@ -27,6 +27,7 @@ from ._resource_cruds import (
     DataModelCRUD,
     DatapointSubscriptionCRUD,
     DataProductCRUD,
+    DataProductVersionCRUD,
     DataSetsCRUD,
     EdgeCRUD,
     EventCRUD,
@@ -99,6 +100,7 @@ if not FeatureFlag.is_enabled(Flags.SIMULATORS):
     _EXCLUDED_CRUDS.add(SimulatorModelRevisionCRUD)
 if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
     _EXCLUDED_CRUDS.add(DataProductCRUD)
+    _EXCLUDED_CRUDS.add(DataProductVersionCRUD)
 
 CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[Loader]]] = defaultdict(list)
 CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)
@@ -194,6 +196,7 @@ __all__ = [
     "DataCRUD",
     "DataModelCRUD",
     "DataProductCRUD",
+    "DataProductVersionCRUD",
     "DataSetsCRUD",
     "DatapointSubscriptionCRUD",
     "DatapointsCRUD",

@@ -20,10 +20,12 @@ from questionary import Choice
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ViewFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter, ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerReference,
+    DataModelResponse,
+    DataModelResponseWithViews,
     SpaceResponse,
     ViewReference,
     ViewResponse,
@@ -505,7 +507,7 @@ class ViewSelectFilter:
 
     """
 
-    strategy: Literal["schemaSpace"] = "schemaSpace"
+    strategy: Literal["schemaSpace", "dataModel"] = "schemaSpace"
     include_global: bool | None = None
     schema_space: str | None = None
     instance_type: Literal["node", "edge", "all"] | None = None
@@ -604,7 +606,6 @@ class DataModelingSelect:
                     message=f"In which Spaces is the view you will use to select instances to {self.operation}?",
                 ).space
             )
-
             views = self.client.tool.views.list(
                 filter=ViewFilter(
                     space=selected_space,
@@ -613,19 +614,80 @@ class DataModelingSelect:
                 ),
                 limit=None,
             )
-            views = [
-                view
-                for view in views
-                if filter.instance_type in (None, "all", view.used_for)
-                and (filter.mapped_container is None or filter.mapped_container in view.mapped_containers)
-            ]
-            if not views:
-                raise ToolkitMissingResourceError(
-                    f"No views found in space {selected_space!r} that match the filter: {filter!s}"
-                )
-            return views
+        elif filter.strategy == "dataModel":
+            datamodel = self.select_data_model(
+                inline_views=True,
+                message=f"Select the data model through which to {self.operation}:",
+                schema_space=filter.schema_space,
+                include_global=filter.include_global,
+            )
+            views = datamodel.views or []
+            parents = {parent for view in views for parent in view.implements or []}
+            # We only allow the user to select child views
+            views = [view for view in views if view.as_id() not in parents]
         else:
             raise NotImplementedError(f"Strategy {filter.strategy} is not implemented.")
+        views = [
+            view
+            for view in views
+            if filter.instance_type in (None, "all", view.used_for)
+            and (filter.mapped_container is None or filter.mapped_container in view.mapped_containers)
+        ]
+        if not views:
+            raise ToolkitMissingResourceError(f"No views found that match the filter: {filter!s}")
+        return views
+
+    @overload
+    def select_data_model(
+        self,
+        inline_views: Literal[False] = False,
+        message: str | None = None,
+        schema_space: str | None = None,
+        include_global: bool | None = None,
+    ) -> DataModelResponse: ...
+
+    @overload
+    def select_data_model(
+        self,
+        inline_views: Literal[True],
+        message: str | None = None,
+        schema_space: str | None = None,
+        include_global: bool | None = None,
+    ) -> DataModelResponseWithViews: ...
+
+    def select_data_model(
+        self,
+        inline_views: Literal[True, False] = False,
+        message: str | None = None,
+        schema_space: str | None = None,
+        include_global: bool | None = None,
+    ) -> DataModelResponse | DataModelResponseWithViews:
+        datamodels = self.client.tool.data_models.list(
+            inline_views=inline_views,
+            filter=DataModelFilter(space=schema_space, all_versions=False, include_global=include_global),
+            limit=None,
+        )
+        if not datamodels:
+            raise ToolkitMissingResourceError(
+                f"No data models found {f'in schema space {schema_space!r}' if schema_space else ''}."
+            )
+
+        message = message or f"Select a data model to {self.operation}:"
+        selected_datamodel = questionary.select(
+            message,
+            choices=[
+                Choice(
+                    title=f"{dm.space}:{dm.external_id} (version={dm.version})",
+                    value=dm,
+                )
+                for dm in datamodels
+            ],
+        ).unsafe_ask()
+        if not isinstance(selected_datamodel, DataModelResponse | DataModelResponseWithViews):
+            raise ToolkitValueError(
+                f"Selected data model is not a valid DataModelResponse object: {selected_datamodel!r}"
+            )
+        return selected_datamodel
 
     def select_schema_space(self, include_global: bool, message: str | None = None) -> SpaceResponse:
         message = message or f"Select the space to {self.operation}:"
@@ -647,7 +709,7 @@ class DataModelingSelect:
         return selected_space
 
     def select_instance_type(
-        self, view_used_for: Literal["node", "edge", "all"] | None = None
+        self, view_used_for: Literal["node", "edge", "all"] | None = None, message: str | None = None
     ) -> Literal["node", "edge"]:
         """Selects an instance type (node or edge) interactively.
 
@@ -661,7 +723,7 @@ class DataModelingSelect:
         if view_used_for is not None and view_used_for != "all":
             return view_used_for
         selected_instance_type = questionary.select(
-            f"What type of instances do you want to {self.operation}?",
+            message or f"What type of instances do you want to {self.operation}?",
             choices=[
                 Choice(title="Nodes", value="node"),
                 Choice(title="Edges", value="edge"),

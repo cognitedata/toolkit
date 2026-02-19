@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartDat
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
     ContainerReference,
+    DataModelResponse,
     SpaceResponse,
     TextProperty,
     ViewCorePropertyResponse,
@@ -1005,6 +1006,54 @@ class TestDataModelingInteractiveSelect:
                 selector.select_instance_space()
 
             assert "No instances found in any space" in str(exc_info.value)
+
+    def test_select_data_model(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        data_models = [
+            DataModelResponse(
+                space="space1",
+                external_id="model1",
+                version="1",
+                name="Model One",
+                created_time=1,
+                last_updated_time=1,
+                is_global=False,
+            ),
+            DataModelResponse(
+                space="space1",
+                external_id="model2",
+                version="2",
+                name="Model Two",
+                created_time=1,
+                last_updated_time=1,
+                is_global=False,
+            ),
+        ]
+        answers = [data_models[1]]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DataModelingSelect.__module__, monkeypatch, answers),
+        ):
+            client.tool.data_models.list.return_value = data_models
+
+            selector = DataModelingSelect(client, "test_operation")
+            selected_model = selector.select_data_model()
+
+        assert selected_model.external_id == "model2"
+        assert selected_model.version == "2"
+
+    def test_select_data_model_no_models_found(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DataModelingSelect.__module__, monkeypatch, []),
+        ):
+            client.tool.data_models.list.return_value = []
+
+            selector = DataModelingSelect(client, "test_operation")
+            with pytest.raises(ToolkitMissingResourceError) as exc_info:
+                selector.select_data_model()
+
+            assert "No data models found" in str(exc_info.value)
 
 
 class TestResourceViewMappingInteractiveSelect:

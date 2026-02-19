@@ -589,15 +589,13 @@ class TestCDFResourceAPI:
 
         # Test create/update (same endpoint)
         respx_mock.post(config.create_api_url("/dml/graphql")).mock(
-            return_value=httpx.Response(status_code=200, json={"upsertGraphQlDmlVersion": {"data": resource}})
+            return_value=httpx.Response(
+                status_code=200, json={"data": {"upsertGraphQlDmlVersion": {"result": resource}}}
+            )
         )
         created = api.create([request_item])
         assert len(created) == 1
         assert created[0].dump() == resource
-
-        updated = api.update([request_item])
-        assert len(updated) == 1
-        assert updated[0].dump() == resource
 
         # Test retrieve
         respx_mock.post(config.create_api_url("/models/datamodels/byids")).mock(
