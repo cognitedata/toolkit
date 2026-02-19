@@ -54,6 +54,8 @@ class DataProductVersionRequest(DataProductVersion, UpdatableRequestResource):
     container_fields: ClassVar[frozenset[str]] = frozenset()
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
+        # The versions update API uses nested {set}/{setNull}/{modify} operators
+        # instead of a flat body, so we must build the payload manually.
         update_item: dict[str, Any] = {"version": self.version}
         update: dict[str, Any] = {}
         exclude_unset = mode == "patch"
