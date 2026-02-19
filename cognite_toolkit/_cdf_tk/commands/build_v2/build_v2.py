@@ -300,12 +300,10 @@ class BuildV2Command(ToolkitCommand):
         """This validation is performed locally per entire module"""
         return InsightList()
 
-    def _global_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> InsightList:
+    def _global_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
         """This validation is performed per resource type and not per individual resource and against CDF
         for all modules. This validation will leverage external plugins such as NEAT.
         """
-
-        insights = InsightList()
 
         # Can be parallelized if needed
         for built_module in build_folder.built_modules:
@@ -316,8 +314,9 @@ class BuildV2Command(ToolkitCommand):
                 if NeatPlugin.installed() and client and DataModelCRUD.kind in files_by_resource_type:
                     neat = NeatPlugin(client)
                     for data_model_file in files_by_resource_type[DataModelCRUD.kind]:
-                        insights.extend(neat.validate(data_model_file.parent, data_model_file))
-        return insights
+                        for insight in neat.validate(data_model_file.parent, data_model_file):
+                            if insight not in built_module.insights:
+                                built_module.insights.append(insight)
 
     def _write_results(self, build_folder: BuildFolder) -> None:
         return None
