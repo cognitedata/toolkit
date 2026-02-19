@@ -8,28 +8,27 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     UpdatableRequestResource,
 )
 
+from .data_modeling import NodeReference
 from .identifiers import ExternalId
-from .instance_api import NodeReference
 
 
 class DatapointSubscription(BaseModelObject):
-    external_id: str | None = None
+    external_id: str
     name: str | None = None
     description: str | None = None
     data_set_id: int | None = None
     time_series_ids: list[str] | None = None
     instance_ids: list[NodeReference] | None = None
+    partition_count: int
     filter: JsonValue | None = None
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
 
 
 class DatapointSubscriptionRequest(DatapointSubscription, UpdatableRequestResource):
     container_fields: ClassVar[frozenset[str]] = frozenset({"time_series_ids", "instance_ids"})
-    partition_count: int | None = None
-
-    def as_id(self) -> ExternalId:
-        if self.external_id is None:
-            raise ValueError("Cannot convert DatapointSubscriptionRequest to ExternalId when external_id is None")
-        return ExternalId(external_id=self.external_id)
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"filter"})
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         dumped = super().as_update(mode)
@@ -40,8 +39,7 @@ class DatapointSubscriptionRequest(DatapointSubscription, UpdatableRequestResour
 
 
 class DatapointSubscriptionResponse(DatapointSubscription, ResponseResource[DatapointSubscriptionRequest]):
-    partition_count: int
-    time_series_count: int
+    time_series_count: int | None = None
     created_time: int
     last_updated_time: int
 

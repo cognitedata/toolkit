@@ -16,27 +16,10 @@ class DatapointSubscriptionAPI(CDFResourceAPI[ExternalId, DatapointSubscriptionR
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "create": Endpoint(
-                    method="POST", path="/timeseries/subscriptions", item_limit=1000, concurrency_max_workers=1
-                ),
-                "retrieve": Endpoint(
-                    method="POST",
-                    path="/timeseries/subscriptions/byids",
-                    item_limit=1000,
-                    concurrency_max_workers=1,
-                ),
-                "update": Endpoint(
-                    method="POST",
-                    path="/timeseries/subscriptions/update",
-                    item_limit=1000,
-                    concurrency_max_workers=1,
-                ),
-                "delete": Endpoint(
-                    method="POST",
-                    path="/timeseries/subscriptions/delete",
-                    item_limit=1000,
-                    concurrency_max_workers=1,
-                ),
+                "create": Endpoint(method="POST", path="/timeseries/subscriptions", item_limit=1),
+                "retrieve": Endpoint(method="POST", path="/timeseries/subscriptions/byids", item_limit=1),
+                "update": Endpoint(method="POST", path="/timeseries/subscriptions/update", item_limit=1),
+                "delete": Endpoint(method="POST", path="/timeseries/subscriptions/delete", item_limit=1),
                 "list": Endpoint(method="GET", path="/timeseries/subscriptions", item_limit=100),
             },
         )
@@ -94,11 +77,7 @@ class DatapointSubscriptionAPI(CDFResourceAPI[ExternalId, DatapointSubscriptionR
         """
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
-    def paginate(
-        self,
-        limit: int = 100,
-        cursor: str | None = None,
-    ) -> PagedResponse[DatapointSubscriptionResponse]:
+    def paginate(self, limit: int = 100, cursor: str | None = None) -> PagedResponse[DatapointSubscriptionResponse]:
         """Paginate over datapoint subscriptions in CDF.
 
         Args:
@@ -110,10 +89,7 @@ class DatapointSubscriptionAPI(CDFResourceAPI[ExternalId, DatapointSubscriptionR
         """
         return self._paginate(cursor=cursor, limit=limit)
 
-    def iterate(
-        self,
-        limit: int | None = 100,
-    ) -> Iterable[list[DatapointSubscriptionResponse]]:
+    def iterate(self, limit: int | None = 100) -> Iterable[list[DatapointSubscriptionResponse]]:
         """Iterate over all datapoint subscriptions in CDF.
 
         Args:
@@ -124,10 +100,7 @@ class DatapointSubscriptionAPI(CDFResourceAPI[ExternalId, DatapointSubscriptionR
         """
         return self._iterate(limit=limit)
 
-    def list(
-        self,
-        limit: int | None = 100,
-    ) -> list[DatapointSubscriptionResponse]:
+    def list(self, limit: int | None = 100) -> list[DatapointSubscriptionResponse]:
         """List all datapoint subscriptions in CDF.
 
         Returns:
