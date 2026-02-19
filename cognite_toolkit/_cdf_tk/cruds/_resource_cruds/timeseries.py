@@ -1,26 +1,21 @@
 import json
 from collections.abc import Hashable, Iterable, Sequence
-from itertools import zip_longest
 from pathlib import Path
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import (
-    DatapointSubscription,
-    DatapointSubscriptionList,
-    DataPointSubscriptionUpdate,
-    DataPointSubscriptionWrite,
-)
 from cognite.client.data_classes.capabilities import (
     Capability,
     TimeSeriesAcl,
     TimeSeriesSubscriptionsAcl,
 )
-from cognite.client.data_classes.data_modeling import NodeId
-from cognite.client.data_classes.datapoints_subscriptions import TimeSeriesIDList
-from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (
+    DatapointSubscriptionRequest,
+    DatapointSubscriptionResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.constants import MAX_TIMESTAMP_MS, MIN_TIMESTAMP_MS
@@ -178,22 +173,17 @@ class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSe
 @final
 class DatapointSubscriptionCRUD(
     ResourceCRUD[
-        str,
-        DataPointSubscriptionWrite,
-        DatapointSubscription,
+        ExternalId,
+        DatapointSubscriptionRequest,
+        DatapointSubscriptionResponse,
     ]
 ):
     folder_name = "timeseries"
-    resource_cls = DatapointSubscription
-    resource_write_cls = DataPointSubscriptionWrite
+    resource_cls = DatapointSubscriptionResponse
+    resource_write_cls = DatapointSubscriptionRequest
     kind = "DatapointSubscription"
     _doc_url = "Data-point-subscriptions/operation/postSubscriptions"
-    dependencies = frozenset(
-        {
-            TimeSeriesCRUD,
-            GroupAllScopedCRUD,
-        }
-    )
+    dependencies = frozenset({TimeSeriesCRUD, GroupAllScopedCRUD})
     yaml_cls = DatapointSubscriptionYAML
 
     _hash_key = "cdf-hash"
@@ -209,14 +199,14 @@ class DatapointSubscriptionCRUD(
         return "timeseries subscriptions"
 
     @classmethod
-    def get_id(cls, item: DataPointSubscriptionWrite | DatapointSubscription | dict) -> str:
+    def get_id(cls, item: DatapointSubscriptionRequest | DatapointSubscriptionResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
-        return item.external_id
+            return ExternalId(external_id=item["externalId"])
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -227,7 +217,7 @@ class DatapointSubscriptionCRUD(
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[DataPointSubscriptionWrite] | None, read_only: bool
+        cls, items: Sequence[DatapointSubscriptionRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -257,13 +247,8 @@ class DatapointSubscriptionCRUD(
             created_list.append(created)
         return created_list
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> DatapointSubscriptionList:
-        items = DatapointSubscriptionList([])
-        for id_ in ids:
-            retrieved = self.client.time_series.subscriptions.retrieve(id_)
-            if retrieved:
-                items.append(retrieved)
-        return items
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[DatapointSubscriptionResponse]:
+        return self.client.tool.datapoint_subscriptions.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[DataPointSubscriptionWrite]) -> DatapointSubscriptionList:
         updated_list = DatapointSubscriptionList([])
@@ -297,8 +282,9 @@ class DatapointSubscriptionCRUD(
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[DatapointSubscription]:
-        return iter(self.client.time_series.subscriptions)
+    ) -> Iterable[DatapointSubscriptionResponse]:
+        for subscriptions in self.client.tool.datapoint_subscriptions.iterate(limit=None):
+            yield from subscriptions
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
@@ -327,10 +313,10 @@ class DatapointSubscriptionCRUD(
 
         return resources
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DataPointSubscriptionWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DatapointSubscriptionRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
-        return DataPointSubscriptionWrite._load(resource)
+        return DatapointSubscriptionRequest.model_validate(resource)
 
     def dump_resource(self, resource: DatapointSubscription, local: dict[str, Any] | None = None) -> dict[str, Any]:
         if resource.filter is not None:
@@ -347,7 +333,7 @@ class DatapointSubscriptionCRUD(
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         # timeSeriesIds and instanceIds are not returned in the response, so we need to add them
         # to the dumped resource if they are set in the local resource. If there is a discrepancy between
-        # the local and dumped resource, th hash added to the description will change.
+        # the local and dumped resource, the hash added to the description will change.
         if "timeSeriesIds" in local:
             dumped["timeSeriesIds"] = local["timeSeriesIds"]
         if "instanceIds" in local:
@@ -410,7 +396,7 @@ class DatapointSubscriptionCRUD(
         return to_create, batches
 
     @classmethod
-    def _validate_total_below_limit(cls, subscription: DataPointSubscriptionWrite, total_timeseries: int) -> None:
+    def _validate_total_below_limit(cls, subscription: DatapointSubscriptionRequest, total_timeseries: int) -> None:
         if total_timeseries > cls._MAX_TIMESERIES_IDS:
             raise ToolkitValueError(
                 f'Subscription "{subscription.external_id}" has {total_timeseries:,} time series, '
