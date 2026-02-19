@@ -144,18 +144,18 @@ class DataProductVersionsAPI(
                 )
             ).get_success_or_raise()
 
+    def iterate(
+        self, data_product_external_id: str, limit: int | None = 10
+    ) -> Iterable[list[DataProductVersionResponse]]:
+        path = self._method_endpoint_map["list"].path.format(externalId=data_product_external_id)
+        for batch in self._iterate(limit=limit, endpoint_path=path):
+            for item in batch:
+                item.data_product_external_id = data_product_external_id
+            yield batch
+
     def list(self, data_product_external_id: str, limit: int | None = 10) -> list[DataProductVersionResponse]:
         path = self._method_endpoint_map["list"].path.format(externalId=data_product_external_id)
         items = self._list(limit=limit, endpoint_path=path)
         for item in items:
             item.data_product_external_id = data_product_external_id
         return items
-
-    def iterate(
-        self, data_product_external_id: str, limit: int | None = 10
-    ) -> Iterable[list[DataProductVersionResponse]]:  # type: ignore[valid-type]
-        path = self._method_endpoint_map["list"].path.format(externalId=data_product_external_id)
-        for batch in self._iterate(limit=limit, endpoint_path=path):
-            for item in batch:
-                item.data_product_external_id = data_product_external_id
-            yield batch
