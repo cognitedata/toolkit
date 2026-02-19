@@ -58,6 +58,20 @@ DataProductResponse:
   schemaSpace: sp_schema
   tags:
   - tag
+DataProductVersionResponse:
+- dataModel:
+    externalId: my_data_model
+    version: '1'
+    views:
+    - externalId: my_view
+      instanceSpaces:
+        read:
+        - sp_data
+        write:
+        - sp_data
+  description: Initial version of the data product.
+  status: published
+  version: 1.0.0
 DataSetResponse:
 - description: This is the dataset for all assets on Drammen
   externalId: ds_Drammen_assets
