@@ -674,7 +674,7 @@ def test_dump_workflow(
     # Simulate Workflow, WorkflowVersion, and WorkflowTrigger in CDF.
     toolkit_client_approval.append(
         WorkflowResponse,
-        WorkflowResponse(external_id="myWorkflow", created_time=0, last_updated_time=1),
+        WorkflowResponse(external_id="myWorkflow", created_time=0, last_updated_time=1, max_concurrent_executions=5),
     )
     toolkit_client_approval.append(
         WorkflowVersionResponse,
@@ -713,7 +713,10 @@ def test_dump_workflow(
         verbose=False,
     )
 
-    assert len(list(output_dir.glob("**/*.Workflow.yaml"))) == 1
+    workflow_files = list(output_dir.glob("**/*.Workflow.yaml"))
+    assert len(workflow_files) == 1
+    workflow_data = yaml.safe_load(workflow_files[0].read_text())
+    assert workflow_data["maxConcurrentExecutions"] == 5
     assert len(list(output_dir.glob("**/*.WorkflowTrigger.yaml"))) == 1
     assert len(list(output_dir.glob("**/*.WorkflowVersion.yaml"))) == 1
 
