@@ -22,10 +22,6 @@ class MigrationCSVFileSelector(AssetCentricMigrationSelector):
     type: Literal["migrationCSVFile"] = "migrationCSVFile"
     datafile: Path
 
-    @property
-    def group(self) -> str:
-        return f"Migration_{self.kind}"
-
     def __str__(self) -> str:
         return f"file_{self.datafile.name}"
 
@@ -44,10 +40,6 @@ class MigrateDataSetSelector(AssetCentricMigrationSelector):
     data_set_external_id: str
     ingestion_mapping: str | None = None
     preferred_consumer_view: ViewReference | None = None
-
-    @property
-    def group(self) -> str:
-        return f"DataSet_{self.data_set_external_id}"
 
     def __str__(self) -> str:
         return self.kind

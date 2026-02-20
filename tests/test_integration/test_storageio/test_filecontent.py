@@ -61,7 +61,9 @@ class TestFileContentIO:
             self.verify_file_uploaded(toolkit_client, external_id)
 
             # Test download
-            download_selector = FileIdentifierSelector(identifiers=(FileExternalID(external_id=external_id),))
+            download_selector = FileIdentifierSelector(
+                identifiers=(FileExternalID(external_id=external_id),), download_dir_name="files"
+            )
             downloaded_files = [item for page in io.stream_data(download_selector) for item in page.items]
             assert len(downloaded_files) == 1
             expected_file = tmp_path / directory.removeprefix("/") / filename

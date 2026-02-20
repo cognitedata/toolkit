@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     FileContentIO,
     InstanceIO,
     RawIO,
+    RecordIO,
     StorageIO,
     TimeSeriesIO,
     get_upload_io,
@@ -37,6 +38,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     InstanceSpaceSelector,
     InstanceViewSelector,
     RawTableSelector,
+    RecordContainerSelector,
     Selector,
     SelectorAdapter,
     ThreeDModelFilteredSelector,
@@ -280,6 +282,17 @@ def example_selector_data() -> Iterable[tuple]:
     )
     yield pytest.param(
         {
+            "type": "recordContainer",
+            "stream": {"externalId": "my_stream"},
+            "container": {"space": "my_space", "externalId": "my_container"},
+        },
+        RecordContainerSelector,
+        RecordIO,
+        RecordIO.KIND,
+        id="RecordContainerSelector",
+    )
+    yield pytest.param(
+        {
             "type": "3DFiltered",
             "kind": "3D",
             "modelType": "Classic",
@@ -354,9 +367,6 @@ class TestDataSelectors:
         )
         # Assert __str__ is implemented
         assert str(instance), f"__str__ not implemented for {type(instance).__name__}"
-
-        # Assert group is implemented
-        assert instance.group, f"group property not implemented for {type(instance).__name__}"
 
         # Assert correct IO type
         if expected_io is not None:
