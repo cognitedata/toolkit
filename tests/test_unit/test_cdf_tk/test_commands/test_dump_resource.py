@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import St
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
@@ -692,8 +693,20 @@ class TestDumpStreamlitApps:
         assert selected == ("appB", "appC")
 
     def test_dump_streamlit_app(self, three_streamlit_apps: StreamlitList, tmp_path: Path) -> None:
+        app_b = three_streamlit_apps[1]
+        app_b_response = StreamlitResponse(
+            id=1,
+            external_id=app_b.external_id,
+            name=app_b.name,
+            description=app_b.description,
+            created_time=app_b.created_time,
+            last_updated_time=app_b.last_updated_time,
+            entrypoint=app_b.entrypoint,
+            creator=app_b.creator,
+            uploaded=True,
+        )
         with monkeypatch_toolkit_client() as client:
-            client.files.retrieve_multiple.return_value = FileMetadataList([three_streamlit_apps[1].as_file()])
+            client.tool.streamlit.retrieve.return_value = [app_b_response]
             client.files.download_bytes.return_value = json.dumps(
                 {
                     "entrypoint": "main.py",
@@ -722,7 +735,7 @@ class TestDumpStreamlitApps:
         assert len(filepaths) == 1
         config_file = filepaths[0]
         loaded = read_yaml_file(config_file)
-        expected = loader.dump_resource(three_streamlit_apps[1])
+        expected = loader.dump_resource(app_b_response)
         assert loaded == expected
 
         app_dir = config_file.parent / "appB"

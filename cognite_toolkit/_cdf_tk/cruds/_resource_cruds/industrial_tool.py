@@ -82,6 +82,10 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
         return id.dump()
 
     @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return id.external_id
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dataSetExternalId" in item:
             yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])

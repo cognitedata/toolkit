@@ -55,6 +55,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import St
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
@@ -746,11 +747,11 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
         # Thus, we do not need to download them again. If not pass the identifier and let the main logic
         # take care of the download.
         if self.apps:
-            yield [], StreamlitList([app for app in self.apps if app.external_id in identifier]), loader, None
+            yield [], [app for app in self.apps if app.external_id in identifier], loader, None
         else:
-            yield list(identifier), None, loader, None
+            yield [ExternalId(external_id=id_) for id_ in identifier], None, loader, None
 
-    def dump_code(self, app: Streamlit, folder: Path, console: Console | None = None) -> None:
+    def dump_code(self, app: StreamlitResponse, folder: Path, console: Console | None = None) -> None:
         """Dump the code of a Streamlit app to the specified folder.
 
         The code is extracted from the JSON content of the app file in CDF.
@@ -963,7 +964,7 @@ class DumpResourceCommand(ToolkitCommand):
                         self.console(f"Dumped {loader.kind} {name} to {filepath!s}")
                 if isinstance(finder, FunctionFinder) and isinstance(resource, Function):
                     finder.dump_function_code(resource, resource_folder)
-                if isinstance(finder, StreamlitFinder) and isinstance(resource, Streamlit):
+                if isinstance(finder, StreamlitFinder) and isinstance(resource, StreamlitResponse):
                     finder.dump_code(resource, resource_folder)
                 dumped_ids.append(resource_id)
         print(Panel(f"Dumped {humanize_collection(dumped_ids)}", title="Success", style="green", expand=False))
