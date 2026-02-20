@@ -34,7 +34,7 @@ class InstanceSource(BaseModelObject):
     properties: dict[str, JsonValue] | None = None
 
     @field_serializer("source", mode="plain")
-    def serialize_source(self, value: ViewReference | ContainerReference) -> dict[str, Any]:
+    def serialize_source(self, value: ViewReference | ContainerReference) -> Any:
         return {**value.dump(), "type": value.type}
 
 
