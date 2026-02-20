@@ -1,11 +1,13 @@
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from typing import ClassVar, Generic, TypeVar
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, Recommendation
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Module
 from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
 
-T_Resources = TypeVar("T_Resources", bound=list[ToolkitResource] | Module)
+T_Resource = TypeVar("T_Resource", bound=ToolkitResource)
+T_Resources = TypeVar("T_Resources", bound=Sequence[ToolkitResource] | Module)
 
 
 class ToolkitRule(ABC, Generic[T_Resources]):
@@ -26,7 +28,7 @@ class ToolkitRule(ABC, Generic[T_Resources]):
         self,
         resources: T_Resources,
     ) -> None:
-        self.resources = resources
+        self.resources: T_Resources = resources
 
     @abstractmethod
     def validate(self) -> list[ConsistencyError] | list[Recommendation] | list[ConsistencyError | Recommendation]:
@@ -34,7 +36,7 @@ class ToolkitRule(ABC, Generic[T_Resources]):
         ...
 
 
-class ToolkitResourceRule(ToolkitRule[list[ToolkitResource]]):
+class ToolkitResourceRule(Generic[T_Resource], ToolkitRule[Sequence[T_Resource]]):
     """Rule for toolkit resource validation principles."""
 
     pass
