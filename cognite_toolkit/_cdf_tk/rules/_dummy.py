@@ -1,9 +1,9 @@
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
-from cognite_toolkit._cdf_tk.rules._base import ToolkitRule
+from cognite_toolkit._cdf_tk.rules._base import ToolkitResourceRule
 
 
-class DummyDataModelRule(ToolkitRule):
+class DummyDataModelRule(ToolkitResourceRule):
     """This is a dummy rule for demonstration purposes.
     It does not perform any actual validation but serves as a template for implementing real rules.
 

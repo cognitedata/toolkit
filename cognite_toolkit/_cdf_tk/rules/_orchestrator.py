@@ -1,13 +1,13 @@
 from collections.abc import Callable
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Module
-from cognite_toolkit._cdf_tk.rules._base import ToolkitRule
+from cognite_toolkit._cdf_tk.rules._base import ToolkitResourceRule
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
-_rules_registry: dict[str, list[type[ToolkitRule]]] | None = None
+_rules_registry: dict[str, list[type[ToolkitResourceRule]]] | None = None
 
 
-def get_rules_registry(force_reload: bool = False) -> dict[str, list[type[ToolkitRule]]]:
+def get_rules_registry(force_reload: bool = False) -> dict[str, list[type[ToolkitResourceRule]]]:
     """Get the registry of rules, optionally forcing a reload.
 
     Args:
@@ -18,8 +18,8 @@ def get_rules_registry(force_reload: bool = False) -> dict[str, list[type[Toolki
     """
     global _rules_registry
     if _rules_registry is None or force_reload:
-        registry: dict[str, list[type[ToolkitRule]]] = {}
-        rules = get_concrete_subclasses(ToolkitRule)  # type: ignore
+        registry: dict[str, list[type[ToolkitResourceRule]]] = {}
+        rules = get_concrete_subclasses(ToolkitResourceRule)  # type: ignore
 
         for rule_cls in rules:
             registry.setdefault(rule_cls.resource_type, []).append(rule_cls)
