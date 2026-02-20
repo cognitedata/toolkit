@@ -265,10 +265,10 @@ class InfieldV2ConfigCreator(MigrationCreator):
             all_location_configs.extend(
                 CreatedResource(
                     resource=loc_config,
-                    config_data=loc_config.dump(),
+                    config_data=loc_config.dump(context="toolkit"),
                     filestem=f"{apm_config.external_id}_location_{loc_config.name}",
                 )
-                for idx, loc_config in enumerate(location_configs)
+                for loc_config in location_configs
             )
             all_location_filters.extend(
                 CreatedResource(
@@ -276,7 +276,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
                     config_data=loc_filter.dump(),
                     filestem=f"{apm_config.external_id}_filter_{loc_filter.name}",
                 )
-                for idx, loc_filter in enumerate(location_filters)
+                for loc_filter in location_filters
             )
         yield ToCreateResources(
             resources=all_location_filters,
