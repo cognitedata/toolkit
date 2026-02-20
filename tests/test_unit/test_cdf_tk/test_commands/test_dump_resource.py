@@ -6,9 +6,6 @@ from unittest.mock import MagicMock
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import (
-    FileMetadataList,
-)
 from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.data_classes.functions import FunctionsStatus
@@ -27,7 +24,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRespo
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import StreamlitList
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
@@ -634,43 +631,47 @@ class TestDumpDataSets:
 
 
 @pytest.fixture()
-def three_streamlit_apps() -> StreamlitList:
-    return StreamlitList(
-        [
-            Streamlit(
-                external_id="appA",
-                name="App A",
-                description="This is App A",
-                created_time=1,
-                last_updated_time=1,
-                entrypoint="main.py",
-                creator="me",
-            ),
-            Streamlit(
-                external_id="appB",
-                name="App B",
-                description="This is App B",
-                created_time=1,
-                last_updated_time=1,
-                entrypoint="main.py",
-                creator="me",
-            ),
-            Streamlit(
-                external_id="appC",
-                name="App C",
-                description="This is App C",
-                created_time=1,
-                last_updated_time=1,
-                entrypoint="main.py",
-                creator="me",
-            ),
-        ]
-    )
+def three_streamlit_apps() -> list[StreamlitResponse]:
+    return [
+        StreamlitResponse(
+            external_id="appA",
+            name="App A",
+            description="This is App A",
+            created_time=1,
+            last_updated_time=1,
+            entrypoint="main.py",
+            creator="me",
+            id=1,
+            uploaded=True,
+        ),
+        StreamlitResponse(
+            external_id="appB",
+            name="App B",
+            description="This is App B",
+            created_time=1,
+            last_updated_time=1,
+            entrypoint="main.py",
+            creator="me",
+            id=2,
+            uploaded=True,
+        ),
+        StreamlitResponse(
+            external_id="appC",
+            name="App C",
+            description="This is App C",
+            created_time=1,
+            last_updated_time=1,
+            entrypoint="main.py",
+            creator="me",
+            id=3,
+            uploaded=True,
+        ),
+    ]
 
 
 class TestDumpStreamlitApps:
     def test_interactive_select_streamlit_apps(
-        self, three_streamlit_apps: StreamlitList, monkeypatch: MonkeyPatch
+        self, three_streamlit_apps: list[StreamlitResponse], monkeypatch: MonkeyPatch
     ) -> None:
         def select_streamlit_apps(choices: list[Choice]) -> list[str]:
             assert len(choices) == len(three_streamlit_apps)
@@ -682,7 +683,7 @@ class TestDumpStreamlitApps:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(StreamlitFinder.__module__, monkeypatch, answers),
         ):
-            client.files.list.return_value = FileMetadataList([app.as_file() for app in three_streamlit_apps])
+            client.tool.streamlit.list.return_value = three_streamlit_apps
             counts_by_creator = Counter([app.creator for app in three_streamlit_apps])
             client.documents.aggregate_unique_values.return_value = UniqueResultList(
                 [UniqueResult(count=count, values=[creator]) for creator, count in counts_by_creator.items()]
