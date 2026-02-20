@@ -37,22 +37,16 @@ class RulesOrchestrator:
         self._enable_alpha_validators = enable_alpha_validators
 
     def run(self, module: Module) -> None:
-        """Run all applicable rules on the provided modules and return a list of insights.
-
+        """Run all applicable rules on the provided modules while updating modules insights.
 
         Args:
             module: The module to run the rules on.
-
-        Returns:
-            A list of insights generated from the rules.
         """
 
         rules_registry = get_rules_registry()
 
         for resource_type, resources in module.resources_by_type.items():
-            print(f"Running rules for resource type: {resource_type.kind} with {len(resources)} resources")
             for rule in rules_registry.get(resource_type.kind, []):
-                print(f"Evaluating rule: {rule.code} (alpha: {rule.alpha}, fixable: {rule.fixable})")
                 if rule.alpha and not self._enable_alpha_validators:
                     continue
 

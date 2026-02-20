@@ -296,7 +296,7 @@ class BuildV2Command(ToolkitCommand):
             yield ModelSyntaxError(code=f"{resource_type}-SYNTAX-ERROR", message=message)
 
     def _local_validation(self, module: Module) -> None:
-        """This validation is performed locally per entire module"""
+        """Local validations are post-syntax validations executed"""
         RulesOrchestrator().run(module)
 
     def _global_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
