@@ -40,6 +40,7 @@ from .api.security_categories import SecurityCategoriesAPI
 from .api.sequences import SequencesAPI
 from .api.simulators import SimulatorsAPI
 from .api.spaces import SpacesAPI
+from .api.streamlit_ import StreamlitAPI
 from .api.streams import StreamsAPI
 from .api.three_d import ThreeDAPI
 from .api.timeseries import TimeSeriesAPI
@@ -86,6 +87,7 @@ class ToolAPI:
         self.transformations = TransformationsAPI(http_client)
         self.workflows = WorkflowsAPI(http_client)
         self.data_products = DataProductsAPI(http_client)
+        self.streamlit = StreamlitAPI(http_client)
 
 
 class ToolkitClient(CogniteClient):
