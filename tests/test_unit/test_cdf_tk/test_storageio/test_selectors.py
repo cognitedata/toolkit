@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     FileContentIO,
     InstanceIO,
     RawIO,
+    RecordIO,
     StorageIO,
     TimeSeriesIO,
     get_upload_io,
@@ -37,6 +38,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     InstanceSpaceSelector,
     InstanceViewSelector,
     RawTableSelector,
+    RecordContainerSelector,
     Selector,
     SelectorAdapter,
     ThreeDModelFilteredSelector,
@@ -277,6 +279,17 @@ def example_selector_data() -> Iterable[tuple]:
         DatapointsIO,
         DatapointsIO.KIND,
         id="DataPointsDataSetSelector",
+    )
+    yield pytest.param(
+        {
+            "type": "recordContainer",
+            "stream": {"externalId": "my_stream"},
+            "container": {"space": "my_space", "externalId": "my_container"},
+        },
+        RecordContainerSelector,
+        RecordIO,
+        RecordIO.KIND,
+        id="RecordContainerSelector",
     )
     yield pytest.param(
         {
