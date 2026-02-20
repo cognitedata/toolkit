@@ -133,9 +133,6 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
         dumped = resource.as_request_resource().dump()
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
-        # Remove maxConcurrentExecutions if None to avoid dumping explicit null
-        if dumped.get("maxConcurrentExecutions") is None:
-            dumped.pop("maxConcurrentExecutions", None)
         return dumped
 
     def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[WorkflowResponse]:
