@@ -88,6 +88,10 @@ class StreamlitResponse(StreamlitFile, ResponseResource[StreamlitRequest]):
     id: int
     created_time: int
     last_updated_time: int
+    uploaded_time: int | None = None
+    uploaded: bool
+    # This field is required in the upload endpoint response, but not in any other file metadata response
+    upload_url: str | None = None
 
     def as_request_resource(self) -> StreamlitRequest:
         return StreamlitRequest.model_validate(self.dump(), extra="ignore")

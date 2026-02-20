@@ -10,7 +10,6 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import (
     STREAMLIT_DIRECTORY,
@@ -56,6 +55,10 @@ class StreamlitAPI(CDFResourceAPI[ExternalId, StreamlitRequest, StreamlitRespons
         Returns:
             List of created StreamlitResponse objects.
         """
+        # The Streamlit API is a wrapper of the File API, which is different from other APIs, T
+        # Thus we have a custom implementation here.
+        # - It only allow one item per request that is not wrapped in an "items" field.
+        # - It uses a query parameter for "overwrite" instead of including it in the body
         endpoint = self._method_endpoint_map["create"]
         results: list[StreamlitResponse] = []
         for item in items:
@@ -67,8 +70,7 @@ class StreamlitAPI(CDFResourceAPI[ExternalId, StreamlitRequest, StreamlitRespons
             )
             response = self._http_client.request_single_retries(request)
             result = response.get_success_or_raise()
-            file_response = FileMetadataResponse.model_validate_json(result.body)
-            results.append(StreamlitResponse.from_file_response(file_response))
+            results.append(StreamlitResponse.model_validate_json(result.body))
         return results
 
     def retrieve(self, items: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[StreamlitResponse]:
