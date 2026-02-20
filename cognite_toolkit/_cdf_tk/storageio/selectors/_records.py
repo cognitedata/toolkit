@@ -43,9 +43,5 @@ class RecordContainerSelector(DataSelector):
     stream: SelectedStream
     container: SelectedContainer
 
-    @property
-    def group(self) -> str:
-        return self.stream.external_id
-
     def __str__(self) -> str:
         return f"{self.container.space}_{self.container.external_id}"
