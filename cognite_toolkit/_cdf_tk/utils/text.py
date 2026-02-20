@@ -116,8 +116,10 @@ def sanitize_instance_external_id(external_id: str) -> str:
     return sanitized_external_id
 
 
-def warn_invalid_space_name(name: str) -> None:
-    """Warn if a space name does not match ``^[a-zA-Z][a-zA-Z0-9_-]{0,41}[a-zA-Z0-9]?$``."""
+def warn_invalid_space_name(name: str) -> str:
+    """Warn if a space name does not match ``^[a-zA-Z][a-zA-Z0-9_-]{0,41}[a-zA-Z0-9]?$``.
+    Returns a warning message if the name is invalid, or an empty string if it is valid.
+    """
     issues: list[str] = []
     invalid_chars = sorted(set(_INVALID_SPACE_CHARS_PATTERN.findall(name)))
     if invalid_chars:
@@ -127,8 +129,23 @@ def warn_invalid_space_name(name: str) -> None:
     if len(name) > 43:
         issues.append(f"exceeds 43 characters (length {len(name)})")
     if issues:
-        LowSeverityWarning(
-            f"Space name {name!r} derived from data set external ID is not a valid space identifier: "
-            + "; ".join(issues)
-            + ". Please fix the space name manually before deploying."
-        ).print_warning()
+        return f"Space name {name!r} derived from data set external ID is not a valid space identifier: " + "; ".join(
+            issues
+        )
+    return ""
+
+
+def fix_invalid_space_name(name: str) -> str:
+    """Fix a space name to match ``^[a-zA-Z][a-zA-Z0-9_-]{0,41}[a-zA-Z0-9]?$`` by removing invalid characters and truncating if necessary."""
+    # Remove invalid characters
+    fixed_name = _INVALID_SPACE_CHARS_PATTERN.sub("", name)
+    # Ensure it starts with a letter
+    if fixed_name and not fixed_name[0].isalpha():
+        fixed_name = "Space" + fixed_name
+    # Truncate to 43 characters if necessary
+    if len(fixed_name) > 43:
+        hasher = hashlib.sha256()
+        hasher.update(fixed_name.encode("utf-8"))
+        hash_digest = hasher.hexdigest()[:8]
+        fixed_name = f"{fixed_name[:34]}_{hash_digest}"
+    return fixed_name

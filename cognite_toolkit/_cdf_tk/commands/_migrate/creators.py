@@ -49,8 +49,9 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.text import warn_invalid_space_name
+from cognite_toolkit._cdf_tk.utils.text import fix_invalid_space_name, warn_invalid_space_name
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 from .data_model import CREATED_SOURCE_SYSTEM_VIEW_ID, SPACE, SPACE_SOURCE_VIEW_ID
@@ -90,12 +91,14 @@ class InstanceSpaceCreator(MigrationCreator):
         client: ToolkitClient,
         datasets: list[DataSetResponse] | None = None,
         data_set_external_ids: list[str] | None = None,
+        auto_fix: bool = False,
     ) -> None:
         super().__init__(client)
         if sum([datasets is not None, data_set_external_ids is not None]) != 1:
             raise ValueError("Exactly one of datasets or data_set_external_ids must be provided.")
         self.data_set_external_ids = data_set_external_ids
         self.datasets = datasets or []
+        self.auto_fix = auto_fix
 
     def create_resources(self) -> Iterable[ToCreateResources]:
         if self.data_set_external_ids is not None:
@@ -108,10 +111,21 @@ class InstanceSpaceCreator(MigrationCreator):
         created_resources: list[CreatedResource[SpaceRequest]] = []
         linage_nodes: list[NodeRequest] = []
         for dataset in self.datasets:
-            warn_invalid_space_name(dataset.external_id)  # type: ignore[arg-type]
+            # This is checked above
+            data_set_external_id = cast(str, dataset.external_id)
+            warning_message = warn_invalid_space_name(data_set_external_id)
+            space_id = data_set_external_id
+            if warning_message and self.auto_fix:
+                space_id = fix_invalid_space_name(data_set_external_id)
+                LowSeverityWarning(
+                    f"{warning_message}\nAutomatically fixing space name to {space_id!r}."
+                ).print_warning(console=self.client.console)
+            elif warning_message:  # and not self.auto_fix
+                HighSeverityWarning(
+                    f"{warning_message}\nRun command with `--auto-fix` to automatically make the data set external ID a valid space ID."
+                ).print_warning(console=self.client.console)
             space = SpaceRequest(
-                # This is checked above
-                space=dataset.external_id,  # type: ignore[arg-type]
+                space=space_id,
                 name=dataset.name,
                 description=dataset.description,
             )
@@ -124,7 +138,7 @@ class InstanceSpaceCreator(MigrationCreator):
                         properties={
                             "instanceSpace": space.space,
                             "dataSetId": dataset.id,
-                            "dataSetExternalId": dataset.external_id,
+                            "dataSetExternalId": data_set_external_id,
                         },
                     )
                 ],
