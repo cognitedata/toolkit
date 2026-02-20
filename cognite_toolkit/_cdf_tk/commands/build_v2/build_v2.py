@@ -32,6 +32,7 @@ from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
+from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
 from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_write
 from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible, yaml_safe_dump
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
@@ -232,13 +233,14 @@ class BuildV2Command(ToolkitCommand):
             # Inside this loop, do not raise exceptions.
             module = self._import_module(source)  # Syntax validation
 
-            # init built_module, add syntax errors if there are any,
-            built_module = BuiltModule(source=module.source, insights=module.insights)
+            # init built_module
+            built_module = BuiltModule(source=module.source)
 
             if module.is_success:
-                built_module.insights.extend(self._local_validation(module))
+                self._local_validation(module)
                 built_module.built_files = self._export_module(module, build_dir)
 
+            built_module.insights.extend(module.insights)
             folder.built_modules.append(built_module)
 
         return folder
@@ -293,9 +295,9 @@ class BuildV2Command(ToolkitCommand):
             message = error_details.get("msg", "Unknown syntax error")
             yield ModelSyntaxError(code=f"{resource_type}-SYNTAX-ERROR", message=message)
 
-    def _local_validation(self, module: Module) -> InsightList:
+    def _local_validation(self, module: Module) -> None:
         """This validation is performed locally per entire module"""
-        return InsightList()
+        RulesOrchestrator().run(module)
 
     def _global_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
         """This validation is performed per resource type and not per individual resource and against CDF
