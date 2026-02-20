@@ -141,11 +141,13 @@ def fix_invalid_space_name(name: str) -> str:
     fixed_name = _INVALID_SPACE_CHARS_PATTERN.sub("", name)
     # Ensure it starts with a letter
     if fixed_name and not fixed_name[0].isalpha():
-        fixed_name = "Space" + fixed_name
+        fixed_name = f"sp_{fixed_name}"
     # Truncate to 43 characters if necessary
     if len(fixed_name) > 43:
         hasher = hashlib.sha256()
         hasher.update(fixed_name.encode("utf-8"))
         hash_digest = hasher.hexdigest()[:8]
         fixed_name = f"{fixed_name[:34]}_{hash_digest}"
+    elif not fixed_name:
+        fixed_name = "not_set"
     return fixed_name

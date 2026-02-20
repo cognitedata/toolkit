@@ -5,6 +5,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.text import (
+    fix_invalid_space_name,
     sanitize_instance_external_id,
     sanitize_spreadsheet_title,
     suffix_description,
@@ -75,3 +76,21 @@ class TestSanitizeInstanceExternalId:
     def test_sanitize_instance_external_id_raise(self, external_id: str) -> None:
         with pytest.raises(ToolkitValueError):
             sanitize_instance_external_id(external_id)
+
+
+class TestFixInvalidSpaceName:
+    @pytest.mark.parametrize(
+        "name, expected",
+        [
+            ("valid name", "validname"),
+            ("invalid/name", "invalidname"),
+            ("invalid\\name", "invalidname"),
+            ("invalid:name", "invalidname"),
+            ("too_long" * 43, "too_longtoo_longtoo_longtoo_longto_39fe0987"),
+            ("123", "sp_123"),
+            ("", "not_set"),
+            ("1my_space", "sp_1my_space"),
+        ],
+    )
+    def test_fix_invalid_space_name(self, name: str, expected: str) -> None:
+        assert fix_invalid_space_name(name) == expected
