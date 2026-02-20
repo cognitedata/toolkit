@@ -89,6 +89,7 @@ from .api.simulator_models import SimulatorModelsAPI
 from .api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
 from .api.simulator_routines import SimulatorRoutinesAPI
 from .api.simulators import SimulatorsAPI
+from .api.streamlit_ import StreamlitAPI
 from .api.streams import StreamsAPI
 from .api.three_d import (
     ThreeDAPI,
@@ -217,6 +218,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.sequences = MagicMock(spec=SequencesAPI)
         self.tool.sequences.rows = MagicMock(spec_set=SequenceRowsAPI)
         self.tool.transformations = MagicMock(spec=TransformationsAPI)
+        self.tool.streamlit = MagicMock(spec=StreamlitAPI)
         self.tool.transformations.schedules = MagicMock(spec=TransformationSchedulesAPI)
         self.tool.transformations.notifications = MagicMock(spec=TransformationNotificationsAPI)
         self.tool.workflows = MagicMock(spec=WorkflowsAPI)
