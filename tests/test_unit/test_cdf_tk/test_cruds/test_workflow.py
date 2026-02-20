@@ -6,6 +6,10 @@ from cognite.client.credentials import OAuthClientCredentials
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow import (
+    WorkflowRequest,
+    WorkflowResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     ScheduleTriggerRule,
     WorkflowTriggerResponse,
@@ -17,9 +21,46 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     WorkflowVersionRequest,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.cruds import WorkflowTriggerCRUD, WorkflowVersionCRUD
+from cognite_toolkit._cdf_tk.cruds import WorkflowCRUD, WorkflowTriggerCRUD, WorkflowVersionCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
+
+
+class TestWorkflowLoader:
+    def test_load_resource_includes_max_concurrent_executions(self) -> None:
+        resource = {"externalId": "wf1", "maxConcurrentExecutions": 5}
+        loader = WorkflowCRUD(MagicMock(), None)
+
+        loaded = loader.load_resource(resource, is_dry_run=True)
+
+        assert isinstance(loaded, WorkflowRequest)
+        assert loaded.max_concurrent_executions == 5
+
+    def test_dump_resource_includes_max_concurrent_executions(self) -> None:
+        resource = WorkflowResponse(
+            external_id="wf1",
+            created_time=0,
+            last_updated_time=1,
+            max_concurrent_executions=10,
+        )
+        loader = WorkflowCRUD(MagicMock(), None)
+
+        dumped = loader.dump_resource(resource)
+
+        assert dumped.get("maxConcurrentExecutions") == 10
+
+    def test_dump_resource_omits_max_concurrent_executions_when_none(self) -> None:
+        resource = WorkflowResponse(
+            external_id="wf1",
+            created_time=0,
+            last_updated_time=1,
+            max_concurrent_executions=None,
+        )
+        loader = WorkflowCRUD(MagicMock(), None)
+
+        dumped = loader.dump_resource(resource)
+
+        assert "maxConcurrentExecutions" not in dumped
 
 
 class TestWorkflowTriggerLoader:

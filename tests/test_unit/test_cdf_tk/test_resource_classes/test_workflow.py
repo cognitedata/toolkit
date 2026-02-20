@@ -9,6 +9,13 @@ from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from tests.test_unit.utils import find_resources
 
 
+def test_workflow_yaml_max_concurrent_executions_roundtrip() -> None:
+    data = {"externalId": "wf", "dataSetExternalId": "ds", "maxConcurrentExecutions": 5}
+    loaded = WorkflowYAML.model_validate(data)
+    assert loaded.max_concurrent_executions == 5
+    assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
+
+
 def invalid_workflow_test_cases() -> Iterable:
     yield pytest.param(
         {"name": "MyWorkflow"},
