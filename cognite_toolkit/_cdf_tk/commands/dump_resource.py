@@ -28,7 +28,7 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter, ViewFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter, StreamlitFilter, ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerReference,
@@ -51,7 +51,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
     WorkflowVersionId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit, StreamlitList
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
@@ -697,7 +696,7 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
 class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
     def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
         super().__init__(client, identifier)
-        self.apps: StreamlitList | None = None
+        self.apps: list[StreamlitResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
         """Interactively select one or more Streamlit apps to dump."""
@@ -715,15 +714,7 @@ class StreamlitFinder(ResourceFinder[tuple[str, ...]]):
                 for item in sorted(result, key=lambda r: (r.count, str(r.value) or ""))
             ],
         ).unsafe_ask()
-        files = self.client.files.list(
-            limit=-1, directory_prefix="/streamlit-apps/", metadata={"creator": str(selected_creator)}
-        )
-        self.apps = StreamlitList([Streamlit.from_file(file) for file in files if file.name and file.external_id])
-        if missing := [file for file in files if not file.external_id or file.name]:
-            MediumSeverityWarning(
-                f"{len(missing)} file(s) in /streamlit-apps/ are missing "
-                f"either name or external ID and will be skipped. File IDs: {humanize_collection([file.id for file in missing])}",
-            ).print_warning()
+        self.apps = self.client.tool.streamlit.list(limit=None, filter=StreamlitFilter(creator=str(selected_creator)))
         selected_ids: list[str] | None = questionary.checkbox(
             message="Which Streamlit app(s) would you like to dump?",
             choices=[

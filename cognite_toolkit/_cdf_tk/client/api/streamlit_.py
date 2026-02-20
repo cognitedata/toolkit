@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Sequence
-from typing import Any, Literal
+from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -9,10 +9,9 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage,
     SuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import StreamlitFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import (
-    STREAMLIT_DIRECTORY,
     StreamlitRequest,
     StreamlitResponse,
 )
@@ -112,7 +111,7 @@ class StreamlitAPI(CDFResourceAPI[ExternalId, StreamlitRequest, StreamlitRespons
 
     def paginate(
         self,
-        filter: ClassicFilter | None = None,
+        filter: StreamlitFilter | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> PagedResponse[StreamlitResponse]:
@@ -126,18 +125,15 @@ class StreamlitAPI(CDFResourceAPI[ExternalId, StreamlitRequest, StreamlitRespons
         Returns:
             PagedResponse of StreamlitResponse objects.
         """
-        filter_: dict[str, Any] = filter.dump() if filter else {}
-        filter_["directoryPrefix"] = STREAMLIT_DIRECTORY
-
         return self._paginate(
             cursor=cursor,
             limit=limit,
-            body={"filter": filter_},
+            body={"filter": (filter or StreamlitFilter()).dump()},
         )
 
     def iterate(
         self,
-        filter: ClassicFilter | None = None,
+        filter: StreamlitFilter | None = None,
         limit: int | None = 100,
     ) -> Iterable[list[StreamlitResponse]]:
         """Iterate over all Streamlit apps in CDF.
@@ -149,21 +145,20 @@ class StreamlitAPI(CDFResourceAPI[ExternalId, StreamlitRequest, StreamlitRespons
         Returns:
             Iterable of lists of StreamlitResponse objects.
         """
-        filter_: dict[str, Any] = filter.dump() if filter else {}
-        filter_["directoryPrefix"] = STREAMLIT_DIRECTORY
-
         return self._iterate(
             limit=limit,
-            body={"filter": filter_},
+            body={"filter": (filter or StreamlitFilter()).dump()},
         )
 
     def list(
         self,
+        filter: StreamlitFilter | None = None,
         limit: int | None = 100,
     ) -> list[StreamlitResponse]:
         """List all Streamlit apps in CDF.
 
         Args:
+            filter: StreamlitFilter to filter the apps.
             limit: Maximum number of items to return. None for all items.
 
         Returns:
@@ -171,5 +166,5 @@ class StreamlitAPI(CDFResourceAPI[ExternalId, StreamlitRequest, StreamlitRespons
         """
         return self._list(
             limit=limit,
-            body={"filter": {"directoryPrefix": STREAMLIT_DIRECTORY}},
+            body={"filter": (filter or StreamlitFilter()).dump()},
         )
