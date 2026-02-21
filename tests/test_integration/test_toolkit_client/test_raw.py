@@ -8,7 +8,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
     BooleanProfileColumn,
     NumberProfileColumn,
     ObjectProfileColumn,
-    RawTable,
     StringProfileColumn,
     UnknownTypeProfileColumn,
     VectorProfileColumn,
@@ -30,8 +29,8 @@ def persistent_raw_database(toolkit_client: ToolkitClient) -> RAWDatabaseRespons
 
 
 class TestRawProfile:
-    def test_raw_profile(self, toolkit_client: ToolkitClient, populated_raw_table: RawTable, raw_data: RowWriteList):
-        db_name, table_name = populated_raw_table.db_name, populated_raw_table.table_name
+    def test_raw_profile(self, toolkit_client: ToolkitClient, populated_raw_table: RawTableId, raw_data: RowWriteList):
+        db_name, table_name = populated_raw_table.db_name, populated_raw_table.name
 
         limit = len(raw_data) // 2
         results = toolkit_client.raw.profile(db_name, table_name, limit=limit)

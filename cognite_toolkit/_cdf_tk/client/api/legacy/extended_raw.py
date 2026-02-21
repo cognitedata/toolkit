@@ -1,6 +1,7 @@
 from cognite.client._api.raw import RawAPI
 
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawProfileResults, RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawProfileResults
 
 
 class ExtendedRawAPI(RawAPI):
@@ -9,7 +10,7 @@ class ExtendedRawAPI(RawAPI):
 
     def profile(
         self,
-        database: str | RawTable,
+        database: str | RawTableId,
         table: str | None = None,
         limit: int = DEFAULT_PROFILE_LIMIT,
         timeout_seconds: int | None = None,
@@ -32,9 +33,9 @@ class ExtendedRawAPI(RawAPI):
         """
         if limit <= 0 or limit > self.MAX_PROFILE_LIMIT:
             raise ValueError(f"Limit must be between 1 and {self.MAX_PROFILE_LIMIT}, got {limit}.")
-        if isinstance(database, RawTable):
+        if isinstance(database, RawTableId):
             db_name = database.db_name
-            table_name = database.table_name
+            table_name = database.name
         elif table is None:
             raise ValueError(f"Table name must be provided for {database}.")
         else:
