@@ -31,10 +31,8 @@ def persistent_raw_database(toolkit_client: ToolkitClient) -> RAWDatabaseRespons
 
 class TestRawProfile:
     def test_raw_profile(self, toolkit_client: ToolkitClient, populated_raw_table: RawTableId, raw_data: RowWriteList):
-        db_name, table_name = populated_raw_table.db_name, populated_raw_table.name
-
         limit = len(raw_data) // 2
-        results = toolkit_client.raw.profile(db_name, table_name, limit=limit)
+        results = toolkit_client.tool.raw.tables.profile(populated_raw_table, limit=limit)
         assert results.row_count == limit
         assert results.column_count == len(raw_data[0].columns)
         assert isinstance(results.columns["StringCol"], StringProfileColumn)
