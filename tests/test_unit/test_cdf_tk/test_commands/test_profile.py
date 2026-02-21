@@ -2,8 +2,6 @@ import re
 
 import pytest
 from cognite.client.data_classes import (
-    Database,
-    Table,
     Transformation,
     TransformationDestination,
     TransformationPreviewResult,
@@ -16,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
     StringProfile,
     StringProfileColumn,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.commands import ProfileRawCommand
 from cognite_toolkit._cdf_tk.constants import MAX_ROW_ITERATION_RUN_QUERY
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -112,8 +111,10 @@ class TestProfileCommand:
                 destination=TransformationDestination(type="events"),
             ),
         )
-        toolkit_client_approval.append(Database, Database("database"))
-        toolkit_client_approval.append(Table, Table("table"))
+        toolkit_client_approval.append(RAWDatabaseResponse, RAWDatabaseResponse(name="database", created_time=1))
+        toolkit_client_approval.append(
+            RAWTableResponse, RAWTableResponse(name="table", db_name="database", created_time=1)
+        )
 
         toolkit_client_approval.mock_client.raw.profile.return_value = raw_profile_results_single_column
         toolkit_client_approval.mock_client.transformations.preview.return_value = TransformationPreviewResult(
