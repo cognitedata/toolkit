@@ -63,7 +63,6 @@ from pydantic import BaseModel, JsonValue
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.client.resource_classes.group.capability import GroupCapability
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.sequences import ToolkitSequenceRows
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
@@ -276,7 +275,7 @@ class FakeCogniteResourceGenerator:
                     keyword_arguments.pop(key)
         elif resource_cls is DatapointsArray:
             keyword_arguments["is_string"] = False
-        elif resource_cls is SequenceRows or resource_cls is ToolkitSequenceRows:
+        elif resource_cls is SequenceRows:
             # All row values must match the number of columns
             # Reducing to one column, and one value for each row
             if skip_defaulted_args:
