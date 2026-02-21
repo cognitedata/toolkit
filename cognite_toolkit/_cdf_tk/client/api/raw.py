@@ -186,7 +186,7 @@ class RawTablesAPI(CDFResourceAPI[RawTableId, RAWTableRequest, RAWTableResponse]
     def iterate(
         self,
         db_name: str,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[list[RAWTableResponse]]:
         """Iterate over all tables in a database in CDF.
 
