@@ -440,9 +440,8 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
                 raise ValueError(f"Database and table name are required for {row!s} in column {col}.")
             source = row.source
             return partial(
-                client.raw.profile,
-                database=source.db_name,
-                table=source.name,
+                client.tool.raw.tables.profile,
+                table=source,
                 limit=self.profile_row_limit,
                 timeout_seconds=self.profile_timeout_seconds,
             )
@@ -879,9 +878,8 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
     def create_api_callable(self, row: RawProfileIndex, col: str, client: ToolkitClient) -> Callable:
         if col == self.Columns.Columns:
             return partial(
-                client.raw.profile,
-                database=row.raw_table.db_name,
-                table=row.raw_table.name,
+                client.tool.raw.tables.profile,
+                table=row.raw_table,
                 limit=self.max_profile_raw_count,
                 timeout_seconds=self.profile_timeout_seconds,
             )
