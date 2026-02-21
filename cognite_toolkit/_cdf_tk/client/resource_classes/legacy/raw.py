@@ -33,16 +33,6 @@ class RawTable(BaseModelObject):
         return f"{self.db_name}.{self.table_name}"
 
 
-class RawDatabaseList(list[RawDatabase]):
-    def as_write(self) -> Self:
-        return self
-
-
-class RawTableList(list[RawTable]):
-    def as_write(self) -> Self:
-        return self
-
-
 def _unzip_pairs(value: Any) -> Any:
     """Convert parallel arrays [[a1, a2], [b1, b2]] into tuple of pairs ((a1, b1), (a2, b2)).
 
