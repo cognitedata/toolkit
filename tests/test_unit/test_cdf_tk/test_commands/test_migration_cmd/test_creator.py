@@ -95,6 +95,34 @@ class TestCreator:
             )
 
     @pytest.mark.parametrize(
+        "auto_fix", [pytest.param(True, id="auto_fix_enabled"), pytest.param(False, id="auto_fix_disabled")]
+    )
+    def test_create_instance_space_auto_fix(
+        self, auto_fix: bool, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
+    ) -> None:
+        toolkit_client_approval.append(DataModelResponse, COGNITE_MIGRATION_MODEL)
+        toolkit_client_approval.append(ViewResponse, VIEWS)
+
+        invalid_dataset = DataSetResponse(
+            id=1,
+            external_id="invalid dataset name with spaces",
+            name="Invalid Dataset",
+            description="This dataset has an invalid external ID for a space.",
+            created_time=0,
+            last_updated_time=0,
+        )
+
+        creator = InstanceSpaceCreator(toolkit_client_approval.client, [invalid_dataset], auto_fix=auto_fix)
+        created = list(creator.create_resources())
+        assert len(created) == 1
+        created_space = created[0].resources[0].resource
+        assert isinstance(created_space, SpaceRequest)
+        if auto_fix:
+            assert created_space.space == "invaliddatasetnamewithspaces"
+        else:
+            assert created_space.space == "invalid dataset name with spaces"
+
+    @pytest.mark.parametrize(
         "arguments",
         [
             pytest.param({"data_set_external_id": "my_data_set"}, id="with_data_set"),
