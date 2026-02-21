@@ -117,7 +117,7 @@ class TestProfileCommand:
             RAWTableResponse, RAWTableResponse(name="table", db_name="database", created_time=1)
         )
 
-        toolkit_client_approval.mock_client.raw.profile.return_value = raw_profile_results_single_column
+        toolkit_client_approval.mock_client.tool.raw.tables.profile.return_value = raw_profile_results_single_column
         toolkit_client_approval.mock_client.transformations.preview.return_value = TransformationPreviewResult(
             results=[{"row_count": row_count}]
         )
