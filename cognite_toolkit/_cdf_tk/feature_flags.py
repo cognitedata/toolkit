@@ -72,7 +72,7 @@ class Flags(Enum):
     )
     EXTEND_UPLOAD = FlagMetadata(
         visible=True,
-        description="Enables extended upload to support uploading individual files",
+        description="Enables extended upload to support uploading individual files and records",
     )
     SIMULATORS = FlagMetadata(
         visible=True,

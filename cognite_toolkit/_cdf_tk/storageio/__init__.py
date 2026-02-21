@@ -25,6 +25,7 @@ from ._datapoints import DatapointsIO
 from ._file_content import FileContentIO
 from ._instances import InstanceIO
 from ._raw import RawIO
+from ._records import RecordIO
 from .selectors._base import DataSelector
 
 # MyPy fails to recognize that get_concrete_subclasses always returns a list of concrete subclasses.
@@ -58,6 +59,7 @@ __all__ = [
     "ModelList",
     "Page",
     "RawIO",
+    "RecordIO",
     "StorageIO",
     "StorageIOConfig",
     "T_Selector",

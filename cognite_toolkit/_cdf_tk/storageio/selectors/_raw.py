@@ -16,9 +16,5 @@ class RawTableSelector(DataSelector):
     table: SelectedTable
     key: str | None = None
 
-    @property
-    def group(self) -> str:
-        return self.table.db_name
-
     def __str__(self) -> str:
         return self.table.table_name
