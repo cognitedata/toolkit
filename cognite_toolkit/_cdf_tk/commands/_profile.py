@@ -22,7 +22,7 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawTableId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawProfileResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RawProfileResponse
 from cognite_toolkit._cdf_tk.constants import MAX_ROW_ITERATION_RUN_QUERY
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, ToolkitThrottledError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.aggregators import (

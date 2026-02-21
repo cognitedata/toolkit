@@ -8,13 +8,14 @@ from cognite.client.data_classes import (
 )
 from rich.spinner import Spinner
 
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
+    RAWDatabaseResponse,
     RawProfileColumns,
     RawProfileResponse,
+    RAWTableResponse,
     StringProfile,
     StringProfileColumn,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.commands import ProfileRawCommand
 from cognite_toolkit._cdf_tk.constants import MAX_ROW_ITERATION_RUN_QUERY
 from tests.test_unit.approval_client import ApprovalToolkitClient

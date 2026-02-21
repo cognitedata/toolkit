@@ -4,15 +4,16 @@ from cognite.client.data_classes.raw import RowWriteList
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     BooleanProfileColumn,
     NumberProfileColumn,
     ObjectProfileColumn,
+    RAWDatabaseRequest,
+    RAWDatabaseResponse,
     StringProfileColumn,
     UnknownTypeProfileColumn,
     VectorProfileColumn,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseRequest, RAWDatabaseResponse
 
 
 @pytest.fixture(scope="module")
