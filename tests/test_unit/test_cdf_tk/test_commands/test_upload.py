@@ -13,7 +13,6 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable, RawTableList
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
@@ -44,8 +43,8 @@ def raw_json_directory(tmp_path: Path) -> Path:
     """Fixture to create a temporary folder with a sample NDJSON file."""
     configfile = tmp_path / DATA_RESOURCE_DIR / RawTableCRUD.folder_name / f"test_table.{RawTableCRUD.kind}.yaml"
     configfile.parent.mkdir(parents=True, exist_ok=True)
-    table = RawTable(db_name="test_db", table_name="test_table")
-    configfile.write_text(table.dump_yaml())
+    table = RAWTableRequest(db_name="test_db", name="test_table")
+    configfile.write_text(table.dump_yaml(context="toolkit"))
     with NDJsonWriter(tmp_path, RawIO.KIND, Uncompressed) as writer:
         writer.write_chunks(
             [
@@ -62,9 +61,7 @@ def raw_json_directory(tmp_path: Path) -> Path:
             filestem="test_table",
         )
 
-    selector = RawTableSelector(
-        table=SelectedTable(db_name=table.db_name, table_name=table.table_name), type="rawTable"
-    )
+    selector = RawTableSelector(table=SelectedTable(db_name=table.db_name, table_name=table.name), type="rawTable")
     selector.dump_to_file(tmp_path)
     return tmp_path
 
@@ -74,8 +71,8 @@ def raw_csv_directory(tmp_path: Path) -> Path:
     """Fixture to create a temporary folder with a sample CSV file."""
     configfile = tmp_path / DATA_RESOURCE_DIR / RawTableCRUD.folder_name / f"test_table.{RawTableCRUD.kind}.yaml"
     configfile.parent.mkdir(parents=True, exist_ok=True)
-    table = RawTable(db_name="test_db", table_name="test_table")
-    configfile.write_text(table.dump_yaml())
+    table = RAWTableRequest(db_name="test_db", name="test_table")
+    configfile.write_text(table.dump_yaml(context="toolkit"))
     csv_file = tmp_path / f"test_table.{RawIO.KIND}.csv"
     with csv_file.open("w") as f:
         f.write("index,column1,column2,column3\n")
@@ -83,7 +80,7 @@ def raw_csv_directory(tmp_path: Path) -> Path:
             f.write(f"key{i},value{i},{i},{i % 2 == 0}\n")
 
     selector = RawTableSelector(
-        table=SelectedTable(db_name=table.db_name, table_name=table.table_name), type="rawTable", key="index"
+        table=SelectedTable(db_name=table.db_name, table_name=table.name), type="rawTable", key="index"
     )
     selector.dump_to_file(tmp_path)
     return tmp_path
@@ -102,7 +99,7 @@ def raw_mock_client(
     monkeypatch.setenv("CDF_PROJECT", config.project)
     with monkeypatch_toolkit_client() as client:
         client.verify.authorization.return_value = []
-        client.raw.tables.list.return_value = RawTableList([])
+        client.raw.tables.list.return_value = []
         client.raw.tables.create.return_value = TableList([Table(name="test_table")])
         client.config = config
         yield client, respx_mock

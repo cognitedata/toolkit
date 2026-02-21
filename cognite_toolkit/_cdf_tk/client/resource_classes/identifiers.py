@@ -96,7 +96,7 @@ class RawTableId(Identifier):
     db_name: str
 
     def __str__(self) -> str:
-        return f"dbName='{self.db_name}', name='{self.name}'"
+        return f"{self.db_name}.{self.name}"
 
 
 class SequenceRowId(Identifier):

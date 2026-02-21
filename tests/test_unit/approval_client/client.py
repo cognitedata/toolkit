@@ -17,7 +17,6 @@ from cognite.client import data_modeling as dm
 from cognite.client._api.iam import IAMAPI
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
-    Database,
     DataSet,
     ExtractionPipeline,
     ExtractionPipelineConfig,
@@ -73,7 +72,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance imp
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source._base import SourceRequestDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import GraphQLDataModelWrite
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.project import ProjectStatus, ProjectStatusList
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawDatabase
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
@@ -426,8 +424,6 @@ class ApprovalToolkitClient:
                     elif isinstance(item, Sequence) and all(isinstance(v, write_resource_cls) for v in item):
                         created.extend(item)
                         is_single_resource = False
-                    elif isinstance(item, str) and issubclass(write_resource_cls, RawDatabase):
-                        created.append(Database(name=item))
             created_resources[resource_cls.__name__].extend(created)
             if resource_cls is View:
                 return created

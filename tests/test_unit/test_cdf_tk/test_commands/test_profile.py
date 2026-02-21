@@ -2,17 +2,17 @@ import re
 
 import pytest
 from cognite.client.data_classes import (
-    Database,
-    Table,
     Transformation,
     TransformationDestination,
     TransformationPreviewResult,
 )
 from rich.spinner import Spinner
 
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
+    RAWDatabaseResponse,
     RawProfileColumns,
-    RawProfileResults,
+    RawProfileResponse,
+    RAWTableResponse,
     StringProfile,
     StringProfileColumn,
 )
@@ -22,8 +22,8 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 @pytest.fixture()
-def raw_profile_results_single_column() -> RawProfileResults:
-    return RawProfileResults(
+def raw_profile_results_single_column() -> RawProfileResponse:
+    return RawProfileResponse(
         row_count=ProfileRawCommand.max_profile_raw_count,
         columns=RawProfileColumns(
             {
@@ -96,7 +96,7 @@ class TestProfileCommand:
         assert draw_row == expected
 
     def test_profile_raw_command_fallback_row_count(
-        self, toolkit_client_approval: ApprovalToolkitClient, raw_profile_results_single_column: RawProfileResults
+        self, toolkit_client_approval: ApprovalToolkitClient, raw_profile_results_single_column: RawProfileResponse
     ) -> None:
         """Test that when there is more than 10 000 rows in the table,
         the fallback is to use the /transformations/preview endpoint to get the row count."""
@@ -112,10 +112,12 @@ class TestProfileCommand:
                 destination=TransformationDestination(type="events"),
             ),
         )
-        toolkit_client_approval.append(Database, Database("database"))
-        toolkit_client_approval.append(Table, Table("table"))
+        toolkit_client_approval.append(RAWDatabaseResponse, RAWDatabaseResponse(name="database", created_time=1))
+        toolkit_client_approval.append(
+            RAWTableResponse, RAWTableResponse(name="table", db_name="database", created_time=1)
+        )
 
-        toolkit_client_approval.mock_client.raw.profile.return_value = raw_profile_results_single_column
+        toolkit_client_approval.mock_client.tool.raw.tables.profile.return_value = raw_profile_results_single_column
         toolkit_client_approval.mock_client.transformations.preview.return_value = TransformationPreviewResult(
             results=[{"row_count": row_count}]
         )

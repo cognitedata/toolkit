@@ -191,7 +191,7 @@ class HTTPClient:
             content=message.content,
             headers=headers,
             params=message.parameters,
-            timeout=self.config.timeout,
+            timeout=message.client_timeout or self.config.timeout,
             follow_redirects=False,
         )
 

@@ -4,16 +4,16 @@ from cognite.client.data_classes.raw import RowWriteList
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     BooleanProfileColumn,
     NumberProfileColumn,
     ObjectProfileColumn,
-    RawTable,
+    RAWDatabaseRequest,
+    RAWDatabaseResponse,
     StringProfileColumn,
     UnknownTypeProfileColumn,
     VectorProfileColumn,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseRequest, RAWDatabaseResponse
 
 
 @pytest.fixture(scope="module")
@@ -30,11 +30,9 @@ def persistent_raw_database(toolkit_client: ToolkitClient) -> RAWDatabaseRespons
 
 
 class TestRawProfile:
-    def test_raw_profile(self, toolkit_client: ToolkitClient, populated_raw_table: RawTable, raw_data: RowWriteList):
-        db_name, table_name = populated_raw_table.db_name, populated_raw_table.table_name
-
+    def test_raw_profile(self, toolkit_client: ToolkitClient, populated_raw_table: RawTableId, raw_data: RowWriteList):
         limit = len(raw_data) // 2
-        results = toolkit_client.raw.profile(db_name, table_name, limit=limit)
+        results = toolkit_client.tool.raw.tables.profile(populated_raw_table, limit=limit)
         assert results.row_count == limit
         assert results.column_count == len(raw_data[0].columns)
         assert isinstance(results.columns["StringCol"], StringProfileColumn)

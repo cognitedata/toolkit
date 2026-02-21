@@ -44,10 +44,7 @@ from rich import print
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPResult, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, SpaceRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import (
-    RawTable,
-)
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWTableRequest,
@@ -272,16 +269,18 @@ def raw_data() -> RowWriteList:
 
 
 @pytest.fixture()
-def populated_raw_table(toolkit_client: ToolkitClient, raw_data: RowWriteList) -> RawTable:
+def populated_raw_table(toolkit_client: ToolkitClient, raw_data: RowWriteList) -> RawTableId:
     db_name = "toolkit_test_db"
     table_name = "toolkit_test_profiling_table"
-    existing_dbs = toolkit_client.raw.databases.list(limit=-1)
+    existing_dbs = toolkit_client.tool.raw.databases.list(limit=None)
     existing_table_names: set[str] = set()
     if db_name in {db.name for db in existing_dbs}:
-        existing_table_names = {table.name for table in toolkit_client.raw.tables.list(db_name=db_name, limit=-1)}
+        existing_table_names = {
+            table.name for table in toolkit_client.tool.raw.tables.list(db_name=db_name, limit=None)
+        }
     if table_name not in existing_table_names:
         toolkit_client.raw.rows.insert(db_name, table_name, raw_data, ensure_parent=True)
-    return RawTable(db_name, table_name)
+    return RawTableId(db_name=db_name, name=table_name)
 
 
 @pytest.fixture(scope="session")

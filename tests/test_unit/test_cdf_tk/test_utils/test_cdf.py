@@ -6,7 +6,7 @@ from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import ClientCredentials, OidcCredentials
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawTableId
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitTypeError
 from cognite_toolkit._cdf_tk.utils.cdf import (
     get_transformation_destination_columns,
@@ -55,7 +55,7 @@ select
   name as name
 from
     my_db.my_table""",
-        [RawTable(db_name="my_db", table_name="my_table")],
+        [RawTableId(db_name="my_db", name="my_table")],
         ["externalId", "name"],
         id="Simple query without joins",
     )
@@ -65,7 +65,7 @@ from
         select table.identifier as externalId,
                table.name       as name
         from `my db`.`my table` as table""",
-        [RawTable(db_name="my db", table_name="my table")],
+        [RawTableId(db_name="my db", name="my table")],
         ["externalId", "name"],
         id="Use of backticks in table name with AS alias",
     )
@@ -79,7 +79,7 @@ FROM
 LEFT JOIN
     `ingestion`.`workitem` as table2
 ON table1.shared_column = table2.shared_column""",
-        [RawTable(db_name="ingestion", table_name="dump"), RawTable(db_name="ingestion", table_name="workitem")],
+        [RawTableId(db_name="ingestion", name="dump"), RawTableId(db_name="ingestion", name="workitem")],
         ["externalId", "name"],
         id="Query with left join",
     )
@@ -120,7 +120,7 @@ where
   isnotnull(d3.`WMT_TAG_NAME`) AND
 /* Inspection of the WMT_TAG_DESC looks like asset are category 1157 while equipment is everything else */
   cast(d3.`WMT_CATEGORY_ID` as INT) = 1157""",
-        [RawTable(db_name="ingestion", table_name="dump")],
+        [RawTableId(db_name="ingestion", name="dump")],
         [
             "externalId",
             "parent",
@@ -158,7 +158,7 @@ where
   AND a.FL_ZFLOC_PAR NOT LIKE "ZZ%"
   AND a.FL_0FUNCT_LOC NOT LIKE "TG-TGP-18%"
 """,
-        [RawTable(db_name="DTN", table_name="SAP_Functional_Location")],
+        [RawTableId(db_name="DTN", name="SAP_Functional_Location")],
         ["externalId", "description", "metadata"],
         id="Query with inner join",
     )
@@ -187,7 +187,7 @@ select
   combined_table.externalId as externalId
   from
   combined_table""",
-        [RawTable(db_name="UpdateDB", table_name="Vulnerability"), "assets"],
+        [RawTableId(db_name="UpdateDB", name="Vulnerability"), "assets"],
         ["metadata", "externalId"],
         id="Source inside inner With Query",
     )
@@ -203,7 +203,7 @@ where left(externalId,5)="GM-ST" and left(name,2)="ST"
     """,
         ["assets"],
         ["id", "externalId", "name", "dataSetId"],
-        id="Source is _cdf.assets (not a RawTable)",
+        id="Source is _cdf.assets (not a RawTableId)",
     )
     yield pytest.param(
         """with
@@ -250,7 +250,7 @@ AND EQ_ZEQUI_PAR not in (
     bad_vals
 )
 """,
-        ["assets", RawTable(db_name="DTN", table_name="SAP_EQUIPMENT")],
+        ["assets", RawTableId(db_name="DTN", name="SAP_EQUIPMENT")],
         ["*"],
         id="Source is a RawTable and _cdf.assets in a With Query",
     )
@@ -323,7 +323,12 @@ WHERE CP.component_id IS NOT NULL
     AND LMD.Component_ID IS NULL)
     AND cdf_asset IS NOT NULL
 """,
-        [RawTable("PSSD", "PSSD_LMD"), RawTable("PSSD", "PSSD_component"), RawTable("PSSD", "PSSD_circuit"), "assets"],
+        [
+            RawTableId(db_name="PSSD", name="PSSD_LMD"),
+            RawTableId(db_name="PSSD", name="PSSD_component"),
+            RawTableId(db_name="PSSD", name="PSSD_circuit"),
+            "assets",
+        ],
         ["externalId", "parentExternalId", "name", "description", "dataSetId", "metadata", "labels"],
         id="Complex query with multiple joins and CDF assets",
     )
@@ -365,11 +370,11 @@ FROM
     """,
         [
             "assets",
-            RawTable(db_name="SDO", table_name="well_header"),
-            RawTable(db_name="SDO", table_name="pw_DepletionPlan"),
-            RawTable(db_name="SDO", table_name="well_header2"),
-            RawTable(db_name="GIS", table_name="gis"),
-            RawTable(db_name="SDO", table_name="weather_station"),
+            RawTableId(db_name="SDO", name="well_header"),
+            RawTableId(db_name="SDO", name="pw_DepletionPlan"),
+            RawTableId(db_name="SDO", name="well_header2"),
+            RawTableId(db_name="GIS", name="gis"),
+            RawTableId(db_name="SDO", name="weather_station"),
         ],
         ["id", "metadata"],
         id="Complex query with multiple joins and CDF assets with metadata",
@@ -402,7 +407,7 @@ WHERE concat("GM", `Tag name`) IN (
     WHERE existing_ext_ids.value IS NULL OR new_ext_ids.value IS NULL
     )
 ;""",
-        [RawTable(db_name="GM_DATA", table_name="verified_new_only"), "assets"],
+        [RawTableId(db_name="GM_DATA", name="verified_new_only"), "assets"],
         ["externalId", "parentExternalId", "name", "description", "dataSetId", "source"],
         id="Query listed in WHERE clause",
     )
@@ -441,8 +446,8 @@ GROUP BY equip_id
 INNER JOIN _cdf.assets asset on ext_id = asset.externalId
 """,
         [
-            RawTable(db_name="DVT", table_name="SAP_Equipment"),
-            RawTable(db_name="DVT", table_name="SAP_Functional_Location"),
+            RawTableId(db_name="DVT", name="SAP_Equipment"),
+            RawTableId(db_name="DVT", name="SAP_Functional_Location"),
             "assets",
         ],
         ["id", "labels"],
@@ -455,7 +460,7 @@ INNER JOIN _cdf.assets asset on ext_id = asset.externalId
             /* This is a comment */
                name       as name
         from my_db.my_table""",
-        [RawTable(db_name="my_db", table_name="my_table")],
+        [RawTableId(db_name="my_db", name="my_table")],
         ["externalId", "name"],
         id="Simple query with comment",
     )
@@ -496,9 +501,9 @@ where
   ai.workorderid = wo.workOrderNumber
   and wo.`endTime` > wo.`startTime`""",
         [
-            RawTable(db_name="workorder_oid_workmate", table_name="workorder2assets"),
+            RawTableId(db_name="workorder_oid_workmate", name="workorder2assets"),
             "assets",
-            RawTable(db_name="workorder_oid_workmate", table_name="workorders"),
+            RawTableId(db_name="workorder_oid_workmate", name="workorders"),
         ],
         [
             "externalId",
@@ -520,7 +525,7 @@ class TestGetTransformationSource:
         "query, expected_sources, expected_destination_columns", list(get_transformation_source_test_cases())
     )
     def test_get_transformation_sources(
-        self, query: str, expected_sources: list[RawTable | str], expected_destination_columns: list[str]
+        self, query: str, expected_sources: list[RawTableId | str], expected_destination_columns: list[str]
     ) -> None:
         """Test that the transformation source is correctly extracted from the query."""
         actual = get_transformation_sources(query)
@@ -533,7 +538,7 @@ class TestGetTransformationDestinationColumns:
         list(get_transformation_source_test_cases()),
     )
     def test_get_transformation_sources_and_destination_columns(
-        self, query: str, expected_sources: list[RawTable | str], expected_destination_columns: list[str]
+        self, query: str, expected_sources: list[RawTableId | str], expected_destination_columns: list[str]
     ) -> None:
         """Test that the transformation source and destination columns are correctly extracted from the query."""
         actual = get_transformation_destination_columns(query)
