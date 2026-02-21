@@ -384,7 +384,7 @@ class TestRawTableSelect:
             client.raw.tables.list.return_value = TableList([Table(name=f"Table{i}") for i in range(1, 24)])
             selected = RawTableInteractiveSelect(client, "test_operation").select_tables()
 
-        assert selected == [RawTable("Database3", f"Table{i}") for i in range(1, 24, 2)]
+        assert selected == [RawTable(db_name="Database3", table_name=f"Table{i}") for i in range(1, 24, 2)]
 
 
 class TestInteractiveCanvasSelect:

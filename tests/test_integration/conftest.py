@@ -281,7 +281,7 @@ def populated_raw_table(toolkit_client: ToolkitClient, raw_data: RowWriteList) -
         existing_table_names = {table.name for table in toolkit_client.raw.tables.list(db_name=db_name, limit=-1)}
     if table_name not in existing_table_names:
         toolkit_client.raw.rows.insert(db_name, table_name, raw_data, ensure_parent=True)
-    return RawTable(db_name, table_name)
+    return RawTable(db_name=db_name, table_name=table_name)
 
 
 @pytest.fixture(scope="session")

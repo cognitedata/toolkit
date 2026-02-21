@@ -323,7 +323,12 @@ WHERE CP.component_id IS NOT NULL
     AND LMD.Component_ID IS NULL)
     AND cdf_asset IS NOT NULL
 """,
-        [RawTable("PSSD", "PSSD_LMD"), RawTable("PSSD", "PSSD_component"), RawTable("PSSD", "PSSD_circuit"), "assets"],
+        [
+            RawTable(db_name="PSSD", table_name="PSSD_LMD"),
+            RawTable(db_name="PSSD", table_name="PSSD_component"),
+            RawTable(db_name="PSSD", table_name="PSSD_circuit"),
+            "assets",
+        ],
         ["externalId", "parentExternalId", "name", "description", "dataSetId", "metadata", "labels"],
         id="Complex query with multiple joins and CDF assets",
     )

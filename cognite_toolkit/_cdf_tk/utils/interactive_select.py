@@ -264,7 +264,7 @@ class RawTableInteractiveSelect:
 
     def _available_tables(self, database: str) -> list[RawTable]:
         tables = self.client.raw.tables.list(db_name=database, limit=-1)
-        return [RawTable(database, table.name) for table in tables if table.name is not None]
+        return [RawTable(db_name=database, table_name=table.name) for table in tables if table.name is not None]
 
     def select_tables(self, database: str | None = None) -> list[RawTable]:
         """Interactively select raw tables."""
