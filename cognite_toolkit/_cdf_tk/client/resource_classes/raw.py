@@ -1,5 +1,5 @@
 import sys
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -59,8 +60,15 @@ class RAWTableRequest(RequestResource):
     def as_id(self) -> RawTableId:
         return RawTableId(db_name=self.db_name, name=self.name)
 
+    def dump_yaml(
+        self, camel_case: bool = True, exclude_extra: bool = False, context: Literal["api", "toolkit"] = "api"
+    ) -> str:
+        return yaml_safe_dump(self.dump(camel_case=camel_case, exclude_extra=exclude_extra, context=context))
+
     # Override dump to always use by_alias=False since the API expects name='...'
-    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+    def dump(
+        self, camel_case: bool = True, exclude_extra: bool = False, context: Literal["api", "toolkit"] = "api"
+    ) -> dict[str, Any]:
         """Dump the resource to a dictionary.
 
         Args:
@@ -69,13 +77,17 @@ class RAWTableRequest(RequestResource):
 
         """
         if exclude_extra:
-            return self.model_dump(
+            dumped = self.model_dump(
                 mode="json",
-                by_alias=False,
+                by_alias=False if context == "api" else camel_case,
                 exclude_unset=True,
                 exclude=set(self.__pydantic_extra__) if self.__pydantic_extra__ else None,
             )
-        return self.model_dump(mode="json", by_alias=False, exclude_unset=True)
+        dumped = self.model_dump(mode="json", by_alias=False if context == "api" else camel_case, exclude_unset=True)
+        if context == "api":
+            return dumped
+        # For toolkit context, we include dbName in the dump for consistency with other resources.
+        return {**dumped, "dbName" if camel_case else "db_name": self.db_name}
 
 
 class RAWTableResponse(ResponseResource[RAWTableRequest]):
