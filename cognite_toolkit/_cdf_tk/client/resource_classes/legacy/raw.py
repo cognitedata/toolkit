@@ -1,27 +1,14 @@
 import sys
 from typing import Annotated, Any, TypeAlias
 
-from pydantic import BeforeValidator, ConfigDict, PlainSerializer
+from pydantic import BeforeValidator, PlainSerializer
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 
 if sys.version_info >= (3, 11):
-    from typing import Self
+    pass
 else:
-    from typing_extensions import Self
-
-
-class RawTable(BaseModelObject):
-    model_config = ConfigDict(frozen=True)
-
-    db_name: str
-    table_name: str
-
-    def as_write(self) -> Self:
-        return self
-
-    def __str__(self) -> str:
-        return f"{self.db_name}.{self.table_name}"
+    pass
 
 
 def _unzip_pairs(value: Any) -> Any:
@@ -174,7 +161,7 @@ ProfileColumnType = Annotated[
 RawProfileColumns: TypeAlias = dict[str, ProfileColumnType]
 
 
-class RawProfileResults(BaseModelObject):
+class RawProfileResponse(BaseModelObject):
     """The results of a raw profile operation used with the /profiler/raw endpoint.
 
     This endpoint is undocumented, and thus it is hard to know exactly what each field means,

@@ -1,7 +1,7 @@
 from cognite.client._api.raw import RawAPI
 
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawTableId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawProfileResults
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawProfileResponse
 
 
 class ExtendedRawAPI(RawAPI):
@@ -14,7 +14,7 @@ class ExtendedRawAPI(RawAPI):
         table: str | None = None,
         limit: int = DEFAULT_PROFILE_LIMIT,
         timeout_seconds: int | None = None,
-    ) -> RawProfileResults:
+    ) -> RawProfileResponse:
         """Profiles a table in the specified database and returns the results.
 
         This is a hidden endpoint that is not part of the official CDF API. However, it is used by the Fusion UI
@@ -28,7 +28,7 @@ class ExtendedRawAPI(RawAPI):
             timeout_seconds (int, optional): The timeout for the profiling operation in seconds. Defaults to global_config.timeout_seconds.
 
         Returns:
-            RawProfileResults: The results of the profiling operation.
+            RawProfileResponse: The results of the profiling operation.
 
         """
         if limit <= 0 or limit > self.MAX_PROFILE_LIMIT:
@@ -47,4 +47,4 @@ class ExtendedRawAPI(RawAPI):
             json={"database": db_name, "table": table_name, "limit": limit},
             timeout=timeout_seconds if timeout_seconds is not None else self._config.timeout,
         )
-        return RawProfileResults._load(response.json())
+        return RawProfileResponse._load(response.json())

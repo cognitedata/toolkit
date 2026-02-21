@@ -272,7 +272,7 @@ def raw_data() -> RowWriteList:
 def populated_raw_table(toolkit_client: ToolkitClient, raw_data: RowWriteList) -> RawTableId:
     db_name = "toolkit_test_db"
     table_name = "toolkit_test_profiling_table"
-    existing_dbs = toolkit_client.tool.databases.list(limit=-1)
+    existing_dbs = toolkit_client.tool.raw.databases.list(limit=-1)
     existing_table_names: set[str] = set()
     if db_name in {db.name for db in existing_dbs}:
         existing_table_names = {

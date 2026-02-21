@@ -22,7 +22,7 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawTableId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawProfileResults
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawProfileResponse
 from cognite_toolkit._cdf_tk.constants import MAX_ROW_ITERATION_RUN_QUERY
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, ToolkitThrottledError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.aggregators import (
@@ -476,7 +476,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
                 return f"{result[0].name} ({result[0].external_id})"
             return None
         elif col == self.Columns.ColumnCount:
-            if isinstance(result, RawProfileResults):
+            if isinstance(result, RawProfileResponse):
                 return result.column_count
             return None
         raise ValueError(f"unexpected result type {type(result)} for row {row!s} and column {col}.")
@@ -617,7 +617,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
         result: object,
         selected_row: AssetIndex,
     ) -> dict[tuple[AssetIndex, str], PendingCellValue]:
-        if not isinstance(result, RawProfileResults):
+        if not isinstance(result, RawProfileResponse):
             return current_table
         new_table: dict[tuple[AssetIndex, str], PendingCellValue] = {}
         for (row, col), value in current_table.items():
@@ -905,7 +905,7 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
             return None
         if isinstance(result, int | float | bool | str) or result is None:
             return result
-        elif isinstance(result, RawProfileResults) and col == self.Columns.Columns:
+        elif isinstance(result, RawProfileResponse) and col == self.Columns.Columns:
             return result.column_count
         raise ValueError(f"Unknown result type: {type(result)} for {row!s} in column {col}.")
 
@@ -916,7 +916,7 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
         selected_row: RawProfileIndex,
         selected_col: str,
     ) -> dict[tuple[RawProfileIndex, str], PendingCellValue]:
-        if not isinstance(result, RawProfileResults) or selected_col != self.Columns.Columns:
+        if not isinstance(result, RawProfileResponse) or selected_col != self.Columns.Columns:
             return current_table
         is_complete = result.is_complete and result.row_count < self.max_profile_raw_count
         new_table: dict[tuple[RawProfileIndex, str], PendingCellValue] = {}
