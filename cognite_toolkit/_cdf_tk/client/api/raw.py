@@ -176,8 +176,8 @@ class RawTablesAPI(CDFResourceAPI[RawTableId, RAWTableRequest, RAWTableResponse]
         profiling of raw tables. This is used to show how data flows into CDF resources.
 
         Args:
-            database (str): The name of the database to profile.
-            table (str): The name of the table to profile.
+        Args:
+            table (RawTableId): The identifier of the table to profile.
             limit (int, optional): The maximum number of rows to profile. Defaults to DEFAULT_PROFILE_LIMIT.
             timeout_seconds (int, optional): The timeout for the profiling operation in seconds. Defaults to global_config.timeout_seconds.
 
