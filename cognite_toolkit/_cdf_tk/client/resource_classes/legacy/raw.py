@@ -11,15 +11,6 @@ else:
     from typing_extensions import Self
 
 
-class RawDatabase(BaseModelObject):
-    model_config = ConfigDict(frozen=True)
-
-    db_name: str
-
-    def as_write(self) -> Self:
-        return self
-
-
 class RawTable(BaseModelObject):
     model_config = ConfigDict(frozen=True)
 
