@@ -1,10 +1,10 @@
 import os
 import sys
-from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from pathlib import Path
+from typing import Any
 
-from pydantic import JsonValue, ValidationError
+from pydantic import JsonValue, TypeAdapter, ValidationError
 from rich.console import Console
 from rich.panel import Panel
 
@@ -18,15 +18,12 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildSourceFiles,
     BuiltModule,
     ConfigYAML,
-    InsightList,
     Module,
     ModuleSource,
     RelativeDirPath,
     ResourceType,
     ValidationType,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxError
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._plugins import NeatPlugin
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxError, Recommendation
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     BuildVariable,
@@ -34,14 +31,13 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     ReadResource,
     SuccessfulReadResource,
 )
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._plugins import NeatPlugin
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, MODULES
-from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
-from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_write
-from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, relative_to_if_possible, safe_read, yaml_safe_dump
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
@@ -267,6 +263,8 @@ class BuildV2Command(ToolkitCommand):
                     #   Reason for error is in the case were the user do not set a kind and intends to.
                     #   Reason for silently ignore is that the user for example has a YAML file as part of their
                     #   function code, and it is not meant to be a resource file.
+                    # Todo: This will fail for kinds that just endswith the kind. This is often used for
+                    #   for example transformation schedules.
                     continue
                 kind = resource_file.stem.rsplit(".", maxsplit=1)[-1]
                 crud_class = class_by_kind.get(kind)
@@ -277,12 +275,38 @@ class BuildV2Command(ToolkitCommand):
                         )
                     )
                     continue
-                content_or_error = self._read_resource_file(resource_file)
-                if isinstance(content_or_error, ModelSyntaxError):
-                    resources.append(FailedReadResource(source_path=resource_file, errors=[content_or_error]))
+                error_or_string = self._read_resource_file(resource_file)
+                if isinstance(error_or_string, ModelSyntaxError):
+                    resources.append(FailedReadResource(source_path=resource_file, errors=[error_or_string]))
                     continue
-                read_resources = self._parse_resource_file(content_or_error, crud_class.yaml_file, source.variables)
-                resources.extend(read_resources)
+                # Content read successfully.
+                if source.variables:
+                    substituted_content = self._substitute_variables_in_content(error_or_string, source.variables)
+                else:
+                    substituted_content = error_or_string
+
+                error_or_unstructured = self._parse_yaml_content(substituted_content)
+                if isinstance(error_or_unstructured, ModelSyntaxError):
+                    resources.append(FailedReadResource(source_path=resource_file, errors=[error_or_unstructured]))
+                    continue
+                file_hash = calculate_hash(error_or_string, shorten=True)
+
+                error_or_resources = self._create_resources_from_unstructured(error_or_unstructured, crud_class)
+                resource_type = ResourceType(resource_folder=crud_class.folder_name, kind=crud_class.kind)
+                for error_or_resource in error_or_resources:
+                    if isinstance(error_or_resource, ModelSyntaxError):
+                        resources.append(FailedReadResource(source_path=resource_file, errors=[error_or_resource]))
+                    else:
+                        resource, recommendations = error_or_resource
+                        resources.append(
+                            SuccessfulReadResource(
+                                source_path=resource_file,
+                                resource=resource,
+                                source_hash=file_hash,
+                                resource_type=resource_type,
+                                insights=recommendations,
+                            )
+                        )
 
         return Module(source=source, resources=resources)
 
@@ -310,103 +334,72 @@ class BuildV2Command(ToolkitCommand):
                 fix="Make sure the file is a valid YAML file and is accessible.",
             )
 
-    def _parse_resource_file(
-        self, file_content: str, io: type[ResourceCRUD], variables: list[BuildVariable], file_path: Path
-    ) -> list[ReadResource]:
-        """Parses a resource file into one or more Toolkit resources.
-
-        1. Reads the YAML file and substitutes variables if needed.
-        2. Variable substitution.
-        3. Parse the YAML content
-        4. Validate the content against the syntax of the YAML model.
-
-
-        Args:
-            file_content: The content of the resource YAML file.
-            crud_yaml_model: The Pydantic model class that the YAML file should conform to.
-            variables: The variables to substitute in the YAML content.
-
-        Returns:
-            A tuple containing the list of parsed ToolkitResource objects and a list of ModelSyntaxError
-            objects if there were any syntax errors during parsing.
-        """
-        file_hash = calculate_hash(file_content, shorten=True)
-        results: list[ReadResource] = []
-        if variables:
-            substituted_content = self._substitute_variables_in_content(file_content, variables)
-        else:
-            substituted_content = file_content
-
-        try:
-            parsed = read_yaml_content(substituted_content)
-        except Exception as e:
-            # Todo Look for variables not replaced in the content and add fix suggestion to the error.
-            results.append(
-                FailedReadResource(
-                    source_path=file_path,
-                    errors=[
-                        ModelSyntaxError(
-                            code="YAML_PARSE_ERROR",
-                            message=f"Failed to parse YAML content: {e!s}",
-                            fix="Make sure the YAML content is valid.",
-                        )
-                    ],
-                )
-            )
-            return results
-
-        listed_resources = parsed if isinstance(parsed, list) else [parsed]
-        for resource_dict in listed_resources:
-            try:
-                resource = io.yaml_cls.model_validate(resource_dict, extra="forbid")
-            except ValidationError as forbid_errors:
-                try:
-                    # Fallback to handle unknown fields.
-                    resource = io.yaml_cls.model_validate(resource_dict, extra="ignore")
-                except ValidationError:
-                    # It is still failing, so we have syntax errors that we want to report.
-                    results.append(
-                        FailedReadResource(
-                            source_path=file_path,
-                            errors=[
-                                ModelSyntaxError(
-                                    code="SYNTAX_ERROR",
-                                    message=message,
-                                )
-                                for message in humanize_validation_error(forbid_errors)
-                            ],
-                        )
-                    )
-                else:
-                    # Fallback succeeded, so we have insights to report about the unknown fields.
-                    results.append(
-                        SuccessfulReadResource(
-                            source_path=file_path,
-                            source_hash=file_hash,
-                            resource_type=ResourceType(resource_folder=io.folder_name, kind=io.kind),
-                            resource=resource,
-                            insights=[
-                                Recommendation(
-                                    code="UNKNOWN_FIELDS",
-                                    message=message,
-                                )
-                                for message in humanize_validation_error(forbid_errors)
-                            ],
-                        )
-                    )
-            else:
-                results.append(
-                    SuccessfulReadResource(
-                        source_path=file_path,
-                        source_hash=file_hash,
-                        resource_type=ResourceType(resource_folder=io.folder_name, kind=io.kind),
-                        resource=resource,
-                    )
-                )
-        return results
-
     def _substitute_variables_in_content(self, content: str, variables: list[BuildVariable]) -> str:
         raise NotImplementedError()
+
+    def _parse_yaml_content(self, content: str) -> dict[str, Any] | list[dict[str, Any]] | ModelSyntaxError:
+        try:
+            return read_yaml_content(content)
+        except Exception as e:
+            # Todo Look for variables not replaced in the content and add fix suggestion to the error.
+            #     Look for variables at an adjacent level in the YAML structure to give more specific suggestions.
+            return ModelSyntaxError(
+                code="YAML-PARSE-ERROR",
+                message=f"Failed to parse YAML content: {e!s}",
+                fix="Make sure the YAML content is valid.",
+            )
+
+    def _create_resources_from_unstructured(
+        self, unstructured: dict[str, Any] | list[dict[str, Any]], yaml_cls: type[ToolkitResource]
+    ) -> Iterable[tuple[ToolkitResource, list[Recommendation]] | ModelSyntaxError]:
+        if isinstance(unstructured, dict):
+            try:
+                resource = yaml_cls.model_validate(unstructured, extra="forbid")
+                return [(resource, [])]  # All good.
+            except ValidationError as forbid_errors:
+                try:
+                    # Fallback to allow extra.
+                    resource = yaml_cls.model_validate(unstructured, extra="ignore")
+                    return [(resource, [self._create_recommendation(forbid_errors)])]
+                except ValidationError:
+                    return [self._create_syntax_error(forbid_errors)]
+        elif isinstance(unstructured, list):
+            adapter = TypeAdapter[list[yaml_cls]](list[yaml_cls])
+            try:
+                resources = adapter.validate_python(unstructured)
+                return [(resource, []) for resource in resources]  # All good.
+            except ValidationError as forbid_errors:
+                try:
+                    # Fallback to allow extra.
+                    resources = adapter.validate_python(unstructured, extra="ignore")
+                    recommendation = self._create_recommendation(forbid_errors)
+                    # Todo: sort recommendation by resource if possible.
+                    return [(resource, [recommendation]) for resource in resources]
+                except ValidationError:
+                    return [self._create_syntax_error(forbid_errors)]
+        else:
+            raise NotImplementedError(
+                f"Unknown unstructured YAML content. Expected a dict or list of dicts. Got {type(unstructured)}"
+            )
+
+    def _create_recommendation(self, error: ValidationError) -> Recommendation:
+        # This is a quick implementation that just creates a generic recommendation for all errors. It should be extended to create more specific recommendations based on the error details.
+        errors = humanize_validation_error(error)
+        return Recommendation(
+            code="UNKNOWN-FIELDS",
+            message=f"The resource has unknown fields: {humanize_collection(errors)}",
+            fix="Remove the unknown fields from the resource definition, unless you know that they are supported by the API. "
+            "In that case, you can ignore this recommendation and proceed with the deployment. If you think these fields "
+            "should be supported, please reach out to the Toolkit team.",
+        )
+
+    def _create_syntax_error(self, error: ValidationError) -> ModelSyntaxError:
+        errors = humanize_validation_error(error)
+        return ModelSyntaxError(
+            code="MODEL-SYNTAX-ERROR",
+            message=f"The resource definition has syntax errors: {humanize_collection(errors)}",
+            fix="Make sure the resource YAML content is valid and follows the expected structure.",
+        )
 
     def _export_module(self, module: Module, build_dir: Path) -> list[Path]:
         build_dir.mkdir(parents=True, exist_ok=True)
