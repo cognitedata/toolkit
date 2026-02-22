@@ -32,8 +32,9 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     SuccessfulReadResource,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._plugins import NeatPlugin
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, MODULES
-from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME, ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
@@ -261,72 +262,74 @@ class BuildV2Command(ToolkitCommand):
                 continue
             class_by_kind = {crud_class.kind: crud_class for crud_class in crud_classes}
             for resource_file in resource_files:
-                if "." not in resource_file.stem:
-                    # Todo: Discussion error or silent ignore.
-                    #   Reason for error is in the case were the user do not set a kind and intends to.
-                    #   Reason for silently ignore is that the user for example has a YAML file as part of their
-                    #   function code, and it is not meant to be a resource file.
-                    # Todo: This will fail for kinds that just endswith the kind. This is often used for
-                    #   for example transformation schedules.
-                    continue
-                kind = resource_file.stem.rsplit(".", maxsplit=1)[-1]
-                crud_class = class_by_kind.get(kind)
-                if not crud_class:
-                    resources.append(
-                        self._create_failed_read_resource_for_invalid_kind(
-                            resource_file, kind, resource_folder, class_by_kind.keys()
-                        )
-                    )
-                    continue
-                error_or_string = self._read_resource_file(resource_file)
-                if isinstance(error_or_string, ModelSyntaxError):
-                    resources.append(FailedReadResource(source_path=resource_file, errors=[error_or_string]))
-                    continue
-                # Content read successfully.
-                if source.variables:
-                    substituted_content = self._substitute_variables_in_content(error_or_string, source.variables)
-                else:
-                    substituted_content = error_or_string
-
-                error_or_unstructured = self._parse_yaml_content(substituted_content)
-                if isinstance(error_or_unstructured, ModelSyntaxError):
-                    resources.append(FailedReadResource(source_path=resource_file, errors=[error_or_unstructured]))
-                    continue
-                file_hash = calculate_hash(error_or_string, shorten=True)
-
-                error_or_resources = self._create_resources_from_unstructured(
-                    error_or_unstructured, crud_class.yaml_cls
+                resources.extend(
+                    self._import_resource_file(resource_file, class_by_kind, source.variables, resource_folder)
                 )
-                resource_type = ResourceType(resource_folder=crud_class.folder_name, kind=crud_class.kind)
-                for error_or_resource in error_or_resources:
-                    if isinstance(error_or_resource, ModelSyntaxError):
-                        resources.append(FailedReadResource(source_path=resource_file, errors=[error_or_resource]))
-                    else:
-                        resource, recommendations = error_or_resource
-                        resources.append(
-                            SuccessfulReadResource(
-                                source_path=resource_file,
-                                resource=resource,
-                                source_hash=file_hash,
-                                resource_type=resource_type,
-                                insights=recommendations,
-                            )
-                        )
 
         return Module(source=source, resources=resources)
 
+    def _import_resource_file(
+        self,
+        resource_file: AbsoluteFilePath,
+        class_by_kind: dict[str, type[ResourceCRUD]],
+        variables: list[BuildVariable],
+        folder_name: str,
+    ) -> list[ReadResource]:
+        if "." not in resource_file.stem:
+            # Todo: Discussion error or silent ignore.
+            #   Reason for error is in the case were the user do not set a kind and intends to.
+            #   Reason for silently ignore is that the user for example has a YAML file as part of their
+            #   function code, and it is not meant to be a resource file.
+            # Todo: This will fail for kinds that just endswith the kind. This is often used for
+            #   for example transformation schedules.
+            return []
+        kind = resource_file.stem.rsplit(".", maxsplit=1)[-1]
+        crud_class = class_by_kind.get(kind)
+        if not crud_class:
+            error = self._create_failed_read_resource_for_invalid_kind(
+                resource_file, kind, folder_name, class_by_kind.keys()
+            )
+            return [FailedReadResource(source_path=resource_file, errors=[error])]
+        error_or_string = self._read_resource_file(resource_file)
+        if isinstance(error_or_string, ModelSyntaxError):
+            return [FailedReadResource(source_path=resource_file, errors=[error_or_string])]
+        # Content read successfully.
+        if variables:
+            substituted_content = self._substitute_variables_in_content(error_or_string, variables)
+        else:
+            substituted_content = error_or_string
+
+        error_or_unstructured = self._parse_yaml_content(substituted_content)
+        if isinstance(error_or_unstructured, ModelSyntaxError):
+            return [FailedReadResource(source_path=resource_file, errors=[error_or_unstructured])]
+        file_hash = calculate_hash(error_or_string, shorten=True)
+
+        error_or_resources = self._create_resources_from_unstructured(error_or_unstructured, crud_class.yaml_cls)
+        resource_type = ResourceType(resource_folder=crud_class.folder_name, kind=crud_class.kind)
+        resources: list[ReadResource] = []
+        for error_or_resource in error_or_resources:
+            if isinstance(error_or_resource, ModelSyntaxError):
+                resources.append(FailedReadResource(source_path=resource_file, errors=[error_or_resource]))
+            else:
+                resource, recommendations = error_or_resource
+                resources.append(
+                    SuccessfulReadResource(
+                        source_path=resource_file,
+                        resource=resource,
+                        source_hash=file_hash,
+                        resource_type=resource_type,
+                        insights=recommendations,
+                    )
+                )
+        return resources
+
     def _create_failed_read_resource_for_invalid_kind(
         self, resource_file: Path, kind: str, resource_folder: str, available_kinds: Iterable[str]
-    ) -> FailedReadResource:
-        return FailedReadResource(
-            source_path=resource_file,
-            errors=[
-                ModelSyntaxError(
-                    code="UNKNOWN-RESOURCE-KIND",
-                    message=f"Resource file '{resource_file.as_posix()!r}' has unknown resource kind '{kind}' for folder '{resource_folder}'",
-                    fix=f"Make sure the file name ends with a known resource kind for the folder. Expected kinds for folder '{resource_folder}' are: {humanize_collection(list(available_kinds))}",
-                )
-            ],
+    ) -> ModelSyntaxError:
+        return ModelSyntaxError(
+            code="UNKNOWN-RESOURCE-KIND",
+            message=f"Resource file '{resource_file.as_posix()!r}' has unknown resource kind '{kind}' for folder '{resource_folder}'",
+            fix=f"Make sure the file name ends with a known resource kind for the folder. Expected kinds for folder '{resource_folder}' are: {humanize_collection(list(available_kinds))}",
         )
 
     def _read_resource_file(self, resource_file: Path) -> str | ModelSyntaxError:
