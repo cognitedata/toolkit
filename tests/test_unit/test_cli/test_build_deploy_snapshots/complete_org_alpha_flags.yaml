@@ -191,7 +191,7 @@ InFieldCDMLocationConfigResponse:
         operations:
           instanceSpaces:
           - sp_operations_space
-        timeSeries:
+        timeseries:
           instanceSpaces:
           - sp_my_data_space
       dataStorage:
