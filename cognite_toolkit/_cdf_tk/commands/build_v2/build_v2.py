@@ -415,7 +415,7 @@ class BuildV2Command(ToolkitCommand):
             folder.mkdir(parents=True, exist_ok=True)
             resource_file = folder / f"resource_{resource.resource.as_id()!s}.{resource.resource_type.kind}.yaml"
             # Todo Move into Toolkit resource.
-            safe_write(resource_file, yaml_safe_dump(resource.model_dump(by_alias=True, exclude_unset=True)))
+            safe_write(resource_file, yaml_safe_dump(resource.resource.model_dump(by_alias=True, exclude_unset=True)))
             built_files.append(resource_file)
 
         # Todo: Store source path, source hash, ID, and so on for build_linage
