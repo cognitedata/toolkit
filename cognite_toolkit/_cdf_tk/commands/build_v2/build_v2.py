@@ -38,7 +38,7 @@ from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRU
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
-from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write
+from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, relative_to_if_possible, safe_read, yaml_safe_dump
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
@@ -245,6 +245,9 @@ class BuildV2Command(ToolkitCommand):
                 built_module.built_files = self._export_module(module, build_dir)
 
             built_module.insights.extend(module.insights)
+            for resource in module.resources:
+                if isinstance(resource, FailedReadResource):
+                    built_module.insights.extend(resource.errors)
             folder.built_modules.append(built_module)
 
         return folder
@@ -413,7 +416,10 @@ class BuildV2Command(ToolkitCommand):
                 continue
             folder = build_dir / resource.resource_type.resource_folder
             folder.mkdir(parents=True, exist_ok=True)
-            resource_file = folder / f"resource_{resource.resource.as_id()!s}.{resource.resource_type.kind}.yaml"
+            resource_file = (
+                folder
+                / f"resource_{sanitize_filename(str(resource.resource.as_id()))}.{resource.resource_type.kind}.yaml"
+            )
             # Todo Move into Toolkit resource.
             safe_write(resource_file, yaml_safe_dump(resource.resource.model_dump(by_alias=True, exclude_unset=True)))
             built_files.append(resource_file)
