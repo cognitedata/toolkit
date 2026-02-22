@@ -291,7 +291,9 @@ class BuildV2Command(ToolkitCommand):
                     continue
                 file_hash = calculate_hash(error_or_string, shorten=True)
 
-                error_or_resources = self._create_resources_from_unstructured(error_or_unstructured, crud_class)
+                error_or_resources = self._create_resources_from_unstructured(
+                    error_or_unstructured, crud_class.yaml_cls
+                )
                 resource_type = ResourceType(resource_folder=crud_class.folder_name, kind=crud_class.kind)
                 for error_or_resource in error_or_resources:
                     if isinstance(error_or_resource, ModelSyntaxError):
@@ -319,7 +321,7 @@ class BuildV2Command(ToolkitCommand):
                 ModelSyntaxError(
                     code="UNKNOWN-RESOURCE-KIND",
                     message=f"Resource file '{resource_file.as_posix()!r}' has unknown resource kind '{kind}' for folder '{resource_folder}'",
-                    fix=f"Make sure the file name ends with a known resource kind for the folder. Expected kinds for folder '{resource_folder}' are: {humanize_collection(available_kinds)}",
+                    fix=f"Make sure the file name ends with a known resource kind for the folder. Expected kinds for folder '{resource_folder}' are: {humanize_collection(list(available_kinds))}",
                 )
             ],
         )
@@ -364,7 +366,8 @@ class BuildV2Command(ToolkitCommand):
                 except ValidationError:
                     return [self._create_syntax_error(forbid_errors)]
         elif isinstance(unstructured, list):
-            adapter = TypeAdapter[list[yaml_cls]](list[yaml_cls])
+            # MyPy complains but this work.
+            adapter = TypeAdapter[list[yaml_cls]](list[yaml_cls])  # type: ignore[valid-type]
             try:
                 resources = adapter.validate_python(unstructured)
                 return [(resource, []) for resource in resources]  # All good.
@@ -405,14 +408,15 @@ class BuildV2Command(ToolkitCommand):
         build_dir.mkdir(parents=True, exist_ok=True)
 
         built_files: list[Path] = []
-        for resource_type, resources in module.resources_by_type.items():
-            folder = build_dir / resource_type.resource_folder
+        for resource in module.resources:
+            if not isinstance(resource, SuccessfulReadResource):
+                continue
+            folder = build_dir / resource.resource_type.resource_folder
             folder.mkdir(parents=True, exist_ok=True)
-            for index, resource in enumerate(resources, start=1):
-                resource_file = folder / f"resource_{index}.{resource_type.kind}.yaml"
-                # Todo Move into Toolkit resource.
-                safe_write(resource_file, yaml_safe_dump(resource.model_dump(by_alias=True, exclude_unset=True)))
-                built_files.append(resource_file)
+            resource_file = folder / f"resource_{resource.resource.as_id()!s}.{resource.resource_type.kind}.yaml"
+            # Todo Move into Toolkit resource.
+            safe_write(resource_file, yaml_safe_dump(resource.model_dump(by_alias=True, exclude_unset=True)))
+            built_files.append(resource_file)
 
         # Todo: Store source path, source hash, ID, and so on for build_linage
         return built_files

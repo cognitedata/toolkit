@@ -3,7 +3,7 @@ from pydantic import BaseModel, ConfigDict, DirectoryPath, Field
 from cognite_toolkit._cdf_tk.cruds import ResourceTypes
 from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
 
-from ._insights import ModelSyntaxError, Recommendation
+from ._insights import ConsistencyError, ModelSyntaxError, Recommendation
 from ._types import AbsoluteFilePath, RelativeDirPath
 
 
@@ -59,6 +59,7 @@ class Module(BaseModel):
 
     source: ModuleSource
     resources: list[ReadResource] = Field(default_factory=list)
+    insights: list[Recommendation | ConsistencyError] = Field(default_factory=list)
 
     @property
     def is_success(self) -> bool:
