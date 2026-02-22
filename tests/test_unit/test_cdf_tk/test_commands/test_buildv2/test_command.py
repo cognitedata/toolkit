@@ -15,12 +15,18 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ModelSyntaxError,
     Recommendation,
 )
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
+    BuildVariable,
+    FailedReadResource,
+    SuccessfulReadResource,
+)
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import SpaceCRUD
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
+from cognite_toolkit._cdf_tk.resource_classes.space import SpaceYAML
 
 BASE_URL = "http://neat.cognitedata.com"
 
@@ -376,3 +382,142 @@ class TestReadFileSystem:
 
         assert actual_errors == errors
         assert actual_selection == selection
+
+
+class TestImportResourceFile:
+    _SPACE = SpaceYAML(space="test")
+    _READ_ERR = ModelSyntaxError(code="READ_ERR", message="read failed")
+    _YAML_ERR = ModelSyntaxError(code="YAML_ERR", message="bad yaml")
+    _CREATE_ERR = ModelSyntaxError(code="CREATE_ERR", message="bad resource")
+
+    @pytest.mark.parametrize(
+        "stem, kind_in_dict, read_return, variables, parse_return, create_return, expected_types",
+        [
+            pytest.param(
+                "no_dot_stem",
+                False,
+                None,
+                [],
+                None,
+                None,
+                [],
+                id="no_dot_in_stem_returns_empty",
+            ),
+            pytest.param(
+                "file.unknown",
+                False,
+                None,
+                [],
+                None,
+                None,
+                [FailedReadResource],
+                id="unknown_kind",
+            ),
+            pytest.param(
+                "file.Space",
+                True,
+                _READ_ERR,
+                [],
+                None,
+                None,
+                [FailedReadResource],
+                id="file_read_error",
+            ),
+            pytest.param(
+                "file.Space",
+                True,
+                "content",
+                [],
+                _YAML_ERR,
+                None,
+                [FailedReadResource],
+                id="yaml_parse_error_without_variables",
+            ),
+            pytest.param(
+                "file.Space",
+                True,
+                "content",
+                [MagicMock(spec=BuildVariable)],
+                _YAML_ERR,
+                None,
+                [FailedReadResource],
+                id="yaml_parse_error_with_variables",
+            ),
+            pytest.param(
+                "file.Space",
+                True,
+                "content",
+                [],
+                {"space": "my_space"},
+                [(_SPACE, [])],
+                [SuccessfulReadResource],
+                id="successful_without_variables",
+            ),
+            pytest.param(
+                "file.Space",
+                True,
+                "content",
+                [MagicMock(spec=BuildVariable)],
+                {"space": "my_space"},
+                [(_SPACE, [])],
+                [SuccessfulReadResource],
+                id="successful_with_variables",
+            ),
+            pytest.param(
+                "file.Space",
+                True,
+                "content",
+                [],
+                {"space": "my_space"},
+                [_CREATE_ERR],
+                [FailedReadResource],
+                id="resource_creation_error",
+            ),
+            pytest.param(
+                "file.Space",
+                True,
+                "content",
+                [],
+                [{"space": "s1"}],
+                [(_SPACE, []), _CREATE_ERR],
+                [SuccessfulReadResource, FailedReadResource],
+                id="mixed_creation_results",
+            ),
+        ],
+    )
+    def test_import_resource_file(
+        self,
+        stem: str,
+        kind_in_dict: bool,
+        read_return: str | ModelSyntaxError | None,
+        variables: list[BuildVariable],
+        parse_return: dict | list | ModelSyntaxError | None,
+        create_return: list | None,
+        expected_types: list[type],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        cmd = BuildV2Command()
+
+        resource_file = MagicMock()
+        resource_file.stem = stem
+
+        mock_crud = MagicMock()
+        mock_crud.folder_name = "data_modeling"
+        mock_crud.kind = "Space"
+
+        kind = stem.rsplit(".", maxsplit=1)[-1] if "." in stem else None
+        class_by_kind = {kind: mock_crud} if kind_in_dict and kind else {}
+        folder_name = "data_modeling"
+
+        cmd._read_resource_file = MagicMock(return_value=read_return)
+        cmd._substitute_variables_in_content = MagicMock(return_value="substituted")
+        cmd._parse_yaml_content = MagicMock(return_value=parse_return)
+        cmd._create_resources_from_unstructured = MagicMock(return_value=create_return or [])
+        monkeypatch.setattr(
+            "cognite_toolkit._cdf_tk.commands.build_v2.build_v2.calculate_hash",
+            lambda *args, **kwargs: "abc123",
+        )
+
+        result = cmd._import_resource_file(resource_file, class_by_kind, variables, folder_name)
+
+        assert [type(r) for r in result] == expected_types
