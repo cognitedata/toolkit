@@ -599,9 +599,11 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "functionExternalId": "function_001",
         },
         StreamlitResponse: {
+            "id": 301,
             "externalId": "streamlit_001",
             "name": "My Streamlit App",
             "creator": "user@example.com",
+            "uploaded": True,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },

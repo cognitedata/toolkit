@@ -23,7 +23,7 @@ from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit
+from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
@@ -140,7 +140,7 @@ class TestFormatConsistency:
     ) -> None:
         loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
 
-        if loader.resource_cls in [TransformationResponse, FileMetadata, GraphQLDataModelResponse, Streamlit]:
+        if loader.resource_cls in [TransformationResponse, FileMetadata, GraphQLDataModelResponse, StreamlitResponse]:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
@@ -177,7 +177,7 @@ class TestFormatConsistency:
     ) -> None:
         loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
 
-        if loader.resource_cls in [TransformationResponse, FileMetadata, GraphQLDataModelResponse, Streamlit]:
+        if loader.resource_cls in [TransformationResponse, FileMetadata, GraphQLDataModelResponse, StreamlitResponse]:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")

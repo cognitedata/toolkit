@@ -315,27 +315,12 @@ FileCRUD:
   filehash: 6d889d00
   space: sp_complete_org_files
   type: node
-- external_id: myapp
-  filehash: c59dc2b6
 FileMetadata:
 - data_set_id: 13045366179566211942
   external_id: fn_first_function
   id: 64
   name: first_example_function.zip
   overwrite: true
-- dataSetId: 7982613576047462211
-  directory: /streamlit-apps/
-  externalId: myapp
-  metadata:
-    cdf-toolkit-app-hash: c59dc2b6
-    creator: doctrino@github.com
-    description: This is a super app
-    entrypoint: main.py
-    name: MySuperApp
-    published: true
-    theme: Light
-    thumbnail: data:image/webp;base64,....
-  name: MySuperApp-source.json
 FileMetadataResponse:
 - dataSetId: 7982613576047462211
   directory: /files
@@ -807,6 +792,20 @@ SpaceResponse:
 - space: sp_instance
 - space: sp_nodes
 - space: sp_schema
+StreamlitResponse:
+- dataSetId: 7982613576047462211
+  directory: /streamlit-apps/
+  externalId: myapp
+  metadata:
+    cdf-toolkit-app-hash: c59dc2b6
+    creator: doctrino@github.com
+    description: This is a super app
+    entrypoint: main.py
+    name: MySuperApp
+    published: 'true'
+    theme: Light
+    thumbnail: data:image/webp;base64,....
+  name: MySuperApp-source.json
 ThreeDModelClassicRequest:
 - dataSetId: 7982613576047462211
   metadata:

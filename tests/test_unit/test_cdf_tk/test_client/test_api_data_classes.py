@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any, Literal
 
 import pytest
@@ -5,7 +6,9 @@ import pytest
 from cognite_toolkit._cdf_tk.client._resource_base import UpdatableRequestResource
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from tests.test_unit.test_cdf_tk.test_client.data import CDFResource, iterate_cdf_resources
 
 
@@ -153,6 +156,64 @@ class TestAgentRequest:
         }
         agent_request = AgentRequest.model_validate(data)
         assert agent_request.dump() == data
+
+
+class TestStreamlit:
+    FILE_RESPONSE_DATA: Mapping[str, Any] = {
+        "id": 487285814928547,
+        "externalId": "myapp",
+        "name": "MySuperApp-source.json",
+        "directory": "/streamlit-apps/",
+        "metadata": {
+            "cdf-toolkit-app-hash": "c59dc2b6",
+            "creator": "doctrino@github.com",
+            "description": "This is a super app",
+            "entrypoint": "main.py",
+            "name": "MySuperApp",
+            "published": "true",
+            "theme": "Light",
+            "thumbnail": "data:image/webp;base64,....",
+        },
+        "dataSetId": 5816056366346276,
+        "uploaded": True,
+        "uploadedTime": 1742795130067,
+        "createdTime": 1731844296876,
+        "lastUpdatedTime": 1742795130237,
+    }
+
+    def test_api_serialization(self) -> None:
+        streamlit_response = StreamlitResponse.model_validate(self.FILE_RESPONSE_DATA)
+        filemetadata_response = FileMetadataResponse.model_validate(self.FILE_RESPONSE_DATA)
+
+        streamlit_request = streamlit_response.as_request_resource()
+        filemetadata_request = filemetadata_response.as_request_resource()
+
+        assert streamlit_request.dump() == filemetadata_request.dump(), (
+            "StreamlitRequest and FileMetadataRequest dumps should be the same"
+        )
+
+    def test_as_update(self) -> None:
+        request = StreamlitResponse.model_validate(self.FILE_RESPONSE_DATA).as_request_resource()
+
+        assert request.as_update(mode="replace") == {
+            "externalId": "myapp",
+            "update": {
+                "dataSetId": {"set": 5816056366346276},
+                "directory": {"set": "/streamlit-apps/"},
+                "metadata": {
+                    "set": {
+                        "cdf-toolkit-app-hash": "c59dc2b6",
+                        "creator": "doctrino@github.com",
+                        "description": "This is a super app",
+                        "entrypoint": "main.py",
+                        "name": "MySuperApp",
+                        "published": "true",
+                        "theme": "Light",
+                        "thumbnail": "data:image/webp;base64,....",
+                    }
+                },
+            },
+        }
 
 
 class TestGroupResponse:

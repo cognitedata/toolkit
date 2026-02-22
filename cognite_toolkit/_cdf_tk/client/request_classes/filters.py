@@ -4,6 +4,7 @@ from typing import Any, Literal
 from pydantic import ConfigDict, Field, JsonValue, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
+from cognite_toolkit._cdf_tk.client.resource_classes import streamlit_
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationStatus, AnnotationType
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId
@@ -43,6 +44,17 @@ class ClassicFilter(Filter):
             return None
         ids = id if isinstance(id, list) else [id]
         return [ExternalId(external_id=item) if isinstance(item, str) else InternalId(id=item) for item in ids]
+
+
+class StreamlitFilter(ClassicFilter):
+    creator: str | None = None
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        body = self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True, exclude={"creator"})
+        if self.creator is not None:
+            body["metadata"] = {"creator": self.creator}
+        body["directoryPrefix"] = streamlit_.STREAMLIT_DIRECTORY
+        return body
 
 
 class TransformationFilter(Filter):
