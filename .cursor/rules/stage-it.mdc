@@ -1,0 +1,19 @@
+---
+description: When the user says "stage it", stage all changes and present a clear diff for review before committing.
+alwaysApply: true
+---
+
+# Stage It
+
+When the user says **"stage it"**:
+
+## 1. Stage changes
+
+- Run `git add .` to stage all changes. **Never stage** `.cursor/` or other local-only files (exclude with `git reset HEAD .cursor/` if accidentally staged).
+
+## 2. Show changes for review
+
+- Run `git diff --cached --stat` to show a summary of changed files.
+- Run `git diff --cached` to show the full diff.
+- Present the changes clearly to the user and **wait for confirmation** before proceeding.
+- Do **not** commit or push — that is handled by "send it".
