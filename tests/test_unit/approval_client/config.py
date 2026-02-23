@@ -4,8 +4,6 @@ from cognite.client.data_classes import (
     Asset,
     AssetList,
     AssetWrite,
-    Database,
-    DatabaseList,
     Datapoints,
     DatapointsList,
     DatapointSubscription,
@@ -51,9 +49,6 @@ from cognite.client.data_classes import (
     SequenceRows,
     SequenceRowsList,
     SequenceWrite,
-    Table,
-    TableList,
-    TableWrite,
     ThreeDModel,
     ThreeDModelList,
     ThreeDModelWrite,
@@ -191,12 +186,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldLocationConfigResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import (
-    GraphQLDataModel,
-    GraphQLDataModelList,
-    GraphQLDataModelWrite,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawDatabase
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
     LocationFilterResponse,
@@ -330,28 +319,6 @@ API_RESOURCES = [
                 Method(api_class_method="retrieve", mock_class_method="return_values"),
                 Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
             ],
-        },
-    ),
-    APIResource(
-        api_name="raw.databases",
-        resource_cls=Database,
-        _write_cls=RawDatabase,
-        _list_cls=DatabaseList,
-        methods={
-            "create": [Method(api_class_method="create", mock_class_method="create_multiple")],
-            "retrieve": [Method(api_class_method="list", mock_class_method="return_values")],
-            "delete": [Method(api_class_method="delete", mock_class_method="delete_raw")],
-        },
-    ),
-    APIResource(
-        api_name="raw.tables",
-        resource_cls=Table,
-        _write_cls=TableWrite,
-        _list_cls=TableList,
-        methods={
-            "create": [Method(api_class_method="create", mock_class_method="create_raw_table")],
-            "retrieve": [Method(api_class_method="list", mock_class_method="return_values")],
-            "delete": [Method(api_class_method="delete", mock_class_method="delete_raw")],
         },
     ),
     APIResource(
@@ -652,15 +619,6 @@ API_RESOURCES = [
             "retrieve": [
                 Method(api_class_method="__iter__", mock_class_method="iterate_values"),
             ],
-        },
-    ),
-    APIResource(
-        api_name="dml",
-        resource_cls=GraphQLDataModel,
-        _list_cls=GraphQLDataModelList,
-        _write_cls=GraphQLDataModelWrite,
-        methods={
-            "create": [Method(api_class_method="apply_dml", mock_class_method="apply_dml")],
         },
     ),
     APIResource(

@@ -5,9 +5,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.dml import DMLAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFileMetadataAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
@@ -105,14 +103,13 @@ class ToolkitClient(CogniteClient):
         toolkit_config = ToolkitClientConfig.from_client_config(self.config)
         self.console = console or Console(markup=True)
         self.tool = ToolAPI(http_client, self.console)
-        self.dml = DMLAPI(self._config, self._API_VERSION, self)
+
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self, self.console)
         # self.data_modeling: ExtendedDataModelingAPI = ExtendedDataModelingAPI(self._config, self._API_VERSION, self)
         if enable_set_pending_ids:
             self.time_series: ExtendedTimeSeriesAPI = ExtendedTimeSeriesAPI(self._config, self._API_VERSION, self)
             self.files: ExtendedFileMetadataAPI = ExtendedFileMetadataAPI(self._config, self._API_VERSION, self)
-        self.raw: ExtendedRawAPI = ExtendedRawAPI(self._config, self._API_VERSION, self)
         self.canvas = CanvasAPI(self.data_modeling.instances)
         self.migration = MigrationAPI(self.data_modeling.instances, http_client)
         self.token = TokenAPI(self)
