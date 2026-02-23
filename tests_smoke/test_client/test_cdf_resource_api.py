@@ -109,6 +109,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.sequence import (
     SequenceResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicRequest,
@@ -394,6 +395,9 @@ def get_examples_minimum_requests(request_cls: type[RequestResource]) -> list[di
                 "columns": [SEQUENCE_COLUMN_ID],
                 "rows": [{"rowNumber": 1, "values": [37]}],
             }
+        ],
+        StreamlitRequest: [
+            {"externalId": "smoke-test-streamlit", "name": "Smoke Test Streamlit App", "creator": "doctrino"}
         ],
         StreamRequest: [
             {"externalId": "smoke-test-stream3", "settings": {"template": {"name": "ImmutableTestStream"}}}
