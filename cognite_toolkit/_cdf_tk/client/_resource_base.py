@@ -182,8 +182,8 @@ def _get_annotation_origin(field_type: Any) -> Any:
 
 
 class ResponseResource(BaseModelObject, Generic[T_RequestResource], ABC):
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def request_cls(cls) -> type[T_RequestResource]:
         """Return the class of the corresponding request resource."""
         raise NotImplementedError()
