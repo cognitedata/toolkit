@@ -21,8 +21,8 @@ class StreamlitFile(BaseModelObject):
     creator: str
     entrypoint: str | None = None
     description: str | None = None
-    published: bool = False
-    theme: Literal["Light", "Dark"] = "Light"
+    published: bool | None = None
+    theme: Literal["Light", "Dark"] | None = None
     thumbnail: str | None = None
     data_set_id: int | None = None
     cognite_toolkit_app_hash: str | None = Field(None, alias="cdf-toolkit-app-hash")

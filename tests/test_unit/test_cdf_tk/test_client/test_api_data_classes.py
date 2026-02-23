@@ -238,6 +238,7 @@ class TestGroupResponse:
                 }
             ],
             "id": 37,
+            "isDeleted": False,
         }
 
         GroupResponse.model_validate(data)

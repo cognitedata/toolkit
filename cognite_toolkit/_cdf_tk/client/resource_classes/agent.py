@@ -109,7 +109,7 @@ class Agent(BaseModelObject):
     name: str
     description: str | None = None
     instructions: str | None = None
-    model: str = "azure/gpt-4o-mini"
+    model: str | None = None
     tools: list[AgentTool] | None = None
 
     def as_id(self) -> ExternalId:

@@ -26,7 +26,7 @@ class BaseModelObject(BaseModel):
 
     def model_post_init(self, __context: Any) -> None:
         super().model_post_init(__context)
-        for field_name, field_info in self.model_fields.items():
+        for field_name, field_info in type(self).model_fields.items():
             if field_name in self.model_fields_set:
                 continue
             if field_info.default is PydanticUndefined:
@@ -178,6 +178,7 @@ class UpdatableRequestResource(RequestResource, ABC):
 def _is_optional(annotation: Any) -> bool:
     """Check if a type annotation includes None as a valid type."""
     origin = get_origin(annotation)
+    # Check for Union type (both typing.Union and | syntax from Python 3.10+)
     is_union = origin is Union or isinstance(annotation, getattr(types, "UnionType", ()))
     if is_union:
         return type(None) in get_args(annotation)
