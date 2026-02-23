@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     StringProfile,
     StringProfileColumn,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.transformation import QueryResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import SQLQueryResponse
 from cognite_toolkit._cdf_tk.commands import ProfileRawCommand
 from cognite_toolkit._cdf_tk.constants import MAX_ROW_ITERATION_RUN_QUERY
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -118,7 +118,7 @@ class TestProfileCommand:
         )
 
         toolkit_client_approval.mock_client.tool.raw.tables.profile.return_value = raw_profile_results_single_column
-        toolkit_client_approval.mock_client.tool.transformations.preview.return_value = QueryResponse(
+        toolkit_client_approval.mock_client.tool.transformations.preview.return_value = SQLQueryResponse(
             schema_=[], results=[{"row_count": row_count}]
         )
 

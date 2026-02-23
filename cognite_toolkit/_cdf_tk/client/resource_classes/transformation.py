@@ -155,7 +155,7 @@ class Column(BaseModelObject):
     nullable: bool
 
 
-class QueryResponse(BaseModelObject):
+class SQLQueryResponse(BaseModelObject):
     schema_: list[Column] = Field(..., alias="schema")
     results: list[dict[str, str | int | float | bool | None]]
 

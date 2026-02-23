@@ -24,7 +24,7 @@ from cognite.client.data_classes.labels import LabelDefinitionWriteList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawTableId
-from cognite_toolkit._cdf_tk.client.resource_classes.transformation import QueryResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import SQLQueryResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.constants import MAX_RUN_QUERY_FREQUENCY_MIN
 from cognite_toolkit._cdf_tk.exceptions import ToolkitThrottledError
@@ -410,7 +410,7 @@ class TestRawTableRowCount:
         before_last_call_epoch = 0.0
         with monkeypatch_toolkit_client() as client:
             client.config.project = project
-            client.tool.transformations.preview.return_value = QueryResponse(
+            client.tool.transformations.preview.return_value = SQLQueryResponse(
                 schema_=[], results=[{"row_count": len(raw_data)}]
             )
             raw_row_count(client, populated_raw_table)

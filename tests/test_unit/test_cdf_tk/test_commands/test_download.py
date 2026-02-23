@@ -2,7 +2,7 @@ from pathlib import Path
 
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetAggregateItem, AssetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.transformation import QueryResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import SQLQueryResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.storageio import AssetIO
@@ -33,7 +33,7 @@ class TestDownloadCommand:
 
             client.lookup.data_sets.id.return_value = 42
             client.lookup.data_sets.external_id.return_value = dataset
-            client.transformations.tool.preview.return_value = QueryResponse(
+            client.transformations.tool.preview.return_value = SQLQueryResponse(
                 schema_=[], results=[{"key": "key", "key_count": 1}]
             )
 

@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessR
 from cognite_toolkit._cdf_tk.client.request_classes.filters import TransformationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
-    QueryResponse,
+    SQLQueryResponse,
     TransformationRequest,
     TransformationResponse,
 )
@@ -99,7 +99,7 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
         source_limit: int | None = 100,
         infer_schema_limit: int | None = 10_000,
         timeout: float | None = DEFAULT_TIMEOUT_RUN_QUERY,
-    ) -> QueryResponse:
+    ) -> SQLQueryResponse:
         """`Preview the result of a query. <https://developer.cognite.com/api#tag/Query/operation/runPreview>`_
 
         Toolkit runs long-running queries that takes longer than the typical default of 30 seconds. In addition,
@@ -116,7 +116,7 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
             timeout (int | None): Number of seconds to wait before cancelling a query. The default, and maximum, is 240.
 
         Returns:
-            QueryResponse: Result of the executed query
+            SQLQueryResponse: Result of the executed query
         """
         body: dict[str, Any] = {
             "query": query,
@@ -137,11 +137,13 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
                 endpoint_url=self._http_client.config.create_api_url("/transformations/query/run"),
                 method="POST",
                 body_content=body,
-                client_timeout=timeout or (self.DEFAULT_TIMEOUT_RUN_QUERY + 60),  # add a buffer to the timeout
-                retry=False,
+                client_timeout=timeout
+                if timeout is not None
+                else (self.DEFAULT_TIMEOUT_RUN_QUERY + 60),  # add a buffer to the timeout
+                retry_status=False,
             )
         ).get_success_or_raise()
-        return QueryResponse.model_validate_json(response.body)
+        return SQLQueryResponse.model_validate_json(response.body)
 
     def paginate(
         self,
