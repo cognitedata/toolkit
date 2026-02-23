@@ -1,8 +1,7 @@
 from functools import lru_cache
 
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.project import ProjectStatusList
-from cognite_toolkit._cdf_tk.client.resource_classes.project import OrganizationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.project import OrganizationResponse, ProjectStatusList
 
 
 class ProjectAPI:
