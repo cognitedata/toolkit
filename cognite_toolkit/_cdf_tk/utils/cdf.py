@@ -300,7 +300,7 @@ def label_aggregate_count(client: ToolkitClient, data_sets: list[int] | None = N
 FROM
     _cdf.labels{where_clause}"""
 
-    results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
+    results = client.tool.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
         return int(results.results[0]["labelCount"])
     return 0

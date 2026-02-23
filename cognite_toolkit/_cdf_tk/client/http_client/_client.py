@@ -202,7 +202,7 @@ class HTTPClient:
                 body=response.text,
                 content=response.content,
             )
-        if retry_request := self._retry_request(response, request):
+        if request.retry and (retry_request := self._retry_request(response, request)):
             return retry_request
         else:
             # Permanent failure
