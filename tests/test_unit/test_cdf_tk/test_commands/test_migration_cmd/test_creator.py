@@ -211,4 +211,7 @@ class TestCreator:
                 for resource in to_create.resources:
                     output.setdefault(to_create.display_name, []).append(resource.config_data)
 
+                    # Ensure that the config is valid according to the YAML schema
+                    to_create.crud_cls.yaml_cls.model_validate(resource.config_data)
+
         data_regression.check(output)

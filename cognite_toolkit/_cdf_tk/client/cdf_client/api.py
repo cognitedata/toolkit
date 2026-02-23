@@ -347,7 +347,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
             )
             yield page.items
             total += len(page.items)
-            if page.next_cursor is None or (limit is not None and total >= limit):
+            if page.next_cursor is None or (limit is not None and total >= limit) or not page.items:
                 break
             next_cursor = page.next_cursor
 
