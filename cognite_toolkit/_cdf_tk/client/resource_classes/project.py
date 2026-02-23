@@ -1,9 +1,15 @@
+import sys
 from collections.abc import Iterator
-from typing import Literal, Self
+from typing import Literal
 
 from pydantic import RootModel
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 class UserProfilesConfiguration(BaseModelObject):
