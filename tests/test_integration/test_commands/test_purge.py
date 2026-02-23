@@ -134,6 +134,24 @@ def populated_dataset(toolkit_client: ToolkitClient) -> Iterable[PopulatedDataSe
     cleanup_populated_dataset(toolkit_client, populated)
 
 
+@pytest.fixture()
+def populated_datasets_2(toolkit_client: ToolkitClient) -> Iterable[PopulatedDataSet]:
+    populated2 = create_populated_dataset(
+        toolkit_client, name="toolkit_test_purge_dataset_2", external_id="toolkit_test_purge_dataset_2", no=2
+    )
+    yield populated2
+    cleanup_populated_dataset(toolkit_client, populated2)
+
+
+@pytest.fixture()
+def populated_datasets_3(toolkit_client: ToolkitClient) -> Iterable[PopulatedDataSet]:
+    populated3 = create_populated_dataset(
+        toolkit_client, name="toolkit_test_purge_dataset_3", external_id="toolkit_test_purge_dataset_3", no=3
+    )
+    yield populated3
+    cleanup_populated_dataset(toolkit_client, populated3)
+
+
 def create_populated_dataset(toolkit_client: ToolkitClient, name: str, external_id: str, no: int) -> PopulatedDataSet:
     client = toolkit_client
     dataset = DataSetWrite(name=name, external_id=external_id)
@@ -331,10 +349,10 @@ class TestPurge:
         assert client.extraction_pipelines.retrieve(external_id=populated.extraction_pipeline.external_id) is not None
 
     def test_purge_dataset_include_configurations(
-        self, toolkit_client: ToolkitClient, populated_dataset: PopulatedDataSet
+        self, toolkit_client: ToolkitClient, populated_datasets_2: PopulatedDataSet
     ) -> None:
         client = toolkit_client
-        populated = populated_dataset
+        populated = populated_datasets_2
         purge = PurgeCommand(silent=True)
 
         _ = purge.dataset(
@@ -364,9 +382,9 @@ class TestPurge:
         assert client.transformations.retrieve(external_id=populated.transformation.external_id) is None
         assert client.extraction_pipelines.retrieve(external_id=populated.extraction_pipeline.external_id) is None
 
-    def test_purge_dataset_dry_run(self, toolkit_client: ToolkitClient, populated_dataset: PopulatedDataSet) -> None:
+    def test_purge_dataset_dry_run(self, toolkit_client: ToolkitClient, populated_datasets_3: PopulatedDataSet) -> None:
         client = toolkit_client
-        populated = populated_dataset
+        populated = populated_datasets_3
         purge = PurgeCommand(silent=True)
 
         results = purge.dataset(
