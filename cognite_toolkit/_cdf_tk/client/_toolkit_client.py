@@ -5,7 +5,6 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.dml import DMLAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
@@ -105,7 +104,7 @@ class ToolkitClient(CogniteClient):
         toolkit_config = ToolkitClientConfig.from_client_config(self.config)
         self.console = console or Console(markup=True)
         self.tool = ToolAPI(http_client, self.console)
-        self.dml = DMLAPI(self._config, self._API_VERSION, self)
+
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self, self.console)
         # self.data_modeling: ExtendedDataModelingAPI = ExtendedDataModelingAPI(self._config, self._API_VERSION, self)

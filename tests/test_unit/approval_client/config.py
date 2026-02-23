@@ -191,11 +191,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldLocationConfigResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import (
-    GraphQLDataModel,
-    GraphQLDataModelList,
-    GraphQLDataModelWrite,
-)
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawDatabase
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
@@ -652,15 +647,6 @@ API_RESOURCES = [
             "retrieve": [
                 Method(api_class_method="__iter__", mock_class_method="iterate_values"),
             ],
-        },
-    ),
-    APIResource(
-        api_name="dml",
-        resource_cls=GraphQLDataModel,
-        _list_cls=GraphQLDataModelList,
-        _write_cls=GraphQLDataModelWrite,
-        methods={
-            "create": [Method(api_class_method="apply_dml", mock_class_method="apply_dml")],
         },
     ),
     APIResource(

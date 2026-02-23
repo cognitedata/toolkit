@@ -20,7 +20,6 @@ from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataMo
 from cognite_toolkit._cdf_tk.client.api.hosted_extractors import HostedExtractorsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI, IndustrialCanvasAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.dml import DMLAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
@@ -137,7 +136,6 @@ class ToolkitClientMock(CogniteClientMock):
 
         self.project = MagicMock(spec_set=ProjectAPI)
 
-        self.dml = MagicMock(spec_set=DMLAPI)
         self.lookup = MagicMock(spec=LookUpGroup)
         self.lookup.data_sets = MagicMock(spec_set=DataSetLookUpAPI)
         self.lookup.assets = MagicMock(spec_set=AssetLookUpAPI)
