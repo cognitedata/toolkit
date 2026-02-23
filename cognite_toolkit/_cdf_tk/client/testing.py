@@ -17,7 +17,6 @@ from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataMo
 from cognite_toolkit._cdf_tk.client.api.hosted_extractors import HostedExtractorsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI, IndustrialCanvasAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.dml import DMLAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawAPI, RawDatabasesAPI, RawTablesAPI
@@ -39,6 +38,7 @@ from .api.agents import AgentsAPI
 from .api.assets import AssetsAPI
 from .api.data_product_versions import DataProductVersionsAPI
 from .api.data_products import DataProductsAPI
+from .api.datapoint_subscription import DatapointSubscriptionsAPI
 from .api.datasets import DataSetsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
@@ -85,6 +85,7 @@ from .api.simulator_models import SimulatorModelsAPI
 from .api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
 from .api.simulator_routines import SimulatorRoutinesAPI
 from .api.simulators import SimulatorsAPI
+from .api.streamlit_ import StreamlitAPI
 from .api.streams import StreamsAPI
 from .api.three_d import (
     ThreeDAPI,
@@ -131,7 +132,6 @@ class ToolkitClientMock(CogniteClientMock):
 
         self.project = MagicMock(spec_set=ProjectAPI)
 
-        self.dml = MagicMock(spec_set=DMLAPI)
         self.lookup = MagicMock(spec=LookUpGroup)
         self.lookup.data_sets = MagicMock(spec_set=DataSetLookUpAPI)
         self.lookup.assets = MagicMock(spec_set=AssetLookUpAPI)
@@ -159,6 +159,7 @@ class ToolkitClientMock(CogniteClientMock):
 
         self.tool = MagicMock(spec=ToolAPI)
         self.tool.agents = MagicMock(spec=AgentsAPI)
+        self.tool.datapoint_subscriptions = MagicMock(spec=DatapointSubscriptionsAPI)
         self.tool.three_d = MagicMock(spec=ThreeDAPI)
         self.tool.three_d.models_classic = MagicMock(spec_set=ThreeDClassicModelsAPI)
         self.tool.three_d.revisions_classic = MagicMock(spec_set=ThreeDClassicRevisionsAPI)
@@ -209,6 +210,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.sequences = MagicMock(spec=SequencesAPI)
         self.tool.sequences.rows = MagicMock(spec_set=SequenceRowsAPI)
         self.tool.transformations = MagicMock(spec=TransformationsAPI)
+        self.tool.streamlit = MagicMock(spec=StreamlitAPI)
         self.tool.transformations.schedules = MagicMock(spec=TransformationSchedulesAPI)
         self.tool.transformations.notifications = MagicMock(spec=TransformationNotificationsAPI)
         self.tool.workflows = MagicMock(spec=WorkflowsAPI)

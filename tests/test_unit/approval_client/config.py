@@ -138,6 +138,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import
     DataProductVersionRequest,
     DataProductVersionResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (
+    DatapointSubscriptionRequest,
+    DatapointSubscriptionResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
@@ -182,11 +186,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldLocationConfigResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import (
-    GraphQLDataModel,
-    GraphQLDataModelList,
-    GraphQLDataModelWrite,
-)
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
     LocationFilterResponse,
@@ -237,6 +236,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
     SimulatorRoutineRevisionRequest,
     SimulatorRoutineRevisionResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest, StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicRequest,
@@ -619,15 +619,6 @@ API_RESOURCES = [
             "retrieve": [
                 Method(api_class_method="__iter__", mock_class_method="iterate_values"),
             ],
-        },
-    ),
-    APIResource(
-        api_name="dml",
-        resource_cls=GraphQLDataModel,
-        _list_cls=GraphQLDataModelList,
-        _write_cls=GraphQLDataModelWrite,
-        methods={
-            "create": [Method(api_class_method="apply_dml", mock_class_method="apply_dml")],
         },
     ),
     APIResource(
@@ -1251,6 +1242,17 @@ API_RESOURCES = [
         },
     ),
     APIResource(
+        api_name="tool.streamlit",
+        resource_cls=StreamlitResponse,
+        _write_cls=StreamlitRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+            ],
+        },
+    ),
+    APIResource(
         api_name="tool.functions",
         resource_cls=FunctionResponse,
         _write_cls=FunctionRequest,
@@ -1276,6 +1278,15 @@ API_RESOURCES = [
         api_name="tool.agents",
         resource_cls=AgentResponse,
         _write_cls=AgentRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [Method(api_class_method="retrieve", mock_class_method="retrieve")],
+        },
+    ),
+    APIResource(
+        api_name="tool.datapoint_subscriptions",
+        resource_cls=DatapointSubscriptionResponse,
+        _write_cls=DatapointSubscriptionRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [Method(api_class_method="retrieve", mock_class_method="retrieve")],
