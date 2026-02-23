@@ -44,7 +44,7 @@ class DataFilters(BaseModelResource):
     files: DataFilter | None = None
     assets: DataFilter | None = None
     operations: DataFilter | None = None
-    time_series: DataFilter | None = None
+    timeseries: DataFilter | None = None
     notifications: DataFilter | None = None
     maintenance_orders: DataFilter | None = None
 
@@ -71,6 +71,7 @@ class ViewMappings(BaseModelResource):
     operation: ViewMapping | None = None
     notification: ViewMapping | None = None
     maintenance_order: ViewMapping | None = None
+    file: ViewMapping | None = None
 
 
 class Discipline(BaseModelResource):
