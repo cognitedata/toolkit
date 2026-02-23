@@ -342,6 +342,7 @@ def test_pull_group(
             {"eventsAcl": {"actions": ["READ"], "scope": {"all": {}}}},
         ],
         id=123,
+        is_deleted=False,
     )
     toolkit_client_approval.append(GroupResponse, cdf_group)
 

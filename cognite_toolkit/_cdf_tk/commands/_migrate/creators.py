@@ -312,7 +312,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
             all_location_configs.extend(
                 CreatedResource(
                     resource=loc_config,
-                    config_data=loc_config.dump(context="toolkit"),
+                    config_data=loc_config.dump(context="toolkit", exclude={"instance_type"}),
                     filestem=f"{apm_config.external_id}_location_{loc_config.name}",
                 )
                 for loc_config in location_configs

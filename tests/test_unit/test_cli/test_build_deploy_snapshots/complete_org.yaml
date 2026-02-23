@@ -803,7 +803,6 @@ StreamlitResponse:
     entrypoint: main.py
     name: MySuperApp
     published: 'true'
-    theme: Light
     thumbnail: data:image/webp;base64,....
   name: MySuperApp-source.json
 ThreeDModelClassicRequest:

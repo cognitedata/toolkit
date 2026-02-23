@@ -1,6 +1,6 @@
 from typing import Any, Literal, TypeAlias
 
-from pydantic import Field, field_serializer, model_serializer
+from pydantic import Field, field_serializer
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 
@@ -9,11 +9,6 @@ from .identifiers import ExternalId
 
 class Disabled(BaseModelObject):
     enabled: Literal[False] = False
-
-    @model_serializer()
-    def serialize(self) -> dict[str, Any]:
-        # Always serialize as {"enabled": False}, even if model_dump(exclude_unset=True)
-        return {"enabled": False}
 
 
 class ScheduleConfig(BaseModelObject):
