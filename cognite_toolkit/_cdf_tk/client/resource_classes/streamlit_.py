@@ -53,9 +53,11 @@ class StreamlitRequest(StreamlitFile, UpdatableRequestResource):
         metadata: dict[str, str] = {
             "creator": self.creator,
             "name": self.name,
-            "published": str(self.published).lower(),
-            "theme": str(self.theme),
         }
+        if self.published is not None:
+            metadata["published"] = str(self.published).lower()
+        if self.theme is not None:
+            metadata["theme"] = str(self.theme)
         if self.description:
             metadata["description"] = self.description
         if self.thumbnail:

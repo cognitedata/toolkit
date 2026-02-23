@@ -449,18 +449,21 @@ def three_groups() -> list[GroupResponse]:
             name="Group A",
             source_id="123",
             capabilities=[{"timeSeriesAcl": {"actions": ["READ"], "scope": {"all": {}}}}],
+            is_deleted=False,
         ),
         GroupResponse(
             id=2,
             name="Group B",
             source_id="456",
             capabilities=[{"timeSeriesAcl": {"actions": ["WRITE"], "scope": {"all": {}}}}],
+            is_deleted=False,
         ),
         GroupResponse(
             id=3,
             name="Group C",
             source_id="789",
             capabilities=[{"timeSeriesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}}],
+            is_deleted=False,
         ),
     ]
 
