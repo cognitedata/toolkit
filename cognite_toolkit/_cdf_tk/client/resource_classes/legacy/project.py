@@ -1,9 +1,9 @@
 import sys
-from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Literal
 
-from cognite.client import CogniteClient
-from cognite.client.data_classes._base import CogniteResource, CogniteResourceList
+from pydantic import RootModel
+
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -11,31 +11,36 @@ else:
     from typing_extensions import Self
 
 
-@dataclass
-class ProjectStatus(CogniteResource):
+class ProjectStatus(BaseModelObject):
     """Project status information."""
 
     data_modeling_status: Literal["HYBRID", "DATA_MODELING_ONLY"]
     url_name: str
 
+
+class ProjectStatusList(RootModel[list[ProjectStatus]]):
+    root: list[ProjectStatus]
+    _project: str
+
+    def __iter__(self):
+        return iter(self.root)
+
+    def __len__(self) -> int:
+        return len(self.root)
+
+    def __getitem__(self, index: int) -> ProjectStatus:
+        return self.root[index]
+
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
-        return cls(
-            data_modeling_status=resource["dataModelingStatus"],
-            url_name=resource["urlName"],
-        )
-
-
-class ProjectStatusList(CogniteResourceList[ProjectStatus]):
-    """List of ProjectStatus items."""
-
-    _RESOURCE = ProjectStatus
+    def _load(cls, data: list[dict]) -> Self:
+        """Load from a list of dictionaries."""
+        return cls(root=[ProjectStatus._load(item) for item in data])
 
     @property
     def this_project(self) -> ProjectStatus:
         """Returns the ProjectStatus of the current project."""
-        project = self._cognite_client.config.project
-        for item in self:
-            if item.url_name == project:
+        for item in self.root:
+            if self._project == item.url_name:
                 return item
-        raise ValueError(f"Project '{project}' not found in the list of projects.")
+        raise ValueError(f"Project '{self._project}' not found in the list of projects.")
+

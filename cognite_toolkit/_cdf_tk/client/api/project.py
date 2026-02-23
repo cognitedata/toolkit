@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from cognite.client import CogniteClient
 
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
@@ -34,3 +36,8 @@ class ProjectAPI:
         )
         success = response.get_success_or_raise()
         return OrganizationResponse.model_validate_json(success.body)
+
+    @lru_cache(maxsize=1)
+    def organization_id(self) -> str:
+        """Retrieve the organization id of the current project."""
+        return self.organization().organization

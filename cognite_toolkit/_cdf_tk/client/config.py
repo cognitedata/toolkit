@@ -118,3 +118,13 @@ class ToolkitClientConfig(ClientConfig):
             endpoint = f"/{endpoint}"
         base_path = f"/apps/v1/projects/{self.project}{endpoint}"
         return urljoin(self.base_url, base_path)
+
+    def create_auth_url(self, endpoint: str) -> str:
+        """Create a full Auth URL for the given endpoint.
+
+        Args:
+            endpoint (str): The Auth endpoint to append to the base URL.
+        """
+        if not endpoint.startswith("/"):
+            endpoint = f"/{endpoint}"
+        return f"https://auth.cognite.com/api/v1{endpoint}"

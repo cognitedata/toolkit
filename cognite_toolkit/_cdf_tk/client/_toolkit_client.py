@@ -31,6 +31,7 @@ from .api.instances import InstancesAPI
 from .api.labels import LabelsAPI
 from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
+from .api.principals import PrincipalsAPI
 from .api.project import ProjectAPI
 from .api.raw import RawAPI
 from .api.relationships import RelationshipsAPI
@@ -114,6 +115,7 @@ class ToolkitClient(CogniteClient):
         self.token = TokenAPI(self)
         self.charts = ChartsAPI(self._config, self._API_VERSION, self)
         self.project = ProjectAPI(config=toolkit_config, cognite_client=self)
+        self.principals = PrincipalsAPI(config=toolkit_config, http_client=http_client, project_api=self.project)
         self.infield = InfieldAPI(http_client)
         self.streams = StreamsAPI(http_client)
 
