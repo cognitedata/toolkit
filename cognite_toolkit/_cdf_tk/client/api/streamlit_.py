@@ -54,7 +54,7 @@ class StreamlitAPI(CDFResourceAPI[ExternalId, StreamlitRequest, StreamlitRespons
         Returns:
             List of created StreamlitResponse objects.
         """
-        # The Streamlit API is a wrapper of the File API, which is different from other APIs, 
+        # The Streamlit API is a wrapper of the File API, which is different from other APIs,
         # thus we have a custom implementation here.
         # - It only allow one item per request that is not wrapped in an "items" field.
         # - It uses a query parameter for "overwrite" instead of including it in the body
