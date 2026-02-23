@@ -350,7 +350,8 @@ class BuildV2Command(ToolkitCommand):
             return read_yaml_content(content)
         except Exception as e:
             # Todo Look for variables not replaced in the content and add fix suggestion to the error.
-            #     Look for variables at an adjacent level in the YAML structure to give more specific suggestions.
+            #  Look for variables at an adjacent level in the YAML structure to give more specific suggestions.
+            #  Jira: CDF-27203
             return ModelSyntaxError(
                 code="YAML-PARSE-ERROR",
                 message=f"Failed to parse YAML content: {e!s}",
@@ -383,6 +384,7 @@ class BuildV2Command(ToolkitCommand):
                     resources = adapter.validate_python(unstructured, extra="ignore")
                     recommendation = self._create_recommendation(forbid_errors)
                     # Todo: sort recommendation by resource if possible.
+                    #    Jira: CDF-27204
                     return [(resource, [recommendation]) for resource in resources]
                 except ValidationError:
                     return [self._create_syntax_error(forbid_errors)]
