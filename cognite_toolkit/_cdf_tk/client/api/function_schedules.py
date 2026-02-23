@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
 
 
-class FunctionSchedulesAPI(CDFResourceAPI[InternalId, FunctionScheduleRequest, FunctionScheduleResponse]):
+class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
     """API for managing CDF function schedules.
 
     Note: Function schedules do not support update operations.

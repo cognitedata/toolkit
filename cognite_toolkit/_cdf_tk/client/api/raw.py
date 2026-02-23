@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
 )
 
 
-class RawDatabasesAPI(CDFResourceAPI[RawDatabaseId, RAWDatabaseRequest, RAWDatabaseResponse]):
+class RawDatabasesAPI(CDFResourceAPI[RAWDatabaseResponse]):
     """API for managing RAW databases in CDF.
 
     This API provides methods to create, list, and delete RAW databases.
@@ -97,7 +97,7 @@ class RawDatabasesAPI(CDFResourceAPI[RawDatabaseId, RAWDatabaseRequest, RAWDatab
         return self._list(limit=limit)
 
 
-class RawTablesAPI(CDFResourceAPI[RawTableId, RAWTableRequest, RAWTableResponse]):
+class RawTablesAPI(CDFResourceAPI[RAWTableResponse]):
     """API for managing RAW tables in CDF.
 
     This API provides methods to create, list, and delete RAW tables within a database.

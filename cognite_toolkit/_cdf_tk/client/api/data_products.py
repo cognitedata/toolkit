@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import External
 from .data_product_versions import DataProductVersionsAPI
 
 
-class DataProductsAPI(CDFResourceAPI[ExternalId, DataProductRequest, DataProductResponse]):
+class DataProductsAPI(CDFResourceAPI[DataProductResponse]):
     """API for managing CDF data products."""
 
     def __init__(self, http_client: HTTPClient) -> None:
