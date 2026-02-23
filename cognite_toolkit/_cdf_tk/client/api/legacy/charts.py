@@ -1,125 +1,86 @@
 from collections.abc import Sequence
-from typing import overload
-from urllib.parse import urljoin
+from typing import Any
 
-from cognite.client._api_client import APIClient
-from cognite.client.utils._identifier import IdentifierSequence
-from cognite.client.utils.useful_types import SequenceNotStr
-
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
+from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import (
-    Chart,
-    ChartList,
-    ChartWrite,
+    ChartRequest,
+    ChartResponse,
     Visibility,
 )
-from cognite_toolkit._cdf_tk.utils.collection import chunker
 
 
-class ChartsAPI(APIClient):
-    _RESOURCE_PATH = "/storage/charts/charts"
-
-    def _get_base_url_with_base_path(self) -> str:
-        """
-        This method is overridden to provide the correct base path for the Search Configurations API.
-        This method in base class APIClient appends /api/{api_version}/ to the base URL,
-        but for Charts API, we need a different path structure.
-        """
-        base_path = ""
-        if self._api_version:
-            base_path = f"/apps/{self._api_version}/projects/{self._config.project}"
-        return urljoin(self._config.base_url, base_path)
-
-    @overload
-    def upsert(self, items: ChartWrite) -> Chart: ...
-
-    @overload
-    def upsert(self, items: Sequence[ChartWrite]) -> ChartList: ...
-
-    def upsert(self, items: ChartWrite | Sequence[ChartWrite]) -> Chart | ChartList:
-        """Upsert one or more charts in CDF.
-
-        Args:
-            items (ChartWrite | Sequence[ChartWrite]): Chart(s) to upsert. Can be a single ChartWrite or a sequence of ChartWrite.
-
-        Returns:
-            Chart | ChartList: List of upserted charts if multiple items are provided, otherwise a single Chart.
-        """
-        item_sequence = items if isinstance(items, Sequence) else [items]
-        result = ChartList([])
-        # We are avoiding concurrency here as the Charts backend it not necessarily designed for it.
-        for chunk in chunker(item_sequence, self._CREATE_LIMIT):
-            body = {"items": [chunk_item.as_write().dump() for chunk_item in chunk]}
-            response = self._put(
-                url_path=self._RESOURCE_PATH,
-                json=body,
-            )
-            result.extend([Chart._load(item, cognite_client=self._cognite_client) for item in response.json()["items"]])
-
-        if not result:
-            raise ValueError("No charts were upserted. This may indicate an issue with the upsert endpoint.")
-
-        if isinstance(items, ChartWrite):
-            if len(result) != 1:
-                raise ValueError(
-                    "Expected a single chart to be returned, but multiple charts were returned. "
-                    "This may indicate an issue with the upsert operation."
-                )
-            return result[0]
-        elif len(result) != len(items):
-            raise ValueError(
-                "The number of upserted charts does not match the number of input charts. "
-                "This may indicate an issue with the upsert endpoint."
-            )
-        return result
-
-    @overload
-    def retrieve(self, external_id: str) -> Chart: ...
-
-    @overload
-    def retrieve(self, external_id: SequenceNotStr[str]) -> ChartList: ...
-
-    def retrieve(self, external_id: str | SequenceNotStr[str]) -> Chart | ChartList:
-        """Retrieve one or more charts by their external ID.
-
-        Args:
-            external_id (str | Sequence[str]): External ID(s) of the chart(s) to retrieve.
-
-        Returns:
-            Chart | ChartList: A single Chart if a single external ID is provided, otherwise a ChartList.
-        """
-        return self._retrieve_multiple(
-            list_cls=ChartList, resource_cls=Chart, identifiers=IdentifierSequence.load(external_ids=external_id)
+class ChartsAPI(CDFResourceAPI[ExternalId, ChartRequest, ChartResponse]):
+    def __init__(self, http_client: HTTPClient) -> None:
+        super().__init__(
+            http_client=http_client,
+            method_endpoint_map={
+                "create": Endpoint(
+                    method="PUT", path="/storage/charts/charts", item_limit=1000, concurrency_max_workers=1
+                ),
+                "retrieve": Endpoint(
+                    method="POST", path="/storage/charts/charts/byids", item_limit=1000, concurrency_max_workers=1
+                ),
+                "delete": Endpoint(
+                    method="POST", path="/storage/charts/charts/delete", item_limit=1000, concurrency_max_workers=1
+                ),
+                "list": Endpoint(method="POST", path="/storage/charts/charts/list", item_limit=1000),
+            },
         )
 
-    def delete(self, external_id: str | SequenceNotStr[str]) -> None:
-        """Delete one or more charts by their external ID.
+    def _make_url(self, path: str = "") -> str:
+        return self._http_client.config.create_app_url(path)
+
+    def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[ChartResponse]:
+        return PagedResponse[ChartResponse].model_validate_json(response.body)
+
+    def create(self, items: Sequence[ChartRequest]) -> list[ChartResponse]:
+        """Create charts in CDF.
 
         Args:
-            external_id (str | Sequence[str]): External ID(s) of the chart(s) to delete.
+            items: List of chart Request objects to create.
+        Returns:
+            List of created chart Response objects.
         """
-        self._delete_multiple(
-            identifiers=IdentifierSequence.load(external_ids=external_id),
-            wrap_ids=True,
-        )
+        return self._request_item_response(items, "create")
 
-    def list(self, visibility: Visibility | None = None, is_owned: bool | None = None) -> ChartList:
+    def retrieve(self, items: Sequence[ExternalId]) -> list[ChartResponse]:
+        """Retrieve charts from CDF by external ID.
+
+        Args:
+            items: List of ExternalId objects to retrieve.
+        Returns:
+            List of retrieved chart Response objects.
+        """
+        return self._request_item_response(items, "retrieve")
+
+    def delete(self, items: Sequence[ExternalId]) -> None:
+        """Delete charts from CDF by external ID.
+
+        Args:
+            items: List of ExternalId objects to delete.
+        """
+        self._request_no_response(items, "delete")
+
+    def list(
+        self, visibility: Visibility | None = None, is_owned: bool | None = None, limit: int = 100
+    ) -> list[ChartResponse]:
         """List charts based on visibility and ownership.
 
         Args:
-            visibility (Visibility): Visibility of the charts to list, either 'PUBLIC' or 'PRIVATE'.
-            is_owned (bool): Whether to list only owned charts.
-
+            visibility: Visibility of the charts to list, either 'PUBLIC' or 'PRIVATE'.
+            is_owned: Whether to list only owned charts.
         Returns:
-            ChartList: List of charts matching the criteria.
+            List of chart Response objects matching the criteria.
         """
-        filter_: dict[str, str | bool] = {}
-        if visibility is not None:
-            filter_["visibility"] = visibility.upper()
-        if is_owned is not None:
-            filter_["isOwned"] = is_owned
-
-        response = self._post(
-            url_path=self._RESOURCE_PATH + "/list",
-            json={"filter": filter_} if filter_ else {},
-        )
-        return ChartList._load(response.json()["items"], cognite_client=self._cognite_client)
+        body: dict[str, Any] = {}
+        if visibility is not None or is_owned is not None:
+            filter_: dict[str, str | bool] = {}
+            if visibility is not None:
+                filter_["visibility"] = visibility.upper()
+            if is_owned is not None:
+                filter_["isOwned"] = is_owned
+            body["filter"] = filter_
+        return self._list(body=body, limit=limit)

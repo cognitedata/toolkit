@@ -113,7 +113,7 @@ class ToolkitClient(CogniteClient):
         self.canvas = CanvasAPI(self.data_modeling.instances)
         self.migration = MigrationAPI(self.data_modeling.instances, http_client)
         self.token = TokenAPI(self)
-        self.charts = ChartsAPI(self._config, self._API_VERSION, self)
+        self.charts = ChartsAPI(http_client)
         self.project = ProjectAPI(config=toolkit_config, cognite_client=self)
         self.infield = InfieldAPI(http_client)
         self.streams = StreamsAPI(http_client)
