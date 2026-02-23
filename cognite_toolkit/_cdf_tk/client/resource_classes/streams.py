@@ -1,6 +1,5 @@
+import builtins
 from typing import Literal
-
-from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.constants import StreamTemplateName
@@ -55,11 +54,11 @@ class StreamResponse(Stream, ResponseResource[StreamRequest]):
 
     created_time: int
     created_from_template: StreamTemplateName
-    type_: Literal["Mutable", "Immutable"] = Field(alias="type")
+    type: Literal["Mutable", "Immutable"]
     settings: StreamSettings | None = None
 
     @classmethod
-    def request_cls(cls) -> type[StreamRequest]:
+    def request_cls(cls) -> builtins.type[StreamRequest]:
         return StreamRequest
 
     def as_request_resource(self) -> StreamRequest:
