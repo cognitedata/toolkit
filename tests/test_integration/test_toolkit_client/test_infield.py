@@ -1,16 +1,14 @@
-import time
-
 import pytest
 from cognite.client.data_classes.data_modeling import ContainerApply, Space, SpaceApply, ViewApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldCDMLocationConfigRequest,
     InFieldLocationConfigRequest,
 )
 from tests.data import INFIELD_CDM_LOCATION_CONFIG_CONTAINER_YAML, INFIELD_CDM_LOCATION_CONFIG_VIEW_YAML
 from tests.test_integration.constants import RUN_UNIQUE_ID
+from tests.test_integration.helpers import retry_on_deadlock
 
 
 class TestInfieldConfig:
@@ -35,7 +33,7 @@ class TestInfieldConfig:
             assert retrieved.data_exploration_config is not None
             assert retrieved.data_exploration_config.observations == {"enabled": True}
 
-            deleted = toolkit_client.infield.config.delete([config.as_id()])
+            deleted = retry_on_deadlock(lambda: toolkit_client.infield.config.delete([config.as_id()]))
             assert len(deleted) == 1
             retrieved_configs = toolkit_client.infield.config.retrieve([config.as_id()])
             assert len(retrieved_configs) == 0
@@ -81,15 +79,7 @@ class TestInFieldCDMConfig:
             assert len(retrieved_configs) == 1
             assert retrieved_configs[0].as_request_resource().dump() == config.dump()
 
-            try:
-                deleted = toolkit_client.infield.cdm_config.delete([config.as_id()])
-            except ToolkitAPIError as e:
-                if e.code == 409 and "deadlock" in e.message.lower():
-                    # Handle potential deadlock by retrying after a short delay
-                    time.sleep(10)
-                    deleted = toolkit_client.infield.cdm_config.delete([config.as_id()])
-                else:
-                    raise
+            deleted = retry_on_deadlock(lambda: toolkit_client.infield.cdm_config.delete([config.as_id()]))
             assert len(deleted) == 1, "Expected 1 config to be deleted (InField CDM location config)"
             retrieved_configs = toolkit_client.infield.cdm_config.retrieve([config.as_id()])
             assert len(retrieved_configs) == 0
