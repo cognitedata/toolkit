@@ -739,6 +739,40 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
         raise ValueError(f"No example response defined for {resource_cls}")
 
 
+def get_example_service_account_principal() -> dict[str, Any]:
+    return {
+        "id": "principal-sa-001",
+        "type": "SERVICE_ACCOUNT",
+        "name": "My Service Account",
+        "pictureUrl": "",
+        "description": "A test service account",
+        "externalId": "sa-ext-001",
+        "createdBy": {"orgId": "org-001", "userId": "admin@example.com"},
+        "createdTime": 1622547800000,
+        "lastUpdatedTime": 1622547800000,
+    }
+
+
+def get_example_user_principal() -> dict[str, Any]:
+    return {
+        "id": "principal-user-001",
+        "type": "USER",
+        "name": "Jane Doe",
+        "pictureUrl": "https://example.com/avatar.png",
+        "email": "jane@example.com",
+        "givenName": "Jane",
+        "familyName": "Doe",
+    }
+
+
+def get_example_login_session() -> dict[str, Any]:
+    return {
+        "id": "session-001",
+        "createdTime": 1622547800000,
+        "status": "ACTIVE",
+    }
+
+
 def iterate_cdf_resources() -> Iterable[tuple]:
     yield pytest.param(
         CDFResource(

@@ -1,4 +1,5 @@
 from typing import Any
+from unittest.mock import MagicMock
 
 import httpx
 import pytest
@@ -11,6 +12,7 @@ from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
+from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessionsAPI, PrincipalsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
@@ -32,8 +34,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
     GraphQLDataModelResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, PrincipalId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.principal import ServiceAccountPrincipal, UserPrincipal
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
@@ -49,7 +52,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
 from tests.test_unit.test_cdf_tk.test_client.data import (
     CDFResource,
+    get_example_login_session,
     get_example_minimum_responses,
+    get_example_service_account_principal,
+    get_example_user_principal,
     iterate_cdf_resources,
 )
 
@@ -770,3 +776,110 @@ class TestCDFResourceAPI:
         iterated = list(api.iterate())
         assert len(iterated) == 1
         assert iterated[0][0].dump() == resource
+
+    def test_principals_api_me_retrieve_list(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        org_id = "test-org"
+        sa_resource = get_example_service_account_principal()
+        user_resource = get_example_user_principal()
+        config = toolkit_config
+        client = HTTPClient(config)
+        project_api = MagicMock()
+        project_api.get_organization_id.return_value = org_id
+        api = PrincipalsAPI(client, project_api)
+
+        # Test me (service account)
+        respx_mock.get(config.create_auth_url("/principals/me")).mock(
+            return_value=httpx.Response(status_code=200, json=sa_resource)
+        )
+        me = api.me()
+        assert isinstance(me, ServiceAccountPrincipal)
+        assert me.id == sa_resource["id"]
+
+        # Test me (user principal)
+        respx_mock.get(config.create_auth_url("/principals/me")).mock(
+            return_value=httpx.Response(status_code=200, json=user_resource)
+        )
+        me_user = api.me()
+        assert isinstance(me_user, UserPrincipal)
+        assert me_user.id == user_resource["id"]
+
+        # Test retrieve
+        respx_mock.post(config.create_auth_url(f"/orgs/{org_id}/principals/byids")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [sa_resource]})
+        )
+        retrieved = api.retrieve([PrincipalId(id=sa_resource["id"])])
+        assert len(retrieved) == 1
+        assert retrieved[0].id == sa_resource["id"]
+
+        # Test list
+        respx_mock.get(config.create_auth_url(f"/orgs/{org_id}/principals")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [sa_resource, user_resource]})
+        )
+        listed = api.list(limit=10)
+        assert len(listed) == 2
+
+        # Test paginate
+        page = api.paginate(limit=10)
+        assert isinstance(page, PagedResponse)
+        assert len(page.items) == 2
+
+        # Test iterate
+        iterated = list(api.iterate(limit=10))
+        assert len(iterated) >= 1
+        items = [item for batch in iterated for item in batch]
+        assert len(items) == 2
+
+    def test_principals_api_list_with_types_filter(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        org_id = "test-org"
+        sa_resource = get_example_service_account_principal()
+        config = toolkit_config
+        client = HTTPClient(config)
+        project_api = MagicMock()
+        project_api.get_organization_id.return_value = org_id
+        api = PrincipalsAPI(client, project_api)
+
+        respx_mock.get(config.create_auth_url(f"/orgs/{org_id}/principals")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [sa_resource]})
+        )
+        listed = api.list(types=["SERVICE_ACCOUNT"], limit=10)
+        assert len(listed) == 1
+
+    def test_principal_login_sessions_api_list_paginate_iterate(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        org_id = "test-org"
+        principal_id = "principal-sa-001"
+        session_resource = get_example_login_session()
+        config = toolkit_config
+        client = HTTPClient(config)
+        project_api = MagicMock()
+        project_api.get_organization_id.return_value = org_id
+        api = PrincipalLoginSessionsAPI(client, project_api)
+
+        sessions_url = config.create_auth_url(f"/orgs/{org_id}/principals/{principal_id}/sessions")
+
+        # Test list
+        respx_mock.get(sessions_url).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [session_resource]})
+        )
+        listed = api.list(principal_id=principal_id, limit=10)
+        assert len(listed) == 1
+        assert listed[0].id == session_resource["id"]
+        assert listed[0].principal == principal_id
+
+        # Test paginate
+        page = api.paginate(principal_id=principal_id, limit=10)
+        assert isinstance(page, PagedResponse)
+        assert len(page.items) == 1
+        assert page.items[0].principal == principal_id
+
+        # Test iterate
+        iterated = list(api.iterate(principal_id=principal_id, limit=10))
+        assert len(iterated) >= 1
+        items = [item for batch in iterated for item in batch]
+        assert len(items) == 1
+        assert items[0].principal == principal_id
