@@ -99,7 +99,6 @@ class ToolkitClient(CogniteClient):
         super().__init__(config=config)
         http_client = HTTPClient(self.config, console=console)
         self.http_client = http_client
-        toolkit_config = ToolkitClientConfig.from_client_config(self.config)
         self.console = console or Console(markup=True)
         self.tool = ToolAPI(http_client, self.console)
         self.dml = DMLAPI(self._config, self._API_VERSION, self)
@@ -114,8 +113,8 @@ class ToolkitClient(CogniteClient):
         self.migration = MigrationAPI(self.data_modeling.instances, http_client)
         self.token = TokenAPI(self)
         self.charts = ChartsAPI(self._config, self._API_VERSION, self)
-        self.project = ProjectAPI(config=toolkit_config, cognite_client=self)
-        self.principals = PrincipalsAPI(config=toolkit_config, http_client=http_client, project_api=self.project)
+        self.project = ProjectAPI(http_client)
+        self.principals = PrincipalsAPI(http_client=http_client, project_api=self.project)
         self.infield = InfieldAPI(http_client)
         self.streams = StreamsAPI(http_client)
 

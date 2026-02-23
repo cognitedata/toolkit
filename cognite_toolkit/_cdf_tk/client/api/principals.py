@@ -4,27 +4,106 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Principals
 """
 
-from __future__ import annotations
-
-import builtins
-from collections.abc import Sequence
-from typing import Literal
+from collections.abc import Iterable, Sequence
 
 from pydantic import TypeAdapter
 
-from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
-from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
-from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
-from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
-    Principal,
-)
 from cognite_toolkit._cdf_tk.client.api.project import ProjectAPI
+from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
+from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
+    ExternalId,
+    PrincipalId,
+    PrincipalLoginId,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.principal import LoginSession, Principal, PrincipalType
+from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
-_PRINCIPAL_LIST_ADAPTER = TypeAdapter(list[Principal])
+
+class PrincipalLoginSessionsAPI(CDFResourceAPI[LoginSession]):
+    """API for the Cognite Principal Login Sessions endpoints.
+
+    This API is used to manage login sessions for principals. It is not project-scoped.
+    """
+
+    def __init__(self, http_client: HTTPClient, project_api: ProjectAPI) -> None:
+        self._rewoke = Endpoint(method="POST", path="/orgs/{org}/principals/{principal}/sessions/revoke", item_limit=10)
+        super().__init__(
+            http_client,
+            method_endpoint_map={
+                "list": Endpoint(method="GET", path="/orgs/{org}/principals/{principal}/sessions", item_limit=100),
+                # Misusing retrieve here to use the generic _request_item_response method.
+                "retrieve": self._rewoke,
+            },
+        )
+        self._project_api = project_api
+
+    def _make_url(self, path: str = "") -> str:
+        """Create the full URL for this resource endpoint."""
+        return self._http_client.config.create_auth_url(path)
+
+    def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[LoginSession]:
+        return PagedResponse[LoginSession].model_validate_json(response.body)
+
+    def revoke(self, items: list[PrincipalLoginId]) -> None:
+        """Revoke login sessions for a principal.
+
+        Args:
+            items: A list of PrincipalLoginId objects representing the sessions to revoke.
+        """
+        for principal, principal_items in self._group_items_by_text_field(items, "principal").items():
+            path = self._rewoke.path.format(org=self._project_api.get_organization_id(), principal=principal)
+            self._request_no_response(items, "retrieve", endpoint=path)
+
+    def paginate(self, principal_id: str, limit: int = 10, cursor: str | None = None) -> PagedResponse[LoginSession]:
+        """Paginate through all login sessions for a principal.
+
+        Args:
+            principal_id: The ID of the principal to list sessions for.
+            limit: The maximum number of items to return per page. Default is 10.
+        Returns:
+            A sequence of LoginSession objects.
+        """
+        path = self._method_endpoint_map["list"].path.format(
+            org=self._project_api.get_organization_id(), principal=principal_id
+        )
+        result = self._paginate(limit, cursor, endpoint_path=path)
+        for item in result.items:
+            item.principal = principal_id
+        return result
+
+    def iterate(
+        self, principal_id: str, limit: int | None = 10, cursor: str | None = None
+    ) -> Iterable[list[LoginSession]]:
+        """Iterate through all login sessions for a principal."""
+        endpoint_path = self._method_endpoint_map["list"].path.format(
+            org=self._project_api.get_organization_id(), principal=principal_id
+        )
+        for items in self._iterate(endpoint_path=endpoint_path, limit=limit, cursor=cursor):
+            for item in items:
+                item.principal = principal_id
+            yield items
+
+    def list(self, principal_id: str, limit: int | None = 10) -> list[LoginSession]:
+        """List login sessions for a principal.
+
+        Args:
+            principal_id: The ID of the principal to list sessions for.
+            limit: The maximum number of items to return. Default is 10.
+        Returns:
+            A list of LoginSession objects.
+        """
+        endpoint_path = self._method_endpoint_map["list"].path.format(
+            org=self._project_api.get_organization_id(), principal=principal_id
+        )
+        results = self._list(endpoint_path=endpoint_path, limit=limit)
+        for item in results:
+            item.principal = principal_id
+        return results
 
 
-class PrincipalsAPI():
+class PrincipalsAPI(CDFResourceAPI[Principal]):
     """API for the Cognite Principals endpoints.
 
     Unlike most CDF APIs, the Principals API is not project-scoped.
@@ -32,10 +111,23 @@ class PrincipalsAPI():
     endpoints use `/api/v1/orgs/{org}/principals/...`.
     """
 
-    def __init__(self, config: ToolkitClientConfig, http_client: HTTPClient, project_api: ProjectAPI) -> None:
-        self._config = config
-        self._http_client = http_client
+    def __init__(self, http_client: HTTPClient, project_api: ProjectAPI) -> None:
+        super().__init__(
+            http_client,
+            method_endpoint_map={
+                "list": Endpoint(method="GET", path="/orgs/{org}/principals", item_limit=100),
+                "retrieve": Endpoint(method="POST", path="/orgs/{org}/principals/byids", item_limit=100),
+            },
+        )
         self._project_api = project_api
+        self.login_sessions = PrincipalLoginSessionsAPI(http_client, project_api)
+
+    def _make_url(self, path: str = "") -> str:
+        """Create the full URL for this resource endpoint."""
+        return self._http_client.config.create_auth_url(path)
+
+    def _validate_page_response(self, response: SuccessResponse | ItemsSuccessResponse) -> PagedResponse[Principal]:
+        return PagedResponse[Principal].model_validate_json(response.body)
 
     def me(self) -> Principal:
         """Get the current caller's principal information.
@@ -45,195 +137,61 @@ class PrincipalsAPI():
         """
         response = self._http_client.request_single_retries(
             RequestMessage(
-                endpoint_url=self._config.create_auth_url("/principals/me"),
+                endpoint_url=self._http_client.config.create_auth_url("/principals/me"),
                 method="GET",
             )
         ).get_success_or_raise()
         return TypeAdapter(Principal).validate_json(response.body)
 
-    def list_all(
-        self,
-        org: str,
-        types: builtins.list[Literal["SERVICE_ACCOUNT", "USER"]] | None = None,
-    ) -> builtins.list[Principal]:
-        """List all principals in an organization, handling pagination automatically.
+    def retrieve(self, items: Sequence[PrincipalId | ExternalId], ignore_unknown_ids: bool = False) -> list[Principal]:
+        """Retrieve principals by their IDs or external IDs.
 
         Args:
-            org: ID of the organization.
-            types: Filter by principal types. If not specified, all types are included.
-
-        Returns:
-            A list of all principals in the organization.
+            items: A sequence of Principal or ExternalId objects to retrieve.
+            ignore_unknown_ids: If True, unknown IDs will be ignored and not cause an error. Default is False.
         """
-        all_items: builtins.list[Principal] = []
-        cursor: str | None = None
-        while True:
-            page = self.list(org=org, types=types, limit=100, cursor=cursor)
-            all_items.extend(page.items)
-            if page.next_cursor is None:
-                break
-            cursor = page.next_cursor
-        return all_items
-
-    def retrieve(
-        self,
-        org: str,
-        items: Sequence[PrincipalReference | PrincipalExternalIdReference],
-        ignore_unknown_ids: bool = False,
-    ) -> builtins.list[Principal]:
-        """Retrieve principals by ID or external ID.
-
-        Service accounts can be retrieved by ID or external ID.
-        Users can be retrieved by ID.
-
-        Args:
-            org: ID of the organization.
-            items: List of principal references (by ID or external ID).
-            ignore_unknown_ids: If True, IDs that do not match existing principals will be ignored.
-
-        Returns:
-            A list of matching principals.
-        """
-        body: dict[str, object] = {
-            "items": [item.dump() for item in items],
-        }
-        if ignore_unknown_ids:
-            body["ignoreUnknownIds"] = True
-
-        response = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=f"{self._base_url()}/api/v1/orgs/{org}/principals/byids",
-                method="POST",
-                body_content=body,  # type: ignore[arg-type]
-            )
+        path = self._method_endpoint_map["retrieve"].path.format(org=self._project_api.get_organization_id())
+        return self._request_item_response(
+            items, "retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}, endpoint=path
         )
-        success = response.get_success_or_raise()
-        body_json = success.body_json
-        return _PRINCIPAL_LIST_ADAPTER.validate_python(body_json.get("items", []))
 
-    def list_sessions(
-        self,
-        org: str,
-        principal: str,
-        limit: int = 100,
-        cursor: str | None = None,
-    ) -> PagedResponse[LoginSession]:
-        """List login sessions for a user principal.
+    def _create_list_parameters(self, types: list[PrincipalType] | None) -> dict[str, PrimitiveType] | None:
+        """Create the query parameters for the list endpoint."""
+        if types is None:
+            return None
+        return {"types": ",".join(types)}
 
-        This endpoint does not work for service account principals.
-
-        Args:
-            org: ID of the organization.
-            principal: ID of the principal.
-            limit: Maximum number of items to return (1-1000).
-            cursor: Cursor for paging through results.
-
-        Returns:
-            A paged response containing login sessions and an optional next cursor.
-        """
-        params: dict[str, PrimitiveType] = {"limit": limit}
-        if cursor is not None:
-            params["cursor"] = cursor
-
-        response = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=f"{self._base_url()}/api/v1/orgs/{org}/principals/{principal}/sessions",
-                method="GET",
-                parameters=params,
-            )
-        )
-        success = response.get_success_or_raise()
-        body = success.body_json
-        items = [LoginSession.model_validate(item) for item in body.get("items", [])]
-        next_cursor_obj = body.get("nextCursor")
-        next_cursor = next_cursor_obj.get("cursor") if isinstance(next_cursor_obj, dict) else None
-        return PagedResponse[LoginSession](items=items, nextCursor=next_cursor)
-
-    def list_all_sessions(
-        self,
-        org: str,
-        principal: str,
-    ) -> builtins.list[LoginSession]:
-        """List all login sessions for a user principal, handling pagination automatically.
-
-        Args:
-            org: ID of the organization.
-            principal: ID of the principal.
-
-        Returns:
-            A list of all login sessions for the principal.
-        """
-        all_items: builtins.list[LoginSession] = []
-        cursor: str | None = None
-        while True:
-            page = self.list_sessions(org=org, principal=principal, limit=1000, cursor=cursor)
-            all_items.extend(page.items)
-            if page.next_cursor is None:
-                break
-            cursor = page.next_cursor
-        return all_items
-
-    def revoke_sessions(
-        self,
-        org: str,
-        principal: str,
-        items: Sequence[LoginSessionReference],
-    ) -> None:
-        """Revoke login sessions for a user principal.
-
-        This endpoint is atomic: if revocation of any session fails, none are revoked.
-        Does not work for service account principals.
-
-        Args:
-            org: ID of the organization.
-            principal: ID of the principal.
-            items: List of login session references to revoke (max 10 per call).
-        """
-        for i in range(0, len(items), 10):
-            batch = items[i : i + 10]
-            response = self._http_client.request_single_retries(
-                RequestMessage(
-                    endpoint_url=f"{self._base_url()}/api/v1/orgs/{org}/principals/{principal}/sessions/revoke",
-                    method="POST",
-                    body_content={"items": [item.dump() for item in batch]},
-                )
-            )
-            response.get_success_or_raise()
-
-    def list(
-        self,
-        org: str,
-        types: builtins.list[Literal["SERVICE_ACCOUNT", "USER"]] | None = None,
-        limit: int = 100,
-        cursor: str | None = None,
+    def paginate(
+        self, types: list[PrincipalType] | None = None, limit: int = 10, cursor: str | None = None
     ) -> PagedResponse[Principal]:
-        """List principals in an organization.
+        """Paginate through all principals in the organization.
 
         Args:
-            org: ID of the organization.
-            types: Filter by principal types. If not specified, all types are included.
-            limit: Maximum number of items to return (1-100).
-            cursor: Cursor for paging through results.
+            limit: The maximum number of items to return per page. Default is 10.
 
         Returns:
-            A paged response containing the principals and an optional next cursor.
+            A sequence of Principal objects.
         """
-        params: dict[str, PrimitiveType] = {"limit": limit}
-        if cursor is not None:
-            params["cursor"] = cursor
-        if types is not None:
-            params["types"] = ",".join(types)
+        path = self._method_endpoint_map["list"].path.format(org=self._project_api.get_organization_id())
+        return self._paginate(limit, cursor, params=self._create_list_parameters(types), endpoint_path=path)
 
-        response = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=f"{self._base_url()}/api/v1/orgs/{org}/principals",
-                method="GET",
-                parameters=params,
-            )
+    def iterate(
+        self, types: list[PrincipalType] | None = None, limit: int | None = 10, cursor: str | None = None
+    ) -> Iterable[list[Principal]]:
+        """Iterate through all principals in the organization."""
+        endpoint_path = self._method_endpoint_map["list"].path.format(org=self._project_api.get_organization_id())
+        return self._iterate(
+            params=self._create_list_parameters(types), endpoint_path=endpoint_path, limit=limit, cursor=cursor
         )
-        success = response.get_success_or_raise()
-        body = success.body_json
-        items = _PRINCIPAL_LIST_ADAPTER.validate_python(body.get("items", []))
-        next_cursor_obj = body.get("nextCursor")
-        next_cursor = next_cursor_obj.get("cursor") if isinstance(next_cursor_obj, dict) else None
-        return PagedResponse[Principal](items=items, nextCursor=next_cursor)
+
+    def list(self, types: list[PrincipalType] | None = None, limit: int = 10) -> list[Principal]:
+        """List principals in the organization.
+
+        Args:
+            limit: The maximum number of items to return. Default is 10.
+
+        Returns:
+            A list of Principal objects.
+        """
+        endpoint_path = self._method_endpoint_map["list"].path.format(org=self._project_api.get_organization_id())
+        return self._list(params=self._create_list_parameters(types), endpoint_path=endpoint_path, limit=limit)

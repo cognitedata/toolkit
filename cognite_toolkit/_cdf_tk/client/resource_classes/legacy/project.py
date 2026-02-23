@@ -1,4 +1,5 @@
 import sys
+from collections.abc import Iterator
 from typing import Literal
 
 from pydantic import RootModel
@@ -22,7 +23,7 @@ class ProjectStatusList(RootModel[list[ProjectStatus]]):
     root: list[ProjectStatus]
     _project: str
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[ProjectStatus]:  # type: ignore[override]
         return iter(self.root)
 
     def __len__(self) -> int:
@@ -34,7 +35,7 @@ class ProjectStatusList(RootModel[list[ProjectStatus]]):
     @classmethod
     def _load(cls, data: list[dict]) -> Self:
         """Load from a list of dictionaries."""
-        return cls(root=[ProjectStatus._load(item) for item in data])
+        return cls(root=[ProjectStatus._load(item) for item in data], _project="")
 
     @property
     def this_project(self) -> ProjectStatus:
@@ -43,4 +44,3 @@ class ProjectStatusList(RootModel[list[ProjectStatus]]):
             if self._project == item.url_name:
                 return item
         raise ValueError(f"Project '{self._project}' not found in the list of projects.")
-

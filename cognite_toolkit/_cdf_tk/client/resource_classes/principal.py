@@ -3,12 +3,15 @@
 Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Principals
 """
+
 from abc import ABC
-from typing import Annotated, Literal
+from typing import Annotated, Literal, TypeAlias
 
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Identifier
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+
+PrincipalType: TypeAlias = Literal["SERVICE_ACCOUNT", "USER"]
 
 
 class CreatedBy(BaseModelObject):
@@ -46,8 +49,10 @@ Principal = Annotated[
 ]
 
 
-class PrincipalLoginSession(BaseModelObject):
+class LoginSession(BaseModelObject):
     id: str
     created_time: int
     status: Literal["ACTIVE", "LOGGED_OUT", "EXPIRED", "REVOKED"]
     deactivated_time: int | None = None
+    # This is not part of the API response, but we include it here to track which principal the session belongs to.
+    principal: str = Field("")
