@@ -2,7 +2,7 @@ import sys
 from collections.abc import Iterator
 from typing import Literal
 
-from pydantic import RootModel
+from pydantic import RootModel, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 
@@ -73,3 +73,10 @@ class ProjectStatusList(RootModel[list[ProjectStatus]]):
             if self._project == item.url_name:
                 return item
         raise ValueError(f"Project '{self._project}' not found in the list of projects.")
+
+    @model_validator(mode="before")
+    def move_item_to_root(cls, data: dict) -> dict:
+        """Move the list of projects from the 'projects' key to the root."""
+        if "items" in data:
+            return data["items"]
+        return data
