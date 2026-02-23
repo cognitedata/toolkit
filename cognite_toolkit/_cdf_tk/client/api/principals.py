@@ -28,13 +28,13 @@ class PrincipalLoginSessionsAPI(CDFResourceAPI[LoginSession]):
     """
 
     def __init__(self, http_client: HTTPClient, project_api: ProjectAPI) -> None:
-        self._rewoke = Endpoint(method="POST", path="/orgs/{org}/principals/{principal}/sessions/revoke", item_limit=10)
+        self._revoke = Endpoint(method="POST", path="/orgs/{org}/principals/{principal}/sessions/revoke", item_limit=10)
         super().__init__(
             http_client,
             method_endpoint_map={
                 "list": Endpoint(method="GET", path="/orgs/{org}/principals/{principal}/sessions", item_limit=100),
                 # Misusing retrieve here to use the generic _request_item_response method.
-                "retrieve": self._rewoke,
+                "retrieve": self._revoke,
             },
         )
         self._project_api = project_api
@@ -53,7 +53,7 @@ class PrincipalLoginSessionsAPI(CDFResourceAPI[LoginSession]):
             items: A list of PrincipalLoginId objects representing the sessions to revoke.
         """
         for principal, principal_items in self._group_items_by_text_field(items, "principal").items():
-            path = self._rewoke.path.format(org=self._project_api.get_organization_id(), principal=principal)
+            path = self._revoke.path.format(org=self._project_api.get_organization_id(), principal=principal)
             self._request_no_response(items, "retrieve", endpoint=path)
 
     def paginate(self, principal_id: str, limit: int = 10, cursor: str | None = None) -> PagedResponse[LoginSession]:

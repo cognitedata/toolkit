@@ -1768,5 +1768,5 @@ class TestCDFResourceAPI:
                 f"Retrieving login sessions for principal with identifier {identifier} failed: {e!s}",
             ) from None
 
-        # We do not test rewoke session as it would revoke the session used for testing and
+        # We do not test revoke session as it would revoke the session used for testing and
         # potentially cause issues for other tests.
