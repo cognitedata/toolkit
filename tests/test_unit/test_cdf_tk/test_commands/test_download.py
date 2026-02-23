@@ -33,7 +33,7 @@ class TestDownloadCommand:
 
             client.lookup.data_sets.id.return_value = 42
             client.lookup.data_sets.external_id.return_value = dataset
-            client.transformations.tool.preview.return_value = SQLQueryResponse(
+            client.tool.transformations.preview.return_value = SQLQueryResponse(
                 schema_=[], results=[{"key": "key", "key_count": 1}]
             )
 
