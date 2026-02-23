@@ -2,6 +2,10 @@
 
 **Date:** YYYY-MM-DD
 
+## What
+
+What is the context / background?
+
 ## Decision
 
 What did we decide?

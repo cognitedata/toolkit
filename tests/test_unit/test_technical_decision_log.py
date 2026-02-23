@@ -19,5 +19,6 @@ def test_decision_follows_format(decision_file: Path) -> None:
 
     assert re.match(r"^# TDL-\d{4}: .+", content), f"{decision_file.name} must start with '# TDL-XXXX: [title]'"
     assert "**Date:**" in content, f"{decision_file.name} must have a '**Date:**' field"
+    assert "## What" in content, f"{decision_file.name} must have a '## What' section"
     assert "## Decision" in content, f"{decision_file.name} must have a '## Decision' section"
     assert "## Why" in content, f"{decision_file.name} must have a '## Why' section"
