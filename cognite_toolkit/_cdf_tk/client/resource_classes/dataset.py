@@ -24,6 +24,7 @@ class DataSet(BaseModelObject):
 
 class DataSetRequest(DataSet, UpdatableRequestResource):
     container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"write_protected"})
 
 
 class DataSetResponse(DataSet, ResponseResource[DataSetRequest]):
