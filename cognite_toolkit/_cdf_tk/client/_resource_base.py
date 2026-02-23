@@ -64,6 +64,9 @@ class BaseModelObject(BaseModel):
         return cls._load(content)
 
 
+T_BaseModelObject = TypeVar("T_BaseModelObject", bound=BaseModelObject)
+
+
 class RequestItem(BaseModelObject, ABC):
     """A request item is any object that can be sent to the CDF API as part of a request."""
 
