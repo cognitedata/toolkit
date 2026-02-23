@@ -4,7 +4,6 @@ import pytest
 from cognite.client.data_classes import (
     Transformation,
     TransformationDestination,
-    TransformationPreviewResult,
 )
 from rich.spinner import Spinner
 
@@ -16,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     StringProfile,
     StringProfileColumn,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import QueryResponse
 from cognite_toolkit._cdf_tk.commands import ProfileRawCommand
 from cognite_toolkit._cdf_tk.constants import MAX_ROW_ITERATION_RUN_QUERY
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -118,8 +118,8 @@ class TestProfileCommand:
         )
 
         toolkit_client_approval.mock_client.tool.raw.tables.profile.return_value = raw_profile_results_single_column
-        toolkit_client_approval.mock_client.transformations.preview.return_value = TransformationPreviewResult(
-            results=[{"row_count": row_count}]
+        toolkit_client_approval.mock_client.tool.transformations.preview.return_value = QueryResponse(
+            schema_=[], results=[{"row_count": row_count}]
         )
 
         results = cmd.raw(toolkit_client_approval.client, "events")
@@ -129,4 +129,4 @@ class TestProfileCommand:
         cell = row[cmd.Columns.Rows]
         assert cell == f"≥{row_count:,}" or re.match(r"Throttled: Wait \d+ seconds", cell)
         assert row[cmd.Columns.Columns] == f"≥{raw_profile_results_single_column.column_count:,}"
-        assert toolkit_client_approval.mock_client.transformations.preview.call_count == 1
+        assert toolkit_client_approval.mock_client.tool.transformations.preview.call_count == 1
