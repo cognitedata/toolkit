@@ -129,6 +129,7 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
         if infer_schema_limit is not None:
             body["inferSchemaLimit"] = infer_schema_limit
         if timeout is not None:
+            # This is the server-side timeout for how long the query is allowed to run before it is cancelled.
             body["timeout"] = timeout
 
         response = self._http_client.request_single_retries(

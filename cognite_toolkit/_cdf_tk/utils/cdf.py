@@ -302,7 +302,8 @@ FROM
 
     results = client.tool.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
-        return int(results.results[0]["labelCount"])
+        # We know from the SQL that the result is a list of dictionaries with string keys and int values.
+        return int(results.results[0]["labelCount"])  # type: ignore[arg-type]
     return 0
 
 

@@ -157,7 +157,7 @@ class Column(BaseModelObject):
 
 class QueryResponse(BaseModelObject):
     schema_: list[Column] = Field(..., alias="schema")
-    results: list[dict[str, str]]
+    results: list[dict[str, str | int | float | bool | None]]
 
     @field_validator("schema_", "results", mode="before")
     def _remove_items_wrapper(cls, value: Any) -> Any:
