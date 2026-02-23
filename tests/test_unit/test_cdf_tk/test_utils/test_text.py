@@ -90,6 +90,7 @@ class TestFixInvalidSpaceName:
             ("123", "sp_123"),
             ("", "not_set"),
             ("1my_space", "sp_1my_space"),
+            ("!!!", "not_set"),
         ],
     )
     def test_fix_invalid_space_name(self, name: str, expected: str) -> None:
