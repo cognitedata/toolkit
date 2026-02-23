@@ -1,3 +1,4 @@
 externalId: baz
 description: A workflow for processing data
 dataSetExternalId: ds_complete_org
+maxConcurrentExecutions: 5

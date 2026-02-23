@@ -11,6 +11,7 @@ class Workflow(BaseModelObject):
     external_id: str
     description: str | None = None
     data_set_id: int | None = None
+    max_concurrent_executions: int | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)

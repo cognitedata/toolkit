@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import SpaceCRUD
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD, ViewCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
 
 BASE_URL = "http://neat.cognitedata.com"
@@ -92,6 +93,8 @@ def empty_cdf(
     return respx_mock
 
 
+WORKFLOW_YAML = """externalId: my_workflow"""
+
 SPACE_YAML = """space: my_space
 name: My Space
 """
@@ -137,6 +140,7 @@ class TestBuildCommand:
         space_file = create_resource_file(org, SpaceCRUD, SPACE_YAML)
         dm_file = create_resource_file(org, DataModelCRUD, DM_YAML)
         view_file = create_resource_file(org, ViewCRUD, VIEW_YAML)
+        _ = create_resource_file(org, WorkflowCRUD, WORKFLOW_YAML)
 
         build_dir = tmp_path / "build"
         parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
@@ -157,8 +161,20 @@ class TestBuildCommand:
         assert len(built_view) == 1
         assert built_view[0].read_text() == view_file.read_text()
 
-        assert len(folder.insights) == 8
+        assert len(folder.insights) == 10
         assert {Recommendation, ConsistencyError} == set(folder.insights.by_type().keys())
+        assert set(folder.insights.by_code().keys()) == {
+            "TOOLKIT-WORKFLOW-001",
+            "DUMMY_MODEL_RULE",
+            "NEAT-DMS-AI-READINESS-001",
+            "NEAT-DMS-AI-READINESS-002",
+            "NEAT-DMS-AI-READINESS-003",
+            "NEAT-DMS-AI-READINESS-004",
+            "NEAT-DMS-AI-READINESS-005",
+            "NEAT-DMS-AI-READINESS-006",
+            "NEAT-DMS-CONTAINER-001",
+            "NEAT-DMS-VIEW-001",
+        }
 
     def test_end_to_end_failed_build(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
         cmd = BuildV2Command()
