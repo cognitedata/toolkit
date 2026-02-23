@@ -1,7 +1,6 @@
 from typing import Annotated, Any, Literal
 
-from pydantic import BeforeValidator, Field, model_serializer
-from pydantic_core.core_schema import SerializerFunctionWrapHandler
+from pydantic import BeforeValidator, Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 
@@ -12,12 +11,6 @@ class AgentToolDefinition(BaseModelObject):
     type: str
     name: str
     description: str
-
-    @model_serializer(mode="wrap")
-    def serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
-        # Always serialize as {"type": self.type}, even if model_dump(exclude_unset=True)
-        serialized = handler(self)
-        return {"type": self.type, **serialized}
 
 
 class AskDocument(AgentToolDefinition):
@@ -116,7 +109,7 @@ class Agent(BaseModelObject):
     name: str
     description: str | None = None
     instructions: str | None = None
-    model: str = "azure/gpt-4o-mini"
+    model: str | None = None
     tools: list[AgentTool] | None = None
 
     def as_id(self) -> ExternalId:

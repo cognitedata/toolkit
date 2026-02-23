@@ -1,6 +1,6 @@
 import sys
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
+from collections.abc import Iterable, Set
 from typing import Any, ClassVar, Literal, TypeAlias, TypeVar
 
 from pydantic import model_validator
@@ -132,7 +132,11 @@ class WrappedInstanceRequest(RequestResource, ABC):
     existing_version: int | None = None
 
     def dump(
-        self, camel_case: bool = True, exclude_extra: bool = False, context: Literal["api", "toolkit"] = "api"
+        self,
+        camel_case: bool = True,
+        exclude_extra: bool = False,
+        context: Literal["api", "toolkit"] = "api",
+        exclude: Set[str] | None = None,
     ) -> dict[str, Any]:
         """Dump the resource to a dictionary.
 
@@ -142,12 +146,12 @@ class WrappedInstanceRequest(RequestResource, ABC):
             context (Literal["api", "toolkit"]): The context in which the dump is used. Default is "api".
 
         """
-        exclude: set[str] = set()
+        exclude_set = set(exclude or set())
         if exclude_extra:
-            exclude |= set(self.__pydantic_extra__) if self.__pydantic_extra__ else set()
+            exclude_set |= set(self.__pydantic_extra__) if self.__pydantic_extra__ else set()
         if context == "api":
-            exclude.update({"existing_version", "instance_type", "space", "external_id"})
-        dumped = self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True, exclude=exclude)
+            exclude_set.update({"existing_version", "instance_type", "space", "external_id"})
+        dumped = self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True, exclude=exclude_set)
         if context == "toolkit":
             return dumped
         return {
