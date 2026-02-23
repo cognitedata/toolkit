@@ -108,22 +108,14 @@ class InstanceSpaceCreator(MigrationCreator):
             raise ToolkitRequiredValueError(
                 f"Cannot create instance spaces for datasets with missing external IDs: {humanize_collection(missing_external_ids)}"
             )
+
+        space_id_by_dataset = self._resolve_space_ids()
+
         created_resources: list[CreatedResource[SpaceRequest]] = []
         linage_nodes: list[NodeRequest] = []
         for dataset in self.datasets:
-            # This is checked above
             data_set_external_id = cast(str, dataset.external_id)
-            warning_message = warn_invalid_space_name(data_set_external_id)
-            space_id = data_set_external_id
-            if warning_message and self.auto_fix:
-                space_id = fix_invalid_space_name(data_set_external_id)
-                LowSeverityWarning(
-                    f"{warning_message}\nAutomatically fixing space name to {space_id!r}."
-                ).print_warning(console=self.client.console)
-            elif warning_message:  # and not self.auto_fix
-                HighSeverityWarning(
-                    f"{warning_message}\nRun command with `--auto-fix` to automatically make the data set external ID a valid space ID."
-                ).print_warning(console=self.client.console)
+            space_id = space_id_by_dataset[data_set_external_id]
             space = SpaceRequest(
                 space=space_id,
                 name=dataset.name,
@@ -157,6 +149,47 @@ class InstanceSpaceCreator(MigrationCreator):
             display_name="Instance Space",
             store_linage=lambda: self.store_lineage(linage_nodes),
         )
+
+    def _resolve_space_ids(self) -> dict[str, str]:
+        """Compute the space ID for each dataset external ID, applying auto-fix if enabled.
+
+        Raises ToolkitMigrationError if multiple dataset external IDs resolve to the same space ID.
+        """
+        space_id_to_external_ids: dict[str, list[str]] = {}
+        result: dict[str, str] = {}
+
+        for dataset in self.datasets:
+            data_set_external_id = cast(str, dataset.external_id)
+            warning_message = warn_invalid_space_name(data_set_external_id)
+            space_id = data_set_external_id
+            if warning_message and self.auto_fix:
+                space_id = fix_invalid_space_name(data_set_external_id)
+                LowSeverityWarning(
+                    f"{warning_message}\nAutomatically fixing space name to {space_id!r}."
+                ).print_warning(console=self.client.console)
+            elif warning_message:
+                HighSeverityWarning(
+                    f"{warning_message}\nRun command with `--auto-fix` to automatically make the data set external ID a valid space ID."
+                ).print_warning(console=self.client.console)
+
+            result[data_set_external_id] = space_id
+            space_id_to_external_ids.setdefault(space_id, []).append(data_set_external_id)
+
+        duplicates = {
+            space_id: external_ids
+            for space_id, external_ids in space_id_to_external_ids.items()
+            if len(external_ids) > 1
+        }
+        if duplicates:
+            parts = [
+                f"  space {space_id!r} <- datasets {humanize_collection(ext_ids)}"
+                for space_id, ext_ids in duplicates.items()
+            ]
+            raise ToolkitMigrationError(
+                "Multiple dataset external IDs resolve to the same space ID:\n" + "\n".join(parts)
+            )
+
+        return result
 
     def store_lineage(self, lineage_nodes: Sequence[NodeRequest]) -> int:
         res = self.client.tool.instances.create(lineage_nodes)
