@@ -36,7 +36,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, PrincipalId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.principal import ServiceAccountPrincipal, UserPrincipal
+from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
+    LoginSession,
+    ServiceAccountPrincipal,
+    UserPrincipal,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
@@ -52,10 +56,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionResponse
 from tests.test_unit.test_cdf_tk.test_client.data import (
     CDFResource,
-    get_example_login_session,
     get_example_minimum_responses,
-    get_example_service_account_principal,
-    get_example_user_principal,
     iterate_cdf_resources,
 )
 
@@ -781,8 +782,8 @@ class TestCDFResourceAPI:
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
     ) -> None:
         org_id = "test-org"
-        sa_resource = get_example_service_account_principal()
-        user_resource = get_example_user_principal()
+        sa_resource = get_example_minimum_responses(ServiceAccountPrincipal)
+        user_resource = get_example_minimum_responses(UserPrincipal)
         config = toolkit_config
         client = HTTPClient(config)
         project_api = MagicMock()
@@ -835,7 +836,7 @@ class TestCDFResourceAPI:
         self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
     ) -> None:
         org_id = "test-org"
-        sa_resource = get_example_service_account_principal()
+        sa_resource = get_example_minimum_responses(ServiceAccountPrincipal)
         config = toolkit_config
         client = HTTPClient(config)
         project_api = MagicMock()
@@ -853,7 +854,7 @@ class TestCDFResourceAPI:
     ) -> None:
         org_id = "test-org"
         principal_id = "principal-sa-001"
-        session_resource = get_example_login_session()
+        session_resource = get_example_minimum_responses(LoginSession)
         config = toolkit_config
         client = HTTPClient(config)
         project_api = MagicMock()
