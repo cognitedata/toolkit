@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.creators import (
     SourceSystemCreator,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATION_MODEL, VIEWS
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitRequiredValueError
 from tests.data import MIGRATION_DIR
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -121,6 +121,35 @@ class TestCreator:
             assert created_space.space == "invaliddatasetnamewithspaces"
         else:
             assert created_space.space == "invalid dataset name with spaces"
+
+    def test_create_instance_spaces_duplicate_space_ids(
+        self, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
+    ) -> None:
+        toolkit_client_approval.append(DataModelResponse, COGNITE_MIGRATION_MODEL)
+        toolkit_client_approval.append(ViewResponse, VIEWS)
+
+        datasets = [
+            DataSetResponse(
+                id=1,
+                external_id="my.dataset",
+                name="Dataset dot",
+                description="Has a dot",
+                created_time=0,
+                last_updated_time=0,
+            ),
+            DataSetResponse(
+                id=2,
+                external_id="my dataset",
+                name="Dataset space",
+                description="Has a space",
+                created_time=0,
+                last_updated_time=0,
+            ),
+        ]
+
+        creator = InstanceSpaceCreator(toolkit_client_approval.client, datasets, auto_fix=True)
+        with pytest.raises(ToolkitMigrationError, match="Multiple dataset external IDs resolve to the same space ID"):
+            list(creator.create_resources())
 
     @pytest.mark.parametrize(
         "arguments",
