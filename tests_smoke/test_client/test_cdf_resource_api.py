@@ -1730,6 +1730,9 @@ class TestCDFResourceAPI:
         try:
             _ = client.principals.me()
         except ToolkitAPIError as e:
+            if e.code == 401:
+                # We have not authenticated with a CogIdp principal, which is required for these endpoints.
+                return
             raise EndpointAssertionError(
                 client.principals._me_endpoint.path, f"Retrieving 'me' principal failed. Error: {e!s}"
             ) from None
