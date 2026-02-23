@@ -82,5 +82,6 @@ class LocationFilterResponse(LocationFilter, ResponseResource[LocationFilterRequ
     last_updated_time: int
     locations: list["LocationFilterResponse"] | None = None
 
-    def as_request_resource(self) -> LocationFilterRequest:
-        return LocationFilterRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[LocationFilterRequest]:
+        return LocationFilterRequest

@@ -47,5 +47,6 @@ class DataProductResponse(DataProduct, ResponseResource[DataProductRequest]):
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> DataProductRequest:
-        return DataProductRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[DataProductRequest]:
+        return DataProductRequest

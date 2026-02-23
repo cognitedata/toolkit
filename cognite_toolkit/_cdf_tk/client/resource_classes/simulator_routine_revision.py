@@ -160,5 +160,6 @@ class SimulatorRoutineRevisionResponse(ResponseResource[SimulatorRoutineRevision
     data_set_id: int
     created_time: int
 
-    def as_request_resource(self) -> SimulatorRoutineRevisionRequest:
-        return SimulatorRoutineRevisionRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[SimulatorRoutineRevisionRequest]:
+        return SimulatorRoutineRevisionRequest

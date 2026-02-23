@@ -7,7 +7,7 @@ from typing import Annotated, Any, cast, get_args, get_origin
 import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, T_ResponseResource, ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
 from cognite_toolkit._cdf_tk.client.api.data_product_versions import DataProductVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
@@ -49,17 +49,19 @@ from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersion
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse, ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.request_classes.filters import SequenceRowFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest, APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    ContainerRequest,
-    DataModelRequest,
+    ContainerResponse,
+    DataModelResponse,
     EdgeRequest,
+    EdgeResponse,
     NodeRequest,
-    SpaceRequest,
-    ViewRequest, NodeResponse, EdgeResponse, SpaceResponse, ContainerResponse, ViewResponse, DataModelResponse,
+    NodeResponse,
+    SpaceResponse,
+    ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
@@ -67,27 +69,37 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import 
     ExtractionPipelineRequest,
     ExtractionPipelineResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config import ExtractionPipelineConfigRequest, \
-    ExtractionPipelineConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config import (
+    ExtractionPipelineConfigRequest,
+    ExtractionPipelineConfigResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleRequest, \
-    FunctionScheduleResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelRequest, \
-    GraphQLDataModelResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupRequest, GroupResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
-    HostedExtractorDestinationRequest, HostedExtractorDestinationResponse,
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
+    FunctionScheduleRequest,
+    FunctionScheduleResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import HostedExtractorJobRequest, \
-    HostedExtractorJobResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping import HostedExtractorMappingRequest, \
-    HostedExtractorMappingResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
+    GraphQLDataModelResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
+    HostedExtractorDestinationRequest,
+    HostedExtractorDestinationResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_job import (
+    HostedExtractorJobRequest,
+    HostedExtractorJobResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_mapping import (
+    HostedExtractorMappingResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
-    EventHubSourceRequest,
+    EventHubSourceResponse,
     KafkaSourceRequest,
-    MQTTSourceRequest,
-    RESTSourceRequest, KafkaSourceResponse, RESTSourceResponse, MQTTSourceResponse, EventHubSourceResponse,
+    KafkaSourceResponse,
+    MQTTSourceResponse,
+    RESTSourceResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
     ExtractionPipelineConfigId,
@@ -95,21 +107,31 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
     InternalIdUnwrapped,
     ThreeDModelRevisionId,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.infield import InFieldCDMLocationConfigRequest, \
-    InFieldCDMLocationConfigResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterRequest, \
-    LocationFilterResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
+    InFieldCDMLocationConfigRequest,
+    InFieldCDMLocationConfigResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
+    LocationFilterRequest,
+    LocationFilterResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
-    RAWTableRequest, RAWDatabaseResponse, RAWTableResponse,
+    RAWDatabaseResponse,
+    RAWTableRequest,
+    RAWTableResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest, \
-    ResourceViewMappingResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
+    ResourceViewMappingRequest,
+    ResourceViewMappingResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigRequest, SearchConfigResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import SecurityCategoryRequest, \
-    SecurityCategoryResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
+    SecurityCategoryRequest,
+    SecurityCategoryResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import (
     SequenceColumnRequest,
     SequenceRequest,
@@ -118,28 +140,39 @@ from cognite_toolkit._cdf_tk.client.resource_classes.sequence import (
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
-    AssetMappingClassicRequest,
-    AssetMappingDMRequest,
+    AssetMappingClassicResponse,
+    AssetMappingDMResponse,
     ThreeDModelClassicRequest,
-    ThreeDModelDMSRequest,
-    ThreeDRevisionClassicRequest, ThreeDModelClassicResponse, ThreeDRevisionClassicResponse,
-    AssetMappingClassicResponse, AssetMappingDMResponse,
+    ThreeDModelClassicResponse,
+    ThreeDRevisionClassicRequest,
+    ThreeDRevisionClassicResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
-    NonceCredentials as TransformationNonceCredentials, TransformationResponse,
+    NonceCredentials as TransformationNonceCredentials,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    TransformationRequest,
+    TransformationResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation_notification import (
-    TransformationNotificationRequest, TransformationNotificationResponse,
+    TransformationNotificationRequest,
+    TransformationNotificationResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule import TransformationScheduleRequest, \
-    TransformationScheduleResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule import (
+    TransformationScheduleRequest,
+    TransformationScheduleResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import NonceCredentials, WorkflowTriggerRequest, \
-    WorkflowTriggerResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionRequest, \
-    WorkflowVersionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
+    NonceCredentials,
+    WorkflowTriggerRequest,
+    WorkflowTriggerResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
+    WorkflowVersionRequest,
+    WorkflowVersionResponse,
+)
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from tests_smoke.constants import (
@@ -263,8 +296,6 @@ type SmokeTest {
   data: JSONObject!
 }
 """
-
-
 
 
 def get_examples_minimum_requests(request_cls: type[ResponseResource]) -> list[dict[str, Any]]:
@@ -698,11 +729,7 @@ class TestCDFResourceAPI:
         # Set up
         if "dataSetId" in example_data:
             example_data["dataSetId"] = smoke_dataset.id
-        request_cls = next(
-            (get_args(base)[0] for base in response_cls.__bases__ if get_origin(base) is ResponseResource),
-            None,
-        )
-
+        request_cls = response_cls.request_cls()
         request = request_cls.model_validate(example_data)
         try:
             id: Hashable | None = request.as_id()
@@ -752,10 +779,10 @@ class TestCDFResourceAPI:
     def test_classic_3D_model_and_revision_crudl(
         self, toolkit_client: ToolkitClient, three_d_file: FileMetadataResponse
     ) -> None:
-        model_example = get_examples_minimum_requests(ThreeDModelClassicRequest)[0]
+        model_example = get_examples_minimum_requests(ThreeDModelClassicResponse)[0]
         model_request = ThreeDModelClassicRequest.model_validate(model_example)
 
-        revision = get_examples_minimum_requests(ThreeDRevisionClassicRequest)[0]
+        revision = get_examples_minimum_requests(ThreeDRevisionClassicResponse)[0]
         revision_request = ThreeDRevisionClassicRequest.model_validate(revision)
         revision_request.file_id = three_d_file.id
 
@@ -836,8 +863,8 @@ class TestCDFResourceAPI:
     def test_raw_tables_and_databases_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
-        database_example = get_examples_minimum_requests(RAWDatabaseRequest)[0]
-        table_example = get_examples_minimum_requests(RAWTableRequest)[0]
+        database_example = get_examples_minimum_requests(RAWDatabaseResponse)[0]
+        table_example = get_examples_minimum_requests(RAWTableResponse)[0]
         db = RAWDatabaseRequest.model_validate(database_example)
         table = RAWTableRequest.model_validate(table_example)
 
@@ -888,7 +915,7 @@ class TestCDFResourceAPI:
 
     def test_datasets_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
-        dataset_example = get_examples_minimum_requests(DataSetRequest)[0]
+        dataset_example = get_examples_minimum_requests(DataSetResponse)[0]
         dataset_request = DataSetRequest.model_validate(dataset_example)
         identifier = dataset_request.as_id()
         # Retrieve
@@ -923,7 +950,7 @@ class TestCDFResourceAPI:
     def test_stream_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
-        stream_example = get_examples_minimum_requests(StreamRequest)[0]
+        stream_example = get_examples_minimum_requests(StreamResponse)[0]
         stream_request = StreamRequest.model_validate(stream_example)
         stream_id = stream_request.as_id()
 
@@ -954,15 +981,15 @@ class TestCDFResourceAPI:
     def test_hosted_extractors_crudl(self, toolkit_client: ToolkitClient, smoke_dataset: DataSetResponse) -> None:
         client = toolkit_client
 
-        source_example = get_examples_minimum_requests(KafkaSourceRequest)[0]
+        source_example = get_examples_minimum_requests(KafkaSourceResponse)[0]
         source_request = KafkaSourceRequest.model_validate(source_example)
         source_id = source_request.as_id()
 
-        dest_example = get_examples_minimum_requests(HostedExtractorDestinationRequest)[0]
+        dest_example = get_examples_minimum_requests(HostedExtractorDestinationResponse)[0]
         dest_request = HostedExtractorDestinationRequest.model_validate(dest_example)
         dest_id = dest_request.as_id()
 
-        job_example = get_examples_minimum_requests(HostedExtractorJobRequest)[0]
+        job_example = get_examples_minimum_requests(HostedExtractorJobResponse)[0]
         job_request = HostedExtractorJobRequest.model_validate(job_example)
         job_id = job_request.as_id()
 
@@ -1018,11 +1045,11 @@ class TestCDFResourceAPI:
     def test_instances_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
-        node_example = get_examples_minimum_requests(NodeRequest)[0]
+        node_example = get_examples_minimum_requests(NodeResponse)[0]
         node_request = NodeRequest.model_validate(node_example)
         node_id = node_request.as_id()
 
-        edge_example = get_examples_minimum_requests(EdgeRequest)[0]
+        edge_example = get_examples_minimum_requests(EdgeResponse)[0]
         edge_request = EdgeRequest.model_validate(edge_example)
         edge_id = edge_request.as_id()
 
@@ -1075,7 +1102,7 @@ class TestCDFResourceAPI:
     ) -> None:
         client = toolkit_client
 
-        example = get_examples_minimum_requests(ExtractionPipelineConfigRequest)[0]
+        example = get_examples_minimum_requests(ExtractionPipelineConfigResponse)[0]
         request = ExtractionPipelineConfigRequest.model_validate(example)
 
         method_map = client.tool.extraction_pipelines.configs._method_endpoint_map
@@ -1112,15 +1139,15 @@ class TestCDFResourceAPI:
     def test_workflow_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
-        workflow_example = get_examples_minimum_requests(WorkflowRequest)[0]
+        workflow_example = get_examples_minimum_requests(WorkflowResponse)[0]
         workflow_request = WorkflowRequest.model_validate(workflow_example)
         workflow_id = workflow_request.as_id()
 
-        workflow_version = get_examples_minimum_requests(WorkflowVersionRequest)[0]
+        workflow_version = get_examples_minimum_requests(WorkflowVersionResponse)[0]
         workflow_version_request = WorkflowVersionRequest.model_validate(workflow_version)
         workflow_version_id = workflow_version_request.as_id()
 
-        workflow_trigger = get_examples_minimum_requests(WorkflowTriggerRequest)[0]
+        workflow_trigger = get_examples_minimum_requests(WorkflowTriggerResponse)[0]
         workflow_trigger_request = WorkflowTriggerRequest.model_validate(workflow_trigger)
         workflow_trigger_id = workflow_trigger_request.as_id()
         workflow_trigger_request.authentication = NonceCredentials(
@@ -1192,7 +1219,7 @@ class TestCDFResourceAPI:
     def test_security_categories_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
-        security_category_example = get_examples_minimum_requests(SecurityCategoryRequest)[0]
+        security_category_example = get_examples_minimum_requests(SecurityCategoryResponse)[0]
         security_category_request = SecurityCategoryRequest.model_validate(security_category_example)
 
         # Cleanup any existing security categories with the same name
@@ -1225,7 +1252,7 @@ class TestCDFResourceAPI:
     def test_infield_cdm_location_config_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
-        location_config_example = get_examples_minimum_requests(InFieldCDMLocationConfigRequest)[0]
+        location_config_example = get_examples_minimum_requests(InFieldCDMLocationConfigResponse)[0]
         location_config_request = InFieldCDMLocationConfigRequest.model_validate(location_config_example)
         location_config_id = location_config_request.as_id()
 
@@ -1257,7 +1284,7 @@ class TestCDFResourceAPI:
     def test_apm_config_crudls(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
-        apm_config_example = get_examples_minimum_requests(APMConfigRequest)[0]
+        apm_config_example = get_examples_minimum_requests(APMConfigResponse)[0]
         apm_config_request = APMConfigRequest.model_validate(apm_config_example)
         apm_config_id = apm_config_request.as_id()
 
@@ -1289,7 +1316,7 @@ class TestCDFResourceAPI:
     def test_resource_view_mapping_crudls(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
-        mapping_example = get_examples_minimum_requests(ResourceViewMappingRequest)[0]
+        mapping_example = get_examples_minimum_requests(ResourceViewMappingResponse)[0]
         mapping_request = ResourceViewMappingRequest.model_validate(mapping_example)
         mapping_id = mapping_request.as_id()
 
@@ -1338,7 +1365,7 @@ class TestCDFResourceAPI:
     def test_cognite_file_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
-        file_example = get_examples_minimum_requests(CogniteFileRequest)[0]
+        file_example = get_examples_minimum_requests(CogniteFileResponse)[0]
         file_request = CogniteFileRequest.model_validate(file_example)
         file_id = file_request.as_id()
 
@@ -1372,7 +1399,7 @@ class TestCDFResourceAPI:
     def test_location_filter_crudls(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
-        example = get_examples_minimum_requests(LocationFilterRequest)[0]
+        example = get_examples_minimum_requests(LocationFilterResponse)[0]
         request = LocationFilterRequest.model_validate(example)
         location_filter_id: InternalId | None = None
         try:
@@ -1421,12 +1448,12 @@ class TestCDFResourceAPI:
     def test_function_crudls(self, toolkit_client: ToolkitClient, function_code: FileMetadataResponse) -> None:
         client = toolkit_client
 
-        function_example = get_examples_minimum_requests(FunctionRequest)[0]
+        function_example = get_examples_minimum_requests(FunctionResponse)[0]
         function_example["fileId"] = function_code.id
         function_request = FunctionRequest.model_validate(function_example)
         function_id = function_request.as_id()
 
-        schedule_example = get_examples_minimum_requests(FunctionScheduleRequest)[0]
+        schedule_example = get_examples_minimum_requests(FunctionScheduleResponse)[0]
         function_schedule_request = FunctionScheduleRequest.model_validate(schedule_example)
 
         schedule_id: InternalId | None = None
@@ -1505,7 +1532,7 @@ class TestCDFResourceAPI:
     def test_search_config_crudls(self, toolkit_client: ToolkitClient) -> None:
         # Search Config does not support delete.
         client = toolkit_client
-        search_config_example = get_examples_minimum_requests(SearchConfigRequest)[0]
+        search_config_example = get_examples_minimum_requests(SearchConfigResponse)[0]
         search_config_request = SearchConfigRequest.model_validate(search_config_example)
         search_config_id = search_config_request.as_id()
 
@@ -1534,7 +1561,7 @@ class TestCDFResourceAPI:
     def test_sequence_rows_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
-        sequence_rows_example = get_examples_minimum_requests(SequenceRowsRequest)[0]
+        sequence_rows_example = get_examples_minimum_requests(SequenceRowsResponse)[0]
         sequence_rows_request = SequenceRowsRequest.model_validate(sequence_rows_example)
         sequence_id = sequence_rows_request.as_id()
 
@@ -1574,12 +1601,12 @@ class TestCDFResourceAPI:
     def test_transformation_crudls(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
-        transformation_example = get_examples_minimum_requests(TransformationRequest)[0]
+        transformation_example = get_examples_minimum_requests(TransformationResponse)[0]
         transformation_request = TransformationRequest.model_validate(transformation_example)
         transformation_id = transformation_request.as_id()
-        schedule_example = get_examples_minimum_requests(TransformationScheduleRequest)[0]
+        schedule_example = get_examples_minimum_requests(TransformationScheduleResponse)[0]
         schedule_request = TransformationScheduleRequest.model_validate(schedule_example)
-        notification = get_examples_minimum_requests(TransformationNotificationRequest)[0]
+        notification = get_examples_minimum_requests(TransformationNotificationResponse)[0]
         notification_request = TransformationNotificationRequest.model_validate(notification)
         schedule_id: InternalId | None = None
         notification_id: InternalId | None = None

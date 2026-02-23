@@ -61,8 +61,9 @@ class ThreeDModelClassicResponse(ResponseResource[ThreeDModelClassicRequest]):
     space: str | None = None
     last_revision_info: RevisionStatus | None = None
 
-    def as_request_resource(self) -> ThreeDModelClassicRequest:
-        return ThreeDModelClassicRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[ThreeDModelClassicRequest]:
+        return ThreeDModelClassicRequest
 
     def as_id(self) -> InternalId:
         return InternalId(id=self.id)
@@ -127,6 +128,10 @@ class ThreeDRevisionClassicResponse(ResponseResource[ThreeDRevisionClassicReques
     # model_id is a path parameter, not returned in the API response body.
     model_id: int = Field(-1, exclude=True)
 
+    @classmethod
+    def request_cls(cls) -> type[ThreeDRevisionClassicRequest]:
+        return ThreeDRevisionClassicRequest
+
     def as_request_resource(self) -> ThreeDRevisionClassicRequest:
         dumped = self.dump()
         dumped["modelId"] = self.model_id
@@ -179,6 +184,10 @@ class AssetMappingClassicResponse(ResponseResource[AssetMappingClassicRequest]):
     model_id: int = Field(-1, exclude=True)
     revision_id: int = Field(-1, exclude=True)
 
+    @classmethod
+    def request_cls(cls) -> type[AssetMappingClassicRequest]:
+        return AssetMappingClassicRequest
+
     def as_request_resource(self) -> AssetMappingClassicRequest:
         return AssetMappingClassicRequest.model_validate(
             {**self.dump(), "modelId": self.model_id, "revisionId": self.revision_id}
@@ -193,6 +202,10 @@ class AssetMappingDMResponse(ResponseResource[AssetMappingDMRequest]):
     # These fields are part of the path request and response, but they are included here for convenience.
     model_id: int = Field(-1, exclude=True)
     revision_id: int = Field(-1, exclude=True)
+
+    @classmethod
+    def request_cls(cls) -> type[AssetMappingDMRequest]:
+        return AssetMappingDMRequest
 
     def as_request_resource(self) -> AssetMappingDMRequest:
         return AssetMappingDMRequest.model_validate(

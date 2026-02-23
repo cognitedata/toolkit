@@ -1,3 +1,4 @@
+import builtins
 from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
@@ -33,5 +34,6 @@ class MQTTSourceResponse(
     ca_certificate: CertificateResponse | None = None
     auth_certificate: CertificateResponse | None = None
 
-    def as_request_resource(self) -> MQTTSourceRequest:
-        return MQTTSourceRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> builtins.type[MQTTSourceRequest]:
+        return MQTTSourceRequest

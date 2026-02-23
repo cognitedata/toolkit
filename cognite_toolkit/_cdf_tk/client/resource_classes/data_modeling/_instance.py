@@ -1,3 +1,4 @@
+import builtins
 from abc import ABC
 from typing import Annotated, Any, Generic, Literal, TypeAlias
 
@@ -127,6 +128,10 @@ class NodeResponse(InstanceResponseDefinition[NodeRequest]):
     def as_id(self) -> TypedNodeIdentifier:
         return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
 
+    @classmethod
+    def request_cls(cls) -> builtins.type[NodeRequest]:
+        return NodeRequest
+
     def as_request_resource(self) -> NodeRequest:
         dumped = self.dump()
         if self.properties:
@@ -147,6 +152,10 @@ class EdgeResponse(InstanceResponseDefinition[EdgeRequest]):
 
     def as_id(self) -> TypedEdgeIdentifier:
         return TypedEdgeIdentifier(space=self.space, external_id=self.external_id)
+
+    @classmethod
+    def request_cls(cls) -> builtins.type[EdgeRequest]:
+        return EdgeRequest
 
     def as_request_resource(self) -> EdgeRequest:
         dumped = self.dump()

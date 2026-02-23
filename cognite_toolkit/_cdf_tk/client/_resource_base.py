@@ -188,10 +188,10 @@ class ResponseResource(BaseModelObject, Generic[T_RequestResource], ABC):
         """Return the class of the corresponding request resource."""
         raise NotImplementedError()
 
-    @abstractmethod
     def as_request_resource(self) -> T_RequestResource:
         """Convert the response resource to a request resource."""
-        raise NotImplementedError()
+        request_cls = self.request_cls()
+        return request_cls.model_validate(self.dump(), extra="ignore", by_alias=True)
 
     # Todo remove when CogniteClient data classes are completely removed from the codebase
     # and we only use the pydantic resource classes instead.from

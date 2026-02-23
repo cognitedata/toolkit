@@ -67,5 +67,6 @@ class StreamlitResponse(StreamlitFile, ResponseResource[StreamlitRequest]):
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> StreamlitRequest:
-        return StreamlitRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[StreamlitRequest]:
+        return StreamlitRequest

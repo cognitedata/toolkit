@@ -1,3 +1,4 @@
+import builtins
 from typing import Any, ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
@@ -48,5 +49,6 @@ class TimeSeriesResponse(TimeSeries, ResponseResource[TimeSeriesRequest]):
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> TimeSeriesRequest:
-        return TimeSeriesRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> builtins.type[TimeSeriesRequest]:
+        return TimeSeriesRequest

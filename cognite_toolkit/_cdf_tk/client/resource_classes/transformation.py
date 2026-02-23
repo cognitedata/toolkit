@@ -140,5 +140,6 @@ class TransformationResponse(Transformation, ResponseResource[TransformationRequ
     running_job: dict[str, JsonValue] | None = None
     schedule: dict[str, JsonValue] | None = None
 
-    def as_request_resource(self) -> TransformationRequest:
-        return TransformationRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[TransformationRequest]:
+        return TransformationRequest

@@ -44,8 +44,9 @@ class RAWDatabaseResponse(ResponseResource[RAWDatabaseRequest]):
     name: str
     created_time: int
 
-    def as_request_resource(self) -> RAWDatabaseRequest:
-        return RAWDatabaseRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[RAWDatabaseRequest]:
+        return RAWDatabaseRequest
 
     def as_id(self) -> RawDatabaseId:
         return RawDatabaseId(name=self.name)
@@ -84,6 +85,10 @@ class RAWTableResponse(ResponseResource[RAWTableRequest]):
     db_name: str = Field(default="", exclude=True)
     name: str
     created_time: int
+
+    @classmethod
+    def request_cls(cls) -> type[RAWTableRequest]:
+        return RAWTableRequest
 
     def as_request_resource(self) -> RAWTableRequest:
         dumped = {**self.dump(), "dbName": self.db_name}
