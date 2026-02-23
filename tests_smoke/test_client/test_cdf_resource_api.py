@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.api.infield import APMConfigAPI, InFieldCDMC
 from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI, WrappedInstancesAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.migration import ResourceViewMappingsAPI
+from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessionsAPI, PrincipalsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_capabilities import CapabilitiesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_data_postprocessing import DataPostProcessingAPI
@@ -248,6 +249,9 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # The dataproduct API is not yet supported in CDF.
         DataProductsAPI,
         DataProductVersionsAPI,
+        # No create methods
+        PrincipalsAPI,
+        PrincipalLoginSessionsAPI,
     }
 )
 
@@ -1718,3 +1722,48 @@ class TestCDFResourceAPI:
             if schedule_id is not None:
                 client.tool.transformations.schedules.delete([schedule_id], ignore_unknown_ids=True)
             client.tool.transformations.delete([transformation_id], ignore_unknown_ids=True)
+
+    def test_principals_crudls(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        # Retrieve "me" principal
+        try:
+            _ = client.principals.me()
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                client.principals._me_endpoint.path, f"Retrieving 'me' principal failed. Error: {e!s}"
+            ) from None
+
+        # List principals
+        list_endpoint = client.principals._method_endpoint_map["list"]
+        try:
+            listed_principals = client.principals.list(limit=1)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(list_endpoint.path, f"Listing principals failed: {e!s}")
+        if len(listed_principals) != 1:
+            raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed principal, got 0")
+
+        identifier = listed_principals[0].as_id()
+        try:
+            retrieved = client.principals.retrieve([identifier])
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                client.principals._method_endpoint_map["retrieve"].path,
+                f"Retrieving principal with identifier {identifier} failed: {e!s}",
+            ) from None
+        if len(retrieved) != 1 or retrieved[0].as_id() != identifier:
+            raise EndpointAssertionError(
+                client.principals._method_endpoint_map["retrieve"].path,
+                f"Expected to retrieve 1 principal with identifier {identifier}, got {len(retrieved)}",
+            )
+
+        try:
+            _ = client.principals.login_sessions.list(identifier.id)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                client.principals.login_sessions._method_endpoint_map["retrieve"].path,
+                f"Retrieving login sessions for principal with identifier {identifier} failed: {e!s}",
+            ) from None
+
+        # We do not test rewoke session as it would revoke the session used for testing and
+        # potentially cause issues for other tests.

@@ -119,6 +119,7 @@ class PrincipalsAPI(CDFResourceAPI[Principal]):
                 "retrieve": Endpoint(method="POST", path="/orgs/{org}/principals/byids", item_limit=100),
             },
         )
+        self._me_endpoint = Endpoint(method="GET", path="/principals/me", item_limit=1)
         self._project_api = project_api
         self.login_sessions = PrincipalLoginSessionsAPI(http_client, project_api)
 
@@ -137,8 +138,8 @@ class PrincipalsAPI(CDFResourceAPI[Principal]):
         """
         response = self._http_client.request_single_retries(
             RequestMessage(
-                endpoint_url=self._http_client.config.create_auth_url("/principals/me"),
-                method="GET",
+                endpoint_url=self._http_client.config.create_auth_url(self._me_endpoint.path),
+                method=self._me_endpoint.method,
             )
         ).get_success_or_raise()
         return TypeAdapter(Principal).validate_json(response.body)

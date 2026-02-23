@@ -10,6 +10,7 @@ from typing import Annotated, Literal, TypeAlias
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import PrincipalId
 
 PrincipalType: TypeAlias = Literal["SERVICE_ACCOUNT", "USER"]
 
@@ -24,6 +25,10 @@ class PrincipalDefinition(BaseModelObject, ABC):
     type: Literal["SERVICE_ACCOUNT", "USER"]
     name: str
     picture_url: str
+
+    def as_id(self) -> PrincipalId:
+        """Convert the principal definition to a PrincipalId."""
+        return PrincipalId(id=self.id)
 
 
 class ServiceAccountPrincipal(PrincipalDefinition):
