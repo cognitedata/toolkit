@@ -5,9 +5,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.dml import DMLAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFileMetadataAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
@@ -18,6 +16,7 @@ from .api.cognite_files import CogniteFilesAPI
 from .api.containers import ContainersAPI
 from .api.data_models import DataModelsAPI
 from .api.data_products import DataProductsAPI
+from .api.datapoint_subscription import DatapointSubscriptionsAPI
 from .api.datasets import DataSetsAPI
 from .api.events import EventsAPI
 from .api.extraction_pipelines import ExtractionPipelinesAPI
@@ -40,6 +39,7 @@ from .api.security_categories import SecurityCategoriesAPI
 from .api.sequences import SequencesAPI
 from .api.simulators import SimulatorsAPI
 from .api.spaces import SpacesAPI
+from .api.streamlit_ import StreamlitAPI
 from .api.streams import StreamsAPI
 from .api.three_d import ThreeDAPI
 from .api.timeseries import TimeSeriesAPI
@@ -60,6 +60,7 @@ class ToolAPI:
         self.assets = AssetsAPI(http_client)
         self.cognite_files = CogniteFilesAPI(http_client)
         self.datasets = DataSetsAPI(http_client)
+        self.datapoint_subscriptions = DatapointSubscriptionsAPI(http_client)
         self.events = EventsAPI(http_client)
         self.extraction_pipelines = ExtractionPipelinesAPI(http_client)
         self.functions = FunctionsAPI(http_client)
@@ -86,6 +87,7 @@ class ToolAPI:
         self.transformations = TransformationsAPI(http_client)
         self.workflows = WorkflowsAPI(http_client)
         self.data_products = DataProductsAPI(http_client)
+        self.streamlit = StreamlitAPI(http_client)
 
 
 class ToolkitClient(CogniteClient):
@@ -101,14 +103,13 @@ class ToolkitClient(CogniteClient):
         toolkit_config = ToolkitClientConfig.from_client_config(self.config)
         self.console = console or Console(markup=True)
         self.tool = ToolAPI(http_client, self.console)
-        self.dml = DMLAPI(self._config, self._API_VERSION, self)
+
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self, self.console)
         # self.data_modeling: ExtendedDataModelingAPI = ExtendedDataModelingAPI(self._config, self._API_VERSION, self)
         if enable_set_pending_ids:
             self.time_series: ExtendedTimeSeriesAPI = ExtendedTimeSeriesAPI(self._config, self._API_VERSION, self)
             self.files: ExtendedFileMetadataAPI = ExtendedFileMetadataAPI(self._config, self._API_VERSION, self)
-        self.raw: ExtendedRawAPI = ExtendedRawAPI(self._config, self._API_VERSION, self)
         self.canvas = CanvasAPI(self.data_modeling.instances)
         self.migration = MigrationAPI(self.data_modeling.instances, http_client)
         self.token = TokenAPI(self)

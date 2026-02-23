@@ -7,7 +7,7 @@ import typer
 from questionary import Choice
 from rich import print
 
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawTableId
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -200,25 +200,25 @@ class DownloadApp(typer.Typer):
         cmd = DownloadCommand(client=client)
 
         if tables and database:
-            selectors = [RawTable(db_name=database, table_name=table) for table in tables]
+            selected_tables = [RawTableId(db_name=database, name=table) for table in tables]
         elif tables and not database:
             raise typer.BadParameter(
                 "The '--database' option is required when specifying tables as arguments.",
                 param_hint="--database",
             )
         elif not tables and database:
-            selectors = RawTableInteractiveSelect(client, "download").select_tables(database=database)
+            selected_tables = RawTableInteractiveSelect(client, "download").select_tables(database=database)
         else:
-            selectors = RawTableInteractiveSelect(client, "download").select_tables()
+            selected_tables = RawTableInteractiveSelect(client, "download").select_tables()
 
         cmd.run(
             lambda: cmd.download(
                 selectors=[
                     RawTableSelector(
-                        table=SelectedTable(db_name=item.db_name, table_name=item.table_name),
+                        table=SelectedTable(db_name=item.db_name, table_name=item.name),
                         download_dir_name=item.db_name,
                     )
-                    for item in selectors
+                    for item in selected_tables
                 ],
                 io=RawIO(client),
                 output_dir=output_dir,

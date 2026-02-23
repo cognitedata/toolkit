@@ -17,7 +17,7 @@ from filelock import BaseFileLock, FileLock, Timeout
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawTableId
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, MAX_ROW_ITERATION_RUN_QUERY, MAX_RUN_QUERY_FREQUENCY_MIN
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
@@ -112,17 +112,17 @@ def read_auth(
         return ClientCredentials(authentication["clientId"], authentication["clientSecret"])
 
 
-def get_transformation_sources(query: str) -> list[RawTable | str]:
+def get_transformation_sources(query: str) -> list[RawTableId | str]:
     """Search the SQL query for source tables."""
     parser = SQLParser(query, operation="Lookup transformation source")
     parser.parse()
 
-    tables: list[RawTable | str] = []
+    tables: list[RawTableId | str] = []
     for table in parser.sources:
         if table.schema == "_cdf":
             tables.append(table.name)
         else:
-            tables.append(RawTable(db_name=table.schema, table_name=table.name))
+            tables.append(RawTableId(db_name=table.schema, name=table.name))
     return tables
 
 
@@ -380,7 +380,7 @@ _STATE_LOCK = RLock()
 _STATE_BY_PROJECT: dict[str, ThrottlerState] = {}
 
 
-def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int = MAX_ROW_ITERATION_RUN_QUERY) -> int:
+def raw_row_count(client: ToolkitClient, raw_table_id: RawTableId, max_count: int = MAX_ROW_ITERATION_RUN_QUERY) -> int:
     """Get the number of rows in a raw table.
 
     Args:
@@ -403,7 +403,7 @@ def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int 
     query = f"""SELECT COUNT(key) AS row_count
 FROM (
     SELECT key
-    FROM `{raw_table_id.db_name}`.`{raw_table_id.table_name}`
+    FROM `{raw_table_id.db_name}`.`{raw_table_id.name}`
     LIMIT {max_count}
 ) AS limited_keys"""
 

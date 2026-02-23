@@ -130,6 +130,15 @@ class MigrateApp(typer.Typer):
                 "interactive selection will be performed to select the data sets to create Instance Spaces for."
             ),
         ] = None,
+        auto_fix: Annotated[
+            bool,
+            typer.Option(
+                "--auto-fix",
+                "-a",
+                help="If set, the command will try to make the data set external ID a valid space identifier,"
+                "if it is not already.",
+            ),
+        ] = False,
         output_dir: Annotated[
             Path,
             typer.Option(
@@ -174,7 +183,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.create(
                 client,
-                creator=InstanceSpaceCreator(client, data_set_external_ids=data_set),
+                creator=InstanceSpaceCreator(client, data_set_external_ids=data_set, auto_fix=auto_fix),
                 output_dir=output_dir,
                 dry_run=dry_run,
                 verbose=verbose,
