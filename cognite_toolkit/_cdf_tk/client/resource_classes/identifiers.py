@@ -165,3 +165,6 @@ class PrincipalId(Identifier):
 class PrincipalLoginId(Identifier):
     principal: str
     id: str
+
+    def __str__(self) -> str:
+        return f"principal='{self.principal}', id='{self.id}'"
