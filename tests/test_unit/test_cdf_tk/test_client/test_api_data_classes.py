@@ -11,6 +11,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription impo
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision import (
+    Disabled,
+    ScheduleConfig,
+    SimulatorRoutineConfiguration,
+    SimulatorRoutineRevisionRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from tests.test_unit.test_cdf_tk.test_client.data import CDFResource, iterate_cdf_resources
 
@@ -251,5 +257,30 @@ class TestDatapointSubscriptionUpdateRequest:
                 "name": {"set": "Subscription 1"},
                 "description": {"setNull": True},
                 "dataSetId": {"setNull": True},
+            },
+        }
+
+
+class TestSimulatorRoutineRevision:
+    def test_unset_required_fields_are_dumped(self) -> None:
+        revision = SimulatorRoutineRevisionRequest(
+            external_id="routine_revision_1",
+            routine_external_id="routine_1",
+            configuration=SimulatorRoutineConfiguration(
+                schedule=ScheduleConfig(cron_expression="0 0 * * *"),
+                data_sampling=Disabled(),
+                logical_check=[],
+                steady_state_detection=[],
+            ),
+        )
+
+        assert revision.dump() == {
+            "externalId": "routine_revision_1",
+            "routineExternalId": "routine_1",
+            "configuration": {
+                "schedule": {"cronExpression": "0 0 * * *", "enabled": True},
+                "dataSampling": {"enabled": False},
+                "logicalCheck": [],
+                "steadyStateDetection": [],
             },
         }
