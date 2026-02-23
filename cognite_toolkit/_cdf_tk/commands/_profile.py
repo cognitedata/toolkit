@@ -21,7 +21,8 @@ from rich.spinner import Spinner
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawProfileResults, RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RawProfileResponse
 from cognite_toolkit._cdf_tk.constants import MAX_ROW_ITERATION_RUN_QUERY
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, ToolkitThrottledError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.aggregators import (
@@ -338,7 +339,7 @@ class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
 class AssetIndex:
     aggregator: str
     data_set_external_id: str | None = None
-    source: RawTable | None = None
+    source: RawTableId | None = None
 
 
 class ProfileAssetCommand(ProfileCommand[AssetIndex]):
@@ -439,9 +440,8 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
                 raise ValueError(f"Database and table name are required for {row!s} in column {col}.")
             source = row.source
             return partial(
-                client.raw.profile,
-                database=source.db_name,
-                table=source.table_name,
+                client.tool.raw.tables.profile,
+                table=source,
                 limit=self.profile_row_limit,
                 timeout_seconds=self.profile_timeout_seconds,
             )
@@ -475,7 +475,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
                 return f"{result[0].name} ({result[0].external_id})"
             return None
         elif col == self.Columns.ColumnCount:
-            if isinstance(result, RawProfileResults):
+            if isinstance(result, RawProfileResponse):
                 return result.column_count
             return None
         raise ValueError(f"unexpected result type {type(result)} for row {row!s} and column {col}.")
@@ -575,7 +575,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
             return current_table
         sources_by_transformation_id = {
             transformation.id: [
-                s for s in get_transformation_sources(transformation.query or "") if isinstance(s, RawTable)
+                s for s in get_transformation_sources(transformation.query or "") if isinstance(s, RawTableId)
             ]
             for transformation in result
         }
@@ -616,7 +616,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
         result: object,
         selected_row: AssetIndex,
     ) -> dict[tuple[AssetIndex, str], PendingCellValue]:
-        if not isinstance(result, RawProfileResults):
+        if not isinstance(result, RawProfileResponse):
             return current_table
         new_table: dict[tuple[AssetIndex, str], PendingCellValue] = {}
         for (row, col), value in current_table.items():
@@ -802,7 +802,7 @@ class ProfileTransformationCommand(ProfileCommand[str]):
 
 @dataclass(frozen=True)
 class RawProfileIndex:
-    raw_table: RawTable
+    raw_table: RawTableId
     transformation_id: int | None = None
 
 
@@ -878,9 +878,8 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
     def create_api_callable(self, row: RawProfileIndex, col: str, client: ToolkitClient) -> Callable:
         if col == self.Columns.Columns:
             return partial(
-                client.raw.profile,
-                database=row.raw_table.db_name,
-                table=row.raw_table.table_name,
+                client.tool.raw.tables.profile,
+                table=row.raw_table,
                 limit=self.max_profile_raw_count,
                 timeout_seconds=self.profile_timeout_seconds,
             )
@@ -904,7 +903,7 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
             return None
         if isinstance(result, int | float | bool | str) or result is None:
             return result
-        elif isinstance(result, RawProfileResults) and col == self.Columns.Columns:
+        elif isinstance(result, RawProfileResponse) and col == self.Columns.Columns:
             return result.column_count
         raise ValueError(f"Unknown result type: {type(result)} for {row!s} in column {col}.")
 
@@ -915,7 +914,7 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
         selected_row: RawProfileIndex,
         selected_col: str,
     ) -> dict[tuple[RawProfileIndex, str], PendingCellValue]:
-        if not isinstance(result, RawProfileResults) or selected_col != self.Columns.Columns:
+        if not isinstance(result, RawProfileResponse) or selected_col != self.Columns.Columns:
             return current_table
         is_complete = result.is_complete and result.row_count < self.max_profile_raw_count
         new_table: dict[tuple[RawProfileIndex, str], PendingCellValue] = {}
@@ -929,33 +928,29 @@ class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
         return new_table
 
     @classmethod
-    def _get_existing_tables(cls, client: ToolkitClient) -> set[RawTable]:
-        existing_tables: set[RawTable] = set()
-        databases = client.raw.databases.list(limit=-1)
+    def _get_existing_tables(cls, client: ToolkitClient) -> set[RawTableId]:
+        existing_tables: set[RawTableId] = set()
+        databases = client.tool.raw.databases.list(limit=None)
         for database in databases:
-            if database.name is None:
-                continue
-            tables = client.raw.tables.list(db_name=database.name, limit=-1)
+            tables = client.tool.raw.tables.list(db_name=database.name, limit=None)
             for table in tables:
-                if table.name is None:
-                    continue
-                existing_tables.add(RawTable(db_name=database.name, table_name=table.name))
+                existing_tables.add(table.as_id())
         return existing_tables
 
     @classmethod
     def _get_transformations_by_raw_table(
         cls, client: ToolkitClient, destination_type: str
-    ) -> dict[RawTable, list[Transformation]]:
+    ) -> dict[RawTableId, list[Transformation]]:
         transformations = client.transformations.list(destination_type=destination_type)
         if destination_type == "assets":
             transformations.extend(client.transformations.list(destination_type="asset_hierarchy"))
-        transformations_by_raw_table: dict[RawTable, list[Transformation]] = defaultdict(list)
+        transformations_by_raw_table: dict[RawTableId, list[Transformation]] = defaultdict(list)
         for transformation in transformations:
             if transformation.query is None:
                 # No query means no source table.
                 continue
             sources = get_transformation_sources(transformation.query)
             for source in sources:
-                if isinstance(source, RawTable):
+                if isinstance(source, RawTableId):
                     transformations_by_raw_table[source].append(transformation)
         return transformations_by_raw_table

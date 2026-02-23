@@ -2,7 +2,7 @@ from typing import Any, ClassVar
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawProfileResults
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RawProfileResponse
 
 
 class TestRawProfileResults:
@@ -199,7 +199,7 @@ class TestRawProfileResults:
 
     @pytest.mark.parametrize("data", [EXHAUSTIVE_CASE, LARGE_CASE])
     def test_load_dump(self, data: dict[str, Any]) -> None:
-        results = RawProfileResults._load(data)
+        results = RawProfileResponse._load(data)
         dumped = results.dump()
         assert dumped == data, "Dumped data does not match original data"
-        assert isinstance(results, RawProfileResults), "Loaded object is not of type RawProfileResults"
+        assert isinstance(results, RawProfileResponse), "Loaded object is not of type RawProfileResults"

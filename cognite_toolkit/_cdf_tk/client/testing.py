@@ -5,9 +5,6 @@ from unittest.mock import MagicMock
 
 from cognite.client._api.datapoints import DatapointsAPI
 from cognite.client._api.datapoints_subscriptions import DatapointsSubscriptionAPI
-from cognite.client._api.raw import RawDatabasesAPI as LegacyRawDatabasesAPI
-from cognite.client._api.raw import RawRowsAPI
-from cognite.client._api.raw import RawTablesAPI as LegacyRawTablesAPI
 from cognite.client._api.synthetic_time_series import SyntheticDatapointsAPI
 from cognite.client.testing import CogniteClientMock
 from rich.console import Console
@@ -21,7 +18,6 @@ from cognite_toolkit._cdf_tk.client.api.hosted_extractors import HostedExtractor
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI, IndustrialCanvasAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFileMetadataAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawAPI, RawDatabasesAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics import RoboticsAPI
@@ -155,10 +151,6 @@ class ToolkitClientMock(CogniteClientMock):
         self.migration.lookup.time_series = MagicMock(spec_set=LookupAPI)
         self.migration.resource_view_mapping = MagicMock(spec_set=ResourceViewMappingsAPI)
         self.migration.created_source_system = MagicMock(spec_set=CreatedSourceSystemAPI)
-        self.raw = MagicMock(spec=ExtendedRawAPI)
-        self.raw.databases = MagicMock(spec_set=LegacyRawDatabasesAPI)
-        self.raw.rows = MagicMock(spec_set=RawRowsAPI)
-        self.raw.tables = MagicMock(spec_set=LegacyRawTablesAPI)
 
         self.time_series = MagicMock(spec=ExtendedTimeSeriesAPI)
         self.time_series.data = MagicMock(spec=DatapointsAPI)

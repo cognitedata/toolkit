@@ -112,6 +112,7 @@ class BaseRequestMessage(BaseModel, ABC):
     content_length: int | None = None
     content_type: str = "application/json"
     accept: str = "application/json"
+    client_timeout: float | None = None
 
     parameters: dict[str, PrimitiveType] | None = None
 
