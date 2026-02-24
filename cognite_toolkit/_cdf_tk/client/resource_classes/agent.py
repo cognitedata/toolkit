@@ -1,3 +1,4 @@
+import warnings
 from typing import Annotated, Any, Literal
 
 from pydantic import BeforeValidator, Field
@@ -93,9 +94,13 @@ def _handle_unknown_tool(value: Any) -> Any:
     if isinstance(value, dict):
         tool_type = value.get("type")
         if tool_type not in KNOWN_TOOLS:
+            warnings.warn(
+                f"Agent tool type {tool_type!r} is not recognized by the toolkit and may not deploy correctly. "
+                f"Known types: {', '.join(sorted(KNOWN_TOOLS))}",
+                stacklevel=2,
+            )
             return UnknownAgentTool(**value)
-        else:
-            return KNOWN_TOOLS[tool_type].model_validate(value)
+        return KNOWN_TOOLS[tool_type].model_validate(value)
     return value
 
 
