@@ -49,5 +49,6 @@ class FunctionResponse(FunctionBase, ResponseResource[FunctionRequest]):
     status: FunctionStatus | None = None
     error: FunctionAPIError | None = None
 
-    def as_request_resource(self) -> FunctionRequest:
-        return FunctionRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[FunctionRequest]:
+        return FunctionRequest

@@ -1,17 +1,18 @@
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse, ResponseItems
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWDatabaseResponse,
+    RawProfileResponse,
     RAWTableRequest,
     RAWTableResponse,
 )
 
 
-class RawDatabasesAPI(CDFResourceAPI[RawDatabaseId, RAWDatabaseRequest, RAWDatabaseResponse]):
+class RawDatabasesAPI(CDFResourceAPI[RAWDatabaseResponse]):
     """API for managing RAW databases in CDF.
 
     This API provides methods to create, list, and delete RAW databases.
@@ -97,7 +98,7 @@ class RawDatabasesAPI(CDFResourceAPI[RawDatabaseId, RAWDatabaseRequest, RAWDatab
         return self._list(limit=limit)
 
 
-class RawTablesAPI(CDFResourceAPI[RawTableId, RAWTableRequest, RAWTableResponse]):
+class RawTablesAPI(CDFResourceAPI[RAWTableResponse]):
     """API for managing RAW tables in CDF.
 
     This API provides methods to create, list, and delete RAW tables within a database.
@@ -105,6 +106,9 @@ class RawTablesAPI(CDFResourceAPI[RawTableId, RAWTableRequest, RAWTableResponse]
     Note: This API requires db_name as a path parameter for all operations,
     so it overrides several base class methods to handle dynamic paths.
     """
+
+    DEFAULT_PROFILE_LIMIT = 1000
+    MAX_PROFILE_LIMIT = 1_000_000
 
     def __init__(self, http_client: HTTPClient) -> None:
         # We pass empty endpoint map since paths are dynamic (depend on db_name)
@@ -162,6 +166,36 @@ class RawTablesAPI(CDFResourceAPI[RawTableId, RAWTableRequest, RAWTableResponse]
             endpoint = f"/raw/dbs/{db_name}/tables/delete"
             self._request_no_response(list(group), "delete", endpoint=endpoint)
 
+    def profile(
+        self, table: RawTableId, limit: int = DEFAULT_PROFILE_LIMIT, timeout_seconds: int | None = None
+    ) -> RawProfileResponse:
+        """Profiles a table in the specified database and returns the results.
+
+        This is a hidden endpoint that is not part of the official CDF API. However, it is used by the Fusion UI
+        to profile tables in the database. This is implemented internally in Cognite Toolkit as Toolkit offers
+        profiling of raw tables. This is used to show how data flows into CDF resources.
+
+        Args:
+            table (RawTableId): The identifier of the table to profile.
+            limit (int, optional): The maximum number of rows to profile. Defaults to DEFAULT_PROFILE_LIMIT.
+            timeout_seconds (int, optional): The timeout for the profiling operation in seconds. Defaults to global_config.timeout_seconds.
+
+        Returns:
+            RawProfileResponse: The results of the profiling operation.
+
+        """
+        if limit <= 0 or limit > self.MAX_PROFILE_LIMIT:
+            raise ValueError(f"Limit must be between 1 and {self.MAX_PROFILE_LIMIT}, got {limit}.")
+        response = self._http_client.request_single_retries(
+            RequestMessage(
+                endpoint_url=self._http_client.config.create_api_url("/profiler/raw"),
+                method="POST",
+                body_content={"database": table.db_name, "table": table.name, "limit": limit},
+                client_timeout=timeout_seconds,
+            )
+        ).get_success_or_raise()
+        return RawProfileResponse.model_validate_json(response.body)
+
     def paginate(
         self,
         db_name: str,
@@ -186,7 +220,7 @@ class RawTablesAPI(CDFResourceAPI[RawTableId, RAWTableRequest, RAWTableResponse]
     def iterate(
         self,
         db_name: str,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[list[RAWTableResponse]]:
         """Iterate over all tables in a database in CDF.
 

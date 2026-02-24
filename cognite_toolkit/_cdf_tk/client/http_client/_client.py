@@ -191,7 +191,7 @@ class HTTPClient:
             content=message.content,
             headers=headers,
             params=message.parameters,
-            timeout=self.config.timeout,
+            timeout=message.client_timeout or self.config.timeout,
             follow_redirects=False,
         )
 
@@ -202,7 +202,7 @@ class HTTPClient:
                 body=response.text,
                 content=response.content,
             )
-        if retry_request := self._retry_request(response, request):
+        if request.retry_status and (retry_request := self._retry_request(response, request)):
             return retry_request
         else:
             # Permanent failure

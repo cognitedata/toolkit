@@ -12,7 +12,6 @@ from cognite.client import data_modeling as dm
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     ClientCredentials,
-    DataPointSubscriptionWrite,
     DataSet,
     Function,
     FunctionSchedule,
@@ -22,14 +21,9 @@ from cognite.client.data_classes import (
     TimeSeriesList,
     TimeSeriesWrite,
     TimeSeriesWriteList,
-    filters,
 )
 from cognite.client.data_classes.data_modeling import NodeApplyList, NodeList, Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply, CogniteTimeSeries, CogniteTimeSeriesApply
-from cognite.client.data_classes.datapoints_subscriptions import (
-    DatapointSubscriptionProperty,
-    DatapointSubscriptionWriteList,
-)
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
@@ -42,6 +36,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReference,
     ViewRequest,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import DatapointSubscriptionRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupCapability,
@@ -49,7 +44,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     IDScopeLowerCase,
     TimeSeriesAcl,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import (
@@ -73,6 +68,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     CogniteFileCRUD,
     DataModelCRUD,
     DatapointSubscriptionCRUD,
+    ExtractionPipelineCRUD,
     FunctionCRUD,
     FunctionScheduleCRUD,
     GroupCRUD,
@@ -88,6 +84,7 @@ from cognite_toolkit._cdf_tk.cruds import (
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from cognite_toolkit._cdf_tk.utils import read_yaml_content
 from tests.test_integration.constants import RUN_UNIQUE_ID
+from tests.test_integration.helpers import retry_on_deadlock
 
 
 class TestFunctionScheduleLoader:
@@ -248,34 +245,43 @@ def three_hundred_and_three_cognite_timeseries(
 class TestDatapointSubscriptionLoader:
     def test_delete_non_existing(self, toolkit_client: ToolkitClient) -> None:
         loader = DatapointSubscriptionCRUD(toolkit_client, None)
-        delete_count = loader.delete(["non_existing"])
-        assert delete_count == 0
+        _ = loader.delete([ExternalId(external_id="non_existing")])
 
     def test_create_update_delete_subscription(self, toolkit_client: ToolkitClient) -> None:
-        sub = DataPointSubscriptionWrite(
+        sub = DatapointSubscriptionRequest(
             external_id=f"tmp_test_create_update_delete_subscription_{RUN_UNIQUE_ID}",
             partition_count=1,
             name="Initial name",
-            filter=filters.Prefix(DatapointSubscriptionProperty.external_id, "ts_value"),
+            filter={
+                "prefix": {
+                    "property": ["externalId"],
+                    "value": "ts_value",
+                }
+            },
         )
-        update = DataPointSubscriptionWrite(
+        update = DatapointSubscriptionRequest(
             external_id=f"tmp_test_create_update_delete_subscription_{RUN_UNIQUE_ID}",
             partition_count=1,
             name="Updated name",
-            filter=filters.Prefix(DatapointSubscriptionProperty.external_id, "ts_value"),
+            filter={
+                "prefix": {
+                    "property": ["externalId"],
+                    "value": "ts_value",
+                }
+            },
         )
 
         loader = DatapointSubscriptionCRUD(toolkit_client, None)
 
         try:
-            created = loader.create(DatapointSubscriptionWriteList([sub]))
+            created = loader.create([sub])
             assert len(created) == 1
 
-            updated = loader.update(DatapointSubscriptionWriteList([update]))
+            updated = loader.update([update])
             assert len(updated) == 1
             assert updated[0].name == "Updated name"
         finally:
-            loader.delete([sub.external_id])
+            loader.delete([sub.as_id()])
 
     def test_create_update_delete_subscription_with_ids(
         self,
@@ -311,7 +317,7 @@ timeSeriesIds:
         loader = DatapointSubscriptionCRUD(toolkit_client, None)
         sub = self._load_subscription_from_yaml(self._create_mock_file(sub_yaml), loader)
         try:
-            created = loader.create(DatapointSubscriptionWriteList([sub]))
+            created = loader.create([sub])
             assert len(created) == 1
             initial_description = created[0].description
             assert created[0].time_series_count == len(one_hundred_and_one_timeseries) + len(
@@ -319,7 +325,7 @@ timeSeriesIds:
             ), "The subscription should have the correct number of time series"
 
             update = self._load_subscription_from_yaml(self._create_mock_file(update_yaml), loader)
-            updated = loader.update(DatapointSubscriptionWriteList([update]))
+            updated = loader.update([update])
             assert len(updated) == 1
             updated_description = updated[0].description
             assert updated_description != initial_description, (
@@ -329,7 +335,7 @@ timeSeriesIds:
                 "The subscription should have the correct number of time series after the update"
             )
         finally:
-            loader.delete([sub.external_id])
+            loader.delete([sub.as_id()])
 
     def test_no_redeploy_ids_defined(
         self, toolkit_client: ToolkitClient, toolkit_dataset: DataSet, three_timeseries: TimeSeriesList
@@ -347,9 +353,9 @@ timeSeriesIds:
 
         filepath = self._create_mock_file(definition_yaml)
         resource = self._load_subscription_from_yaml(filepath, loader)
-        assert isinstance(resource, DataPointSubscriptionWrite)
-        if not loader.retrieve([resource.external_id]):
-            _ = loader.create(DatapointSubscriptionWriteList([resource]))
+        assert isinstance(resource, DatapointSubscriptionRequest)
+        if not loader.retrieve([resource.as_id()]):
+            _ = loader.create([resource])
 
         worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([filepath])
@@ -368,7 +374,7 @@ timeSeriesIds:
         return mock_file
 
     @staticmethod
-    def _load_subscription_from_yaml(filepath: Path, loader: DatapointSubscriptionCRUD) -> DataPointSubscriptionWrite:
+    def _load_subscription_from_yaml(filepath: Path, loader: DatapointSubscriptionCRUD) -> DatapointSubscriptionRequest:
         resource_dict = loader.load_resource_file(filepath, {})
         assert len(resource_dict) == 1
         return loader.load_resource(resource_dict[0])
@@ -1087,7 +1093,7 @@ class TestNodeLoader:
             created = loader.create([existing_node])
             assert len(created) == 1
 
-            updated = loader.update([updated_node])
+            updated = retry_on_deadlock(lambda: loader.update([updated_node]))
             assert len(updated) == 1
 
             retrieved = toolkit_client.tool.instances.retrieve(
@@ -1104,7 +1110,7 @@ class TestNodeLoader:
                 "aliases": ["alias1", "alias2"],  # Add new aliases
             }
         finally:
-            loader.delete([existing_node.as_id()])
+            _ = retry_on_deadlock(lambda: loader.delete([existing_node.as_id()]))
 
 
 class TestViewLoader:
@@ -1234,3 +1240,46 @@ description: ""
                     client.tool.functions.delete([ExternalId(external_id=external_id)])
 
                 client.data_modeling.instances.delete((toolkit_space.space, external_id))
+
+
+class TestExtractionPipelineIO:
+    def test_unchanged_no_redeploy(
+        self, toolkit_client: ToolkitClient, toolkit_dataset: DataSet, populated_raw_table: RawTableId
+    ) -> None:
+        definition_yaml = f"""externalId: test_extraction_pipeline_io_no_redeploy_{RUN_UNIQUE_ID}
+name: Test Extraction Pipeline IO No Redeploy
+dataSetExternalId: {toolkit_dataset.external_id}
+description: Export Data to CDF
+rawTables:
+- dbName: {populated_raw_table.db_name}
+  tableName: {populated_raw_table.name}
+schedule: 55 * * * *
+contacts:
+- name: A person to notify
+  email: example@email.com
+  role: Support
+  sendNotification: true
+source: here
+documentation: To Do
+createdBy: null
+"""
+        loader = ExtractionPipelineCRUD.create_loader(toolkit_client)
+
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = definition_yaml
+
+        resource_dict = loader.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(resource_dict[0])
+        if not loader.retrieve([resource.as_id()]):
+            _ = loader.create([resource])
+
+        worker = ResourceWorker(loader, "deploy")
+        resources = worker.prepare_resources([filepath])
+
+        assert {
+            "create": len(resources.to_create),
+            "change": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
+        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}

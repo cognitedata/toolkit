@@ -22,6 +22,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter, ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse, Visibility
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerReference,
     DataModelReference,
@@ -32,10 +33,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import Canvas
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList, Visibility
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
@@ -259,14 +258,14 @@ class RawTableInteractiveSelect:
         self.operation = operation
 
     def _available_databases(self) -> list[str]:
-        databases = self.client.raw.databases.list(limit=-1)
-        return [db.name for db in databases if db.name is not None]
+        databases = self.client.tool.raw.databases.list(limit=None)
+        return [db.name for db in databases]
 
-    def _available_tables(self, database: str) -> list[RawTable]:
-        tables = self.client.raw.tables.list(db_name=database, limit=-1)
-        return [RawTable(database, table.name) for table in tables if table.name is not None]
+    def _available_tables(self, database: str) -> list[RawTableId]:
+        tables = self.client.tool.raw.tables.list(db_name=database, limit=None)
+        return [table.as_id() for table in tables]
 
-    def select_tables(self, database: str | None = None) -> list[RawTable]:
+    def select_tables(self, database: str | None = None) -> list[RawTableId]:
         """Interactively select raw tables."""
         databases = self._available_databases()
         if not databases:
@@ -288,7 +287,7 @@ class RawTableInteractiveSelect:
 
         selected_tables = questionary.checkbox(
             f"Select Raw Tables in {selected_database} to {self.operation}",
-            choices=[questionary.Choice(title=f"{table.table_name}", value=table) for table in available_tables],
+            choices=[questionary.Choice(title=f"{table.name}", value=table) for table in available_tables],
             validate=lambda choices: True if choices else "You must select at least one table.",
         ).unsafe_ask()
 
@@ -443,8 +442,10 @@ class InteractiveChartSelect:
         return selected_charts or []
 
     @classmethod
-    def _select_charts_by_user(cls, available_charts: ChartList, users: UserProfileList) -> ChartList:
-        chart_by_user: dict[str, list[Chart]] = defaultdict(list)
+    def _select_charts_by_user(
+        cls, available_charts: list[ChartResponse], users: UserProfileList
+    ) -> list[ChartResponse]:
+        chart_by_user: dict[str, list[ChartResponse]] = defaultdict(list)
         for chart in available_charts:
             chart_by_user[chart.owner_id].append(chart)
         user_response = questionary.select(
@@ -458,8 +459,7 @@ class InteractiveChartSelect:
                 if user.user_identifier in chart_by_user
             ],
         ).unsafe_ask()
-        available_charts = ChartList(user_response)
-        return available_charts
+        return list(user_response)
 
 
 class AssetCentricDestinationSelect:

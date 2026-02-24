@@ -118,7 +118,7 @@ class Task(BaseModelObject):
     description: str | None = None
     retries: int | None = None
     timeout: int | None = None
-    on_failure: Literal["abortWorkflow", "skipTask"] = "abortWorkflow"
+    on_failure: Literal["abortWorkflow", "skipTask"] | None = None
     depends_on: list[TaskId] | None = None
     parameters: Parameter
 
@@ -159,5 +159,6 @@ class WorkflowVersionResponse(WorkflowVersion, ResponseResource[WorkflowVersionR
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> WorkflowVersionRequest:
-        return WorkflowVersionRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[WorkflowVersionRequest]:
+        return WorkflowVersionRequest

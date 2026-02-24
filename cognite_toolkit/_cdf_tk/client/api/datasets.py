@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetReque
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
 
 
-class DataSetsAPI(CDFResourceAPI[InternalOrExternalId, DataSetRequest, DataSetResponse]):
+class DataSetsAPI(CDFResourceAPI[DataSetResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,

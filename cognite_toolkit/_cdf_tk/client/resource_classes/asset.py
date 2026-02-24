@@ -43,5 +43,6 @@ class AssetResponse(Asset, ResponseResource[AssetRequest]):
     aggregates: AssetAggregateItem | None = None
     id: int
 
-    def as_request_resource(self) -> AssetRequest:
-        return AssetRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[AssetRequest]:
+        return AssetRequest

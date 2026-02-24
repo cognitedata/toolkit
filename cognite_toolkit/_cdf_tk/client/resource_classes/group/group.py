@@ -56,8 +56,9 @@ class GroupResponse(Group, ResponseResource[GroupRequest]):
     """Group response resource returned from API."""
 
     id: int
-    is_deleted: bool = False
+    is_deleted: bool
     deleted_time: int | None = None
 
-    def as_request_resource(self) -> GroupRequest:
-        return GroupRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[GroupRequest]:
+        return GroupRequest

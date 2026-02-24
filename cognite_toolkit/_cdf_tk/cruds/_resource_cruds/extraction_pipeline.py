@@ -155,6 +155,8 @@ class ExtractionPipelineCRUD(ResourceCRUD[ExternalId, ExtractionPipelineRequest,
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if dumped.get("createdBy") == "unknown" and "createdBy" not in local:
             dumped.pop("createdBy", None)
+        elif dumped.get("createdBy") == "unknown" and "createdBy" in local and local["createdBy"] is None:
+            dumped["createdBy"] = None
         return dumped
 
     def diff_list(

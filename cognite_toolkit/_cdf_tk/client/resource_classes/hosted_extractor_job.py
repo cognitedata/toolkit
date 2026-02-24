@@ -144,5 +144,6 @@ class HostedExtractorJobResponse(HostedExtractorJob, ResponseResource[HostedExtr
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> HostedExtractorJobRequest:
-        return HostedExtractorJobRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[HostedExtractorJobRequest]:
+        return HostedExtractorJobRequest

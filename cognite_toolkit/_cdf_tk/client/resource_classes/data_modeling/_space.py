@@ -22,5 +22,6 @@ class SpaceResponse(Space, ResponseResource[SpaceRequest]):
     last_updated_time: int
     is_global: bool
 
-    def as_request_resource(self) -> SpaceRequest:
-        return SpaceRequest.model_validate(self.model_dump(by_alias=True), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[SpaceRequest]:
+        return SpaceRequest

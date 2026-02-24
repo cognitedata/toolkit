@@ -75,6 +75,10 @@ class RecordResponse(ResponseResource[RecordRequest]):
             serialized[space][source_ref.external_id] = props
         return serialized
 
+    @classmethod
+    def request_cls(cls) -> type[RecordRequest]:
+        return RecordRequest
+
     def as_request_resource(self) -> RecordRequest:
         dumped = self.dump()
         if self.properties:

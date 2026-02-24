@@ -44,6 +44,10 @@ class SequenceRowsResponse(SequenceRows, ResponseResource[SequenceRowsRequest]):
     columns: list[SequenceColumnSlim]
     next_cursor: str | None = None
 
+    @classmethod
+    def request_cls(cls) -> type[SequenceRowsRequest]:
+        return SequenceRowsRequest
+
     def as_request_resource(self) -> SequenceRowsRequest:
         dumped = self.dump()
         dumped["columns"] = [col.external_id for col in self.columns]
