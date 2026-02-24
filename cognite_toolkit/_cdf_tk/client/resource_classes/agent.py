@@ -17,6 +17,17 @@ class AskDocument(AgentToolDefinition):
     type: Literal["askDocument"] = "askDocument"
 
 
+class CallFunctionConfig(BaseModelObject):
+    external_id: str
+    max_polling_time: int = 540
+    schema_: dict[str, Any] | None = Field(None, alias="schema")
+
+
+class CallFunction(AgentToolDefinition):
+    type: Literal["callFunction"] = "callFunction"
+    configuration: CallFunctionConfig
+
+
 class ExamineDataSemantically(AgentToolDefinition):
     type: Literal["examineDataSemantically"] = "examineDataSemantically"
 
@@ -76,6 +87,7 @@ class UnknownAgentTool(AgentToolDefinition):
 # Mapping of known agent tool types to their classes
 KNOWN_TOOLS: dict[str, type[AgentToolDefinition]] = {
     "askDocument": AskDocument,
+    "callFunction": CallFunction,
     "examineDataSemantically": ExamineDataSemantically,
     "queryKnowledgeGraph": QueryKnowledgeGraph,
     "queryTimeSeriesDatapoints": QueryTimeSeriesDatapoints,
@@ -95,6 +107,7 @@ def _handle_unknown_tool(value: Any) -> Any:
 
 AgentTool = Annotated[
     AskDocument
+    | CallFunction
     | QueryKnowledgeGraph
     | QueryTimeSeriesDatapoints
     | SummarizeDocument

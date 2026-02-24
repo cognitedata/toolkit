@@ -1,6 +1,6 @@
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import Field
+from pydantic import BeforeValidator, Field
 
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
 
@@ -24,6 +24,35 @@ class AgentToolDefinition(BaseModelResource):
 
 class AskDocument(AgentToolDefinition):
     type: Literal["askDocument"] = "askDocument"
+
+
+class CallFunctionConfig(BaseModelResource):
+    external_id: str = Field(
+        description="The external id of an existing Cognite Function in your CDF project.",
+        min_length=1,
+        max_length=255,
+    )
+    max_polling_time: int = Field(
+        default=540,
+        description="The maximum time in seconds to poll for the Cognite Function to complete.",
+        gt=0,
+        lt=541,
+    )
+    schema_: dict[str, Any] = Field(
+        alias="schema",
+        description="The Cognite Function's params specified as a JSON schema.",
+    )
+
+
+class CallFunction(AgentToolDefinition):
+    type: Literal["callFunction"] = "callFunction"
+    configuration: CallFunctionConfig = Field(
+        description="Configuration for the Call Function tool.",
+    )
+
+
+class ExamineDataSemantically(AgentToolDefinition):
+    type: Literal["examineDataSemantically"] = "examineDataSemantically"
 
 
 class AgentDataModel(BaseModelResource):
@@ -95,7 +124,42 @@ class SummarizeDocument(AgentToolDefinition):
     type: Literal["summarizeDocument"] = "summarizeDocument"
 
 
+class UnknownAgentTool(AgentToolDefinition, extra="allow"):
+    """Fallback for tool types not yet supported by the toolkit.
+
+    Accepts arbitrary extra fields so that tools returned by the API
+    can round-trip through dump/deploy without data loss.
+    """
+
+    ...
+
+
+KNOWN_TOOLS: dict[str, type[AgentToolDefinition]] = {
+    "askDocument": AskDocument,
+    "callFunction": CallFunction,
+    "examineDataSemantically": ExamineDataSemantically,
+    "queryKnowledgeGraph": QueryKnowledgeGraph,
+    "queryTimeSeriesDatapoints": QueryTimeSeriesDatapoints,
+    "summarizeDocument": SummarizeDocument,
+}
+
+
+def _handle_unknown_tool(value: Any) -> Any:
+    if isinstance(value, dict):
+        tool_type = value.get("type")
+        if tool_type not in KNOWN_TOOLS:
+            return UnknownAgentTool.model_validate(value)
+        return KNOWN_TOOLS[tool_type].model_validate(value)
+    return value
+
+
 AgentTool = Annotated[
-    AskDocument | QueryKnowledgeGraph | QueryTimeSeriesDatapoints | SummarizeDocument,
-    Field(discriminator="type"),
+    AskDocument
+    | CallFunction
+    | ExamineDataSemantically
+    | QueryKnowledgeGraph
+    | QueryTimeSeriesDatapoints
+    | SummarizeDocument
+    | UnknownAgentTool,
+    BeforeValidator(_handle_unknown_tool),
 ]
