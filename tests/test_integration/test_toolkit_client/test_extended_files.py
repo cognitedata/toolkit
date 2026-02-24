@@ -5,6 +5,10 @@ from cognite.client.data_classes.data_modeling import NodeApplyResultList, Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
@@ -54,7 +58,7 @@ class TestExtendedFilesAPI:
     def test_unlink_instance_ids(self, toolkit_client: ToolkitClient, toolkit_space: Space) -> None:
         client = toolkit_client
         space = toolkit_space.space
-        metadata = FileMetadataWrite(
+        metadata = FileMetadataRequest(
             external_id=f"file_toolkit_integration_test_unlink_{RUN_UNIQUE_ID}",
             name="Toolkit Integration Test Unlink",
             mime_type="text/plain",
@@ -65,15 +69,27 @@ class TestExtendedFilesAPI:
             name="Toolkit Integration Test Unlink",
         )
         content = b"Hello, this is a test file's content."
-        created: FileMetadata | None = None
+        created: FileMetadataResponse | None = None
         created_dm: NodeApplyResultList | None = None
         try:
-            created, _ = client.files.create(metadata)
+            created_files = client.tool.filemetadata.create([metadata])
+            assert len(created_files) == 1
+            created = created_files[0]
             client.files.upload_content_bytes(content, external_id=created.external_id)
 
-            updated = client.files.set_pending_ids(cognite_file.as_id(), id=created.id)
+            updated = client.tool.filemetadata.set_pending_ids(
+                [
+                    PendingInstanceId(
+                        pending_instance_id=NodeReference(
+                            space=cognite_file.space, external_id=cognite_file.external_id
+                        ),
+                        id=created.id,
+                    )
+                ]
+            )
+            assert len(updated) == 1
 
-            assert updated.pending_instance_id == cognite_file.as_id()
+            assert updated[0].pending_instance_id.dump() == cognite_file.as_id().dump(include_instance_type=False)
 
             created_dm = client.data_modeling.instances.apply(cognite_file).nodes
 
@@ -87,8 +103,9 @@ class TestExtendedFilesAPI:
             assert retrieved_ts is not None, "File was not linked to instance within timeout"
             assert retrieved_ts.id == created.id
 
-            unlinked = client.files.unlink_instance_ids(id=created.id)
-            assert unlinked.id == created.id
+            unlinked = client.tool.filemetadata.unlink_instance_ids([InternalId(id=created.id)])
+            assert len(unlinked) == 1
+            assert unlinked[0].id == created.id
 
             client.data_modeling.instances.delete(cognite_file.as_id())
             created_dm = None
