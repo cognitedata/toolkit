@@ -220,8 +220,8 @@ class InstanceIO(
                         edges[ref] = edge
             items = nodes + list(edges.values())
             total += len(nodes)
-            yield Page(worker_id="main", items=items, next_cursor=response.next_cursor.get("nodes"))
             next_cursor = response.next_cursor.get("nodes")
+            yield Page(worker_id="main", items=items, next_cursor=next_cursor)
             if next_cursor is None or (limit is not None and total >= limit) or not nodes:
                 break
             page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
