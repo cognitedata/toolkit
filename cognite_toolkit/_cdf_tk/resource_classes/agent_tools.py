@@ -1,7 +1,6 @@
-import warnings
 from typing import Annotated, Any, Literal
 
-from pydantic import BeforeValidator, Field
+from pydantic import Field
 
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
 
@@ -125,42 +124,12 @@ class SummarizeDocument(AgentToolDefinition):
     type: Literal["summarizeDocument"] = "summarizeDocument"
 
 
-class UnknownAgentTool(AgentToolDefinition, extra="allow"):
-    """Fallback for tool types not yet supported by the toolkit.
-
-    Accepts arbitrary extra fields so that tools returned by the API
-    can round-trip through dump/deploy without data loss.
-    """
-
-    ...
-
-
-KNOWN_TOOLS: dict[str, type[AgentToolDefinition]] = {
-    cls.model_fields["type"].default: cls for cls in AgentToolDefinition.__subclasses__() if cls is not UnknownAgentTool
-}
-
-
-def _handle_unknown_tool(value: Any) -> Any:
-    if isinstance(value, dict):
-        tool_type = value.get("type")
-        if tool_type not in KNOWN_TOOLS:
-            warnings.warn(
-                f"Agent tool type {tool_type!r} is not recognized by the toolkit and may not deploy correctly. "
-                f"Known types: {', '.join(sorted(KNOWN_TOOLS))}",
-                stacklevel=2,
-            )
-            return UnknownAgentTool.model_validate(value)
-        return KNOWN_TOOLS[tool_type].model_validate(value)
-    return value
-
-
 AgentTool = Annotated[
     AskDocument
     | CallFunction
     | ExamineDataSemantically
     | QueryKnowledgeGraph
     | QueryTimeSeriesDatapoints
-    | SummarizeDocument
-    | UnknownAgentTool,
-    BeforeValidator(_handle_unknown_tool),
+    | SummarizeDocument,
+    Field(discriminator="type"),
 ]

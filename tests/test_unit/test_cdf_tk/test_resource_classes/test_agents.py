@@ -68,8 +68,8 @@ def invalid_test_cases() -> Iterable:
             "In field externalId string should have at most 128 characters",
             "In field instructions string should have at most 32000 characters",
             "In field name string should have at most 255 characters",
-            "In tools[1].description string should have at least 10 characters",
-            "In tools[1].name string should have at least 1 character",
+            "In tools[1].askDocument.description string should have at least 10 characters",
+            "In tools[1].askDocument.name string should have at least 1 character",
         },
         id="length-validation-errors",
     )
@@ -94,9 +94,10 @@ def invalid_test_cases() -> Iterable:
             ],
         },
         {
-            "In tools[1].configuration.dataModels list should have at least 1 item after validation, not 0",
-            "In tools[1].configuration.instanceSpaces.manual missing required field: 'spaces'",
-            "In tools[1].configuration.version input should be 'v1' or 'v2'. Got 'v3'.",
+            "In tools[1].queryKnowledgeGraph.configuration.dataModels list should have at "
+            "least 1 item after validation, not 0",
+            "In tools[1].queryKnowledgeGraph.configuration.instanceSpaces.manual missing required field: 'spaces'",
+            "In tools[1].queryKnowledgeGraph.configuration.version input should be 'v1' or 'v2'. Got 'v3'.",
         },
         id="nested-tool-validation-errors",
     )
@@ -126,9 +127,10 @@ def invalid_test_cases() -> Iterable:
         },
         {
             "In field externalId string should match pattern '^[^\\x00]{1,128}$'",
-            "In tools[1].configuration.dataModels list should have at most 80 items after validation, not 81",
-            "In tools[1].description string should have at most 1024 characters",
-            "In tools[1].name string should match pattern '^[^\\x00]{1,64}$'",
+            "In tools[1].queryKnowledgeGraph.configuration.dataModels list should have at "
+            "most 80 items after validation, not 81",
+            "In tools[1].queryKnowledgeGraph.description string should have at most 1024 characters",
+            "In tools[1].queryKnowledgeGraph.name string should match pattern '^[^\\x00]{1,64}$'",
         },
         id="pattern-and-nested-validation-errors",
     )

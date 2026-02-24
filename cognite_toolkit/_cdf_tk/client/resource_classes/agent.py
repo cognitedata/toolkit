@@ -79,14 +79,8 @@ class SummarizeDocument(AgentToolDefinition):
     type: Literal["summarizeDocument"] = "summarizeDocument"
 
 
-class UnknownAgentTool(AgentToolDefinition):
-    """Fallback for unknown tool types."""
-
-    ...
-
-
 KNOWN_TOOLS: dict[str, type[AgentToolDefinition]] = {
-    cls.model_fields["type"].default: cls for cls in AgentToolDefinition.__subclasses__() if cls is not UnknownAgentTool
+    cls.model_fields["type"].default: cls for cls in AgentToolDefinition.__subclasses__()
 }
 
 
@@ -99,7 +93,7 @@ def _handle_unknown_tool(value: Any) -> Any:
                 f"Known types: {', '.join(sorted(KNOWN_TOOLS))}",
                 stacklevel=2,
             )
-            return UnknownAgentTool(**value)
+            return AgentToolDefinition(**value)
         return KNOWN_TOOLS[tool_type].model_validate(value)
     return value
 
@@ -111,7 +105,7 @@ AgentTool = Annotated[
     | QueryTimeSeriesDatapoints
     | SummarizeDocument
     | ExamineDataSemantically
-    | UnknownAgentTool,
+    | AgentToolDefinition,
     BeforeValidator(_handle_unknown_tool),
 ]
 
