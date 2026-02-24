@@ -65,7 +65,6 @@ class BuildParameters(BaseModel):
             config = BuildConfigYAML.load_default(organization_dir)
         if user_selected:
             config.environment.selected = list(set(parse_user_selected_modules(list(user_selected), organization_dir)))
-        config.set_environment_variables()
         if environment_warning := config.validate_environment():
             warnings.append(environment_warning)
         return config, warnings
