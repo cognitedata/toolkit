@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import Field, JsonValue
+from pydantic import Field, JsonValue, field_serializer
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 
@@ -46,7 +46,7 @@ class QueryExpression(BaseModelObject):
 
 
 class QueryTableExpression(BaseModelObject):
-    from_: str | None = Field(alias="from")
+    from_: str | None = Field(None, alias="from")
     chain_to: Literal["source", "destination"] | None = None
     direction: Literal["outwards", "inwards"] | None = None
 
@@ -91,6 +91,10 @@ class QuerySelectSource(BaseModelObject):
     properties: list[str]
     target_units: list[QueryTargetUnit] | None = None
 
+    @field_serializer("source")
+    def include_type(self, source: ViewReference) -> dict[str, str]:
+        return {**source.dump(), "type": "view"}
+
 
 class QuerySelect(BaseModelObject):
     """Select clause for a result set expression, specifying which properties to return."""
@@ -128,5 +132,5 @@ class QueryResponse(BaseModelObject):
     items: dict[str, list[InstanceResponse]]
     # For now we do not care about the typing and debug structures in the response.
     typing: dict[str, JsonValue] | None = None
-    next_cursor: dict[str, str | None] | None = None
+    next_cursor: dict[str, str | None]
     debug: dict[str, JsonValue] | None = None
