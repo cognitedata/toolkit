@@ -29,6 +29,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     SpaceResponse,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceViewSelector, SelectedView
 from tests.test_unit.utils import FakeCogniteResourceGenerator
@@ -77,15 +80,18 @@ def timeseries_by_node_id(
     result: dict[NodeId, dict[str, Any]] = {}
     for i, ts in enumerate(cognite_timeseries_2000_list):
         node_id = ts.as_id()
-        dumped = TimeSeries(
+        ref = NodeReference(space=node_id.space, external_id=node_id.external_id)
+        result[node_id] = TimeSeriesResponse(
             id=i,
             external_id=ts.external_id,
-            instance_id=node_id,
+            instance_id=ref,
             is_string=ts.time_series_type == "string",
             is_step=ts.is_step,
+            pending_instance_id=ref,
+            type="numeric",
+            created_time=1,
+            last_updated_time=1,
         ).dump(camel_case=True)
-        dumped["pendingInstanceId"] = node_id.dump(camel_case=True, include_instance_type=False)
-        result[node_id] = dumped
     return result
 
 
@@ -96,13 +102,18 @@ def files_by_node_id(
     result: dict[NodeId, dict[str, Any]] = {}
     for i, file in enumerate(cognite_files_2000_list):
         node_id = file.as_id()
-        dumped = FileMetadata(
+        ref = NodeReference(space=node_id.space, external_id=node_id.external_id)
+        result[node_id] = FileMetadataResponse(
             id=i,
             external_id=file.external_id,
-            instance_id=node_id,
+            instance_id=ref,
+            name=file.name,
+            mime_type=file.mime_type,
+            pending_instance_id=ref,
+            created_time=1,
+            last_updated_time=1,
+            uploaded=file.is_uploaded or True,
         ).dump(camel_case=True)
-        dumped["pendingInstanceId"] = node_id.dump(camel_case=True, include_instance_type=False)
-        result[node_id] = dumped
     return result
 
 
@@ -207,8 +218,8 @@ class TestPurgeInstances:
         ts_objects = list(timeseries_by_node_id.values()) if instance_type == "timeseries" else []
         file_objects = list(files_by_node_id.values()) if instance_type == "files" else []
         if unlink:
-            rsps.add(responses.POST, config.create_api_url("/timeseries/byids"), json={"items": ts_objects})
-            rsps.add(responses.POST, config.create_api_url("/files/byids"), json={"items": file_objects})
+            respx_mock.post(config.create_api_url("/timeseries/byids")).respond(json={"items": ts_objects})
+            respx_mock.post(config.create_api_url("/files/byids")).respond(json={"items": file_objects})
         if unlink and not dry_run and instance_type == "timeseries":
             respx_mock.post(config.create_api_url("/timeseries/unlink-instance-ids")).mock(
                 return_value=httpx.Response(
