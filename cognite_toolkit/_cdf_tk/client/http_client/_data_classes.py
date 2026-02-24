@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import httpx
 from cognite.client import global_config
-from pydantic import BaseModel, JsonValue, TypeAdapter, model_validator
+from pydantic import BaseModel, Field, JsonValue, TypeAdapter, model_validator
 
 from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIError
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
@@ -112,6 +112,10 @@ class BaseRequestMessage(BaseModel, ABC):
     content_length: int | None = None
     content_type: str = "application/json"
     accept: str = "application/json"
+    client_timeout: float | None = None
+    retry_status: bool = Field(
+        default=True, description="Whether to retry failed responses. This overrides the HTTPClient configuration"
+    )
 
     parameters: dict[str, PrimitiveType] | None = None
 

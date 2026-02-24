@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource, T_Re
 from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
 from cognite_toolkit._cdf_tk.client.api.data_product_versions import DataProductVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
+from cognite_toolkit._cdf_tk.client.api.datapoint_subscription import DatapointSubscriptionsAPI
 from cognite_toolkit._cdf_tk.client.api.datasets import DataSetsAPI
 from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import ExtractionPipelineConfigsAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
@@ -63,6 +64,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     NodeResponse,
     SpaceResponse,
     ViewResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (
+    DatapointSubscriptionRequest,
+    DatapointSubscriptionResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
@@ -139,6 +144,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.sequence import (
     SequenceResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
@@ -249,6 +255,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # The dataproduct API is not yet supported in CDF.
         DataProductsAPI,
         DataProductVersionsAPI,
+        # Datapoints subscription has a special update method
+        DatapointSubscriptionsAPI,
         # No create methods
         PrincipalsAPI,
         PrincipalLoginSessionsAPI,
@@ -313,6 +321,13 @@ def get_examples_minimum_requests(request_cls: type[ResponseResource]) -> list[d
         ],
         AssetResponse: [{"name": "smoke-test-asset", "externalId": "smoke-test-asset"}],
         CogniteFileResponse: [{"externalId": "smoke-test-file", "space": SMOKE_SPACE}],
+        DatapointSubscriptionResponse: [
+            {
+                "externalId": "smoke-test-datapoint-subscription",
+                "partitionCount": 1,
+                "filter": {"prefix": {"property": ["externalId"], "value": "smoke-test"}},
+            }
+        ],
         DataSetResponse: [{"externalId": "smoke-tests-crudl-dataset"}],
         EventResponse: [{"externalId": "smoke-test-event"}],
         FileMetadataResponse: [{"name": "smoke-test-file", "externalId": "smoke-test-file"}],
@@ -437,6 +452,9 @@ def get_examples_minimum_requests(request_cls: type[ResponseResource]) -> list[d
                 "columns": [SEQUENCE_COLUMN_ID],
                 "rows": [{"rowNumber": 1, "values": [37]}],
             }
+        ],
+        StreamlitResponse: [
+            {"externalId": "smoke-test-streamlit", "name": "Smoke Test Streamlit App", "creator": "doctrino"}
         ],
         StreamResponse: [
             {"externalId": "smoke-test-stream3", "settings": {"template": {"name": "ImmutableTestStream"}}}
@@ -1722,6 +1740,59 @@ class TestCDFResourceAPI:
             if schedule_id is not None:
                 client.tool.transformations.schedules.delete([schedule_id], ignore_unknown_ids=True)
             client.tool.transformations.delete([transformation_id], ignore_unknown_ids=True)
+
+    def test_datapoints_subscription_crudl(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        subscription_example = get_examples_minimum_requests(DatapointSubscriptionResponse)[0]
+        subscription_request = DatapointSubscriptionRequest.model_validate(subscription_example)
+        subscription_id = subscription_request.as_id()
+
+        client.tool.datapoint_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
+
+        try:
+            endpoint_map = client.tool.datapoint_subscriptions._method_endpoint_map
+            # Create datapoints subscription
+            self.assert_endpoint_method(
+                lambda: client.tool.datapoint_subscriptions.create([subscription_request]),
+                "create",
+                endpoint_map["create"],
+                subscription_id,
+            )
+
+            # Retrieve datapoints subscription
+            self.assert_endpoint_method(
+                lambda: client.tool.datapoint_subscriptions.retrieve([subscription_id]),
+                "retrieve",
+                endpoint_map["retrieve"],
+                subscription_id,
+            )
+
+            # Update datapoints subscription
+            self.assert_endpoint_method(
+                lambda: client.tool.datapoint_subscriptions.update([subscription_request.as_update()]),
+                "update",
+                endpoint_map["update"],
+                subscription_id,
+            )
+            # List members
+            try:
+                _ = client.tool.datapoint_subscriptions.list_members(subscription_request.external_id, limit=None)
+            except ToolkitAPIError:
+                raise EndpointAssertionError(
+                    client.tool.datapoint_subscriptions._list_members.path,
+                    "Listing datapoints subscription members failed.",
+                )
+
+            # List datapoints subscriptions
+            listed_subscriptions = list(client.tool.datapoint_subscriptions.list(limit=1))
+            if len(listed_subscriptions) == 0:
+                raise EndpointAssertionError(
+                    endpoint_map["list"].path, "Expected at least 1 listed datapoints subscription, got 0"
+                )
+        finally:
+            # Clean up
+            client.tool.datapoint_subscriptions.delete([subscription_id])
 
     def test_principals_crudls(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client

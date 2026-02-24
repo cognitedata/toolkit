@@ -560,6 +560,7 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "name": "Example Group",
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
+            "isDeleted": False,
         },
         SequenceRowsResponse: {
             "id": 123,
@@ -604,9 +605,11 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
             "functionExternalId": "function_001",
         },
         StreamlitResponse: {
+            "id": 301,
             "externalId": "streamlit_001",
             "name": "My Streamlit App",
             "creator": "user@example.com",
+            "uploaded": True,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
@@ -673,6 +676,7 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
         CogniteFileResponse: {
             "space": "my_space",
             "externalId": "cognite_file_001",
+            "instanceType": "node",
             "version": 1,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
@@ -680,6 +684,8 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
         },
         ResourceViewMappingResponse: {
             "externalId": "mapping_001",
+            "space": "cognite_migration",
+            "instanceType": "node",
             "properties": {
                 "cognite_migration": {
                     "ResourceViewMapping/v1": {
@@ -700,6 +706,8 @@ def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[s
         },
         APMConfigResponse: {
             "externalId": "apm_config_001",
+            "space": "APM_Config",
+            "instanceType": "node",
             "version": 1,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,

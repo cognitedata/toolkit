@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     ContainerReferenceApply,
     IndustrialCanvasApply,
 )
+from tests.test_integration.helpers import retry_on_deadlock
 
 
 @pytest.fixture(scope="session")
@@ -115,7 +116,7 @@ class TestIndustrialCanvasAPI:
 
             assert retrieved.as_write().dump(keep_existing_version=False) == canvas.dump(keep_existing_version=False)
 
-            deleted = toolkit_client.canvas.industrial.delete(canvas)
+            deleted = retry_on_deadlock(lambda: toolkit_client.canvas.industrial.delete(canvas))
 
             assert toolkit_client.canvas.retrieve(canvas.as_id()) is None
         finally:

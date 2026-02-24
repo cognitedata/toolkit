@@ -2,8 +2,7 @@ import builtins
 from abc import ABC
 from typing import Annotated, Any, Generic, Literal, TypeAlias
 
-from pydantic import Field, JsonValue, TypeAdapter, field_serializer, field_validator, model_serializer
-from pydantic_core.core_schema import FieldSerializationInfo, SerializerFunctionWrapHandler
+from pydantic import Field, JsonValue, TypeAdapter, field_serializer, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -22,12 +21,6 @@ class InstanceDefinition(BaseModelObject, ABC):
     instance_type: str  # "node" | "edge"
     space: str
     external_id: str
-
-    @model_serializer(mode="wrap")  # type: ignore[type-var]
-    def serialize(self, handler: SerializerFunctionWrapHandler, info: FieldSerializationInfo) -> dict[str, Any]:
-        # Always serialize as {"instanceType": self.instance_type}, even if model_dump(exclude_unset=True)
-        serialized = handler(self)
-        return {"instanceType" if info.by_alias else "instance_type": self.instance_type, **serialized}
 
 
 class InstanceSource(BaseModelObject):

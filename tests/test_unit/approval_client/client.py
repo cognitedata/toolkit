@@ -17,7 +17,6 @@ from cognite.client import data_modeling as dm
 from cognite.client._api.iam import IAMAPI
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
-    Database,
     DataSet,
     ExtractionPipeline,
     ExtractionPipelineConfig,
@@ -54,7 +53,6 @@ from cognite.client.data_classes.data_modeling import (
     VersionedDataModelingId,
     View,
 )
-from cognite.client.data_classes.data_modeling.graphql import DMLApplyResult
 from cognite.client.data_classes.data_modeling.ids import DataModelIdentifier, InstanceId
 from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.data_classes.iam import CreatedSession, GroupWrite, ProjectSpec, TokenInspection
@@ -71,8 +69,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source._base import SourceRequestDefinition
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.graphql_data_models import GraphQLDataModelWrite
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawDatabase
 from cognite_toolkit._cdf_tk.client.resource_classes.project import ProjectStatus, ProjectStatusList
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
@@ -426,8 +422,6 @@ class ApprovalToolkitClient:
                     elif isinstance(item, Sequence) and all(isinstance(v, write_resource_cls) for v in item):
                         created.extend(item)
                         is_single_resource = False
-                    elif isinstance(item, str) and issubclass(write_resource_cls, RawDatabase):
-                        created.append(Database(name=item))
             created_resources[resource_cls.__name__].extend(created)
             if resource_cls is View:
                 return created
@@ -741,35 +735,6 @@ class ApprovalToolkitClient:
             created_resources[resource_cls.__name__].append(created)
             return created
 
-        def apply_dml(
-            id: dm.DataModelId,
-            dml: str,
-            name: str | None = None,
-            description: str | None = None,
-            previous_version: str | None = None,
-            preserve_dml: bool | None = None,
-        ) -> DMLApplyResult:
-            created = GraphQLDataModelWrite(
-                space=id.space,
-                external_id=id.external_id,
-                version=id.version,
-                dml=dml,
-                name=name,
-                description=description,
-                previous_version=previous_version,
-                preserve_dml=preserve_dml,
-            )
-            created_resources[resource_cls.__name__].append(created)
-            return DMLApplyResult(
-                space=id.space,
-                external_id=id.external_id,
-                version=id.version,
-                description=description,
-                name=name,
-                last_updated_time="1",
-                created_time="1",
-            )
-
         def create(items: Sequence[RequestResource], *_, **__) -> list[ResponseResource]:
             created_resources[resource_cls.__name__].extend(items)
             return []
@@ -808,7 +773,6 @@ class ApprovalToolkitClient:
                 upload_file_content_path_files_api,
                 upload_file_content_bytes_files_api,
                 create_3dmodel,
-                apply_dml,
                 create_raw_table,
                 create_nodes,
                 create,
