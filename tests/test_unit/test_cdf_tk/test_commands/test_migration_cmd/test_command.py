@@ -23,10 +23,10 @@ from cognite.client.data_classes.data_modeling.statistics import InstanceStatist
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData, ChartSource, ChartTimeseries
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import ContainerReference, IndustrialCanvas
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource as LegacyInstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
@@ -468,7 +468,7 @@ class TestMigrationCommand:
         respx_mock = cognite_migration_model
         config = toolkit_config
         charts = [
-            Chart(
+            ChartResponse(
                 external_id="my_chart",
                 created_time=1,
                 last_updated_time=1,
@@ -489,14 +489,14 @@ class TestMigrationCommand:
                 owner_id="1234",
             )
         ]
-        # Chart retrieve ids
-        rsps.add(
-            responses.POST,
+        # Chart list
+        respx.post(
             config.create_app_url("/storage/charts/charts/list"),
+        ).respond(
+            status_code=200,
             json={
                 "items": [chart.dump() for chart in charts],
             },
-            status=200,
         )
         # TimeSeries Instance ID lookup
         rsps.add(
@@ -562,7 +562,7 @@ class TestMigrationCommand:
         assert actual_results == {"failure": 0, "pending": 0, "success": len(charts), "unchanged": 0}
 
         calls = respx_mock.calls
-        assert len(calls) == 2
+        assert len(calls) == 3
         last_call = calls[-1]
         assert last_call.request.url == config.create_app_url("/storage/charts/charts")
         assert last_call.request.method == "PUT"
