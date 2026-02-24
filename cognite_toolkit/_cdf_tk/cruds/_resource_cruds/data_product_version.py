@@ -65,12 +65,12 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
         dumped = resource.as_request_resource().dump()
         dumped["dataProductExternalId"] = resource.data_product_external_id
         local = local or {}
-        defaults: list[tuple[str, Any]] = [
-            ("status", "draft"),
-            ("description", None),
-            ("terms", None),
-        ]
-        for key, default in defaults:
+        # The API returns empty objects (e.g. terms: {}) for unset fields; treat as None.
+        for key, value in dumped.items():
+            if value == {}:
+                dumped[key] = None
+        defaults: dict[str, Any | None] = {"status": "draft", "description": None, "terms": None}
+        for key, default in defaults.items():
             if dumped.get(key) == default and key not in local:
                 dumped.pop(key)
         return dumped
