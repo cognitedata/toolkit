@@ -249,6 +249,7 @@ class InstanceIO(
             else:
                 for key, items in response.items.items():
                     if key not in first.items:
+                        # In practice, this is unreachable. It is just in case.
                         first.items[key] = items
                     else:
                         first.items[key].extend(items)
