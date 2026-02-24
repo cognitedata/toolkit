@@ -18,6 +18,7 @@ from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
@@ -32,7 +33,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import CANVAS_INSTANCE_SPACE, Canvas
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
@@ -551,10 +551,10 @@ class TestInteractiveChartSelect:
             visibility="PUBLIC",
         )
         cdf_charts = [
-            Chart(external_id="homer1", data=ChartData(name="Homer 1"), owner_id="homer", **default_args),
-            Chart(external_id="homer2", data=ChartData(name="Homer 2"), owner_id="homer", **default_args),
-            Chart(external_id="marge1", data=ChartData(name="Marge 1"), owner_id="marge", **default_args),
-            Chart(external_id="marge2", data=ChartData(name="Marge 2"), owner_id="marge", **default_args),
+            ChartResponse(external_id="homer1", data=ChartData(name="Homer 1"), owner_id="homer", **default_args),
+            ChartResponse(external_id="homer2", data=ChartData(name="Homer 2"), owner_id="homer", **default_args),
+            ChartResponse(external_id="marge1", data=ChartData(name="Marge 1"), owner_id="marge", **default_args),
+            ChartResponse(external_id="marge2", data=ChartData(name="Marge 2"), owner_id="marge", **default_args),
         ]
         # Map answer titles to opening_choices values
         first_answer_by_choice_title = {c.title: c.value for c in InteractiveChartSelect.opening_choices}
@@ -587,9 +587,7 @@ class TestInteractiveChartSelect:
             MockQuestionary(InteractiveChartSelect.__module__, monkeypatch, answers),
         ):
             # Only include charts whose external_id is in selected_cdf
-            client.charts.list.return_value = ChartList(
-                [chart for chart in cdf_charts if chart.external_id in selected_cdf]
-            )
+            client.charts.list.return_value = [chart for chart in cdf_charts if chart.external_id in selected_cdf]
             client.iam.user_profiles.list.return_value = UserProfileList(
                 [
                     UserProfile(user_identifier="homer", display_name="Homer Simpson", last_updated_time=1),
