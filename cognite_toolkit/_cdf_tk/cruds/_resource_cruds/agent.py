@@ -38,6 +38,13 @@ class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):
         return sanitize_filename(id.external_id)
 
     @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+        for tool in item.get("tools", []):
+            if tool.get("type") == "callFunction":
+                if ext_id := tool.get("configuration", {}).get("externalId"):
+                    yield FunctionCRUD, ExternalId(external_id=ext_id)
+
+    @classmethod
     def get_required_capability(
         cls, items: Sequence[AgentRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
