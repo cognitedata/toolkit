@@ -6,7 +6,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedRespo
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._references import InstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
@@ -51,7 +51,7 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
         return self._request_item_response(items, "create")
 
     def retrieve(
-        self, items: Sequence[InternalId | ExternalId | NodeReference], ignore_unknown_ids: bool = False
+        self, items: Sequence[InternalId | ExternalId | InstanceId], ignore_unknown_ids: bool = False
     ) -> list[TimeSeriesResponse]:
         """Retrieve time series from CDF.
 

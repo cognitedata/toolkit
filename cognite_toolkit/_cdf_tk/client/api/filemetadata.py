@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._references import InstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
@@ -67,7 +67,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         return results
 
     def retrieve(
-        self, items: Sequence[InternalId | ExternalId | NodeReference], ignore_unknown_ids: bool = False
+        self, items: Sequence[InternalId | ExternalId | InstanceId], ignore_unknown_ids: bool = False
     ) -> list[FileMetadataResponse]:
         """Retrieve file metadata from CDF.
 
