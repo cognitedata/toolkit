@@ -4,7 +4,7 @@ from typing import Any
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.charts import (
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import (
     ChartRequest,
     ChartResponse,
     Visibility,
