@@ -48,7 +48,7 @@ class CDFResource(Generic[T_Identifier, T_RequestResource, T_ResponseResource]):
     request_cls: type[T_RequestResource]
     example_request: dict[str, Any]
     example_update: dict[str, Any]
-    api_class: type[CDFResourceAPI[T_Identifier, T_RequestResource, T_ResponseResource]]
+    api_class: type[CDFResourceAPI[T_ResponseResource]]
 
     @cached_property
     def example_request_instance(self) -> T_RequestResource:

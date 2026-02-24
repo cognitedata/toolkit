@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionReq
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
 
 
-class FunctionsAPI(CDFResourceAPI[InternalOrExternalId, FunctionRequest, FunctionResponse]):
+class FunctionsAPI(CDFResourceAPI[FunctionResponse]):
     """API for managing CDF functions.
 
     Note: Functions do not support update operations.

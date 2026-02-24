@@ -24,7 +24,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 )
 
 
-class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicRequest, ThreeDModelClassicResponse]):
+class ThreeDClassicModelsAPI(CDFResourceAPI[ThreeDModelClassicResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,
@@ -143,9 +143,7 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[InternalId, ThreeDModelClassicReques
         return self._list(limit=limit, params=params)
 
 
-class ThreeDClassicRevisionsAPI(
-    CDFResourceAPI[ThreeDModelRevisionId, ThreeDRevisionClassicRequest, ThreeDRevisionClassicResponse]
-):
+class ThreeDClassicRevisionsAPI(CDFResourceAPI[ThreeDRevisionClassicResponse]):
     ENDPOINT = "/3d/models/{modelId}/revisions"
 
     def __init__(self, http_client: HTTPClient) -> None:
@@ -307,9 +305,7 @@ class ThreeDClassicRevisionsAPI(
 T_RequestMapping = TypeVar("T_RequestMapping", bound=AssetMappingClassicRequest | AssetMappingDMRequest)
 
 
-class ThreeDClassicAssetMappingAPI(
-    CDFResourceAPI[AssetMappingClassicRequest, AssetMappingClassicRequest, AssetMappingClassicResponse]
-):
+class ThreeDClassicAssetMappingAPI(CDFResourceAPI[AssetMappingClassicResponse]):
     ENDPOINT = "/3d/models/{modelId}/revisions/{revisionId}/mappings"
 
     def __init__(self, http_client: HTTPClient) -> None:
@@ -431,7 +427,7 @@ class ThreeDClassicAssetMappingAPI(
         return items
 
 
-class ThreeDDMAssetMappingAPI(CDFResourceAPI[AssetMappingDMRequest, AssetMappingDMRequest, AssetMappingDMResponse]):
+class ThreeDDMAssetMappingAPI(CDFResourceAPI[AssetMappingDMResponse]):
     ENDPOINT = "/3d/models/{modelId}/revisions/{revisionId}/mappings"
 
     def __init__(self, http_client: HTTPClient) -> None:

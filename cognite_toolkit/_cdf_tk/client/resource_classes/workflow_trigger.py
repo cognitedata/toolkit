@@ -61,5 +61,6 @@ class WorkflowTriggerResponse(WorkflowTrigger, ResponseResource[WorkflowTriggerR
     last_updated_time: int
     is_paused: bool
 
-    def as_request_resource(self) -> WorkflowTriggerRequest:
-        return WorkflowTriggerRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[WorkflowTriggerRequest]:
+        return WorkflowTriggerRequest

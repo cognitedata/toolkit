@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 
 
-class ViewsAPI(CDFResourceAPI[ViewReference, ViewRequest, ViewResponse]):
+class ViewsAPI(CDFResourceAPI[ViewResponse]):
     """API for managing CDF data modeling views.
 
     Views use an apply/upsert pattern for create and update operations.

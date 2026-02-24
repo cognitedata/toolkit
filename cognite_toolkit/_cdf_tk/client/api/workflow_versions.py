@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
 )
 
 
-class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionRequest, WorkflowVersionResponse]):
+class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,
