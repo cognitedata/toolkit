@@ -3,9 +3,9 @@ from uuid import uuid4
 
 import pytest
 from cognite.client.data_classes import TimeSeries, TimeSeriesWrite, UserProfile
-from cognite.client.exceptions import CogniteNotFoundError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartData,
@@ -50,11 +50,11 @@ class TestChartsAPI:
 
             toolkit_client.charts.delete([ExternalId(external_id=chart_id)])
 
-            retrieved2 = toolkit_client.charts.retrieve([ExternalId(external_id=chart_id)])
-            assert len(retrieved2) == 0, "Chart should be deleted and not retrievable."
+            with pytest.raises(ToolkitAPIError):
+                toolkit_client.charts.retrieve([ExternalId(external_id=chart_id)])
         finally:
             if created:
-                with suppress(CogniteNotFoundError):
+                with suppress(ToolkitAPIError):
                     toolkit_client.charts.delete([ExternalId(external_id=chart_id)])
 
     @staticmethod
@@ -66,32 +66,32 @@ class TestChartsAPI:
             data=ChartData(
                 version=1,
                 name="Toolkit Test Chart",
-                dateFrom="1916-06-15T12:35:46.880Z",
-                dateTo="2279-04-14T07:10:41.670Z",
-                userInfo=UserInfo(id=me.user_identifier, email=me.email, displayName=me.display_name),
-                liveMode=False,
-                timeSeriesCollection=[
+                date_from="1916-06-15T12:35:46.880Z",
+                date_to="2279-04-14T07:10:41.670Z",
+                user_info=UserInfo(id=me.user_identifier, email=me.email, display_name=me.display_name),
+                live_mode=False,
+                time_series_collection=[
                     ChartTimeseries(
                         type="timeseries",
                         id=ts_chart_id,
                         name=ts.name,
                         color="#1192e8",
-                        tsId=ts.id,
-                        tsExternalId=ts.external_id,
-                        lineWeight=1.0,
-                        lineStyle="solid",
+                        ts_id=ts.id,
+                        ts_external_id=ts.external_id,
+                        line_weight=1.0,
+                        line_style="solid",
                         interpolation="linear",
-                        displayMode="lines",
+                        display_mode="lines",
                         enabled=True,
                         unit="",
-                        originalUnit="",
-                        preferredUnit="",
+                        original_unit="",
+                        preferred_unit="",
                         description="-",
-                        range=(None, None),
-                        createdAt=1755456114956,
+                        range=[None, None],
+                        created_at=1755456114956,
                     )
                 ],
-                workflowCollection=[],
-                sourceCollection=[ChartSource(type="timeseries", id=ts_chart_id)],
+                workflow_collection=[],
+                source_collection=[ChartSource(type="timeseries", id=ts_chart_id)],
             ),
         )

@@ -3,7 +3,7 @@ from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import (
     ChartRequest,
     ChartResponse,
@@ -64,9 +64,7 @@ class ChartsAPI(CDFResourceAPI[ExternalId, ChartRequest, ChartResponse]):
         """
         self._request_no_response(items, "delete")
 
-    def list(
-        self, visibility: Visibility | None = None, is_owned: bool | None = None, limit: int = 100
-    ) -> list[ChartResponse]:
+    def list(self, visibility: Visibility | None = None, is_owned: bool | None = None) -> list[ChartResponse]:
         """List charts based on visibility and ownership.
 
         Args:
@@ -80,7 +78,17 @@ class ChartsAPI(CDFResourceAPI[ExternalId, ChartRequest, ChartResponse]):
             filter_params["visibility"] = visibility
         if is_owned is not None:
             filter_params["isOwned"] = is_owned
-        body: dict[str, dict[str, Any]] = {}
+        body: dict[str, Any] = {}
         if filter_params:
             body["filter"] = filter_params
-        return self._list(body=body, limit=limit)
+        endpoint = self._method_endpoint_map["list"]
+        # Note that even though the internal docs specify that limit is supported for this endpoint,
+        # you get: "Encountered an unknown key 'limit' at offset 50 at path: $" if you pass it.
+        response = self._http_client.request_single_retries(
+            RequestMessage(
+                endpoint_url=self._make_url(endpoint.path),
+                method=endpoint.method,
+                body_content=body,
+            )
+        ).get_success_or_raise()
+        return self._validate_page_response(response).items
