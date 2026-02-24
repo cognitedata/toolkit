@@ -153,7 +153,7 @@ def purge_responses(
 @pytest.fixture
 def purge_client(toolkit_config: ToolkitClientConfig) -> Iterator[ToolkitClient]:
     config = toolkit_config
-    client = ToolkitClient(config, enable_set_pending_ids=True)
+    client = ToolkitClient(config)
     yield client
 
 

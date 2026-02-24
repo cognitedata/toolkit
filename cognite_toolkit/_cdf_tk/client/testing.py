@@ -3,9 +3,6 @@ from contextlib import contextmanager
 from typing import Any
 from unittest.mock import MagicMock
 
-from cognite.client._api.datapoints import DatapointsAPI
-from cognite.client._api.datapoints_subscriptions import DatapointsSubscriptionAPI
-from cognite.client._api.synthetic_time_series import SyntheticDatapointsAPI
 from cognite.client.testing import CogniteClientMock
 from rich.console import Console
 
@@ -17,8 +14,6 @@ from cognite_toolkit._cdf_tk.client.api.data_models import DataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractors import HostedExtractorsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI, IndustrialCanvasAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFileMetadataAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI as LegacyTimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawAPI, RawDatabasesAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics import RoboticsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_capabilities import CapabilitiesAPI
@@ -124,7 +119,6 @@ class ToolkitClientMock(CogniteClientMock):
         self.canvas = MagicMock(spec=CanvasAPI)
         self.canvas.industrial = MagicMock(spec_set=IndustrialCanvasAPI)
         self.charts = MagicMock(spec_set=ChartsAPI)
-        self.files = MagicMock(spec_set=ExtendedFileMetadataAPI)
         self.infield = MagicMock(spec=InfieldAPI)
         self.infield.apm_config = MagicMock(spec_set=APMConfigAPI)
         self.infield.config = MagicMock(spec_set=InfieldConfigAPI)
@@ -151,11 +145,6 @@ class ToolkitClientMock(CogniteClientMock):
         self.migration.lookup.time_series = MagicMock(spec_set=LookupAPI)
         self.migration.resource_view_mapping = MagicMock(spec_set=ResourceViewMappingsAPI)
         self.migration.created_source_system = MagicMock(spec_set=CreatedSourceSystemAPI)
-
-        self.time_series = MagicMock(spec=LegacyTimeSeriesAPI)
-        self.time_series.data = MagicMock(spec=DatapointsAPI)
-        self.time_series.data.synthetic = MagicMock(spec_set=SyntheticDatapointsAPI)
-        self.time_series.subscriptions = MagicMock(spec_set=DatapointsSubscriptionAPI)
 
         self.tool = MagicMock(spec=ToolAPI)
         self.tool.agents = MagicMock(spec=AgentsAPI)

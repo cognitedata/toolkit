@@ -19,7 +19,7 @@ class TestFunctionsAPI:
     ) -> None:
         config = toolkit_config
         console = MagicMock(spec=Console)
-        client = ToolkitClient(config=config, enable_set_pending_ids=True, console=console)
+        client = ToolkitClient(config=config, console=console)
         url = config.create_api_url("/functions")
         fun = FunctionRequest(name="test_function", file_id=123, external_id="test_function")
 
@@ -61,7 +61,7 @@ class TestFunctionsAPI:
     ) -> None:
         config = toolkit_config
         console = MagicMock(spec=Console)
-        client = ToolkitClient(config=config, enable_set_pending_ids=True, console=console)
+        client = ToolkitClient(config=config, console=console)
         url = config.create_api_url("/functions")
         fun = FunctionRequest(name="test_function", file_id=123, external_id="test_function")
 
@@ -86,7 +86,7 @@ class TestFunctionsAPI:
     ) -> None:
         config = toolkit_config
         console = MagicMock(spec=Console)
-        client = ToolkitClient(config=config, enable_set_pending_ids=True, console=console)
+        client = ToolkitClient(config=config, console=console)
         url = config.create_api_url("/functions")
         fun = FunctionRequest(name="test_function", file_id=123, external_id="test_function")
 
@@ -104,7 +104,7 @@ class TestFunctionsAPI:
 
     def test_create_function_401(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
         config = toolkit_config
-        client = ToolkitClient(config=config, enable_set_pending_ids=True)
+        client = ToolkitClient(config=config)
         url = config.create_api_url("/functions")
         fun = FunctionRequest(name="test_function", file_id=123, external_id="test_function")
 
@@ -125,7 +125,7 @@ class TestFunctionsAPI:
     @pytest.mark.usefixtures("disable_gzip")
     def test_delete_function_200(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
         config = toolkit_config
-        client = ToolkitClient(config=config, enable_set_pending_ids=True)
+        client = ToolkitClient(config=config)
         url = config.create_api_url("/functions/delete")
 
         respx_mock.post(url).mock(return_value=Response(status_code=200, json={}))
@@ -146,7 +146,7 @@ class TestFunctionsAPI:
     ) -> None:
         config = toolkit_config
         console = MagicMock(spec=Console)
-        client = ToolkitClient(config=config, enable_set_pending_ids=True, console=console)
+        client = ToolkitClient(config=config, console=console)
         url = config.create_api_url("/functions/delete")
 
         with patch(f"{HTTPClient.__module__}.time"):
