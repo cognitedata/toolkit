@@ -1,6 +1,7 @@
 import itertools
 import json
 from collections.abc import Iterator
+from typing import Any
 
 import httpx
 import pytest
@@ -26,10 +27,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     SpaceResponse,
     ViewResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extended_filemetadata import (
-    ExtendedFileMetadata,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extended_timeseries import ExtendedTimeSeries
+from cognite.client.data_classes.files import FileMetadata
+from cognite.client.data_classes.time_series import TimeSeries
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceViewSelector, SelectedView
 from tests.test_unit.utils import FakeCogniteResourceGenerator
@@ -74,33 +73,37 @@ def cognite_files_2000_list() -> NodeList[CogniteFile]:
 @pytest.fixture()
 def timeseries_by_node_id(
     cognite_timeseries_2000_list: NodeList[CogniteTimeSeries],
-) -> dict[NodeId, ExtendedTimeSeries]:
-    return {
-        ts.as_id(): ExtendedTimeSeries(
+) -> dict[NodeId, dict[str, Any]]:
+    result: dict[NodeId, dict[str, Any]] = {}
+    for i, ts in enumerate(cognite_timeseries_2000_list):
+        node_id = ts.as_id()
+        dumped = TimeSeries(
             id=i,
             external_id=ts.external_id,
-            instance_id=ts.as_id(),
+            instance_id=node_id,
             is_string=ts.time_series_type == "string",
             is_step=ts.is_step,
-            pending_instance_id=ts.as_id(),
-        )
-        for i, ts in enumerate(cognite_timeseries_2000_list)
-    }
+        ).dump(camel_case=True)
+        dumped["pendingInstanceId"] = node_id.dump(camel_case=True, include_instance_type=False)
+        result[node_id] = dumped
+    return result
 
 
 @pytest.fixture()
 def files_by_node_id(
     cognite_files_2000_list: NodeList[CogniteFile],
-) -> dict[NodeId, ExtendedFileMetadata]:
-    return {
-        file.as_id(): ExtendedFileMetadata(
+) -> dict[NodeId, dict[str, Any]]:
+    result: dict[NodeId, dict[str, Any]] = {}
+    for i, file in enumerate(cognite_files_2000_list):
+        node_id = file.as_id()
+        dumped = FileMetadata(
             id=i,
             external_id=file.external_id,
-            instance_id=file.as_id(),
-            pending_instance_id=file.as_id(),
-        )
-        for i, file in enumerate(cognite_files_2000_list)
-    }
+            instance_id=node_id,
+        ).dump(camel_case=True)
+        dumped["pendingInstanceId"] = node_id.dump(camel_case=True, include_instance_type=False)
+        result[node_id] = dumped
+    return result
 
 
 @pytest.fixture()
@@ -177,9 +180,9 @@ class TestPurgeInstances:
         purge_responses: responses.RequestsMock,
         respx_mock: respx.MockRouter,
         cognite_timeseries_2000_list: NodeList[CogniteTimeSeries],
-        timeseries_by_node_id: dict[NodeId, ExtendedTimeSeries],
+        timeseries_by_node_id: dict[NodeId, dict[str, Any]],
         cognite_files_2000_list: NodeList[CogniteFile],
-        files_by_node_id: dict[NodeId, ExtendedFileMetadata],
+        files_by_node_id: dict[NodeId, dict[str, Any]],
     ) -> None:
         config = purge_client.config
         rsps = purge_responses
@@ -201,22 +204,24 @@ class TestPurgeInstances:
             status_code=200,
             json={"items": [instance.dump() for instance in instances]},
         )
-        ts_objects = [ts.dump() for ts in timeseries_by_node_id.values()] if instance_type == "timeseries" else []
-        file_objects = [file.dump() for file in files_by_node_id.values()] if instance_type == "files" else []
+        ts_objects = list(timeseries_by_node_id.values()) if instance_type == "timeseries" else []
+        file_objects = list(files_by_node_id.values()) if instance_type == "files" else []
         if unlink:
             rsps.add(responses.POST, config.create_api_url("/timeseries/byids"), json={"items": ts_objects})
             rsps.add(responses.POST, config.create_api_url("/files/byids"), json={"items": file_objects})
         if unlink and not dry_run and instance_type == "timeseries":
-            rsps.add(
-                responses.POST,
-                config.create_api_url("/timeseries/unlink-instance-ids"),
-                json={"items": [ts.dump() for ts in timeseries_by_node_id.values()]},
+            respx_mock.post(config.create_api_url("/timeseries/unlink-instance-ids")).mock(
+                return_value=httpx.Response(
+                    status_code=200,
+                    json={"items": list(timeseries_by_node_id.values())},
+                )
             )
         if unlink and not dry_run and instance_type == "files":
-            rsps.add(
-                responses.POST,
-                config.create_api_url("/files/unlink-instance-ids"),
-                json={"items": [file.dump() for file in files_by_node_id.values()]},
+            respx_mock.post(config.create_api_url("/files/unlink-instance-ids")).mock(
+                return_value=httpx.Response(
+                    status_code=200,
+                    json={"items": list(files_by_node_id.values())},
+                )
             )
         if not dry_run:
             respx_mock.post(
@@ -321,12 +326,12 @@ class TestPurgeSpace:
             respx_mock.post(config.create_api_url("/models/instances/list")).mock(side_effect=list_instances_callback)
 
             nodes = node_items
-            retrieve_calls = []
+            retrieve_calls: list[tuple[str, type, int, list[NodeResponse]]] = []
             if not delete_datapoints:
-                retrieve_calls.append(("/timeseries/byids", ExtendedTimeSeries, ts_count, nodes[:ts_count]))
+                retrieve_calls.append(("/timeseries/byids", TimeSeries, ts_count, nodes[:ts_count]))
             if not delete_file_content:
                 retrieve_calls.append(
-                    ("/files/byids", ExtendedFileMetadata, file_count, nodes[ts_count : ts_count + file_count])
+                    ("/files/byids", FileMetadata, file_count, nodes[ts_count : ts_count + file_count])
                 )
 
             for url, cls_, count, resource_nodes in retrieve_calls:

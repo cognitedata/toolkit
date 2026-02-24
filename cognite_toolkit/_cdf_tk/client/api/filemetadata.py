@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 
 
 class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
@@ -25,6 +26,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
                 "delete": Endpoint(method="POST", path="/files/delete", item_limit=1000, concurrency_max_workers=1),
                 "list": Endpoint(method="POST", path="/files/list", item_limit=1000),
             },
+            api_version="alpha",
         )
 
     def _validate_page_response(
@@ -174,3 +176,36 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             List of FileMetadataResponse objects.
         """
         return self._list(limit=limit)
+
+    def set_pending_ids(self, items: Sequence[PendingInstanceId]) -> list[FileMetadataResponse]:
+        """Set pending instance IDs for one or more file metadata entries.
+
+        This links asset-centric files to DM nodes that will be created
+        by the syncer service.
+
+        Args:
+            items: Sequence of PendingInstanceId objects containing the pending
+                instance IDs and the file id or external_id to link them to.
+
+        Returns:
+            List of updated FileMetadataResponse objects.
+        """
+        return self._request_item_response(
+            items, method="retrieve", endpoint="/files/set-pending-instance-ids"
+        )
+
+    def unlink_instance_ids(self, items: Sequence[InternalOrExternalId]) -> list[FileMetadataResponse]:
+        """Unlink instance IDs from files.
+
+        This allows a CogniteFile node in Data Modeling to be deleted
+        without deleting the underlying file content.
+
+        Args:
+            items: Sequence of InternalOrExternalId identifying the files to unlink.
+
+        Returns:
+            List of updated FileMetadataResponse objects.
+        """
+        return self._request_item_response(
+            items, method="retrieve", endpoint="/files/unlink-instance-ids"
+        )

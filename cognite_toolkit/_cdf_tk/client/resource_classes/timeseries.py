@@ -1,6 +1,8 @@
 import builtins
 from typing import Any, ClassVar, Literal
 
+from pydantic import Field
+
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
     ResponseResource,
@@ -45,6 +47,7 @@ class TimeSeriesRequest(TimeSeries, UpdatableRequestResource):
 class TimeSeriesResponse(TimeSeries, ResponseResource[TimeSeriesRequest]):
     id: int
     instance_id: NodeReference | None = None
+    pending_instance_id: NodeReference | None = None
     type: str
     created_time: int
     last_updated_time: int

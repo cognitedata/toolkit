@@ -6,7 +6,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client.api.charts import ChartsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFileMetadataAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
+from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI as LegacyTimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 
@@ -94,7 +94,6 @@ class ToolkitClient(CogniteClient):
     def __init__(
         self,
         config: ToolkitClientConfig | None = None,
-        enable_set_pending_ids: bool = False,
         console: Console | None = None,
     ) -> None:
         super().__init__(config=config)
@@ -106,10 +105,7 @@ class ToolkitClient(CogniteClient):
 
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self, self.console)
-        # self.data_modeling: ExtendedDataModelingAPI = ExtendedDataModelingAPI(self._config, self._API_VERSION, self)
-        if enable_set_pending_ids:
-            self.time_series: ExtendedTimeSeriesAPI = ExtendedTimeSeriesAPI(self._config, self._API_VERSION, self)
-            self.files: ExtendedFileMetadataAPI = ExtendedFileMetadataAPI(self._config, self._API_VERSION, self)
+        # Override SDK APIs with alpha-aware versions for pending instance ID support
         self.canvas = CanvasAPI(self.data_modeling.instances)
         self.migration = MigrationAPI(self.data_modeling.instances, http_client)
         self.token = TokenAPI(self)

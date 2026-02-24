@@ -6,6 +6,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 
 
@@ -26,6 +27,7 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
                 ),
                 "list": Endpoint(method="POST", path="/timeseries/list", item_limit=1000),
             },
+            api_version="alpha",
         )
 
     def _validate_page_response(
@@ -135,3 +137,36 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
             List of TimeSeriesResponse objects.
         """
         return self._list(limit=limit)
+
+    def set_pending_ids(self, items: Sequence[PendingInstanceId]) -> list[TimeSeriesResponse]:
+        """Set pending instance IDs for one or more time series.
+
+        This links asset-centric time series to DM nodes that will be created
+        by the syncer service.
+
+        Args:
+            items: Sequence of PendingInstanceId objects containing the pending
+                instance IDs and the time series id or external_id to link them to.
+
+        Returns:
+            List of updated TimeSeriesResponse objects.
+        """
+        return self._request_item_response(
+            items, method="retrieve", endpoint="/timeseries/set-pending-instance-ids"
+        )
+
+    def unlink_instance_ids(self, items: Sequence[InternalOrExternalId]) -> list[TimeSeriesResponse]:
+        """Unlink instance IDs from time series.
+
+        This allows a CogniteTimeSeries node in Data Modeling to be deleted
+        without deleting the underlying time series data.
+
+        Args:
+            items: Sequence of InternalOrExternalId identifying the time series to unlink.
+
+        Returns:
+            List of updated TimeSeriesResponse objects.
+        """
+        return self._request_item_response(
+            items, method="retrieve", endpoint="/timeseries/unlink-instance-ids"
+        )
