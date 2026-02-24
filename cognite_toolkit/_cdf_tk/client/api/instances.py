@@ -5,13 +5,15 @@ from typing import Any, Generic, Literal
 
 from pydantic import JsonValue
 
-from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, QueryResponse, ResponseItems
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceRequest,
     InstanceResponse,
+    QueryRequest,
+    QueryResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
@@ -154,6 +156,27 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
             List of InstanceResponse objects.
         """
         return self._list(limit=limit, body=self._create_body(filter))
+
+    def query(self, query: QueryRequest) -> QueryResponse:
+        """Execute a query against the instances query endpoint.
+
+        This uses the ``POST /models/instances/query`` endpoint which supports
+        traversing the graph of nodes and edges using result set expressions.
+
+        Args:
+            query: The query request specifying what to retrieve.
+
+        Returns:
+            QueryResult containing matching instances grouped by result set expression name.
+        """
+        request = RequestMessage(
+            endpoint_url=self._http_client.config.create_api_url(QUERY_ENDPOINT.path),
+            method=QUERY_ENDPOINT.method,
+            body_content=query.dump(),
+        )
+        response = self._http_client.request_single_retries(request)
+        success = response.get_success_or_raise()
+        return QueryResponse.model_validate_json(success.body)
 
 
 class WrappedInstancesAPI(

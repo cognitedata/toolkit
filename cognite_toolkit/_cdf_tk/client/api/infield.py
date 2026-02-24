@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from cognite_toolkit._cdf_tk.client.api.instances import MultiWrappedInstancesAPI, WrappedInstancesAPI
-from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse, QueryResponse, ResponseItems
+from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsSuccessResponse,
@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
     APMConfigResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import QueryResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     DataExplorationConfig,
     InFieldCDMLocationConfigRequest,
