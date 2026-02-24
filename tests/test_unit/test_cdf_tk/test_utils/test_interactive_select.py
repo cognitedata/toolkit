@@ -18,7 +18,7 @@ from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.charts import ChartResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,

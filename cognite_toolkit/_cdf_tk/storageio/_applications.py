@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultList
-from cognite_toolkit._cdf_tk.client.resource_classes.charts import ChartRequest, ChartResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     IndustrialCanvas,
     IndustrialCanvasApply,

@@ -23,7 +23,7 @@ from cognite.client.data_classes.data_modeling.statistics import InstanceStatist
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.charts import ChartResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData, ChartSource, ChartTimeseries
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import ContainerReference, IndustrialCanvas

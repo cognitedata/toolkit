@@ -22,7 +22,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter, ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.charts import ChartResponse, Visibility
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse, Visibility
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerReference,
     DataModelReference,

@@ -11,7 +11,7 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.exceptions import CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.charts import ChartRequest, ChartResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartCoreTimeseries,
     ChartSource,
