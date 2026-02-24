@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsRequest,
     ItemsSuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedInstanceIdentifier
 from cognite_toolkit._cdf_tk.cruds import (
@@ -738,12 +738,15 @@ class PurgeCommand(ToolkitCommand):
     ) -> list[InstanceId]:
         node_ids = [instance for instance in instances if isinstance(instance, NodeId)]
         if node_ids:
-            timeseries = client.time_series.retrieve_multiple(instance_ids=node_ids, ignore_unknown_ids=True)
+            timeseries = client.tool.timeseries.retrieve(
+                [NodeReference(space=node.space, external_id=node.external_id) for node in node_ids],
+                ignore_unknown_ids=True,
+            )
             if not dry_run and timeseries:
                 migrated_timeseries_ids = [
-                    ts.id for ts in timeseries if ts.instance_id and getattr(ts, "pending_instance_id", None)
+                    InternalId(id=ts.id) for ts in timeseries if ts.instance_id and ts.pending_instance_id
                 ]
-                client.tool.timeseries.unlink_instance_ids([InternalId(id=id_) for id_ in migrated_timeseries_ids])
+                client.tool.timeseries.unlink_instance_ids(migrated_timeseries_ids)
                 if verbose:
                     console.print(f"Unlinked {len(migrated_timeseries_ids)} timeseries from datapoints.")
             elif verbose and timeseries:
@@ -756,14 +759,15 @@ class PurgeCommand(ToolkitCommand):
     ) -> list[InstanceId]:
         file_ids = [instance for instance in instances if isinstance(instance, NodeId)]
         if file_ids:
-            files = client.files.retrieve_multiple(instance_ids=file_ids, ignore_unknown_ids=True)
+            files = client.tool.filemetadata.retrieve(
+                [NodeReference(space=node.space, external_id=node.external_id) for node in file_ids],
+                ignore_unknown_ids=True,
+            )
             if not dry_run and files:
                 migrated_file_ids = [
-                    file.id
-                    for file in files
-                    if file.instance_id and getattr(file, "pending_instance_id", None) and file.id is not None
+                    InternalId(id=file.id) for file in files if file.instance_id and file.pending_instance_id
                 ]
-                client.tool.filemetadata.unlink_instance_ids([InternalId(id=id_) for id_ in migrated_file_ids])
+                client.tool.filemetadata.unlink_instance_ids(migrated_file_ids)
                 if verbose:
                     console.print(f"Unlinked {len(migrated_file_ids)} files from nodes.")
             elif verbose and files:
