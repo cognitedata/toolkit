@@ -1,8 +1,6 @@
 import builtins
 from typing import Any, ClassVar, Literal
 
-from pydantic import Field
-
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
     ResponseResource,

@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
@@ -177,7 +178,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         """
         return self._list(limit=limit)
 
-    def set_pending_ids(self, items: Sequence[PendingInstanceId]) -> list[FileMetadataResponse]:
+    def set_pending_ids(self, items: Sequence[PendingInstanceId]) -> builtins.list[FileMetadataResponse]:
         """Set pending instance IDs for one or more file metadata entries.
 
         This links asset-centric files to DM nodes that will be created
@@ -190,11 +191,9 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         Returns:
             List of updated FileMetadataResponse objects.
         """
-        return self._request_item_response(
-            items, method="retrieve", endpoint="/files/set-pending-instance-ids"
-        )
+        return self._request_item_response(items, method="retrieve", endpoint="/files/set-pending-instance-ids")
 
-    def unlink_instance_ids(self, items: Sequence[InternalOrExternalId]) -> list[FileMetadataResponse]:
+    def unlink_instance_ids(self, items: Sequence[InternalOrExternalId]) -> builtins.list[FileMetadataResponse]:
         """Unlink instance IDs from files.
 
         This allows a CogniteFile node in Data Modeling to be deleted
@@ -206,6 +205,4 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         Returns:
             List of updated FileMetadataResponse objects.
         """
-        return self._request_item_response(
-            items, method="retrieve", endpoint="/files/unlink-instance-ids"
-        )
+        return self._request_item_response(items, method="retrieve", endpoint="/files/unlink-instance-ids")

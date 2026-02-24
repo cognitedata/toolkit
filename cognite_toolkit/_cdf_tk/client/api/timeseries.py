@@ -152,11 +152,9 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
         Returns:
             List of updated TimeSeriesResponse objects.
         """
-        return self._request_item_response(
-            items, method="retrieve", endpoint="/timeseries/set-pending-instance-ids"
-        )
+        return self._request_item_response(items, method="retrieve", endpoint="/timeseries/set-pending-instance-ids")
 
-    def unlink_instance_ids(self, items: Sequence[InternalOrExternalId]) -> list[TimeSeriesResponse]:
+    def unlink_instance_ids(self, items: Sequence[InternalOrExternalId]) -> builtins.list[TimeSeriesResponse]:
         """Unlink instance IDs from time series.
 
         This allows a CogniteTimeSeries node in Data Modeling to be deleted
@@ -168,6 +166,4 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
         Returns:
             List of updated TimeSeriesResponse objects.
         """
-        return self._request_item_response(
-            items, method="retrieve", endpoint="/timeseries/unlink-instance-ids"
-        )
+        return self._request_item_response(items, method="retrieve", endpoint="/timeseries/unlink-instance-ids")

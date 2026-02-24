@@ -17,6 +17,8 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.data_classes.data_modeling import NodeId, NodeList, Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, CogniteTimeSeries
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
+from cognite.client.data_classes.files import FileMetadata
+from cognite.client.data_classes.time_series import TimeSeries
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -27,8 +29,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     SpaceResponse,
     ViewResponse,
 )
-from cognite.client.data_classes.files import FileMetadata
-from cognite.client.data_classes.time_series import TimeSeries
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceViewSelector, SelectedView
 from tests.test_unit.utils import FakeCogniteResourceGenerator

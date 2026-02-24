@@ -52,9 +52,9 @@ class TestExtendedTimeSeriesAPI:
         try:
             created = client.time_series.create(ts)
             client.time_series.data.insert(datapoints, external_id=ts.external_id)
-            updated_list = client.tool.timeseries.set_pending_ids([
-                PendingInstanceId(pending_instance_id=node_ref, external_id=ts.external_id)
-            ])
+            updated_list = client.tool.timeseries.set_pending_ids(
+                [PendingInstanceId(pending_instance_id=node_ref, external_id=ts.external_id)]
+            )
             assert len(updated_list) == 1
             assert updated_list[0].pending_instance_id == node_ref
 
@@ -100,9 +100,9 @@ class TestExtendedTimeSeriesAPI:
         node_ref = NodeReference(space=space, external_id=ts.external_id)
         try:
             created = client.time_series.create(ts)
-            updated_list = client.tool.timeseries.set_pending_ids([
-                PendingInstanceId(pending_instance_id=node_ref, external_id=ts.external_id)
-            ])
+            updated_list = client.tool.timeseries.set_pending_ids(
+                [PendingInstanceId(pending_instance_id=node_ref, external_id=ts.external_id)]
+            )
             assert len(updated_list) == 1
             assert updated_list[0].pending_instance_id == node_ref
 
