@@ -84,14 +84,8 @@ class UnknownAgentTool(AgentToolDefinition):
     ...
 
 
-# Mapping of known agent tool types to their classes
 KNOWN_TOOLS: dict[str, type[AgentToolDefinition]] = {
-    "askDocument": AskDocument,
-    "callFunction": CallFunction,
-    "examineDataSemantically": ExamineDataSemantically,
-    "queryKnowledgeGraph": QueryKnowledgeGraph,
-    "queryTimeSeriesDatapoints": QueryTimeSeriesDatapoints,
-    "summarizeDocument": SummarizeDocument,
+    cls.model_fields["type"].default: cls for cls in AgentToolDefinition.__subclasses__() if cls is not UnknownAgentTool
 }
 
 
