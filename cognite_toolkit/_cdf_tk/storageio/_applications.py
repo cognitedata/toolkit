@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultList
-from cognite_toolkit._cdf_tk.client.resource_classes.charts import Chart, ChartList, ChartWrite
+from cognite_toolkit._cdf_tk.client.resource_classes.charts import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     IndustrialCanvas,
     IndustrialCanvasApply,
@@ -33,7 +33,7 @@ from .selectors import (
 )
 
 
-class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
+class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
     KIND = "Charts"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS = frozenset({".gz"})
@@ -44,7 +44,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
     UPLOAD_ENDPOINT_METHOD = "PUT"
     UPLOAD_ENDPOINT = "/storage/charts/charts"
 
-    def as_id(self, item: Chart) -> str:
+    def as_id(self, item: ChartResponse) -> str:
         return item.external_id
 
     def stream_data(self, selector: ChartSelector, limit: int | None = None) -> Iterable[Page]:
@@ -52,15 +52,15 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
         if isinstance(selector, AllChartsSelector):
             ...
         elif isinstance(selector, ChartOwnerSelector):
-            selected_charts = ChartList([chart for chart in selected_charts if chart.owner_id == selector.owner_id])
+            selected_charts = [chart for chart in selected_charts if chart.owner_id == selector.owner_id]
         elif isinstance(selector, ChartExternalIdSelector):
             external_id_set = set(selector.external_ids)
-            selected_charts = ChartList([chart for chart in selected_charts if chart.external_id in external_id_set])
+            selected_charts = [chart for chart in selected_charts if chart.external_id in external_id_set]
         else:
             raise ToolkitNotImplementedError(f"Unsupported selector type {type(selector).__name__!r} for ChartIO")
 
         if limit is not None:
-            selected_charts = ChartList(selected_charts[:limit])
+            selected_charts = selected_charts[:limit]
         for chunk in chunker_sequence(selected_charts, self.CHUNK_SIZE):
             yield Page(worker_id="main", items=chunk)
 
@@ -69,12 +69,12 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
         return None
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[Chart], selector: ChartSelector | None = None
+        self, data_chunk: Sequence[ChartResponse], selector: ChartSelector | None = None
     ) -> list[dict[str, JsonVal]]:
         self._populate_timeseries_id_cache(data_chunk)
         return [self._dump_resource(chart) for chart in data_chunk]
 
-    def _populate_timeseries_id_cache(self, data_chunk: Sequence[Chart]) -> None:
+    def _populate_timeseries_id_cache(self, data_chunk: Sequence[ChartResponse]) -> None:
         timeseries_ids: set[int] = set()
         for chart in data_chunk:
             for item in chart.data.time_series_collection or []:
@@ -84,8 +84,8 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
         if timeseries_ids:
             self.client.lookup.time_series.external_id(list(timeseries_ids))
 
-    def _dump_resource(self, chart: Chart) -> dict[str, JsonVal]:
-        dumped = chart.as_write().dump()
+    def _dump_resource(self, chart: ChartResponse) -> dict[str, JsonVal]:
+        dumped = chart.as_request_resource().dump()
         if isinstance(data := dumped.get("data"), dict) and isinstance(
             collection := data.get("timeSeriesCollection"), list
         ):
@@ -98,11 +98,13 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
                         item["tsExternalId"] = ts_external_id
         return dumped
 
-    def json_chunk_to_data(self, data_chunk: list[tuple[str, dict[str, JsonVal]]]) -> Sequence[UploadItem[ChartWrite]]:
+    def json_chunk_to_data(
+        self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
+    ) -> Sequence[UploadItem[ChartRequest]]:
         self._populate_timeseries_external_id_cache([item_json for _, item_json in data_chunk])
         return super().json_chunk_to_data(data_chunk)
 
-    def json_to_resource(self, item_json: dict[str, JsonVal]) -> ChartWrite:
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> ChartRequest:
         return self._load_resource(item_json)
 
     def _populate_timeseries_external_id_cache(self, item_jsons: Sequence[dict[str, JsonVal]]) -> None:
@@ -120,7 +122,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
         if timeseries_external_ids:
             self.client.lookup.time_series.id(list(timeseries_external_ids))
 
-    def _load_resource(self, item_json: dict[str, JsonVal]) -> ChartWrite:
+    def _load_resource(self, item_json: dict[str, JsonVal]) -> ChartRequest:
         if isinstance(data := item_json.get("data"), dict) and isinstance(
             collection := data.get("timeSeriesCollection"), list
         ):
@@ -133,7 +135,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, Chart, ChartWrite]):
                     ts_id = self.client.lookup.time_series.id(ts_external_id)
                     if ts_id is not None:
                         item["tsId"] = ts_id
-        return ChartWrite._load(item_json)
+        return ChartRequest._load(item_json)
 
 
 class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialCanvasApply]):

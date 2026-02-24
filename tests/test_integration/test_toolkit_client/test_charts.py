@@ -6,13 +6,14 @@ from cognite.client.data_classes import TimeSeries, TimeSeriesWrite, UserProfile
 from cognite.client.exceptions import CogniteNotFoundError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.charts import Chart, ChartWrite
+from cognite_toolkit._cdf_tk.client.resource_classes.charts import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartData,
     ChartSource,
     ChartTimeseries,
     UserInfo,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
 
 @pytest.fixture(scope="session")
@@ -31,34 +32,35 @@ def timeseries(toolkit_client: ToolkitClient) -> TimeSeries:
 
 
 class TestChartsAPI:
-    def test_upsert_retrieve_list_delete(self, toolkit_client: ToolkitClient, timeseries: TimeSeries) -> None:
+    def test_create_retrieve_list_delete(self, toolkit_client: ToolkitClient, timeseries: TimeSeries) -> None:
         me = toolkit_client.iam.user_profiles.me()
         chart_id = str(uuid4())
         chart = self.create_chart(chart_id, me, timeseries)
 
-        created: Chart | None = None
+        created: list[ChartResponse] = []
         try:
-            created = toolkit_client.charts.upsert(chart)
+            created = toolkit_client.charts.create([chart])
 
-            retrieved = toolkit_client.charts.retrieve(external_id=chart_id)
-            assert retrieved.external_id == chart_id
+            retrieved = toolkit_client.charts.retrieve([ExternalId(external_id=chart_id)])
+            assert len(retrieved) == 1
+            assert retrieved[0].external_id == chart_id
 
             listed = toolkit_client.charts.list(is_owned=True, visibility="PUBLIC")
             assert any(c.external_id == chart_id for c in listed)
 
-            toolkit_client.charts.delete(external_id=chart_id)
+            toolkit_client.charts.delete([ExternalId(external_id=chart_id)])
 
-            retrieved2 = toolkit_client.charts.retrieve(external_id=chart_id)
-            assert retrieved2 is None, "Chart should be deleted and not retrievable."
+            retrieved2 = toolkit_client.charts.retrieve([ExternalId(external_id=chart_id)])
+            assert len(retrieved2) == 0, "Chart should be deleted and not retrievable."
         finally:
             if created:
                 with suppress(CogniteNotFoundError):
-                    toolkit_client.charts.delete(chart_id)
+                    toolkit_client.charts.delete([ExternalId(external_id=chart_id)])
 
     @staticmethod
-    def create_chart(chart_id: str, me: UserProfile, ts: TimeSeries) -> ChartWrite:
+    def create_chart(chart_id: str, me: UserProfile, ts: TimeSeries) -> ChartRequest:
         ts_chart_id = str(uuid4())
-        return ChartWrite(
+        return ChartRequest(
             external_id=chart_id,
             visibility="PUBLIC",
             data=ChartData(
