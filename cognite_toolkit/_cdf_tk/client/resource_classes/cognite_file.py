@@ -1,3 +1,4 @@
+import builtins
 from datetime import datetime
 from typing import ClassVar, Literal
 
@@ -55,6 +56,10 @@ class CogniteFileResponse(WrappedInstanceResponse[CogniteFileRequest], CogniteFi
     external_id: str
     is_uploaded: bool | None = None
     uploaded_time: datetime | None = None
+
+    @classmethod
+    def request_cls(cls) -> builtins.type[CogniteFileRequest]:
+        return CogniteFileRequest
 
     def as_request_resource(self) -> CogniteFileRequest:
         return CogniteFileRequest.model_validate(

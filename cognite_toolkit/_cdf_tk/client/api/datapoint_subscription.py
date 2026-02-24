@@ -13,9 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription impo
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
 
-class DatapointSubscriptionsAPI(
-    CDFResourceAPI[ExternalId, DatapointSubscriptionRequest, DatapointSubscriptionResponse]
-):
+class DatapointSubscriptionsAPI(CDFResourceAPI[DatapointSubscriptionResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,

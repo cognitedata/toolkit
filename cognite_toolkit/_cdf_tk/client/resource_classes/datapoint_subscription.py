@@ -92,5 +92,7 @@ class DatapointSubscriptionResponse(DatapointSubscription, ResponseResource[Data
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> DatapointSubscriptionRequest:
-        return DatapointSubscriptionRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[DatapointSubscriptionRequest]:
+        """Return the class of the corresponding request resource."""
+        return DatapointSubscriptionRequest

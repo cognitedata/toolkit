@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import Internal
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 
-class GroupsAPI(CDFResourceAPI[InternalId, GroupRequest, GroupResponse]):
+class GroupsAPI(CDFResourceAPI[GroupResponse]):
     """API for managing CDF access groups.
 
     Note: Groups do not support update operations.

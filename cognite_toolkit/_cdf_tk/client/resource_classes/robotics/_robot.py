@@ -54,5 +54,6 @@ class RobotResponse(Robot, ResponseResource[RobotRequest]):
     created_time: int
     updated_time: int
 
-    def as_request_resource(self) -> RobotRequest:
-        return RobotRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[RobotRequest]:
+        return RobotRequest

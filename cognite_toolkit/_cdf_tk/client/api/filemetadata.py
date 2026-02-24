@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMet
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
 
 
-class FileMetadataAPI(CDFResourceAPI[InternalOrExternalId, FileMetadataRequest, FileMetadataResponse]):
+class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,
