@@ -151,7 +151,7 @@ class TestRequestUpdateable:
 
 
 class TestAgentRequest:
-    def test_unknown_tool_warns(self) -> None:
+    def test_allow_unknown_tool(self) -> None:
         data = {
             "externalId": "agent_1",
             "name": "Agent 1",
@@ -163,8 +163,7 @@ class TestAgentRequest:
                 }
             ],
         }
-        with pytest.warns(UserWarning, match="Agent tool type 'unknown_tool' is not recognized"):
-            agent_request = AgentRequest.model_validate(data)
+        agent_request = AgentRequest.model_validate(data)
         assert agent_request.dump() == data
 
 

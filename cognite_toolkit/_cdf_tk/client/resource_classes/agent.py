@@ -1,4 +1,3 @@
-import warnings
 from typing import Annotated, Any, Literal
 
 from pydantic import BeforeValidator, Field
@@ -79,8 +78,19 @@ class SummarizeDocument(AgentToolDefinition):
     type: Literal["summarizeDocument"] = "summarizeDocument"
 
 
+class UnknownAgentTool(AgentToolDefinition):
+    """Fallback for unknown tool types."""
+
+    ...
+
+
 KNOWN_TOOLS: dict[str, type[AgentToolDefinition]] = {
-    cls.model_fields["type"].default: cls for cls in AgentToolDefinition.__subclasses__()
+    "askDocument": AskDocument,
+    "callFunction": CallFunction,
+    "examineDataSemantically": ExamineDataSemantically,
+    "queryKnowledgeGraph": QueryKnowledgeGraph,
+    "queryTimeSeriesDatapoints": QueryTimeSeriesDatapoints,
+    "summarizeDocument": SummarizeDocument,
 }
 
 
@@ -88,24 +98,20 @@ def _handle_unknown_tool(value: Any) -> Any:
     if isinstance(value, dict):
         tool_type = value.get("type")
         if tool_type not in KNOWN_TOOLS:
-            warnings.warn(
-                f"Agent tool type {tool_type!r} is not recognized by the toolkit and may not deploy correctly. "
-                f"Known types: {', '.join(sorted(KNOWN_TOOLS))}",
-                stacklevel=2,
-            )
-            return AgentToolDefinition(**value)
-        return KNOWN_TOOLS[tool_type].model_validate(value)
+            return UnknownAgentTool(**value)
+        else:
+            return KNOWN_TOOLS[tool_type].model_validate(value)
     return value
 
 
 AgentTool = Annotated[
     AskDocument
     | CallFunction
+    | ExamineDataSemantically
     | QueryKnowledgeGraph
     | QueryTimeSeriesDatapoints
     | SummarizeDocument
-    | ExamineDataSemantically
-    | AgentToolDefinition,
+    | UnknownAgentTool,
     BeforeValidator(_handle_unknown_tool),
 ]
 

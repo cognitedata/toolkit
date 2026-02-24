@@ -7,6 +7,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.function import FunctionCRUD
 from cognite_toolkit._cdf_tk.resource_classes import AgentYAML
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
@@ -18,6 +19,7 @@ class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):
     resource_write_cls = AgentRequest
     kind = "Agent"
     yaml_cls = AgentYAML
+    dependencies = frozenset({FunctionCRUD})
     _doc_base_url = ""
     _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/main_ai_agents_post/"
 
