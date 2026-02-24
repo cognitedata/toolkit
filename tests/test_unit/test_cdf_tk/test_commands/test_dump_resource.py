@@ -24,7 +24,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRespo
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import StreamlitList
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
@@ -696,21 +695,10 @@ class TestDumpStreamlitApps:
 
         assert selected == ("appB", "appC")
 
-    def test_dump_streamlit_app(self, three_streamlit_apps: StreamlitList, tmp_path: Path) -> None:
+    def test_dump_streamlit_app(self, three_streamlit_apps: list[StreamlitResponse], tmp_path: Path) -> None:
         app_b = three_streamlit_apps[1]
-        app_b_response = StreamlitResponse(
-            id=1,
-            external_id=app_b.external_id,
-            name=app_b.name,
-            description=app_b.description,
-            created_time=app_b.created_time,
-            last_updated_time=app_b.last_updated_time,
-            entrypoint=app_b.entrypoint,
-            creator=app_b.creator,
-            uploaded=True,
-        )
         with monkeypatch_toolkit_client() as client:
-            client.tool.streamlit.retrieve.return_value = [app_b_response]
+            client.tool.streamlit.retrieve.return_value = [app_b]
             client.files.download_bytes.return_value = json.dumps(
                 {
                     "entrypoint": "main.py",
@@ -739,7 +727,7 @@ class TestDumpStreamlitApps:
         assert len(filepaths) == 1
         config_file = filepaths[0]
         loaded = read_yaml_file(config_file)
-        expected = loader.dump_resource(app_b_response)
+        expected = loader.dump_resource(app_b)
         assert loaded == expected
 
         app_dir = config_file.parent / "appB"
@@ -806,7 +794,7 @@ class TestDumpStreamlitApps:
         content: str | None,
         expected_warning: str,
         expected_severity: str,
-        three_streamlit_apps: StreamlitList,
+        three_streamlit_apps: list[StreamlitResponse],
         tmp_path: Path,
     ) -> None:
         console = MagicMock(spec=Console)
