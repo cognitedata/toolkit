@@ -14,7 +14,7 @@ class DataSet(BaseModelObject):
     name: str | None = None
     description: str | None = None
     metadata: dict[str, str] | None = None
-    write_protected: bool = False
+    write_protected: bool | None = None
 
     def as_id(self) -> ExternalId:
         if self.external_id is None:
@@ -24,6 +24,7 @@ class DataSet(BaseModelObject):
 
 class DataSetRequest(DataSet, UpdatableRequestResource):
     container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})
+    non_nullable_fields: ClassVar[frozenset[str]] = frozenset({"write_protected"})
 
 
 class DataSetResponse(DataSet, ResponseResource[DataSetRequest]):
@@ -31,5 +32,6 @@ class DataSetResponse(DataSet, ResponseResource[DataSetRequest]):
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> DataSetRequest:
-        return DataSetRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[DataSetRequest]:
+        return DataSetRequest

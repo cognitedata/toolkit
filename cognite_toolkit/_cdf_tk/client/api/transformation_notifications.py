@@ -11,9 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation_notification
 )
 
 
-class TransformationNotificationsAPI(
-    CDFResourceAPI[InternalId, TransformationNotificationRequest, TransformationNotificationResponse]
-):
+class TransformationNotificationsAPI(CDFResourceAPI[TransformationNotificationResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,

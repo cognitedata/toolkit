@@ -14,12 +14,9 @@ from packaging.requirements import Requirement
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import RequestMessage
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import (
-    Streamlit,
-    StreamlitList,
-    StreamlitWrite,
-)
+from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest, StreamlitResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.resource_classes import StreamlitYAML
@@ -34,10 +31,10 @@ from .data_organization import DataSetsCRUD
 
 
 @final
-class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit]):
+class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse]):
     folder_name = "streamlit"
-    resource_cls = Streamlit
-    resource_write_cls = StreamlitWrite
+    resource_cls = StreamlitResponse
+    resource_write_cls = StreamlitRequest
     kind = "Streamlit"
     dependencies = frozenset({DataSetsCRUD, GroupAllScopedCRUD})
     _doc_url = "Files/operation/initFileUpload"
@@ -58,7 +55,7 @@ class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit]):
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[StreamlitWrite] | None, read_only: bool
+        cls, items: Sequence[StreamlitRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -73,16 +70,20 @@ class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit]):
         return FilesAcl(actions, scope)
 
     @classmethod
-    def get_id(cls, item: Streamlit | StreamlitWrite | dict) -> str:
+    def get_id(cls, item: StreamlitRequest | StreamlitResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return item["externalId"]
+            return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
-            raise ToolkitRequiredValueError("TimeSeries must have external_id set.")
-        return item.external_id
+            raise ToolkitRequiredValueError("Streamlit app must have external_id set.")
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
+        return id.dump()
+
+    @classmethod
+    def as_str(cls, id: ExternalId) -> str:
+        return id.external_id
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -99,23 +100,24 @@ class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit]):
         )
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
         for item in raw_list:
-            item_id = self.get_id(item)
-            self._source_file_by_external_id[item_id] = filepath
-            content = self._as_json_string(item_id, item["entrypoint"])
-            item["cogniteToolkitAppHash"] = calculate_hash(content, shorten=True)
+            external_id = self.get_id(item).external_id
+            self._source_file_by_external_id[external_id] = filepath
+            content = self._as_json_string(external_id, item["entrypoint"])
+            item[self._metadata_hash_key] = calculate_hash(content, shorten=True)
         return raw_list
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> StreamlitWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> StreamlitRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
-        return StreamlitWrite._load(resource)
+        return StreamlitRequest.model_validate(resource)
 
-    def dump_resource(self, resource: Streamlit, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+    def dump_resource(self, resource: StreamlitResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_request_resource().dump(context="toolkit")
         local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if dumped.get("theme") == "Light" and "theme" not in local:
+            # Removing the default
             dumped.pop("theme")
         return dumped
 
@@ -154,34 +156,48 @@ class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit]):
                 missing.append(recommended.name)
         return missing
 
-    def create(self, items: Sequence[StreamlitWrite]) -> StreamlitList:
-        created = StreamlitList([])
+    def _upload_content(self, upload_url: str, content: str) -> None:
+        result = self.client.http_client.request_single_retries(
+            RequestMessage(
+                endpoint_url=upload_url,
+                method="PUT",
+                content_type="application/json",
+                data_content=content.encode("utf-8"),
+            )
+        )
+        result.get_success_or_raise()
+
+    def create(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
+        created: list[StreamlitResponse] = []
         for item in items:
             content = self._as_json_string(item.external_id, item.entrypoint)
-            to_create = item.as_file()
-            created_file, _ = self.client.files.create(to_create)
-
-            self.client.files.upload_content_bytes(content, item.external_id)
-            created.append(Streamlit.from_file(created_file))
+            responses = self.client.tool.streamlit.create([item])
+            for response in responses:
+                if not response.upload_url:
+                    raise ToolkitRequiredValueError("Create response missing upload_url.")
+                self._upload_content(response.upload_url, content)
+                created.append(response)
         return created
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> StreamlitList:
-        files = self.client.files.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
-        return StreamlitList([Streamlit.from_file(file) for file in files])
+    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[StreamlitResponse]:
+        return self.client.tool.streamlit.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[StreamlitWrite]) -> StreamlitList:
-        files = []
+    def update(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
+        updated: list[StreamlitResponse] = []
         for item in items:
             content = self._as_json_string(item.external_id, item.entrypoint)
-            to_update = item.as_file()
-            self.client.files.upload_content_bytes(content, item.external_id)
-            files.append(to_update)
+            responses = self.client.tool.streamlit.create([item], overwrite=True)
+            for response in responses:
+                if not response.upload_url:
+                    raise ToolkitRequiredValueError("Create response missing upload_url for content upload.")
+                self._upload_content(response.upload_url, content)
+                updated.append(response)
+        return updated
 
-        updated = self.client.files.update(files, mode="replace")
-        return StreamlitList([Streamlit.from_file(file) for file in updated])
-
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        self.client.files.delete(external_id=ids)
+    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+        if not ids:
+            return 0
+        self.client.tool.streamlit.delete(list(ids))
         return len(ids)
 
     def _iterate(
@@ -189,7 +205,6 @@ class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit]):
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[Streamlit]:
-        for file in self.client.files:
-            if file.directory == "/streamlit-apps/":
-                yield Streamlit.from_file(file)
+    ) -> Iterable[StreamlitResponse]:
+        for page in self.client.tool.streamlit.iterate(limit=None):
+            yield from page

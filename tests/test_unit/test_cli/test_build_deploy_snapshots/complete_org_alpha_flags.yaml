@@ -191,7 +191,7 @@ InFieldCDMLocationConfigResponse:
         operations:
           instanceSpaces:
           - sp_operations_space
-        timeSeries:
+        timeseries:
           instanceSpaces:
           - sp_my_data_space
       dataStorage:
@@ -284,6 +284,7 @@ InFieldLocationConfigResponse:
     trends: true
     workorderChecklistFlow: false
     workorders: true
+  instanceType: node
   rootLocationExternalId: location_filter_main_facility
   space: sp_instance
 ResourceViewMappingResponse:
@@ -416,4 +417,6 @@ StreamResponse:
       name: ImmutableTestStream
 TimeSeriesResponse:
 - externalId: simulator_routine_revision_logical_check
+  isStep: false
+  isString: false
   name: Simulator Routine Revision Logical Check

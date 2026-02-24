@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
 )
 
 
-class WorkflowTriggersAPI(CDFResourceAPI[ExternalId, WorkflowTriggerRequest, WorkflowTriggerResponse]):
+class WorkflowTriggersAPI(CDFResourceAPI[WorkflowTriggerResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,

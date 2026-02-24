@@ -100,6 +100,10 @@ class ViewResponse(View, ResponseResource[ViewRequest]):
     is_global: bool
     mapped_containers: list[ContainerReference]
 
+    @classmethod
+    def request_cls(cls) -> type[ViewRequest]:
+        return ViewRequest
+
     def as_request_resource(self) -> ViewRequest:
         dumped = self.model_dump(by_alias=True, exclude={"properties"}, exclude_unset=True)
         properties: dict[str, Any] = {}

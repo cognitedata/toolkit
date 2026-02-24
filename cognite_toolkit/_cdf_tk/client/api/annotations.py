@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.annotation import Annotatio
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
 
 
-class AnnotationsAPI(CDFResourceAPI[InternalId, AnnotationRequest, AnnotationResponse]):
+class AnnotationsAPI(CDFResourceAPI[AnnotationResponse]):
     """API for managing CDF annotations."""
 
     def __init__(self, http_client: HTTPClient) -> None:

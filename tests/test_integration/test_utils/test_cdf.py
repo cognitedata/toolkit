@@ -19,12 +19,12 @@ from cognite.client.data_classes import (
     RelationshipWrite,
     RelationshipWriteList,
     RowWriteList,
-    TransformationPreviewResult,
 )
 from cognite.client.data_classes.labels import LabelDefinitionWriteList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import SQLQueryResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.constants import MAX_RUN_QUERY_FREQUENCY_MIN
 from cognite_toolkit._cdf_tk.exceptions import ToolkitThrottledError
@@ -366,14 +366,14 @@ def mocked_tempfile(tmp_path: Path) -> Iterable[Path]:
 class TestRawTableRowCount:
     @pytest.mark.usefixtures("disable_throttler")
     def test_raw_table_row_count(
-        self, toolkit_client: ToolkitClient, populated_raw_table: RawTable, raw_data: RowWriteList
+        self, toolkit_client: ToolkitClient, populated_raw_table: RawTableId, raw_data: RowWriteList
     ) -> None:
         count = raw_row_count(toolkit_client, populated_raw_table, max_count=len(raw_data) - 1)
 
         assert count == len(raw_data) - 1
 
     def test_raw_table_row_count_raises_throttle_error(
-        self, populated_raw_table: RawTable, raw_data: RowWriteList, mocked_tempfile: Path
+        self, populated_raw_table: RawTableId, raw_data: RowWriteList, mocked_tempfile: Path
     ) -> None:
         sleep_time = 0.1
         project = "test_raw_table_row_count_raises_throttle_error_project"
@@ -402,7 +402,7 @@ class TestRawTableRowCount:
         assert new_timestamp > 0, "The timestamp should be reset to a valid value after corruption."
 
     def test_throttler_state_updated(
-        self, populated_raw_table: RawTable, raw_data: RowWriteList, mocked_tempfile: Path
+        self, populated_raw_table: RawTableId, raw_data: RowWriteList, mocked_tempfile: Path
     ) -> None:
         project = "test_throttler_state_updated"
         filepath = ThrottlerState._filepath(project)
@@ -410,8 +410,8 @@ class TestRawTableRowCount:
         before_last_call_epoch = 0.0
         with monkeypatch_toolkit_client() as client:
             client.config.project = project
-            client.transformations.preview.return_value = TransformationPreviewResult(
-                None, results=[{"row_count": len(raw_data)}]
+            client.tool.transformations.preview.return_value = SQLQueryResponse(
+                schema_=[], results=[{"row_count": len(raw_data)}]
             )
             raw_row_count(client, populated_raw_table)
 

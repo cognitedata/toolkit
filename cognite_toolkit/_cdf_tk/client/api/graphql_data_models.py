@@ -47,7 +47,7 @@ class GraphQLResponse(BaseModel):
     errors: list[GraphQLErrors] | None = None
 
 
-class GraphQLDataModelsAPI(CDFResourceAPI[DataModelReference, GraphQLDataModelRequest, GraphQLDataModelResponse]):
+class GraphQLDataModelsAPI(CDFResourceAPI[GraphQLDataModelResponse]):
     """API for managing CDF GraphQL/DML data models.
 
     This API uses GraphQL mutations to manage data models with DML (Data Modeling Language).

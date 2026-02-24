@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import (
 )
 
 
-class SequenceRowsAPI(CDFResourceAPI[SequenceRowId, SequenceRowsRequest, SequenceRowsResponse]):
+class SequenceRowsAPI(CDFResourceAPI[SequenceRowsResponse]):
     """API for managing sequence row data in CDF.
 
     This handles inserting, deleting, and retrieving rows from sequences.

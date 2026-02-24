@@ -188,6 +188,12 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
             # when we retrieve the node from the server.
             dumped.pop("existingVersion", None)
 
+        for key in ("space", "instanceType"):
+            if key in dumped and key not in local:
+                # space and instanceType are required when interacting with the API,
+                # but not when defining the resource locally in YAML.
+                dumped.pop(key)
+
         for config in self._get_root_location_configurations(dumped) or []:
             if not isinstance(config, dict):
                 continue

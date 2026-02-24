@@ -24,5 +24,6 @@ class WorkflowResponse(Workflow, ResponseResource[WorkflowRequest]):
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> WorkflowRequest:
-        return WorkflowRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[WorkflowRequest]:
+        return WorkflowRequest

@@ -1,3 +1,4 @@
+import builtins
 from typing import ClassVar, Literal
 
 from pydantic import Field
@@ -46,5 +47,6 @@ class RESTSourceResponse(
     ca_certificate: CertificateResponse | None = None
     auth_certificate: CertificateResponse | None = None
 
-    def as_request_resource(self) -> RESTSourceRequest:
-        return RESTSourceRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> builtins.type[RESTSourceRequest]:
+        return RESTSourceRequest

@@ -17,7 +17,7 @@ from filelock import BaseFileLock, FileLock, Timeout
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawTableId
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, MAX_ROW_ITERATION_RUN_QUERY, MAX_RUN_QUERY_FREQUENCY_MIN
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
@@ -112,17 +112,17 @@ def read_auth(
         return ClientCredentials(authentication["clientId"], authentication["clientSecret"])
 
 
-def get_transformation_sources(query: str) -> list[RawTable | str]:
+def get_transformation_sources(query: str) -> list[RawTableId | str]:
     """Search the SQL query for source tables."""
     parser = SQLParser(query, operation="Lookup transformation source")
     parser.parse()
 
-    tables: list[RawTable | str] = []
+    tables: list[RawTableId | str] = []
     for table in parser.sources:
         if table.schema == "_cdf":
             tables.append(table.name)
         else:
-            tables.append(RawTable(db_name=table.schema, table_name=table.name))
+            tables.append(RawTableId(db_name=table.schema, name=table.name))
     return tables
 
 
@@ -181,8 +181,9 @@ def metadata_key_counts(
        GROUP BY key
        ORDER BY key_count DESC;
 """
-    results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
-    return [(item["key"], item["key_count"]) for item in results.results or []]
+    results = client.tool.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
+    # We know from the SQL that the result is a list of dictionaries with string keys and int values.
+    return [(item["key"], item["key_count"]) for item in results.results]  # type: ignore[misc]
 
 
 def _create_where_clause(data_sets: list[int] | None, hierarchies: list[int] | None) -> str:
@@ -232,9 +233,9 @@ FROM labels
 GROUP BY label
 ORDER BY label_count DESC;
 """
-    results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
+    results = client.tool.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     # We know from the SQL that the result is a list of dictionaries with string keys and int values.
-    return [(item["label"], item["label_count"]) for item in results.results or []]
+    return [(item["label"], item["label_count"]) for item in results.results]  # type: ignore[misc]
 
 
 @dataclass
@@ -274,10 +275,11 @@ GROUP BY
     sourceType,
     targetType
 """
-    results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
+    results = client.tool.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
+    # We know from the SQL that the result is a list of dictionaries with string keys and int values.
     return [
-        RelationshipCount(item["sourceType"], item["targetType"], item["relationshipCount"])
-        for item in results.results or []
+        RelationshipCount(item["sourceType"], item["targetType"], item["relationshipCount"])  # type: ignore[arg-type]
+        for item in results.results
     ]
 
 
@@ -300,9 +302,10 @@ def label_aggregate_count(client: ToolkitClient, data_sets: list[int] | None = N
 FROM
     _cdf.labels{where_clause}"""
 
-    results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
+    results = client.tool.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
-        return int(results.results[0]["labelCount"])
+        # We know from the SQL that the result is a list of dictionaries with string keys and int values.
+        return int(results.results[0]["labelCount"])  # type: ignore[arg-type]
     return 0
 
 
@@ -380,7 +383,7 @@ _STATE_LOCK = RLock()
 _STATE_BY_PROJECT: dict[str, ThrottlerState] = {}
 
 
-def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int = MAX_ROW_ITERATION_RUN_QUERY) -> int:
+def raw_row_count(client: ToolkitClient, raw_table_id: RawTableId, max_count: int = MAX_ROW_ITERATION_RUN_QUERY) -> int:
     """Get the number of rows in a raw table.
 
     Args:
@@ -403,11 +406,12 @@ def raw_row_count(client: ToolkitClient, raw_table_id: RawTable, max_count: int 
     query = f"""SELECT COUNT(key) AS row_count
 FROM (
     SELECT key
-    FROM `{raw_table_id.db_name}`.`{raw_table_id.table_name}`
+    FROM `{raw_table_id.db_name}`.`{raw_table_id.name}`
     LIMIT {max_count}
 ) AS limited_keys"""
 
-    results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
+    results = client.tool.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
-        return int(results.results[0]["row_count"])
+        # We know from the SQL that the result is a list of dictionaries with string keys and int values.
+        return int(results.results[0]["row_count"])  # type: ignore[arg-type]
     return 0
