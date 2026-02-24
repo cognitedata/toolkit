@@ -69,7 +69,7 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
         for key, value in dumped.items():
             if value == {}:
                 dumped[key] = None
-        defaults = {"status": "draft", "description": None, "terms": None}
+        defaults: dict[str, Any | None] = {"status": "draft", "description": None, "terms": None}
         for key, default in defaults.items():
             if dumped.get(key) == default and key not in local:
                 dumped.pop(key)
