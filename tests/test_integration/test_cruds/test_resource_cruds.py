@@ -83,6 +83,7 @@ from cognite_toolkit._cdf_tk.cruds import (
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from cognite_toolkit._cdf_tk.utils import read_yaml_content
 from tests.test_integration.constants import RUN_UNIQUE_ID
+from tests.test_integration.helpers import retry_on_deadlock
 
 
 class TestFunctionScheduleLoader:
@@ -1091,7 +1092,7 @@ class TestNodeLoader:
             created = loader.create([existing_node])
             assert len(created) == 1
 
-            updated = loader.update([updated_node])
+            updated = retry_on_deadlock(lambda: loader.update([updated_node]))
             assert len(updated) == 1
 
             retrieved = toolkit_client.tool.instances.retrieve(
@@ -1108,7 +1109,7 @@ class TestNodeLoader:
                 "aliases": ["alias1", "alias2"],  # Add new aliases
             }
         finally:
-            loader.delete([existing_node.as_id()])
+            _ = retry_on_deadlock(lambda: loader.delete([existing_node.as_id()]))
 
 
 class TestViewLoader:
