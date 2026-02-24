@@ -209,7 +209,7 @@ class InstanceIO(
         total = 0
         while True:
             response = self._exhaust_edge_queries(query, edge_ids)
-            items = response.items.get("nodes", [])
+            nodes = response.items.get("nodes", [])
             # De-duplicate edges across properties, as the same edge can be returned for multiple
             # properties if it connects two nodes that are in the result set.
             edges: dict[TypedNodeIdentifier | TypedEdgeIdentifier, InstanceResponse] = {}
@@ -218,11 +218,11 @@ class InstanceIO(
                     ref = edge.as_id()
                     if ref not in edges:
                         edges[ref] = edge
-            items.extend(edges.values())
-            total += len(items)
+            items = nodes + list(edges.values())
+            total += len(nodes)
             yield Page(worker_id="main", items=items, next_cursor=response.next_cursor.get("nodes"))
             next_cursor = response.next_cursor.get("nodes")
-            if next_cursor is None or (limit is not None and total >= limit) or not items:
+            if next_cursor is None or (limit is not None and total >= limit) or not nodes:
                 break
             page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
             query.with_["nodes"].limit = page_limit
