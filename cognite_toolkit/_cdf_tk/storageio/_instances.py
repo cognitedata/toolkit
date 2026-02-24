@@ -140,7 +140,7 @@ class InstanceIO(
                 total += len(page.items)
                 if page:
                     yield Page(worker_id="main", items=page.items, next_cursor=page.next_cursor)
-                if page.next_cursor is None or (limit is not None and total >= limit):
+                if page.next_cursor is None or (limit is not None and total >= limit) or not page.items:
                     break
                 cursor = page.next_cursor
         elif isinstance(selector, InstanceFileSelector):
