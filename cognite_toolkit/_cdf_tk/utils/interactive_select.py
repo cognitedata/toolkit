@@ -22,6 +22,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter, ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.charts import Chart, ChartList, Visibility
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerReference,
     DataModelReference,
@@ -34,7 +35,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import Canvas
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList, Visibility
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError

@@ -11,6 +11,7 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.exceptions import CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.charts import Chart, ChartWrite
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartCoreTimeseries,
     ChartSource,
@@ -31,7 +32,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     IndustrialCanvas,
     IndustrialCanvasApply,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartWrite
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     RESOURCE_VIEW_MAPPING_SPACE,
     ResourceViewMappingRequest,

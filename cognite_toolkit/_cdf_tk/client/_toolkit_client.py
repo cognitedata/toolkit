@@ -3,8 +3,8 @@ from typing import cast
 from cognite.client import CogniteClient
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client.api.charts import ChartsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI

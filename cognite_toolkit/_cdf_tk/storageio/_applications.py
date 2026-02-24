@@ -12,11 +12,11 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultList
+from cognite_toolkit._cdf_tk.client.resource_classes.charts import Chart, ChartList, ChartWrite
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     IndustrialCanvas,
     IndustrialCanvasApply,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList, ChartWrite
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence

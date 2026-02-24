@@ -4,12 +4,12 @@ from typing import Any
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import (
+from cognite_toolkit._cdf_tk.client.resource_classes.charts import (
     ChartRequest,
     ChartResponse,
     Visibility,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
 
 class ChartsAPI(CDFResourceAPI[ExternalId, ChartRequest, ChartResponse]):

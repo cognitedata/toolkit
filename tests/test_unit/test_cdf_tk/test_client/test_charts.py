@@ -5,6 +5,7 @@ import responses
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.resource_classes.charts import Chart, ChartList, ChartWrite
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartCoreTimeseries,
     ChartData,
@@ -16,7 +17,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartWorkflow,
     UserInfo,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList, ChartWrite
 
 CHART = Chart(
     external_id="chart",
