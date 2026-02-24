@@ -51,8 +51,8 @@ class TestExtendedFilesAPI:
                 # This will delete the CogniteFile and the asset-centric file
                 client.data_modeling.instances.delete(cognite_file.as_id())
 
-    def test_unlink_instance_ids(self, toolkit_client_with_pending_ids: ToolkitClient, toolkit_space: Space) -> None:
-        client = toolkit_client_with_pending_ids
+    def test_unlink_instance_ids(self, toolkit_client: ToolkitClient, toolkit_space: Space) -> None:
+        client = toolkit_client
         space = toolkit_space.space
         metadata = FileMetadataWrite(
             external_id=f"file_toolkit_integration_test_unlink_{RUN_UNIQUE_ID}",

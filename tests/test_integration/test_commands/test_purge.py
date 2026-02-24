@@ -45,9 +45,9 @@ from tests.test_integration.constants import RUN_UNIQUE_ID
 
 @pytest.fixture()
 def file_ts_nodes(
-    toolkit_client_with_pending_ids: ToolkitClient, toolkit_space: Space
+    toolkit_client: ToolkitClient, toolkit_space: Space
 ) -> Iterable[tuple[tuple[NodeId, int], tuple[NodeId, int]]]:
-    client = toolkit_client_with_pending_ids
+    client = toolkit_client
     file = CogniteFileApply(
         space=toolkit_space.space,
         external_id=f"test_file_purge_with_unlink_{RUN_UNIQUE_ID}",
@@ -275,10 +275,10 @@ class TestPurge:
     def test_purge_instances_with_unlink(
         self,
         file_ts_nodes: tuple[tuple[NodeId, int], tuple[NodeId, int]],
-        toolkit_client_with_pending_ids: ToolkitClient,
+        toolkit_client: ToolkitClient,
         tmp_path: Path,
     ) -> None:
-        client = toolkit_client_with_pending_ids
+        client = toolkit_client
         (file_node, file_id), (ts_node, ts_id) = file_ts_nodes
 
         csv_path = tmp_path / "test.csv"
