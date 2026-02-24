@@ -75,12 +75,12 @@ class ChartsAPI(CDFResourceAPI[ExternalId, ChartRequest, ChartResponse]):
         Returns:
             List of chart Response objects matching the criteria.
         """
-        body: dict[str, Any] = {}
-        if visibility is not None or is_owned is not None:
-            filter_: dict[str, str | bool] = {}
-            if visibility is not None:
-                filter_["visibility"] = visibility.upper()
-            if is_owned is not None:
-                filter_["isOwned"] = is_owned
-            body["filter"] = filter_
+        filter_params: dict[str, Any] = {}
+        if visibility is not None:
+            filter_params["visibility"] = visibility
+        if is_owned is not None:
+            filter_params["isOwned"] = is_owned
+        body: dict[str, dict[str, Any]] = {}
+        if filter_params:
+            body["filter"] = filter_params
         return self._list(body=body, limit=limit)
