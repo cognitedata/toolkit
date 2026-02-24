@@ -27,6 +27,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceRequestAdapter
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
+    TypedEdgeIdentifier,
+    TypedNodeIdentifier,
     TypedViewReference,
 )
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewCRUD
@@ -207,9 +209,15 @@ class InstanceIO(
         while True:
             response = self.client.tool.instances.query(query)
             items = response.items.get("nodes", [])
+            # De-duplicate edges across properties, as the same edge can be returned for multiple
+            # properties if it connects two nodes that are in the result set.
+            edges: dict[TypedNodeIdentifier | TypedEdgeIdentifier, InstanceResponse] = {}
             for prop_id in edge_ids:
-                if prop_id in response.items:
-                    items.extend(response.items[prop_id])
+                for edge in response.items.get(prop_id, []):
+                    ref = edge.as_id()
+                    if ref not in edges:
+                        edges[ref] = edge
+            items.extend(edges.values())
             total += len(items)
             yield Page(worker_id="main", items=items, next_cursor=response.next_cursor.get("nodes"))
             next_cursor = response.next_cursor.get("nodes")
