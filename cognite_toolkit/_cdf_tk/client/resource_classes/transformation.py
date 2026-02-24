@@ -1,6 +1,6 @@
-from typing import Annotated, ClassVar, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import Field, JsonValue
+from pydantic import Field, JsonValue, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -143,3 +143,25 @@ class TransformationResponse(Transformation, ResponseResource[TransformationRequ
     @classmethod
     def request_cls(cls) -> type[TransformationRequest]:
         return TransformationRequest
+
+
+class ColumnType(BaseModelObject):
+    type: str
+
+
+class Column(BaseModelObject):
+    name: str
+    sql_type: str
+    type: str | ColumnType
+    nullable: bool
+
+
+class SQLQueryResponse(BaseModelObject):
+    schema_: list[Column] = Field(..., alias="schema")
+    results: list[dict[str, str | int | float | bool | None]]
+
+    @field_validator("schema_", "results", mode="before")
+    def _remove_items_wrapper(cls, value: Any) -> Any:
+        if isinstance(value, dict) and "items" in value:
+            return value["items"]
+        return value
