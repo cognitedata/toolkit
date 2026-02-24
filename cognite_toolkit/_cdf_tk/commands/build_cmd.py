@@ -161,8 +161,6 @@ class BuildCommand(ToolkitCommand):
             )
         )
 
-        config.set_environment_variables()
-
         return self.build_config(
             build_dir=build_dir,
             organization_dir=organization_dir,
