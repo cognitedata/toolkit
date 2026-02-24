@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
 )
 
 
-class SecurityCategoriesAPI(CDFResourceAPI[InternalIdUnwrapped, SecurityCategoryRequest, SecurityCategoryResponse]):
+class SecurityCategoriesAPI(CDFResourceAPI[SecurityCategoryResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,

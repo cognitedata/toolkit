@@ -1,3 +1,4 @@
+import builtins
 from typing import ClassVar, Literal
 
 from pydantic import Field
@@ -50,5 +51,6 @@ class KafkaSourceResponse(
     ca_certificate: CertificateResponse | None = None
     auth_certificate: CertificateResponse | None = None
 
-    def as_request_resource(self) -> KafkaSourceRequest:
-        return KafkaSourceRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> builtins.type[KafkaSourceRequest]:
+        return KafkaSourceRequest
