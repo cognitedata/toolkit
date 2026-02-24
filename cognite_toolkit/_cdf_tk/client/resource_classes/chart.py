@@ -24,5 +24,6 @@ class ChartResponse(Chart, ResponseResource[ChartRequest]):
     last_updated_time: int
     owner_id: str
 
-    def as_request_resource(self) -> ChartRequest:
-        return ChartRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[ChartRequest]:
+        return ChartRequest

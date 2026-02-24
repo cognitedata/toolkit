@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart import (
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
 
-class ChartsAPI(CDFResourceAPI[ExternalId, ChartRequest, ChartResponse]):
+class ChartsAPI(CDFResourceAPI[ChartResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,
