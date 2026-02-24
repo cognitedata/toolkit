@@ -322,7 +322,7 @@ class PurgeApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will delete the contents of the specified instances."""
-        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        client = EnvironmentVariables.create_from_environment().get_client()
         cmd = PurgeCommand(client=client)
 
         is_interactive = view is None and instance_list is None

@@ -5,8 +5,6 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.api.charts import ChartsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFileMetadataAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI as LegacyTimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 
@@ -105,7 +103,6 @@ class ToolkitClient(CogniteClient):
 
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self, self.console)
-        # Override SDK APIs with alpha-aware versions for pending instance ID support
         self.canvas = CanvasAPI(self.data_modeling.instances)
         self.migration = MigrationAPI(self.data_modeling.instances, http_client)
         self.token = TokenAPI(self)

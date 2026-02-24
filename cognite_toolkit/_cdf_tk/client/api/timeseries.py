@@ -1,3 +1,4 @@
+import builtins
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
@@ -138,7 +139,7 @@ class TimeSeriesAPI(CDFResourceAPI[TimeSeriesResponse]):
         """
         return self._list(limit=limit)
 
-    def set_pending_ids(self, items: Sequence[PendingInstanceId]) -> list[TimeSeriesResponse]:
+    def set_pending_ids(self, items: Sequence[PendingInstanceId]) -> builtins.list[TimeSeriesResponse]:
         """Set pending instance IDs for one or more time series.
 
         This links asset-centric time series to DM nodes that will be created
