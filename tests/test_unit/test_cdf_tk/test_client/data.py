@@ -555,6 +555,7 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "name": "Example Group",
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
+            "isDeleted": False,
         },
         SequenceRowsResponse: {
             "id": 123,
@@ -670,6 +671,7 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
         CogniteFileResponse: {
             "space": "my_space",
             "externalId": "cognite_file_001",
+            "instanceType": "node",
             "version": 1,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
@@ -677,6 +679,8 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
         },
         ResourceViewMappingResponse: {
             "externalId": "mapping_001",
+            "space": "cognite_migration",
+            "instanceType": "node",
             "properties": {
                 "cognite_migration": {
                     "ResourceViewMapping/v1": {
@@ -697,6 +701,8 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
         },
         APMConfigResponse: {
             "externalId": "apm_config_001",
+            "space": "APM_Config",
+            "instanceType": "node",
             "version": 1,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,

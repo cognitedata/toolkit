@@ -118,7 +118,7 @@ class Task(BaseModelObject):
     description: str | None = None
     retries: int | None = None
     timeout: int | None = None
-    on_failure: Literal["abortWorkflow", "skipTask"] = "abortWorkflow"
+    on_failure: Literal["abortWorkflow", "skipTask"] | None = None
     depends_on: list[TaskId] | None = None
     parameters: Parameter
 
