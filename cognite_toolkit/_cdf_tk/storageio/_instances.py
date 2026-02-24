@@ -130,24 +130,36 @@ class InstanceIO(
             source.properties = {k: v for k, v in source.properties.items() if k not in readonly_properties}
 
     def stream_data(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[Page]:
-        if isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
-            instance_filter = self._build_instance_filter(selector)
-            total = 0
-            cursor: str | None = None
-            while cursor is not None or total == 0:
-                page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
-                page = self.client.tool.instances.paginate(instance_filter, limit=page_limit, cursor=cursor)
-                total += len(page.items)
-                if page:
-                    yield Page(worker_id="main", items=page.items, next_cursor=page.next_cursor)
-                if page.next_cursor is None or (limit is not None and total >= limit) or not page.items:
-                    break
-                cursor = page.next_cursor
+        if isinstance(selector, InstanceViewSelector) and selector.include_edges:
+            yield from self._instances_with_container_and_edge_properties(selector, limit)
+        elif isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
+            yield from self._instances_with_container_properties(selector, limit)
         elif isinstance(selector, InstanceFileSelector):
             for chunk in chunker_sequence(selector.ids, self.CHUNK_SIZE):
                 yield Page(worker_id="main", items=self.client.tool.instances.retrieve(chunk))
         else:
             raise NotImplementedError()
+
+    def _instances_with_container_and_edge_properties(
+        self, selector: InstanceViewSelector, limit: int | None
+    ) -> Iterable[Page]:
+        raise NotImplementedError()
+
+    def _instances_with_container_properties(
+        self, selector: InstanceViewSelector | InstanceSpaceSelector, limit: int | None
+    ) -> Iterable[Page]:
+        instance_filter = self._build_instance_filter(selector)
+        total = 0
+        cursor: str | None = None
+        while cursor is not None or total == 0:
+            page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
+            page = self.client.tool.instances.paginate(instance_filter, limit=page_limit, cursor=cursor)
+            total += len(page.items)
+            if page:
+                yield Page(worker_id="main", items=page.items, next_cursor=page.next_cursor)
+            if page.next_cursor is None or (limit is not None and total >= limit) or not page.items:
+                break
+            cursor = page.next_cursor
 
     def download_ids(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[Sequence[InstanceId]]:
         # Todo: Switch to use pydantic classes once purge has been updated.
