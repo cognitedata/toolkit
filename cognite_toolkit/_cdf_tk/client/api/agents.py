@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, 
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
 
-class AgentsAPI(CDFResourceAPI[ExternalId, AgentRequest, AgentResponse]):
+class AgentsAPI(CDFResourceAPI[AgentResponse]):
     """API for managing CDF AI agents.
 
     Note: This is an alpha API and may change in future releases.

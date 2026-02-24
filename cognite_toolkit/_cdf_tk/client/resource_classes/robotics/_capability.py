@@ -49,5 +49,6 @@ class RobotCapabilityResponse(RobotCapability, ResponseResource[RobotCapabilityR
     input_schema: dict[str, JsonValue]
     data_handling_schema: dict[str, JsonValue]
 
-    def as_request_resource(self) -> RobotCapabilityRequest:
-        return RobotCapabilityRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[RobotCapabilityRequest]:
+        return RobotCapabilityRequest

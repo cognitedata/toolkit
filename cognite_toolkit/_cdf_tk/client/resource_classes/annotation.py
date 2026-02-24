@@ -75,5 +75,6 @@ class AnnotationResponse(Annotation, ResponseResource[AnnotationRequest]):
     def as_id(self) -> InternalId:
         return InternalId(id=self.id)
 
-    def as_request_resource(self) -> AnnotationRequest:
-        return AnnotationRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[AnnotationRequest]:
+        return AnnotationRequest

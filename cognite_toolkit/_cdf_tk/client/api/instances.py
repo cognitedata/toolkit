@@ -37,7 +37,7 @@ METHOD_MAP: dict[APIMethod, Endpoint] = {
 QUERY_ENDPOINT = Endpoint(method="POST", path="/models/instances/query", item_limit=1000)
 
 
-class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, InstanceResponse]):
+class InstancesAPI(CDFResourceAPI[InstanceResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(http_client=http_client, method_endpoint_map=METHOD_MAP)
 
@@ -180,7 +180,7 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
 
 
 class WrappedInstancesAPI(
-    CDFResourceAPI[T_TypedInstanceIdentifier, T_WrappedInstanceRequest, T_WrappedInstanceResponse], ABC
+    Generic[T_TypedInstanceIdentifier, T_WrappedInstanceResponse], CDFResourceAPI[T_WrappedInstanceResponse], ABC
 ):
     """API for wrapped instances in CDF. It is intended to be subclassed for specific wrapped instance types."""
 

@@ -32,5 +32,6 @@ class DataSetResponse(DataSet, ResponseResource[DataSetRequest]):
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> DataSetRequest:
-        return DataSetRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[DataSetRequest]:
+        return DataSetRequest

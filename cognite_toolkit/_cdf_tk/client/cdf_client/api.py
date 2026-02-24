@@ -15,8 +15,6 @@ from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestItem,
-    T_Identifier,
-    T_RequestResource,
     T_ResponseResource,
     UpdatableRequestResource,
 )
@@ -43,7 +41,7 @@ class Endpoint:
 APIMethod: TypeAlias = Literal["create", "retrieve", "update", "delete", "list", "upsert"]
 
 
-class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource], ABC):
+class CDFResourceAPI(Generic[T_ResponseResource], ABC):
     """Generic resource API for CDF APIs
 
     This class provides the logic for working with CDF resources,

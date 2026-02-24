@@ -87,9 +87,7 @@ class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, In
         return results
 
 
-class InFieldCDMConfigAPI(
-    WrappedInstancesAPI[TypedNodeIdentifier, InFieldCDMLocationConfigRequest, InFieldCDMLocationConfigResponse]
-):
+class InFieldCDMConfigAPI(WrappedInstancesAPI[TypedNodeIdentifier, InFieldCDMLocationConfigResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(http_client, InFieldCDMLocationConfigRequest.VIEW_ID)
 
@@ -102,7 +100,7 @@ class InFieldCDMConfigAPI(
         return PagedResponse[InFieldCDMLocationConfigResponse].model_validate_json(response.body)
 
 
-class APMConfigAPI(WrappedInstancesAPI[TypedNodeIdentifier, APMConfigRequest, APMConfigResponse]):
+class APMConfigAPI(WrappedInstancesAPI[TypedNodeIdentifier, APMConfigResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(http_client, APMConfigRequest.VIEW_ID)
 

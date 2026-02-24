@@ -31,8 +31,9 @@ class SequenceColumnResponse(SequenceColumn, ResponseResource[SequenceColumnRequ
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> SequenceColumnRequest:
-        return SequenceColumnRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[SequenceColumnRequest]:
+        return SequenceColumnRequest
 
 
 class Sequence(BaseModelObject):
@@ -86,5 +87,6 @@ class SequenceResponse(Sequence, ResponseResource[SequenceRequest]):
     last_updated_time: int
     columns: list[SequenceColumnResponse]
 
-    def as_request_resource(self) -> SequenceRequest:
-        return SequenceRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[SequenceRequest]:
+        return SequenceRequest

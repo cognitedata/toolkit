@@ -45,5 +45,6 @@ class RelationshipResponse(Relationship, ResponseResource[RelationshipRequest]):
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> RelationshipRequest:
-        return RelationshipRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[RelationshipRequest]:
+        return RelationshipRequest

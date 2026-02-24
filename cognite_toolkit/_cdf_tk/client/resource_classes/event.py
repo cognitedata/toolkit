@@ -1,3 +1,4 @@
+import builtins
 from typing import ClassVar
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
@@ -36,5 +37,6 @@ class EventResponse(Event, ResponseResource[EventRequest]):
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> EventRequest:
-        return EventRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> builtins.type[EventRequest]:
+        return EventRequest

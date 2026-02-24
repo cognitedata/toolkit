@@ -116,10 +116,6 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
     filename: ClassVar[str] = "config.{build_env}.yaml"
     variables: dict[str, Any] = field(default_factory=dict)
 
-    def set_environment_variables(self) -> None:
-        os.environ["CDF_ENVIRON"] = self.environment.name
-        os.environ["CDF_BUILD_TYPE"] = self.environment.validation_type
-
     def validate_environment(self) -> ToolkitWarning | None:
         if _RUNNING_IN_BROWSER:
             return None
