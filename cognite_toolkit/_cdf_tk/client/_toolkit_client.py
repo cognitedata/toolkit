@@ -3,8 +3,8 @@ from typing import cast
 from cognite.client import CogniteClient
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client.api.charts import ChartsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
@@ -113,7 +113,7 @@ class ToolkitClient(CogniteClient):
         self.canvas = CanvasAPI(self.data_modeling.instances)
         self.migration = MigrationAPI(self.data_modeling.instances, http_client)
         self.token = TokenAPI(self)
-        self.charts = ChartsAPI(self._config, self._API_VERSION, self)
+        self.charts = ChartsAPI(http_client)
         self.project = ProjectAPI(config=toolkit_config, cognite_client=self)
         self.infield = InfieldAPI(http_client)
         self.streams = StreamsAPI(http_client)

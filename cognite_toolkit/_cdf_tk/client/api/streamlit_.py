@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import (
 )
 
 
-class StreamlitAPI(CDFResourceAPI[ExternalId, StreamlitRequest, StreamlitResponse]):
+class StreamlitAPI(CDFResourceAPI[StreamlitResponse]):
     """API for managing Streamlit apps in CDF.
 
     Streamlit apps are stored as file metadata objects with a specific directory prefix

@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, 
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
 
 
-class EventsAPI(CDFResourceAPI[InternalOrExternalId, EventRequest, EventResponse]):
+class EventsAPI(CDFResourceAPI[EventResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,

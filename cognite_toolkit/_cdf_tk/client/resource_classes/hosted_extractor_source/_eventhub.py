@@ -1,3 +1,4 @@
+import builtins
 from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
@@ -28,5 +29,6 @@ class EventHubSourceResponse(
 ):
     authentication: BasicAuthenticationResponse | None = None
 
-    def as_request_resource(self) -> EventHubSourceRequest:
-        return EventHubSourceRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> builtins.type[EventHubSourceRequest]:
+        return EventHubSourceRequest

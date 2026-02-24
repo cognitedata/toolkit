@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import External
 from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
 
 
-class RelationshipsAPI(CDFResourceAPI[ExternalId, RelationshipRequest, RelationshipResponse]):
+class RelationshipsAPI(CDFResourceAPI[RelationshipResponse]):
     """API for managing CDF relationships."""
 
     def __init__(self, http_client: HTTPClient) -> None:

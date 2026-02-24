@@ -15,9 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config 
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExtractionPipelineConfigId
 
 
-class ExtractionPipelineConfigsAPI(
-    CDFResourceAPI[ExtractionPipelineConfigId, ExtractionPipelineConfigRequest, ExtractionPipelineConfigResponse]
-):
+class ExtractionPipelineConfigsAPI(CDFResourceAPI[ExtractionPipelineConfigResponse]):
     """API for managing extraction pipeline configuration revisions."""
 
     def __init__(self, http_client: HTTPClient) -> None:
