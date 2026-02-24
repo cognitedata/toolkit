@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QueryNodeExpression,
     QueryNodeTableExpression,
     QueryRequest,
+    QueryResponse,
     QuerySelect,
     QuerySelectSource,
     QuerySortSpec,
@@ -207,7 +208,7 @@ class InstanceIO(
         query = QueryRequest(with_=with_, select=select)
         total = 0
         while True:
-            response = self.client.tool.instances.query(query)
+            response = self._exhaust_edge_queries(query, edge_ids)
             items = response.items.get("nodes", [])
             # De-duplicate edges across properties, as the same edge can be returned for multiple
             # properties if it connects two nodes that are in the result set.
@@ -226,6 +227,42 @@ class InstanceIO(
             page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
             query.with_["nodes"].limit = page_limit
             query.cursors = {"nodes": next_cursor}
+
+    def _exhaust_edge_queries(self, query: QueryRequest, edge_properties: list[str]) -> QueryResponse:
+        """Exhausts the edge queries in the with_ clause of the query until all cursors are None.
+
+        This is necessary to ensure that we get all edges for the nodes in the result set, as edges can be returned
+        on multiple properties if they connect two nodes that are in the result set.
+
+        Args:
+            query: The query to execute. This will be mutated in-place.
+            edge_properties: The list of edge properties to exhaust.
+
+        Returns:
+            The final QueryResponse with all edge queries exhausted.
+        """
+        first: QueryResponse | None = None
+        while True:
+            response = self.client.tool.instances.query(query)
+            if first is None:
+                first = response
+            else:
+                for key, items in response.items.items():
+                    if key not in first.items:
+                        first.items[key] = items
+                    else:
+                        first.items[key].extend(items)
+            next_cursors: dict[str, str] = {}
+            for prop_id in edge_properties:
+                edge_cursor = response.next_cursor.get(prop_id)
+                if edge_cursor is not None:
+                    next_cursors[prop_id] = edge_cursor
+            if not next_cursors or not response.items:
+                return first
+            node_cursor = response.next_cursor.get("nodes")
+            if node_cursor is not None:
+                next_cursors["nodes"] = node_cursor
+            query = query.model_copy(update={"cursors": next_cursors})
 
     def _instances_with_container_properties(
         self, selector: InstanceViewSelector | InstanceSpaceSelector, limit: int | None
