@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import (
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
 
 
-class CogniteFilesAPI(WrappedInstancesAPI[TypedNodeIdentifier, CogniteFileRequest, CogniteFileResponse]):
+class CogniteFilesAPI(WrappedInstancesAPI[TypedNodeIdentifier, CogniteFileResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(http_client, CogniteFileRequest.VIEW_ID)
 

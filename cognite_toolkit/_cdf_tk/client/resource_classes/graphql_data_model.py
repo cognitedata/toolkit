@@ -41,5 +41,6 @@ class GraphQLDataModelResponse(GraphQLDataModel, ResponseResource[GraphQLDataMod
     last_updated_time: datetime
     views: list[ViewReference] | None = None
 
-    def as_request_resource(self) -> GraphQLDataModelRequest:
-        return GraphQLDataModelRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[GraphQLDataModelRequest]:
+        return GraphQLDataModelRequest

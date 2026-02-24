@@ -139,5 +139,6 @@ class AgentResponse(Agent, ResponseResource[AgentRequest]):
     owner_id: str
     runtime_version: str
 
-    def as_request_resource(self) -> AgentRequest:
-        return AgentRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[AgentRequest]:
+        return AgentRequest

@@ -95,8 +95,9 @@ class StreamlitResponse(StreamlitFile, ResponseResource[StreamlitRequest]):
     # This field is required in the upload endpoint response, but not in any other file metadata response
     upload_url: str | None = None
 
-    def as_request_resource(self) -> StreamlitRequest:
-        return StreamlitRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[StreamlitRequest]:
+        return StreamlitRequest
 
     @model_validator(mode="before")
     def move_metadata(cls, values: dict[str, Any]) -> dict[str, Any]:

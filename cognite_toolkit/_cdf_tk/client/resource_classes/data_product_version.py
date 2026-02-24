@@ -92,6 +92,10 @@ class DataProductVersionResponse(DataProductVersion, ResponseResource[DataProduc
     created_time: int
     last_updated_time: int
 
+    @classmethod
+    def request_cls(cls) -> type[DataProductVersionRequest]:
+        return DataProductVersionRequest
+
     def as_request_resource(self) -> DataProductVersionRequest:
         data = self.dump(camel_case=False)
         data["data_product_external_id"] = self.data_product_external_id

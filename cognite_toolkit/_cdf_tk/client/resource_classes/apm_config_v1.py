@@ -193,6 +193,10 @@ class APMConfigResponse(WrappedInstanceResponse[APMConfigRequest], APMConfig):
     instance_type: Literal["node"] = "node"
     space: Literal["APM_Config"] = APM_CONFIG_SPACE
 
+    @classmethod
+    def request_cls(cls) -> type[APMConfigRequest]:
+        return APMConfigRequest
+
     def as_request_resource(self) -> APMConfigRequest:
         # InstanceType and space are constants, so we exclude them.
         return APMConfigRequest.model_validate(

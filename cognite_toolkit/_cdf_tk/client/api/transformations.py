@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
 )
 
 
-class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequest, TransformationResponse]):
+class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
     DEFAULT_TIMEOUT_RUN_QUERY = 240.0  # seconds, this is the maximum timeout for running queries in CDF
 
     def __init__(self, http_client: HTTPClient) -> None:

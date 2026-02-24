@@ -159,5 +159,6 @@ class WorkflowVersionResponse(WorkflowVersion, ResponseResource[WorkflowVersionR
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> WorkflowVersionRequest:
-        return WorkflowVersionRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[WorkflowVersionRequest]:
+        return WorkflowVersionRequest

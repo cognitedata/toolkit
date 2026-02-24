@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 
 
-class ContainersAPI(CDFResourceAPI[ContainerReference, ContainerRequest, ContainerResponse]):
+class ContainersAPI(CDFResourceAPI[ContainerResponse]):
     """API for managing CDF data modeling containers.
 
     Containers use an apply/upsert pattern for create and update operations.

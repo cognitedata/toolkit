@@ -46,5 +46,6 @@ class ContainerResponse(Container, ResponseResource[ContainerRequest]):
     last_updated_time: int
     is_global: bool
 
-    def as_request_resource(self) -> "ContainerRequest":
-        return ContainerRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[ContainerRequest]:
+        return ContainerRequest
