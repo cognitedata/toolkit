@@ -94,7 +94,7 @@ class AnnotationsAPI(CDFResourceAPI[AnnotationResponse]):
         Returns:
             PagedResponse of AnnotationResponse objects.
         """
-        return self._paginate(cursor=cursor, limit=limit, body=filter.dump())
+        return self._paginate(cursor=cursor, limit=limit, body={"filter": filter.dump()})
 
     def iterate(
         self,
@@ -110,7 +110,7 @@ class AnnotationsAPI(CDFResourceAPI[AnnotationResponse]):
         Returns:
             Iterable of lists of AnnotationResponse objects.
         """
-        return self._iterate(limit=limit, body=filter.dump())
+        return self._iterate(limit=limit, body={"filter": filter.dump()})
 
     def list(
         self,
@@ -126,4 +126,4 @@ class AnnotationsAPI(CDFResourceAPI[AnnotationResponse]):
         Returns:
             List of AnnotationResponse objects.
         """
-        return self._list(limit=limit, body=filter.dump())
+        return self._list(limit=limit, body={"filter": filter.dump()})
