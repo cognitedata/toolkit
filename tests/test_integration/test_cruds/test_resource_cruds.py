@@ -44,7 +44,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     IDScopeLowerCase,
     TimeSeriesAcl,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import (
@@ -68,6 +68,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     CogniteFileCRUD,
     DataModelCRUD,
     DatapointSubscriptionCRUD,
+    ExtractionPipelineCRUD,
     FunctionCRUD,
     FunctionScheduleCRUD,
     GroupCRUD,
@@ -83,6 +84,7 @@ from cognite_toolkit._cdf_tk.cruds import (
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from cognite_toolkit._cdf_tk.utils import read_yaml_content
 from tests.test_integration.constants import RUN_UNIQUE_ID
+from tests.test_integration.helpers import retry_on_deadlock
 
 
 class TestFunctionScheduleLoader:
@@ -1091,7 +1093,7 @@ class TestNodeLoader:
             created = loader.create([existing_node])
             assert len(created) == 1
 
-            updated = loader.update([updated_node])
+            updated = retry_on_deadlock(lambda: loader.update([updated_node]))
             assert len(updated) == 1
 
             retrieved = toolkit_client.tool.instances.retrieve(
@@ -1108,7 +1110,7 @@ class TestNodeLoader:
                 "aliases": ["alias1", "alias2"],  # Add new aliases
             }
         finally:
-            loader.delete([existing_node.as_id()])
+            _ = retry_on_deadlock(lambda: loader.delete([existing_node.as_id()]))
 
 
 class TestViewLoader:
@@ -1238,3 +1240,46 @@ description: ""
                     client.tool.functions.delete([ExternalId(external_id=external_id)])
 
                 client.data_modeling.instances.delete((toolkit_space.space, external_id))
+
+
+class TestExtractionPipelineIO:
+    def test_unchanged_no_redeploy(
+        self, toolkit_client: ToolkitClient, toolkit_dataset: DataSet, populated_raw_table: RawTableId
+    ) -> None:
+        definition_yaml = f"""externalId: test_extraction_pipeline_io_no_redeploy_{RUN_UNIQUE_ID}
+name: Test Extraction Pipeline IO No Redeploy
+dataSetExternalId: {toolkit_dataset.external_id}
+description: Export Data to CDF
+rawTables:
+- dbName: {populated_raw_table.db_name}
+  tableName: {populated_raw_table.name}
+schedule: 55 * * * *
+contacts:
+- name: A person to notify
+  email: example@email.com
+  role: Support
+  sendNotification: true
+source: here
+documentation: To Do
+createdBy: null
+"""
+        loader = ExtractionPipelineCRUD.create_loader(toolkit_client)
+
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = definition_yaml
+
+        resource_dict = loader.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(resource_dict[0])
+        if not loader.retrieve([resource.as_id()]):
+            _ = loader.create([resource])
+
+        worker = ResourceWorker(loader, "deploy")
+        resources = worker.prepare_resources([filepath])
+
+        assert {
+            "create": len(resources.to_create),
+            "change": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
+        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
