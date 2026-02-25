@@ -94,9 +94,9 @@ class Flags(Enum):
         visible=True,
         description="Enables JSON output format for the modules list command",
     )
-    SUPPRESS_UNKNOWN_TOOL_WARNING = FlagMetadata(
+    SUPPRESS_NON_GA_TOOL_WARNING = FlagMetadata(
         visible=True,
-        description="Suppresses warnings about unknown agent tool types during validation",
+        description="Suppresses warnings about non-GA agent tool types during validation",
     )
 
     def is_enabled(self) -> bool:

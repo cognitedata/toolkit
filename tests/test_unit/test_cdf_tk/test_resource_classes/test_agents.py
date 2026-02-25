@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.resource_classes.agent import (
     AgentToolDefinition,
     AgentYAML,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
@@ -190,25 +191,82 @@ class TestAgentYAML:
 
         assert set(format_warning.errors) == expected_errors
 
-    def test_suppress_unknown_tool_warning(self) -> None:
+    def test_ga_tools_no_warnings(self) -> None:
         data = {
-            "name": "Valid Name",
-            "tools": [{"type": "unknownTool", "name": "My Tool", "description": "A custom tool description"}],
+            "externalId": "my_agent",
+            "name": "My Agent",
+            "tools": [
+                {"type": "askDocument", "name": "Doc Tool", "description": "A valid tool description for testing"},
+                {"type": "summarizeDocument", "name": "Summary", "description": "A valid tool description for testing"},
+            ],
+        }
+
+        warning_list = validate_resource_yaml_pydantic(data, AgentYAML, Path("agent.yaml"))
+        assert len(warning_list) == 0
+
+        loaded = AgentYAML.model_validate(data)
+        assert loaded.tools is not None
+        assert len(loaded.tools) == 2
+
+    def test_non_ga_tool_warning(self) -> None:
+        data = {
+            "externalId": "my_agent",
+            "name": "My Agent",
+            "tools": [
+                {"type": "askDocument", "name": "Doc Tool", "description": "A valid tool description for testing"},
+                {"type": "analyzeTimeSeries", "name": "TS Tool", "description": "A valid tool description for testing"},
+            ],
+        }
+
+        warning_list = validate_resource_yaml_pydantic(data, AgentYAML, Path("agent.yaml"))
+        assert len(warning_list) == 1
+        warning = warning_list[0]
+        assert isinstance(warning, MediumSeverityWarning)
+        assert "analyzeTimeSeries" in str(warning)
+        assert "not Generally Available" in str(warning)
+
+        loaded = AgentYAML.model_validate(data)
+        assert loaded.tools is not None
+        assert len(loaded.tools) == 2
+
+    def test_unknown_tool_warning(self) -> None:
+        data = {
+            "externalId": "my_agent",
+            "name": "My Agent",
+            "tools": [
+                {"type": "unknownTool", "name": "Mystery", "description": "A valid tool description for testing"},
+            ],
+        }
+
+        FeatureFlag.flush()
+        warning_list = validate_resource_yaml_pydantic(data, AgentYAML, Path("agent.yaml"))
+        FeatureFlag.flush()
+
+        assert len(warning_list) == 1
+        warning = warning_list[0]
+        assert isinstance(warning, ResourceFormatWarning)
+        assert any("unknownTool" in e for e in warning.errors)
+
+    def test_suppress_non_ga_and_unknown_tool_warnings(self) -> None:
+        data = {
+            "externalId": "my_agent",
+            "name": "My Agent",
+            "tools": [
+                {"type": "askDocument", "name": "Doc Tool", "description": "A valid tool description for testing"},
+                {"type": "analyzeTimeSeries", "name": "TS Tool", "description": "A valid tool description for testing"},
+                {"type": "unknownTool", "name": "Mystery", "description": "A valid tool description for testing"},
+            ],
         }
 
         FeatureFlag.flush()
         with patch(
             "cognite_toolkit._cdf_tk.feature_flags.FeatureFlag.is_enabled",
-            side_effect=lambda flag: flag == Flags.SUPPRESS_UNKNOWN_TOOL_WARNING,
+            side_effect=lambda flag: flag == Flags.SUPPRESS_NON_GA_TOOL_WARNING,
         ):
-            warning_list = validate_resource_yaml_pydantic(data, AgentYAML, Path("some_file.yaml"))
-
+            warning_list = validate_resource_yaml_pydantic(data, AgentYAML, Path("agent.yaml"))
         FeatureFlag.flush()
-        assert len(warning_list) == 1
-        format_warning = warning_list[0]
-        assert isinstance(format_warning, ResourceFormatWarning)
-        assert any("externalId" in e for e in format_warning.errors)
-        assert not any("union_tag_invalid" in e or "expected tags" in e for e in format_warning.errors)
+
+        assert len(warning_list) == 0
 
     def test_tools_are_in_union(self) -> None:
         all_agent_tools = get_concrete_subclasses(AgentToolDefinition)

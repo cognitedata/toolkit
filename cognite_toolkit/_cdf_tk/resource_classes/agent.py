@@ -262,7 +262,7 @@ class AgentYAML(ToolkitResource):
 
         from cognite_toolkit._cdf_tk.feature_flags import Flags
 
-        suppress = Flags.SUPPRESS_UNKNOWN_TOOL_WARNING.is_enabled()
+        suppress = Flags.SUPPRESS_NON_GA_TOOL_WARNING.is_enabled()
         warnings = info.context.get("warnings") if info.context else None
 
         result = []
