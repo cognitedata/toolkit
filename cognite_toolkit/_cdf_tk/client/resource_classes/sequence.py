@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
+from cognite_toolkit._cdf_tk.client._types import Metadata
 
 from .identifiers import ExternalId
 
@@ -19,7 +20,7 @@ class SequenceColumnSlim(BaseModelObject):
 
 class SequenceColumn(SequenceColumnSlim):
     description: str | None = None
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
 
 
 class SequenceColumnRequest(SequenceColumn, UpdatableRequestResource):
@@ -42,7 +43,7 @@ class Sequence(BaseModelObject):
     description: str | None = None
     asset_id: int | None = None
     data_set_id: int | None = None
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
 
     def as_id(self) -> ExternalId:
         if self.external_id is None:

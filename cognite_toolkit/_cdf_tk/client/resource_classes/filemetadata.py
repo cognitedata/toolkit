@@ -3,6 +3,7 @@ from typing import Any, ClassVar, Literal
 from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, ResponseResource, UpdatableRequestResource
+from cognite_toolkit._cdf_tk.client._types import Metadata
 
 from .identifiers import ExternalId
 from .instance_api import NodeReference
@@ -14,7 +15,7 @@ class FileMetadata(BaseModelObject):
     directory: str | None = None
     source: str | None = None
     mime_type: str | None = None
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
     asset_ids: list[int] | None = None
     data_set_id: int | None = None
     labels: list[dict[Literal["externalId"], str]] | None = None

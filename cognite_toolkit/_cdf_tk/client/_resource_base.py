@@ -4,7 +4,7 @@ import sys
 import types
 from abc import ABC, abstractmethod
 from functools import total_ordering
-from typing import Any, ClassVar, Generic, Literal, TypeVar, Union, get_args, get_origin
+from typing import Annotated, Any, ClassVar, Generic, Literal, TypeVar, Union, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
@@ -192,6 +192,12 @@ def _get_annotation_origin(field_type: Any) -> Any:
     origin = get_origin(field_type)
     args = get_args(field_type)
 
+    # Handle Annotated types by extracting the underlying type
+    if origin is Annotated and args:
+        field_type = args[0]
+        origin = get_origin(field_type)
+        args = get_args(field_type)
+
     # Check for Union type (both typing.Union and | syntax from Python 3.10+)
     is_union = origin is Union or isinstance(field_type, getattr(types, "UnionType", ()))
 
@@ -202,6 +208,10 @@ def _get_annotation_origin(field_type: Any) -> Any:
         if len(non_none_args) == 1:
             field_type = non_none_args[0]
             origin = get_origin(field_type) or field_type
+
+            if origin is Annotated:
+                return _get_annotation_origin(field_type)
+
     return origin
 
 
