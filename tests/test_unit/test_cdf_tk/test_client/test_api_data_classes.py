@@ -3,7 +3,8 @@ from typing import Any, Literal
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client._resource_base import UpdatableRequestResource
+from cognite_toolkit._cdf_tk.client._resource_base import UpdatableRequestResource, _get_annotation_origin
+from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (
@@ -347,3 +348,19 @@ class TestDataSetRequest:
         }
         dataset_request = DataSetRequest.model_validate(data)
         assert dataset_request.dump() == data
+
+
+class TestGetAnnotationOrigin:
+    @pytest.mark.parametrize(
+        "annotation, expected_origin",
+        [
+            (list[int], list),
+            (dict[str, int], dict),
+            (int | None, int),
+            (str | None, str),
+            (Metadata, dict),
+            (Metadata | None, dict),
+        ],
+    )
+    def test_get_annotation_origin_of_annotated(self, annotation: Any, expected_origin: Any) -> None:
+        assert _get_annotation_origin(annotation) == expected_origin
