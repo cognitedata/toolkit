@@ -3,6 +3,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BeforeValidator, Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.resource_classes.agent import ALL_TOOL_TYPES
 
 from .identifiers import ExternalId
 
@@ -11,10 +12,6 @@ class AgentToolDefinition(BaseModelObject, extra="ignore"):
     type: str
     name: str
     description: str
-
-
-class AskDocument(AgentToolDefinition):
-    type: Literal["askDocument"] = "askDocument"
 
 
 class CallFunctionConfig(BaseModelObject):
@@ -26,10 +23,6 @@ class CallFunctionConfig(BaseModelObject):
 class CallFunction(AgentToolDefinition):
     type: Literal["callFunction"] = "callFunction"
     configuration: CallFunctionConfig
-
-
-class ExamineDataSemantically(AgentToolDefinition):
-    type: Literal["examineDataSemantically"] = "examineDataSemantically"
 
 
 class AgentDataModel(BaseModelObject):
@@ -70,48 +63,31 @@ class QueryKnowledgeGraph(AgentToolDefinition):
     configuration: QueryKnowledgeGraphConfig
 
 
-class QueryTimeSeriesDatapoints(AgentToolDefinition):
-    type: Literal["queryTimeSeriesDatapoints"] = "queryTimeSeriesDatapoints"
-
-
-class SummarizeDocument(AgentToolDefinition):
-    type: Literal["summarizeDocument"] = "summarizeDocument"
-
-
 class UnknownAgentTool(AgentToolDefinition):
-    """Fallback for unknown tool types."""
+    """Fallback for unknown tool types returned by the API."""
 
     ...
 
 
-KNOWN_TOOLS: dict[str, type[AgentToolDefinition]] = {
-    "askDocument": AskDocument,
+TOOLS_WITH_CONFIGURATION: dict[str, type[AgentToolDefinition]] = {
     "callFunction": CallFunction,
-    "examineDataSemantically": ExamineDataSemantically,
     "queryKnowledgeGraph": QueryKnowledgeGraph,
-    "queryTimeSeriesDatapoints": QueryTimeSeriesDatapoints,
-    "summarizeDocument": SummarizeDocument,
 }
 
 
 def _handle_unknown_tool(value: Any) -> Any:
     if isinstance(value, dict):
         tool_type = value.get("type")
-        if tool_type not in KNOWN_TOOLS:
-            return UnknownAgentTool(**value)
-        else:
-            return KNOWN_TOOLS[tool_type].model_validate(value)
+        if tool_type in TOOLS_WITH_CONFIGURATION:
+            return TOOLS_WITH_CONFIGURATION[tool_type].model_validate(value)
+        if tool_type in ALL_TOOL_TYPES:
+            return AgentToolDefinition.model_validate(value)
+        return UnknownAgentTool(**value)
     return value
 
 
 AgentTool = Annotated[
-    AskDocument
-    | CallFunction
-    | ExamineDataSemantically
-    | QueryKnowledgeGraph
-    | QueryTimeSeriesDatapoints
-    | SummarizeDocument
-    | UnknownAgentTool,
+    CallFunction | QueryKnowledgeGraph | AgentToolDefinition,
     BeforeValidator(_handle_unknown_tool),
 ]
 

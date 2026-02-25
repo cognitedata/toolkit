@@ -97,11 +97,12 @@ def validate_resource_yaml_pydantic(
 
     """
     warning_list: WarningList = WarningList()
+    context = {"warnings": warning_list}
     try:
         if isinstance(data, dict):
-            validation_cls.model_validate(data, strict=True)
+            validation_cls.model_validate(data, strict=True, context=context)
         elif isinstance(data, list):
-            TypeAdapter(list[validation_cls]).validate_python(data)  # type: ignore[valid-type]
+            TypeAdapter(list[validation_cls]).validate_python(data, context=context)  # type: ignore[valid-type]
         else:
             raise ValueError(f"Expected a dictionary or list of dictionaries, got {type(data)}.")
     except ValidationError as e:
@@ -143,10 +144,6 @@ def humanize_validation_error(error: ValidationError) -> list[str]:
         A list of human-readable error messages.
     """
 
-    from cognite_toolkit._cdf_tk.feature_flags import Flags
-
-    suppress_unknown_tool_warnings = error.title == "AgentYAML" and Flags.SUPPRESS_UNKNOWN_TOOL_WARNING.is_enabled()
-
     errors: list[str] = []
     item: ErrorDetails
 
@@ -170,8 +167,6 @@ def humanize_validation_error(error: ValidationError) -> list[str]:
             #     converts them to string. Thus, these are not really errors.
             # 3. The metadata errors flood the output and obscure more important errors, and we see example of
             #     users ignoring all errors because of this (error fatigue).
-            continue
-        elif suppress_unknown_tool_warnings and error_type == "union_tag_invalid" and loc[:1] == ("tools",):
             continue
         elif error_type == "string_type":
             msg = f"{item['msg']}. Got {item['input']!r} of type {type(item['input']).__name__}. Hint: Use double quotes to force string."

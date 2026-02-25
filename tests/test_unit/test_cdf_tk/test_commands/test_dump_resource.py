@@ -13,7 +13,7 @@ from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse, AskDocument
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse, AgentToolDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
     SpaceResponse,
@@ -308,7 +308,8 @@ def three_agents() -> list[AgentResponse]:
             description=f"This is Agent {character}",
             model="gpt-3.5-turbo",
             tools=[
-                AskDocument(
+                AgentToolDefinition(
+                    type="askDocument",
                     name=f"tool{character}",
                     description=f"This is tool {character}",
                 )

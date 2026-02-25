@@ -7,12 +7,12 @@ import pytest
 
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.resource_classes.agent import AgentYAML
-from cognite_toolkit._cdf_tk.resource_classes.agent_tools import (
+from cognite_toolkit._cdf_tk.resource_classes.agent import (
     AgentInstanceSpaces,
     AgentInstanceSpacesDefinition,
     AgentTool,
     AgentToolDefinition,
+    AgentYAML,
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -168,7 +168,7 @@ def invalid_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "valid_id", "name": "Valid Name", "tools": [{"type": "invalid"}]},
         {
-            "In tools[1] input tag 'invalid' found using 'type' does not match any of the expected tags: 'analyzeTimeSeries', 'askDocument', 'callFunction', 'callRestApi', 'examineDataSemantically', 'queryKnowledgeGraph', 'queryTimeSeriesDatapoints', 'runPythonCode', 'summarizeDocument', 'timeSeriesAnalysis'",
+            "In tools[1] input tag 'invalid' found using 'type' does not match any of the expected tags: 'analyzeImage', 'analyzeTimeSeries', 'askDocument', 'callFunction', 'callRestApi', 'examineDataSemantically', 'queryKnowledgeGraph', 'queryTimeSeriesDatapoints', 'runPythonCode', 'summarizeDocument', 'timeSeriesAnalysis'",
         },
         id="invalid-tool-type-validation-errors",
     )
