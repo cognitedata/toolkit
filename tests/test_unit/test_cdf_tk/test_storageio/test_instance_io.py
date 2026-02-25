@@ -28,7 +28,7 @@ class TestInstanceIO:
     def test_download_instance_ids(
         self, rsps: responses.RequestsMock, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
     ) -> None:
-        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
+        client = ToolkitClient(config=toolkit_config)
         url = toolkit_config.create_api_url("/models/instances/list")
         selector = InstanceViewSelector(
             view=SelectedView(space="mySpace", external_id="myView", version="v42"),
