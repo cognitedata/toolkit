@@ -1,6 +1,6 @@
 from typing import Annotated, Any, Literal
 
-from pydantic import BeforeValidator, Field
+from pydantic import BeforeValidator, ConfigDict, Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 
@@ -79,9 +79,13 @@ class SummarizeDocument(AgentToolDefinition):
 
 
 class UnknownAgentTool(AgentToolDefinition):
-    """Fallback for unknown tool types."""
+    """Fallback for unknown tool types.
 
-    ...
+    Must always allow extra fields so that unknown tool properties (e.g. configuration)
+    are preserved during round-tripping through the API.
+    """
+
+    model_config = ConfigDict(extra="allow")
 
 
 KNOWN_TOOLS: dict[str, type[AgentToolDefinition]] = {
@@ -133,6 +137,8 @@ class AgentRequest(Agent, RequestResource):
 
 
 class AgentResponse(Agent, ResponseResource[AgentRequest]):
+    model_config = ConfigDict(extra="allow")
+
     created_time: int
     last_updated_time: int
     owner_id: str
