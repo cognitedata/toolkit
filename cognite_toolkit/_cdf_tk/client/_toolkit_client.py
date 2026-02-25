@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersA
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 
 from .api.agents import AgentsAPI
+from .api.annotations import AnnotationsAPI
 from .api.assets import AssetsAPI
 from .api.cognite_files import CogniteFilesAPI
 from .api.containers import ContainersAPI
@@ -56,6 +57,7 @@ class ToolAPI:
     def __init__(self, http_client: HTTPClient, console: Console) -> None:
         self.http_client = http_client
         self.agents = AgentsAPI(http_client)
+        self.annotations = AnnotationsAPI(http_client)
         self.assets = AssetsAPI(http_client)
         self.cognite_files = CogniteFilesAPI(http_client)
         self.datasets = DataSetsAPI(http_client)

@@ -4,7 +4,7 @@ from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, ResponseResource, UpdatableRequestResource
 
-from .identifiers import InternalId
+from .identifiers import ExternalId, InternalId
 
 AnnotationStatus: TypeAlias = Literal["suggested", "rejected", "approved"]
 AnnotationType: TypeAlias = Literal[
@@ -28,6 +28,32 @@ AnnotationType: TypeAlias = Literal[
 ]
 
 
+class BoundingBox(BaseModelObject):
+    confidence: float | None = None
+    x_min: float
+    x_max: float
+    y_min: float
+    y_max: float
+
+
+class AssetLinkData(BaseModelObject):
+    asset_ref: InternalId | ExternalId
+    text_region: BoundingBox
+    symbol_region: BoundingBox | None = None
+    page_number: int | None = None
+    text: str | None = None
+    description: str | None = None
+
+
+class FileLinkData(BaseModelObject):
+    file_ref: InternalId | ExternalId
+    text_region: BoundingBox
+    symbol_region: BoundingBox | None = None
+    page_number: int | None = None
+    text: str | None = None
+    description: str | None = None
+
+
 class Annotation(BaseModelObject):
     annotated_resource_type: str
     annotated_resource_id: int
@@ -35,7 +61,7 @@ class Annotation(BaseModelObject):
     creating_app: str
     creating_app_version: str
     creating_user: str | None
-    data: dict[str, JsonValue]
+    data: AssetLinkData | FileLinkData | dict[str, JsonValue]
     status: AnnotationStatus
 
 
@@ -59,7 +85,7 @@ class AnnotationRequest(Annotation, UpdatableRequestResource):
             "id": self.id,
             "update": {
                 "annotationType": {"set": self.annotation_type},
-                "data": {"set": self.data},
+                "data": {"set": self.data.dump() if isinstance(self.data, AssetLinkData | FileLinkData) else self.data},
                 "status": {"set": self.status},
             },
         }

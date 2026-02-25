@@ -2,13 +2,12 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-import responses
 import respx
-from cognite.client.data_classes import Annotation
 from httpx import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
@@ -74,16 +73,16 @@ class TestAssetCentricMigrationIOAdapter:
 
 class TestAnnotationMigrationIO:
     def test_download_annotations(
-        self, toolkit_client: ToolkitClient, rsps: responses.RequestsMock, tmp_path: Path
+        self, toolkit_client: ToolkitClient, respx_mock: respx.MockRouter, tmp_path: Path
     ) -> None:
         client = toolkit_client
         config = toolkit_client.config
         N = 1500
         annotation_items = [
-            Annotation(
+            AnnotationResponse(
                 annotation_type="diagrams.AssetLink",
                 data={},
-                status="accepted",
+                status="approved",
                 creating_user="doctrino",
                 creating_app="unit_test",
                 creating_app_version="1.0.0",
@@ -96,10 +95,10 @@ class TestAnnotationMigrationIO:
             for i in range(N)
         ] + [
             # This should be filtered out
-            Annotation(
+            AnnotationResponse(
                 annotation_type="images.AssetLink",
                 data={},
-                status="accepted",
+                status="approved",
                 creating_user="doctrino",
                 creating_app="unit_test",
                 creating_app_version="1.0.0",
@@ -110,13 +109,11 @@ class TestAnnotationMigrationIO:
                 last_updated_time=1,
             ).dump()
         ]
-        rsps.post(
-            config.create_api_url("/annotations/byids"),
-            json={"items": annotation_items[: AssetCentricMigrationIO.CHUNK_SIZE]},
-        )
-        rsps.post(
-            config.create_api_url("/annotations/byids"),
-            json={"items": annotation_items[AssetCentricMigrationIO.CHUNK_SIZE :]},
+        respx_mock.post(config.create_api_url("/annotations/byids")).mock(
+            side_effect=[
+                Response(status_code=200, json={"items": annotation_items[: AssetCentricMigrationIO.CHUNK_SIZE]}),
+                Response(status_code=200, json={"items": annotation_items[AssetCentricMigrationIO.CHUNK_SIZE :]}),
+            ]
         )
 
         csv_file = tmp_path / "annotations.csv"
