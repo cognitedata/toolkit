@@ -3,7 +3,6 @@ from typing import Any
 
 from cognite.client.data_classes.capabilities import AgentsAcl, Capability
 
-
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD

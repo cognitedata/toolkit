@@ -43,7 +43,6 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     TransformationsAcl,
 )
-
 from rich import print
 from rich.console import Console
 

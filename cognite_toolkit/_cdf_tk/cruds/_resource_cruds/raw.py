@@ -24,7 +24,6 @@ from cognite.client.data_classes.capabilities import (
     RawAcl,
 )
 from cognite.client.exceptions import CogniteAPIError
-
 from rich import print
 from rich.console import Console
 

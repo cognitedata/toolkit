@@ -5,7 +5,6 @@ from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.data_classes.data_modeling import ViewId
 
-
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier

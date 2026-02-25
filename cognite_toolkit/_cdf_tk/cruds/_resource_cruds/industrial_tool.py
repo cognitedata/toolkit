@@ -9,7 +9,6 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     FilesAcl,
 )
-
 from packaging.requirements import Requirement
 from rich.console import Console
 

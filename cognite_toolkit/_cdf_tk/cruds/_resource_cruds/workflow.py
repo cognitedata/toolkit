@@ -24,7 +24,6 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     WorkflowOrchestrationAcl,
 )
-
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient

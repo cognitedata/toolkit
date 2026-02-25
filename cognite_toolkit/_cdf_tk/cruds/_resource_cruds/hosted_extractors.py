@@ -4,7 +4,6 @@ from typing import Any
 
 from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes.capabilities import Capability, HostedExtractorsAcl
-
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient

@@ -3,7 +3,6 @@ from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability
 
-
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     SimulatorModelRevisionFilter,
     SimulatorModelRoutineFilter,

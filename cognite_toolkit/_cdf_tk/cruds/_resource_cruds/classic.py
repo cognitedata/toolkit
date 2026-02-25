@@ -7,7 +7,6 @@ from typing import Any, final
 import pandas as pd
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
-
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient

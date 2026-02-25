@@ -25,7 +25,6 @@ from cognite.client.data_classes.capabilities import (
     GroupsAcl,
     SecurityCategoriesAcl,
 )
-
 from rich import print
 from rich.console import Console
 from rich.markup import escape

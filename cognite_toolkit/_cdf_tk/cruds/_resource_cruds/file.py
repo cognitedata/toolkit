@@ -24,7 +24,6 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.utils._time import convert_data_modelling_timestamp
 
-
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, SpaceReference

@@ -5,7 +5,6 @@ from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, LocationFiltersAcl
 
-
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelReference,
     SpaceReference,

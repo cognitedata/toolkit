@@ -23,7 +23,6 @@ from cognite.client.data_classes.capabilities import (
     ExtractionPipelinesAcl,
 )
 
-
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (

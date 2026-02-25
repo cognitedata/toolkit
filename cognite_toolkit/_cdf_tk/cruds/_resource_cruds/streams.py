@@ -3,7 +3,6 @@ from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, StreamsAcl
 
-
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamRequest,

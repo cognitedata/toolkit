@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Any, final
 
 from cognite.client.data_classes.capabilities import AppConfigAcl, Capability
-
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient

@@ -3,7 +3,6 @@ from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability
 
-
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId

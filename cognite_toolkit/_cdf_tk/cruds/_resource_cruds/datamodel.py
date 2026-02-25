@@ -30,7 +30,6 @@ from cognite.client.data_classes.capabilities import (
     DataModelsAcl,
 )
 from cognite.client.data_classes.data_modeling import ContainerId, DataModelId, ViewId
-
 from rich import print
 from rich.console import Console
 from rich.markup import escape
