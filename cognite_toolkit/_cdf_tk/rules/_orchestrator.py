@@ -1,6 +1,6 @@
 from collections.abc import Callable
 
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Module
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Module, SuccessfulReadResource
 from cognite_toolkit._cdf_tk.rules._base import ToolkitResourceRule
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
@@ -45,11 +45,13 @@ class RulesOrchestrator:
 
         rules_registry = get_rules_registry()
 
-        for resource_type, resources in module.resources_by_type.items():
-            for rule in rules_registry.get(resource_type.kind, []):
+        for resource in module.resources:
+            if not isinstance(resource, SuccessfulReadResource):
+                continue
+            for rule in rules_registry.get(resource.resource_type.kind, []):
                 if rule.alpha and not self._enable_alpha_validators:
                     continue
 
                 if self._can_run_validator(rule.code, rule.insight_type):
-                    if insights := rule(resources).validate():
+                    if insights := rule([resource.resource]).validate():
                         module.insights.extend(insights)
