@@ -613,8 +613,8 @@ class PullCommand(ToolkitCommand):
         resources: BuiltFullResourceList[T_ID],
         loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         environment_variables: dict[str, str | None],
-    ) -> dict[T_ID, dict[str, Any]]:
-        unique_destinations = {r.identifier for r in resources if r.destination}
+    ) -> dict[T_Identifier, dict[str, Any]]:
+        unique_destinations = {r.destination for r in resources if r.destination}
         local_resource_by_id: dict[T_Identifier, dict[str, Any]] = {}
         local_resource_ids = set(resources.identifiers)
         for destination in unique_destinations:
@@ -742,7 +742,9 @@ class PullCommand(ToolkitCommand):
         if isinstance(loaded, dict) and isinstance(loaded_with_placeholder, dict):
             item_id = loader.get_id(loaded)
             updated = self._update(
-                item_id,
+                # Here we make a T_Identifier into a T_ID.
+                # T_Identifier < T_ID so it should be safe to ignore the type here.
+                item_id,  # type: ignore[misc]
                 loaded,
                 loaded_with_placeholder,
                 to_write,
@@ -756,7 +758,9 @@ class PullCommand(ToolkitCommand):
                 item_id = loader.get_id(item)
                 updated.append(
                     self._update(
-                        item_id,
+                        # Here we make a T_Identifier into a T_ID
+                        # T_Identifier < T_ID so it should be safe to ignore the type here.
+                        item_id,  # type: ignore[misc]
                         item,
                         loaded_with_placeholder[i],
                         to_write,

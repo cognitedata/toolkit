@@ -9,6 +9,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
@@ -264,8 +265,12 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
             return [ids], []
         if isinstance(ids, str):
             return [], [ids]
+        if isinstance(ids, ExternalId):
+            return [], [ids.external_id]
         if isinstance(ids, Sequence):
-            return [id for id in ids if isinstance(id, int)], [id for id in ids if isinstance(id, str)]
+            return [id for id in ids if isinstance(id, int)], [
+                id if isinstance(id, str) else id.external_id for id in ids if isinstance(id, str | ExternalId)
+            ]
         raise ValueError(f"Invalid ids: {ids}")
 
     def safe_read(self, filepath: Path | str) -> str:

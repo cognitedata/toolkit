@@ -632,8 +632,8 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
 
     def delete(self, ids: Sequence[FunctionScheduleId]) -> int:
         schedules = self.retrieve(ids)
-        ids = [InternalId(id=schedule.id) for schedule in schedules if schedule.id]
-        self.client.tool.functions.schedules.delete(ids)
+        internal_ids = [InternalId(id=schedule.id) for schedule in schedules if schedule.id]
+        self.client.tool.functions.schedules.delete(internal_ids)
         return len(ids)
 
     def _iterate(
