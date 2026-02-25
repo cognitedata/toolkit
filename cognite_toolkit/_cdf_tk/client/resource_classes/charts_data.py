@@ -6,25 +6,28 @@ from pydantic import JsonValue, field_serializer, field_validator
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 
 
-class UserInfo(BaseModelObject):
+class ChartObject(BaseModelObject, extra="allow"): ...
+
+
+class UserInfo(ChartObject):
     id: str | None = None
     email: str | None = None
     display_name: str | None = None
 
 
-class ChartSettings(BaseModelObject):
+class ChartSettings(ChartObject):
     show_y_axis: bool = True
     show_min_max: bool = True
     show_gridlines: bool = True
     merge_units: bool = False
 
 
-class ThresholdFilter(BaseModelObject):
+class ThresholdFilter(ChartObject):
     min_unit: str | None = None
     max_unit: str | None = None
 
 
-class ChartCall(BaseModelObject):
+class ChartCall(ChartObject):
     id: str | None = None
     hash: int | None = None
     call_id: str | None = None
@@ -32,16 +35,16 @@ class ChartCall(BaseModelObject):
     status: str | None = None
 
 
-class SubSetting(BaseModelObject):
+class SubSetting(ChartObject):
     auto_align: bool | None = None
 
 
-class ChartPosition(BaseModelObject):
+class ChartPosition(ChartObject):
     x: float | None = None
     y: float | None = None
 
 
-class FlowElement(BaseModelObject):
+class FlowElement(ChartObject):
     id: str | None = None
     type: str | None = None
     position: ChartPosition | None = None
@@ -52,13 +55,13 @@ class FlowElement(BaseModelObject):
     target_handle: str | None = None
 
 
-class Flow(BaseModelObject):
+class Flow(ChartObject):
     zoom: float | None = None
     elements: list[FlowElement] | None = None
     position: tuple[float | None, float | None] | None = None
 
 
-class ChartElement(BaseModelObject):
+class ChartElement(ChartObject):
     id: str | None = None
     type: str | None = None
 
@@ -168,7 +171,7 @@ class ChartScheduledCalculation(ChartElement):
     flow: Flow | None = None
 
 
-class ChartData(BaseModelObject):
+class ChartData(ChartObject):
     version: int | None = None
     name: str | None = None
     date_from: str | None = None
