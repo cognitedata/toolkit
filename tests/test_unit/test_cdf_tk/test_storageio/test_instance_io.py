@@ -336,7 +336,7 @@ class TestInstanceIO:
         assert len(respx_mock.calls) == 4
 
     def test_stream_data_with_edges(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
-        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
+        client = ToolkitClient(config=toolkit_config)
         selector = InstanceViewSelector(
             view=SelectedView(space="mySpace", external_id="myView", version="v42"),
             instance_type="node",
