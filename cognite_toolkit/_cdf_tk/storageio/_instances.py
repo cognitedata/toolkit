@@ -183,7 +183,8 @@ class InstanceIO(
             "nodes": QueryNodeExpression(
                 limit=min(self.CHUNK_SIZE, limit) if limit is not None else self.CHUNK_SIZE,
                 nodes=QueryNodeTableExpression(filter=instance_filter),
-                # Sort to ensure performance.
+                # Sort to ensure performance. f you do not sort, you get the internal index,
+                # which includes all deleted instances as well.
                 sort=[QuerySortSpec(property=["node", "space"]), QuerySortSpec(property=["node", "externalId"])],
             )
         }
@@ -235,7 +236,7 @@ class InstanceIO(
         on multiple properties if they connect two nodes that are in the result set.
 
         Args:
-            query: The query to execute. This will be mutated in-place.
+            query: The query to execute.
             edge_properties: The list of edge properties to exhaust.
 
         Returns:
