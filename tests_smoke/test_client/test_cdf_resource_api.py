@@ -8,6 +8,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource, T_ResponseResource
+from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
 from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
 from cognite_toolkit._cdf_tk.client.api.data_product_versions import DataProductVersionsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
@@ -50,8 +51,9 @@ from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTrigger
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse, ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.request_classes.filters import SequenceRowFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter, SequenceRowFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest, APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
@@ -260,6 +262,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # No create methods
         PrincipalsAPI,
         PrincipalLoginSessionsAPI,
+        # Special handling due to need for file Id and update.
+        AnnotationsAPI,
     }
 )
 
@@ -314,6 +318,21 @@ def get_examples_minimum_requests(request_cls: type[ResponseResource]) -> list[d
     """Return an example with the only required and identifier fields for the given resource class."""
     response: dict[type[ResponseResource], list[dict[str, Any]]] = {
         AgentResponse: [{"externalId": "smoke-test-agent", "name": "Smoke Test Agent"}],
+        AnnotationResponse: [
+            {
+                "annotatedResourceId": 1,
+                "annotatedResourceType": "file",
+                "annotationType": "diagrams.AssetLink",
+                "creatingApp": "smoke-test-app",
+                "creatingAppVersion": "1.0.0",
+                "creatingUser": "smoke-test-user",
+                "status": "approved",
+                "data": {
+                    "assetRef": {"externalId": ASSET_EXTERNAL_ID},
+                    "textRegion": {"xMin": 0, "yMin": 0, "xMax": 1, "yMax": 1},
+                },
+            }
+        ],
         APMConfigResponse: [
             {
                 "externalId": "smoke-test-apm-config",
@@ -1841,3 +1860,49 @@ class TestCDFResourceAPI:
 
         # We do not test revoke session as it would revoke the session used for testing and
         # potentially cause issues for other tests.
+
+    def test_annotations_crudls(self, toolkit_client: ToolkitClient, function_code: FileMetadataResponse) -> None:
+        client = toolkit_client
+
+        annotation_example = get_examples_minimum_requests(AnnotationResponse)[0]
+        annotation_example["annotatedResourceId"] = function_code.id
+        annotation_request = AnnotationRequest.model_validate(annotation_example)
+
+        try:
+            # Create annotation
+            annotation_id = self.assert_endpoint_method(
+                lambda: client.tool.annotations.create([annotation_request]),
+                "create",
+                client.tool.annotations._method_endpoint_map["create"],
+            )
+            if not isinstance(annotation_id, InternalId):
+                raise EndpointAssertionError(
+                    client.tool.annotations._method_endpoint_map["create"].path,
+                    "Expected created annotation ID to be of type InternalId.",
+                )
+            annotation_request.id = annotation_id.id
+
+            # Retrieve annotation
+            retrieve_endpoint = client.tool.annotations._method_endpoint_map["retrieve"]
+            self.assert_endpoint_method(
+                lambda: client.tool.annotations.retrieve([annotation_id]),
+                "retrieve",
+                retrieve_endpoint,
+                annotation_id,
+            )
+
+            # List annotations
+            list_endpoint = client.tool.annotations._method_endpoint_map["list"]
+            filter = AnnotationFilter(
+                annotated_resource_type="file",
+                annotated_resource_ids=[InternalId(id=function_code.id)],
+            )
+            try:
+                listed_annotations = list(client.tool.annotations.list(filter=filter, limit=1))
+            except ToolkitAPIError:
+                raise EndpointAssertionError(list_endpoint.path, "Listing annotations failed.")
+            if len(listed_annotations) == 0:
+                raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed annotation, got 0")
+        finally:
+            # Clean up
+            client.tool.annotations.delete([annotation_request.as_id()])

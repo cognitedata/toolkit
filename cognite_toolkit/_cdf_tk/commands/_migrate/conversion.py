@@ -2,10 +2,10 @@ from collections.abc import Iterable, Mapping, Set
 from datetime import date, datetime
 from typing import Any, ClassVar, cast
 
-from cognite.client.data_classes import Annotation
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse, AssetLinkData, FileLinkData
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DirectNodeRelation,
@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
@@ -95,21 +96,10 @@ class DirectRelationCache:
         asset_external_ids: set[str] = set()
         file_external_ids: set[str] = set()
         for resource in resources:
-            if isinstance(resource, Annotation):
+            if isinstance(resource, AnnotationResponse):
                 if resource.annotated_resource_type == "file" and resource.annotated_resource_id:
                     file_ids.add(resource.annotated_resource_id)
-                if "assetRef" in resource.data:
-                    asset_ref = resource.data["assetRef"]
-                    if isinstance(asset_id := asset_ref.get("id"), int):
-                        asset_ids.add(asset_id)
-                    if isinstance(asset_external_id := asset_ref.get("externalId"), str):
-                        asset_external_ids.add(asset_external_id)
-                if "fileRef" in resource.data:
-                    file_ref = resource.data["fileRef"]
-                    if isinstance(file_id := file_ref.get("id"), int):
-                        file_ids.add(file_id)
-                    if isinstance(file_external_id := file_ref.get("externalId"), str):
-                        file_external_ids.add(file_external_id)
+                self._extract_annotation_refs(resource.data, asset_ids, asset_external_ids, file_ids, file_external_ids)
             elif isinstance(resource, AssetResponse):
                 if resource.source:
                     source_ids.add(resource.source)
@@ -158,6 +148,25 @@ class DirectRelationCache:
                 self._client.migration.lookup.files(external_id=list(file_external_ids)),
                 self.TableName.FILE_EXTERNAL_ID,
             )
+
+    @staticmethod
+    def _extract_annotation_refs(
+        data: AssetLinkData | FileLinkData | dict[str, Any],
+        asset_ids: set[int],
+        asset_external_ids: set[str],
+        file_ids: set[int],
+        file_external_ids: set[str],
+    ) -> None:
+        if isinstance(data, AssetLinkData):
+            if isinstance(data.asset_ref, InternalId):
+                asset_ids.add(data.asset_ref.id)
+            elif isinstance(data.asset_ref, ExternalId):
+                asset_external_ids.add(data.asset_ref.external_id)
+        elif isinstance(data, FileLinkData):
+            if isinstance(data.file_ref, InternalId):
+                file_ids.add(data.file_ref.id)
+            elif isinstance(data.file_ref, ExternalId):
+                file_external_ids.add(data.file_ref.external_id)
 
     def _update_cache(
         self, instance_id_by_id: dict[int, NodeReference] | dict[str, NodeReference], table_name: str
@@ -287,7 +296,7 @@ def _lookup_resource_type(resource_type: AssetCentricResourceExtended) -> AssetC
         return "event"
     elif isinstance(resource_type, TimeSeriesResponse):
         return "timeseries"
-    elif isinstance(resource_type, Annotation):
+    elif isinstance(resource_type, AnnotationResponse):
         if resource_type.annotated_resource_type == "file" and resource_type.annotation_type in (
             "diagrams.AssetLink",
             "diagrams.FileLink",
