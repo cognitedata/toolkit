@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.protocols import (
 from cognite_toolkit._cdf_tk.utils import read_yaml_content, safe_read
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 
-from ._base_cruds import T_ID, DataCRUD, ResourceCRUD
+from ._base_cruds import DataCRUD, ResourceCRUD
 from ._resource_cruds import CogniteFileCRUD, FileMetadataCRUD, RawTableCRUD, TimeSeriesCRUD
 
 if TYPE_CHECKING:

@@ -2,7 +2,7 @@ from collections.abc import Hashable, Iterable, Sequence
 from typing import Any
 
 from cognite.client.data_classes.capabilities import AgentsAcl, Capability
-from cognite.client.utils.useful_types import SequenceNotStr
+
 
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
@@ -58,13 +58,13 @@ class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):
     def create(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
         return self.client.tool.agents.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[AgentResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[AgentResponse]:
         return self.client.tool.agents.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
         return self.client.tool.agents.update(items)
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         self.client.tool.agents.delete(list(ids), ignore_unknown_ids=True)
         return len(ids)
 

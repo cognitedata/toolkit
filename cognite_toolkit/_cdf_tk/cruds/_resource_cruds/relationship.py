@@ -3,7 +3,7 @@ from typing import Any, final
 
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.utils.useful_types import SequenceNotStr
+
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
@@ -71,13 +71,13 @@ class RelationshipCRUD(ResourceCRUD[ExternalId, RelationshipRequest, Relationshi
     def create(self, items: Sequence[RelationshipRequest]) -> list[RelationshipResponse]:
         return self.client.tool.relationships.create(list(items))
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[RelationshipResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[RelationshipResponse]:
         return self.client.tool.relationships.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[RelationshipRequest]) -> list[RelationshipResponse]:
         return self.client.tool.relationships.update(list(items))
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
             return 0
         try:

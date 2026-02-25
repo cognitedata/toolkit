@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, DataModelInstancesAcl
-from cognite.client.utils.useful_types import SequenceNotStr
+
 
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APM_CONFIG_SPACE,
@@ -94,7 +94,7 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
     def create(self, items: Sequence[APMConfigRequest]) -> list[InstanceSlimDefinition]:
         return self.client.infield.apm_config.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[APMConfigResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[APMConfigResponse]:
         return self.client.infield.apm_config.retrieve(
             TypedNodeIdentifier.from_external_ids(ids, space=APM_CONFIG_SPACE)
         )
@@ -102,7 +102,7 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
     def update(self, items: Sequence[APMConfigRequest]) -> list[InstanceSlimDefinition]:
         return self.client.infield.apm_config.create(items)
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         deleted = self.client.infield.apm_config.delete(
             TypedNodeIdentifier.from_external_ids(ids, space=APM_CONFIG_SPACE)
         )
@@ -302,13 +302,13 @@ class InFieldLocationConfigCRUD(
     def create(self, items: Sequence[InFieldLocationConfigRequest]) -> list[InstanceSlimDefinition]:
         return self.client.infield.config.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> list[InFieldLocationConfigResponse]:
+    def retrieve(self, ids: Sequence[TypedNodeIdentifier]) -> list[InFieldLocationConfigResponse]:
         return self.client.infield.config.retrieve(list(ids))
 
     def update(self, items: Sequence[InFieldLocationConfigRequest]) -> Sized:
         return self.client.infield.config.update(items)
 
-    def delete(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> int:
+    def delete(self, ids: Sequence[TypedNodeIdentifier]) -> int:
         return len(self.client.infield.config.delete(list(ids)))
 
     def _iterate(
@@ -395,13 +395,13 @@ class InFieldCDMLocationConfigCRUD(
     def create(self, items: Sequence[InFieldCDMLocationConfigRequest]) -> list[InstanceSlimDefinition]:
         return self.client.infield.cdm_config.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> list[InFieldCDMLocationConfigResponse]:
+    def retrieve(self, ids: Sequence[TypedNodeIdentifier]) -> list[InFieldCDMLocationConfigResponse]:
         return self.client.infield.cdm_config.retrieve(list(ids))
 
     def update(self, items: Sequence[InFieldCDMLocationConfigRequest]) -> Sized:
         return self.create(items)
 
-    def delete(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> int:
+    def delete(self, ids: Sequence[TypedNodeIdentifier]) -> int:
         deleted = self.client.infield.cdm_config.delete(list(ids))
         return len(deleted)
 

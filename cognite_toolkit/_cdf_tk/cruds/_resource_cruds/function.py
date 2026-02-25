@@ -18,7 +18,7 @@ from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
 from cognite.client.exceptions import CogniteAPIError
-from cognite.client.utils.useful_types import SequenceNotStr
+
 from rich import print
 from rich.console import Console
 
@@ -408,12 +408,12 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
             f"Function {prefix} is not configurable. Function {item.external_id!r} set {suffix}"
         ).print_warning()
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[FunctionResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[FunctionResponse]:
         if not self._is_activated("retrieve"):
             return []
         return self.client.tool.functions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         functions = self.retrieve(ids)
 
         self.client.tool.functions.delete(list(ids), ignore_unknown_ids=True)
@@ -560,7 +560,7 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
             dumped["authentication"] = local["authentication"]
         return dumped
 
-    def retrieve(self, ids: SequenceNotStr[FunctionScheduleId]) -> list[FunctionScheduleResponse]:
+    def retrieve(self, ids: Sequence[FunctionScheduleId]) -> list[FunctionScheduleResponse]:
         names_by_function: dict[str, set[str]] = defaultdict(set)
         for id_ in ids:
             names_by_function[id_.function_external_id].add(id_.name)
@@ -631,7 +631,7 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
             f"Could not find function{plural_fun} {humanize_collection(missing_functions)!r}"
         )
 
-    def delete(self, ids: SequenceNotStr[FunctionScheduleId]) -> int:
+    def delete(self, ids: Sequence[FunctionScheduleId]) -> int:
         schedules = self.retrieve(ids)
         ids = [InternalId(id=schedule.id) for schedule in schedules if schedule.id]
         self.client.tool.functions.schedules.delete(ids)

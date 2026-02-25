@@ -4,7 +4,7 @@ from typing import Any, final
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.data_classes.data_modeling import ViewId
-from cognite.client.utils.useful_types import SequenceNotStr
+
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
@@ -82,11 +82,11 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
     def update(self, items: Sequence[ResourceViewMappingRequest]) -> Sized:
         return self.client.migration.resource_view_mapping.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[ResourceViewMappingResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[ResourceViewMappingResponse]:
         node_ids = TypedNodeIdentifier.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
         return self.client.migration.resource_view_mapping.retrieve(node_ids)
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         node_ids = TypedNodeIdentifier.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
         result = self.client.migration.resource_view_mapping.delete(node_ids)
         return len(result)

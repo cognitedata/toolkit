@@ -2,7 +2,7 @@ from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.utils.useful_types import SequenceNotStr
+
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
@@ -79,13 +79,13 @@ class DataProductCRUD(ResourceCRUD[ExternalId, DataProductRequest, DataProductRe
     def create(self, items: Sequence[DataProductRequest]) -> list[DataProductResponse]:
         return self.client.tool.data_products.create(list(items))
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[DataProductResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[DataProductResponse]:
         return self.client.tool.data_products.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[DataProductRequest]) -> list[DataProductResponse]:
         return self.client.tool.data_products.update(list(items))
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.data_products.delete(list(ids))

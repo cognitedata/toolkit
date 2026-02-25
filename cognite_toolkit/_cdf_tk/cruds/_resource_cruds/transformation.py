@@ -43,7 +43,7 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     TransformationsAcl,
 )
-from cognite.client.utils.useful_types import SequenceNotStr
+
 from rich import print
 from rich.console import Console
 
@@ -393,7 +393,7 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
     def create(self, items: Sequence[TransformationRequest]) -> list[TransformationResponse]:
         return self._execute_in_batches(items, self.client.tool.transformations.create)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[TransformationResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[TransformationResponse]:
         return self.client.tool.transformations.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[TransformationRequest]) -> list[TransformationResponse]:
@@ -422,7 +422,7 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
             )
         return None
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.transformations.delete(list(ids), ignore_unknown_ids=True)
@@ -618,13 +618,13 @@ class TransformationScheduleCRUD(
             new_items = [item for item in items if item.external_id not in existing]
             return self.client.tool.transformations.schedules.create(new_items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[TransformationScheduleResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[TransformationScheduleResponse]:
         return self.client.tool.transformations.schedules.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[TransformationScheduleRequest]) -> list[TransformationScheduleResponse]:
         return self.client.tool.transformations.schedules.update(list(items), mode="replace")
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.transformations.schedules.delete(list(ids), ignore_unknown_ids=True)
@@ -715,7 +715,7 @@ class TransformationNotificationCRUD(
     def create(self, items: Sequence[TransformationNotificationRequest]) -> list[TransformationNotificationResponse]:
         return self.client.tool.transformations.notifications.create(list(items))
 
-    def retrieve(self, ids: SequenceNotStr[TransformationNotificationId]) -> list[TransformationNotificationResponse]:
+    def retrieve(self, ids: Sequence[TransformationNotificationId]) -> list[TransformationNotificationResponse]:
         unique_ids: set[ExternalId] = {ExternalId(external_id=id_.transformation_external_id) for id_ in ids}
         targets_ids = {(id_.transformation_external_id, id_.destination) for id_ in ids}
         return [
@@ -724,7 +724,7 @@ class TransformationNotificationCRUD(
             if (notification.transformation_external_id, notification.destination) in targets_ids
         ]
 
-    def delete(self, ids: SequenceNotStr[TransformationNotificationId]) -> int:
+    def delete(self, ids: Sequence[TransformationNotificationId]) -> int:
         # Note that it is theoretically possible that more items will be deleted than
         # input ids. This is because TransformationNotifications are identified by an internal id,
         # while the toolkit uses the transformationExternalId + destination as the id. Thus, there could
