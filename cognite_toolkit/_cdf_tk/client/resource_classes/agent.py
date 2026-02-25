@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Reque
 from .identifiers import ExternalId
 
 
-class AgentToolDefinition(BaseModelObject):
+class AgentToolDefinition(BaseModelObject, extra="ignore"):
     type: str
     name: str
     description: str
