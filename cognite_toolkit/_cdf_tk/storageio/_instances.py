@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QueryNodeExpression,
     QueryNodeTableExpression,
     QueryRequest,
-    QueryResponse,
+    QueryResponseTyped,
     QuerySelect,
     QuerySelectSource,
     QuerySortSpec,
@@ -228,7 +228,7 @@ class InstanceIO(
             query.with_["nodes"].limit = page_limit
             query.cursors = {"nodes": next_cursor}
 
-    def _exhaust_edge_queries(self, query: QueryRequest, edge_properties: list[str]) -> QueryResponse:
+    def _exhaust_edge_queries(self, query: QueryRequest, edge_properties: list[str]) -> QueryResponseTyped:
         """Exhausts the edge queries in the with_ clause of the query until all cursors are None.
 
         This is necessary to ensure that we get all edges for the nodes in the result set, as edges can be returned
@@ -241,9 +241,9 @@ class InstanceIO(
         Returns:
             The final QueryResponse with all edge queries exhausted.
         """
-        first: QueryResponse | None = None
+        first: QueryResponseTyped | None = None
         while True:
-            response = self.client.tool.instances.query(query)
+            response = self.client.tool.instances.query(query, type_results=True)
             if first is None:
                 first = response
             else:

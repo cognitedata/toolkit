@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
     APMConfigResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import QueryResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import QueryResponseUntyped
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     DataExplorationConfig,
     InFieldCDMLocationConfigRequest,
@@ -70,7 +70,7 @@ class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, In
             },
         }
 
-    def _validate_query_response(self, query_response: QueryResponse) -> list[InFieldLocationConfigResponse]:
+    def _validate_query_response(self, query_response: QueryResponseUntyped) -> list[InFieldLocationConfigResponse]:
         exploration_config_results = (
             DataExplorationConfig.model_validate(item) for item in query_response.items.get(self._EXPLORATION_REF, [])
         )

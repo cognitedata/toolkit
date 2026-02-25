@@ -127,10 +127,23 @@ class QueryRequest(BaseModelObject):
 
 
 class QueryResponse(BaseModelObject):
+    next_cursor: dict[str, str | None]
+
+    # For now we do not care about the typing and debug structures in the response.
+    typing: dict[str, JsonValue] | None = None
+    debug: dict[str, JsonValue] | None = None
+
+
+class QueryResponseTyped(QueryResponse):
     """Response from the ``POST /models/instances/query`` endpoint."""
 
     items: dict[str, list[InstanceResponse]]
-    # For now we do not care about the typing and debug structures in the response.
-    typing: dict[str, JsonValue] | None = None
-    next_cursor: dict[str, str | None]
-    debug: dict[str, JsonValue] | None = None
+
+
+class QueryResponseUntyped(QueryResponse):
+    """Response from the ``POST /models/instances/query`` endpoint, without parsing the items into typed instances.
+
+    This is useful when you want to
+    """
+
+    items: dict[str, list[dict[str, JsonValue]]]

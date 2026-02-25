@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from itertools import zip_longest
-from typing import Any, Generic, Literal
+from typing import Any, Generic, Literal, overload
 
 from pydantic import JsonValue
 
@@ -13,9 +13,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceRequest,
     InstanceResponse,
     QueryRequest,
-    QueryResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import (
+    QueryResponseTyped,
+    QueryResponseUntyped,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
     T_InstancesListRequest,
     T_InstancesListResponse,
@@ -157,7 +160,13 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         """
         return self._list(limit=limit, body=self._create_body(filter))
 
-    def query(self, query: QueryRequest) -> QueryResponse:
+    @overload
+    def query(self, query: QueryRequest, type_results: Literal[True]) -> QueryResponseTyped: ...
+
+    @overload
+    def query(self, query: QueryRequest, type_results: Literal[False]) -> QueryResponseUntyped: ...
+
+    def query(self, query: QueryRequest, type_results: bool = True) -> QueryResponseTyped | QueryResponseUntyped:
         """Execute a query against the instances query endpoint.
 
         This uses the ``POST /models/instances/query`` endpoint which supports
@@ -165,6 +174,8 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
 
         Args:
             query: The query request specifying what to retrieve.
+                type_results: Whether to return typed results (QueryResponseTyped) or untyped results
+                    (QueryResponseUntyped).
 
         Returns:
             QueryResult containing matching instances grouped by result set expression name.
@@ -176,7 +187,10 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         )
         response = self._http_client.request_single_retries(request)
         success = response.get_success_or_raise()
-        return QueryResponse.model_validate_json(success.body)
+        if type_results:
+            return QueryResponseTyped.model_validate_json(success.body)
+        else:
+            return QueryResponseUntyped.model_validate_json(success.body)
 
 
 class WrappedInstancesAPI(
@@ -284,7 +298,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
         raise NotImplementedError()
 
     @abstractmethod
-    def _validate_query_response(self, query_response: QueryResponse) -> list[T_InstancesListResponse]:
+    def _validate_query_response(self, query_response: QueryResponseUntyped) -> list[T_InstancesListResponse]:
         raise NotImplementedError()
 
     def create(self, items: Sequence[T_InstancesListRequest]) -> list[InstanceSlimDefinition]:
@@ -400,7 +414,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
             )
             response = self._http_client.request_single_retries(request)
             success = response.get_success_or_raise()
-            paged_response = QueryResponse.model_validate_json(success.body)
+            paged_response = QueryResponseUntyped.model_validate_json(success.body)
             retrieved.extend(self._validate_query_response(paged_response))
         return retrieved
 
