@@ -3,9 +3,10 @@ from collections.abc import Mapping
 from typing import Any, ClassVar
 
 import pytest
-from cognite.client.data_classes import Annotation, Sequence
+from cognite.client.data_classes import Sequence
 from pydantic import JsonValue
 
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     BooleanProperty,
@@ -78,7 +79,19 @@ def direct_relation_cache() -> DirectRelationCache:
             [
                 EventResponse(asset_ids=[123, 1], source="source_system_1", createdTime=1, lastUpdatedTime=1, id=0),
                 AssetResponse(source="SourceA", createdTime=1, lastUpdatedTime=1, rootId=0, id=0, name=""),
-                Annotation("diagrams.FileLink", {}, "Accepted", "app", "app-version", "me", "file", 42, 1),
+                AnnotationResponse(
+                    annotation_type="diagrams.FileLink",
+                    data={},
+                    status="approved",
+                    creating_app="app",
+                    creating_app_version="app-version",
+                    creating_user="me",
+                    annotated_resource_type="file",
+                    annotated_resource_id=42,
+                    id=1,
+                    created_time=0,
+                    last_updated_time=0,
+                ),
             ]
         )
     return cache
@@ -1089,7 +1102,7 @@ class TestAssetCentricConversion:
         "resource,mapping,expected_edge,expected_issue",
         [
             pytest.param(
-                Annotation(
+                AnnotationResponse(
                     id=37,
                     annotated_resource_type="file",
                     annotation_type="diagrams.FileLink",
@@ -1097,8 +1110,10 @@ class TestAssetCentricConversion:
                     creating_user="user_1",
                     creating_app="app_1",
                     creating_app_version="1.0.0",
-                    status="Approved",
+                    status="approved",
                     data=dict(assetRef=dict(id=123)),
+                    created_time=0,
+                    last_updated_time=0,
                 ),
                 ANNOTATION_MAPPING,
                 EdgeRequest(
@@ -1132,7 +1147,7 @@ class TestAssetCentricConversion:
     )
     def test_asset_centric_to_annotation(
         self,
-        resource: Annotation,
+        resource: AnnotationResponse,
         mapping: ResourceViewMappingResponse,
         expected_edge: EdgeRequest,
         expected_issue: ConversionIssue,
@@ -1155,7 +1170,7 @@ class TestAssetCentricConversion:
     def test_asset_centric_to_annotation_failed(self, direct_relation_cache: DirectRelationCache) -> None:
         """Testing that asset_centric_to_dm raises conversion issues for annotations with missing required properties."""
 
-        resource = Annotation(
+        resource = AnnotationResponse(
             id=38,
             annotated_resource_type="file",
             annotation_type="diagrams.FileLink",
@@ -1163,8 +1178,10 @@ class TestAssetCentricConversion:
             creating_user="user_1",
             creating_app="app_1",
             creating_app_version="1.0.0",
-            status="Approved",
+            status="approved",
             data=dict(assetRef=dict(id=123), text="Some annotation text"),
+            created_time=0,
+            last_updated_time=0,
         )
 
         edge, issue = asset_centric_to_dm(

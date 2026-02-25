@@ -9,7 +9,6 @@ import httpx
 import pytest
 import responses
 import respx
-from cognite.client.data_classes import Annotation, AnnotationList
 from cognite.client.data_classes.data_modeling import (
     DataModel,
     DataModelList,
@@ -22,6 +21,7 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData, ChartSource, ChartTimeseries
@@ -290,7 +290,7 @@ class TestMigrationCommand:
     ) -> None:
         respx_mock = cognite_migration_model
         config = toolkit_config
-        asset_annotation = Annotation(
+        asset_annotation = AnnotationResponse(
             id=2000,
             annotated_resource_type="file",
             annotated_resource_id=3000,
@@ -298,13 +298,15 @@ class TestMigrationCommand:
                 "assetRef": {"id": 4000},
                 "textRegion": {"xMin": 10.0, "xMax": 100.0, "yMin": 20.0, "yMax": 200.0},
             },
-            status="Approved",
+            status="approved",
             creating_user="doctrino",
             creating_app="my_app",
             creating_app_version="v1",
             annotation_type="diagrams.AssetLink",
+            created_time=0,
+            last_updated_time=0,
         )
-        file_annotation = Annotation(
+        file_annotation = AnnotationResponse(
             id=2001,
             annotated_resource_type="file",
             annotated_resource_id=3001,
@@ -312,13 +314,15 @@ class TestMigrationCommand:
                 "fileRef": {"id": 5000},
                 "textRegion": {"xMin": 15.0, "xMax": 150.0, "yMin": 25.0, "yMax": 250.0},
             },
-            status="Approved",
+            status="approved",
             creating_user="doctrino",
             creating_app="my_app",
             creating_app_version="v1",
             annotation_type="diagrams.FileLink",
+            created_time=0,
+            last_updated_time=0,
         )
-        annotations = AnnotationList([asset_annotation, file_annotation])
+        annotations = [asset_annotation, file_annotation]
         space = "my_space"
         csv_content = "id,space,externalId,ingestionView\n" + "\n".join(
             (
@@ -326,11 +330,12 @@ class TestMigrationCommand:
                 f"{2001},{space},annotation_{2001},{FILE_ANNOTATIONS_ID}",
             )
         )
-        # Annotation retrieve ids
-        rsps.post(
-            config.create_api_url("/annotations/byids"),
-            json={"items": [annotation.dump() for annotation in annotations]},
-            status=200,
+        # Annotation retrieve ids (toolkit API uses httpx)
+        respx_mock.post(config.create_api_url("/annotations/byids")).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={"items": [annotation.dump() for annotation in annotations]},
+            )
         )
         # Lookup asset and file instance ID
         for items in [
@@ -415,7 +420,7 @@ class TestMigrationCommand:
                 space=space,
                 external_id=f"annotation_{asset_annotation.id}",
                 start_node=(space, f"file_{asset_annotation.annotated_resource_id}"),
-                end_node=(space, f"asset_{asset_annotation.data['assetRef']['id']}"),
+                end_node=(space, f"asset_{asset_annotation.data.asset_ref.id}"),
                 type=(space, asset_annotation.annotation_type),
                 sources=[
                     NodeOrEdgeData(
@@ -425,10 +430,10 @@ class TestMigrationCommand:
                             "sourceCreatedUser": asset_annotation.creating_user,
                             "sourceId": asset_annotation.creating_app,
                             "status": asset_annotation.status,
-                            "startNodeXMax": asset_annotation.data["textRegion"]["xMax"],
-                            "startNodeXMin": asset_annotation.data["textRegion"]["xMin"],
-                            "startNodeYMax": asset_annotation.data["textRegion"]["yMax"],
-                            "startNodeYMin": asset_annotation.data["textRegion"]["yMin"],
+                            "startNodeXMax": asset_annotation.data.text_region.x_max,
+                            "startNodeXMin": asset_annotation.data.text_region.x_min,
+                            "startNodeYMax": asset_annotation.data.text_region.y_max,
+                            "startNodeYMin": asset_annotation.data.text_region.y_min,
                         },
                     ),
                 ],
@@ -437,7 +442,7 @@ class TestMigrationCommand:
                 space=space,
                 external_id=f"annotation_{file_annotation.id}",
                 start_node=(space, f"file_{file_annotation.annotated_resource_id}"),
-                end_node=(space, f"file_{file_annotation.data['fileRef']['id']}"),
+                end_node=(space, f"file_{file_annotation.data.file_ref.id}"),
                 type=(space, file_annotation.annotation_type),
                 sources=[
                     NodeOrEdgeData(
@@ -447,10 +452,10 @@ class TestMigrationCommand:
                             "sourceCreatedUser": file_annotation.creating_user,
                             "sourceId": file_annotation.creating_app,
                             "status": file_annotation.status,
-                            "startNodeXMax": file_annotation.data["textRegion"]["xMax"],
-                            "startNodeXMin": file_annotation.data["textRegion"]["xMin"],
-                            "startNodeYMax": file_annotation.data["textRegion"]["yMax"],
-                            "startNodeYMin": file_annotation.data["textRegion"]["yMin"],
+                            "startNodeXMax": file_annotation.data.text_region.x_max,
+                            "startNodeXMin": file_annotation.data.text_region.x_min,
+                            "startNodeYMax": file_annotation.data.text_region.y_max,
+                            "startNodeYMin": file_annotation.data.text_region.y_min,
                         },
                     ),
                 ],
