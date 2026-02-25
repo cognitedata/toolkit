@@ -1135,9 +1135,11 @@ class TestAssetCentricConversion:
                     instance_id=NodeReference(space="test_space", external_id="annotation_37"),
                     ignored_asset_centric_properties=[
                         "annotatedResourceType",
+                        "createdTime",
                         "creatingApp",
                         "creatingAppVersion",
                         "creatingUser",
+                        "lastUpdatedTime",
                     ],
                     missing_asset_centric_properties=["data.assetRef.externalId", "data.text"],
                 ),
@@ -1198,9 +1200,11 @@ class TestAssetCentricConversion:
             instance_id=NodeReference(space="test_space", external_id="annotation_38"),
             ignored_asset_centric_properties=[
                 "annotatedResourceType",
+                "createdTime",
                 "creatingApp",
                 "creatingAppVersion",
                 "creatingUser",
+                "lastUpdatedTime",
             ],
             missing_asset_centric_properties=["data.assetRef.externalId"],
             missing_instance_properties=[],
