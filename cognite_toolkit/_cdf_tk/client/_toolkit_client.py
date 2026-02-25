@@ -28,6 +28,7 @@ from .api.instances import InstancesAPI
 from .api.labels import LabelsAPI
 from .api.lookup import LookUpGroup
 from .api.migration import MigrationAPI
+from .api.principals import PrincipalsAPI
 from .api.project import ProjectAPI
 from .api.raw import RawAPI
 from .api.relationships import RelationshipsAPI
@@ -97,7 +98,6 @@ class ToolkitClient(CogniteClient):
         super().__init__(config=config)
         http_client = HTTPClient(self.config, console=console)
         self.http_client = http_client
-        toolkit_config = ToolkitClientConfig.from_client_config(self.config)
         self.console = console or Console(markup=True)
         self.tool = ToolAPI(http_client, self.console)
 
@@ -107,7 +107,8 @@ class ToolkitClient(CogniteClient):
         self.migration = MigrationAPI(self.data_modeling.instances, http_client)
         self.token = TokenAPI(self)
         self.charts = ChartsAPI(http_client)
-        self.project = ProjectAPI(config=toolkit_config, cognite_client=self)
+        self.project = ProjectAPI(http_client)
+        self.principals = PrincipalsAPI(http_client=http_client, project_api=self.project)
         self.infield = InfieldAPI(http_client)
         self.streams = StreamsAPI(http_client)
 

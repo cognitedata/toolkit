@@ -11,6 +11,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription impo
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import PrincipalId
+from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
+    LoginSession,
+    ServiceAccountPrincipal,
+    UserPrincipal,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision import (
     Disabled,
     ScheduleConfig,
@@ -18,7 +24,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
     SimulatorRoutineRevisionRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
-from tests.test_unit.test_cdf_tk.test_client.data import CDFResource, iterate_cdf_resources
+from tests.test_unit.test_cdf_tk.test_client.data import (
+    CDFResource,
+    get_example_minimum_responses,
+    iterate_cdf_resources,
+)
 
 
 class TestAPIDataClasses:
@@ -242,6 +252,46 @@ class TestGroupResponse:
         }
 
         GroupResponse.model_validate(data)
+
+
+class TestPrincipalSerialization:
+    def test_service_account_principal_round_trip(self) -> None:
+        data = get_example_minimum_responses(ServiceAccountPrincipal)
+        principal = ServiceAccountPrincipal.model_validate(data)
+        assert principal.dump() == data
+
+    def test_user_principal_round_trip(self) -> None:
+        data = get_example_minimum_responses(UserPrincipal)
+        principal = UserPrincipal.model_validate(data)
+        assert principal.dump() == data
+
+    def test_service_account_principal_as_id(self) -> None:
+        data = get_example_minimum_responses(ServiceAccountPrincipal)
+        principal = ServiceAccountPrincipal.model_validate(data)
+        principal_id = principal.as_id()
+        assert isinstance(principal_id, PrincipalId)
+        assert principal_id.id == data["id"]
+
+    def test_user_principal_as_id(self) -> None:
+        data = get_example_minimum_responses(UserPrincipal)
+        principal = UserPrincipal.model_validate(data)
+        principal_id = principal.as_id()
+        assert isinstance(principal_id, PrincipalId)
+        assert principal_id.id == data["id"]
+
+    def test_login_session_round_trip(self) -> None:
+        data = get_example_minimum_responses(LoginSession)
+        session = LoginSession.model_validate(data)
+        dumped = session.dump()
+        assert dumped["id"] == data["id"]
+        assert dumped["createdTime"] == data["createdTime"]
+        assert dumped["status"] == data["status"]
+
+    def test_login_session_with_deactivated_time(self) -> None:
+        data = {**get_example_minimum_responses(LoginSession), "status": "REVOKED", "deactivatedTime": 1622547900000}
+        session = LoginSession.model_validate(data)
+        assert session.status == "REVOKED"
+        assert session.deactivated_time == 1622547900000
 
 
 class TestDatapointSubscriptionUpdateRequest:
