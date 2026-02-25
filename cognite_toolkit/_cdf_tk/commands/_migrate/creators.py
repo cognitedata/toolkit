@@ -13,6 +13,7 @@ from cognite.client.data_classes.events import EventProperty
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APM_CONFIG_SPACE,
     APMConfigResponse,
@@ -48,26 +49,24 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingResourceError,
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.text import fix_invalid_space_name, warn_invalid_space_name
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 from .data_model import CREATED_SOURCE_SYSTEM_VIEW_ID, SPACE, SPACE_SOURCE_VIEW_ID
 
 
 @dataclass
-class CreatedResource(Generic[T_ResourceRequest]):
-    resource: T_ResourceRequest
+class CreatedResource(Generic[T_RequestResource]):
+    resource: T_RequestResource
     config_data: dict[str, Any] | None = None
     filestem: str | None = None
 
 
 @dataclass
-class ToCreateResources(Generic[T_ID, T_ResourceRequest, T_ResourceResponse]):
-    resources: Sequence[CreatedResource[T_ResourceRequest]]
-    crud_cls: type[ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse]]
+class ToCreateResources(Generic[T_Identifier, T_RequestResource, T_ResponseResource]):
+    resources: Sequence[CreatedResource[T_RequestResource]]
+    crud_cls: type[ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource]]
     display_name: str
     store_linage: Callable[[], int] | None = None
 
