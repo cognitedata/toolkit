@@ -5,16 +5,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
-from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
+from cognite_toolkit._cdf_tk.client._resource_base import T_RequestResource, T_Identifier, T_ResponseResource
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
@@ -116,7 +114,7 @@ class Loader(ABC):
 T_Loader = TypeVar("T_Loader", bound=Loader)
 
 
-class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceResponse]):
+class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResource]):
     """This is the base class for all resource CRUD.
 
     A resource loader consists of the following
@@ -138,8 +136,8 @@ class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceRespo
     """
 
     # Must be set in the subclass
-    resource_write_cls: type[T_ResourceRequest]
-    resource_cls: type[T_ResourceResponse]
+    resource_write_cls: type[T_RequestResource]
+    resource_cls: type[T_ResponseResource]
     yaml_cls: type[ToolkitResource]
     # Optional to set in the subclass
     support_drop = True
@@ -153,34 +151,34 @@ class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceRespo
     # The methods that must be implemented in the subclass
     @classmethod
     @abstractmethod
-    def get_id(cls, item: T_ResourceRequest | T_ResourceResponse | dict) -> T_ID:
+    def get_id(cls, item: T_RequestResource | T_ResponseResource | dict) -> T_Identifier:
         raise NotImplementedError
 
     @classmethod
     @abstractmethod
-    def dump_id(cls, id: T_ID) -> dict[str, Any]:
+    def dump_id(cls, id: T_Identifier) -> dict[str, Any]:
         raise NotImplementedError()
 
     @classmethod
     @abstractmethod
     def get_required_capability(
-        cls, items: Sequence[T_ResourceRequest] | None, read_only: bool
+        cls, items: Sequence[T_RequestResource] | None, read_only: bool
     ) -> Capability | list[Capability]:
         raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
 
     @abstractmethod
-    def create(self, items: Sequence[T_ResourceRequest]) -> Sized:
+    def create(self, items: Sequence[T_RequestResource]) -> Sized:
         raise NotImplementedError
 
     @abstractmethod
-    def retrieve(self, ids: SequenceNotStr[T_ID]) -> Sequence[T_ResourceResponse]:
+    def retrieve(self, ids: Sequence[T_Identifier]) -> Sequence[T_ResponseResource]:
         raise NotImplementedError
 
-    def update(self, items: Sequence[T_ResourceRequest]) -> Sized:
+    def update(self, items: Sequence[T_RequestResource]) -> Sized:
         raise NotImplementedError(f"Update is not supported for {type(self).__name__}.")
 
     @abstractmethod
-    def delete(self, ids: SequenceNotStr[T_ID]) -> int:
+    def delete(self, ids: Sequence[T_Identifier]) -> int:
         raise NotImplementedError
 
     def iterate(
@@ -188,7 +186,7 @@ class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceRespo
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[T_ResourceResponse]:
+    ) -> Iterable[T_ResponseResource]:
         if sum([1 for x in [data_set_external_id, space, parent_ids] if x is not None]) > 1:
             raise ValueError("At most one of data_set_external_id, space, or parent_ids must be set.")
         if parent_ids is not None and not self.parent_resource:
@@ -211,7 +209,7 @@ class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceRespo
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
-    ) -> Iterable[T_ResourceResponse]:
+    ) -> Iterable[T_ResponseResource]:
         raise NotImplementedError
 
     ### These methods can be optionally overwritten in the subclass ###
@@ -254,11 +252,11 @@ class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceRespo
         return []
 
     @classmethod
-    def get_internal_id(cls, item: T_ResourceResponse | dict) -> int:
+    def get_internal_id(cls, item: T_ResponseResource | dict) -> int:
         raise NotImplementedError(f"{cls.__name__} does not have an internal id.")
 
     @classmethod
-    def _split_ids(cls, ids: T_ID | int | SequenceNotStr[T_ID | int] | None) -> tuple[list[int], list[str]]:
+    def _split_ids(cls, ids: T_Identifier | int | Sequence[T_Identifier | int] | None) -> tuple[list[int], list[str]]:
         # Used by subclasses to split the ids into external and internal ids
         if ids is None:
             return [], []
@@ -291,18 +289,18 @@ class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceRespo
         )
         return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> T_ResourceRequest:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> T_RequestResource:
         """Loads the resource from a dictionary. Can be overwritten in subclasses."""
         return self.resource_write_cls._load(resource)
 
-    def dump_resource(self, resource: T_ResourceResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
+    def dump_resource(self, resource: T_ResponseResource, local: dict[str, Any] | None = None) -> dict[str, Any]:
         """Dumps the resource to a dictionary that matches the write format.
 
         This is intended to be overwritten in subclasses that require special dumping logic, for example,
         replacing dataSetId with dataSetExternalId.
 
         Args:
-            resource (T_ResourceResponse): The resource to dump (typically comes from CDF).
+            resource (T_ResponseResource): The resource to dump (typically comes from CDF).
             local (dict[str, Any] | None): The local resource. When used in a dump/import command, there is no local
                 resource.
         """
@@ -351,7 +349,7 @@ class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceRespo
             f"Missing implementation for {type(self).__name__} for {'.'.join(map(str, json_path))}."
         )
 
-    def sensitive_strings(self, item: T_ResourceRequest) -> Iterable[str]:
+    def sensitive_strings(self, item: T_RequestResource) -> Iterable[str]:
         """Returns a list of strings that should be masked when printing.
 
         This is used by the loaders with credentials to mask the credentials secrets. For example, the
@@ -362,11 +360,11 @@ class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceRespo
 
     # Helper methods
     @classmethod
-    def get_ids(cls, items: Sequence[T_ResourceRequest | T_ResourceResponse | dict]) -> list[T_ID]:
+    def get_ids(cls, items: Sequence[T_RequestResource | T_ResponseResource | dict]) -> list[T_Identifier]:
         return [cls.get_id(item) for item in items]
 
     @classmethod
-    def as_str(cls, id: T_ID) -> str:
+    def as_str(cls, id: T_Identifier) -> str:
         if isinstance(id, str):
             return sanitize_filename(id)
         raise NotImplementedError(
@@ -374,7 +372,7 @@ class ResourceCRUD(Loader, ABC, Generic[T_ID, T_ResourceRequest, T_ResourceRespo
         )
 
 
-class ResourceContainerCRUD(ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse], ABC):
+class ResourceContainerCRUD(ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource], ABC):
     """This is the base class for all resource CRUD' containers.
 
     A resource container CRUD is a resource that contains data. For example, Timeseries contains datapoints, and another
@@ -393,11 +391,11 @@ class ResourceContainerCRUD(ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResp
     item_name: str
 
     @abstractmethod
-    def count(self, ids: SequenceNotStr[T_ID]) -> int:
+    def count(self, ids: Sequence[T_Identifier]) -> int:
         raise NotImplementedError
 
     @abstractmethod
-    def drop_data(self, ids: SequenceNotStr[T_ID]) -> int:
+    def drop_data(self, ids: Sequence[T_Identifier]) -> int:
         raise NotImplementedError
 
 
