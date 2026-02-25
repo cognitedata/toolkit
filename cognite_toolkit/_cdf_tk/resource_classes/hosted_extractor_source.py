@@ -234,11 +234,13 @@ class EventHubSource(HostedExtractorSourceYAML):
         description="Name of the event hub",
         max_length=200,
     )
-    key_name: str = Field(
+    key_name: str | None = Field(
+        None,
         description="The name of the Event Hub key to use for authentication.",
         max_length=200,
     )
-    key_value: SecretStr = Field(
+    key_value: SecretStr | None = Field(
+        None,
         description="Value of the Event Hub key to use for authentication.",
         max_length=200,
     )

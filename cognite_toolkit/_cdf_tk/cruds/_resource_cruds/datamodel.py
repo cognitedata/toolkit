@@ -821,15 +821,21 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
 
         return sorted_views
 
-    def topological_sort_container_constraints(self, view_ids: list[ViewReference]) -> list[ViewReference]:
-        """Sorts the views in topological order based on their container constraints."""
+    def topological_sort_container_constraints(
+        self, view_ids: list[ViewReference]
+    ) -> tuple[list[ViewReference], list[ViewReference]]:
+        """Sorts the views in topological order based on their container constraints.
+
+        Returns:
+            A tuple containing the sorted views and cyclic views that could not be sorted (if any).
+        """
 
         view_by_ids = self._lookup_views(view_ids)
         if missing_view_ids := set(view_ids) - set(view_by_ids.keys()):
             MediumSeverityWarning(
                 f"Views {missing_view_ids} not found or you don't have permission to access them, skipping dependency check."
             ).print_warning(console=self.console)
-            return view_ids
+            return view_ids, []
 
         view_to_containers: dict[ViewReference, set[ContainerReference]] = {}
         container_to_views: defaultdict[ContainerReference, set[ViewReference]] = defaultdict(set)
@@ -861,13 +867,22 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                         continue
                     # This view doesn't implement the required container, so depend on all views that do
                     view_dependencies[view_id].update(container_to_views[required_container])
-        try:
-            sorted_views = list(TopologicalSorter(view_dependencies).static_order())
-        except CycleError as e:
-            raise ToolkitCycleError(
-                f"Failed to sort views topologically. This likely due to a cycle in implements. {e.args[1]}"
-            )
-        return sorted_views
+
+        cyclic_views: list[ViewReference] = []
+        for _ in range(
+            len(view_dependencies)
+        ):  # Ensure an upper bound on the number of iterations we do when removing cycles.
+            try:
+                TopologicalSorter(view_dependencies).prepare()
+                break
+            except CycleError as e:
+                cycle_nodes = set(e.args[1])
+                cyclic_views.extend(cycle_nodes)
+                view_dependencies = {k: v - cycle_nodes for k, v in view_dependencies.items() if k not in cycle_nodes}
+
+        sorted_views = list(TopologicalSorter(view_dependencies).static_order())
+
+        return sorted_views, cyclic_views
 
 
 @final

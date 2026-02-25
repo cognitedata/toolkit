@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 from pydantic_core import PydanticUndefined
 
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, yaml_safe_dump
 
 if sys.version_info >= (3, 11):
@@ -22,7 +23,9 @@ class BaseModelObject(BaseModel):
     """Base class for all object. This includes resources and nested objects."""
 
     # We allow extra fields to support forward compatibility.
-    model_config = ConfigDict(alias_generator=to_camel, extra="allow", populate_by_name=True)
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="allow" if Flags.v08.is_enabled() else "ignore", populate_by_name=True
+    )
 
     def model_post_init(self, __context: Any) -> None:
         super().model_post_init(__context)

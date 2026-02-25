@@ -15,9 +15,13 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ModelSyntaxError,
     Recommendation,
 )
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
+    FailedReadResource,
+    SuccessfulReadResource,
+)
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import SpaceCRUD
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitValueError
@@ -376,3 +380,83 @@ class TestReadFileSystem:
 
         assert actual_errors == errors
         assert actual_selection == selection
+
+
+class TestImportResourceFile:
+    @pytest.mark.parametrize(
+        "filename, content, class_by_kind, expected_types",
+        [
+            pytest.param(
+                "resource.yaml",
+                "space: test\n",
+                {"Space": SpaceCRUD},
+                [],
+                id="no_dot_in_stem",
+            ),
+            pytest.param(
+                "resource.UnknownKind.yaml",
+                "space: test\n",
+                {"Space": SpaceCRUD},
+                [FailedReadResource],
+                id="unknown_kind",
+            ),
+            pytest.param(
+                "nonexistent.Space.yaml",
+                None,
+                {"Space": SpaceCRUD},
+                [FailedReadResource],
+                id="file_read_error",
+            ),
+            pytest.param(
+                "resource.Space.yaml",
+                "key: [unclosed",
+                {"Space": SpaceCRUD},
+                [FailedReadResource],
+                id="yaml_parse_error",
+            ),
+            pytest.param(
+                "resource.Space.yaml",
+                "space: my_space\nname: My Space\n",
+                {"Space": SpaceCRUD},
+                [SuccessfulReadResource],
+                id="successful_single_resource",
+            ),
+            pytest.param(
+                "resource.Space.yaml",
+                'space: ""\n',
+                {"Space": SpaceCRUD},
+                [FailedReadResource],
+                id="model_validation_error",
+            ),
+            pytest.param(
+                "resource.Space.yaml",
+                "space: my_space\nextra_field: value\n",
+                {"Space": SpaceCRUD},
+                [SuccessfulReadResource],
+                id="extra_fields_produces_recommendation",
+            ),
+            pytest.param(
+                "resource.Space.yaml",
+                "- space: space_one\n- space: space_two\n",
+                {"Space": SpaceCRUD},
+                [SuccessfulReadResource, SuccessfulReadResource],
+                id="multiple_resources_in_list",
+            ),
+        ],
+    )
+    def test_import_resource_file(
+        self,
+        filename: str,
+        content: str | None,
+        class_by_kind: dict[str, type[ResourceCRUD]],
+        expected_types: list[type],
+        tmp_path: Path,
+    ) -> None:
+        cmd = BuildV2Command()
+        resource_file = tmp_path / filename
+        if content is not None:
+            resource_file.write_text(content)
+
+        result = cmd._import_resource_file(resource_file, class_by_kind, [], "data_modeling")
+
+        assert [type(r) for r in result] == expected_types
