@@ -614,7 +614,7 @@ class PullCommand(ToolkitCommand):
         loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         environment_variables: dict[str, str | None],
     ) -> dict[T_ID, dict[str, Any]]:
-        unique_destinations = {r.T_ID for r in resources if r.destination}
+        unique_destinations = {r.identifier for r in resources if r.destination}
         local_resource_by_id: dict[T_Identifier, dict[str, Any]] = {}
         local_resource_ids = set(resources.identifiers)
         for destination in unique_destinations:
