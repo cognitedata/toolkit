@@ -2,7 +2,6 @@ import httpx
 import pytest
 import responses
 import respx
-from cognite.client.data_classes import Annotation, AnnotationList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.storageio import AnnotationIO
@@ -54,55 +53,44 @@ class TestAnnotationIO:
             },
             status=200,
         )
-        annotations = AnnotationList(
-            [
-                Annotation(
-                    annotation_type="diagrams.FileLink",
-                    status="approved",
-                    creating_app="test_app",
-                    creating_app_version="v1",
-                    annotated_resource_id=1,
-                    annotated_resource_type="file",
-                    creating_user="test_user",
-                    data={
-                        "fileRef": {
-                            "id": 2,
-                        },
-                        "textRegion": {
-                            "xMin": 0,
-                            "xMax": 100,
-                            "yMin": 0,
-                            "yMax": 100,
-                        },
-                    },
-                ),
-                Annotation(
-                    annotation_type="diagrams.AssetLink",
-                    status="approved",
-                    creating_app="test_app",
-                    creating_app_version="v1",
-                    annotated_resource_id=1,
-                    annotated_resource_type="file",
-                    creating_user="test_user",
-                    data={
-                        "assetRef": {"id": 3},
-                        "textRegion": {
-                            "xMin": 10,
-                            "xMax": 110,
-                            "yMin": 10,
-                            "yMax": 110,
-                        },
-                    },
-                ),
+        file_link_annotation = {
+            "id": 10,
+            "annotationType": "diagrams.FileLink",
+            "status": "approved",
+            "creatingApp": "test_app",
+            "creatingAppVersion": "v1",
+            "annotatedResourceId": 1,
+            "annotatedResourceType": "file",
+            "creatingUser": "test_user",
+            "data": {
+                "fileRef": {"id": 2},
+                "textRegion": {"xMin": 0, "xMax": 100, "yMin": 0, "yMax": 100},
+            },
+            "createdTime": 0,
+            "lastUpdatedTime": 0,
+        }
+        asset_link_annotation = {
+            "id": 11,
+            "annotationType": "diagrams.AssetLink",
+            "status": "approved",
+            "creatingApp": "test_app",
+            "creatingAppVersion": "v1",
+            "annotatedResourceId": 1,
+            "annotatedResourceType": "file",
+            "creatingUser": "test_user",
+            "data": {
+                "assetRef": {"id": 3},
+                "textRegion": {"xMin": 10, "xMax": 110, "yMin": 10, "yMax": 110},
+            },
+            "createdTime": 0,
+            "lastUpdatedTime": 0,
+        }
+        respx_mock.post(config.create_api_url("/annotations/list")).mock(
+            side_effect=[
+                httpx.Response(200, json={"items": [file_link_annotation]}),
+                httpx.Response(200, json={"items": [asset_link_annotation]}),
             ]
         )
-        for annotation in annotations:
-            rsps.add(
-                responses.POST,
-                config.create_api_url("/annotations/list"),
-                json={"items": [annotation.dump()]},
-                status=200,
-            )
 
         annotation_io = AnnotationIO(client)
         selector = DataSetSelector(kind="FileMetadata", data_set_external_id="test_data_set")
