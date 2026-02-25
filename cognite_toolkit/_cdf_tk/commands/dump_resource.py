@@ -83,7 +83,6 @@ from cognite_toolkit._cdf_tk.cruds import (
     WorkflowTriggerCRUD,
     WorkflowVersionCRUD,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceRetrievalError,
     ToolkitMissingResourceError,
@@ -95,6 +94,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import FileExistsWarning, HighSeverityW
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 from ._base import ToolkitCommand
 
