@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
+from cognite_toolkit._cdf_tk.client._types import Metadata
 
 from .identifiers import ExternalId
 
@@ -44,7 +45,7 @@ class WorkflowTrigger(BaseModelObject):
     workflow_external_id: str
     workflow_version: str
     input: JsonValue | None = None
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)

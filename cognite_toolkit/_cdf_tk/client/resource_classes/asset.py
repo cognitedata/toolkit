@@ -3,6 +3,7 @@ from typing import ClassVar, Literal
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, ResponseResource, UpdatableRequestResource
+from cognite_toolkit._cdf_tk.client._types import Metadata
 
 from .identifiers import ExternalId
 
@@ -13,7 +14,7 @@ class Asset(BaseModelObject):
     parent_id: int | None = None
     parent_external_id: str | None = None
     description: str | None = None
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
     data_set_id: int | None = None
     source: str | None = None
     labels: list[dict[Literal["externalId"], str]] | None = None

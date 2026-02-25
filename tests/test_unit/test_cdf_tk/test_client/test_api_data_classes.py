@@ -3,12 +3,14 @@ from typing import Any, Literal
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client._resource_base import UpdatableRequestResource
+from cognite_toolkit._cdf_tk.client._resource_base import UpdatableRequestResource, _get_annotation_origin
+from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (
     DatapointSubscriptionRequest,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import PrincipalId
@@ -335,3 +337,34 @@ class TestSimulatorRoutineRevision:
                 "steadyStateDetection": [],
             },
         }
+
+
+class TestDataSetRequest:
+    def test_read_non_string_metadata(self) -> None:
+        data = {
+            "externalId": "dataset_1",
+            "name": "Dataset 1",
+            "metadata": {"archived": True},  # Non-string value
+        }
+        dataset_request = DataSetRequest.model_validate(data)
+        assert dataset_request.dump() == {
+            "externalId": "dataset_1",
+            "name": "Dataset 1",
+            "metadata": {"archived": "True"},
+        }
+
+
+class TestGetAnnotationOrigin:
+    @pytest.mark.parametrize(
+        "annotation, expected_origin",
+        [
+            (list[int], list),
+            (dict[str, int], dict),
+            (int | None, int),
+            (str | None, str),
+            (Metadata, dict),
+            (Metadata | None, dict),
+        ],
+    )
+    def test_get_annotation_origin_of_annotated(self, annotation: Any, expected_origin: Any) -> None:
+        assert _get_annotation_origin(annotation) == expected_origin
