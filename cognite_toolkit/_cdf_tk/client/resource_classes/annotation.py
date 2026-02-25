@@ -60,7 +60,7 @@ class Annotation(BaseModelObject):
     annotation_type: AnnotationType
     creating_app: str
     creating_app_version: str
-    creating_user: str
+    creating_user: str | None
     data: AssetLinkData | FileLinkData | dict[str, JsonValue]
     status: AnnotationStatus
 
