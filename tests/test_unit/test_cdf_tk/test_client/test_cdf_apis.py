@@ -6,11 +6,13 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource
 from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
+from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessionsAPI, PrincipalsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI
@@ -25,6 +27,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeResponse, NodeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
@@ -884,3 +887,47 @@ class TestCDFResourceAPI:
         items = [item for batch in iterated for item in batch]
         assert len(items) == 1
         assert items[0].principal == principal_id
+
+    @pytest.mark.parametrize("instance_cls", [NodeResponse, EdgeResponse])
+    def test_instance_crudls(
+        self, instance_cls: type[ResponseResource], toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        """Test InstanceAPI create, retrieve, update, delete, list, paginate, and iterate methods.
+        Instances returns a slim definition from the create method so we cannot use the generic test above.
+        """
+        example = get_example_minimum_responses(instance_cls)
+        instance = instance_cls.model_validate(example)
+        request = instance.as_request_resource()
+        config = toolkit_config
+        api = InstancesAPI(HTTPClient(config))
+
+        # Test create
+        respx_mock.post(config.create_api_url("/models/instances")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [{**example, "wasModified": False}]})
+        )
+        created = api.create([request])
+        assert len(created) == 1
+
+        # Test retrieve
+        respx_mock.post(config.create_api_url("/models/instances/byids")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [example]})
+        )
+        retrieved = api.retrieve([request.as_id()])
+        assert len(retrieved) == 1
+        assert retrieved[0].dump() == example
+
+        # Test delete
+        respx_mock.post(config.create_api_url("/models/instances/delete")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [request.as_id().dump()]})
+        )
+        deleted = api.delete([request.as_id()])
+        assert len(respx_mock.calls) >= 1  # At least one call should have been made
+        assert len(deleted) == 1
+
+        # Test list/paginate/iterate
+        respx_mock.post(config.create_api_url("/models/instances/list")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [example]})
+        )
+        listed = api.list(limit=10)
+        assert len(listed) == 1
+        assert listed[0].dump() == example

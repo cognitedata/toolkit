@@ -180,7 +180,7 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
                     if extraction_pipeline_ids := scope.get(cap.ExtractionPipelineScope._scope_name, []):
                         if isinstance(extraction_pipeline_ids, dict) and "ids" in extraction_pipeline_ids:
                             for extraction_pipeline_id in extraction_pipeline_ids["ids"]:
-                                yield ExtractionPipelineCRUD, extraction_pipeline_id
+                                yield ExtractionPipelineCRUD, ExternalId(external_id=extraction_pipeline_id)
                     if asset_root_ids := scope.get(cap.AssetRootIDScope._scope_name, []):
                         if isinstance(asset_root_ids, dict) and "rootIds" in asset_root_ids:
                             for asset_root_id in asset_root_ids["rootIds"]:
@@ -201,7 +201,7 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
                             loader = LocationFilterCRUD
                         if loader is not None and isinstance(ids, dict) and "ids" in ids:
                             for id_ in ids["ids"]:
-                                if loader in {TimeSeriesCRUD, LocationFilterCRUD, DataSetsCRUD}:
+                                if loader in {TimeSeriesCRUD, LocationFilterCRUD, DataSetsCRUD, ExtractionPipelineCRUD}:
                                     yield loader, ExternalId(external_id=id_)
                                 elif loader is SecurityCategoryCRUD:
                                     yield loader, NameId(name=id_)
