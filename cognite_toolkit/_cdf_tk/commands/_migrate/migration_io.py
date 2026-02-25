@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsResultList,
     ItemsSuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeReference, InstanceRequest, NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -347,7 +348,7 @@ class AnnotationMigrationIO(
                     "'diagrams.FileLink' are supported. These annotations will be skipped during migration."
                 ).print_warning(include_timestamp=True, console=self.client.console)
 
-    def _get_mapping(self, current_mapping: str | None, resource: Annotation) -> str:
+    def _get_mapping(self, current_mapping: str | None, resource: Annotation | AnnotationResponse) -> str:
         try:
             return (
                 current_mapping
