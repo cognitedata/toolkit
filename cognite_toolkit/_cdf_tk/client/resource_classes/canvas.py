@@ -1,3 +1,4 @@
+from collections.abc import Set
 from datetime import datetime
 from typing import Any, ClassVar
 
@@ -19,16 +20,14 @@ CANVAS_INSTANCE_SPACE = "IndustrialCanvasInstanceSpace"
 SOLUTION_TAG_SPACE = "SolutionTagsInstanceSpace"
 CANVAS_SCHEMA_SPACE = "cdf_industrial_canvas"
 
-CANVAS_VIEW_ID = TypedViewReference(space="cdf_industrial_canvas", external_id="Canvas", version="v7")
-CANVAS_ANNOTATION_VIEW_ID = TypedViewReference(
-    space="cdf_industrial_canvas", external_id="CanvasAnnotation", version="v1"
-)
+CANVAS_VIEW_ID = TypedViewReference(space=CANVAS_SCHEMA_SPACE, external_id="Canvas", version="v7")
+CANVAS_ANNOTATION_VIEW_ID = TypedViewReference(space=CANVAS_SCHEMA_SPACE, external_id="CanvasAnnotation", version="v1")
 SOLUTION_TAG_VIEW_ID = TypedViewReference(space="cdf_apps_shared", external_id="CogniteSolutionTag", version="v1")
 CONTAINER_REFERENCE_VIEW_ID = TypedViewReference(
-    space="cdf_industrial_canvas", external_id="ContainerReference", version="v2"
+    space=CANVAS_SCHEMA_SPACE, external_id="ContainerReference", version="v2"
 )
 FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID = TypedViewReference(
-    space="cdf_industrial_canvas", external_id="FdmInstanceContainerReference", version="v1"
+    space=CANVAS_SCHEMA_SPACE, external_id="FdmInstanceContainerReference", version="v1"
 )
 
 ANNOTATION_EDGE_TYPE_REF = {"space": CANVAS_SCHEMA_SPACE, "externalId": "referencesCanvasAnnotation"}
@@ -124,7 +123,7 @@ class CanvasProperties(BaseModelObject):
     solution_tags: list[NodeReference] | None = None
 
 
-_CANVAS_EXCLUDE_FROM_PROPERTIES = frozenset(
+_CANVAS_EXCLUDE_FROM_PROPERTIES: Set[str] = frozenset(
     {
         "instance_type",
         "space",
@@ -136,7 +135,7 @@ _CANVAS_EXCLUDE_FROM_PROPERTIES = frozenset(
     }
 )
 
-_SUB_ITEM_EXCLUDE = frozenset({"space", "external_id"})
+_SUB_ITEM_EXCLUDE: Set[str] = frozenset({"space", "external_id"})
 
 
 def _dump_node(
@@ -173,7 +172,7 @@ def _dump_edge(
 
 
 class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
-    """Pydantic request model for an IndustrialCanvas aggregate (canvas node + related items)."""
+    """Pydantic request model for an IndustrialCanvas."""
 
     VIEW_ID: ClassVar[TypedViewReference] = CANVAS_VIEW_ID
 
@@ -187,7 +186,7 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
             mode="json",
             by_alias=True,
             exclude_unset=True,
-            exclude=_CANVAS_EXCLUDE_FROM_PROPERTIES,
+            exclude=set(_CANVAS_EXCLUDE_FROM_PROPERTIES),
         )
         instances: list[dict[str, Any]] = [_dump_node(self.space, self.external_id, self.VIEW_ID, canvas_props)]
 
@@ -208,7 +207,7 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
         ]
         for items, view_id, edge_type in edge_groups:
             for item in items:
-                props = item.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude=_SUB_ITEM_EXCLUDE)
+                props = item.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude=set(_SUB_ITEM_EXCLUDE))
                 instances.append(_dump_node(item.space, item.external_id, view_id, props))
                 instances.append(
                     _dump_edge(
@@ -223,7 +222,7 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
                 )
 
         for tag in self.solution_tag_items or []:
-            props = tag.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude=_SUB_ITEM_EXCLUDE)
+            props = tag.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude=set(_SUB_ITEM_EXCLUDE))
             instances.append(_dump_node(tag.space, tag.external_id, SOLUTION_TAG_VIEW_ID, props))
 
         return instances
@@ -251,7 +250,7 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
 
 
 class IndustrialCanvasResponse(WrappedInstanceListResponse, CanvasProperties):
-    """Pydantic response model for an IndustrialCanvas aggregate."""
+    """Pydantic response model for an IndustrialCanvas."""
 
     VIEW_ID: ClassVar[TypedViewReference] = CANVAS_VIEW_ID
     version: int = 0
