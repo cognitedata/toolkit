@@ -2,7 +2,6 @@ from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import (
     DataProductVersionRequest,
@@ -80,7 +79,7 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
             return []
         return self.client.tool.data_products.versions.create(list(items))
 
-    def retrieve(self, ids: SequenceNotStr[DataProductVersionId]) -> list[DataProductVersionResponse]:
+    def retrieve(self, ids: Sequence[DataProductVersionId]) -> list[DataProductVersionResponse]:
         if not ids:
             return []
         return self.client.tool.data_products.versions.retrieve(list(ids), ignore_unknown_ids=True)
@@ -90,7 +89,7 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
             return []
         return self.client.tool.data_products.versions.update(list(items))
 
-    def delete(self, ids: SequenceNotStr[DataProductVersionId]) -> int:
+    def delete(self, ids: Sequence[DataProductVersionId]) -> int:
         if not ids:
             return 0
         self.client.tool.data_products.versions.delete(list(ids))

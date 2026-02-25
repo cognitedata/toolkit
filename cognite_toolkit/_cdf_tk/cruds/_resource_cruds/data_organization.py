@@ -19,7 +19,6 @@ from typing import Any, final
 
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability, DataSetsAcl
-from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
@@ -116,13 +115,13 @@ class DataSetsCRUD(ResourceCRUD[ExternalId, DataSetRequest, DataSetResponse]):
     def create(self, items: Sequence[DataSetRequest]) -> list[DataSetResponse]:
         return self.client.tool.datasets.create(list(items))
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[DataSetResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[DataSetResponse]:
         return self.client.tool.datasets.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[DataSetRequest]) -> list[DataSetResponse]:
         return self.client.tool.datasets.update(list(items), mode="replace")
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
     def _iterate(
@@ -186,10 +185,10 @@ class LabelCRUD(ResourceCRUD[ExternalId, LabelRequest, LabelResponse]):
     def create(self, items: Sequence[LabelRequest]) -> list[LabelResponse]:
         return self.client.tool.labels.create(list(items))
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[LabelResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[LabelResponse]:
         return self.client.tool.labels.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
             return 0
         try:
