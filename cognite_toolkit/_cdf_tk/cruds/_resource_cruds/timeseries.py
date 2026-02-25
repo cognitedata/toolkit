@@ -9,7 +9,6 @@ from cognite.client.data_classes.capabilities import (
     TimeSeriesAcl,
     TimeSeriesSubscriptionsAcl,
 )
-from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
@@ -132,13 +131,13 @@ class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSe
     def create(self, items: Sequence[TimeSeriesRequest]) -> list[TimeSeriesResponse]:
         return self.client.tool.timeseries.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[TimeSeriesResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[TimeSeriesResponse]:
         return self.client.tool.timeseries.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[TimeSeriesRequest]) -> list[TimeSeriesResponse]:
         return self.client.tool.timeseries.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[InternalOrExternalId]) -> int:
+    def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.timeseries.delete(list(ids), ignore_unknown_ids=True)
@@ -154,7 +153,7 @@ class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSe
         for timeseries in self.client.tool.timeseries.iterate(filter=filter_, limit=None):
             yield from timeseries
 
-    def count(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def count(self, ids: Sequence[ExternalId]) -> int:
         datapoints = self.client.time_series.data.retrieve(
             external_id=[id.external_id for id in ids],
             start=MIN_TIMESTAMP_MS,
@@ -165,7 +164,7 @@ class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSe
         )
         return sum(sum(data.count or []) for data in datapoints)
 
-    def drop_data(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def drop_data(self, ids: Sequence[ExternalId]) -> int:
         count = self.count(ids)
         existing = self.client.tool.timeseries.retrieve(list(ids), ignore_unknown_ids=True)
         for ts in existing:
@@ -254,7 +253,7 @@ class DatapointSubscriptionCRUD(
                 created_list.append(created[-1])
         return created_list
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[DatapointSubscriptionResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[DatapointSubscriptionResponse]:
         return self.client.tool.datapoint_subscriptions.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[DatapointSubscriptionRequest]) -> list[DatapointSubscriptionResponse]:
@@ -277,7 +276,7 @@ class DatapointSubscriptionCRUD(
                 updated_list.extend(self.client.tool.datapoint_subscriptions.retrieve([item.as_id()]))
         return updated_list
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.datapoint_subscriptions.delete(list(ids), ignore_unknown_ids=True)

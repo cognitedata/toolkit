@@ -9,7 +9,6 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     FilesAcl,
 )
-from cognite.client.utils.useful_types import SequenceNotStr
 from packaging.requirements import Requirement
 from rich.console import Console
 
@@ -179,7 +178,7 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
                 created.append(response)
         return created
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[StreamlitResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[StreamlitResponse]:
         return self.client.tool.streamlit.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
@@ -194,7 +193,7 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
                 updated.append(response)
         return updated
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.streamlit.delete(list(ids))

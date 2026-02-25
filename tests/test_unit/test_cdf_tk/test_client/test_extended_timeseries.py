@@ -1,54 +1,94 @@
 from collections.abc import Sequence
 
 import pytest
-import responses
-from cognite.client.utils.useful_types import SequenceNotStr
+import respx
+from httpx import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extended_timeseries import ExtendedTimeSeriesList
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId, InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
+from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from tests.constants import CDF_PROJECT
 
 
-class TestExtendedTimeSeriesAPI:
+class TestTimeSeriesAPI:
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_set_pending_ids(
+        self,
+        toolkit_config: ToolkitClientConfig,
+        respx_mock: respx.MockRouter,
+    ) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        url = f"{toolkit_config.base_url}/api/v1/projects/{CDF_PROJECT}/timeseries/set-pending-instance-ids"
+        respx_mock.post(url).mock(
+            return_value=Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "externalId": "my_ts",
+                            "id": 123,
+                            "type": "numeric",
+                            "createdTime": 0,
+                            "lastUpdatedTime": 0,
+                            "pendingInstanceId": {"space": "my_space", "externalId": "myExternalId"},
+                        }
+                    ]
+                },
+            )
+        )
+
+        items = [
+            PendingInstanceId(
+                pending_instance_id=NodeReference(space="my_space", external_id="myExternalId"),
+                external_id="my_ts",
+            ),
+        ]
+        result = client.tool.timeseries.set_pending_ids(items)
+
+        assert len(result) == 1
+        assert isinstance(result[0], TimeSeriesResponse)
+
+    @pytest.mark.usefixtures("disable_gzip")
     @pytest.mark.parametrize(
-        "id, external_id, expected_list",
+        "items",
         [
-            pytest.param(None, "my_timeseries", False, id="External ID only"),
-            pytest.param(123, None, False, id="ID only"),
-            pytest.param([123, 456], None, True, id="List of IDs"),
-            pytest.param(None, ["my_timeseries", "my_other_timeseries"], True, id="List of External IDs"),
-            pytest.param([123, 456], ["my_timeseries", "my_other_timeseries"], True, id="List of IDs and External IDs"),
+            pytest.param([InternalId(id=123)], id="Single ID"),
+            pytest.param([InternalId(id=123), InternalId(id=456)], id="Multiple IDs"),
+            pytest.param([ExternalId(external_id="my_ts")], id="Single External ID"),
+            pytest.param(
+                [ExternalId(external_id="my_ts"), ExternalId(external_id="other")],
+                id="Multiple External IDs",
+            ),
         ],
     )
-    def test_unlink_instance_ids_valid(
+    def test_unlink_instance_ids(
         self,
-        id: int | Sequence[int] | None,
-        external_id: str | SequenceNotStr[str] | None,
-        expected_list: bool,
+        items: Sequence[InternalOrExternalId],
         toolkit_config: ToolkitClientConfig,
+        respx_mock: respx.MockRouter,
     ) -> None:
-        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
+        client = ToolkitClient(config=toolkit_config)
         url = f"{toolkit_config.base_url}/api/v1/projects/{CDF_PROJECT}/timeseries/unlink-instance-ids"
-        with responses.RequestsMock() as rsps:
-            rsps.add(
-                responses.POST,
-                url,
-                status=200,
-                json={"items": [{"externalId": "does-not-matter", "id": 123, "createdTime": 0, "lastUpdatedTime": 0}]},
+        respx_mock.post(url).mock(
+            return_value=Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "externalId": "does-not-matter",
+                            "id": 123,
+                            "type": "numeric",
+                            "createdTime": 0,
+                            "lastUpdatedTime": 0,
+                        }
+                    ]
+                },
             )
-            result = client.time_series.unlink_instance_ids(id=id, external_id=external_id)
+        )
 
-        is_list = isinstance(result, ExtendedTimeSeriesList)
-        assert is_list == expected_list, f"Expected result to be a list: {expected_list}, got {is_list}"
+        result = client.tool.timeseries.unlink_instance_ids(items)
 
-    def test_unlink_instance_ids_none_return_none(self, toolkit_config: ToolkitClientConfig) -> None:
-        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
-        result = client.time_series.unlink_instance_ids(id=None, external_id=None)
-        assert result is None
-
-    def test_unlink_instance_ids_invalid(self, toolkit_config: ToolkitClientConfig) -> None:
-        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
-        with pytest.raises(
-            ValueError, match=r"Cannot specify both id and external_id as single values. Use one or the other."
-        ):
-            client.time_series.unlink_instance_ids(id=123, external_id="123")
+        assert len(result) == 1
+        assert isinstance(result[0], TimeSeriesResponse)

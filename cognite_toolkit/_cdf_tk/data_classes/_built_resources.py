@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, SupportsIndex, TypeVar, cast, overload
 
 from cognite_toolkit._cdf_tk.cruds import get_crud
-from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     safe_read,
 )
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 from ._build_variables import BuildVariables
 

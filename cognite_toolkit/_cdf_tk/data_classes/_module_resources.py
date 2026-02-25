@@ -10,12 +10,12 @@ from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import DEFAULT_ENV
 from cognite_toolkit._cdf_tk.cruds import ResourceTypes
-from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID
 from cognite_toolkit._cdf_tk.utils import (
     safe_write,
     tmp_build_directory,
 )
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 from ._base import ConfigCore
 from ._build_variables import BuildVariables
