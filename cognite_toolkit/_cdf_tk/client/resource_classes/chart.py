@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import External
 Visibility: TypeAlias = Literal["PUBLIC", "PRIVATE"]
 
 
-class Chart(BaseModelObject):
+class Chart(BaseModelObject, extra="allow"):
     external_id: str
     visibility: Visibility
     data: ChartData
@@ -16,10 +16,10 @@ class Chart(BaseModelObject):
         return ExternalId(external_id=self.external_id)
 
 
-class ChartRequest(Chart, RequestResource): ...
+class ChartRequest(Chart, RequestResource, extra="allow"): ...
 
 
-class ChartResponse(Chart, ResponseResource[ChartRequest]):
+class ChartResponse(Chart, ResponseResource[ChartRequest], extra="allow"):
     created_time: int
     last_updated_time: int
     owner_id: str
