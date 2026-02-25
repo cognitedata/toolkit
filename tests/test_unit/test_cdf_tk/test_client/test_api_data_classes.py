@@ -347,7 +347,11 @@ class TestDataSetRequest:
             "metadata": {"archived": True},  # Non-string value
         }
         dataset_request = DataSetRequest.model_validate(data)
-        assert dataset_request.dump() == data
+        assert dataset_request.dump() == {
+            "externalId": "dataset_1",
+            "name": "Dataset 1",
+            "metadata": {"archived": "True"},
+        }
 
 
 class TestGetAnnotationOrigin:
