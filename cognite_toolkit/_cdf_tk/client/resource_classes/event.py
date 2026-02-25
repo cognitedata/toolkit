@@ -6,6 +6,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
+from cognite_toolkit._cdf_tk.client._types import Metadata
 
 from .identifiers import ExternalId, InternalOrExternalId
 
@@ -18,7 +19,7 @@ class Event(BaseModelObject):
     type: str | None = None
     subtype: str | None = None
     description: str | None = None
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
     asset_ids: list[int] | None = None
     source: str | None = None
 
