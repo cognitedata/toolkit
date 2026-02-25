@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import External
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
 
 
-class LabelsAPI(CDFResourceAPI[ExternalId, LabelRequest, LabelResponse]):
+class LabelsAPI(CDFResourceAPI[LabelResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,

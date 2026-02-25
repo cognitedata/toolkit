@@ -14,9 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
 
-class HostedExtractorSourcesAPI(
-    CDFResourceAPI[ExternalId, HostedExtractorSourceRequestUnion, HostedExtractorSourceResponseUnion]
-):
+class HostedExtractorSourcesAPI(CDFResourceAPI[HostedExtractorSourceResponseUnion]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,

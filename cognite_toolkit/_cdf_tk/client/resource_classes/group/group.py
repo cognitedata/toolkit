@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
+from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
 
 from .capability import GroupCapability
@@ -35,7 +36,7 @@ class Group(BaseModelObject):
 
     name: str
     capabilities: list[GroupCapability] | None = None
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
     attributes: GroupAttributes | None = None
     source_id: str | None = Field(None, coerce_numbers_to_str=True)
     members: list[str] | Literal["allUserAccounts"] | None = None
@@ -56,8 +57,9 @@ class GroupResponse(Group, ResponseResource[GroupRequest]):
     """Group response resource returned from API."""
 
     id: int
-    is_deleted: bool = False
+    is_deleted: bool
     deleted_time: int | None = None
 
-    def as_request_resource(self) -> GroupRequest:
-        return GroupRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[GroupRequest]:
+        return GroupRequest

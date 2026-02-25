@@ -10,12 +10,12 @@ from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import DEFAULT_ENV
 from cognite_toolkit._cdf_tk.cruds import ResourceTypes
-from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID
 from cognite_toolkit._cdf_tk.utils import (
     safe_write,
     tmp_build_directory,
 )
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 from ._base import ConfigCore
 from ._build_variables import BuildVariables
@@ -71,9 +71,6 @@ class BuildInfo(ConfigCore):
                 config = BuildConfigYAML.load_default(organization_dir)
             else:
                 config = BuildConfigYAML.load_from_directory(organization_dir, build_env)
-            config.set_environment_variables()
-            # Todo Remove once the new modules in `_cdf_tk/prototypes/_packages` are finished.
-            config.variables.pop("_cdf_tk", None)
             if needs_rebuild is None:
                 # Use path syntax to select all modules in the source directory
                 config.environment.selected = [Path("")]

@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from cognite_toolkit._cdf_tk.client.api.instances import MultiWrappedInstancesAPI, WrappedInstancesAPI
-from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse, QueryResponse, ResponseItems
+from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsSuccessResponse,
@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
     APMConfigResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import QueryResponseUntyped
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     DataExplorationConfig,
     InFieldCDMLocationConfigRequest,
@@ -69,7 +70,7 @@ class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, In
             },
         }
 
-    def _validate_query_response(self, query_response: QueryResponse) -> list[InFieldLocationConfigResponse]:
+    def _validate_query_response(self, query_response: QueryResponseUntyped) -> list[InFieldLocationConfigResponse]:
         exploration_config_results = (
             DataExplorationConfig.model_validate(item) for item in query_response.items.get(self._EXPLORATION_REF, [])
         )
@@ -86,9 +87,7 @@ class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, In
         return results
 
 
-class InFieldCDMConfigAPI(
-    WrappedInstancesAPI[TypedNodeIdentifier, InFieldCDMLocationConfigRequest, InFieldCDMLocationConfigResponse]
-):
+class InFieldCDMConfigAPI(WrappedInstancesAPI[TypedNodeIdentifier, InFieldCDMLocationConfigResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(http_client, InFieldCDMLocationConfigRequest.VIEW_ID)
 
@@ -101,7 +100,7 @@ class InFieldCDMConfigAPI(
         return PagedResponse[InFieldCDMLocationConfigResponse].model_validate_json(response.body)
 
 
-class APMConfigAPI(WrappedInstancesAPI[TypedNodeIdentifier, APMConfigRequest, APMConfigResponse]):
+class APMConfigAPI(WrappedInstancesAPI[TypedNodeIdentifier, APMConfigResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(http_client, APMConfigRequest.VIEW_ID)
 

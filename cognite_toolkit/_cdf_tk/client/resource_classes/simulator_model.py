@@ -1,3 +1,4 @@
+import builtins
 from typing import Any, Literal
 
 from pydantic import Field
@@ -43,6 +44,10 @@ class SimulatorModelResponse(ResponseResource[SimulatorModelRequest]):
     type: str | None = None
     created_time: int
     last_updated_time: int
+
+    @classmethod
+    def request_cls(cls) -> builtins.type[SimulatorModelRequest]:
+        return SimulatorModelRequest
 
     def as_request_resource(self) -> SimulatorModelRequest:
         if self.type is None:

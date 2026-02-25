@@ -32,7 +32,6 @@ from rich.table import Table
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleId
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.functions import FunctionScheduleID
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.cruds import FunctionCRUD, FunctionScheduleCRUD, WorkflowVersionCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowTriggerCRUD
@@ -286,7 +285,7 @@ if __name__ == "__main__":
     def _get_call_args_interactive(
         function_external_id: str, resources: ModuleResources
     ) -> tuple[dict[str, Any], ClientCredentials | None]:
-        schedules = resources.list_resources(FunctionScheduleID, "functions", FunctionScheduleCRUD.kind)
+        schedules = resources.list_resources(FunctionScheduleId, "functions", FunctionScheduleCRUD.kind)
         options: dict[str, Any] = {
             f"FunctionSchedule: {schedule.identifier.name}": schedule
             for schedule in schedules

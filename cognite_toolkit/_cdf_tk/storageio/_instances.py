@@ -1,6 +1,6 @@
 from collections.abc import Iterable, Mapping, Sequence
 from types import MappingProxyType
-from typing import ClassVar, cast
+from typing import Any, ClassVar, Literal, cast
 
 from cognite.client.data_classes.aggregations import Count
 from cognite.client.data_classes.data_modeling import EdgeId, NodeId, ViewId
@@ -11,16 +11,29 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerReference,
+    EdgeProperty,
     InstanceRequest,
     InstanceResponse,
+    QueryEdgeExpression,
+    QueryEdgeTableExpression,
+    QueryNodeExpression,
+    QueryNodeTableExpression,
+    QueryRequest,
+    QueryResponseTyped,
+    QuerySelect,
+    QuerySelectSource,
+    QuerySortSpec,
     SpaceReference,
     ViewReference,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceRequestAdapter
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
+    TypedEdgeIdentifier,
+    TypedNodeIdentifier,
     TypedViewReference,
 )
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewCRUD
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -66,7 +79,7 @@ class InstanceIO(
         return f"{item.space}:{item.external_id}"
 
     @staticmethod
-    def _build_instance_filter(selector: InstanceViewSelector | InstanceSpaceSelector) -> InstanceFilter:
+    def _build_list_filter(selector: InstanceViewSelector | InstanceSpaceSelector) -> InstanceFilter:
         """Build an InstanceFilter from a selector.
 
         Args:
@@ -101,6 +114,24 @@ class InstanceIO(
             space=space,
         )
 
+    @staticmethod
+    def _build_query_filter(selector: InstanceViewSelector, instance_type: Literal["node", "edge"]) -> dict[str, Any]:
+        """Build a filter dict for the query endpoint from an InstanceViewSelector."""
+        leaf_filters: list[dict[str, Any]] = [
+            {"hasData": [{**selector.view.as_id().dump(), "type": "view"}]},
+        ]
+        if selector.instance_spaces and len(selector.instance_spaces) == 1:
+            leaf_filters.append(
+                {"equals": {"property": [instance_type, "space"], "value": selector.instance_spaces[0]}}
+            )
+        elif selector.instance_spaces and len(selector.instance_spaces) > 1:
+            leaf_filters.append(
+                {"in": {"property": [instance_type, "space"], "values": list(selector.instance_spaces)}}
+            )
+        if len(leaf_filters) == 1:
+            return leaf_filters[0]
+        return {"and": leaf_filters}
+
     def _filter_readonly_properties(self, instance: InstanceRequest) -> None:
         """Filter out read-only properties from the instance.
 
@@ -130,24 +161,126 @@ class InstanceIO(
             source.properties = {k: v for k, v in source.properties.items() if k not in readonly_properties}
 
     def stream_data(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[Page]:
-        if isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
-            instance_filter = self._build_instance_filter(selector)
-            total = 0
-            cursor: str | None = None
-            while cursor is not None or total == 0:
-                page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
-                page = self.client.tool.instances.paginate(instance_filter, limit=page_limit, cursor=cursor)
-                total += len(page.items)
-                if page:
-                    yield Page(worker_id="main", items=page.items, next_cursor=page.next_cursor)
-                if page.next_cursor is None or (limit is not None and total >= limit):
-                    break
-                cursor = page.next_cursor
+        if isinstance(selector, InstanceViewSelector) and selector.include_edges and selector.instance_type == "node":
+            yield from self._instances_with_container_and_edge_properties(selector, limit)
+        elif isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
+            yield from self._instances_with_container_properties(selector, limit)
         elif isinstance(selector, InstanceFileSelector):
             for chunk in chunker_sequence(selector.ids, self.CHUNK_SIZE):
                 yield Page(worker_id="main", items=self.client.tool.instances.retrieve(chunk))
         else:
             raise NotImplementedError()
+
+    def _instances_with_container_and_edge_properties(
+        self, selector: InstanceViewSelector, limit: int | None
+    ) -> Iterable[Page]:
+        instance_filter = self._build_query_filter(selector, "node")
+        views = self.client.tool.views.retrieve([selector.view.as_id()])
+        if not views:
+            raise ToolkitValueError(f"The view {selector.view.as_id()} does not exist")
+        view = views[0]
+        with_: dict[str, QueryNodeExpression | QueryEdgeExpression] = {
+            "nodes": QueryNodeExpression(
+                limit=min(self.CHUNK_SIZE, limit) if limit is not None else self.CHUNK_SIZE,
+                nodes=QueryNodeTableExpression(filter=instance_filter),
+                # Sort to ensure performance. f you do not sort, you get the internal index,
+                # which includes all deleted instances as well.
+                sort=[QuerySortSpec(property=["node", "space"]), QuerySortSpec(property=["node", "externalId"])],
+            )
+        }
+        select: dict[str, QuerySelect] = {
+            "nodes": QuerySelect(sources=[QuerySelectSource(source=view.as_id(), properties=["*"])])
+        }
+        edge_ids: list[str] = []
+        for prop_id, prop in view.properties.items():
+            if not isinstance(prop, EdgeProperty):
+                continue
+            with_[prop_id] = QueryEdgeExpression(
+                edges=QueryEdgeTableExpression(
+                    from_="nodes",
+                    chain_to="source" if prop.direction == "outwards" else "destination",
+                    direction=prop.direction,
+                ),
+                sort=[QuerySortSpec(property=["edge", "space"]), QuerySortSpec(property=["edge", "externalId"])],
+            )
+            edge_ids.append(prop_id)
+            select[prop_id] = QuerySelect()
+
+        query = QueryRequest(with_=with_, select=select)
+        total = 0
+        while True:
+            response = self._exhaust_edge_queries(query, edge_ids)
+            nodes = response.items.get("nodes", [])
+            # De-duplicate edges across properties, as the same edge can be returned for multiple
+            # properties if it connects two nodes that are in the result set.
+            edges: dict[TypedNodeIdentifier | TypedEdgeIdentifier, InstanceResponse] = {}
+            for prop_id in edge_ids:
+                for edge in response.items.get(prop_id, []):
+                    ref = edge.as_id()
+                    if ref not in edges:
+                        edges[ref] = edge
+            items = nodes + list(edges.values())
+            total += len(nodes)
+            next_cursor = response.next_cursor.get("nodes")
+            yield Page(worker_id="main", items=items, next_cursor=next_cursor)
+            if next_cursor is None or (limit is not None and total >= limit) or not nodes:
+                break
+            page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
+            query.with_["nodes"].limit = page_limit
+            query.cursors = {"nodes": next_cursor}
+
+    def _exhaust_edge_queries(self, query: QueryRequest, edge_properties: list[str]) -> QueryResponseTyped:
+        """Exhausts the edge queries in the with_ clause of the query until all cursors are None.
+
+        This is necessary to ensure that we get all edges for the nodes in the result set, as edges can be returned
+        on multiple properties if they connect two nodes that are in the result set.
+
+        Args:
+            query: The query to execute.
+            edge_properties: The list of edge properties to exhaust.
+
+        Returns:
+            The final QueryResponse with all edge queries exhausted.
+        """
+        first: QueryResponseTyped | None = None
+        while True:
+            response = self.client.tool.instances.query(query, type_results=True)
+            if first is None:
+                first = response
+            else:
+                for key, items in response.items.items():
+                    if key not in first.items:
+                        # In practice, this is unreachable. It is just in case.
+                        first.items[key] = items
+                    else:
+                        first.items[key].extend(items)
+            next_cursors: dict[str, str] = {}
+            for prop_id in edge_properties:
+                edge_cursor = response.next_cursor.get(prop_id)
+                if edge_cursor is not None:
+                    next_cursors[prop_id] = edge_cursor
+            if not next_cursors or not response.items:
+                return first
+            node_cursor = response.next_cursor.get("nodes")
+            if node_cursor is not None:
+                next_cursors["nodes"] = node_cursor
+            query = query.model_copy(update={"cursors": next_cursors})
+
+    def _instances_with_container_properties(
+        self, selector: InstanceViewSelector | InstanceSpaceSelector, limit: int | None
+    ) -> Iterable[Page]:
+        instance_filter = self._build_list_filter(selector)
+        total = 0
+        cursor: str | None = None
+        while cursor is not None or total == 0:
+            page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
+            page = self.client.tool.instances.paginate(instance_filter, limit=page_limit, cursor=cursor)
+            total += len(page.items)
+            if page:
+                yield Page(worker_id="main", items=page.items, next_cursor=page.next_cursor)
+            if page.next_cursor is None or (limit is not None and total >= limit) or not page.items:
+                break
+            cursor = page.next_cursor
 
     def download_ids(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[Sequence[InstanceId]]:
         # Todo: Switch to use pydantic classes once purge has been updated.

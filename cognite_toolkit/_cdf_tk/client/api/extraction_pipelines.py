@@ -13,9 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import 
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
 
 
-class ExtractionPipelinesAPI(
-    CDFResourceAPI[InternalOrExternalId, ExtractionPipelineRequest, ExtractionPipelineResponse]
-):
+class ExtractionPipelinesAPI(CDFResourceAPI[ExtractionPipelineResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,

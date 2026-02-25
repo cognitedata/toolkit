@@ -40,5 +40,6 @@ class SearchConfigResponse(SearchConfigBase, ResponseResource[SearchConfigReques
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> SearchConfigRequest:
-        return SearchConfigRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[SearchConfigRequest]:
+        return SearchConfigRequest

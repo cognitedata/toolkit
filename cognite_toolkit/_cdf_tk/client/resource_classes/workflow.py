@@ -11,6 +11,7 @@ class Workflow(BaseModelObject):
     external_id: str
     description: str | None = None
     data_set_id: int | None = None
+    max_concurrent_executions: int | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
@@ -23,5 +24,6 @@ class WorkflowResponse(Workflow, ResponseResource[WorkflowRequest]):
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> WorkflowRequest:
-        return WorkflowRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[WorkflowRequest]:
+        return WorkflowRequest

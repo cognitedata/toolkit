@@ -63,5 +63,6 @@ class FunctionScheduleResponse(FunctionSchedule, ResponseResource[FunctionSchedu
     function_external_id: str | None = None
     session_id: int | None = None
 
-    def as_request_resource(self) -> FunctionScheduleRequest:
-        return FunctionScheduleRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[FunctionScheduleRequest]:
+        return FunctionScheduleRequest

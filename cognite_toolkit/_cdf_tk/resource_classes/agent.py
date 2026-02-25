@@ -18,11 +18,14 @@ Model = Literal[
     "azure/gpt-5",
     "azure/gpt-5-mini",
     "azure/gpt-5-nano",
+    "azure/gpt-5.1",
+    "gcp/claude-4.5-sonnet",
+    "gcp/claude-4.5-haiku",
     "gcp/gemini-2.5-pro",
     "gcp/gemini-2.5-flash",
+    "aws/claude-4.5-sonnet",
+    "aws/claude-4.5-haiku",
     "aws/claude-4-sonnet",
-    "aws/claude-4-opus",
-    "aws/claude-4.1-opus",
     "aws/claude-3.5-sonnet",
 ]
 

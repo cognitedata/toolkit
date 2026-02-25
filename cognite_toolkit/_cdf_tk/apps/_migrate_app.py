@@ -110,7 +110,7 @@ class MigrateApp(typer.Typer):
         This mapping will be used when migrating applications such as Canvas, Charts, as well as resources that
         depend on the primary resources 3D and annotations.
         """
-        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        client = EnvironmentVariables.create_from_environment().get_client()
         cmd = MigrationPrepareCommand(client=client)
         cmd.run(
             lambda: cmd.deploy_cognite_migration(
@@ -130,6 +130,15 @@ class MigrateApp(typer.Typer):
                 "interactive selection will be performed to select the data sets to create Instance Spaces for."
             ),
         ] = None,
+        auto_fix: Annotated[
+            bool,
+            typer.Option(
+                "--auto-fix",
+                "-a",
+                help="If set, the command will try to make the data set external ID a valid space identifier,"
+                "if it is not already.",
+            ),
+        ] = False,
         output_dir: Annotated[
             Path,
             typer.Option(
@@ -174,7 +183,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.create(
                 client,
-                creator=InstanceSpaceCreator(client, data_set_external_ids=data_set),
+                creator=InstanceSpaceCreator(client, data_set_external_ids=data_set, auto_fix=auto_fix),
                 output_dir=output_dir,
                 dry_run=dry_run,
                 verbose=verbose,
@@ -617,7 +626,7 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate TimeSeries to CogniteTimeSeries."""
-        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        client = EnvironmentVariables.create_from_environment().get_client()
 
         selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
             client=client,
@@ -733,7 +742,7 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate Files to CogniteFiles."""
-        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        client = EnvironmentVariables.create_from_environment().get_client()
 
         selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
             client=client,

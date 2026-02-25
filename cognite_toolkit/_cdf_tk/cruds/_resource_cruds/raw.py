@@ -24,7 +24,6 @@ from cognite.client.data_classes.capabilities import (
     RawAcl,
 )
 from cognite.client.exceptions import CogniteAPIError
-from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.console import Console
 
@@ -102,12 +101,12 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabaseId, RAWDatabaseRequest, R
     def create(self, items: Sequence[RAWDatabaseRequest]) -> list[RAWDatabaseResponse]:
         return self.client.tool.raw.databases.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[RawDatabaseId]) -> list[RAWDatabaseResponse]:
+    def retrieve(self, ids: Sequence[RawDatabaseId]) -> list[RAWDatabaseResponse]:
         database_list = self.client.tool.raw.databases.list(limit=None)
         target_dbs = {db.name for db in ids}
         return [db for db in database_list if db.name in target_dbs]
 
-    def delete(self, ids: SequenceNotStr[RawDatabaseId]) -> int:
+    def delete(self, ids: Sequence[RawDatabaseId]) -> int:
         ids_list = list(ids)
         try:
             self.client.tool.raw.databases.delete(ids_list)
@@ -130,7 +129,7 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabaseId, RAWDatabaseRequest, R
         for databases in self.client.tool.raw.databases.iterate():
             yield from databases
 
-    def count(self, ids: SequenceNotStr[RawDatabaseId]) -> int:
+    def count(self, ids: Sequence[RawDatabaseId]) -> int:
         nr_of_tables = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.name), key=lambda x: x.name):
             try:
@@ -142,7 +141,7 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabaseId, RAWDatabaseRequest, R
             nr_of_tables += len(tables)
         return nr_of_tables
 
-    def drop_data(self, ids: SequenceNotStr[RawDatabaseId]) -> int:
+    def drop_data(self, ids: Sequence[RawDatabaseId]) -> int:
         nr_of_tables = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.name), key=lambda x: x.name):
             try:
@@ -225,7 +224,7 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
     def create(self, items: Sequence[RAWTableRequest]) -> list[RAWTableResponse]:
         return self.client.tool.raw.tables.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[RawTableId]) -> list[RAWTableResponse]:
+    def retrieve(self, ids: Sequence[RawTableId]) -> list[RAWTableResponse]:
         retrieved: list[RAWTableResponse] = []
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             expected_tables = {table.name for table in raw_tables}
@@ -238,7 +237,7 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
             retrieved.extend(table for table in tables if table.name in expected_tables)
         return retrieved
 
-    def delete(self, ids: SequenceNotStr[RawTableId]) -> int:
+    def delete(self, ids: Sequence[RawTableId]) -> int:
         count = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             tables_to_delete = [table for table in raw_tables if table.name]
@@ -276,13 +275,13 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
             for tables in self.client.tool.raw.tables.iterate(db_name=parent_id.name):
                 yield from tables
 
-    def count(self, ids: SequenceNotStr[RawTableId]) -> int:
+    def count(self, ids: Sequence[RawTableId]) -> int:
         if not self._printed_warning:
             print("  [bold green]INFO:[/] Raw rows do not support count (there is no aggregation method).")
             self._printed_warning = True
         return -1
 
-    def drop_data(self, ids: SequenceNotStr[RawTableId]) -> int:
+    def drop_data(self, ids: Sequence[RawTableId]) -> int:
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             try:
                 existing_tables = self.client.tool.raw.tables.list(db_name=db_name, limit=None)

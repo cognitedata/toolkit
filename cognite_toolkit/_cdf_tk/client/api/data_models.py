@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 
 
-class DataModelsAPI(CDFResourceAPI[DataModelReference, DataModelRequest, DataModelResponse]):
+class DataModelsAPI(CDFResourceAPI[DataModelResponse]):
     """API for managing CDF data models.
 
     Data models use an apply/upsert pattern for create and update operations.
