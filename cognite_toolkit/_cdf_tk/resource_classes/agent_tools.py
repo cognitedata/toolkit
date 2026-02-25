@@ -22,6 +22,10 @@ class AgentToolDefinition(BaseModelResource):
     )
 
 
+class AnalyzeTimeSeries(AgentToolDefinition):
+    type: Literal["analyzeTimeSeries"] = "analyzeTimeSeries"
+
+
 class AskDocument(AgentToolDefinition):
     type: Literal["askDocument"] = "askDocument"
 
@@ -49,6 +53,10 @@ class CallFunction(AgentToolDefinition):
     configuration: CallFunctionConfig = Field(
         description="Configuration for the Call Function tool.",
     )
+
+
+class CallRestApi(AgentToolDefinition):
+    type: Literal["callRestApi"] = "callRestApi"
 
 
 class ExamineDataSemantically(AgentToolDefinition):
@@ -120,16 +128,28 @@ class QueryTimeSeriesDatapoints(AgentToolDefinition):
     type: Literal["queryTimeSeriesDatapoints"] = "queryTimeSeriesDatapoints"
 
 
+class RunPythonCode(AgentToolDefinition):
+    type: Literal["runPythonCode"] = "runPythonCode"
+
+
 class SummarizeDocument(AgentToolDefinition):
     type: Literal["summarizeDocument"] = "summarizeDocument"
 
 
+class TimeSeriesAnalysis(AgentToolDefinition):
+    type: Literal["timeSeriesAnalysis"] = "timeSeriesAnalysis"
+
+
 AgentTool = Annotated[
-    AskDocument
+    AnalyzeTimeSeries
+    | AskDocument
     | CallFunction
+    | CallRestApi
     | ExamineDataSemantically
     | QueryKnowledgeGraph
     | QueryTimeSeriesDatapoints
-    | SummarizeDocument,
+    | RunPythonCode
+    | SummarizeDocument
+    | TimeSeriesAnalysis,
     Field(discriminator="type"),
 ]

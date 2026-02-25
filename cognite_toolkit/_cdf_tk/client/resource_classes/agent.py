@@ -13,6 +13,10 @@ class AgentToolDefinition(BaseModelObject):
     description: str
 
 
+class AnalyzeTimeSeries(AgentToolDefinition):
+    type: Literal["analyzeTimeSeries"] = "analyzeTimeSeries"
+
+
 class AskDocument(AgentToolDefinition):
     type: Literal["askDocument"] = "askDocument"
 
@@ -26,6 +30,10 @@ class CallFunctionConfig(BaseModelObject):
 class CallFunction(AgentToolDefinition):
     type: Literal["callFunction"] = "callFunction"
     configuration: CallFunctionConfig
+
+
+class CallRestApi(AgentToolDefinition):
+    type: Literal["callRestApi"] = "callRestApi"
 
 
 class ExamineDataSemantically(AgentToolDefinition):
@@ -74,8 +82,16 @@ class QueryTimeSeriesDatapoints(AgentToolDefinition):
     type: Literal["queryTimeSeriesDatapoints"] = "queryTimeSeriesDatapoints"
 
 
+class RunPythonCode(AgentToolDefinition):
+    type: Literal["runPythonCode"] = "runPythonCode"
+
+
 class SummarizeDocument(AgentToolDefinition):
     type: Literal["summarizeDocument"] = "summarizeDocument"
+
+
+class TimeSeriesAnalysis(AgentToolDefinition):
+    type: Literal["timeSeriesAnalysis"] = "timeSeriesAnalysis"
 
 
 class UnknownAgentTool(AgentToolDefinition):
@@ -85,12 +101,16 @@ class UnknownAgentTool(AgentToolDefinition):
 
 
 KNOWN_TOOLS: dict[str, type[AgentToolDefinition]] = {
+    "analyzeTimeSeries": AnalyzeTimeSeries,
     "askDocument": AskDocument,
     "callFunction": CallFunction,
+    "callRestApi": CallRestApi,
     "examineDataSemantically": ExamineDataSemantically,
     "queryKnowledgeGraph": QueryKnowledgeGraph,
     "queryTimeSeriesDatapoints": QueryTimeSeriesDatapoints,
+    "runPythonCode": RunPythonCode,
     "summarizeDocument": SummarizeDocument,
+    "timeSeriesAnalysis": TimeSeriesAnalysis,
 }
 
 
@@ -105,12 +125,16 @@ def _handle_unknown_tool(value: Any) -> Any:
 
 
 AgentTool = Annotated[
-    AskDocument
+    AnalyzeTimeSeries
+    | AskDocument
     | CallFunction
+    | CallRestApi
     | ExamineDataSemantically
     | QueryKnowledgeGraph
     | QueryTimeSeriesDatapoints
+    | RunPythonCode
     | SummarizeDocument
+    | TimeSeriesAnalysis
     | UnknownAgentTool,
     BeforeValidator(_handle_unknown_tool),
 ]
