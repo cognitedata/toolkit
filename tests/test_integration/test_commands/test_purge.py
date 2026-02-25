@@ -38,6 +38,9 @@ from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils import datetime_to_ms
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceFileSelector
 from tests.test_integration.constants import RUN_UNIQUE_ID
@@ -45,9 +48,9 @@ from tests.test_integration.constants import RUN_UNIQUE_ID
 
 @pytest.fixture()
 def file_ts_nodes(
-    toolkit_client_with_pending_ids: ToolkitClient, toolkit_space: Space
+    toolkit_client: ToolkitClient, toolkit_space: Space
 ) -> Iterable[tuple[tuple[NodeId, int], tuple[NodeId, int]]]:
-    client = toolkit_client_with_pending_ids
+    client = toolkit_client
     file = CogniteFileApply(
         space=toolkit_space.space,
         external_id=f"test_file_purge_with_unlink_{RUN_UNIQUE_ID}",
@@ -91,8 +94,22 @@ def file_ts_nodes(
         )
 
         # Link them.
-        client.files.set_pending_ids(file.as_id(), id=file_id)
-        client.time_series.set_pending_ids(ts.as_id(), id=ts_id)
+        client.tool.filemetadata.set_pending_ids(
+            [
+                PendingInstanceId(
+                    pending_instance_id=NodeReference(space=file.space, external_id=file.external_id),
+                    id=file_id,
+                )
+            ]
+        )
+        client.tool.timeseries.set_pending_ids(
+            [
+                PendingInstanceId(
+                    pending_instance_id=NodeReference(space=ts.space, external_id=ts.external_id),
+                    id=ts_id,
+                )
+            ]
+        )
 
         # Create Nodes in CDM
         created = client.data_modeling.instances.apply([file, ts])
@@ -102,10 +119,10 @@ def file_ts_nodes(
     finally:
         client.data_modeling.instances.delete([file.as_id(), ts.as_id()])
         if file_id is not None:
-            client.files.unlink_instance_ids(id=file_id)
+            client.tool.filemetadata.unlink_instance_ids([InternalId(id=file_id)])
             client.files.delete(id=file_id, ignore_unknown_ids=True)
         if ts_id is not None:
-            client.time_series.unlink_instance_ids(id=ts_id)
+            client.tool.timeseries.unlink_instance_ids([InternalId(id=ts_id)])
             client.time_series.delete(id=ts_id, ignore_unknown_ids=True)
 
 
@@ -275,10 +292,10 @@ class TestPurge:
     def test_purge_instances_with_unlink(
         self,
         file_ts_nodes: tuple[tuple[NodeId, int], tuple[NodeId, int]],
-        toolkit_client_with_pending_ids: ToolkitClient,
+        toolkit_client: ToolkitClient,
         tmp_path: Path,
     ) -> None:
-        client = toolkit_client_with_pending_ids
+        client = toolkit_client
         (file_node, file_id), (ts_node, ts_id) = file_ts_nodes
 
         csv_path = tmp_path / "test.csv"

@@ -4,7 +4,6 @@ from typing import Any
 
 from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes.capabilities import Capability, HostedExtractorsAcl
-from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -94,13 +93,13 @@ class HostedExtractorSourceCRUD(
     def create(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:
         return self.client.tool.hosted_extractors.sources.create(list(items))
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[HostedExtractorSourceResponseUnion]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorSourceResponseUnion]:
         return self.client.tool.hosted_extractors.sources.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:
         return self.client.tool.hosted_extractors.sources.update(list(items), mode="replace")
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.hosted_extractors.sources.delete(list(ids), ignore_unknown_ids=True)
@@ -212,13 +211,13 @@ class HostedExtractorDestinationCRUD(
     def create(self, items: Sequence[HostedExtractorDestinationRequest]) -> list[HostedExtractorDestinationResponse]:
         return self.client.tool.hosted_extractors.destinations.create(list(items))
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[HostedExtractorDestinationResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorDestinationResponse]:
         return self.client.tool.hosted_extractors.destinations.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[HostedExtractorDestinationRequest]) -> list[HostedExtractorDestinationResponse]:
         return self.client.tool.hosted_extractors.destinations.update(list(items), mode="replace")
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.hosted_extractors.destinations.delete(list(ids), ignore_unknown_ids=True)
@@ -321,13 +320,13 @@ class HostedExtractorJobCRUD(ResourceCRUD[ExternalId, HostedExtractorJobRequest,
     def create(self, items: Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
         return self.client.tool.hosted_extractors.jobs.create(list(items))
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[HostedExtractorJobResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorJobResponse]:
         return self.client.tool.hosted_extractors.jobs.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[HostedExtractorJobRequest]) -> list[HostedExtractorJobResponse]:
         return self.client.tool.hosted_extractors.jobs.update(list(items), mode="replace")
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.hosted_extractors.jobs.delete(list(ids), ignore_unknown_ids=True)
@@ -398,13 +397,13 @@ class HostedExtractorMappingCRUD(
     def create(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:
         return self.client.tool.hosted_extractors.mappings.create(list(items))
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[HostedExtractorMappingResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[HostedExtractorMappingResponse]:
         return self.client.tool.hosted_extractors.mappings.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:
         return self.client.tool.hosted_extractors.mappings.update(list(items), mode="replace")
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.hosted_extractors.mappings.delete(list(ids), ignore_unknown_ids=True)

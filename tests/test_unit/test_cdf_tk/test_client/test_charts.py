@@ -43,7 +43,7 @@ CHART = ChartResponse(
 
 class TestChartAPI:
     def test_create(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
-        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
+        client = ToolkitClient(config=toolkit_config)
         url = toolkit_config.create_app_url("/storage/charts/charts")
 
         respx_mock.put(url).respond(status_code=200, json={"items": [CHART.dump()]})
@@ -54,7 +54,7 @@ class TestChartAPI:
         assert isinstance(result[0], ChartResponse)
 
     def test_retrieve(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
-        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
+        client = ToolkitClient(config=toolkit_config)
         url = toolkit_config.create_app_url("/storage/charts/charts/byids")
 
         respx_mock.post(url).respond(status_code=200, json={"items": [CHART.dump()]})

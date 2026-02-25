@@ -4,12 +4,12 @@ from pathlib import Path
 from typing import overload
 
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
-from cognite.client.utils._identifier import T_ID
 from rich import print
 from rich.markup import escape
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.clean import CleanCommand
 from cognite_toolkit._cdf_tk.constants import (
@@ -44,10 +44,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDeployResourceError,
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
-)
-from cognite_toolkit._cdf_tk.protocols import (
-    T_ResourceRequest,
-    T_ResourceResponse,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 from cognite_toolkit._cdf_tk.tk_warnings.base import WarningList, catch_warnings
@@ -346,7 +342,7 @@ class DeployCommand(ToolkitCommand):
 
     def deploy_resource_type(
         self,
-        loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
+        loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         env_vars: EnvironmentVariables,
         read_modules: list[ReadModule] | None = None,
         dry_run: bool = False,
@@ -408,8 +404,8 @@ class DeployCommand(ToolkitCommand):
 
     def actual_deploy(
         self,
-        resources: CategorizedResources[T_ID, T_ResourceRequest],
-        loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
+        resources: CategorizedResources[T_Identifier, T_RequestResource],
+        loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         env_var_warnings: WarningList | None = None,
     ) -> ResourceDeployResult:
         environment_variable_warning_by_id = {
@@ -440,8 +436,8 @@ class DeployCommand(ToolkitCommand):
 
     @staticmethod
     def dry_run_deploy(
-        resources: CategorizedResources[T_ID, T_ResourceRequest],
-        loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
+        resources: CategorizedResources[T_Identifier, T_RequestResource],
+        loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         has_done_drop: bool,
         has_dropped_data: bool,
     ) -> ResourceDeployResult:
@@ -472,7 +468,7 @@ class DeployCommand(ToolkitCommand):
 
     @staticmethod
     def _verbose_print(
-        resources: CategorizedResources[T_ID, T_ResourceRequest],
+        resources: CategorizedResources[T_Identifier, T_RequestResource],
         loader: ResourceCRUD,
         dry_run: bool,
     ) -> None:
@@ -496,7 +492,7 @@ class DeployCommand(ToolkitCommand):
 
     def _create_resources(
         self,
-        resources: Sequence[T_ResourceRequest],
+        resources: Sequence[T_RequestResource],
         loader: ResourceCRUD,
         environment_variable_warning_by_id: dict[Hashable, EnvironmentVariableMissingWarning],
     ) -> int:
@@ -519,7 +515,7 @@ class DeployCommand(ToolkitCommand):
 
     def _update_resources(
         self,
-        resources: Sequence[T_ResourceRequest],
+        resources: Sequence[T_RequestResource],
         loader: ResourceCRUD,
         environment_variable_warning_by_id: dict[Hashable, EnvironmentVariableMissingWarning],
     ) -> int:

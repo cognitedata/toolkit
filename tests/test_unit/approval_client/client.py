@@ -69,7 +69,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source._base import SourceRequestDefinition
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.project import ProjectStatus, ProjectStatusList
+from cognite_toolkit._cdf_tk.client.resource_classes.project import ProjectStatus, ProjectStatusList
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
@@ -193,9 +193,9 @@ class ApprovalToolkitClient:
         self.mock_client.functions.status.return_value = FunctionsStatus(status="activated")
 
         # Use Hybrid project
-        self.mock_client.project.status.return_value = ProjectStatusList(
-            [ProjectStatus(url_name=project, data_modeling_status="HYBRID")], cognite_client=mock_client
-        )
+        return_list = ProjectStatusList([ProjectStatus(url_name=project, data_modeling_status="HYBRID")])
+        return_list._project = project
+        self.mock_client.project.status.return_value = return_list
 
         # Activate authorization_header()
         self.mock_client.config.credentials.authorization_header.return_value = ("Bearer", "123")

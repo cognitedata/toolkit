@@ -25,7 +25,6 @@ from cognite.client.data_classes.capabilities import (
     GroupsAcl,
     SecurityCategoriesAcl,
 )
-from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.console import Console
 from rich.markup import escape
@@ -379,12 +378,12 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
                     created_list.extend(created)
             return created_list
 
-    def retrieve(self, ids: SequenceNotStr[NameId]) -> list[GroupResponse]:
+    def retrieve(self, ids: Sequence[NameId]) -> list[GroupResponse]:
         names = {id.name for id in ids}
         remote = self.client.tool.groups.list(all_groups=True)
         return [g for g in remote if g.name in names]
 
-    def delete(self, ids: SequenceNotStr[NameId]) -> int:
+    def delete(self, ids: Sequence[NameId]) -> int:
         return self._delete(self.retrieve(ids), check_own_principal=True)
 
     def _delete(self, delete_candidates: list[GroupResponse], check_own_principal: bool = True) -> int:
@@ -531,12 +530,12 @@ class SecurityCategoryCRUD(ResourceCRUD[NameId, SecurityCategoryRequest, Securit
     def create(self, items: Sequence[SecurityCategoryRequest]) -> list[SecurityCategoryResponse]:
         return self.client.tool.security_categories.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[NameId]) -> list[SecurityCategoryResponse]:
+    def retrieve(self, ids: Sequence[NameId]) -> list[SecurityCategoryResponse]:
         names = {id.name for id in ids}
         categories = self.client.tool.security_categories.list(limit=None)
         return [c for c in categories if c.name in names]
 
-    def delete(self, ids: SequenceNotStr[NameId]) -> int:
+    def delete(self, ids: Sequence[NameId]) -> int:
         retrieved = self.retrieve(ids)
         if retrieved:
             self.client.tool.security_categories.delete([InternalIdUnwrapped(id=cat.id) for cat in retrieved])
