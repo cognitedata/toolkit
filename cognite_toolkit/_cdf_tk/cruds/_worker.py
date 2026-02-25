@@ -104,7 +104,7 @@ class ResourceWorker(Generic[T_Identifier, T_RequestResource, T_ResponseResource
 
     def load_resources(
         self, filepaths: list[Path], environment_variables: dict[str, str | None] | None, is_dry_run: bool
-    ) -> dict[T_RequestResource, tuple[dict[str, Any], T_RequestResource]]:
+    ) -> dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]]:
         local_by_id: dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]] = {}
         # Load all resources from files, get ids, and remove duplicates.
         environment_variables = environment_variables or {}
