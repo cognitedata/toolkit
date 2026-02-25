@@ -181,7 +181,7 @@ class TestGroupLoader:
                     ]
                 },
                 [
-                    (ExtractionPipelineCRUD, "ex_my_extraction"),
+                    (ExtractionPipelineCRUD, ExternalId(external_id="ex_my_extraction")),
                 ],
                 id="Extraction pipeline scope",
             ),
@@ -203,7 +203,7 @@ class TestGroupLoader:
             pytest.param(
                 {"capabilities": [{"extractionPipelinesAcl": {"scope": {"idscope": {"ids": ["ex_my_extraction"]}}}}]},
                 [
-                    (ExtractionPipelineCRUD, "ex_my_extraction"),
+                    (ExtractionPipelineCRUD, ExternalId(external_id="ex_my_extraction")),
                 ],
                 id="ID scope extractionpipline ",
             ),
