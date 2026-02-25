@@ -781,8 +781,6 @@ SourceRequestDefinition:
 - eventHubName: The name of the event hub
   externalId: my_eventhub
   host: myHost
-  keyName: The name of the key
-  keyValue: SuperSecretKeyValue
   type: eventhub
 SpaceResponse:
 - space: DataModelSpace
