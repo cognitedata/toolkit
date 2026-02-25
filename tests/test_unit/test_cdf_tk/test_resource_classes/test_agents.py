@@ -1,12 +1,10 @@
 from collections.abc import Iterable
 from pathlib import Path
 from typing import get_args
-from unittest.mock import patch
 
 import pytest
 
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.resource_classes.agent import (
     AgentInstanceSpaces,
     AgentInstanceSpacesDefinition,
@@ -238,35 +236,12 @@ class TestAgentYAML:
             ],
         }
 
-        FeatureFlag.flush()
         warning_list = validate_resource_yaml_pydantic(data, AgentYAML, Path("agent.yaml"))
-        FeatureFlag.flush()
 
         assert len(warning_list) == 1
         warning = warning_list[0]
         assert isinstance(warning, ResourceFormatWarning)
         assert any("unknownTool" in e for e in warning.errors)
-
-    def test_suppress_non_ga_and_unknown_tool_warnings(self) -> None:
-        data = {
-            "externalId": "my_agent",
-            "name": "My Agent",
-            "tools": [
-                {"type": "askDocument", "name": "Doc Tool", "description": "A valid tool description for testing"},
-                {"type": "analyzeTimeSeries", "name": "TS Tool", "description": "A valid tool description for testing"},
-                {"type": "unknownTool", "name": "Mystery", "description": "A valid tool description for testing"},
-            ],
-        }
-
-        FeatureFlag.flush()
-        with patch(
-            "cognite_toolkit._cdf_tk.feature_flags.FeatureFlag.is_enabled",
-            side_effect=lambda flag: flag == Flags.SUPPRESS_NON_GA_TOOL_WARNING,
-        ):
-            warning_list = validate_resource_yaml_pydantic(data, AgentYAML, Path("agent.yaml"))
-        FeatureFlag.flush()
-
-        assert len(warning_list) == 0
 
     def test_tools_are_in_union(self) -> None:
         all_agent_tools = get_concrete_subclasses(AgentToolDefinition)

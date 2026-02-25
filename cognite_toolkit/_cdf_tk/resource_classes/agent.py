@@ -11,7 +11,7 @@ from .base import BaseModelResource, ToolkitResource
 # --- Agent tool definitions ---
 
 
-class AgentToolDefinition(BaseModelResource):
+class AgentToolDefinition(BaseModelResource, extra="allow"):
     type: str
     name: str = Field(
         description="A name for the tool, unique within the agent.",
@@ -148,17 +148,7 @@ class TimeSeriesAnalysis(AgentToolDefinition):
     type: Literal["timeSeriesAnalysis"] = "timeSeriesAnalysis"
 
 
-GA_TOOL_TYPES: frozenset[str] = frozenset(
-    {
-        "askDocument",
-        "callFunction",
-        "queryKnowledgeGraph",
-        "queryTimeSeriesDatapoints",
-        "summarizeDocument",
-    }
-)
-
-NON_GA_TOOL_TYPES: frozenset[str] = frozenset(
+_NON_GA_TOOL_TYPES: frozenset[str] = frozenset(
     {
         "analyzeImage",
         "analyzeTimeSeries",
@@ -168,13 +158,27 @@ NON_GA_TOOL_TYPES: frozenset[str] = frozenset(
     }
 )
 
-DEPRECATED_TOOL_TYPES: frozenset[str] = frozenset(
+_DEPRECATED_TOOL_TYPES: frozenset[str] = frozenset(
     {
         "timeSeriesAnalysis",
     }
 )
 
-ALL_TOOL_TYPES: frozenset[str] = GA_TOOL_TYPES | NON_GA_TOOL_TYPES | DEPRECATED_TOOL_TYPES
+KNOWN_TOOLS: frozenset[str] = frozenset(
+    {
+        "analyzeImage",
+        "analyzeTimeSeries",
+        "askDocument",
+        "callFunction",
+        "callRestApi",
+        "examineDataSemantically",
+        "queryKnowledgeGraph",
+        "queryTimeSeriesDatapoints",
+        "runPythonCode",
+        "summarizeDocument",
+        "timeSeriesAnalysis",
+    }
+)
 
 
 AgentTool = Annotated[
@@ -260,32 +264,24 @@ class AgentYAML(ToolkitResource):
         if not isinstance(v, list):
             return v
 
-        from cognite_toolkit._cdf_tk.feature_flags import Flags
-
-        suppress = Flags.SUPPRESS_NON_GA_TOOL_WARNING.is_enabled()
         warnings = info.context.get("warnings") if info.context else None
+        if warnings is None:
+            return v
 
-        result = []
         for tool in v:
             if not isinstance(tool, dict):
-                result.append(tool)
                 continue
             tool_type = tool.get("type")
-            if tool_type in DEPRECATED_TOOL_TYPES:
-                if warnings is not None and not suppress:
-                    warnings.append(
-                        MediumSeverityWarning(
-                            f"Agent tool type {tool_type!r} is deprecated and may be removed in a future release."
-                        )
+            if tool_type in _DEPRECATED_TOOL_TYPES:
+                warnings.append(
+                    MediumSeverityWarning(
+                        f"Agent tool type {tool_type!r} is deprecated and may be removed in a future release."
                     )
-            elif tool_type in NON_GA_TOOL_TYPES:
-                if warnings is not None and not suppress:
-                    warnings.append(
-                        MediumSeverityWarning(
-                            f"Agent tool type {tool_type!r} is not Generally Available and may change without notice."
-                        )
+                )
+            elif tool_type in _NON_GA_TOOL_TYPES:
+                warnings.append(
+                    MediumSeverityWarning(
+                        f"Agent tool type {tool_type!r} is not Generally Available and may change without notice."
                     )
-            elif tool_type not in ALL_TOOL_TYPES and suppress:
-                continue
-            result.append(tool)
-        return result
+                )
+        return v

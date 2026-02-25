@@ -94,10 +94,6 @@ class Flags(Enum):
         visible=True,
         description="Enables JSON output format for the modules list command",
     )
-    SUPPRESS_NON_GA_TOOL_WARNING = FlagMetadata(
-        visible=True,
-        description="Suppresses warnings about non-GA agent tool types during validation",
-    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)

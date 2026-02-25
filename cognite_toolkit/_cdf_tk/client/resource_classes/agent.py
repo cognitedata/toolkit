@@ -3,7 +3,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BeforeValidator, Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.resource_classes.agent import ALL_TOOL_TYPES
+from cognite_toolkit._cdf_tk.resource_classes.agent import KNOWN_TOOLS
 
 from .identifiers import ExternalId
 
@@ -78,9 +78,7 @@ TOOLS_WITH_CONFIGURATION: dict[str, type[AgentToolDefinition]] = {
 def _handle_unknown_tool(value: Any) -> Any:
     if isinstance(value, dict):
         tool_type = value.get("type")
-        if tool_type in TOOLS_WITH_CONFIGURATION:
-            return TOOLS_WITH_CONFIGURATION[tool_type].model_validate(value)
-        if tool_type in ALL_TOOL_TYPES:
+        if tool_type in KNOWN_TOOLS:
             return AgentToolDefinition.model_validate(value)
         return UnknownAgentTool(**value)
     return value
