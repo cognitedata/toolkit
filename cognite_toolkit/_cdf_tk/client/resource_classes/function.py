@@ -1,6 +1,7 @@
 from typing import Literal, TypeAlias
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client._types import Metadata
 
 from .identifiers import ExternalId
 
@@ -21,7 +22,7 @@ class FunctionBase(BaseModelObject):
     cpu: float | None = None
     memory: float | None = None
     runtime: Literal["py38", "py39", "py310", "py311", "py312"] | None = None
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
     index_url: str | None = None
     extra_index_urls: list[str] | None = None
 
