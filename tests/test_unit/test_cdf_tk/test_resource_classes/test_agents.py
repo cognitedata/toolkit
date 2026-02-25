@@ -12,7 +12,6 @@ from cognite_toolkit._cdf_tk.resource_classes.agent import (
     AgentToolDefinition,
     AgentYAML,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
@@ -189,45 +188,7 @@ class TestAgentYAML:
 
         assert set(format_warning.errors) == expected_errors
 
-    def test_ga_tools_no_warnings(self) -> None:
-        data = {
-            "externalId": "my_agent",
-            "name": "My Agent",
-            "tools": [
-                {"type": "askDocument", "name": "Doc Tool", "description": "A valid tool description for testing"},
-                {"type": "summarizeDocument", "name": "Summary", "description": "A valid tool description for testing"},
-            ],
-        }
-
-        warning_list = validate_resource_yaml_pydantic(data, AgentYAML, Path("agent.yaml"))
-        assert len(warning_list) == 0
-
-        loaded = AgentYAML.model_validate(data)
-        assert loaded.tools is not None
-        assert len(loaded.tools) == 2
-
-    def test_non_ga_tool_warning(self) -> None:
-        data = {
-            "externalId": "my_agent",
-            "name": "My Agent",
-            "tools": [
-                {"type": "askDocument", "name": "Doc Tool", "description": "A valid tool description for testing"},
-                {"type": "analyzeTimeSeries", "name": "TS Tool", "description": "A valid tool description for testing"},
-            ],
-        }
-
-        warning_list = validate_resource_yaml_pydantic(data, AgentYAML, Path("agent.yaml"))
-        assert len(warning_list) == 1
-        warning = warning_list[0]
-        assert isinstance(warning, MediumSeverityWarning)
-        assert "analyzeTimeSeries" in str(warning)
-        assert "not Generally Available" in str(warning)
-
-        loaded = AgentYAML.model_validate(data)
-        assert loaded.tools is not None
-        assert len(loaded.tools) == 2
-
-    def test_unknown_tool_warning(self) -> None:
+    def test_unknown_tool_type_is_validation_error(self) -> None:
         data = {
             "externalId": "my_agent",
             "name": "My Agent",

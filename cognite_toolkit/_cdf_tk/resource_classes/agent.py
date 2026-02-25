@@ -1,10 +1,9 @@
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, ValidationInfo, field_validator
+from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
-from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 
 from .base import BaseModelResource, ToolkitResource
 
@@ -148,22 +147,6 @@ class TimeSeriesAnalysis(AgentToolDefinition):
     type: Literal["timeSeriesAnalysis"] = "timeSeriesAnalysis"
 
 
-_NON_GA_TOOL_TYPES: frozenset[str] = frozenset(
-    {
-        "analyzeImage",
-        "analyzeTimeSeries",
-        "callRestApi",
-        "examineDataSemantically",
-        "runPythonCode",
-    }
-)
-
-_DEPRECATED_TOOL_TYPES: frozenset[str] = frozenset(
-    {
-        "timeSeriesAnalysis",
-    }
-)
-
 KNOWN_TOOLS: frozenset[str] = frozenset(
     {
         "analyzeImage",
@@ -182,17 +165,17 @@ KNOWN_TOOLS: frozenset[str] = frozenset(
 
 
 AgentTool = Annotated[
-    AnalyzeImage  # Alpha
-    | AnalyzeTimeSeries  # Beta
-    | AskDocument  # GA
-    | CallFunction  # GA
-    | CallRestApi  # Beta
+    AnalyzeImage
+    | AnalyzeTimeSeries
+    | AskDocument
+    | CallFunction
+    | CallRestApi
     | ExamineDataSemantically
-    | QueryKnowledgeGraph  # GA
-    | QueryTimeSeriesDatapoints  # GA
-    | RunPythonCode  # Beta
-    | SummarizeDocument  # GA
-    | TimeSeriesAnalysis,  # Deprecated
+    | QueryKnowledgeGraph
+    | QueryTimeSeriesDatapoints
+    | RunPythonCode
+    | SummarizeDocument
+    | TimeSeriesAnalysis,
     Field(discriminator="type"),
 ]
 
@@ -257,31 +240,3 @@ class AgentYAML(ToolkitResource):
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
-
-    @field_validator("tools", mode="before")
-    @classmethod
-    def _check_tool_types(cls, v: Any, info: ValidationInfo) -> Any:
-        if not isinstance(v, list):
-            return v
-
-        warnings = info.context.get("warnings") if info.context else None
-        if warnings is None:
-            return v
-
-        for tool in v:
-            if not isinstance(tool, dict):
-                continue
-            tool_type = tool.get("type")
-            if tool_type in _DEPRECATED_TOOL_TYPES:
-                warnings.append(
-                    MediumSeverityWarning(
-                        f"Agent tool type {tool_type!r} is deprecated and may be removed in a future release."
-                    )
-                )
-            elif tool_type in _NON_GA_TOOL_TYPES:
-                warnings.append(
-                    MediumSeverityWarning(
-                        f"Agent tool type {tool_type!r} is not Generally Available and may change without notice."
-                    )
-                )
-        return v
