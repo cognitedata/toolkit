@@ -3,15 +3,26 @@ from typing import Annotated, Any, Literal
 from pydantic import BeforeValidator, Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.resource_classes.agent import KNOWN_TOOLS
 
 from .identifiers import ExternalId
 
 
-class AgentToolDefinition(BaseModelObject, extra="ignore"):
+class AgentToolDefinition(BaseModelObject):
     type: str
     name: str
     description: str
+
+
+class AnalyzeImage(AgentToolDefinition):
+    type: Literal["analyzeImage"] = "analyzeImage"
+
+
+class AnalyzeTimeSeries(AgentToolDefinition):
+    type: Literal["analyzeTimeSeries"] = "analyzeTimeSeries"
+
+
+class AskDocument(AgentToolDefinition):
+    type: Literal["askDocument"] = "askDocument"
 
 
 class CallFunctionConfig(BaseModelObject):
@@ -23,6 +34,14 @@ class CallFunctionConfig(BaseModelObject):
 class CallFunction(AgentToolDefinition):
     type: Literal["callFunction"] = "callFunction"
     configuration: CallFunctionConfig
+
+
+class CallRestApi(AgentToolDefinition):
+    type: Literal["callRestApi"] = "callRestApi"
+
+
+class ExamineDataSemantically(AgentToolDefinition):
+    type: Literal["examineDataSemantically"] = "examineDataSemantically"
 
 
 class AgentDataModel(BaseModelObject):
@@ -63,23 +82,66 @@ class QueryKnowledgeGraph(AgentToolDefinition):
     configuration: QueryKnowledgeGraphConfig
 
 
+class QueryTimeSeriesDatapoints(AgentToolDefinition):
+    type: Literal["queryTimeSeriesDatapoints"] = "queryTimeSeriesDatapoints"
+
+
+class RunPythonCode(AgentToolDefinition):
+    type: Literal["runPythonCode"] = "runPythonCode"
+
+
+class SummarizeDocument(AgentToolDefinition):
+    type: Literal["summarizeDocument"] = "summarizeDocument"
+
+
+class TimeSeriesAnalysis(AgentToolDefinition):
+    type: Literal["timeSeriesAnalysis"] = "timeSeriesAnalysis"
+
+
 class UnknownAgentTool(AgentToolDefinition):
-    """Fallback for unknown tool types returned by the API."""
+    """Fallback for unknown tool types."""
 
     ...
+
+
+KNOWN_TOOLS: dict[str, type[AgentToolDefinition]] = {
+    "analyzeImage": AnalyzeImage,
+    "analyzeTimeSeries": AnalyzeTimeSeries,
+    "askDocument": AskDocument,
+    "callFunction": CallFunction,
+    "callRestApi": CallRestApi,
+    "examineDataSemantically": ExamineDataSemantically,
+    "queryKnowledgeGraph": QueryKnowledgeGraph,
+    "queryTimeSeriesDatapoints": QueryTimeSeriesDatapoints,
+    "runPythonCode": RunPythonCode,
+    "summarizeDocument": SummarizeDocument,
+    "timeSeriesAnalysis": TimeSeriesAnalysis,
+}
 
 
 def _handle_unknown_tool(value: Any) -> Any:
     if isinstance(value, dict):
         tool_type = value.get("type")
-        if tool_type in KNOWN_TOOLS:
-            return AgentToolDefinition.model_validate(value)
-        return UnknownAgentTool(**value)
+        if tool_type not in KNOWN_TOOLS:
+            return UnknownAgentTool(**value)
+        else:
+            return KNOWN_TOOLS[tool_type].model_validate(value)
     return value
 
 
 AgentTool = Annotated[
-    CallFunction | QueryKnowledgeGraph | AgentToolDefinition,
+    AnalyzeImage
+    | AnalyzeTimeSeries
+    | AskDocument
+    | CallFunction
+    | CallRestApi
+    | ExamineDataSemantically
+    | QueryKnowledgeGraph
+    | QueryTimeSeriesDatapoints
+    | RunPythonCode
+    | SummarizeDocument
+    | TimeSeriesAnalysis
+    | UnknownAgentTool,
     BeforeValidator(_handle_unknown_tool),
 ]
 
