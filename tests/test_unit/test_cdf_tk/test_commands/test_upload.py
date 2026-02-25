@@ -13,7 +13,6 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable, RawTableList
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableRequest
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
@@ -24,13 +23,17 @@ from cognite_toolkit._cdf_tk.storageio import RawIO
 from cognite_toolkit._cdf_tk.storageio._asset_centric import AssetIO
 from cognite_toolkit._cdf_tk.storageio._base import UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import (
+    InstanceFileSelector,
+    InstanceSelector,
     InstanceSpaceSelector,
+    InstanceViewSelector,
     RawTableSelector,
     SelectedTable,
     SelectedView,
     Selector,
 )
 from cognite_toolkit._cdf_tk.storageio.selectors._asset_centric import DataSetSelector
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -40,8 +43,8 @@ def raw_json_directory(tmp_path: Path) -> Path:
     """Fixture to create a temporary folder with a sample NDJSON file."""
     configfile = tmp_path / DATA_RESOURCE_DIR / RawTableCRUD.folder_name / f"test_table.{RawTableCRUD.kind}.yaml"
     configfile.parent.mkdir(parents=True, exist_ok=True)
-    table = RawTable(db_name="test_db", table_name="test_table")
-    configfile.write_text(table.dump_yaml())
+    table = RAWTableRequest(db_name="test_db", name="test_table")
+    configfile.write_text(table.dump_yaml(context="toolkit"))
     with NDJsonWriter(tmp_path, RawIO.KIND, Uncompressed) as writer:
         writer.write_chunks(
             [
@@ -58,9 +61,7 @@ def raw_json_directory(tmp_path: Path) -> Path:
             filestem="test_table",
         )
 
-    selector = RawTableSelector(
-        table=SelectedTable(db_name=table.db_name, table_name=table.table_name), type="rawTable"
-    )
+    selector = RawTableSelector(table=SelectedTable(db_name=table.db_name, table_name=table.name), type="rawTable")
     selector.dump_to_file(tmp_path)
     return tmp_path
 
@@ -70,8 +71,8 @@ def raw_csv_directory(tmp_path: Path) -> Path:
     """Fixture to create a temporary folder with a sample CSV file."""
     configfile = tmp_path / DATA_RESOURCE_DIR / RawTableCRUD.folder_name / f"test_table.{RawTableCRUD.kind}.yaml"
     configfile.parent.mkdir(parents=True, exist_ok=True)
-    table = RawTable(db_name="test_db", table_name="test_table")
-    configfile.write_text(table.dump_yaml())
+    table = RAWTableRequest(db_name="test_db", name="test_table")
+    configfile.write_text(table.dump_yaml(context="toolkit"))
     csv_file = tmp_path / f"test_table.{RawIO.KIND}.csv"
     with csv_file.open("w") as f:
         f.write("index,column1,column2,column3\n")
@@ -79,7 +80,7 @@ def raw_csv_directory(tmp_path: Path) -> Path:
             f.write(f"key{i},value{i},{i},{i % 2 == 0}\n")
 
     selector = RawTableSelector(
-        table=SelectedTable(db_name=table.db_name, table_name=table.table_name), type="rawTable", key="index"
+        table=SelectedTable(db_name=table.db_name, table_name=table.name), type="rawTable", key="index"
     )
     selector.dump_to_file(tmp_path)
     return tmp_path
@@ -98,7 +99,7 @@ def raw_mock_client(
     monkeypatch.setenv("CDF_PROJECT", config.project)
     with monkeypatch_toolkit_client() as client:
         client.verify.authorization.return_value = []
-        client.raw.tables.list.return_value = RawTableList([])
+        client.raw.tables.list.return_value = []
         client.raw.tables.create.return_value = TableList([Table(name="test_table")])
         client.config = config
         yield client, respx_mock
@@ -171,36 +172,43 @@ class TestUploadCommand:
         toolkit_client_approval.append(ViewResponse, cognite_core_no_3D.views)
         toolkit_client_approval.append(ContainerResponse, cognite_core_containers_no_3D)
 
-        data_files_by_selector: dict[Selector, list[Path]] = {}
-        selector_by_view_external_id: dict[str, Selector] = {}
-
-        # Create instance selectors in reverse dependency order
-        for view_external_id in ["CogniteAsset", "CogniteSourceSystem"]:
-            selector = InstanceSpaceSelector(
-                instance_space="cdf_cdm",
-                view=SelectedView(space="cdf_cdm", external_id=view_external_id, version="v1"),
-                type="instanceSpace",
-            )
-            data_files_by_selector[selector] = [Path(f"dummy_{view_external_id}.json")]  # type: ignore[reportUnhashable]
-            selector_by_view_external_id[view_external_id] = selector
-
-        # Add a non-instance selector
+        cognite_asset_selector = InstanceSpaceSelector(
+            instance_space="cdf_cdm",
+            view=SelectedView(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
+        )
+        source_system_selector = InstanceViewSelector(
+            view=SelectedView(space="cdf_cdm", external_id="CogniteSourceSystem", version="v1"),
+            instance_type="node",
+        )
         raw_selector = RawTableSelector(
             table=SelectedTable(db_name="test_db", table_name="test_table"), type="rawTable"
         )
-        data_files_by_selector[raw_selector] = [Path("raw_data.json")]  # type: ignore[reportUnhashable]
+        data_files_by_selector: dict[Selector, list[Path]] = {
+            # Create instance selectors in reverse dependency order
+            cognite_asset_selector: [Path("dummy_CogniteAsset.json")],
+            source_system_selector: [Path("dummy_CogniteSourceSystem.json")],
+            # Add a non-instance selector
+            raw_selector: [Path("dummy_test_table.json")],
+        }
 
         result = cmd._topological_sort_if_instance_selector(data_files_by_selector, toolkit_client_approval.mock_client)
 
         # Verify instance selectors are sorted by dependencies
         result_keys = list(result.keys())
-        assert result_keys.index(selector_by_view_external_id["CogniteSourceSystem"]) < result_keys.index(
-            selector_by_view_external_id["CogniteAsset"]
-        ), f"CogniteSourceSystem should come before CogniteAsset due to dependencies, but got order {result_keys}"
 
+        assert result_keys.index(source_system_selector) < result_keys.index(cognite_asset_selector), (
+            f"CogniteSourceSystem should come before CogniteAsset due to dependencies, but got order {result_keys}"
+        )
         # Verify non-instance selectors are preserved
         assert raw_selector in result, f"Raw selector should be preserved, not found in {result_keys}"
         assert len(result) == 3, f"Expected 3 selectors, got {len(result)}: {result_keys}"
+
+        # Check that all subclasses of InstanceSelector are part of the test data
+        subclasses = set(get_concrete_subclasses(InstanceSelector))
+        exceptions = {InstanceFileSelector}
+        missing = subclasses - ({type(selector) for selector in data_files_by_selector.keys()} | exceptions)
+        # All instance selector subclasses should do topological sorting, except for the ones in exceptions
+        assert not missing, f"Test data is missing selectors for the following InstanceSelector subclasses: {missing}"
 
     @pytest.mark.usefixtures("disable_gzip")
     def test_early_stopping_when_all_items_fail(

@@ -42,8 +42,9 @@ def invalid_test_cases() -> Iterable:
             "In field model input should be 'azure/o3', 'azure/o4-mini', 'azure/gpt-4o', "
             "'azure/gpt-4o-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-nano', "
             "'azure/gpt-4.1-mini', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', "
-            "'gcp/gemini-2.5-pro', 'gcp/gemini-2.5-flash', 'aws/claude-4-sonnet', "
-            "'aws/claude-4-opus', 'aws/claude-4.1-opus' or 'aws/claude-3.5-sonnet'. Got "
+            "'azure/gpt-5.1', 'gcp/claude-4.5-sonnet', 'gcp/claude-4.5-haiku', "
+            "'gcp/gemini-2.5-pro', 'gcp/gemini-2.5-flash', 'aws/claude-4.5-sonnet', "
+            "'aws/claude-4.5-haiku', 'aws/claude-4-sonnet' or 'aws/claude-3.5-sonnet'. Got "
             "'invalid-model'.",
             "In field name string should have at least 1 character",
             "In field tools list should have at most 20 items after validation, not 21",
@@ -150,8 +151,9 @@ def invalid_test_cases() -> Iterable:
             "In field model input should be 'azure/o3', 'azure/o4-mini', 'azure/gpt-4o', "
             "'azure/gpt-4o-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-nano', "
             "'azure/gpt-4.1-mini', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', "
-            "'gcp/gemini-2.5-pro', 'gcp/gemini-2.5-flash', 'aws/claude-4-sonnet', "
-            "'aws/claude-4-opus', 'aws/claude-4.1-opus' or 'aws/claude-3.5-sonnet'. Got "
+            "'azure/gpt-5.1', 'gcp/claude-4.5-sonnet', 'gcp/claude-4.5-haiku', "
+            "'gcp/gemini-2.5-pro', 'gcp/gemini-2.5-flash', 'aws/claude-4.5-sonnet', "
+            "'aws/claude-4.5-haiku', 'aws/claude-4-sonnet' or 'aws/claude-3.5-sonnet'. Got "
             "True.",
             "In field name input should be a valid string. Got None of type NoneType. "
             "Hint: Use double quotes to force string.",

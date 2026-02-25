@@ -1,17 +1,23 @@
 from collections.abc import Iterable, Sequence
-from typing import Literal
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import TransformationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationRequest, TransformationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
+    SQLQueryResponse,
+    TransformationRequest,
+    TransformationResponse,
+)
 
 
-class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequest, TransformationResponse]):
+class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
+    DEFAULT_TIMEOUT_RUN_QUERY = 240.0  # seconds, this is the maximum timeout for running queries in CDF
+
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,
@@ -84,6 +90,60 @@ class TransformationsAPI(CDFResourceAPI[InternalOrExternalId, TransformationRequ
             ignore_unknown_ids: Whether to ignore unknown IDs.
         """
         self._request_no_response(items, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
+
+    def preview(
+        self,
+        query: str | None = None,
+        convert_to_string: bool = False,
+        limit: int | None = 100,
+        source_limit: int | None = 100,
+        infer_schema_limit: int | None = 10_000,
+        timeout: float | None = DEFAULT_TIMEOUT_RUN_QUERY,
+    ) -> SQLQueryResponse:
+        """`Preview the result of a query. <https://developer.cognite.com/api#tag/Query/operation/runPreview>`_
+
+        Toolkit runs long-running queries that takes longer than the typical default of 30 seconds. In addition,
+        we do not want to retry, which typically up to 10 times, as the user will have to wait for a long time. Instead,
+        we want to fail provide the user with the error and then let the user decide whether to retry or not by
+        running the CLI command again.
+
+        Args:
+            query (str | None): SQL query to run for preview.
+            convert_to_string (bool): Stringify values in the query results, default is False.
+            limit (int | None): Maximum number of rows to return in the final result, default is 100.
+            source_limit (int | None): Maximum number of items to read from the data source or None to run without limit, default is 100.
+            infer_schema_limit (int | None): Limit for how many rows that are used for inferring result schema, default is 10 000.
+            timeout (int | None): Number of seconds to wait before cancelling a query. The default, and maximum, is 240.
+
+        Returns:
+            SQLQueryResponse: Result of the executed query
+        """
+        body: dict[str, Any] = {
+            "query": query,
+            "convertToString": convert_to_string,
+        }
+        if limit is not None:
+            body["limit"] = limit
+        if source_limit is not None:
+            body["sourceLimit"] = source_limit
+        if infer_schema_limit is not None:
+            body["inferSchemaLimit"] = infer_schema_limit
+        if timeout is not None:
+            # This is the server-side timeout for how long the query is allowed to run before it is cancelled.
+            body["timeout"] = timeout
+
+        response = self._http_client.request_single_retries(
+            RequestMessage(
+                endpoint_url=self._http_client.config.create_api_url("/transformations/query/run"),
+                method="POST",
+                body_content=body,
+                client_timeout=timeout
+                if timeout is not None
+                else (self.DEFAULT_TIMEOUT_RUN_QUERY + 60),  # add a buffer to the timeout
+                retry_status=False,
+            )
+        ).get_success_or_raise()
+        return SQLQueryResponse.model_validate_json(response.body)
 
     def paginate(
         self,

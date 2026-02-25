@@ -11,6 +11,7 @@ from rich import print
 from rich.panel import Panel
 from yaml import YAMLError
 
+from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
 from cognite_toolkit._cdf_tk.constants import TABLE_FORMATS
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError, ToolkitYAMLFormatError
@@ -19,28 +20,28 @@ from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarnin
 from cognite_toolkit._cdf_tk.utils import to_diff
 
 from . import FunctionCRUD
-from ._base_cruds import T_ID, ResourceCRUD, T_ResourceRequest, T_ResourceResponse
+from ._base_cruds import ResourceCRUD
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes._module_directories import ReadModule
 
 
 @dataclass
-class CategorizedResources(Generic[T_ID, T_ResourceRequest]):
-    to_create: list[T_ResourceRequest] = field(default_factory=list)
-    to_update: list[T_ResourceRequest] = field(default_factory=list)
-    to_delete: list[T_ID] = field(default_factory=list)
-    unchanged: list[T_ResourceRequest] = field(default_factory=list)
+class CategorizedResources(Generic[T_Identifier, T_RequestResource]):
+    to_create: list[T_RequestResource] = field(default_factory=list)
+    to_update: list[T_RequestResource] = field(default_factory=list)
+    to_delete: list[T_Identifier] = field(default_factory=list)
+    unchanged: list[T_RequestResource] = field(default_factory=list)
 
 
-class ResourceWorker(Generic[T_ID, T_ResourceRequest, T_ResourceResponse]):
+class ResourceWorker(Generic[T_Identifier, T_RequestResource, T_ResponseResource]):
     def __init__(
         self,
-        loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
+        loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         action: str,
     ):
         self.loader = loader
-        self.duplicates: list[T_ID] = []
+        self.duplicates: list[T_Identifier] = []
         self.action = action
 
     def load_files(
@@ -103,8 +104,8 @@ class ResourceWorker(Generic[T_ID, T_ResourceRequest, T_ResourceResponse]):
 
     def load_resources(
         self, filepaths: list[Path], environment_variables: dict[str, str | None] | None, is_dry_run: bool
-    ) -> dict[T_ID, tuple[dict[str, Any], T_ResourceRequest]]:
-        local_by_id: dict[T_ID, tuple[dict[str, Any], T_ResourceRequest]] = {}
+    ) -> dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]]:
+        local_by_id: dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]] = {}
         # Load all resources from files, get ids, and remove duplicates.
         environment_variables = environment_variables or {}
         for filepath in filepaths:
@@ -141,7 +142,7 @@ class ResourceWorker(Generic[T_ID, T_ResourceRequest, T_ResourceResponse]):
         return local_by_id
 
     def validate_access(
-        self, local_by_id: dict[T_ID, tuple[dict[str, Any], T_ResourceRequest]], is_dry_run: bool
+        self, local_by_id: dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]], is_dry_run: bool
     ) -> None:
         capabilities: Capability | list[Capability]
         if isinstance(self.loader, FunctionCRUD):
@@ -157,12 +158,12 @@ class ResourceWorker(Generic[T_ID, T_ResourceRequest, T_ResourceResponse]):
 
     def categorize_resources(
         self,
-        local_by_id: dict[T_ID, tuple[dict[str, Any], T_ResourceRequest]],
-        cdf_resources: Sequence[T_ResourceResponse],
+        local_by_id: dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]],
+        cdf_resources: Sequence[T_ResponseResource],
         force_update: bool,
         verbose: bool,
-    ) -> CategorizedResources[T_ID, T_ResourceRequest]:
-        resources: CategorizedResources[T_ID, T_ResourceRequest] = CategorizedResources()
+    ) -> CategorizedResources[T_Identifier, T_RequestResource]:
+        resources: CategorizedResources[T_Identifier, T_RequestResource] = CategorizedResources()
         cdf_resource_by_id = {self.loader.get_id(resource): resource for resource in cdf_resources}
         for identifier, (local_dict, local_resource) in local_by_id.items():
             cdf_resource = cdf_resource_by_id.get(identifier)

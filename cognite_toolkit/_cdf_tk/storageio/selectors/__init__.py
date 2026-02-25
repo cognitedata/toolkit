@@ -38,6 +38,7 @@ from ._instances import (
     SelectedView,
 )
 from ._raw import RawTableSelector, SelectedTable
+from ._records import RecordContainerSelector, SelectedContainer, SelectedStream
 from ._three_d import ThreeDModelFilteredSelector, ThreeDModelIdSelector, ThreeDSelector
 
 Selector = Annotated[
@@ -58,11 +59,12 @@ Selector = Annotated[
     | CanvasExternalIdSelector
     | FileMetadataTemplateSelector
     | FileDataModelingTemplateSelector
-    | FileIdentifierSelector,
+    | FileIdentifierSelector
+    | RecordContainerSelector,
     Field(discriminator="type"),
 ]
 
-ALPHA_SELECTORS = {FileIdentifierSelector}
+ALPHA_SELECTORS = {FileIdentifierSelector, RecordContainerSelector}
 INTERNAL = {ThreeDModelIdSelector, ThreeDModelFilteredSelector}
 SelectorAdapter: TypeAdapter[Selector] = TypeAdapter(Selector)
 
@@ -122,6 +124,9 @@ __all__ = [
     "InstanceViewSelector",
     "InternalIdColumn",
     "RawTableSelector",
+    "RecordContainerSelector",
+    "SelectedContainer",
+    "SelectedStream",
     "SelectedTable",
     "SelectedView",
     "Selector",

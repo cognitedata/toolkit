@@ -1,3 +1,4 @@
+import builtins
 from typing import Any, ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
@@ -5,6 +6,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
+from cognite_toolkit._cdf_tk.client._types import Metadata
 
 from .identifiers import ExternalId, InternalOrExternalId
 from .instance_api import NodeReference
@@ -14,7 +16,7 @@ class TimeSeries(BaseModelObject):
     external_id: str | None = None
     name: str | None = None
     is_string: bool = False
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
     unit: str | None = None
     unit_external_id: str | None = None
     asset_id: int | None = None
@@ -44,9 +46,11 @@ class TimeSeriesRequest(TimeSeries, UpdatableRequestResource):
 class TimeSeriesResponse(TimeSeries, ResponseResource[TimeSeriesRequest]):
     id: int
     instance_id: NodeReference | None = None
+    pending_instance_id: NodeReference | None = None
     type: str
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> TimeSeriesRequest:
-        return TimeSeriesRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> builtins.type[TimeSeriesRequest]:
+        return TimeSeriesRequest

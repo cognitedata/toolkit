@@ -26,8 +26,9 @@ class SecurityCategoryRequest(SecurityCategory, RequestResource):
 class SecurityCategoryResponse(SecurityCategory, ResponseResource[SecurityCategoryRequest]):
     id: int
 
-    def as_request_resource(self) -> SecurityCategoryRequest:
-        return SecurityCategoryRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[SecurityCategoryRequest]:
+        return SecurityCategoryRequest
 
     def as_id(self) -> InternalIdUnwrapped:
         return InternalIdUnwrapped(id=self.id)

@@ -131,7 +131,7 @@ class AssetCentricIO(
     ) -> Iterable[StorageIOConfig]:
         if not ids:
             return
-        items = loader.retrieve(list(ids))
+        items = loader.retrieve(ids)  # type: ignore[arg-type]
         yield StorageIOConfig(
             kind=loader.kind,
             folder_name=loader.folder_name,

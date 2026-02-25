@@ -1,10 +1,10 @@
 import os
 import sys
-from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
+from typing import Any
 
-from pydantic import JsonValue, ValidationError
+from pydantic import JsonValue, TypeAdapter, ValidationError
 from rich.console import Console
 from rich.panel import Panel
 
@@ -13,12 +13,11 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2._module_source_parser import ModuleSourceParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
-    BuildFiles,
     BuildFolder,
     BuildParameters,
+    BuildSourceFiles,
     BuiltModule,
     ConfigYAML,
-    InsightList,
     Module,
     ModuleSource,
     RelativeDirPath,
@@ -26,13 +25,22 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ValidationType,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxError, Recommendation
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
+    BuildVariable,
+    FailedReadResource,
+    ReadResource,
+    SuccessfulReadResource,
+)
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._plugins import NeatPlugin
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, MODULES
-from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME, ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
-from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_write
-from cognite_toolkit._cdf_tk.utils.file import relative_to_if_possible, yaml_safe_dump
+from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
+from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write, sanitize_filename
+from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, relative_to_if_possible, safe_read, yaml_safe_dump
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
 
@@ -133,21 +141,18 @@ class BuildV2Command(ToolkitCommand):
             suggestion.append(f"-o {display_path}")
         return f"'{' '.join(suggestion)}'"
 
-    def _parse_module_sources(self, build: BuildFiles) -> list[ModuleSource]:
-        parser = ModuleSourceParser(
-            build.selected_modules,
-            build.organization_dir,
-        )
+    def _parse_module_sources(self, build: BuildSourceFiles) -> list[ModuleSource]:
+        parser = ModuleSourceParser(build.selected_modules, build.organization_dir)
         module_sources = parser.parse(build.yaml_files, build.variables)
         if parser.errors:
-            # Todo: Nicer way of formatting errors.
+            # Todo: Nicer way of formatting errors. Jira CDF-27107
             raise ToolkitValueError(
                 "Errors encountered while parsing modules:\n" + "\n".join(f"- {error!s}" for error in parser.errors)
             )
         return module_sources
 
     @classmethod
-    def _read_file_system(cls, parameters: BuildParameters) -> BuildFiles:
+    def _read_file_system(cls, parameters: BuildParameters) -> BuildSourceFiles:
         """Reads the file system to find the YAML files to build along with config.<name>.yaml if it exists."""
         selected: set[RelativeDirPath | str] = {
             parameters.modules_directory.relative_to(parameters.organization_dir)
@@ -183,7 +188,7 @@ class BuildV2Command(ToolkitCommand):
             yaml_file.relative_to(parameters.organization_dir)
             for yaml_file in parameters.modules_directory.rglob("*.y*ml")
         ]
-        return BuildFiles(
+        return BuildSourceFiles(
             yaml_files=yaml_files,
             selected_modules=selected,
             variables=variables,
@@ -226,63 +231,203 @@ class BuildV2Command(ToolkitCommand):
         return selected, errors
 
     def _build_modules(
-        self, module_sources: Iterable[ModuleSource], build_dir: Path, max_workers: int = 1
+        self, module_sources: Sequence[ModuleSource], build_dir: Path, max_workers: int = 1
     ) -> BuildFolder:
         folder: BuildFolder = BuildFolder(path=build_dir)
-
         for source in module_sources:
             # Inside this loop, do not raise exceptions.
             module = self._import_module(source)  # Syntax validation
 
-            # init built_module, add syntax errors if there are any,
-            built_module = BuiltModule(source=module.source, insights=module.insights)
+            # init built_module
+            built_module = BuiltModule(source=module.source)
 
             if module.is_success:
-                built_module.insights.extend(self._local_validation(module))
+                self._local_validation(module)
                 built_module.built_files = self._export_module(module, build_dir)
 
+            built_module.insights.extend(module.insights)
+            for resource in module.resources:
+                if isinstance(resource, FailedReadResource):
+                    built_module.insights.extend(resource.errors)
             folder.built_modules.append(built_module)
 
         return folder
 
-    def _import_module(self, module_source: ModuleSource) -> Module:
-        insights: InsightList = InsightList()
-        resource_folder_paths = [
-            resource_path for resource_path in module_source.path.iterdir() if resource_path.is_dir()
-        ]
-
-        resource_by_type: dict[ResourceType, list[ToolkitResource]] = defaultdict(list)
-        for resource_folder_path in resource_folder_paths:
-            crud_classes = RESOURCE_CRUD_BY_FOLDER_NAME.get(resource_folder_path.name)
+    def _import_module(self, source: ModuleSource) -> Module:
+        resources: list[ReadResource] = []
+        for resource_folder, resource_files in source.resource_files_by_folder.items():
+            crud_classes = RESOURCE_CRUD_BY_FOLDER_NAME.get(resource_folder)
             if not crud_classes:
                 # This is handled in the module parsing phase.
                 continue
-            for crud_class in crud_classes:
-                resource_type = ResourceType(resource_folder=resource_folder_path.name, kind=crud_class.kind)
-                resource_files = list(resource_folder_path.rglob(f"*.{crud_class.kind}.y*ml"))
-                for resource_file in resource_files:
-                    # Todo: Create a classmethod for ToolkitResource
-                    # Todo; Handle lists of resources in a single file
-                    try:
-                        resource = crud_class.yaml_cls.model_validate(read_yaml_file(resource_file))
-                        resource_by_type[resource_type].append(resource)
-                    except ValidationError as e:
-                        insights.extend(self._create_syntax_errors(resource_type, e))
+            class_by_kind = {crud_class.kind: crud_class for crud_class in crud_classes}
+            for resource_file in resource_files:
+                resources.extend(
+                    self._import_resource_file(resource_file, class_by_kind, source.variables, resource_folder)
+                )
 
-        return Module(source=module_source, resources_by_type=resource_by_type, insights=insights)
+        return Module(source=source, resources=resources)
+
+    def _import_resource_file(
+        self,
+        resource_file: AbsoluteFilePath,
+        class_by_kind: dict[str, type[ResourceCRUD]],
+        variables: list[BuildVariable],
+        folder_name: str,
+    ) -> list[ReadResource]:
+        if "." not in resource_file.stem:
+            # Todo: Discussion error or silent ignore.
+            #   Reason for error is in the case were the user do not set a kind and intends to.
+            #   Reason for silently ignore is that the user for example has a YAML file as part of their
+            #   function code, and it is not meant to be a resource file.
+            # Todo: This will fail for kinds that just endswith the kind. This is often used for
+            #   for example transformation schedules.
+            return []
+        kind = resource_file.stem.rsplit(".", maxsplit=1)[-1]
+        crud_class = class_by_kind.get(kind)
+        if not crud_class:
+            error = self._create_failed_read_resource_for_invalid_kind(
+                resource_file, kind, folder_name, class_by_kind.keys()
+            )
+            return [FailedReadResource(source_path=resource_file, errors=[error])]
+        error_or_string = self._read_resource_file(resource_file)
+        if isinstance(error_or_string, ModelSyntaxError):
+            return [FailedReadResource(source_path=resource_file, errors=[error_or_string])]
+        # Content read successfully.
+        if variables:
+            substituted_content = self._substitute_variables_in_content(error_or_string, variables)
+        else:
+            substituted_content = error_or_string
+
+        error_or_unstructured = self._parse_yaml_content(substituted_content)
+        if isinstance(error_or_unstructured, ModelSyntaxError):
+            return [FailedReadResource(source_path=resource_file, errors=[error_or_unstructured])]
+        file_hash = calculate_hash(error_or_string, shorten=True)
+
+        error_or_resources = self._create_resources_from_unstructured(error_or_unstructured, crud_class.yaml_cls)
+        resource_type = ResourceType(resource_folder=crud_class.folder_name, kind=crud_class.kind)
+        resources: list[ReadResource] = []
+        for error_or_resource in error_or_resources:
+            if isinstance(error_or_resource, ModelSyntaxError):
+                resources.append(FailedReadResource(source_path=resource_file, errors=[error_or_resource]))
+            else:
+                resource, recommendations = error_or_resource
+                resources.append(
+                    SuccessfulReadResource(
+                        source_path=resource_file,
+                        resource=resource,
+                        source_hash=file_hash,
+                        resource_type=resource_type,
+                        insights=recommendations,
+                    )
+                )
+        return resources
+
+    def _create_failed_read_resource_for_invalid_kind(
+        self, resource_file: Path, kind: str, resource_folder: str, available_kinds: Iterable[str]
+    ) -> ModelSyntaxError:
+        return ModelSyntaxError(
+            code="UNKNOWN-RESOURCE-KIND",
+            message=f"Resource file '{resource_file.as_posix()!r}' has unknown resource kind '{kind}' for folder '{resource_folder}'",
+            fix=f"Make sure the file name ends with a known resource kind for the folder. Expected kinds for folder '{resource_folder}' are: {humanize_collection(list(available_kinds))}",
+        )
+
+    def _read_resource_file(self, resource_file: Path) -> str | ModelSyntaxError:
+        try:
+            return safe_read(resource_file)
+        except Exception as e:
+            return ModelSyntaxError(
+                code="RESOURCE_FILE_READ_ERROR",
+                message=f"Failed to read resource file '{resource_file.as_posix()!r}': {e!s}",
+                fix="Make sure the file is a valid YAML file and is accessible.",
+            )
+
+    def _substitute_variables_in_content(self, content: str, variables: list[BuildVariable]) -> str:
+        raise NotImplementedError()
+
+    def _parse_yaml_content(self, content: str) -> dict[str, Any] | list[dict[str, Any]] | ModelSyntaxError:
+        try:
+            return read_yaml_content(content)
+        except Exception as e:
+            # Todo Look for variables not replaced in the content and add fix suggestion to the error.
+            #  Look for variables at an adjacent level in the YAML structure to give more specific suggestions.
+            #  Jira: CDF-27203
+            return ModelSyntaxError(
+                code="YAML-PARSE-ERROR",
+                message=f"Failed to parse YAML content: {e!s}",
+                fix="Make sure the YAML content is valid.",
+            )
+
+    def _create_resources_from_unstructured(
+        self, unstructured: dict[str, Any] | list[dict[str, Any]], yaml_cls: type[ToolkitResource]
+    ) -> Iterable[tuple[ToolkitResource, list[Recommendation]] | ModelSyntaxError]:
+        if isinstance(unstructured, dict):
+            try:
+                resource = yaml_cls.model_validate(unstructured, extra="forbid")
+                return [(resource, [])]  # All good.
+            except ValidationError as forbid_errors:
+                try:
+                    # Fallback to allow extra.
+                    resource = yaml_cls.model_validate(unstructured, extra="ignore")
+                    return [(resource, [self._create_recommendation(forbid_errors)])]
+                except ValidationError:
+                    return [self._create_syntax_error(forbid_errors)]
+        elif isinstance(unstructured, list):
+            # MyPy complains but this work.
+            adapter = TypeAdapter[list[yaml_cls]](list[yaml_cls])  # type: ignore[valid-type]
+            try:
+                resources = adapter.validate_python(unstructured)
+                return [(resource, []) for resource in resources]  # All good.
+            except ValidationError as forbid_errors:
+                try:
+                    # Fallback to allow extra.
+                    resources = adapter.validate_python(unstructured, extra="ignore")
+                    recommendation = self._create_recommendation(forbid_errors)
+                    # Todo: sort recommendation by resource if possible.
+                    #    Jira: CDF-27204
+                    return [(resource, [recommendation]) for resource in resources]
+                except ValidationError:
+                    return [self._create_syntax_error(forbid_errors)]
+        else:
+            raise NotImplementedError(
+                f"Unknown unstructured YAML content. Expected a dict or list of dicts. Got {type(unstructured)}"
+            )
+
+    def _create_recommendation(self, error: ValidationError) -> Recommendation:
+        # This is a quick implementation that just creates a generic recommendation for all errors. It should be extended to create more specific recommendations based on the error details.
+        errors = humanize_validation_error(error)
+        return Recommendation(
+            code="UNKNOWN-FIELDS",
+            message=f"The resource has unknown fields: {humanize_collection(errors)}",
+            fix="Remove the unknown fields from the resource definition, unless you know that they are supported by the API. "
+            "In that case, you can ignore this recommendation and proceed with the deployment. If you think these fields "
+            "should be supported, please reach out to the Toolkit team.",
+        )
+
+    def _create_syntax_error(self, error: ValidationError) -> ModelSyntaxError:
+        errors = humanize_validation_error(error)
+        return ModelSyntaxError(
+            code="MODEL-SYNTAX-ERROR",
+            message=f"The resource definition has syntax errors: {humanize_collection(errors)}",
+            fix="Make sure the resource YAML content is valid and follows the expected structure.",
+        )
 
     def _export_module(self, module: Module, build_dir: Path) -> list[Path]:
         build_dir.mkdir(parents=True, exist_ok=True)
 
         built_files: list[Path] = []
-        for resource_type, resources in module.resources_by_type.items():
-            folder = build_dir / resource_type.resource_folder
+        for resource in module.resources:
+            if not isinstance(resource, SuccessfulReadResource):
+                continue
+            folder = build_dir / resource.resource_type.resource_folder
             folder.mkdir(parents=True, exist_ok=True)
-            for index, resource in enumerate(resources, start=1):
-                resource_file = folder / f"resource_{index}.{resource_type.kind}.yaml"
-                # Todo Move into Toolkit resource.
-                safe_write(resource_file, yaml_safe_dump(resource.model_dump(by_alias=True, exclude_unset=True)))
-                built_files.append(resource_file)
+            resource_file = (
+                folder
+                / f"resource_{sanitize_filename(str(resource.resource.as_id()))}.{resource.resource_type.kind}.yaml"
+            )
+            # Todo Move into Toolkit resource.
+            safe_write(resource_file, yaml_safe_dump(resource.resource.model_dump(by_alias=True, exclude_unset=True)))
+            built_files.append(resource_file)
 
         # Todo: Store source path, source hash, ID, and so on for build_linage
         return built_files
@@ -295,9 +440,9 @@ class BuildV2Command(ToolkitCommand):
             message = error_details.get("msg", "Unknown syntax error")
             yield ModelSyntaxError(code=f"{resource_type}-SYNTAX-ERROR", message=message)
 
-    def _local_validation(self, module: Module) -> InsightList:
-        """This validation is performed locally per entire module"""
-        return InsightList()
+    def _local_validation(self, module: Module) -> None:
+        """Local validations are post-syntax validations executed"""
+        RulesOrchestrator().run(module)
 
     def _global_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
         """This validation is performed per resource type and not per individual resource and against CDF
@@ -310,32 +455,12 @@ class BuildV2Command(ToolkitCommand):
                 continue
 
             if files_by_resource_type := built_module.resource_by_type.get(DataModelCRUD.folder_name):
-                built_module.insights.extend(self._validate_with_neat(files_by_resource_type, client))
-
-    def _validate_with_neat(
-        self, files_by_resource_type: dict[str, list[Path]], client: ToolkitClient | None
-    ) -> InsightList:
-        """Placeholder for NEAT validation."""
-
-        insights = InsightList()
-
-        try:
-            from cognite.neat._issues import Recommendation as NeatRecommendation
-
-            neat_insight = NeatRecommendation(
-                message="Good job! You are using Neat!",
-                code="NEAT-USER",
-            )
-            insights.append(Recommendation.model_validate(neat_insight.model_dump()))
-        except ImportError:
-            local_insight = Recommendation(
-                message="It is always a good idea to use Neat!",
-                code="NEAT-EVANGELISM",
-                fix="pip install cognite-toolkit[v08]",
-            )
-            insights.append(local_insight)
-
-        return insights
+                if NeatPlugin.installed() and client and DataModelCRUD.kind in files_by_resource_type:
+                    neat = NeatPlugin(client)
+                    for data_model_file in files_by_resource_type[DataModelCRUD.kind]:
+                        for insight in neat.validate(data_model_file.parent, data_model_file):
+                            if insight not in built_module.insights:
+                                built_module.insights.append(insight)
 
     def _write_results(self, build_folder: BuildFolder) -> None:
         return None

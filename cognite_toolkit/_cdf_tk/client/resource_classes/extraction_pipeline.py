@@ -5,6 +5,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
+from cognite_toolkit._cdf_tk.client._types import Metadata
 
 from .identifiers import ExternalId
 
@@ -33,7 +34,7 @@ class ExtractionPipeline(BaseModelObject):
     raw_tables: list[RawTable] | None = None
     schedule: str | None = None
     contacts: list[Contact] | None = None
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
     source: str | None = None
     documentation: str | None = None
     notification_config: NotificationConfig | None = None
@@ -61,5 +62,6 @@ class ExtractionPipelineResponse(ExtractionPipeline, ResponseResource[Extraction
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> ExtractionPipelineRequest:
-        return ExtractionPipelineRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[ExtractionPipelineRequest]:
+        return ExtractionPipelineRequest

@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedEdgeIdentifier, TypedNodeIdentifier
@@ -34,6 +36,7 @@ class InstanceSource(BaseModelResource):
 
 
 class NodeYAML(ToolkitResource):
+    instance_type: Literal["node"] = Field("node", exclude=True)
     space: str = Field(
         description="The space where the node is located.",
         min_length=1,
@@ -65,6 +68,7 @@ class NodeYAML(ToolkitResource):
 
 
 class EdgeYAML(ToolkitResource):
+    instance_type: Literal["edge"] = Field("edge", exclude=True)
     space: str = Field(
         description="Id of the space that the edge belongs to.",
         min_length=1,

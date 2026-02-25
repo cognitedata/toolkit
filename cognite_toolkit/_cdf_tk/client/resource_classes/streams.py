@@ -1,3 +1,4 @@
+import builtins
 from typing import Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
@@ -55,6 +56,10 @@ class StreamResponse(Stream, ResponseResource[StreamRequest]):
     created_from_template: StreamTemplateName
     type: Literal["Mutable", "Immutable"]
     settings: StreamSettings | None = None
+
+    @classmethod
+    def request_cls(cls) -> builtins.type[StreamRequest]:
+        return StreamRequest
 
     def as_request_resource(self) -> StreamRequest:
         return StreamRequest.model_validate(

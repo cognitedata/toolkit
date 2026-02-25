@@ -45,5 +45,6 @@ class RobotDataPostProcessingResponse(RobotDataPostProcessing, ResponseResource[
     # The response always has input_schema
     input_schema: dict[str, JsonValue]
 
-    def as_request_resource(self) -> RobotDataPostProcessingRequest:
-        return RobotDataPostProcessingRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[RobotDataPostProcessingRequest]:
+        return RobotDataPostProcessingRequest

@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, 
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
 
 
-class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse]):
+class AssetsAPI(CDFResourceAPI[AssetResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,
@@ -123,6 +123,6 @@ class AssetsAPI(CDFResourceAPI[InternalOrExternalId, AssetRequest, AssetResponse
         """List all asset references in CDF.
 
         Returns:
-            ResponseItems of T_Identifier objects.
+            List of AssetResponse objects.
         """
         return self._list(limit=limit)

@@ -4,6 +4,7 @@ from functools import partial
 from pathlib import Path
 
 from rich.console import Console
+from rich.markup import escape
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -26,7 +27,7 @@ from cognite_toolkit._cdf_tk.storageio import (
 )
 from cognite_toolkit._cdf_tk.storageio._base import TableUploadableStorageIO, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, load_selector
-from cognite_toolkit._cdf_tk.storageio.selectors._instances import InstanceSpaceSelector
+from cognite_toolkit._cdf_tk.storageio.selectors._instances import InstanceSpaceSelector, InstanceViewSelector
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
@@ -94,13 +95,12 @@ class UploadCommand(ToolkitCommand):
         self._deploy_resource_folder(input_dir / DATA_RESOURCE_DIR, deploy_resources, client, console, dry_run, verbose)
 
         data_files_by_selector = self._topological_sort_if_instance_selector(data_files_by_selector, client)
-
         self._upload_data(data_files_by_selector, client, dry_run, input_dir, console, verbose)
 
     def _topological_sort_if_instance_selector(
         self, data_files_by_selector: dict[Selector, list[Path]], client: ToolkitClient
     ) -> dict[Selector, list[Path]]:
-        """Topologically sorts InstanceSpaceSelectors (if they are present) to determine the order of upload based on container dependencies from the views.
+        """Topologically sorts InstanceSelectors (if they are present) to determine the order of upload based on container dependencies from the views.
 
         Args:
             data_files_by_selector: A dictionary mapping selectors to their data files.
@@ -110,12 +110,12 @@ class UploadCommand(ToolkitCommand):
             A dictionary mapping selectors to their data files with necessary preprocessing.
         """
         counts = Counter(type(selector) for selector in data_files_by_selector.keys())
-        if counts[InstanceSpaceSelector] <= 1:
+        if (counts[InstanceSpaceSelector] + counts[InstanceViewSelector]) <= 1:
             return data_files_by_selector
 
         selector_by_view_id: dict[ViewReference, Selector] = {}
         for selector in data_files_by_selector:
-            if isinstance(selector, InstanceSpaceSelector) and selector.view is not None:
+            if isinstance(selector, InstanceSpaceSelector | InstanceViewSelector) and selector.view is not None:
                 view_ref = selector.view.as_id()
                 if not isinstance(view_ref, ViewReference):
                     raise RuntimeError(
@@ -313,15 +313,15 @@ class UploadCommand(ToolkitCommand):
                     tracker.set_progress(id_, step=cls._UPLOAD, status="failed")
                 if verbose:
                     if isinstance(message, ItemsFailedResponse):
-                        error_description = f"(HTTP {message.status_code}): {message.error.message}"
+                        error_description = f"(HTTP {message.status_code}): {escape(message.error.message)}"
                         failures_by_error.setdefault(error_description, []).extend(message.ids)
                     elif isinstance(message, ItemsFailedRequest):
-                        failures_by_error.setdefault(message.error_message, []).extend(message.ids)
+                        failures_by_error.setdefault(escape(message.error_message), []).extend(message.ids)
             else:
-                console.log(f"[red]Unexpected result from upload: {str(message)!r}[/red]")
+                console.log(f"[red]Unexpected result from upload: {escape(str(message))}[/red]")
         if verbose:
             for error_description, failed_ids in failures_by_error.items():
-                ids_display = ", ".join(failed_ids[: cls._MAX_VERBOSE_PRINTED_FAILED_IDS])
+                ids_display = escape(", ".join(failed_ids[: cls._MAX_VERBOSE_PRINTED_FAILED_IDS]))
                 if len(failed_ids) > cls._MAX_VERBOSE_PRINTED_FAILED_IDS:
                     ids_display += f" ... and {len(failed_ids) - cls._MAX_VERBOSE_PRINTED_FAILED_IDS} more"
                 console.print(

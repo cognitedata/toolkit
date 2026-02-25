@@ -29,7 +29,7 @@ class BuildParameters(BaseModel):
         return self.organization_dir / MODULES
 
 
-class BuildFiles(BaseModel):
+class BuildSourceFiles(BaseModel):
     """Intermediate format used when parsing modules"""
 
     yaml_files: list[RelativeFilePath] = Field(

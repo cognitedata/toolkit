@@ -5,10 +5,10 @@ from pathlib import Path
 
 import questionary
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
-from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
@@ -41,7 +41,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.tk_warnings import (
     LowSeverityWarning,
     MediumSeverityWarning,
@@ -53,7 +52,6 @@ from cognite_toolkit._cdf_tk.utils import (
     read_yaml_file,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 from ._utils import _print_ids_or_length
 
@@ -63,7 +61,7 @@ AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(CRUDS_BY_FOLDER_NAME)
 class CleanCommand(ToolkitCommand):
     def clean_resources(
         self,
-        loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
+        loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         env_vars: EnvironmentVariables,
         read_modules: list[ReadModule],
         dry_run: bool = False,
@@ -134,7 +132,7 @@ class CleanCommand(ToolkitCommand):
             return ResourceDeployResult(name=loader.display_name)
 
     def _delete_resources(
-        self, loaded_resources: Sequence[T_ResourceResponse], loader: ResourceCRUD, dry_run: bool, verbose: bool
+        self, loaded_resources: Sequence[T_ResponseResource], loader: ResourceCRUD, dry_run: bool, verbose: bool
     ) -> int:
         nr_of_deleted = 0
         resource_ids = loader.get_ids(loaded_resources)
@@ -160,7 +158,7 @@ class CleanCommand(ToolkitCommand):
 
     def _drop_data(
         self,
-        loaded_resources: Sequence[T_ResourceResponse],
+        loaded_resources: Sequence[T_ResponseResource],
         loader: ResourceContainerCRUD,
         dry_run: bool,
         verbose: bool,
@@ -206,7 +204,7 @@ class CleanCommand(ToolkitCommand):
         return selected_modules
 
     def _verbose_print_drop(
-        self, drop_count: int, resource_ids: SequenceNotStr[T_ID], loader: ResourceContainerCRUD, dry_run: bool
+        self, drop_count: int, resource_ids: Sequence[T_Identifier], loader: ResourceContainerCRUD, dry_run: bool
     ) -> None:
         prefix = "Would have dropped" if dry_run else "Dropped"
         if drop_count > 0:

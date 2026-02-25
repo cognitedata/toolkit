@@ -2,7 +2,6 @@ from collections.abc import Hashable, Iterable, Sequence, Sized
 from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     SimulatorModelRevisionFilter,
@@ -84,13 +83,13 @@ class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, Simulat
     def create(self, items: Sequence[SimulatorModelRequest]) -> list[SimulatorModelResponse]:
         return self.client.tool.simulators.models.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[SimulatorModelResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorModelResponse]:
         return self.client.tool.simulators.models.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[SimulatorModelRequest]) -> list[SimulatorModelResponse]:
         return self.client.tool.simulators.models.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[ExternalId | InternalOrExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId | InternalOrExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.simulators.models.delete(list(ids))
@@ -191,7 +190,7 @@ class SimulatorModelRevisionCRUD(
     def create(self, items: Sequence[SimulatorModelRevisionRequest]) -> list[SimulatorModelRevisionResponse]:
         return self.client.tool.simulators.model_revisions.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[SimulatorModelRevisionResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorModelRevisionResponse]:
         return self.client.tool.simulators.model_revisions.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[SimulatorModelRevisionRequest]) -> Sized:
@@ -201,7 +200,7 @@ class SimulatorModelRevisionCRUD(
             "You can change the external ID and create a new revision."
         )
 
-    def delete(self, ids: SequenceNotStr[ExternalId | InternalOrExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId | InternalOrExternalId]) -> int:
         # Simulator model revisions API does not support delete
         raise ToolkitNotSupported(
             "You cannot delete simulator model revisions. They are immutable."
@@ -288,7 +287,7 @@ class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, Sim
     def create(self, items: Sequence[SimulatorRoutineRequest]) -> list[SimulatorRoutineResponse]:
         return self.client.tool.simulators.routines.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[SimulatorRoutineResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorRoutineResponse]:
         # Simulator routines do not have a retrieve endpoint, we need to list and filter
         all_items: list[SimulatorRoutineResponse] = []
         id_set = {id_.external_id for id_ in ids}
@@ -298,7 +297,7 @@ class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, Sim
                     all_items.append(item)
         return all_items
 
-    def delete(self, ids: SequenceNotStr[ExternalId | InternalOrExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId | InternalOrExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.simulators.routines.delete(list(ids))
@@ -375,7 +374,7 @@ class SimulatorRoutineRevisionCRUD(
     def create(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> list[SimulatorRoutineRevisionResponse]:
         return self.client.tool.simulators.routine_revisions.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[SimulatorRoutineRevisionResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorRoutineRevisionResponse]:
         return self.client.tool.simulators.routine_revisions.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> Sized:
@@ -385,7 +384,7 @@ class SimulatorRoutineRevisionCRUD(
             "You can change the external ID and create a new revision."
         )
 
-    def delete(self, ids: SequenceNotStr[ExternalId | InternalOrExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId | InternalOrExternalId]) -> int:
         # Simulator routine revisions API does not support delete
         raise ToolkitNotSupported(
             "You cannot delete simulator routine revisions. They are immutable."

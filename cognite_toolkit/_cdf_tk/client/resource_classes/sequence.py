@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
+from cognite_toolkit._cdf_tk.client._types import Metadata
 
 from .identifiers import ExternalId
 
@@ -19,7 +20,7 @@ class SequenceColumnSlim(BaseModelObject):
 
 class SequenceColumn(SequenceColumnSlim):
     description: str | None = None
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
 
 
 class SequenceColumnRequest(SequenceColumn, UpdatableRequestResource):
@@ -31,8 +32,9 @@ class SequenceColumnResponse(SequenceColumn, ResponseResource[SequenceColumnRequ
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> SequenceColumnRequest:
-        return SequenceColumnRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[SequenceColumnRequest]:
+        return SequenceColumnRequest
 
 
 class Sequence(BaseModelObject):
@@ -41,7 +43,7 @@ class Sequence(BaseModelObject):
     description: str | None = None
     asset_id: int | None = None
     data_set_id: int | None = None
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
 
     def as_id(self) -> ExternalId:
         if self.external_id is None:
@@ -86,5 +88,6 @@ class SequenceResponse(Sequence, ResponseResource[SequenceRequest]):
     last_updated_time: int
     columns: list[SequenceColumnResponse]
 
-    def as_request_resource(self) -> SequenceRequest:
-        return SequenceRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[SequenceRequest]:
+        return SequenceRequest

@@ -29,5 +29,6 @@ class TransformationScheduleResponse(TransformationSchedule, ResponseResource[Tr
     last_updated_time: int
     is_paused: bool
 
-    def as_request_resource(self) -> TransformationScheduleRequest:
-        return TransformationScheduleRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[TransformationScheduleRequest]:
+        return TransformationScheduleRequest

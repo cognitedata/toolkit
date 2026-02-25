@@ -1,4 +1,4 @@
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
@@ -24,6 +24,35 @@ class AgentToolDefinition(BaseModelResource):
 
 class AskDocument(AgentToolDefinition):
     type: Literal["askDocument"] = "askDocument"
+
+
+class CallFunctionConfig(BaseModelResource):
+    external_id: str = Field(
+        description="The external id of an existing Cognite Function in your CDF project.",
+        min_length=1,
+        max_length=255,
+    )
+    max_polling_time: int = Field(
+        default=540,
+        description="The maximum time in seconds to poll for the Cognite Function to complete.",
+        gt=0,
+        lt=541,
+    )
+    schema_: dict[str, Any] = Field(
+        alias="schema",
+        description="The Cognite Function's params specified as a JSON schema.",
+    )
+
+
+class CallFunction(AgentToolDefinition):
+    type: Literal["callFunction"] = "callFunction"
+    configuration: CallFunctionConfig = Field(
+        description="Configuration for the Call Function tool.",
+    )
+
+
+class ExamineDataSemantically(AgentToolDefinition):
+    type: Literal["examineDataSemantically"] = "examineDataSemantically"
 
 
 class AgentDataModel(BaseModelResource):
@@ -96,6 +125,11 @@ class SummarizeDocument(AgentToolDefinition):
 
 
 AgentTool = Annotated[
-    AskDocument | QueryKnowledgeGraph | QueryTimeSeriesDatapoints | SummarizeDocument,
+    AskDocument
+    | CallFunction
+    | ExamineDataSemantically
+    | QueryKnowledgeGraph
+    | QueryTimeSeriesDatapoints
+    | SummarizeDocument,
     Field(discriminator="type"),
 ]

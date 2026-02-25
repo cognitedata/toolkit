@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import cast, get_origin
+from typing import cast, get_args, get_origin
 from unittest.mock import MagicMock
 
 import pytest
@@ -23,7 +23,7 @@ from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import Streamlit
+from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import (
     CRUD_LIST,
     CRUDS_BY_FOLDER_NAME,
+    CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA,
     RESOURCE_CRUD_LIST,
     DatapointsCRUD,
     FileMetadataCRUD,
@@ -139,7 +140,7 @@ class TestFormatConsistency:
     ) -> None:
         loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
 
-        if loader.resource_cls in [TransformationResponse, FileMetadata, GraphQLDataModelResponse, Streamlit]:
+        if loader.resource_cls in [TransformationResponse, FileMetadata, GraphQLDataModelResponse, StreamlitResponse]:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
@@ -176,7 +177,7 @@ class TestFormatConsistency:
     ) -> None:
         loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
 
-        if loader.resource_cls in [TransformationResponse, FileMetadata, GraphQLDataModelResponse, Streamlit]:
+        if loader.resource_cls in [TransformationResponse, FileMetadata, GraphQLDataModelResponse, StreamlitResponse]:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
@@ -508,3 +509,15 @@ class TestLoaders:
             duplicates.pop(loader.create_loader(env_vars_with_client.get_client()).display_name, None)
 
         assert not duplicates, f"Duplicate display names: {duplicates}"
+
+
+class TestConstants:
+    @pytest.mark.parametrize(
+        "folder_names",
+        [
+            pytest.param(set(CRUDS_BY_FOLDER_NAME.keys()), id="CRUDS_BY_FOLDER_NAME"),
+            pytest.param(set(CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA.keys()), id="CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA"),
+        ],
+    )
+    def test_resource_key_is_a_resource_type(self, folder_names: set[str]) -> None:
+        assert folder_names <= set(get_args(ResourceTypes))

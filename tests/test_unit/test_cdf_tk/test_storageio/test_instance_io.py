@@ -28,7 +28,7 @@ class TestInstanceIO:
     def test_download_instance_ids(
         self, rsps: responses.RequestsMock, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
     ) -> None:
-        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
+        client = ToolkitClient(config=toolkit_config)
         url = toolkit_config.create_api_url("/models/instances/list")
         selector = InstanceViewSelector(
             view=SelectedView(space="mySpace", external_id="myView", version="v42"),
@@ -113,7 +113,7 @@ class TestInstanceIO:
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_upload_force(self, toolkit_config: ToolkitClientConfig) -> None:
         config = toolkit_config
-        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
+        client = ToolkitClient(config=toolkit_config)
         instance_count = 12
         with HTTPClient(config) as http_client:
             instances = (
@@ -309,6 +309,7 @@ class TestInstanceIO:
             instance_space="my_insta_space",
             instance_type="node",
             view=SelectedView(space="my_schema_space", external_id="my_view", version="v1"),
+            download_dir_name="instances",
         )
         download_command = DownloadCommand(silent=True, skip_tracking=True)
         upload_command = UploadCommand(silent=True, skip_tracking=True)
@@ -324,7 +325,7 @@ class TestInstanceIO:
         )
 
         upload_command.upload(
-            input_dir=tmp_path / selector.group,
+            input_dir=tmp_path / selector.download_dir_name,
             client=client,
             deploy_resources=False,
             dry_run=False,
@@ -333,6 +334,132 @@ class TestInstanceIO:
         )
 
         assert len(respx_mock.calls) == 4
+
+    def test_stream_data_with_edges(self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        selector = InstanceViewSelector(
+            view=SelectedView(space="mySpace", external_id="myView", version="v42"),
+            instance_type="node",
+            instance_spaces=("my_space",),
+            include_edges=True,
+        )
+
+        view_url = toolkit_config.create_api_url("/models/views/byids")
+        query_url = toolkit_config.create_api_url("/models/instances/query")
+
+        respx_mock.post(view_url).respond(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "space": "mySpace",
+                        "externalId": "myView",
+                        "version": "v42",
+                        "createdTime": 0,
+                        "lastUpdatedTime": 0,
+                        "writable": True,
+                        "usedFor": "node",
+                        "isGlobal": False,
+                        "queryable": True,
+                        "mappedContainers": [],
+                        "properties": {
+                            "name": {
+                                "container": {"space": "mySpace", "externalId": "MyContainer"},
+                                "containerPropertyIdentifier": "name",
+                                "type": {"type": "text", "list": False},
+                                "nullable": True,
+                                "immutable": False,
+                                "autoIncrement": False,
+                                "constraintState": {},
+                            },
+                            "children": {
+                                "connectionType": "multi_edge_connection",
+                                "source": {"space": "mySpace", "externalId": "myView", "version": "v42"},
+                                "type": {"space": "mySpace", "externalId": "edge_type"},
+                                "direction": "outwards",
+                            },
+                        },
+                    }
+                ]
+            },
+        )
+
+        def _node(ext_id: str) -> dict:
+            return {
+                "instanceType": "node",
+                "space": "my_space",
+                "externalId": ext_id,
+                "version": 1,
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+            }
+
+        def _edge(ext_id: str, start: str, end: str) -> dict:
+            return {
+                "instanceType": "edge",
+                "space": "my_space",
+                "externalId": ext_id,
+                "version": 1,
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+                "type": {"space": "mySpace", "externalId": "edge_type"},
+                "startNode": {"space": "my_space", "externalId": start},
+                "endNode": {"space": "my_space", "externalId": end},
+            }
+
+        respx_mock.post(query_url).side_effect = [
+            # Call 1: first node batch + first edge batch (edge cursor present)
+            httpx.Response(
+                status_code=200,
+                json={
+                    "items": {
+                        "nodes": [_node("node_0"), _node("node_1")],
+                        "children": [_edge("edge_0", "node_0", "node_1"), _edge("edge_1", "node_1", "node_0")],
+                    },
+                    "nextCursor": {"nodes": "node_cursor_1", "children": "edge_cursor_1"},
+                },
+            ),
+            # Call 2: second edge batch (no more edge cursor → exhausts edges for first node batch)
+            httpx.Response(
+                status_code=200,
+                json={
+                    "items": {
+                        "nodes": [],
+                        "children": [_edge("edge_2", "node_0", "node_1")],
+                    },
+                    "nextCursor": {"nodes": "node_cursor_1"},
+                },
+            ),
+            # Call 3: second node batch (no more cursors → done)
+            httpx.Response(
+                status_code=200,
+                json={
+                    "items": {
+                        "nodes": [_node("node_2"), _node("node_3")],
+                        "children": [],
+                    },
+                    "nextCursor": {},
+                },
+            ),
+        ]
+
+        io = InstanceIO(client)
+        pages = list(io.stream_data(selector))
+
+        assert len(pages) == 2
+
+        first_page = pages[0]
+        first_node_ids = {item.external_id for item in first_page.items if item.instance_type == "node"}
+        first_edge_ids = {item.external_id for item in first_page.items if item.instance_type == "edge"}
+        assert first_node_ids == {"node_0", "node_1"}
+        assert first_edge_ids == {"edge_0", "edge_1", "edge_2"}
+        assert first_page.next_cursor == "node_cursor_1"
+
+        second_page = pages[1]
+        second_node_ids = {item.external_id for item in second_page.items if item.instance_type == "node"}
+        second_edge_ids = {item.external_id for item in second_page.items if item.instance_type == "edge"}
+        assert second_node_ids == {"node_2", "node_3"}
+        assert second_edge_ids == set()
 
     @pytest.mark.parametrize(
         "item_json,expected_properties",

@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client._resource_base import Identifier, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Identifier, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.api.agents import AgentsAPI
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.containers import ContainersAPI
@@ -105,12 +105,18 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
     LocationFilterResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
+    LoginSession,
+    ServiceAccountPrincipal,
+    UserPrincipal,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWDatabaseResponse,
     RAWTableRequest,
     RAWTableResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest, RecordResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     ResourceViewMappingRequest,
@@ -205,9 +211,9 @@ class CDFResource:
         return self.request_instance.as_id()
 
 
-def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[str, Any]:
+def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[str, Any]:
     """Return an example with the only required and identifier fields for the given resource class."""
-    responses: dict[type[ResponseResource], dict[str, Any]] = {
+    responses: dict[type[BaseModelObject], dict[str, Any]] = {
         AssetResponse: {
             "id": 123,
             "externalId": "asset_001",
@@ -554,6 +560,7 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "name": "Example Group",
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
+            "isDeleted": False,
         },
         SequenceRowsResponse: {
             "id": 123,
@@ -598,9 +605,11 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "functionExternalId": "function_001",
         },
         StreamlitResponse: {
+            "id": 301,
             "externalId": "streamlit_001",
             "name": "My Streamlit App",
             "creator": "user@example.com",
+            "uploaded": True,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
         },
@@ -667,6 +676,7 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
         CogniteFileResponse: {
             "space": "my_space",
             "externalId": "cognite_file_001",
+            "instanceType": "node",
             "version": 1,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
@@ -674,6 +684,8 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
         },
         ResourceViewMappingResponse: {
             "externalId": "mapping_001",
+            "space": "cognite_migration",
+            "instanceType": "node",
             "properties": {
                 "cognite_migration": {
                     "ResourceViewMapping/v1": {
@@ -694,6 +706,8 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
         },
         APMConfigResponse: {
             "externalId": "apm_config_001",
+            "space": "APM_Config",
+            "instanceType": "node",
             "version": 1,
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
@@ -719,6 +733,42 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "domains": [],
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
+        },
+        RecordResponse: {
+            "space": "my_space",
+            "externalId": "record_001",
+            "properties": {
+                "my_space": {
+                    "my_container": {
+                        "name": "Example Record",
+                    }
+                }
+            },
+        },
+        ServiceAccountPrincipal: {
+            "id": "principal-sa-001",
+            "type": "SERVICE_ACCOUNT",
+            "name": "My Service Account",
+            "pictureUrl": "",
+            "description": "A test service account",
+            "externalId": "sa-ext-001",
+            "createdBy": {"orgId": "org-001", "userId": "admin@example.com"},
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        UserPrincipal: {
+            "id": "principal-user-001",
+            "type": "USER",
+            "name": "Jane Doe",
+            "pictureUrl": "https://example.com/avatar.png",
+            "email": "jane@example.com",
+            "givenName": "Jane",
+            "familyName": "Doe",
+        },
+        LoginSession: {
+            "id": "session-001",
+            "createdTime": 1622547800000,
+            "status": "ACTIVE",
         },
     }
     try:
@@ -1241,4 +1291,12 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             api_class=DataProductsAPI,
         ),
         id="DataProduct",
+    )
+    yield pytest.param(
+        CDFResource(
+            response_cls=RecordResponse,
+            request_cls=RecordRequest,
+            example_data=get_example_minimum_responses(RecordResponse),
+        ),
+        id="Record",
     )

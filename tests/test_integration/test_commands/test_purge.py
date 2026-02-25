@@ -38,6 +38,9 @@ from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils import datetime_to_ms
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceFileSelector
 from tests.test_integration.constants import RUN_UNIQUE_ID
@@ -45,9 +48,9 @@ from tests.test_integration.constants import RUN_UNIQUE_ID
 
 @pytest.fixture()
 def file_ts_nodes(
-    toolkit_client_with_pending_ids: ToolkitClient, toolkit_space: Space
+    toolkit_client: ToolkitClient, toolkit_space: Space
 ) -> Iterable[tuple[tuple[NodeId, int], tuple[NodeId, int]]]:
-    client = toolkit_client_with_pending_ids
+    client = toolkit_client
     file = CogniteFileApply(
         space=toolkit_space.space,
         external_id=f"test_file_purge_with_unlink_{RUN_UNIQUE_ID}",
@@ -91,8 +94,22 @@ def file_ts_nodes(
         )
 
         # Link them.
-        client.files.set_pending_ids(file.as_id(), id=file_id)
-        client.time_series.set_pending_ids(ts.as_id(), id=ts_id)
+        client.tool.filemetadata.set_pending_ids(
+            [
+                PendingInstanceId(
+                    pending_instance_id=NodeReference(space=file.space, external_id=file.external_id),
+                    id=file_id,
+                )
+            ]
+        )
+        client.tool.timeseries.set_pending_ids(
+            [
+                PendingInstanceId(
+                    pending_instance_id=NodeReference(space=ts.space, external_id=ts.external_id),
+                    id=ts_id,
+                )
+            ]
+        )
 
         # Create Nodes in CDM
         created = client.data_modeling.instances.apply([file, ts])
@@ -102,10 +119,10 @@ def file_ts_nodes(
     finally:
         client.data_modeling.instances.delete([file.as_id(), ts.as_id()])
         if file_id is not None:
-            client.files.unlink_instance_ids(id=file_id)
+            client.tool.filemetadata.unlink_instance_ids([InternalId(id=file_id)])
             client.files.delete(id=file_id, ignore_unknown_ids=True)
         if ts_id is not None:
-            client.time_series.unlink_instance_ids(id=ts_id)
+            client.tool.timeseries.unlink_instance_ids([InternalId(id=ts_id)])
             client.time_series.delete(id=ts_id, ignore_unknown_ids=True)
 
 
@@ -127,8 +144,34 @@ class PopulatedDataSet:
 
 @pytest.fixture()
 def populated_dataset(toolkit_client: ToolkitClient) -> Iterable[PopulatedDataSet]:
+    populated = create_populated_dataset(
+        toolkit_client, name="toolkit_test_purge_dataset", external_id="toolkit_test_purge_dataset", no=1
+    )
+    yield populated
+    cleanup_populated_dataset(toolkit_client, populated)
+
+
+@pytest.fixture()
+def populated_datasets_2(toolkit_client: ToolkitClient) -> Iterable[PopulatedDataSet]:
+    populated2 = create_populated_dataset(
+        toolkit_client, name="toolkit_test_purge_dataset_2", external_id="toolkit_test_purge_dataset_2", no=2
+    )
+    yield populated2
+    cleanup_populated_dataset(toolkit_client, populated2)
+
+
+@pytest.fixture()
+def populated_datasets_3(toolkit_client: ToolkitClient) -> Iterable[PopulatedDataSet]:
+    populated3 = create_populated_dataset(
+        toolkit_client, name="toolkit_test_purge_dataset_3", external_id="toolkit_test_purge_dataset_3", no=3
+    )
+    yield populated3
+    cleanup_populated_dataset(toolkit_client, populated3)
+
+
+def create_populated_dataset(toolkit_client: ToolkitClient, name: str, external_id: str, no: int) -> PopulatedDataSet:
     client = toolkit_client
-    dataset = DataSetWrite(name="toolkit_test_purge_dataset", external_id="toolkit_test_purge_dataset")
+    dataset = DataSetWrite(name=name, external_id=external_id)
     created = client.data_sets.retrieve(external_id=dataset.external_id)
     if not created:
         # DataSet cannot be deleted, so we create it only once and reuse it
@@ -136,33 +179,33 @@ def populated_dataset(toolkit_client: ToolkitClient) -> Iterable[PopulatedDataSe
 
     asset = AssetWrite(
         name="Test Asset",
-        external_id=f"test_asset_{RUN_UNIQUE_ID}",
+        external_id=f"test_asset_{RUN_UNIQUE_ID}_{no}",
         data_set_id=created.id,
     )
     created_asset = client.assets.create(asset)
 
     event = EventWrite(
-        external_id=f"test_event_{RUN_UNIQUE_ID}",
+        external_id=f"test_event_{RUN_UNIQUE_ID}_{no}",
         data_set_id=created.id,
     )
     created_event = client.events.create(event)
 
     sequence = SequenceWrite(
-        external_id=f"test_sequence_{RUN_UNIQUE_ID}",
+        external_id=f"test_sequence_{RUN_UNIQUE_ID}_{no}",
         data_set_id=created.id,
         columns=[SequenceColumnWrite(external_id="col1", value_type="String")],
     )
     created_sequence = client.sequences.create(sequence)
 
     timeseries = TimeSeriesWrite(
-        external_id=f"test_timeseries_{RUN_UNIQUE_ID}",
+        external_id=f"test_timeseries_{RUN_UNIQUE_ID}_{no}",
         data_set_id=created.id,
     )
     created_timeseries = client.time_series.create(timeseries)
 
     file = FileMetadataWrite(
         name="Test File",
-        external_id=f"test_file_{RUN_UNIQUE_ID}",
+        external_id=f"test_file_{RUN_UNIQUE_ID}_{no}",
         mime_type="text/plain",
         data_set_id=created.id,
     )
@@ -170,13 +213,13 @@ def populated_dataset(toolkit_client: ToolkitClient) -> Iterable[PopulatedDataSe
 
     label = LabelDefinitionWrite(
         name="Test Label",
-        external_id=f"test_label_{RUN_UNIQUE_ID}",
+        external_id=f"test_label_{RUN_UNIQUE_ID}_{no}",
         data_set_id=created.id,
     )
     created_label = client.labels.create(label)
 
     relationship = RelationshipWrite(
-        external_id=f"test_relationship_{RUN_UNIQUE_ID}",
+        external_id=f"test_relationship_{RUN_UNIQUE_ID}_{no}",
         source_external_id=created_asset.external_id,
         target_external_id=created_event.external_id,
         source_type="asset",
@@ -186,20 +229,20 @@ def populated_dataset(toolkit_client: ToolkitClient) -> Iterable[PopulatedDataSe
     created_relationship = client.relationships.create(relationship)
 
     three_d = ThreeDModelWrite(
-        name=f"Test 3D Model {RUN_UNIQUE_ID}",
+        name=f"Test 3D Model {RUN_UNIQUE_ID}_{no}",
         data_set_id=created.id,
     )
     created_three_d = client.three_d.models.create(three_d)
 
     workflow = WorkflowUpsert(
-        external_id=f"test_workflow_{RUN_UNIQUE_ID}",
+        external_id=f"test_workflow_{RUN_UNIQUE_ID}_{no}",
         data_set_id=created.id,
     )
     created_workflow = client.workflows.upsert(workflow)
 
     transformation = TransformationWrite(
         name="Test Transformation",
-        external_id=f"test_transformation_{RUN_UNIQUE_ID}",
+        external_id=f"test_transformation_{RUN_UNIQUE_ID}_{no}",
         data_set_id=created.id,
         ignore_null_fields=True,
     )
@@ -207,12 +250,12 @@ def populated_dataset(toolkit_client: ToolkitClient) -> Iterable[PopulatedDataSe
 
     extraction_pipeline = ExtractionPipelineWrite(
         name="Test Extraction Pipeline",
-        external_id=f"test_extraction_pipeline_{RUN_UNIQUE_ID}",
+        external_id=f"test_extraction_pipeline_{RUN_UNIQUE_ID}_{no}",
         data_set_id=created.id,
     )
     created_extraction_pipeline = client.extraction_pipelines.create(extraction_pipeline)
 
-    yield PopulatedDataSet(
+    return PopulatedDataSet(
         dataset=created,
         asset=created_asset,
         event=created_event,
@@ -227,30 +270,32 @@ def populated_dataset(toolkit_client: ToolkitClient) -> Iterable[PopulatedDataSe
         extraction_pipeline=created_extraction_pipeline,
     )
 
+
+def cleanup_populated_dataset(client: ToolkitClient, populated: PopulatedDataSet) -> None:
     # Cleanup
-    client.assets.delete(id=created_asset.id, ignore_unknown_ids=True)
-    client.events.delete(id=created_event.id, ignore_unknown_ids=True)
-    client.sequences.delete(id=created_sequence.id, ignore_unknown_ids=True)
-    client.time_series.delete(id=created_timeseries.id, ignore_unknown_ids=True)
-    client.files.delete(id=created_file.id, ignore_unknown_ids=True)
-    client.labels.delete(external_id=created_label.external_id)
-    client.relationships.delete(external_id=created_relationship.external_id, ignore_unknown_ids=True)
+    client.assets.delete(id=populated.asset.id, ignore_unknown_ids=True)
+    client.events.delete(id=populated.event.id, ignore_unknown_ids=True)
+    client.sequences.delete(id=populated.sequence.id, ignore_unknown_ids=True)
+    client.time_series.delete(id=populated.timeseries.id, ignore_unknown_ids=True)
+    client.files.delete(id=populated.file.id, ignore_unknown_ids=True)
+    client.labels.delete(external_id=populated.label.external_id)
+    client.relationships.delete(external_id=populated.relationships.external_id, ignore_unknown_ids=True)
     with contextlib.suppress(CogniteAPIError):
-        client.three_d.models.delete(id=created_three_d.id)
-    client.workflows.delete(external_id=created_workflow.external_id, ignore_unknown_ids=True)
-    client.transformations.delete(id=created_transformation.id, ignore_unknown_ids=True)
+        client.three_d.models.delete(id=populated.three_d.id)
+    client.workflows.delete(external_id=populated.workflow.external_id, ignore_unknown_ids=True)
+    client.transformations.delete(id=populated.transformation.id, ignore_unknown_ids=True)
     with contextlib.suppress(CogniteNotFoundError):
-        client.extraction_pipelines.delete(id=created_extraction_pipeline.id)
+        client.extraction_pipelines.delete(id=populated.extraction_pipeline.id)
 
 
 class TestPurge:
     def test_purge_instances_with_unlink(
         self,
         file_ts_nodes: tuple[tuple[NodeId, int], tuple[NodeId, int]],
-        toolkit_client_with_pending_ids: ToolkitClient,
+        toolkit_client: ToolkitClient,
         tmp_path: Path,
     ) -> None:
-        client = toolkit_client_with_pending_ids
+        client = toolkit_client
         (file_node, file_id), (ts_node, ts_id) = file_ts_nodes
 
         csv_path = tmp_path / "test.csv"
@@ -321,10 +366,10 @@ class TestPurge:
         assert client.extraction_pipelines.retrieve(external_id=populated.extraction_pipeline.external_id) is not None
 
     def test_purge_dataset_include_configurations(
-        self, toolkit_client: ToolkitClient, populated_dataset: PopulatedDataSet
+        self, toolkit_client: ToolkitClient, populated_datasets_2: PopulatedDataSet
     ) -> None:
         client = toolkit_client
-        populated = populated_dataset
+        populated = populated_datasets_2
         purge = PurgeCommand(silent=True)
 
         _ = purge.dataset(
@@ -354,9 +399,9 @@ class TestPurge:
         assert client.transformations.retrieve(external_id=populated.transformation.external_id) is None
         assert client.extraction_pipelines.retrieve(external_id=populated.extraction_pipeline.external_id) is None
 
-    def test_purge_dataset_dry_run(self, toolkit_client: ToolkitClient, populated_dataset: PopulatedDataSet) -> None:
+    def test_purge_dataset_dry_run(self, toolkit_client: ToolkitClient, populated_datasets_3: PopulatedDataSet) -> None:
         client = toolkit_client
-        populated = populated_dataset
+        populated = populated_datasets_3
         purge = PurgeCommand(silent=True)
 
         results = purge.dataset(

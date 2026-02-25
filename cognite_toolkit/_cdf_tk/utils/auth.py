@@ -337,11 +337,9 @@ class EnvironmentVariables:
             max_workers=self.CDF_CLIENT_MAX_WORKERS,
         )
 
-    def get_client(self, is_strict_validation: bool = True, enable_set_pending_ids: bool = False) -> ToolkitClient:
+    def get_client(self, is_strict_validation: bool = True) -> ToolkitClient:
         if self._client is None:
-            self._client = ToolkitClient(
-                config=self.get_config(is_strict_validation), enable_set_pending_ids=enable_set_pending_ids
-            )
+            self._client = ToolkitClient(config=self.get_config(is_strict_validation))
         return self._client
 
     def dump(self, include_os: bool = True) -> dict[str, str | None]:

@@ -39,5 +39,9 @@ class ResourceViewMappingResponse(WrappedInstanceResponse[ResourceViewMappingReq
     space: Literal["cognite_migration"] = RESOURCE_VIEW_MAPPING_SPACE
     instance_type: Literal["node"] = "node"
 
+    @classmethod
+    def request_cls(cls) -> type[ResourceViewMappingRequest]:
+        return ResourceViewMappingRequest
+
     def as_request_resource(self) -> ResourceViewMappingRequest:
         return ResourceViewMappingRequest.model_validate(self.dump(context="toolkit"), extra="ignore")

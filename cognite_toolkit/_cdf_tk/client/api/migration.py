@@ -83,9 +83,7 @@ class InstanceSourceAPI:
         return NodeList[InstanceSource]([InstanceSource._load(node.dump()) for node in nodes])
 
 
-class ResourceViewMappingsAPI(
-    WrappedInstancesAPI[TypedNodeIdentifier, ResourceViewMappingRequest, ResourceViewMappingResponse]
-):
+class ResourceViewMappingsAPI(WrappedInstancesAPI[TypedNodeIdentifier, ResourceViewMappingResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(http_client, ResourceViewMappingRequest.VIEW_ID)
 

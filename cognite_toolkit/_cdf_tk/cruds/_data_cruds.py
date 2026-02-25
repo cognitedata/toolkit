@@ -7,19 +7,16 @@ import pandas as pd
 from cognite.client.data_classes import FileMetadataWrite
 from cognite.client.data_classes.data_modeling import NodeId
 
+from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import ExtendableCogniteFileApply
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
-from cognite_toolkit._cdf_tk.protocols import (
-    T_ResourceRequest,
-    T_ResourceResponse,
-)
 from cognite_toolkit._cdf_tk.utils import read_yaml_content, safe_read
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 
-from ._base_cruds import T_ID, DataCRUD, ResourceCRUD
+from ._base_cruds import DataCRUD, ResourceCRUD
 from ._resource_cruds import CogniteFileCRUD, FileMetadataCRUD, RawTableCRUD, TimeSeriesCRUD
 
 if TYPE_CHECKING:
@@ -136,9 +133,9 @@ class FileCRUD(DataCRUD):
     @staticmethod
     def _read_metadata(
         destination: Path,
-        loader: type[ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse]],
-        identifier: T_ID,
-    ) -> T_ResourceRequest:
+        loader: type[ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource]],
+        identifier: T_Identifier,
+    ) -> T_RequestResource:
         built_content = read_yaml_content(safe_read(destination, encoding=BUILD_FOLDER_ENCODING))
         if isinstance(built_content, dict):
             return loader.resource_write_cls._load(built_content)

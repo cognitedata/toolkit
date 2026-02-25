@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
 )
 
 
-class SimulatorModelsAPI(CDFResourceAPI[InternalOrExternalId, SimulatorModelRequest, SimulatorModelResponse]):
+class SimulatorModelsAPI(CDFResourceAPI[SimulatorModelResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,

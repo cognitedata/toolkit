@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine import (
 )
 
 
-class SimulatorRoutinesAPI(CDFResourceAPI[InternalOrExternalId, SimulatorRoutineRequest, SimulatorRoutineResponse]):
+class SimulatorRoutinesAPI(CDFResourceAPI[SimulatorRoutineResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,

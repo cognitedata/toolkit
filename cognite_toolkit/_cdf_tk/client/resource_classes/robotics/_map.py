@@ -61,5 +61,6 @@ class RobotMapResponse(RobotMap, ResponseResource[RobotMapRequest]):
     created_time: int
     updated_time: int
 
-    def as_request_resource(self) -> RobotMapRequest:
-        return RobotMapRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[RobotMapRequest]:
+        return RobotMapRequest

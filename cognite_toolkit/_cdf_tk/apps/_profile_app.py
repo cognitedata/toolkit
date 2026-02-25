@@ -60,7 +60,7 @@ class ProfileApp(typer.Typer):
             lambda: cmd.assets(
                 client=client,
                 hierarchy=hierarchy,
-                verbose=verbose,
+                profile_row_limit=10_000,
             )
         )
 

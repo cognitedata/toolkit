@@ -30,7 +30,6 @@ from cognite.client.data_classes.capabilities import (
     DataModelsAcl,
 )
 from cognite.client.data_classes.data_modeling import ContainerId, DataModelId, ViewId
-from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.console import Console
 from rich.markup import escape
@@ -171,13 +170,13 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceReference, SpaceRequest, SpaceRespons
                     time.sleep(self.delete_recreate_limit_seconds - elapsed_since_delete)
         return self.client.tool.spaces.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[SpaceReference]) -> list[SpaceResponse]:
+    def retrieve(self, ids: Sequence[SpaceReference]) -> list[SpaceResponse]:
         return self.client.tool.spaces.retrieve(list(ids))
 
     def update(self, items: Sequence[SpaceRequest]) -> list[SpaceResponse]:
         return self.create(items)
 
-    def delete(self, ids: SequenceNotStr[SpaceReference]) -> int:
+    def delete(self, ids: Sequence[SpaceReference]) -> int:
         existing = self.client.tool.spaces.retrieve(list(ids))
         is_global = {space.space for space in existing if space.is_global}
         if is_global:
@@ -202,7 +201,7 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceReference, SpaceRequest, SpaceRespons
             for batch in self.client.tool.spaces.iterate():
                 yield from batch
 
-    def count(self, ids: SequenceNotStr[SpaceReference]) -> int:
+    def count(self, ids: Sequence[SpaceReference]) -> int:
         # Bug in spec of aggregate requiring view_id to be passed in, so we cannot use it.
         # When this bug is fixed, it will be much faster to use aggregate.
         spaces = [space_ref.space for space_ref in ids]
@@ -211,7 +210,7 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceReference, SpaceRequest, SpaceRespons
             len(batch) for batch in self._iterate_over_edges(spaces)
         )
 
-    def drop_data(self, ids: SequenceNotStr[SpaceReference]) -> int:
+    def drop_data(self, ids: Sequence[SpaceReference]) -> int:
         spaces = [space_ref.space for space_ref in ids]
         if not spaces:
             return 0
@@ -359,7 +358,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
     def create(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
         return self.client.tool.containers.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ContainerReference]) -> list[ContainerResponse]:
+    def retrieve(self, ids: Sequence[ContainerReference]) -> list[ContainerResponse]:
         return self.client.tool.containers.retrieve(list(ids))
 
     def update(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
@@ -391,7 +390,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
                 ).print_warning()
         return updated
 
-    def delete(self, ids: SequenceNotStr[ContainerReference]) -> int:
+    def delete(self, ids: Sequence[ContainerReference]) -> int:
         self.client.tool.containers.delete(list(ids))
         return len(ids)
 
@@ -404,7 +403,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
         for batch in self.client.tool.containers.iterate(filter=ContainerFilter(space=space) if space else None):
             yield from batch
 
-    def count(self, ids: SequenceNotStr[ContainerReference]) -> int:
+    def count(self, ids: Sequence[ContainerReference]) -> int:
         # Bug in spec of aggregate requiring view_id to be passed in, so we cannot use it.
         # When this bug is fixed, it will be much faster to use aggregate.
         existing_containers = self.client.tool.containers.retrieve(list(ids))
@@ -412,7 +411,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
             len(batch) for batch in self._iterate_over_edges(existing_containers)
         )
 
-    def drop_data(self, ids: SequenceNotStr[ContainerReference]) -> int:
+    def drop_data(self, ids: Sequence[ContainerReference]) -> int:
         nr_of_deleted = 0
         existing_containers = self.client.tool.containers.retrieve(list(ids))
         for node_ids in self._iterate_over_nodes(existing_containers):
@@ -720,13 +719,13 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                 created_list.extend(created)
         return created_list
 
-    def retrieve(self, ids: SequenceNotStr[ViewReference]) -> list[ViewResponse]:
+    def retrieve(self, ids: Sequence[ViewReference]) -> list[ViewResponse]:
         return self.client.tool.views.retrieve(list(ids), include_inherited_properties=False)
 
     def update(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
         return self.create(items)
 
-    def delete(self, ids: SequenceNotStr[ViewReference]) -> int:
+    def delete(self, ids: Sequence[ViewReference]) -> int:
         to_delete = list(ids)
         nr_of_deleted = 0
         attempt_count = 5
@@ -980,7 +979,7 @@ class DataModelCRUD(ResourceCRUD[DataModelReference, DataModelRequest, DataModel
     def create(self, items: Sequence[DataModelRequest]) -> list[DataModelResponse]:
         return self.client.tool.data_models.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[DataModelReference]) -> list[DataModelResponse]:
+    def retrieve(self, ids: Sequence[DataModelReference]) -> list[DataModelResponse]:
         return self.client.tool.data_models.retrieve(list(ids))
 
     def update(self, items: Sequence[DataModelRequest]) -> list[DataModelResponse]:
@@ -1010,7 +1009,7 @@ class DataModelCRUD(ResourceCRUD[DataModelReference, DataModelRequest, DataModel
 
         return updated
 
-    def delete(self, ids: SequenceNotStr[DataModelReference]) -> int:
+    def delete(self, ids: Sequence[DataModelReference]) -> int:
         self.client.tool.data_models.delete(list(ids))
         return len(ids)
 
@@ -1144,7 +1143,7 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
     def create(self, items: Sequence[NodeRequest]) -> list[InstanceSlimDefinition]:
         return self.client.tool.instances.create(list(items))
 
-    def retrieve(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> list[NodeResponse]:
+    def retrieve(self, ids: Sequence[TypedNodeIdentifier]) -> list[NodeResponse]:
         source_ref = (
             TypedViewReference(
                 space=self.view_id.space, external_id=self.view_id.external_id, version=self.view_id.version
@@ -1158,7 +1157,7 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
     def update(self, items: Sequence[NodeRequest]) -> list[InstanceSlimDefinition]:
         return self.client.tool.instances.create(list(items))
 
-    def delete(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> int:
+    def delete(self, ids: Sequence[TypedNodeIdentifier]) -> int:
         try:
             deleted = self.client.tool.instances.delete(list(ids))
         except ToolkitAPIError as e:
@@ -1190,10 +1189,10 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
                 if isinstance(inst, NodeResponse):
                     yield inst
 
-    def count(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> int:
+    def count(self, ids: Sequence[TypedNodeIdentifier]) -> int:
         return len(ids)
 
-    def drop_data(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> int:
+    def drop_data(self, ids: Sequence[TypedNodeIdentifier]) -> int:
         # Nodes will be deleted in .delete call.
         return 0
 
@@ -1354,13 +1353,13 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelReference, GraphQLDataModelRequ
             raise ToolkitFileNotFoundError(f"Could not find the GraphQL file for {data_model_id}")
         return safe_read(filepath)
 
-    def retrieve(self, ids: SequenceNotStr[DataModelReference]) -> list[GraphQLDataModelResponse]:
+    def retrieve(self, ids: Sequence[DataModelReference]) -> list[GraphQLDataModelResponse]:
         return self.client.tool.graphql_data_models.retrieve(list(ids), inline_views=False)
 
     def update(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
         return self.create(items)
 
-    def delete(self, ids: SequenceNotStr[DataModelReference]) -> int:
+    def delete(self, ids: Sequence[DataModelReference]) -> int:
         retrieved = self.retrieve(ids)
         views = {view for dml in retrieved for view in dml.views or []}
         self.client.tool.graphql_data_models.delete(list(ids))
@@ -1380,11 +1379,11 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelReference, GraphQLDataModelRequ
         for batch in self.client.tool.graphql_data_models.iterate(filter=filter_):
             yield from batch
 
-    def count(self, ids: SequenceNotStr[DataModelReference]) -> int:
+    def count(self, ids: Sequence[DataModelReference]) -> int:
         retrieved = self.retrieve(ids)
         return sum(len(d.views or []) for d in retrieved)
 
-    def drop_data(self, ids: SequenceNotStr[DataModelReference]) -> int:
+    def drop_data(self, ids: Sequence[DataModelReference]) -> int:
         return self.delete(ids)
 
     def _topological_sort(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelRequest]:
@@ -1521,14 +1520,14 @@ class EdgeCRUD(ResourceContainerCRUD[TypedEdgeIdentifier, EdgeRequest, EdgeRespo
     def create(self, items: Sequence[EdgeRequest]) -> list[InstanceSlimDefinition]:
         return self.client.tool.instances.create(list(items))
 
-    def retrieve(self, ids: SequenceNotStr[TypedEdgeIdentifier]) -> list[EdgeResponse]:
+    def retrieve(self, ids: Sequence[TypedEdgeIdentifier]) -> list[EdgeResponse]:
         results = self.client.tool.instances.retrieve(list(ids))
         return [r for r in results if isinstance(r, EdgeResponse)]
 
     def update(self, items: Sequence[EdgeRequest]) -> list[InstanceSlimDefinition]:
         return self.client.tool.instances.create(list(items))
 
-    def delete(self, ids: SequenceNotStr[TypedEdgeIdentifier]) -> int:
+    def delete(self, ids: Sequence[TypedEdgeIdentifier]) -> int:
         try:
             deleted = self.client.tool.instances.delete(list(ids))
         except ToolkitAPIError as e:
@@ -1552,10 +1551,10 @@ class EdgeCRUD(ResourceContainerCRUD[TypedEdgeIdentifier, EdgeRequest, EdgeRespo
                 if isinstance(inst, EdgeResponse):
                     yield inst
 
-    def count(self, ids: SequenceNotStr[TypedEdgeIdentifier]) -> int:
+    def count(self, ids: Sequence[TypedEdgeIdentifier]) -> int:
         return len(ids)
 
-    def drop_data(self, ids: SequenceNotStr[TypedEdgeIdentifier]) -> int:
+    def drop_data(self, ids: Sequence[TypedEdgeIdentifier]) -> int:
         # Edges will be deleted in .delete call.
         return 0
 

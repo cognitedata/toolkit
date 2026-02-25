@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
+from cognite_toolkit._cdf_tk.client._types import Metadata
 
 from .data_modeling import NodeReference
 from .identifiers import InternalId, ThreeDModelRevisionId
@@ -43,7 +44,7 @@ class ThreeDModelRequest(RequestResource):
 class ThreeDModelClassicRequest(ThreeDModelRequest, UpdatableRequestResource):
     container_fields: ClassVar[frozenset[str]] = frozenset({"metadata"})
     data_set_id: int | None = None
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
 
 
 class ThreeDModelDMSRequest(ThreeDModelRequest):
@@ -57,12 +58,13 @@ class ThreeDModelClassicResponse(ResponseResource[ThreeDModelClassicRequest]):
     id: int
     created_time: int
     data_set_id: int | None = None
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
     space: str | None = None
     last_revision_info: RevisionStatus | None = None
 
-    def as_request_resource(self) -> ThreeDModelClassicRequest:
-        return ThreeDModelClassicRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[ThreeDModelClassicRequest]:
+        return ThreeDModelClassicRequest
 
     def as_id(self) -> InternalId:
         return InternalId(id=self.id)
@@ -87,7 +89,7 @@ class ThreeDRevisionClassicRequest(UpdatableRequestResource):
     rotation: list[float] | None = None
     scale: list[float] | None = None
     translation: list[float] | None = None
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
     camera: ThreeDRevisionCamera | None = None
     file_id: int
     # This field is used for update/delete and is not part of the create body schema.
@@ -119,13 +121,17 @@ class ThreeDRevisionClassicResponse(ResponseResource[ThreeDRevisionClassicReques
     translation: list[float] | None = None
     camera: ThreeDRevisionCamera | None = None
     status: Literal["Queued", "Processing", "Done", "Failed"]
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
     thumbnail_threed_file_id: int | None = None
     thumbnail_url: str | None = Field(None, alias="thumbnailURL")
     asset_mapping_count: int
     created_time: int
     # model_id is a path parameter, not returned in the API response body.
     model_id: int = Field(-1, exclude=True)
+
+    @classmethod
+    def request_cls(cls) -> type[ThreeDRevisionClassicRequest]:
+        return ThreeDRevisionClassicRequest
 
     def as_request_resource(self) -> ThreeDRevisionClassicRequest:
         dumped = self.dump()
@@ -179,6 +185,10 @@ class AssetMappingClassicResponse(ResponseResource[AssetMappingClassicRequest]):
     model_id: int = Field(-1, exclude=True)
     revision_id: int = Field(-1, exclude=True)
 
+    @classmethod
+    def request_cls(cls) -> type[AssetMappingClassicRequest]:
+        return AssetMappingClassicRequest
+
     def as_request_resource(self) -> AssetMappingClassicRequest:
         return AssetMappingClassicRequest.model_validate(
             {**self.dump(), "modelId": self.model_id, "revisionId": self.revision_id}
@@ -193,6 +203,10 @@ class AssetMappingDMResponse(ResponseResource[AssetMappingDMRequest]):
     # These fields are part of the path request and response, but they are included here for convenience.
     model_id: int = Field(-1, exclude=True)
     revision_id: int = Field(-1, exclude=True)
+
+    @classmethod
+    def request_cls(cls) -> type[AssetMappingDMRequest]:
+        return AssetMappingDMRequest
 
     def as_request_resource(self) -> AssetMappingDMRequest:
         return AssetMappingDMRequest.model_validate(

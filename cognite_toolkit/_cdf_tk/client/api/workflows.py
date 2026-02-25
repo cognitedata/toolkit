@@ -15,7 +15,7 @@ from .workflow_triggers import WorkflowTriggersAPI
 from .workflow_versions import WorkflowVersionsAPI
 
 
-class WorkflowsAPI(CDFResourceAPI[ExternalId, WorkflowRequest, WorkflowResponse]):
+class WorkflowsAPI(CDFResourceAPI[WorkflowResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,

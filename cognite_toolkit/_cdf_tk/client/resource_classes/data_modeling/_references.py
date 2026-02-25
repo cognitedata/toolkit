@@ -99,3 +99,29 @@ class ContainerConstraintReference(ContainerReference):
 
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}(constraint={self.identifier})"
+
+
+# Todo: Temporary put here to avoid circular imports.
+
+
+class DatapointSubscriptionTimeSeriesId(Identifier):
+    external_id: str | None = None
+    id: int | None = None
+    instance_id: NodeReference | None = None
+
+    def __str__(self) -> str:
+        if self.external_id is not None:
+            return f"externalId='{self.external_id}'"
+        elif self.id is not None:
+            return f"id={self.id}"
+        elif self.instance_id is not None:
+            return f"instanceId={self.instance_id!s}"
+        else:
+            return "undefined"
+
+
+class InstanceId(Identifier):
+    instance_id: NodeReference
+
+    def __str__(self) -> str:
+        return f"instanceId='{self.instance_id}'"

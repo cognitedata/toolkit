@@ -134,8 +134,9 @@ class InFieldLocationConfigRequest(WrappedInstanceListRequest, InFieldLocationCo
 
 
 class InFieldLocationConfigResponse(WrappedInstanceListResponse, InFieldLocationConfig):
-    def as_request_resource(self) -> InFieldLocationConfigRequest:
-        return InFieldLocationConfigRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[InFieldLocationConfigRequest]:
+        return InFieldLocationConfigRequest
 
     def as_ids(self) -> list[TypedInstanceIdentifier]:
         output: list[TypedInstanceIdentifier] = [TypedNodeIdentifier(space=self.space, external_id=self.external_id)]
@@ -178,6 +179,10 @@ class InFieldCDMLocationConfigResponse(
 ):
     VIEW_ID: ClassVar[TypedViewReference] = INFIELD_CDM_LOCATION_CONFIG_VIEW_ID
     instance_type: Literal["node"] = "node"
+
+    @classmethod
+    def request_cls(cls) -> type[InFieldCDMLocationConfigRequest]:
+        return InFieldCDMLocationConfigRequest
 
     def as_request_resource(self) -> InFieldCDMLocationConfigRequest:
         return InFieldCDMLocationConfigRequest.model_validate(self.dump(context="toolkit"), extra="ignore")

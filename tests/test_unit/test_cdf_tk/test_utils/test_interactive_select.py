@@ -15,10 +15,10 @@ from cognite.client.data_classes.data_modeling import (
     NodeList,
 )
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics, SpaceStatisticsList
-from cognite.client.data_classes.raw import Database, DatabaseList, Table, TableList
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
@@ -31,9 +31,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import CANVAS_INSTANCE_SPACE, Canvas
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
@@ -370,7 +370,7 @@ class TestRawTableSelect:
             assert len(choices) == 3
             return choices[2].value
 
-        def select_tables(choices: list[Choice]) -> list[RawTable]:
+        def select_tables(choices: list[Choice]) -> list[RawTableId]:
             assert len(choices) == 23
             return [choices[i].value for i in range(0, 24, 2)]
 
@@ -380,11 +380,15 @@ class TestRawTableSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(RawTableInteractiveSelect.__module__, monkeypatch, answers),
         ):
-            client.raw.databases.list.return_value = DatabaseList([Database(name=f"Database{i}") for i in range(1, 4)])
-            client.raw.tables.list.return_value = TableList([Table(name=f"Table{i}") for i in range(1, 24)])
+            client.tool.raw.databases.list.return_value = [
+                RAWDatabaseResponse(name=f"Database{i}", created_time=1) for i in range(1, 4)
+            ]
+            client.tool.raw.tables.list.return_value = [
+                RAWTableResponse(name=f"Table{i}", created_time=1, db_name="Database3") for i in range(1, 24)
+            ]
             selected = RawTableInteractiveSelect(client, "test_operation").select_tables()
 
-        assert selected == [RawTable("Database3", f"Table{i}") for i in range(1, 24, 2)]
+        assert selected == [RawTableId(db_name="Database3", name=f"Table{i}") for i in range(1, 24, 2)]
 
 
 class TestInteractiveCanvasSelect:
@@ -547,10 +551,10 @@ class TestInteractiveChartSelect:
             visibility="PUBLIC",
         )
         cdf_charts = [
-            Chart(external_id="homer1", data=ChartData(name="Homer 1"), owner_id="homer", **default_args),
-            Chart(external_id="homer2", data=ChartData(name="Homer 2"), owner_id="homer", **default_args),
-            Chart(external_id="marge1", data=ChartData(name="Marge 1"), owner_id="marge", **default_args),
-            Chart(external_id="marge2", data=ChartData(name="Marge 2"), owner_id="marge", **default_args),
+            ChartResponse(external_id="homer1", data=ChartData(name="Homer 1"), owner_id="homer", **default_args),
+            ChartResponse(external_id="homer2", data=ChartData(name="Homer 2"), owner_id="homer", **default_args),
+            ChartResponse(external_id="marge1", data=ChartData(name="Marge 1"), owner_id="marge", **default_args),
+            ChartResponse(external_id="marge2", data=ChartData(name="Marge 2"), owner_id="marge", **default_args),
         ]
         # Map answer titles to opening_choices values
         first_answer_by_choice_title = {c.title: c.value for c in InteractiveChartSelect.opening_choices}
@@ -583,9 +587,7 @@ class TestInteractiveChartSelect:
             MockQuestionary(InteractiveChartSelect.__module__, monkeypatch, answers),
         ):
             # Only include charts whose external_id is in selected_cdf
-            client.charts.list.return_value = ChartList(
-                [chart for chart in cdf_charts if chart.external_id in selected_cdf]
-            )
+            client.charts.list.return_value = [chart for chart in cdf_charts if chart.external_id in selected_cdf]
             client.iam.user_profiles.list.return_value = UserProfileList(
                 [
                     UserProfile(user_identifier="homer", display_name="Homer Simpson", last_updated_time=1),
