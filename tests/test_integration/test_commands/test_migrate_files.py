@@ -17,10 +17,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFile
 
 
 @pytest.fixture()
-def three_files_with_content(
-    toolkit_client_with_pending_ids: ToolkitClient, toolkit_space: Space
-) -> Iterable[FileMetadataList]:
-    client = toolkit_client_with_pending_ids
+def three_files_with_content(toolkit_client: ToolkitClient, toolkit_space: Space) -> Iterable[FileMetadataList]:
+    client = toolkit_client
     space = toolkit_space.space
     files = FileMetadataList([])
     for i in range(3):
@@ -52,12 +50,12 @@ def three_files_with_content(
 class TestMigrateFilesCommand:
     def test_migrate_files_v2(
         self,
-        toolkit_client_with_pending_ids: ToolkitClient,
+        toolkit_client: ToolkitClient,
         three_files_with_content: FileMetadataList,
         toolkit_space: Space,
         tmp_path: Path,
     ):
-        client = toolkit_client_with_pending_ids
+        client = toolkit_client
         space = toolkit_space.space
 
         input_file = tmp_path / "files_migration.csv"

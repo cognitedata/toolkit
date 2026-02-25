@@ -28,7 +28,7 @@ class TestInstanceIO:
     def test_download_instance_ids(
         self, rsps: responses.RequestsMock, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
     ) -> None:
-        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
+        client = ToolkitClient(config=toolkit_config)
         url = toolkit_config.create_api_url("/models/instances/list")
         selector = InstanceViewSelector(
             view=SelectedView(space="mySpace", external_id="myView", version="v42"),
@@ -113,7 +113,7 @@ class TestInstanceIO:
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_upload_force(self, toolkit_config: ToolkitClientConfig) -> None:
         config = toolkit_config
-        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
+        client = ToolkitClient(config=toolkit_config)
         instance_count = 12
         with HTTPClient(config) as http_client:
             instances = (

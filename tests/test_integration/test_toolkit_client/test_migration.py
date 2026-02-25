@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import SPACE
 from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning, catch_warnings
+from tests.test_integration.helpers import retry_on_deadlock
 
 
 @pytest.fixture(scope="session")
@@ -110,7 +111,7 @@ class TestResourceViewMappingAPI:
             existing = {vs.external_id for vs in listed}
             assert source.external_id in existing, "Expected the created view source to be listed"
 
-            deleted = toolkit_client.migration.resource_view_mapping.delete([source.as_id()])
+            deleted = retry_on_deadlock(lambda: toolkit_client.migration.resource_view_mapping.delete([source.as_id()]))
 
             assert len(deleted) > 0
         finally:
