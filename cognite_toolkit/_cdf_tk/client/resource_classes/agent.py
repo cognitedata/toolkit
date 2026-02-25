@@ -69,12 +69,6 @@ class UnknownAgentTool(AgentToolDefinition):
     ...
 
 
-TOOLS_WITH_CONFIGURATION: dict[str, type[AgentToolDefinition]] = {
-    "callFunction": CallFunction,
-    "queryKnowledgeGraph": QueryKnowledgeGraph,
-}
-
-
 def _handle_unknown_tool(value: Any) -> Any:
     if isinstance(value, dict):
         tool_type = value.get("type")
