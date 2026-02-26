@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     EdgeRequest,
     InstanceRequest,
+    InstanceResponse,
     NodeReference,
     NodeRequest,
     ViewReference,
@@ -59,7 +60,12 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitVal
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector
 from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, NoOpLogger
-from cognite_toolkit._cdf_tk.storageio.selectors import CanvasSelector, ChartSelector, ThreeDSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import (
+    CanvasSelector,
+    ChartSelector,
+    InstanceViewSelector,
+    ThreeDSelector,
+)
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
 
@@ -638,3 +644,19 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, 
             asset_instance_id=asset_instance_id,
         )
         return mapped_request, issue
+
+
+class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, InstanceRequest]):
+    """This mapper maps instances to instances accounting for the difference between older data models
+    (back when they were called Flexible Data Models) and newer data models (backed by Cognite Core Data Model).
+
+    This means in particular the following:
+
+    - Supports converting edges to direct/reverse direct relations.
+    - Supports converting timeseries/files references to direct relation pointing to the CogniteTimeSeries/CogniteFile
+        views.
+
+    """
+
+    def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
+        raise NotImplementedError()
