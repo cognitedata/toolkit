@@ -13,8 +13,8 @@ from rich.panel import Panel
 from rich.text import Text
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeReference, NodeReference, ViewReference
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId

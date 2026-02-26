@@ -3,9 +3,9 @@ from typing import Literal
 from pydantic import Field, JsonValue, field_serializer
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.identifiers import ViewReference
 
 from ._instance import InstanceResponse
-from ._references import ViewReference
 
 
 class QuerySortSpec(BaseModelObject):

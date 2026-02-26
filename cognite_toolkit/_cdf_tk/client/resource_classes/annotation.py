@@ -3,8 +3,7 @@ from typing import Any, Literal, TypeAlias
 from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, ResponseResource, UpdatableRequestResource
-
-from .identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 
 AnnotationStatus: TypeAlias = Literal["suggested", "rejected", "approved"]
 AnnotationType: TypeAlias = Literal[

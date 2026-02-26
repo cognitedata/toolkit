@@ -10,7 +10,7 @@ from typing import Annotated, Literal, TypeAlias
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import PrincipalId
+from cognite_toolkit._cdf_tk.client.identifiers import PrincipalId
 
 PrincipalType: TypeAlias = Literal["SERVICE_ACCOUNT", "USER"]
 

@@ -3,8 +3,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
+from cognite_toolkit._cdf_tk.client.identifiers import SequenceRowId
 
-from .identifiers import SequenceRowId
 from .sequence import SequenceColumnSlim
 
 

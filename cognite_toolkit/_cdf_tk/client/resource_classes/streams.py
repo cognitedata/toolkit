@@ -2,9 +2,8 @@ import builtins
 from typing import Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import StreamTemplateName
-
-from .identifiers import ExternalId
 
 
 class Stream(BaseModelObject):

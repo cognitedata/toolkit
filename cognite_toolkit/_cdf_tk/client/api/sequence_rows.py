@@ -4,8 +4,8 @@ from typing import Any
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.identifiers import SequenceRowId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import SequenceRowFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import SequenceRowId
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import (
     SequenceRowsRequest,
     SequenceRowsResponse,

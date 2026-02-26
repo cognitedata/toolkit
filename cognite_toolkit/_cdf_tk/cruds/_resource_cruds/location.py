@@ -5,12 +5,12 @@ from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, LocationFiltersAcl
 
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelReference,
     SpaceReference,
     ViewReference,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
     LocationFilterResponse,

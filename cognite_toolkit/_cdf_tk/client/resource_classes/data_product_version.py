@@ -7,9 +7,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
+from cognite_toolkit._cdf_tk.client.identifiers import DataProductVersionId, SemanticVersion
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
-
-from .identifiers import DataProductVersionId, SemanticVersion
 
 SpaceId = Annotated[str, Field(pattern=SPACE_FORMAT_PATTERN, max_length=43)]
 

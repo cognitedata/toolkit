@@ -5,10 +5,10 @@ from pydantic import Field, JsonValue, field_serializer, model_validator
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerReference, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
 
 from ._data_types import DirectNodeRelation
-from ._references import ContainerReference, ViewReference
 from ._view_property import (
     MultiReverseDirectRelationPropertyResponse,
     SingleReverseDirectRelationPropertyResponse,
