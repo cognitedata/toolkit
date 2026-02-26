@@ -5,6 +5,12 @@ from collections.abc import Callable, Hashable, Iterable, Set
 from typing import Annotated, Any, cast, get_args, get_origin
 
 import pytest
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import (
+    ExtractionPipelineConfigId,
+    InternalId,
+    InternalIdUnwrapped,
+    ThreeDModelRevisionId,
+)
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource, T_ResponseResource
@@ -51,12 +57,6 @@ from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTrigger
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse, ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import (
-    ExtractionPipelineConfigId,
-    InternalId,
-    InternalIdUnwrapped,
-    ThreeDModelRevisionId,
-)
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter, SequenceRowFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
@@ -1288,7 +1288,7 @@ class TestCDFResourceAPI:
                 raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed security category, got 0")
         finally:
             # Clean up
-            client.tool.security_categories.delete([created_id])  # type: ignore[list-item]
+            client.tool.security_categories.delete([created_id])
 
     def test_infield_cdm_location_config_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client

@@ -4,8 +4,8 @@ from typing import Any
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.identifiers._references import DatapointSubscriptionTimeSeriesId
 from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._references import DatapointSubscriptionTimeSeriesId
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (
     DatapointSubscriptionRequest,
     DatapointSubscriptionResponse,

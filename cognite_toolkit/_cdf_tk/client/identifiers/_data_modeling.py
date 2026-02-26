@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import Identifier
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 
 
 class SpaceReference(Identifier):

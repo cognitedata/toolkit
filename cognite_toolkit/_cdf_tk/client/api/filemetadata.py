@@ -10,9 +10,9 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage,
     SuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.identifiers._references import InstanceId
 from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId, InternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._references import InstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 

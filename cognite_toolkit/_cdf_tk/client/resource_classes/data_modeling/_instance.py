@@ -10,9 +10,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     T_RequestResource,
 )
+from cognite_toolkit._cdf_tk.client.identifiers._references import ContainerReference, NodeReference, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedEdgeIdentifier, TypedNodeIdentifier
-
-from ._references import ContainerReference, NodeReference, ViewReference
 
 
 class InstanceDefinition(BaseModelObject, ABC):
