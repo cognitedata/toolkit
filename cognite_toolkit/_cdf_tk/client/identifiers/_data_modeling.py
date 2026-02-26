@@ -1,6 +1,5 @@
-from typing import Literal
-
-from pydantic import Field
+from abc import ABC
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 
@@ -12,8 +11,28 @@ class SpaceReference(Identifier):
         return self.space
 
 
-class ContainerReference(Identifier):
-    type: Literal["container"] = Field("container", exclude=True)
+class DataModelingIdentifier(Identifier, ABC):
+    type: str
+
+    def dump(self, camel_case: bool = True, exclude_extra: bool = False, include_type: bool = True) -> dict[str, Any]:
+        """Dumps the identifier to a dictionary.
+
+        Args:
+            camel_case: Whether to use camelCase for the keys. Defaults to True.
+            exclude_extra: Whether to exclude extra fields that are not part of the API payload. Defaults to False.
+            include_type: Whether to include the 'type' field in the output. Defaults to True.
+
+        Returns:
+            A dictionary representation of the identifier.
+        """
+        exclude: set[str] | None = None
+        if not include_type:
+            exclude = {"type"}
+        return self.model_dump(mode="json", by_alias=camel_case, exclude=exclude)
+
+
+class ContainerReference(DataModelingIdentifier):
+    type: Literal["container"] = "container"
     space: str
     external_id: str
 
@@ -24,8 +43,8 @@ class ContainerReference(Identifier):
         return self.space, self.external_id
 
 
-class ViewReferenceNoVersion(Identifier):
-    type: Literal["view"] = Field("view", exclude=True)
+class ViewReferenceNoVersion(DataModelingIdentifier):
+    type: Literal["view"] = "view"
     space: str
     external_id: str
 
@@ -55,17 +74,40 @@ class DataModelReference(DataModelReferenceNoVersion):
         return f"{self.space}:{self.external_id}(version={self.version})"
 
 
-class NodeReference(Identifier):
+class InstanceIdDefinition(Identifier):
+    instance_type: str
     space: str
     external_id: str
 
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}"
 
+    def dump(self, camel_case: bool = True, exclude_extra: bool = False, include_instance_type: bool = True) -> dict:
+        """Dumps the identifier to a dictionary.
 
-class EdgeReference(Identifier):
-    space: str
-    external_id: str
+        Args:
+            camel_case: Whether to use camelCase for the keys. Defaults to True.
+            exclude_extra: Whether to exclude extra fields that are not part of the API payload. Defaults to False.
+            include_instance_type: Whether to include the 'instance_type' field in the output. Defaults to True.
+
+        Returns:
+            A dictionary representation of the identifier.
+        """
+        exclude: set[str] | None = None
+        if not include_instance_type:
+            exclude = {"instance_type"}
+        return self.model_dump(mode="json", by_alias=camel_case, exclude=exclude)
+
+
+class NodeReference(InstanceIdDefinition):
+    instance_type: Literal["node"] = "node"
+
+    def __str__(self) -> str:
+        return f"{self.space}:{self.external_id}"
+
+
+class EdgeReference(InstanceIdDefinition):
+    instance_type: Literal["edge"] = "edge"
 
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}"
@@ -101,9 +143,6 @@ class ContainerConstraintReference(ContainerReference):
         return f"{self.space}:{self.external_id}(constraint={self.identifier})"
 
 
-# Todo: Temporary put here to avoid circular imports.
-
-
 class DatapointSubscriptionTimeSeriesId(Identifier):
     external_id: str | None = None
     id: int | None = None
@@ -125,3 +164,10 @@ class InstanceId(Identifier):
 
     def __str__(self) -> str:
         return f"instanceId='{self.instance_id}'"
+
+    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+        return {
+            "instanceId" if camel_case else "instance_id": self.instance_id.dump(
+                camel_case=camel_case, exclude_extra=exclude_extra, include_instance_type=False
+            )
+        }
