@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.apps import (
     DataApp,
     DevApp,
     DumpApp,
+    FunctionsApp,
     ImportApp,
     LandingApp,
     MigrateApp,
@@ -114,6 +115,9 @@ if Flags.IMPORT_CMD.is_enabled():
 
 if Plugins.data.value.is_enabled():
     _app.add_typer(DataApp(**default_typer_kws), name="data")
+
+if Plugins.functions.value.is_enabled():
+    _app.add_typer(FunctionsApp(**default_typer_kws), name="functions")
 
 _app.add_typer(ModulesApp(**default_typer_kws), name="modules")
 _app.command("init")(landing_app.main_init)
