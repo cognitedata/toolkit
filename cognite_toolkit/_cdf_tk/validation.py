@@ -142,6 +142,7 @@ def humanize_validation_error(error: ValidationError) -> list[str]:
     Returns:
         A list of human-readable error messages.
     """
+
     errors: list[str] = []
     item: ErrorDetails
 
