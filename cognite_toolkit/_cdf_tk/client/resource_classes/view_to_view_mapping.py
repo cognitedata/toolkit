@@ -10,10 +10,11 @@ from .data_modeling import ViewReference
 class ViewToViewMapping(BaseModelObject):
     source_view: ViewReference
     destination_view: ViewReference
-    map_equal_named_properties: bool = Field(
+    map_identical_id_properties: bool = Field(
         default=False,
-        description="Whether to automatically map properties with the same name. Note this is a shorthand for"
-        " mapping all properties with the same name to each other.",
+        description="Whether to automatically map properties with identical ID. Note this is a shorthand, "
+        "you can achieve the same by including the properties in the property_mapping with identical "
+        " and destination IDs.",
     )
     property_mapping: dict[str, str]
 

@@ -9,7 +9,7 @@ Action:
     externalId: Action
     version: v1
     type: view
-  mapEqualNamedProperties: true
+  mapIdenticalIdProperties: true
   propertyMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
@@ -24,7 +24,7 @@ Checklist:
     externalId: Checklist
     version: v1
     type: view
-  mapEqualNamedProperties: true
+  mapIdenticalIdProperties: true
   propertyMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
@@ -39,7 +39,7 @@ ChecklistItem:
     externalId: ChecklistItem
     version: v1
     type: view
-  mapEqualNamedProperties: true
+  mapIdenticalIdProperties: true
   propertyMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
@@ -54,7 +54,7 @@ Condition:
     externalId: Condition
     version: v1
     type: view
-  mapEqualNamedProperties: true
+  mapIdenticalIdProperties: true
   propertyMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
@@ -69,7 +69,7 @@ ConditionalAction:
     externalId: ConditionalAction
     version: v1
     type: view
-  mapEqualNamedProperties: true
+  mapIdenticalIdProperties: true
   propertyMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
@@ -84,7 +84,7 @@ MeasurementReading:
     externalId: MeasurementReading
     version: v1
     type: view
-  mapEqualNamedProperties: true
+  mapIdenticalIdProperties: true
   propertyMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
@@ -99,7 +99,7 @@ Schedule:
     externalId: Schedule
     version: v1
     type: view
-  mapEqualNamedProperties: true
+  mapIdenticalIdProperties: true
   propertyMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
@@ -114,7 +114,7 @@ Template:
     externalId: Template
     version: v1
     type: view
-  mapEqualNamedProperties: true
+  mapIdenticalIdProperties: true
   propertyMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
@@ -129,7 +129,7 @@ TemplateItem:
     externalId: TemplateItem
     version: v1
     type: view
-  mapEqualNamedProperties: true
+  mapIdenticalIdProperties: true
   propertyMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
