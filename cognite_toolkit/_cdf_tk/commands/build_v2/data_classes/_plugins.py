@@ -12,15 +12,13 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 )
 
 if TYPE_CHECKING:
-    from cognite.neat._data_model._snapshot import SchemaSnapshot
-    from cognite.neat._data_model.models.dms._limits import SchemaLimits
-    from cognite.neat._issues import IssueList
+    from cognite.neat._toolkit_adapter import NeatIssueList, SchemaLimits, SchemaSnapshot
 
 
 class NeatPlugin:
     def __init__(self, client: ToolkitClient) -> None:
 
-        from cognite.neat._client import NeatClient
+        from cognite.neat._toolkit_adapter import NeatClient
 
         self._client = NeatClient(client._config)
         self._cdf_snapshot: SchemaSnapshot | None = None
@@ -37,8 +35,7 @@ class NeatPlugin:
             InsightList: A list of insights generated from the validation.
         """
 
-        from cognite.neat._data_model.importers import DMSAPIImporter
-        from cognite.neat._data_model.rules.dms import DmsDataModelRulesOrchestrator
+        from cognite.neat._toolkit_adapter import DMSAPIImporter, DmsDataModelRulesOrchestrator
 
         importer = DMSAPIImporter.from_yaml(yaml_file=data_model_dir, data_model_file=data_model_file)
         schema = importer.to_data_model()
@@ -52,7 +49,7 @@ class NeatPlugin:
         return self.issues_to_insights(orchestrator.issues)
 
     @classmethod
-    def issues_to_insights(cls, issues: IssueList) -> InsightList:
+    def issues_to_insights(cls, issues: NeatIssueList) -> InsightList:
         """Converts a list of Neat issues to a Toolkit insight list.
 
         Args:
@@ -61,9 +58,7 @@ class NeatPlugin:
         Returns:
             InsightList: List of Toolkit insights.
         """
-        from cognite.neat._issues import ConsistencyError as NeatConsistencyError
-        from cognite.neat._issues import ModelSyntaxError as NeatModelSyntaxError
-        from cognite.neat._issues import Recommendation as NeatRecommendation
+        from cognite.neat._toolkit_adapter import NeatConsistencyError, NeatModelSyntaxError, NeatRecommendation
 
         insights = InsightList()
 
@@ -79,7 +74,7 @@ class NeatPlugin:
 
     @property
     def cdf_limits(self) -> SchemaLimits:
-        from cognite.neat._data_model.models.dms._limits import SchemaLimits
+        from cognite.neat._toolkit_adapter import SchemaLimits
 
         if not self._cdf_limits:
             self._cdf_limits = SchemaLimits.from_api_response(self._client.statistics.project())
