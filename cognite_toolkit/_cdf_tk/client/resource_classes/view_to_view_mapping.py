@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import Field, field_serializer
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
@@ -16,5 +18,5 @@ class ViewToViewMapping(BaseModelObject):
     property_mapping: dict[str, str]
 
     @field_serializer("source_view", "destination_view", mode="plain")
-    def serialize_view_id(self, view_id: ViewReference) -> dict:
+    def serialize_view_id(self, view_id: ViewReference) -> dict[str, Any]:
         return {**view_id.dump(), "type": "view"}
