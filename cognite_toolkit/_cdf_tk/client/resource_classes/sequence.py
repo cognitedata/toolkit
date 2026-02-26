@@ -8,8 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client._types import Metadata
-
-from .identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
 
 
 class SequenceColumnSlim(BaseModelObject):

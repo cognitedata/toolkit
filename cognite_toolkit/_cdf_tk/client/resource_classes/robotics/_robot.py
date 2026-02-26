@@ -6,7 +6,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import DataSetId
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import DataSetId
 
 from ._common import RobotType
 

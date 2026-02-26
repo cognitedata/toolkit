@@ -3,9 +3,9 @@ from typing import Literal
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId, InternalId
 
 from .data_modeling import DataModelReference
-from .identifiers import ExternalId, InternalId
 
 
 class LocationFilterScene(BaseModelObject):

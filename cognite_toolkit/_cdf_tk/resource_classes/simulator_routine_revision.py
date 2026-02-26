@@ -3,7 +3,7 @@ from typing import Any, Literal, TypeAlias
 from pydantic import Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .base import BaseModelResource, ToolkitResource

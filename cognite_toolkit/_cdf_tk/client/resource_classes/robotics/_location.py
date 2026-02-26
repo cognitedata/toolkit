@@ -1,5 +1,5 @@
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, ResponseResource, UpdatableRequestResource
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
 
 
 class RobotLocation(BaseModelObject):

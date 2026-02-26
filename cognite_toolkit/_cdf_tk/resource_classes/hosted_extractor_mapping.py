@@ -5,7 +5,7 @@ from typing import Any, ClassVar, cast
 from pydantic import Field, ModelWrapValidatorHandler, model_serializer, model_validator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .base import BaseModelResource, ToolkitResource

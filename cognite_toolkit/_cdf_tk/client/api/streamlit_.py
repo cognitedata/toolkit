@@ -9,8 +9,8 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage,
     SuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import StreamlitFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import (
     StreamlitRequest,
     StreamlitResponse,

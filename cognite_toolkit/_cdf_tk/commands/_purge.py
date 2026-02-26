@@ -23,11 +23,11 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsRequest,
     ItemsSuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._references import (
     InstanceId as DataModelingInstanceId,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedInstanceIdentifier
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,

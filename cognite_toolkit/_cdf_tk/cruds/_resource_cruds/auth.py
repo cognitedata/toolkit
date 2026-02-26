@@ -31,18 +31,18 @@ from rich.markup import escape
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
-from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    GroupRequest,
-    GroupResponse,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import (
     ExternalId,
     InternalId,
     InternalIdUnwrapped,
     NameId,
     RawDatabaseId,
     RawTableId,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    GroupRequest,
+    GroupResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryRequest,

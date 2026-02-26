@@ -8,8 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
-
-from .identifiers import Identifier, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import Identifier, WorkflowVersionId
 
 TaskType: TypeAlias = Literal["function", "transformation", "cdf", "dynamic", "subworkflow", "simulation"]
 

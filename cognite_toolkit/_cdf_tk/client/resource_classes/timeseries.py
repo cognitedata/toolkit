@@ -7,8 +7,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client._types import Metadata
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId, InternalOrExternalId
 
-from .identifiers import ExternalId, InternalOrExternalId
 from .instance_api import NodeReference
 
 

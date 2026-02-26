@@ -8,8 +8,8 @@ from cognite.client import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerReference, ContainerRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicRequest,
     ThreeDModelClassicResponse,

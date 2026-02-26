@@ -1,6 +1,6 @@
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
 
 from .authentication import AuthenticationClientIdSecret
 from .base import ToolkitResource

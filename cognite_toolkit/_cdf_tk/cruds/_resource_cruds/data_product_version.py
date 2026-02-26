@@ -3,11 +3,11 @@ from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability
 
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import DataProductVersionId, ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import (
     DataProductVersionRequest,
     DataProductVersionResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import DataProductVersionId, ExternalId
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.resource_classes import DataProductVersionYAML
 

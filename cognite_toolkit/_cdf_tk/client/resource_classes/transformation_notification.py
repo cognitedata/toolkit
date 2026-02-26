@@ -5,8 +5,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
-
-from .identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import InternalId
 
 
 class TransformationNotification(BaseModelObject):

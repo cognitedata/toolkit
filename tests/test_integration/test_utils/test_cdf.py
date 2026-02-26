@@ -23,7 +23,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.labels import LabelDefinitionWriteList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import SQLQueryResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.constants import MAX_RUN_QUERY_FREQUENCY_MIN

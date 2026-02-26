@@ -10,6 +10,7 @@ from cognite.client.data_classes.capabilities import (
     TimeSeriesSubscriptionsAcl,
 )
 
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId, InternalOrExternalId, NameId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._references import DatapointSubscriptionTimeSeriesId
@@ -20,7 +21,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription impo
     DataPointSubscriptionUpdate,
     DatapointSubscriptionUpdateRequest,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.constants import MAX_TIMESTAMP_MS, MIN_TIMESTAMP_MS
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD

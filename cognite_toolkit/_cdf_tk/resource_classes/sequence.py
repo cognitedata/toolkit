@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, SequenceRowId
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId, SequenceRowId
 
 from .base import BaseModelResource, ToolkitResource
 

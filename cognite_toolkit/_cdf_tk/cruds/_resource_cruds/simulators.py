@@ -3,12 +3,12 @@ from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability
 
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     SimulatorModelRevisionFilter,
     SimulatorModelRoutineFilter,
     SimulatorModelRoutineRevisionFilter,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelRequest,
     SimulatorModelResponse,

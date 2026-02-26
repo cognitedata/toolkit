@@ -9,8 +9,8 @@ import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes.data_modeling import DataModelId
 
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import RawDatabaseId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId
 from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand
 from cognite_toolkit._cdf_tk.cruds import RawDatabaseCRUD, TransformationCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, Environment, Packages

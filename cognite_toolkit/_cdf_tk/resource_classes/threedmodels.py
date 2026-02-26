@@ -1,6 +1,6 @@
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import NameId
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import NameId
 
 from .base import ToolkitResource
 

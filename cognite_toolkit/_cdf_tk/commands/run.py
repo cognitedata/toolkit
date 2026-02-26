@@ -30,8 +30,8 @@ from rich.progress import Progress
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleId
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.cruds import FunctionCRUD, FunctionScheduleCRUD, WorkflowVersionCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowTriggerCRUD

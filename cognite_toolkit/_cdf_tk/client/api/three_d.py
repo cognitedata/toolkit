@@ -10,8 +10,8 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage,
     SuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import InternalId, ThreeDModelRevisionId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ThreeDAssetMappingFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId, ThreeDModelRevisionId
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicRequest,
     AssetMappingClassicResponse,

@@ -6,7 +6,7 @@ from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import ClientCredentials, OidcCredentials
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import RawTableId
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitTypeError
 from cognite_toolkit._cdf_tk.utils.cdf import (
     get_transformation_destination_columns,

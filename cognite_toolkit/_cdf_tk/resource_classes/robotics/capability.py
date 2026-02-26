@@ -1,6 +1,6 @@
 from pydantic import Field, JsonValue
 
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
 
 

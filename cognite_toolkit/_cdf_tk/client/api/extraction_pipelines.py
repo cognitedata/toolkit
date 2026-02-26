@@ -5,12 +5,12 @@ from cognite_toolkit._cdf_tk.client.api.extraction_pipeline_config import Extrac
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
     ExtractionPipelineResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
 
 
 class ExtractionPipelinesAPI(CDFResourceAPI[ExtractionPipelineResponse]):

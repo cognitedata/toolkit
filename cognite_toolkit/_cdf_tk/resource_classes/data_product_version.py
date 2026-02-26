@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import DataProductVersionId, SemanticVersion
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import DataProductVersionId, SemanticVersion
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource

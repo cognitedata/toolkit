@@ -11,11 +11,11 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage,
     SuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.identifiers.identifiers import DataProductVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import (
     DataProductVersionRequest,
     DataProductVersionResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import DataProductVersionId
 
 
 class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
