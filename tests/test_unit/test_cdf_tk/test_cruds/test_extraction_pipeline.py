@@ -8,7 +8,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId, RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config import (
     ExtractionPipelineConfigRequest,
     ExtractionPipelineConfigResponse,

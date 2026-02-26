@@ -10,8 +10,8 @@ from cognite.client.data_classes.capabilities import (
     TimeSeriesSubscriptionsAcl,
 )
 
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalOrExternalId, NameId
 from cognite_toolkit._cdf_tk.client.identifiers._references import DatapointSubscriptionTimeSeriesId
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId, InternalOrExternalId, NameId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (

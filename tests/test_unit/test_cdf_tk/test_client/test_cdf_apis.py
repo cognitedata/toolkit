@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId, PrincipalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, PrincipalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeResponse, NodeResponse

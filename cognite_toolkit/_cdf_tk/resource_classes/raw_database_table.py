@@ -1,6 +1,6 @@
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawTableId
 
 from .base import ToolkitResource
 

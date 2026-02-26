@@ -2,7 +2,7 @@ import sys
 
 from pydantic import Field, JsonValue, model_validator
 
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource

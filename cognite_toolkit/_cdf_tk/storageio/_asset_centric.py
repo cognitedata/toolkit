@@ -6,7 +6,7 @@ from typing import Any, ClassVar, Generic
 from cognite.client.data_classes import Label, LabelDefinition
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetAggregateItem, AssetRequest, AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
@@ -131,7 +131,8 @@ class AssetCentricIO(
     ) -> Iterable[StorageIOConfig]:
         if not ids:
             return
-        items = loader.retrieve(ids)
+
+        items = loader.retrieve(ids)  # type: ignore[arg-type]
         yield StorageIOConfig(
             kind=loader.kind,
             folder_name=loader.folder_name,

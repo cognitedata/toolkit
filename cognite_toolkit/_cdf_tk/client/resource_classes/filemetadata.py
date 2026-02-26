@@ -4,7 +4,7 @@ from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, ResponseResource, UpdatableRequestResource
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 from .instance_api import NodeReference
 

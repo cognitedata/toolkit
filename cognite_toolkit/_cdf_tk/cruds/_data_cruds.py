@@ -8,7 +8,7 @@ from cognite.client.data_classes import FileMetadataWrite
 from cognite.client.data_classes.data_modeling import NodeId
 
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import ExtendableCogniteFileApply
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse

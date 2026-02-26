@@ -43,7 +43,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPResult, RequestMessage, SuccessResponse
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, SpaceRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,

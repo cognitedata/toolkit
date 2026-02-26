@@ -21,7 +21,7 @@ from rich.spinner import Spinner
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RawProfileResponse
 from cognite_toolkit._cdf_tk.constants import MAX_ROW_ITERATION_RUN_QUERY
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, ToolkitThrottledError, ToolkitValueError

@@ -2,7 +2,7 @@ from typing import Literal, TypeAlias
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 FunctionStatus: TypeAlias = Literal["Queued", "Deploying", "Ready", "Failed", "Retired"]
 

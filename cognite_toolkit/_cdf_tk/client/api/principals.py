@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.api.project import ProjectAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
 from cognite_toolkit._cdf_tk.client.cdf_client.responses import PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import (
+from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     PrincipalId,
     PrincipalLoginId,

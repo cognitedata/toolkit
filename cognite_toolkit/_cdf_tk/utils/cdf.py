@@ -17,7 +17,7 @@ from filelock import BaseFileLock, FileLock, Timeout
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, MAX_ROW_ITERATION_RUN_QUERY, MAX_RUN_QUERY_FREQUENCY_MIN
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,

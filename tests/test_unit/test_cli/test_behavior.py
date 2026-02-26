@@ -13,7 +13,7 @@ from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk import cdf_toml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import NameId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import NameId, WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerPropertyDefinition,
     ContainerReference,

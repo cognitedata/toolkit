@@ -5,7 +5,7 @@ from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, DataModelInstancesAcl
 
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId, NameId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APM_CONFIG_SPACE,
     APMConfigRequest,

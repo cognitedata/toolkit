@@ -4,7 +4,7 @@ from typing import Any, Literal
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource, UpdatableRequestResource
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 
 class SimulatorModelRequest(UpdatableRequestResource):

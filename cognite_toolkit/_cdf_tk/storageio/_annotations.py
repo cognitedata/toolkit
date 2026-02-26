@@ -1,7 +1,7 @@
 from collections.abc import Iterable, Sequence
 from typing import Any
 
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import (
     AnnotationResponse,

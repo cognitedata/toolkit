@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, JsonValue
 
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import WorkflowVersionId as WorkflowVersionIdIdentifier
+from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId as WorkflowVersionIdIdentifier
 
 from .base import BaseModelResource, ToolkitResource
 

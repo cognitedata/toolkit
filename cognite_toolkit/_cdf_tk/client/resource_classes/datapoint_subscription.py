@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 from .data_modeling import NodeReference
 

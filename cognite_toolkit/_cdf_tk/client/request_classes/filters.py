@@ -4,7 +4,7 @@ from typing import Any, Literal
 from pydantic import ConfigDict, Field, JsonValue, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes import streamlit_
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationStatus, AnnotationType
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference

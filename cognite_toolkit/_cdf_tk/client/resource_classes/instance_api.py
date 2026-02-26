@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 if sys.version_info >= (3, 11):
     from typing import Self

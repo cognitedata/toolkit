@@ -3,7 +3,7 @@ from typing import Any, Literal
 from pydantic import Field, field_validator, model_serializer
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 from .authentication import AuthenticationClientIdSecret, OIDCCredential
 from .base import ToolkitResource

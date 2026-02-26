@@ -48,7 +48,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import (
+from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     InternalId,
     RawDatabaseId,

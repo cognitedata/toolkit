@@ -2,7 +2,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource

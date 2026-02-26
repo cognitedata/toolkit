@@ -4,7 +4,7 @@ from typing import Annotated, Any
 import typer
 from rich import print
 
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelReference,
     DataModelReferenceNoVersion,

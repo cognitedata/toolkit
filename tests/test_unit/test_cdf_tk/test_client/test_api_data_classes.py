@@ -5,7 +5,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client._resource_base import UpdatableRequestResource, _get_annotation_origin
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import PrincipalId
+from cognite_toolkit._cdf_tk.client.identifiers import PrincipalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (

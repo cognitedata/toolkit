@@ -5,7 +5,7 @@ from typing import Any
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
 
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotCapabilityRequest,
     RobotCapabilityResponse,

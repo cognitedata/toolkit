@@ -6,7 +6,7 @@ from cognite_toolkit._cdf_tk.client.api.transformation_schedules import Transfor
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import TransformationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     SQLQueryResponse,

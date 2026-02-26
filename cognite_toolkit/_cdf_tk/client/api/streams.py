@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage,
     SuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 
 

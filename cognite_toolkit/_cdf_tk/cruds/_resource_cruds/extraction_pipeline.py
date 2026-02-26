@@ -24,7 +24,7 @@ from cognite.client.data_classes.capabilities import (
 )
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers.identifiers import (
+from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     ExtractionPipelineConfigId,
     InternalOrExternalId,
