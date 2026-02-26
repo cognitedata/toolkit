@@ -4,7 +4,7 @@ from typing import Any, final
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
 
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
+from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     InternalId,
     NameId,

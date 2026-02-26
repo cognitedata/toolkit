@@ -1,5 +1,6 @@
 import pytest
 
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
     FeatureConfiguration,
@@ -8,7 +9,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     RootLocationDataFilters,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, NameId
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     DataSetsCRUD,

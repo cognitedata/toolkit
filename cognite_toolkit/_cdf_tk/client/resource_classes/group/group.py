@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
 )
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 
 from .capability import GroupCapability
 

@@ -51,6 +51,12 @@ from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTrigger
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse, ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    ExtractionPipelineConfigId,
+    InternalId,
+    InternalIdUnwrapped,
+    ThreeDModelRevisionId,
+)
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter, SequenceRowFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
@@ -108,12 +114,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
     KafkaSourceResponse,
     MQTTSourceResponse,
     RESTSourceResponse,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
-    ExtractionPipelineConfigId,
-    InternalId,
-    InternalIdUnwrapped,
-    ThreeDModelRevisionId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldCDMLocationConfigRequest,

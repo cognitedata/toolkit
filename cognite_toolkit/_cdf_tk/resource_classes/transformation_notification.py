@@ -1,6 +1,6 @@
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import TransformationNotificationId
+from cognite_toolkit._cdf_tk.client.identifiers import TransformationNotificationId
 
 from .base import ToolkitResource
 

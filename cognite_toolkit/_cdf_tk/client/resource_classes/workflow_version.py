@@ -5,11 +5,11 @@ from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
+    Identifier,
     RequestResource,
     ResponseResource,
 )
-
-from .identifiers import Identifier, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
 
 TaskType: TypeAlias = Literal["function", "transformation", "cdf", "dynamic", "subworkflow", "simulation"]
 

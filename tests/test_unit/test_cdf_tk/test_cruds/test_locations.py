@@ -1,7 +1,7 @@
 import pytest
 
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataModelReference
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     AssetCentricFilter,
     AssetCentricSubFilter,

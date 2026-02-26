@@ -6,12 +6,12 @@ from pydantic import JsonValue, TypeAdapter
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source import (
     HostedExtractorSourceRequestUnion,
     HostedExtractorSourceResponse,
     HostedExtractorSourceResponseUnion,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
 
 class HostedExtractorSourcesAPI(CDFResourceAPI[HostedExtractorSourceResponseUnion]):

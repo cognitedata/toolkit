@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 if sys.version_info >= (3, 11):

@@ -6,6 +6,7 @@ from cognite.client.data_classes import TimeSeries, TimeSeriesWrite, UserProfile
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartData,
@@ -13,7 +14,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartTimeseries,
     UserInfo,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
 
 @pytest.fixture(scope="session")

@@ -5,8 +5,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
-
-from .identifiers import InternalIdUnwrapped
+from cognite_toolkit._cdf_tk.client.identifiers import InternalIdUnwrapped
 
 
 class SecurityCategory(BaseModelObject):

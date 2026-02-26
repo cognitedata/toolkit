@@ -1,6 +1,6 @@
 import pytest
 
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._references import (
+from cognite_toolkit._cdf_tk.client.identifiers import (
     DatapointSubscriptionTimeSeriesId,
     NodeReference,
 )

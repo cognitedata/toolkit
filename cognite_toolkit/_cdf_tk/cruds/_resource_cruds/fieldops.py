@@ -5,6 +5,7 @@ from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, DataModelInstancesAcl
 
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APM_CONFIG_SPACE,
     APMConfigRequest,
@@ -12,7 +13,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldCDMLocationConfigRequest,
     InFieldCDMLocationConfigResponse,

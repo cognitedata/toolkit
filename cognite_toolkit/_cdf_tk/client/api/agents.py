@@ -10,8 +10,8 @@ from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
 
 class AgentsAPI(CDFResourceAPI[AgentResponse]):

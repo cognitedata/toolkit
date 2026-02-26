@@ -7,9 +7,9 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 from .data_modeling import NodeReference
-from .identifiers import ExternalId
 
 # Unlike other resources, datapoints subscriptions have a separate update resource. This
 # is because datapoint subscriptions need to handle add/removing operations for timeSeriesIds and

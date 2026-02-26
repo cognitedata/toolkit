@@ -48,6 +48,13 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    ExternalId,
+    InternalId,
+    RawDatabaseId,
+    RawTableId,
+    TransformationNotificationId,
+)
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     TransformationFilter,
     TransformationNotificationFilter,
@@ -56,13 +63,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelReference,
     SpaceReference,
     ViewReference,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
-    ExternalId,
-    InternalId,
-    RawDatabaseId,
-    RawTableId,
-    TransformationNotificationId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     NonceCredentials,

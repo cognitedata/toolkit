@@ -27,7 +27,9 @@ class ViewsAPI(CDFResourceAPI[ViewResponse]):
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "upsert": Endpoint(method="POST", path="/models/views", item_limit=100),
+                # The actual API limit is 100, but depending on the number of properties DMS struggles with large
+                # batches, thus, we set it to 50 to be safe.
+                "upsert": Endpoint(method="POST", path="/models/views", item_limit=50),
                 "retrieve": Endpoint(method="POST", path="/models/views/byids", item_limit=100),
                 "delete": Endpoint(method="POST", path="/models/views/delete", item_limit=100),
                 "list": Endpoint(method="GET", path="/models/views", item_limit=1000),

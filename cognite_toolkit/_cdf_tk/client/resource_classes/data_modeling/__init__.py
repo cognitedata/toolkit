@@ -1,3 +1,18 @@
+from cognite_toolkit._cdf_tk.client.identifiers._data_modeling import (
+    ContainerConstraintReference,
+    ContainerDirectReference,
+    ContainerIndexReference,
+    ContainerReference,
+    DataModelReference,
+    DataModelReferenceNoVersion,
+    EdgeReference,
+    NodeReference,
+    SpaceReference,
+    ViewDirectReference,
+    ViewReference,
+    ViewReferenceNoVersion,
+)
+
 from ._constraints import (
     Constraint,
     ConstraintAdapter,
@@ -69,20 +84,6 @@ from ._query import (
     QueryTargetUnit,
     QueryThrough,
     QueryUnitReference,
-)
-from ._references import (
-    ContainerConstraintReference,
-    ContainerDirectReference,
-    ContainerIndexReference,
-    ContainerReference,
-    DataModelReference,
-    DataModelReferenceNoVersion,
-    EdgeReference,
-    NodeReference,
-    SpaceReference,
-    ViewDirectReference,
-    ViewReference,
-    ViewReferenceNoVersion,
 )
 from ._space import Space, SpaceRequest, SpaceResponse
 from ._view import View, ViewRequest, ViewResponse
