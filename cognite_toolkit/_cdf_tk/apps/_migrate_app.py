@@ -361,7 +361,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
-                selected=selected,
+                selectors=[selected],
                 data=AssetCentricMigrationIO(client),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
@@ -533,7 +533,7 @@ class MigrateApp(typer.Typer):
 
         cmd.run(
             lambda: cmd.migrate(
-                selected=selected,
+                selectors=[selected],
                 data=AssetCentricMigrationIO(client),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
@@ -649,7 +649,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
-                selected=selected,
+                selectors=[selected],
                 data=AssetCentricMigrationIO(client, skip_linking=skip_linking),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
@@ -766,7 +766,7 @@ class MigrateApp(typer.Typer):
 
         cmd.run(
             lambda: cmd.migrate(
-                selected=selected,
+                selectors=[selected],
                 data=AssetCentricMigrationIO(client, skip_linking=skip_linking),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
@@ -907,7 +907,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
-                selected=selected,
+                selectors=[selected],
                 data=annotation_io,
                 mapper=AssetCentricMapper[AnnotationResponse](client),
                 log_dir=log_dir,
@@ -981,7 +981,7 @@ class MigrateApp(typer.Typer):
         selector = CanvasExternalIdSelector(external_ids=tuple(external_id))
         cmd.run(
             lambda: cmd.migrate(
-                selected=selector,
+                selectors=[selector],
                 data=CanvasIO(client, exclude_existing_version=True),
                 mapper=CanvasMapper(client, dry_run=dry_run, skip_on_missing_ref=not allow_missing_ref),
                 log_dir=log_dir,
@@ -1043,7 +1043,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
-                selected=ChartExternalIdSelector(external_ids=tuple(selected_external_ids)),
+                selectors=[ChartExternalIdSelector(external_ids=tuple(selected_external_ids))],
                 data=ChartIO(client),
                 mapper=ChartMapper(client),
                 log_dir=log_dir,
@@ -1105,7 +1105,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
-                selected=ThreeDModelIdSelector(ids=tuple(selected_ids)),
+                selectors=[ThreeDModelIdSelector(ids=tuple(selected_ids))],
                 data=ThreeDMigrationIO(client),
                 mapper=ThreeDMapper(client),
                 log_dir=log_dir,
@@ -1199,7 +1199,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
-                selected=ThreeDModelIdSelector(ids=tuple(selected_ids)),
+                selectors=[ThreeDModelIdSelector(ids=tuple(selected_ids))],
                 data=ThreeDAssetMappingMigrationIO(
                     client, object_3D_space=object_3D_space, cad_node_space=cad_node_space
                 ),
