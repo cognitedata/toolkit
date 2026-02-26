@@ -5,7 +5,8 @@ from cognite_toolkit._cdf_tk.utils.file import read_yaml_content
 
 
 def create_infield_data_mappings() -> dict[str, ViewToViewMapping]:
-    mappings_data = """Action:
+    mappings_data = """
+Action:
   sourceView:
     space: cdf_apm
     externalId: Action
@@ -142,5 +143,5 @@ TemplateItem:
     node.lastUpdatedTime: sourceUpdatedTime
 """
 
-    mappings_dict = read_yaml_content(mappings_data)
+    mappings_dict = read_yaml_content(mappings_data.removeprefix("\n"))
     return TypeAdapter(dict[str, ViewToViewMapping]).validate_python(mappings_dict)
