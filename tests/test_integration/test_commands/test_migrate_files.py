@@ -67,15 +67,16 @@ class TestMigrateFilesCommand:
             )
 
         cmd = MigrationCommand(skip_tracking=True, silent=True)
+        selector = [MigrationCSVFileSelector(datafile=input_file, kind="FileMetadata")]
         results = cmd.migrate(
-            selected=MigrationCSVFileSelector(datafile=input_file, kind="FileMetadata"),
+            selectors=[selector],
             data=AssetCentricMigrationIO(client, skip_linking=False),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
             dry_run=False,
             verbose=False,
         )
-        actual_results = {item.status: item.count for item in results}
+        actual_results = {item.status: item.count for item in results[str(selector)]}
         assert actual_results == {"failure": 0, "pending": 0, "success": 3, "unchanged": 0}
 
         # Wait for syncer by polling
