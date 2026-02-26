@@ -83,7 +83,7 @@ sql = [
 ]
 v08 = [
 
-    "cognite-neat >=1.0.40"
+    "cognite-neat >=1.0.43"
 ]
 
 [project.scripts]

@@ -260,7 +260,7 @@ wheels = [
 
 [[package]]
 name = "cognite-neat"
-version = "1.0.40"
+version = "1.0.43"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "backports-strenum", marker = "python_full_version < '3.11'" },
@@ -277,9 +277,9 @@ dependencies = [
     { name = "typing-extensions", marker = "python_full_version < '3.11'" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ff/2b/9a6326e91cb7cd5be715f49a1ac449ab06f7b611ec5ba6952f7bb91a5c13/cognite_neat-1.0.40.tar.gz", hash = "sha256:0cbe0c545d5b79d7cad63c4455415fdcc77db1ef00af2bc272f912fe8cc5bd94", size = 662937, upload-time = "2026-02-19T12:52:57.224Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/a5/2931cf0b591a478e66e06c4a8c4d909e5e001c822b804f349e6dcab50b21/cognite_neat-1.0.43.tar.gz", hash = "sha256:f7ed49a9a941cd90adaabf9176fffeab62a0c01dc58c808f43c9c2eb32a0deb3", size = 668254, upload-time = "2026-02-26T12:28:37.471Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cd/5d/3af97da443f33478ea2cabe5de7fdeabd0a61ab731bffddc863995a51185/cognite_neat-1.0.40-py3-none-any.whl", hash = "sha256:2c728f8773385eba9d7f41de7aa5b93b9ae7f841a157f870850af70e58771e5a", size = 819793, upload-time = "2026-02-19T12:52:55.386Z" },
+    { url = "https://files.pythonhosted.org/packages/69/55/ad16d7adfccc74fb138baa463b1f8874490e01cc4679966eb1c0590d7e1d/cognite_neat-1.0.43-py3-none-any.whl", hash = "sha256:76baf109d97f0fd02fd78efbd7cf5962dce614ffbe5c31fbb91c642de9becbdc", size = 826432, upload-time = "2026-02-26T12:28:36.072Z" },
 ]
 
 [[package]]
@@ -363,7 +363,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cognite-neat", marker = "extra == 'v08'", specifier = ">=1.0.40" },
+    { name = "cognite-neat", marker = "extra == 'v08'", specifier = ">=1.0.43" },
     { name = "cognite-sdk", specifier = ">=7.87.0,<8.0.0" },
     { name = "filelock", specifier = ">=3.18.0" },
     { name = "httpx", specifier = ">=0.28.1" },
