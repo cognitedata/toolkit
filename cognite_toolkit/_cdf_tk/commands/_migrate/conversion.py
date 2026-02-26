@@ -12,6 +12,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DirectNodeRelation,
     EdgeReference,
     EdgeRequest,
+    InstanceRequest,
+    InstanceResponse,
     InstanceSource,
     NodeReference,
     NodeRequest,
@@ -427,3 +429,13 @@ def create_edge_properties(
         edge_properties[edge_prop_id.replace("Node", "_node")] = value  # type: ignore[assignment]
 
     return edge_properties
+
+
+def fdm_to_cdm_instance(
+    item: InstanceResponse,
+    new_id: NodeReference | EdgeReference,
+    destination_properties: dict[str, ViewResponseProperty],
+    mapping: Any = ...,
+    direct_relation_cache: Any = ...,  # TimeSeries/Files reference
+) -> tuple[InstanceRequest | None, ConversionIssue]:
+    raise NotImplementedError()

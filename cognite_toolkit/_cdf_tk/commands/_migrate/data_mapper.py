@@ -42,7 +42,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     RevisionStatus,
     ThreeDModelClassicResponse,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.conversion import DirectRelationCache, asset_centric_to_dm
+from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
+    DirectRelationCache,
+    asset_centric_to_dm,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     Model,
     ThreeDMigrationRequest,
@@ -657,6 +660,9 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         views.
 
     """
+
+    def prepare(self, source_selector: InstanceViewSelector) -> None:
+        pass
 
     def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
         raise NotImplementedError()
