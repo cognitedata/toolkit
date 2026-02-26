@@ -1,4 +1,4 @@
-from cognite_toolkit._cdf_tk.client.identifiers._references import (
+from cognite_toolkit._cdf_tk.client.identifiers._data_modeling import (
     ContainerConstraintReference,
     ContainerDirectReference,
     ContainerIndexReference,

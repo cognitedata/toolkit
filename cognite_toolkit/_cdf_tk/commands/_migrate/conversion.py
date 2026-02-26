@@ -277,7 +277,7 @@ def asset_centric_to_dm(
             space=instance_id.space,
             external_id=instance_id.external_id,
             sources=sources,
-            **edge_properties,
+            **edge_properties,  # type: ignore[arg-type]
         )
     elif isinstance(instance_id, NodeReference):
         instance = NodeRequest(space=instance_id.space, external_id=instance_id.external_id, sources=sources)
@@ -424,6 +424,6 @@ def create_edge_properties(
                 InvalidPropertyDataType(property_id=prop_id, expected_type="EdgeProperty")
             )
             continue
-        edge_properties[edge_prop_id.replace("Node", "_node")] = value
+        edge_properties[edge_prop_id.replace("Node", "_node")] = value  # type: ignore[assignment]
 
     return edge_properties

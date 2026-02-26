@@ -5,7 +5,7 @@ from pydantic import field_serializer
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.client.identifiers._references import DataModelReference, ViewReference
+from cognite_toolkit._cdf_tk.client.identifiers import DataModelReference, ViewReference
 
 from ._view import ViewResponse
 

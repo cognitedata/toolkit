@@ -3,7 +3,7 @@ from typing import Any
 from pydantic import JsonValue, field_serializer, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Identifier, RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.client.identifiers._references import ContainerReference
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerReference
 
 
 class RecordIdentifier(Identifier):

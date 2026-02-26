@@ -1,7 +1,7 @@
 from abc import ABC
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.client.identifiers._references import SpaceReference
+from cognite_toolkit._cdf_tk.client.identifiers import SpaceReference
 
 
 class Space(BaseModelObject, ABC):

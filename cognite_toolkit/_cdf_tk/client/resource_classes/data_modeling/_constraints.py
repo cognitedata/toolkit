@@ -5,7 +5,7 @@ from pydantic import Field, TypeAdapter, field_serializer
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.identifiers._references import ContainerReference
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerReference
 
 
 class ConstraintDefinition(BaseModelObject, ABC):
