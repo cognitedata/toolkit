@@ -7,10 +7,14 @@ from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION
 
 from .base import BaseModelResource, ToolkitResource
 
+
+class AgentToolModelResource(BaseModelResource, extra="allow"): ...
+
+
 # --- Agent tool definitions ---
 
 
-class AgentToolDefinition(BaseModelResource, extra="allow"):
+class AgentToolDefinition(AgentToolModelResource):
     type: str
     name: str = Field(
         description="A name for the tool, unique within the agent.",
@@ -37,7 +41,7 @@ class AskDocument(AgentToolDefinition):
     type: Literal["askDocument"] = "askDocument"
 
 
-class CallFunctionConfig(BaseModelResource):
+class CallFunctionConfig(AgentToolModelResource):
     external_id: str = Field(
         description="The external id of an existing Cognite Function in your CDF project.",
         min_length=1,
@@ -70,7 +74,7 @@ class ExamineDataSemantically(AgentToolDefinition):
     type: Literal["examineDataSemantically"] = "examineDataSemantically"
 
 
-class AgentDataModel(BaseModelResource):
+class AgentDataModel(AgentToolModelResource):
     space: str = Field(
         description="The space the data model is in.",
         min_length=1,
@@ -91,7 +95,7 @@ class AgentDataModel(BaseModelResource):
     view_external_ids: list[str] = Field(description="The views of the data model.", min_length=1, max_length=10)
 
 
-class AgentInstanceSpacesDefinition(BaseModelResource):
+class AgentInstanceSpacesDefinition(AgentToolModelResource):
     type: str
 
 
@@ -110,7 +114,7 @@ AgentInstanceSpaces = Annotated[
 ]
 
 
-class QueryKnowledgeGraphConfig(BaseModelResource):
+class QueryKnowledgeGraphConfig(AgentToolModelResource):
     data_models: list[AgentDataModel] = Field(
         description="List of relevant data models.",
         min_length=1,

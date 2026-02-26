@@ -97,12 +97,11 @@ def validate_resource_yaml_pydantic(
 
     """
     warning_list: WarningList = WarningList()
-    context = {"warnings": warning_list}
     try:
         if isinstance(data, dict):
-            validation_cls.model_validate(data, strict=True, context=context)
+            validation_cls.model_validate(data, strict=True)
         elif isinstance(data, list):
-            TypeAdapter(list[validation_cls]).validate_python(data, context=context)  # type: ignore[valid-type]
+            TypeAdapter(list[validation_cls]).validate_python(data)  # type: ignore[valid-type]
         else:
             raise ValueError(f"Expected a dictionary or list of dictionaries, got {type(data)}.")
     except ValidationError as e:
