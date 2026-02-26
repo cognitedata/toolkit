@@ -67,7 +67,7 @@ class TestMigrateFilesCommand:
             )
 
         cmd = MigrationCommand(skip_tracking=True, silent=True)
-        selector = [MigrationCSVFileSelector(datafile=input_file, kind="FileMetadata")]
+        selector = MigrationCSVFileSelector(datafile=input_file, kind="FileMetadata")
         results = cmd.migrate(
             selectors=[selector],
             data=AssetCentricMigrationIO(client, skip_linking=False),
