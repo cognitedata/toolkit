@@ -323,8 +323,8 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
             t0 = time.perf_counter()
             sleep_time = 1.0  # seconds
             while (elapsed_time := (time.perf_counter() - t0)) < self._file_upload_timeout_seconds:
-                file = self.client.files.retrieve(id=file_id)
-                if file and file.uploaded:
+                file = self.client.tool.filemetadata.retrieve([InternalId(id=file_id)])
+                if file and file[0].uploaded:
                     break
                 elapsed_time = time.perf_counter() - t0
                 to_sleep = min(sleep_time, self._file_upload_timeout_seconds - elapsed_time)
