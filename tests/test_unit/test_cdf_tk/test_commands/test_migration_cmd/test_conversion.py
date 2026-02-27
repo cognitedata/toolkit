@@ -26,7 +26,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     TimestampProperty,
     ViewCorePropertyResponse,
     ViewReference,
-    ViewResponseProperty,
+    ViewResponseProperty, NodeResponse, EdgeResponse, NodeRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
@@ -38,6 +38,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     DirectRelationCache,
     asset_centric_to_dm,
     create_properties,
+    instance_to_instance,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ConversionIssue,
@@ -1222,3 +1223,23 @@ class TestAssetCentricConversion:
 
         assert issue.dump() == expected_issue.dump()
         assert edge is None
+
+
+class TestInstanceToInstanceConversion:
+    @pytest.mark.parametrize(
+        "instance",
+        "expected",
+        [
+            pytest.param()
+        ]
+    )
+    def test_instance_to_instance_conversion(
+        self,
+        instance: NodeResponse | EdgeResponse,
+        expected: NodeRequest | EdgeRequest,
+    ) -> None:
+        actual, issue = instance_to_instance(instance
+                                             )
+
+        assert actual is not None
+        assert actual.dump() == expected.dump()
