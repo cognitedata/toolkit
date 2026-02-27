@@ -65,15 +65,19 @@ class MigrationCommand(ToolkitCommand):
 
         console = data.client.console
         counts_by_selector: dict[T_Selector, int | None] = {}
+        total_all_items = 0
         table = Table(title="Planned Migrations")
         table.add_column("Data Type", style="cyan")
         table.add_column("Item Count", justify="right", style="green")
         for selected in selectors:
             total_items = data.count(selected)
+            total_all_items += total_items if total_items is not None else 0
             counts_by_selector[selected] = total_items
             item_count = str(total_items) if total_items is not None else "Unknown"
             table.add_row(str(selected), item_count)
         console.print(table)
+
+        self.validate_available_capacity(data.client, total_all_items)
 
         results_by_selector: dict[str, list[MigrationStatusResult]] = {}
         for selected in selectors:
@@ -83,7 +87,6 @@ class MigrationCommand(ToolkitCommand):
             total_items = counts_by_selector[selected]
             if total_items is not None:
                 iteration_count = (total_items // data.CHUNK_SIZE) + (1 if total_items % data.CHUNK_SIZE > 0 else 0)
-                self.validate_available_capacity(data.client, total_items)
 
             with (
                 NDJsonWriter(log_dir, kind=f"{selected.kind}MigrationIssues", compression=Uncompressed) as log_file,
