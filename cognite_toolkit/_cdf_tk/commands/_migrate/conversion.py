@@ -1,4 +1,5 @@
-from collections.abc import Iterable, Mapping, Set
+from collections import defaultdict
+from collections.abc import Iterable, Mapping, Sequence, Set
 from datetime import date, datetime
 from typing import Any, ClassVar, Literal, cast
 
@@ -10,13 +11,17 @@ from cognite_toolkit._cdf_tk.client.resource_classes.annotation import Annotatio
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DirectNodeRelation,
+    EdgeProperty,
     EdgeReference,
     EdgeRequest,
     EdgeResponse,
+    FileCDFExternalIdReference,
     InstanceSource,
     NodeReference,
     NodeRequest,
     NodeResponse,
+    ReverseDirectRelationProperty,
+    TimeseriesCDFExternalIdReference,
     ViewCorePropertyResponse,
     ViewReference,
     ViewResponseProperty,
@@ -465,24 +470,19 @@ class TimeSeriesFilesReferenceCache:
         return self._cache.get(resource_type, {})
 
 
-def create_properties_from_instance(
-    source: dict[str, JsonValue | EdgeResponse],
-    destination_properties: dict[str, ViewResponseProperty],
-    property_mapping: dict[str, str],
-    map_identical_id_properties: bool,
-    direct_relation_cache: TimeSeriesFilesReferenceCache | None = None,
-) -> tuple[dict[str, JsonValue], list[str]]:
-    raise NotImplementedError()
-
-
 def node_to_node(
     item: NodeResponse,
     new_id: NodeReference,
     destination_properties: dict[str, ViewResponseProperty],
     mapping: ViewToViewMapping,
-    edges: Mapping[str, EdgeResponse] | None = None,
+    source_properties: dict[str, ViewResponseProperty] | None = None,
+    edges: Sequence[EdgeResponse] | None = None,
     direct_relation_cache: TimeSeriesFilesReferenceCache | None = None,
 ) -> tuple[NodeRequest, NodeToNodeConversionIssue]:
+    if source_properties is None and (not edges or not direct_relation_cache):
+        raise ValueError(
+            "To convert edge and timeseries/file reference properties, source_properties must be provided."
+        )
     issue = NodeToNodeConversionIssue(
         id=f"{item.space}:{item.external_id}", source=item.as_id(), destination=new_id, error_messages=[]
     )
@@ -493,22 +493,131 @@ def node_to_node(
         sources=None,
         type=item.type if mapping.preserve_type else None,
     )
-    source_properties: dict[str, Any] = dict(edges) if edges else {}
-    if not (item.properties or source_properties):
+    input_properties: dict[str, Any] = {}
+    if edges and source_properties:
+        prop_ids_by_edge_type = defaultdict(list)
+        for prop_id, prop in source_properties.items():
+            if isinstance(prop, EdgeProperty):
+                prop_ids_by_edge_type[prop.type].append(prop_id)
+        for edge in edges:
+            edge_type = edge.type
+            if edge_type not in prop_ids_by_edge_type:
+                issue.error_messages.append(
+                    f"Edge with type {edge_type!r} has no corresponding property in the source view."
+                )
+                continue
+            prop_ids = prop_ids_by_edge_type[edge_type]
+            if len(prop_ids) > 1:
+                issue.error_messages.append(
+                    f"Multiple properties {[prop_id for prop_id in prop_ids]} in the source view match edge with type {edge_type!r}. Will include all matching properties."
+                )
+
+            if edge.start_node == item.as_id():
+                other_side = edge.end_node.dump(include_instance_type=False)
+            elif edge.end_node == item.as_id():
+                other_side = edge.start_node.dump(include_instance_type=False)
+            else:
+                issue.error_messages.append(f"Edge with type {edge.as_id()!r} does not connect to the source instance.")
+                continue
+
+            for prop_id in prop_ids:
+                input_properties[prop_id] = other_side
+
+    if not (item.properties or input_properties):
         issue.error_messages.append("Source instance has no properties.")
         return destination, issue
-    if (item.properties and mapping.source_view not in item.properties) and not source_properties:
+    if (item.properties and mapping.source_view not in item.properties) and not input_properties:
         issue.error_messages.append(f"Source instance is missing properties from source view {mapping.source_view!r}.")
         return destination, issue
     if item.properties and mapping.source_view in item.properties:
-        source_properties.update(item.properties[mapping.source_view])
+        input_properties.update(item.properties[mapping.source_view])
     created_properties, errors = create_properties_from_instance(
-        source_properties,
+        input_properties,
         destination_properties,
         mapping.property_mapping,
         mapping.map_identical_id_properties,
+        source_properties,
         direct_relation_cache,
     )
     issue.error_messages.extend(errors)
     destination.sources = [InstanceSource(source=mapping.destination_view, properties=created_properties)]
     return destination, issue
+
+
+def create_properties_from_instance(
+    source: dict[str, JsonValue],
+    destination_properties: dict[str, ViewResponseProperty],
+    property_mapping: dict[str, str],
+    map_identical_id_properties: bool,
+    source_properties: dict[str, ViewResponseProperty] | None = None,
+    direct_relation_cache: TimeSeriesFilesReferenceCache | None = None,
+) -> tuple[dict[str, JsonValue], list[str]]:
+    """
+    Create properties for a data model instance from another instance's properties.
+
+    This is used for node-to-node conversion when the source and destination views have different defined properties.
+
+    Args:
+        source: Dict of source property IDs to values.
+        destination_properties: Dict of defined properties in the destination view.
+        property_mapping: Mapping from source property IDs to destination property IDs.
+        map_identical_id_properties: Whether to automatically map properties with identical ID.
+        direct_relation_cache: Cache for looking up timeseries/files reference in classic to find the matching instance ID, used for direct relation lookups.
+    """
+    created_properties: dict[str, JsonValue] = {}
+    errors: list[str] = []
+    for source_prop_id, value in source.items():
+        dest_prop_id = property_mapping.get(source_prop_id)
+        if not dest_prop_id and map_identical_id_properties and source_prop_id in destination_properties:
+            dest_prop_id = source_prop_id
+        if not dest_prop_id:
+            errors.append(f"Source instance property {source_prop_id!r} is not mapped to any destination property.")
+            continue
+        if dest_prop_id not in destination_properties:
+            errors.append(f"Destination instance is missing property {dest_prop_id!r}.")
+            continue
+        dm_prop = destination_properties[dest_prop_id]
+        if isinstance(dm_prop, ReverseDirectRelationProperty):
+            # Reverse direct relation properties are assumed to be populated in the other direction,
+            #   thus we skip them.
+            continue
+        elif not isinstance(dm_prop, ViewCorePropertyResponse):
+            errors.append(f"Edge conversion is not supported. Destination property {dest_prop_id!r} is an edge.")
+            continue
+
+        cache: dict[str, NodeReference] | None = None
+        if source_properties:
+            if source_prop_id in source_properties:
+                source_prop = source_properties[source_prop_id]
+                if isinstance(source_prop, EdgeProperty):
+                    if not isinstance(dm_prop.type, DirectNodeRelation):
+                        errors.append(
+                            f"Edge property {source_prop_id!r} can only be converted to a direct relation property, but destination property {dest_prop_id!r} is of type {dm_prop.type!r}."
+                        )
+                    else:
+                        created_properties[dest_prop_id] = value
+                    continue
+                if isinstance(source_prop, ViewCorePropertyResponse):
+                    if isinstance(source_prop.type, TimeseriesCDFExternalIdReference):
+                        cache = direct_relation_cache.get_cache("timeseries") if direct_relation_cache else None
+                    elif isinstance(source_prop, FileCDFExternalIdReference):
+                        cache = direct_relation_cache.get_cache("file") if direct_relation_cache else None
+            else:
+                errors.append(
+                    f"Source property {source_prop_id!r} is not defined in the source view, cannot perform direct relation lookup for edge/timeseries reference properties."
+                )
+        try:
+            created_value = convert_to_primary_property(
+                value,
+                dm_prop.type,
+                dm_prop.nullable if dm_prop.nullable is not None else True,
+                direct_relation_lookup=cache,  # type: ignore[arg-type]
+            )
+            if isinstance(created_value, date | datetime):
+                created_properties[dest_prop_id] = created_value.isoformat()
+            else:
+                created_properties[dest_prop_id] = created_value
+        except (ValueError, TypeError, NotImplementedError) as e:
+            errors.append(f"Failed to convert property {source_prop_id!r} with value {value!r}: {e!s}")
+
+    return created_properties, errors

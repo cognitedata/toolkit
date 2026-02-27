@@ -8,6 +8,7 @@ from cognite.client.data_classes import Sequence
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import ViewDirectReference
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -24,9 +25,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     Int64Property,
     JSONProperty,
     MultiEdgeProperty,
+    MultiReverseDirectRelationPropertyResponse,
     NodeReference,
     NodeResponse,
     TextProperty,
+    TimeseriesCDFExternalIdReference,
     TimestampProperty,
     ViewCorePropertyResponse,
     ViewReference,
@@ -44,7 +47,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     TimeSeriesFilesReferenceCache,
     asset_centric_to_dm,
     create_properties,
-    instance_to_instance,
+    node_to_node,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ConversionIssue,
@@ -1235,10 +1238,40 @@ class TestInstanceToInstanceConversion:
     SOURCE_VIEW = ViewReference(space="src_space", external_id="SrcView", version="v1")
     DEST_VIEW = ViewReference(space="dst_space", external_id="DstView", version="v1")
     CONTAINER_ID = ContainerReference(space="dst_space", external_id="DstContainer")
+    SOURCE_ID = NodeReference(space="src_space", external_id="nodeA")
     NEW_ID = NodeReference(space="dst_space", external_id="new_nodeA")
     DEFAULT_ARGS: ClassVar = dict(
         nullable=True, immutable=False, auto_increment=False, constraint_state=ConstraintOrIndexState()
     )
+    SOURCE_PROPERTIES: ClassVar[dict[str, ViewResponseProperty]] = {
+        "name": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="name",
+            type=TextProperty(),
+            **DEFAULT_ARGS,
+        ),
+        "count": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="count",
+            type=TextProperty(),  # Note that this is a string in the source view to test string to int conversion
+            **DEFAULT_ARGS,
+        ),
+        "sensorTs": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="sensorTs",
+            type=TimeseriesCDFExternalIdReference(),
+            **DEFAULT_ARGS,
+        ),
+        "relatesTo": MultiEdgeProperty(
+            type=NodeReference(space="src_space", external_id="relatesTo"),
+            source=SOURCE_VIEW,
+        ),
+        "hasChild": MultiEdgeProperty(
+            type=NodeReference(space="src_space", external_id="hasChild"),
+            source=SOURCE_VIEW,
+            direction="inwards",
+        ),
+    }
 
     DESTINATION_PROPERTIES: ClassVar[dict[str, ViewResponseProperty]] = {
         "name": ViewCorePropertyResponse(
@@ -1265,11 +1298,13 @@ class TestInstanceToInstanceConversion:
             type=DirectNodeRelation(),
             **DEFAULT_ARGS,
         ),
-        "parentAsset": ViewCorePropertyResponse(
-            container=CONTAINER_ID,
-            container_property_identifier="parentAsset",
-            type=DirectNodeRelation(),
-            **DEFAULT_ARGS,
+        "parentAsset": MultiReverseDirectRelationPropertyResponse(
+            targets_list=True,
+            source=SOURCE_VIEW,
+            through=ViewDirectReference(
+                source=SOURCE_VIEW,
+                identifier="hasChild",
+            ),
         ),
     }
 
@@ -1297,7 +1332,7 @@ class TestInstanceToInstanceConversion:
                     "name": "Sensor1",
                     "sensorTs": {"space": "ts_space", "externalId": "ts_node_1"},
                 },
-                id="timeseries_reference",
+                id="Timeseries reference to direct relation",
             ),
             pytest.param(
                 {
@@ -1308,7 +1343,7 @@ class TestInstanceToInstanceConversion:
                     "name": "Counter",
                     "count": 42,
                 },
-                id="string_to_int",
+                id="String to int conversion for count property",
             ),
             pytest.param(
                 {
@@ -1322,7 +1357,7 @@ class TestInstanceToInstanceConversion:
                         created_time=0,
                         last_updated_time=0,
                         type=NodeReference(space="src_space", external_id="relatesTo"),
-                        start_node=NodeReference(space="src_space", external_id="nodeC"),
+                        start_node=SOURCE_ID,
                         end_node=NodeReference(space="other_space", external_id="nodeD"),
                     )
                 ],
@@ -1330,7 +1365,7 @@ class TestInstanceToInstanceConversion:
                     "name": "NodeC",
                     "relatedAsset": {"space": "other_space", "externalId": "nodeD"},
                 },
-                id="edge_to_direct_relation",
+                id="Edge to direct relation",
             ),
             pytest.param(
                 {
@@ -1345,21 +1380,20 @@ class TestInstanceToInstanceConversion:
                         last_updated_time=0,
                         type=NodeReference(space="src_space", external_id="hasChild"),
                         start_node=NodeReference(space="other_space", external_id="parentNode"),
-                        end_node=NodeReference(space="src_space", external_id="nodeE"),
+                        end_node=SOURCE_ID,
                     )
                 ],
                 {
                     "name": "NodeE",
-                    "parentAsset": {"space": "other_space", "externalId": "parentNode"},
                 },
-                id="edge_to_reverse_direct_relation",
+                id="Edge to reverse direct relation (should ignore the edge since the reverse is populated in the opposite direction)",
             ),
         ],
     )
     def test_instance_to_instance_conversion(
         self,
         input_properties: dict[str, Any],
-        edges: list[EdgeResponse] | None,
+        edges: dict[str, EdgeResponse] | None,
         expected_properties: dict[str, Any],
     ) -> None:
         cache = TimeSeriesFilesReferenceCache(MagicMock(spec=ToolkitClient))
@@ -1373,11 +1407,12 @@ class TestInstanceToInstanceConversion:
             properties=input_properties,
         )
 
-        actual, _ = instance_to_instance(
+        actual, _ = node_to_node(
             instance,
             self.NEW_ID,
             self.DESTINATION_PROPERTIES,
             self.MAPPING,
+            source_properties=self.SOURCE_PROPERTIES,
             edges=edges,
             direct_relation_cache=cache,
         )
