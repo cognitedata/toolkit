@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import PrincipalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (
     DatapointSubscriptionRequest,
 )
@@ -372,3 +373,33 @@ class TestGetAnnotationOrigin:
     )
     def test_get_annotation_origin_of_annotated(self, annotation: Any, expected_origin: Any) -> None:
         assert _get_annotation_origin(annotation) == expected_origin
+
+
+class TestNodeRequest:
+    def test_node_untyped_behavior(self):
+        node = NodeRequest.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "my_node",
+                "type": {
+                    "space": "schema_space",
+                    "externalId": "my_type",
+                },
+            }
+        )
+        assert node.as_id().dump() == {
+            "space": "my_space",
+            "externalId": "my_node",
+            "instanceType": "node",
+        }
+        # while dumping the type should not include the instanceType field
+        assert node.dump() == {
+            "instanceType": "node",
+            "space": "my_space",
+            "externalId": "my_node",
+            "type": {
+                "space": "schema_space",
+                "externalId": "my_type",
+                # No instance type field here.
+            },
+        }
