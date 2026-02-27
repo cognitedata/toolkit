@@ -230,8 +230,9 @@ class TestMigrationCommand:
 
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)
-        result = command.migrate(
-            selected=MigrationCSVFileSelector(datafile=csv_file, kind="Assets"),
+        selector = MigrationCSVFileSelector(datafile=csv_file, kind="Assets")
+        results_by_selector = command.migrate(
+            selectors=[selector],
             data=AssetCentricMigrationIO(client),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
@@ -277,6 +278,7 @@ class TestMigrationCommand:
             for asset in assets
         ]
         assert actual_instances == expected_instance
+        result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
         assert actual_results == {"failure": 0, "pending": 0, "success": len(assets), "unchanged": 0}
 
@@ -399,14 +401,16 @@ class TestMigrationCommand:
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)
 
-        result = command.migrate(
-            selected=MigrationCSVFileSelector(datafile=csv_file, kind="Annotations"),
+        selector = MigrationCSVFileSelector(datafile=csv_file, kind="Annotations")
+        results_by_selector = command.migrate(
+            selectors=[selector],
             data=AnnotationMigrationIO(client),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
             dry_run=False,
             verbose=True,
         )
+        result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
         assert actual_results == {"failure": 0, "pending": 0, "success": len(annotations), "unchanged": 0}
 
@@ -557,15 +561,17 @@ class TestMigrationCommand:
             uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
             uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
         ]
+        selector = ChartExternalIdSelector(external_ids=("my_chart",))
         with patch(f"{ChartMapper.__module__}.uuid4", side_effect=new_uuids):
-            result = command.migrate(
-                selected=ChartExternalIdSelector(external_ids=("my_chart",)),
+            results_by_selector = command.migrate(
+                selectors=[selector],
                 data=ChartIO(client),
                 mapper=ChartMapper(client),
                 log_dir=tmp_path / "logs",
                 dry_run=False,
                 verbose=True,
             )
+        result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
         assert actual_results == {"failure": 0, "pending": 0, "success": len(charts), "unchanged": 0}
 
@@ -721,8 +727,9 @@ class TestMigrationCommand:
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)
 
-        result = command.migrate(
-            selected=CanvasExternalIdSelector(external_ids=(canvas.canvas.external_id,)),
+        selector = CanvasExternalIdSelector(external_ids=(canvas.canvas.external_id,))
+        results_by_selector = command.migrate(
+            selectors=[selector],
             data=CanvasIO(client, exclude_existing_version=True),
             mapper=CanvasMapper(client, dry_run=False, skip_on_missing_ref=False),
             log_dir=tmp_path / "logs",
@@ -730,6 +737,7 @@ class TestMigrationCommand:
             verbose=False,
         )
 
+        result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
         assert actual_results == {"failure": 0, "pending": 0, "success": 1, "unchanged": 0}
 
