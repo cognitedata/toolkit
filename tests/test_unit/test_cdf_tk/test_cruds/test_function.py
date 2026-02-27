@@ -8,7 +8,6 @@ import yaml
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     ClientCredentials,
-    FileMetadata,
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
     FunctionWrite,
@@ -17,6 +16,7 @@ from cognite.client.data_classes.capabilities import FilesAcl, FunctionsAcl
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
@@ -208,8 +208,10 @@ secrets:
             (tmp_path / "my_func").mkdir()
             (tmp_path / "my_func" / "handler.py").write_text("def handle(data): pass")
 
-            uploaded_file = FileMetadata(id=42, uploaded=True)
-            client.files.retrieve.return_value = uploaded_file
+            uploaded_file = FileMetadataResponse(
+                id=42, uploaded=True, name="my_func.zip", created_time=1, last_updated_time=0
+            )
+            client.tool.filemetadata.retrieve.return_value = [uploaded_file]
 
             created_response = FunctionResponse(
                 id=1, name="my_func", external_id="my_func", file_id=42, created_time=0, status="Ready"
