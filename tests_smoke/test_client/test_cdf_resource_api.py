@@ -345,7 +345,10 @@ def get_examples_minimum_requests(request_cls: type[ResponseResource]) -> list[d
                 "externalId": "smoke-test-chart",
                 "visibility": "PRIVATE",
                 "data": {
-                    "name": "Smoke Test Chart",
+                    "name": "Smoke test chart",
+                    "version": 1,
+                    "dateFrom": "2024-01-01T00:00:00Z",
+                    "dateTo": "2026-03-02T00:00:00Z",
                 },
             }
         ],
