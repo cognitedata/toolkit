@@ -9,15 +9,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     NodeReference,
     ViewReference,
 )
-from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
-
-from .instance_api import (
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling.instance_api import (
     WrappedInstanceListRequest,
     WrappedInstanceListResponse,
     WrappedInstanceRequest,
     WrappedInstanceResponse,
     move_properties,
 )
+from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 
 INFIELD_LOCATION_CONFIG_VIEW_ID = ViewReference(space="cdf_infield", external_id="InFieldLocationConfig", version="v1")
 INFIELD_ON_CDM_DATA_MODEL = DataModelReference(

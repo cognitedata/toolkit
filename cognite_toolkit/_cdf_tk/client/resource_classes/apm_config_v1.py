@@ -12,7 +12,7 @@ from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.identifiers import NodeReference, ViewReference
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling.instance_api import (
     WrappedInstanceRequest,
     WrappedInstanceResponse,
 )

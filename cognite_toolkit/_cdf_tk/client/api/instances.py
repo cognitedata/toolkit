@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import
     QueryResponseTyped,
     QueryResponseUntyped,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling.instance_api import (
     T_InstancesListRequest,
     T_InstancesListResponse,
     T_WrappedInstanceRequest,

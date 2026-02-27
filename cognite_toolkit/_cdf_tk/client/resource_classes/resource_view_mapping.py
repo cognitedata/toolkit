@@ -3,9 +3,12 @@ from typing import ClassVar, Literal
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling.instance_api import (
+    WrappedInstanceRequest,
+    WrappedInstanceResponse,
+)
 
 from .data_modeling import NodeReference, ViewReference
-from .instance_api import WrappedInstanceRequest, WrappedInstanceResponse
 
 RESOURCE_VIEW_MAPPING_SPACE: Literal["cognite_migration"] = "cognite_migration"
 RESOURCE_MAPPING_VIEW_ID = ViewReference(
