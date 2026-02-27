@@ -162,6 +162,13 @@ class PrincipalId(Identifier):
         return f"id='{self.id}'"
 
 
+class UserProfileId(Identifier):
+    user_identifier: str
+
+    def __str__(self) -> str:
+        return f"userIdentifier='{self.user_identifier}'"
+
+
 class PrincipalLoginId(Identifier):
     principal: str
     id: str

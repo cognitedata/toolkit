@@ -47,6 +47,7 @@ from cognite_toolkit._cdf_tk.client.api.three_d import (
 from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.transformations import TransformationsAPI
+from cognite_toolkit._cdf_tk.client.api.user_profiles import UserProfilesAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_triggers import WorkflowTriggersAPI
 from cognite_toolkit._cdf_tk.client.api.workflow_versions import WorkflowVersionsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client.api import CDFResourceAPI, Endpoint
@@ -263,6 +264,7 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         # No create methods
         PrincipalsAPI,
         PrincipalLoginSessionsAPI,
+        UserProfilesAPI,
         # Special handling due to need for file Id and update.
         AnnotationsAPI,
     }
@@ -1873,6 +1875,44 @@ class TestCDFResourceAPI:
 
         # We do not test revoke session as it would revoke the session used for testing and
         # potentially cause issues for other tests.
+
+    def test_user_profile_crudls(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        endpoints = client.user_profiles._method_endpoint_map
+        try:
+            me = client.user_profiles.me()
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                client.user_profiles._me_endpoint.path, f"Retrieving user profile failed. Error: {e!s}"
+            ) from None
+
+        try:
+            retrieved = client.user_profiles.retrieve([me.as_id()])
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                endpoints["retrieve"].path, f"Retrieving user profile with ID {me.as_id()} failed: {e!s}"
+            ) from None
+        if len(retrieved) != 1 or retrieved[0].as_id() != me.as_id():
+            raise EndpointAssertionError(
+                endpoints["retrieve"].path,
+                f"Expected to retrieve 1 user profile with ID {me.as_id()}, got {len(retrieved)}",
+            )
+
+        try:
+            listed = client.user_profiles.list(limit=1)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(endpoints["list"].path, f"Listing user profiles failed: {e!s}") from None
+        if len(listed) == 0:
+            raise EndpointAssertionError(endpoints["list"].path, "Expected at least 1 listed user profile, got 0")
+
+        try:
+            _ = client.user_profiles.search("a", limit=25)
+        except ToolkitAPIError as e:
+            raise EndpointAssertionError(
+                client.user_profiles._search_endpoint.path, f"Searching user profiles failed: {e!s}"
+            ) from None
+        # We only care about a 200 response, not whether we got a hit.
 
     def test_annotations_crudls(self, toolkit_client: ToolkitClient, function_code: FileMetadataResponse) -> None:
         client = toolkit_client
