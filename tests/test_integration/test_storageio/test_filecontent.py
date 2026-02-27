@@ -108,15 +108,21 @@ class TestFileContentIO:
                 io.upload_items(upload_content, http_client, selector)
 
             t0 = time.perf_counter()
+            timeout = 30
             while True:
                 uploaded_file = toolkit_client.files.retrieve(instance_id=instance_id)
-                assert uploaded_file is not None
-                if uploaded_file.uploaded is True:
+                is_timeout = time.perf_counter() - t0 > timeout
+                if uploaded_file is None and is_timeout:
+                    raise AssertionError("Timeout exceeded while waiting for file to be created in data modeling.")
+                elif uploaded_file is None:
+                    time.sleep(1)
+                elif uploaded_file.uploaded is True:
                     break
-                # The file syncer may take some time to update CogniteFile -> FileMetadata uploaded status
-                if time.perf_counter() - t0 > 30:
+                elif is_timeout:
+                    # The file syncer may take some time to update CogniteFile -> FileMetadata uploaded status
                     raise AssertionError("Timeout waiting for file to be uploaded.")
-                time.sleep(1)
+                else:
+                    time.sleep(1)
 
             # Test download
             download_selector = FileIdentifierSelector(
