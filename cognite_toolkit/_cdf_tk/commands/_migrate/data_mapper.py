@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReference,
     ViewResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier, TypedNodeIdentifier
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     ContainerReferenceApply,
     FdmInstanceContainerReferenceApply,
@@ -564,7 +564,7 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeD
                 type=model_type,
                 revision_id=last_revision_id,
                 model=Model(
-                    instance_id=InstanceIdentifier(
+                    instance_id=NodeReference(
                         space=instance_space,
                         external_id=f"cog_3d_model_{item.id!s}",
                     )

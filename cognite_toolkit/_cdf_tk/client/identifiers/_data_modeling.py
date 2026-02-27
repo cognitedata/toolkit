@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, TypeVar
 
 from pydantic import PlainSerializer
 
@@ -145,6 +145,8 @@ NodeReferenceUntyped = Annotated[NodeReference, PlainSerializer(_dump_no_type, w
 
 
 EdgeReferenceUntyped = Annotated[EdgeReference, PlainSerializer(_dump_no_type, when_used="always")]
+
+T_InstanceId = TypeVar("T_InstanceId", bound=InstanceIdDefinition)
 
 
 class ContainerDirectReference(Identifier):

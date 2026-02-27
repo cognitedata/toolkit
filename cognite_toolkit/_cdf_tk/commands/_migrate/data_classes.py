@@ -15,7 +15,6 @@ from rich.text import Text
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeReferenceUntyped, InternalId, NodeReferenceUntyped
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
@@ -272,11 +271,11 @@ class AssetCentricMappingList(
 
 
 class Model(BaseModelObject):
-    instance_id: InstanceIdentifier
+    instance_id: NodeReferenceUntyped
 
 
 class Thumbnail(BaseModelObject):
-    instance_id: InstanceIdentifier
+    instance_id: NodeReferenceUntyped
 
 
 class ThreeDRevisionMigrationRequest(RequestResource):

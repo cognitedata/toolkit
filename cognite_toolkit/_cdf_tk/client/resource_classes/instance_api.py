@@ -67,14 +67,6 @@ class TypedEdgeIdentifier(TypedInstanceIdentifier):
 T_TypedInstanceIdentifier = TypeVar("T_TypedInstanceIdentifier", bound=TypedInstanceIdentifier)
 
 
-class InstanceIdentifier(Identifier):
-    space: str
-    external_id: str
-
-    def __str__(self) -> str:
-        return f"Instance({self.space}, {self.external_id})"
-
-
 ######################################################
 # The classes below are helper classes for making instances request/responses.
 # By using these, we can avoid having to include the instances specific classes in the DTO classes
