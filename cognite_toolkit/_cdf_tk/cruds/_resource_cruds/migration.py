@@ -5,9 +5,8 @@ from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.data_classes.data_modeling import ViewId
 
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference, ViewReference
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     RESOURCE_MAPPING_VIEW_ID,
     ResourceViewMappingRequest,
@@ -82,11 +81,11 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
         return self.client.migration.resource_view_mapping.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ResourceViewMappingResponse]:
-        node_ids = TypedNodeIdentifier.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
+        node_ids = NodeReference.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
         return self.client.migration.resource_view_mapping.retrieve(node_ids)
 
     def delete(self, ids: Sequence[ExternalId]) -> int:
-        node_ids = TypedNodeIdentifier.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
+        node_ids = NodeReference.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
         result = self.client.migration.resource_view_mapping.delete(node_ids)
         return len(result)
 

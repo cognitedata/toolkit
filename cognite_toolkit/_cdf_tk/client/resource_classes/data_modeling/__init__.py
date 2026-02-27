@@ -64,6 +64,7 @@ from ._instance import (
     InstanceRequest,
     InstanceResponse,
     InstanceResponseDefinition,
+    InstanceSlimDefinition,
     InstanceSource,
     NodeRequest,
     NodeResponse,
@@ -105,6 +106,17 @@ from ._view_property import (
     ViewRequestProperty,
     ViewRequestPropertyAdapter,
     ViewResponseProperty,
+)
+from ._wrapped import (
+    T_InstancesListRequest,
+    T_InstancesListResponse,
+    T_WrappedInstanceRequest,
+    T_WrappedInstanceResponse,
+    WrappedInstanceListRequest,
+    WrappedInstanceListResponse,
+    WrappedInstanceRequest,
+    WrappedInstanceResponse,
+    move_properties,
 )
 
 __all__ = [
@@ -149,6 +161,7 @@ __all__ = [
     "InstanceRequest",
     "InstanceResponse",
     "InstanceResponseDefinition",
+    "InstanceSlimDefinition",
     "InstanceSource",
     "Int32Property",
     "Int64Property",
@@ -187,6 +200,10 @@ __all__ = [
     "SpaceReference",
     "SpaceRequest",
     "SpaceResponse",
+    "T_InstancesListRequest",
+    "T_InstancesListResponse",
+    "T_WrappedInstanceRequest",
+    "T_WrappedInstanceResponse",
     "TextProperty",
     "TimeseriesCDFExternalIdReference",
     "TimestampProperty",
@@ -205,4 +222,9 @@ __all__ = [
     "ViewRequestPropertyAdapter",
     "ViewResponse",
     "ViewResponseProperty",
+    "WrappedInstanceListRequest",
+    "WrappedInstanceListResponse",
+    "WrappedInstanceRequest",
+    "WrappedInstanceResponse",
+    "move_properties",
 ]

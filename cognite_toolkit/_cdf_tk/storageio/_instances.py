@@ -8,9 +8,15 @@ from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    ContainerReference,
+    EdgeReference,
+    NodeReference,
+    SpaceReference,
+    ViewReference,
+)
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    ContainerReference,
     EdgeProperty,
     InstanceRequest,
     InstanceResponse,
@@ -23,15 +29,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QuerySelect,
     QuerySelectSource,
     QuerySortSpec,
-    SpaceReference,
-    ViewReference,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceRequestAdapter
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
-    TypedEdgeIdentifier,
-    TypedNodeIdentifier,
-    TypedViewReference,
-)
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
@@ -88,11 +87,11 @@ class InstanceIO(
         Returns:
             An InstanceFilter for the toolkit instances API.
         """
-        source: TypedViewReference | None = None
+        source: ViewReference | None = None
         space: list[str] | None = None
 
         if isinstance(selector, InstanceViewSelector):
-            source = TypedViewReference(
+            source = ViewReference(
                 space=selector.view.space,
                 external_id=selector.view.external_id,
                 version=selector.view.version or "",
@@ -102,7 +101,7 @@ class InstanceIO(
         elif isinstance(selector, InstanceSpaceSelector):
             space = [selector.instance_space]
             if selector.view and selector.view.version:
-                source = TypedViewReference(
+                source = ViewReference(
                     space=selector.view.space,
                     external_id=selector.view.external_id,
                     version=selector.view.version,
@@ -213,7 +212,7 @@ class InstanceIO(
             nodes = response.items.get("nodes", [])
             # De-duplicate edges across properties, as the same edge can be returned for multiple
             # properties if it connects two nodes that are in the result set.
-            edges: dict[TypedNodeIdentifier | TypedEdgeIdentifier, InstanceResponse] = {}
+            edges: dict[NodeReference | EdgeReference, InstanceResponse] = {}
             for prop_id in edge_ids:
                 for edge in response.items.get(prop_id, []):
                     ref = edge.as_id()

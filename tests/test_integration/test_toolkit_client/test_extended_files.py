@@ -5,9 +5,8 @@ from cognite.client.data_classes.data_modeling import NodeApplyResultList, Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
@@ -89,7 +88,11 @@ class TestExtendedFilesAPI:
             )
             assert len(updated) == 1
 
-            assert updated[0].pending_instance_id.dump() == cognite_file.as_id().dump(include_instance_type=False)
+            assert updated[0].pending_instance_id.dump() == {
+                "space": cognite_file.space,
+                "externalId": cognite_file.external_id,
+                "instanceType": "node",
+            }
 
             created_dm = client.data_modeling.instances.apply(cognite_file).nodes
 
