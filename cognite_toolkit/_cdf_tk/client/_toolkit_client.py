@@ -45,6 +45,7 @@ from .api.three_d import ThreeDAPI
 from .api.timeseries import TimeSeriesAPI
 from .api.token import TokenAPI
 from .api.transformations import TransformationsAPI
+from .api.user_profiles import UserProfilesAPI
 from .api.verify import VerifyAPI
 from .api.views import ViewsAPI
 from .api.workflows import WorkflowsAPI
@@ -111,6 +112,7 @@ class ToolkitClient(CogniteClient):
         self.charts = ChartsAPI(http_client)
         self.project = ProjectAPI(http_client)
         self.principals = PrincipalsAPI(http_client=http_client, project_api=self.project)
+        self.user_profiles = UserProfilesAPI(http_client)
         self.infield = InfieldAPI(http_client)
         self.streams = StreamsAPI(http_client)
 

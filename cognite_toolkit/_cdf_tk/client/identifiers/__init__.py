@@ -38,6 +38,7 @@ from ._identifiers import (
     SequenceRowId,
     ThreeDModelRevisionId,
     TransformationNotificationId,
+    UserProfileId,
     WorkflowVersionId,
 )
 
@@ -74,6 +75,7 @@ __all__ = [
     "T_InstanceId",
     "ThreeDModelRevisionId",
     "TransformationNotificationId",
+    "UserProfileId",
     "ViewDirectReference",
     "ViewIdNoVersionUntyped",
     "ViewIdNoVersionUntyped",
