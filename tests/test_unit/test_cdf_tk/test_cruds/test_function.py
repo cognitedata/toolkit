@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import responses
@@ -8,6 +8,7 @@ import yaml
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     ClientCredentials,
+    FileMetadata,
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
     FunctionWrite,
@@ -199,6 +200,48 @@ secrets:
         capabilities = loader.get_function_required_capabilities(items, read_only=False)
         assert len(capabilities) == 2
         assert isinstance(capabilities[1].scope, FilesAcl.Scope.All)
+
+    def test_create_succeeds_when_file_uploaded_within_timeout(self, tmp_path: Path) -> None:
+        with monkeypatch_toolkit_client() as client:
+            loader = FunctionCRUD(client, tmp_path, None, file_upload_timeout_seconds=30.0)
+            loader.function_dir_by_external_id["my_func"] = tmp_path / "my_func"
+            (tmp_path / "my_func").mkdir()
+            (tmp_path / "my_func" / "handler.py").write_text("def handle(data): pass")
+
+            uploaded_file = FileMetadata(id=42, uploaded=True)
+            client.files.retrieve.return_value = uploaded_file
+
+            created_response = FunctionResponse(
+                id=1, name="my_func", external_id="my_func", file_id=42, created_time=0, status="Ready"
+            )
+            client.tool.functions.create.return_value = [created_response]
+
+            item = FunctionRequest(name="my_func", external_id="my_func", file_id=-1)
+
+            with (
+                patch.object(loader, "_is_activated", return_value=True),
+                patch.object(loader, "_upload_function_code", return_value=42),
+                patch("cognite_toolkit._cdf_tk.cruds._resource_cruds.function.time.sleep"),
+            ):
+                result = loader.create([item])
+
+        assert result == [created_response]
+
+    def test_create_raises_timeout_when_file_not_uploaded(self, tmp_path: Path) -> None:
+        with monkeypatch_toolkit_client() as client:
+            loader = FunctionCRUD(client, tmp_path, None, file_upload_timeout_seconds=0)
+            loader.function_dir_by_external_id["my_func"] = tmp_path / "my_func"
+            (tmp_path / "my_func").mkdir()
+            (tmp_path / "my_func" / "handler.py").write_text("def handle(data): pass")
+
+            item = FunctionRequest(name="my_func", external_id="my_func", file_id=-1)
+
+            with (
+                patch.object(loader, "_is_activated", return_value=True),
+                patch.object(loader, "_upload_function_code", return_value=42),
+                pytest.raises(ResourceCreationError, match="timed out"),
+            ):
+                loader.create([item])
 
 
 class TestFunctionScheduleLoader:

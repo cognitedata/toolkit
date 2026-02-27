@@ -51,6 +51,8 @@ from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
 from .group_scoped import GroupResourceScopedCRUD
 
+CDF_TOML = CDFToml.load()
+
 
 @final
 class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
@@ -74,7 +76,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         client: ToolkitClient,
         build_path: Path | None,
         console: Console | None,
-        file_upload_timeout_seconds: float = CDFToml.cdf.file_upload_timeout_seconds,
+        file_upload_timeout_seconds: float = CDF_TOML.cdf.file_upload_timeout_seconds,
     ):
         super().__init__(client, build_path, console)
         self.data_set_id_by_external_id: dict[str, int] = {}
