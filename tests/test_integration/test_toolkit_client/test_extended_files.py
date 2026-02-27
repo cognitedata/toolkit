@@ -88,7 +88,11 @@ class TestExtendedFilesAPI:
             )
             assert len(updated) == 1
 
-            assert updated[0].pending_instance_id.dump() == cognite_file.as_id().dump(include_instance_type=False)
+            assert updated[0].pending_instance_id.dump() == {
+                "space": cognite_file.space,
+                "externalId": cognite_file.external_id,
+                "instanceType": "node",
+            }
 
             created_dm = client.data_modeling.instances.apply(cognite_file).nodes
 
