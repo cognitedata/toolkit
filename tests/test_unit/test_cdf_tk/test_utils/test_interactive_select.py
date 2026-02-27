@@ -550,11 +550,20 @@ class TestInteractiveChartSelect:
             last_updated_time=1,
             visibility="PUBLIC",
         )
+        chart_defaults = dict(version=1, date_from="2025-01-01T00:00:00.000Z", date_to="2025-12-31T23:59:59.999Z")
         cdf_charts = [
-            ChartResponse(external_id="homer1", data=ChartData(name="Homer 1"), owner_id="homer", **default_args),
-            ChartResponse(external_id="homer2", data=ChartData(name="Homer 2"), owner_id="homer", **default_args),
-            ChartResponse(external_id="marge1", data=ChartData(name="Marge 1"), owner_id="marge", **default_args),
-            ChartResponse(external_id="marge2", data=ChartData(name="Marge 2"), owner_id="marge", **default_args),
+            ChartResponse(
+                external_id="homer1", data=ChartData(name="Homer 1", **chart_defaults), owner_id="homer", **default_args
+            ),
+            ChartResponse(
+                external_id="homer2", data=ChartData(name="Homer 2", **chart_defaults), owner_id="homer", **default_args
+            ),
+            ChartResponse(
+                external_id="marge1", data=ChartData(name="Marge 1", **chart_defaults), owner_id="marge", **default_args
+            ),
+            ChartResponse(
+                external_id="marge2", data=ChartData(name="Marge 2", **chart_defaults), owner_id="marge", **default_args
+            ),
         ]
         # Map answer titles to opening_choices values
         first_answer_by_choice_title = {c.title: c.value for c in InteractiveChartSelect.opening_choices}
