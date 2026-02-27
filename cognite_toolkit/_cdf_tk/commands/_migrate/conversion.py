@@ -474,4 +474,74 @@ def instance_to_instance(
     edges: Sequence[EdgeResponse] | None = None,
     direct_relation_cache: TimeSeriesFilesReferenceCache | None = None,
 ) -> tuple[InstanceRequest | None, ConversionIssue]:
-    raise NotImplementedError()
+    issue = ConversionIssue(
+        id=f"{item.space}:{item.external_id}",
+        asset_centric_id=AssetCentricId(resource_type="asset", id_=0),
+        instance_id=NodeReference(space=new_id.space, external_id=new_id.external_id),
+    )
+
+    source_props: dict[str, Any] = {}
+    if item.properties:
+        source_props = item.properties.get(mapping.source_view, {})
+
+    edge_by_type: dict[str, NodeReference] = {}
+    if edges:
+        for edge in edges:
+            if edge.start_node.space == item.space:
+                target = NodeReference(space=edge.end_node.space, external_id=edge.end_node.external_id)
+            else:
+                target = NodeReference(space=edge.start_node.space, external_id=edge.start_node.external_id)
+            edge_by_type[edge.type.external_id] = target
+
+    combined_lookup: dict[str, NodeReference] = {}
+    if direct_relation_cache is not None:
+        combined_lookup.update(direct_relation_cache.get_cache("timeseries"))
+        combined_lookup.update(direct_relation_cache.get_cache("file"))
+
+    properties: dict[str, JsonValue] = {}
+    for src_prop_id, dst_prop_id in mapping.property_mapping.items():
+        if dst_prop_id not in destination_properties:
+            continue
+        dst_prop = destination_properties[dst_prop_id]
+        if not isinstance(dst_prop, ViewCorePropertyResponse):
+            issue.invalid_instance_property_types.append(
+                InvalidPropertyDataType(property_id=dst_prop_id, expected_type=ViewCorePropertyResponse.__name__)
+            )
+            continue
+
+        if src_prop_id in source_props:
+            value = source_props[src_prop_id]
+            try:
+                converted = convert_to_primary_property(
+                    value,
+                    dst_prop.type,
+                    dst_prop.nullable or False,
+                    direct_relation_lookup=combined_lookup or None,
+                )
+            except (ValueError, TypeError, NotImplementedError) as e:
+                issue.failed_conversions.append(FailedConversion(property_id=src_prop_id, value=value, error=str(e)))
+                continue
+            if isinstance(converted, datetime):
+                properties[dst_prop_id] = converted.isoformat(timespec="milliseconds")
+            elif isinstance(converted, date):
+                properties[dst_prop_id] = converted.isoformat()
+            else:
+                properties[dst_prop_id] = converted
+        elif src_prop_id in edge_by_type:
+            properties[dst_prop_id] = edge_by_type[src_prop_id].dump(include_instance_type=False)
+
+    sources: list[InstanceSource] = []
+    if properties:
+        sources.append(
+            InstanceSource(
+                source=ViewReference(
+                    space=mapping.destination_view.space,
+                    external_id=mapping.destination_view.external_id,
+                    version=mapping.destination_view.version,
+                ),
+                properties=properties,
+            )
+        )
+
+    request = NodeRequest(space=new_id.space, external_id=new_id.external_id, sources=sources)
+    return request, issue
