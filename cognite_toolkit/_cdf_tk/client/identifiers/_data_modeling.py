@@ -138,8 +138,6 @@ def _dump_no_type(instance: NodeReference | EdgeReference) -> dict[str, Any]:
     return instance.dump(include_instance_type=False)
 
 
-# We use an annotated type here to ensure that NodeReference(...) == NodeReferenceUntyped(...) but that
-# the serialization is different.
 NodeReferenceUntyped = Annotated[NodeReference, PlainSerializer(_dump_no_type, when_used="always")]
 
 

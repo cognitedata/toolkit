@@ -3,8 +3,8 @@ from datetime import datetime
 from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.identifiers import NodeReferenceUntyped
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
-    NodeReference,
     TypedNodeIdentifier,
     TypedViewReference,
     WrappedInstanceRequest,
@@ -23,16 +23,16 @@ class CogniteFile(BaseModelObject):
     aliases: list[str] | None = None
     source_id: str | None = None
     source_context: str | None = None
-    source: NodeReference | None = None
+    source: NodeReferenceUntyped | None = None
     source_created_time: datetime | None = None
     source_updated_time: datetime | None = None
     source_created_user: str | None = None
     source_updated_user: str | None = None
-    assets: list[NodeReference] | None = None
+    assets: list[NodeReferenceUntyped] | None = None
     mime_type: str | None = None
     directory: str | None = None
-    category: NodeReference | None = None
-    type: NodeReference | None = None
+    category: NodeReferenceUntyped | None = None
+    type: NodeReferenceUntyped | None = None
 
 
 class CogniteFileRequest(WrappedInstanceRequest, CogniteFile):
