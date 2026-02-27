@@ -31,7 +31,9 @@ def twenty_charts() -> list[ChartResponse]:
         ChartResponse(
             external_id=f"chart_{i}",
             visibility="PUBLIC",
-            data=ChartData(),
+            data=ChartData(
+                version=1, name=f"chart_{i}", date_from="2025-01-01T00:00:00.000Z", date_to="2025-12-31T23:59:59.999Z"
+            ),
             owner_id="evenOwner" if i % 2 == 0 else "oddOwner",
             created_time=1700000000000,
             last_updated_time=1700000000000,
@@ -59,7 +61,10 @@ class TestChartIO:
                         "createdTime": 1700000000000,
                         "lastUpdatedTime": 1700000000000,
                         "data": {
+                            "version": 1,
                             "name": "Chart 1",
+                            "dateFrom": "2025-01-01T00:00:00.000Z",
+                            "dateTo": "2025-12-31T23:59:59.999Z",
                             "timeSeriesCollection": [
                                 {"tsId": 200, "tsExternalId": None},
                                 {"tsId": None, "tsExternalId": "ts_2"},
@@ -73,7 +78,10 @@ class TestChartIO:
                         "createdTime": 1700000000000,
                         "lastUpdatedTime": 1700000000000,
                         "data": {
+                            "version": 1,
                             "name": "Chart 2",
+                            "dateFrom": "2025-01-01T00:00:00.000Z",
+                            "dateTo": "2025-12-31T23:59:59.999Z",
                             "timeSeriesCollection": [
                                 {"tsId": 201, "tsExternalId": None},
                                 {"tsId": None, "tsExternalId": "ts_3"},
