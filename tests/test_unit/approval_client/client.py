@@ -62,12 +62,14 @@ from requests import Response
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceDefinition,
     InstanceRequest,
     NodeReference,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source._base import SourceRequestDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.project import ProjectStatus, ProjectStatusList
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
@@ -927,6 +929,17 @@ class ApprovalToolkitClient:
                 return tables[:limit]
             return tables
 
+        def retrieve_filemetadata(
+            items: Sequence[InternalId | ExternalId | InstanceId], ignore_unknown_ids: bool = False
+        ) -> list[FileMetadataResponse]:
+            if len(items) == 1 and isinstance(items[0], InternalId):
+                return [
+                    FileMetadataResponse(
+                        id=items[0].id, uploaded=True, created_time=0, last_updated_time=1, name="file"
+                    )
+                ]
+            return []
+
         available_retrieve_methods = {
             fn.__name__: fn
             for fn in [
@@ -944,6 +957,7 @@ class ApprovalToolkitClient:
                 list,
                 iterate,
                 retrieve_instances_pydantic,
+                retrieve_filemetadata,
             ]
         }
         if mock_method not in available_retrieve_methods:
