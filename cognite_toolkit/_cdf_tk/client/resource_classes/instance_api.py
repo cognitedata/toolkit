@@ -6,7 +6,6 @@ from typing import Any, ClassVar, Literal, TypeAlias, TypeVar
 from pydantic import model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
-    BaseModelObject,
     Identifier,
     RequestResource,
     ResponseResource,
@@ -74,23 +73,6 @@ class InstanceIdentifier(Identifier):
 
     def __str__(self) -> str:
         return f"Instance({self.space}, {self.external_id})"
-
-
-class InstanceResult(BaseModelObject):
-    instance_type: InstanceType
-    version: int
-    was_modified: bool
-    space: str
-    external_id: str
-    created_time: int
-    last_updated_time: int
-
-    def as_id(self) -> TypedInstanceIdentifier:
-        return TypedInstanceIdentifier(
-            instance_type=self.instance_type,
-            space=self.space,
-            external_id=self.external_id,
-        )
 
 
 class TypedViewReference(Identifier):
