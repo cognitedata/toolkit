@@ -17,6 +17,7 @@ class ViewToViewMapping(BaseModelObject):
         " and destination IDs.",
     )
     property_mapping: dict[str, str]
+    preserve_type: bool = Field(default=False, description="Whether to preserve the instance type during the mapping.")
 
     @field_serializer("source_view", "destination_view", mode="plain")
     def serialize_view_id(self, view_id: ViewReference) -> dict[str, Any]:

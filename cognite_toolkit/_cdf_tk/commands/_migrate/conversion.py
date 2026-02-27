@@ -1,11 +1,11 @@
-from collections.abc import Iterable, Mapping, Sequence, Set
+from collections.abc import Iterable, Mapping, Set
 from datetime import date, datetime
 from typing import Any, ClassVar, Literal, cast
 
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceIdDefinition, InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse, AssetLinkData, FileLinkData
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -13,11 +13,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     EdgeReference,
     EdgeRequest,
     EdgeResponse,
-    InstanceRequest,
-    InstanceResponse,
     InstanceSource,
     NodeReference,
     NodeRequest,
+    NodeResponse,
     ViewCorePropertyResponse,
     ViewReference,
     ViewResponseProperty,
@@ -37,7 +36,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricTypeExtended
 from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResourceExtended
 
 from .data_model import COGNITE_MIGRATION_SPACE_ID, INSTANCE_SOURCE_VIEW_ID
-from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
+from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType, NodeToNodeConversionIssue
 
 
 class DirectRelationCache:
@@ -466,82 +465,50 @@ class TimeSeriesFilesReferenceCache:
         return self._cache.get(resource_type, {})
 
 
-def instance_to_instance(
-    item: InstanceResponse,
-    new_id: InstanceIdDefinition,
+def create_properties_from_instance(
+    source: dict[str, JsonValue | EdgeResponse],
+    destination_properties: dict[str, ViewResponseProperty],
+    property_mapping: dict[str, str],
+    map_identical_id_properties: bool,
+    direct_relation_cache: TimeSeriesFilesReferenceCache | None = None,
+) -> tuple[dict[str, JsonValue], list[str]]:
+    raise NotImplementedError()
+
+
+def node_to_node(
+    item: NodeResponse,
+    new_id: NodeReference,
     destination_properties: dict[str, ViewResponseProperty],
     mapping: ViewToViewMapping,
-    edges: Sequence[EdgeResponse] | None = None,
+    edges: Mapping[str, EdgeResponse] | None = None,
     direct_relation_cache: TimeSeriesFilesReferenceCache | None = None,
-) -> tuple[InstanceRequest | None, ConversionIssue]:
-    issue = ConversionIssue(
-        id=f"{item.space}:{item.external_id}",
-        asset_centric_id=AssetCentricId(resource_type="asset", id_=0),
-        instance_id=NodeReference(space=new_id.space, external_id=new_id.external_id),
+) -> tuple[NodeRequest, NodeToNodeConversionIssue]:
+    issue = NodeToNodeConversionIssue(
+        id=f"{item.space}:{item.external_id}", source=item.as_id(), destination=new_id, error_messages=[]
     )
-
-    source_props: dict[str, Any] = {}
-    if item.properties:
-        source_props = item.properties.get(mapping.source_view, {})
-
-    edge_by_type: dict[str, NodeReference] = {}
-    if edges:
-        for edge in edges:
-            if edge.start_node.space == item.space:
-                target = NodeReference(space=edge.end_node.space, external_id=edge.end_node.external_id)
-            else:
-                target = NodeReference(space=edge.start_node.space, external_id=edge.start_node.external_id)
-            edge_by_type[edge.type.external_id] = target
-
-    combined_lookup: dict[str, NodeReference] = {}
-    if direct_relation_cache is not None:
-        combined_lookup.update(direct_relation_cache.get_cache("timeseries"))
-        combined_lookup.update(direct_relation_cache.get_cache("file"))
-
-    properties: dict[str, JsonValue] = {}
-    for src_prop_id, dst_prop_id in mapping.property_mapping.items():
-        if dst_prop_id not in destination_properties:
-            continue
-        dst_prop = destination_properties[dst_prop_id]
-        if not isinstance(dst_prop, ViewCorePropertyResponse):
-            issue.invalid_instance_property_types.append(
-                InvalidPropertyDataType(property_id=dst_prop_id, expected_type=ViewCorePropertyResponse.__name__)
-            )
-            continue
-
-        if src_prop_id in source_props:
-            value = source_props[src_prop_id]
-            try:
-                converted = convert_to_primary_property(
-                    value,
-                    dst_prop.type,
-                    dst_prop.nullable or False,
-                    direct_relation_lookup=combined_lookup or None,
-                )
-            except (ValueError, TypeError, NotImplementedError) as e:
-                issue.failed_conversions.append(FailedConversion(property_id=src_prop_id, value=value, error=str(e)))
-                continue
-            if isinstance(converted, datetime):
-                properties[dst_prop_id] = converted.isoformat(timespec="milliseconds")
-            elif isinstance(converted, date):
-                properties[dst_prop_id] = converted.isoformat()
-            else:
-                properties[dst_prop_id] = converted
-        elif src_prop_id in edge_by_type:
-            properties[dst_prop_id] = edge_by_type[src_prop_id].dump(include_instance_type=False)
-
-    sources: list[InstanceSource] = []
-    if properties:
-        sources.append(
-            InstanceSource(
-                source=ViewReference(
-                    space=mapping.destination_view.space,
-                    external_id=mapping.destination_view.external_id,
-                    version=mapping.destination_view.version,
-                ),
-                properties=properties,
-            )
-        )
-
-    request = NodeRequest(space=new_id.space, external_id=new_id.external_id, sources=sources)
-    return request, issue
+    destination = NodeRequest(
+        space=new_id.space,
+        external_id=new_id.external_id,
+        existing_version=None,
+        sources=None,
+        type=item.type if mapping.preserve_type else None,
+    )
+    source_properties: dict[str, Any] = dict(edges) if edges else {}
+    if not (item.properties or source_properties):
+        issue.error_messages.append("Source instance has no properties.")
+        return destination, issue
+    if (item.properties and mapping.source_view not in item.properties) and not source_properties:
+        issue.error_messages.append(f"Source instance is missing properties from source view {mapping.source_view!r}.")
+        return destination, issue
+    if item.properties and mapping.source_view in item.properties:
+        source_properties.update(item.properties[mapping.source_view])
+    created_properties, errors = create_properties_from_instance(
+        source_properties,
+        destination_properties,
+        mapping.property_mapping,
+        mapping.map_identical_id_properties,
+        direct_relation_cache,
+    )
+    issue.error_messages.extend(errors)
+    destination.sources = [InstanceSource(source=mapping.destination_view, properties=created_properties)]
+    return destination, issue
