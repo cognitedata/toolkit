@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+import yaml
 from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
 from cognite.client.credentials import OAuthClientCredentials
@@ -30,6 +31,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelRequest,
     InstanceSource,
@@ -714,13 +716,15 @@ class TestCogniteFileLoader:
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> None:
         loader = CogniteFileCRUD(toolkit_client, None)
         # Loading from YAML to test the loading of extra properties as well
-        file = ExtendableCogniteFileApply.load(f"""space: {toolkit_space.space}
+        file = CogniteFileRequest._load(
+            yaml.safe_load(f"""space: {toolkit_space.space}
 externalId: tmp_test_create_update_delete_file_{RUN_UNIQUE_ID}
 name: My file
 description: Original description
 """)
+        )
         try:
-            created = loader.create(ExtendableCogniteFileApplyList([file]))
+            created = loader.create([file])
             assert len(created) == 1
 
             retrieved = loader.retrieve([file.as_id()])
@@ -728,10 +732,9 @@ description: Original description
             assert retrieved[0].name == "My file"
             assert retrieved[0].description == "Original description"
 
-            update = ExtendableCogniteFileApply._load(file.dump(context="local"))
-            update.description = "Updated description"
+            update = file.model_copy(update={"description": "Updated description"})
 
-            updated = loader.update(ExtendableCogniteFileApplyList([update]))
+            updated = retry_on_deadlock(lambda: loader.update([update]))
             assert len(updated) == 1
 
             retrieved = loader.retrieve([file.as_id()])
@@ -739,7 +742,7 @@ description: Original description
             assert retrieved[0].description == "Updated description"
             assert retrieved[0].name == "My file"
         finally:
-            loader.delete([file.as_id()])
+            retry_on_deadlock(lambda: loader.delete([file.as_id()]))
 
     @pytest.mark.skip("For now, we do not support creating extensions")
     def test_create_update_retrieve_delete_extension(
