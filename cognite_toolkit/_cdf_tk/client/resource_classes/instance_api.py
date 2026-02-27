@@ -75,26 +75,6 @@ class InstanceIdentifier(Identifier):
         return f"Instance({self.space}, {self.external_id})"
 
 
-class TypedViewReference(Identifier):
-    type: Literal["view"] = "view"
-    space: str
-    external_id: str
-    version: str
-
-    def __str__(self) -> str:
-        return f"View({self.space}, {self.external_id}, v{self.version})"
-
-    def dump(self, camel_case: bool = True, include_type: bool = True) -> dict[str, Any]:
-        """Dump the resource to a dictionary.
-
-        This is the default serialization method for request resources.
-        """
-        return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=not include_type)
-
-    def as_property_reference(self, property_name: str) -> list[str]:
-        return [self.space, f"{self.external_id}/{self.version}", property_name]
-
-
 ######################################################
 # The classes below are helper classes for making instances request/responses.
 # By using these, we can avoid having to include the instances specific classes in the DTO classes
