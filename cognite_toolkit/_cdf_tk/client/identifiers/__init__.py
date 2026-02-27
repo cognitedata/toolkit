@@ -31,6 +31,7 @@ from ._identifiers import (
     SequenceRowId,
     ThreeDModelRevisionId,
     TransformationNotificationId,
+    UserProfileId,
     WorkflowVersionId,
 )
 
@@ -62,6 +63,7 @@ __all__ = [
     "SpaceReference",
     "ThreeDModelRevisionId",
     "TransformationNotificationId",
+    "UserProfileId",
     "ViewDirectReference",
     "ViewReference",
     "ViewReferenceNoVersion",
