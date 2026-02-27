@@ -4,9 +4,7 @@ from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, ResponseResource, UpdatableRequestResource
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-
-from .instance_api import NodeReference
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeReferenceUntyped
 
 
 class FileMetadata(BaseModelObject):
@@ -36,7 +34,7 @@ class FileMetadataRequest(FileMetadata, UpdatableRequestResource):
     # This field is not part of the request when creating or updating a resource
     # but we added it here for convenience so that it is available when converting
     # from response to request.
-    instance_id: NodeReference | None = Field(default=None, exclude=True)
+    instance_id: NodeReferenceUntyped | None = Field(default=None, exclude=True)
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
         update = super().as_update(mode)
@@ -51,8 +49,8 @@ class FileMetadataResponse(FileMetadata, ResponseResource[FileMetadataRequest]):
     uploaded_time: int | None = None
     uploaded: bool
     id: int
-    instance_id: NodeReference | None = None
-    pending_instance_id: NodeReference | None = None
+    instance_id: NodeReferenceUntyped | None = None
+    pending_instance_id: NodeReferenceUntyped | None = None
     # This field is required in the upload endpoint response, but not in any other file metadata response
     upload_url: str | None = None
 

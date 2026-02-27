@@ -7,9 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-
-from .data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeReferenceUntyped
 
 # Unlike other resources, datapoints subscriptions have a separate update resource. This
 # is because datapoint subscriptions need to handle add/removing operations for timeSeriesIds and
@@ -33,7 +31,7 @@ class AddRemove(BaseModelObject, Generic[T_Value]):
 
 class DataPointSubscriptionUpdate(BaseModelObject):
     time_series_ids: AddRemove[list[str]] | Set[list[str]] | None = None
-    instance_ids: AddRemove[list[NodeReference]] | Set[list[NodeReference]] | None = None
+    instance_ids: AddRemove[list[NodeReferenceUntyped]] | Set[list[NodeReferenceUntyped]] | None = None
     name: Set[str] | SetNull | None = None
     description: Set[str] | SetNull | None = None
     data_set_id: Set[int] | SetNull | None = None
@@ -66,7 +64,7 @@ class DatapointSubscription(BaseModelObject):
 
 class DatapointSubscriptionRequest(DatapointSubscription, RequestResource):
     time_series_ids: list[str] | None = None
-    instance_ids: list[NodeReference] | None = None
+    instance_ids: list[NodeReferenceUntyped] | None = None
 
     def as_update(self) -> DatapointSubscriptionUpdateRequest:
         if self.time_series_ids is not None:

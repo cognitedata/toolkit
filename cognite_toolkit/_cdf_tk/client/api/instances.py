@@ -8,26 +8,21 @@ from pydantic import JsonValue
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition, NodeReference, T_InstanceId, ViewReference
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceRequest,
     InstanceResponse,
     QueryRequest,
+    T_InstancesListRequest,
+    T_InstancesListResponse,
+    T_WrappedInstanceRequest,
+    T_WrappedInstanceResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import (
     QueryResponseTyped,
     QueryResponseUntyped,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
-    T_InstancesListRequest,
-    T_InstancesListResponse,
-    T_TypedInstanceIdentifier,
-    T_WrappedInstanceRequest,
-    T_WrappedInstanceResponse,
-    TypedInstanceIdentifier,
-    TypedNodeIdentifier,
-    TypedViewReference,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
@@ -49,8 +44,8 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
     ) -> PagedResponse[InstanceResponse]:
         return PagedResponse[InstanceResponse].model_validate_json(response.body)
 
-    def _validate_response(self, response: SuccessResponse) -> ResponseItems[TypedInstanceIdentifier]:
-        return ResponseItems[TypedInstanceIdentifier].model_validate_json(response.body)
+    def _validate_response(self, response: SuccessResponse) -> ResponseItems[InstanceIdDefinition]:
+        return ResponseItems[InstanceIdDefinition].model_validate_json(response.body)
 
     def create(self, items: Sequence[InstanceRequest]) -> list[InstanceSlimDefinition]:
         """Create instances in CDF.
@@ -66,7 +61,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         return response_items
 
     def retrieve(
-        self, items: Sequence[TypedInstanceIdentifier], source: TypedViewReference | None = None
+        self, items: Sequence[InstanceIdDefinition], source: ViewReference | None = None
     ) -> list[InstanceResponse]:
         """Retrieve instances from CDF.
 
@@ -77,16 +72,18 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             List of retrieved InstanceResponse objects.
         """
         return self._request_item_response(
-            items, method="retrieve", extra_body={"sources": [{"source": source.dump()}]} if source else None
+            items,
+            method="retrieve",
+            extra_body={"sources": [{"source": source.dump(include_type=True)}]} if source else None,
         )
 
-    def delete(self, items: Sequence[TypedInstanceIdentifier]) -> list[TypedInstanceIdentifier]:
+    def delete(self, items: Sequence[InstanceIdDefinition]) -> list[InstanceIdDefinition]:
         """Delete instances from CDF.
 
         Args:
             items: List of TypedInstanceIdentifier objects to delete.
         """
-        response_items: list[TypedInstanceIdentifier] = []
+        response_items: list[InstanceIdDefinition] = []
         for response in self._chunk_requests(items, "delete", self._serialize_items):
             response_items.extend(self._validate_response(response).items)
         return response_items
@@ -194,16 +191,16 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
 
 
 class WrappedInstancesAPI(
-    Generic[T_TypedInstanceIdentifier, T_WrappedInstanceResponse], CDFResourceAPI[T_WrappedInstanceResponse], ABC
+    Generic[T_InstanceId, T_WrappedInstanceResponse], CDFResourceAPI[T_WrappedInstanceResponse], ABC
 ):
     """API for wrapped instances in CDF. It is intended to be subclassed for specific wrapped instance types."""
 
-    def __init__(self, http_client: HTTPClient, view_id: TypedViewReference) -> None:
+    def __init__(self, http_client: HTTPClient, view_id: ViewReference) -> None:
         super().__init__(http_client=http_client, method_endpoint_map=METHOD_MAP)
         self._view_id = view_id
 
     @abstractmethod
-    def _validate_response(self, response: SuccessResponse) -> ResponseItems[T_TypedInstanceIdentifier]:
+    def _validate_response(self, response: SuccessResponse) -> ResponseItems[T_InstanceId]:
         raise NotImplementedError()
 
     def create(self, items: Sequence[T_WrappedInstanceRequest]) -> list[InstanceSlimDefinition]:
@@ -219,7 +216,7 @@ class WrappedInstancesAPI(
             response_items.extend(PagedResponse[InstanceSlimDefinition].model_validate_json(response.body).items)
         return response_items
 
-    def retrieve(self, items: Sequence[T_TypedInstanceIdentifier]) -> list[T_WrappedInstanceResponse]:
+    def retrieve(self, items: Sequence[T_InstanceId]) -> list[T_WrappedInstanceResponse]:
         """Retrieve instances from CDF.
 
         Args:
@@ -229,16 +226,16 @@ class WrappedInstancesAPI(
             List of retrieved InstanceResponse objects.
         """
         return self._request_item_response(
-            items, method="retrieve", extra_body={"sources": [{"source": self._view_id.dump()}]}
+            items, method="retrieve", extra_body={"sources": [{"source": self._view_id.dump(include_type=True)}]}
         )
 
-    def delete(self, items: Sequence[T_TypedInstanceIdentifier]) -> list[T_TypedInstanceIdentifier]:
+    def delete(self, items: Sequence[T_InstanceId]) -> list[T_InstanceId]:
         """Delete instances from CDF.
 
         Args:
             items: List of TypedInstanceIdentifier objects to delete.
         """
-        response_items: list[T_TypedInstanceIdentifier] = []
+        response_items: list[T_InstanceId] = []
         for response in self._chunk_requests(items, "delete", self._serialize_items):
             response_items.extend(self._validate_response(response).items)
         return response_items
@@ -263,7 +260,7 @@ class WrappedInstancesAPI(
         filter_ = InstanceFilter(
             instance_type=instance_type,
             space=spaces,
-            source=TypedViewReference(
+            source=ViewReference(
                 space=self._view_id.space,
                 external_id=self._view_id.external_id,
                 version=self._view_id.version,
@@ -294,7 +291,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
         self._query_chunk = query_chunk
 
     @abstractmethod
-    def _retrieve_query(self, item: Sequence[TypedInstanceIdentifier]) -> dict[str, Any]:
+    def _retrieve_query(self, item: Sequence[InstanceIdDefinition]) -> dict[str, Any]:
         raise NotImplementedError()
 
     @abstractmethod
@@ -396,7 +393,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
             updated.append(self._merge_instance_slim_definitions(item_response))
         return updated
 
-    def retrieve(self, items: Sequence[TypedNodeIdentifier]) -> list[T_InstancesListResponse]:
+    def retrieve(self, items: Sequence[NodeReference]) -> list[T_InstancesListResponse]:
         """Retrieve instances from CDF.
 
         Args:
@@ -418,14 +415,14 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
             retrieved.extend(self._validate_query_response(paged_response))
         return retrieved
 
-    def delete(self, items: Sequence[TypedNodeIdentifier]) -> list[TypedNodeIdentifier]:
+    def delete(self, items: Sequence[NodeReference]) -> list[NodeReference]:
         """Delete instances from CDF.
 
         Args:
             items: List of TypedInstanceIdentifier objects to delete.
         """
         endpoint = self._method_endpoint_map["delete"]
-        response_items: list[TypedNodeIdentifier] = []
+        response_items: list[NodeReference] = []
         for chunk in chunker_sequence(items, endpoint.item_limit):
             request = RequestMessage(
                 endpoint_url=self._http_client.config.create_api_url(endpoint.path),
@@ -434,6 +431,6 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
             )
             response = self._http_client.request_single_retries(request)
             success = response.get_success_or_raise()
-            validated_response = ResponseItems[TypedNodeIdentifier].model_validate_json(success.body)
+            validated_response = ResponseItems[NodeReference].model_validate_json(success.body)
             response_items.extend(validated_response.items)
         return response_items

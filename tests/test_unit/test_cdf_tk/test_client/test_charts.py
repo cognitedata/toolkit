@@ -279,6 +279,10 @@ class TestChartDTOs:
         the serialization and deserialization works correctly.
         """
         chart_data = {
+            "version": 1,
+            "name": "TestChart",
+            "dateFrom": "2025-04-26T22:00:00.000Z",
+            "dateTo": "2025-05-27T21:59:59.999Z",
             "this": "is",
             "completely": {
                 "changed": ["compared", "to", "the", "previous", "version"],

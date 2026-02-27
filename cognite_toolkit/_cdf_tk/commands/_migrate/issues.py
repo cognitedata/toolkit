@@ -3,7 +3,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_serializer
 from pydantic.alias_generators import to_camel
 
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.identifiers import NodeReferenceUntyped
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.storageio.logger import LogEntry
 
@@ -155,7 +155,7 @@ class ConversionIssue(MigrationIssue):
 
     type: Literal["conversion"] = "conversion"
     asset_centric_id: AssetCentricId
-    instance_id: NodeReference
+    instance_id: NodeReferenceUntyped
     missing_asset_centric_properties: list[str] = Field(default_factory=list)
     missing_instance_properties: list[str] = Field(default_factory=list)
     invalid_instance_property_types: list[InvalidPropertyDataType] = Field(default_factory=list)
