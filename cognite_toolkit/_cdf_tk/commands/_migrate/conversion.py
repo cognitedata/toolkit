@@ -5,7 +5,7 @@ from typing import Any, ClassVar, Literal, cast
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InstanceIdDefinition, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse, AssetLinkData, FileLinkData
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -467,7 +467,7 @@ class TimeSeriesFilesReferenceCache:
 
 def instance_to_instance(
     item: InstanceResponse,
-    new_id: NodeReference | EdgeReference,
+    new_id: InstanceIdDefinition,
     destination_properties: dict[str, ViewResponseProperty],
     mapping: ViewToViewMapping,
     direct_relation_cache: TimeSeriesFilesReferenceCache | None = None,
