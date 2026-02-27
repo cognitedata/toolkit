@@ -1,6 +1,6 @@
 from collections.abc import Iterable, Mapping, Set
 from datetime import date, datetime
-from typing import Any, ClassVar, cast, Literal
+from typing import Any, ClassVar, Literal, cast
 
 from pydantic import JsonValue
 
@@ -12,18 +12,21 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DirectNodeRelation,
     EdgeReference,
     EdgeRequest,
+    InstanceRequest,
+    InstanceResponse,
     InstanceSource,
     NodeReference,
     NodeRequest,
     ViewCorePropertyResponse,
     ViewReference,
-    ViewResponseProperty, InstanceResponse, InstanceRequest,
+    ViewResponseProperty,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     asset_centric_convert_to_primary_property,
@@ -34,7 +37,6 @@ from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResourceExte
 
 from .data_model import COGNITE_MIGRATION_SPACE_ID, INSTANCE_SOURCE_VIEW_ID
 from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
-from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 
 
 class DirectRelationCache:
@@ -440,7 +442,7 @@ class TimeSeriesFilesReferenceCache:
             "file": {},
         }
 
-    def update(self, resource_type: Literal["timeseries", "file"], resource_ids: list[str]) -> None:
+    def update(self, resource_type: Literal["timeseries", "file"], resource_ids: list[str]) -> list[str]:
         resources: list[TimeSeriesResponse] | list[FileMetadataResponse]
         ids = ExternalId.from_external_ids(resource_ids)
         if resource_type == "timeseries":
@@ -449,10 +451,17 @@ class TimeSeriesFilesReferenceCache:
             resources = self._client.tool.filemetadata.retrieve(ids, ignore_unknown_ids=True)
         else:
             raise ValueError(f"Unsupported resource type: {resource_type}")
+        missing_instance_ids: list[str] = []
         for resource in resources:
-            self._cache[(resource_type, resource.external_id)] = resource.instance_id
+            # We do the lookup on ExternalID, so we know that it will always be set.
+            external_id = cast(str, resource.external_id)
+            if resource.instance_id is None:
+                missing_instance_ids.append(external_id)
+            else:
+                self._cache[resource_type][external_id] = resource.instance_id
+        return missing_instance_ids
 
-    def get_cache(self, resource_type: Literal["timeseries", 'file']) -> dict[str, NodeReference]:
+    def get_cache(self, resource_type: Literal["timeseries", "file"]) -> dict[str, NodeReference]:
         return self._cache.get(resource_type, {})
 
 
@@ -461,7 +470,6 @@ def instance_to_instance(
     new_id: NodeReference | EdgeReference,
     destination_properties: dict[str, ViewResponseProperty],
     mapping: ViewToViewMapping,
-    direct_relation_cache:: TimeSeriesFilesReferenceCache | None = None,
+    direct_relation_cache: TimeSeriesFilesReferenceCache | None = None,
 ) -> tuple[InstanceRequest | None, ConversionIssue]:
     raise NotImplementedError()
-
