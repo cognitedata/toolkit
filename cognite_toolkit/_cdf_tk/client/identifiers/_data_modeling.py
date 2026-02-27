@@ -45,12 +45,12 @@ class ContainerReference(DataModelingIdentifier):
         return self.space, self.external_id
 
 
-def _dump_container_reference_with_type(instance: ContainerReference) -> dict[str, Any]:
-    return instance.dump(include_type=True)
+def _dump_container_reference_untyped(instance: ContainerReference) -> dict[str, Any]:
+    return instance.dump(include_type=False)
 
 
-ContainerReferenceTyped = Annotated[
-    ContainerReference, PlainSerializer(_dump_container_reference_with_type, when_used="always")
+ContainerReferenceUntyped = Annotated[
+    ContainerReference, PlainSerializer(_dump_container_reference_untyped, when_used="always")
 ]
 
 
@@ -70,11 +70,14 @@ class ViewReference(ViewReferenceNoVersion):
         return f"{self.space}:{self.external_id}(version={self.version})"
 
 
-def _dump_view_reference_with_type(instance: ViewReference) -> dict[str, Any]:
-    return instance.dump(include_type=True)
+def _dump_view_reference_untyped(instance: ViewReferenceNoVersion) -> dict[str, Any]:
+    return instance.dump(include_type=False)
 
 
-ViewReferenceTyped = Annotated[ViewReference, PlainSerializer(_dump_view_reference_with_type, when_used="always")]
+ViewIdNoVersionUntyped = Annotated[
+    ViewReferenceNoVersion, PlainSerializer(_dump_view_reference_untyped, when_used="always")
+]
+ViewReferenceUntyped = Annotated[ViewReference, PlainSerializer(_dump_view_reference_untyped, when_used="always")]
 
 
 class DataModelReferenceNoVersion(Identifier):
