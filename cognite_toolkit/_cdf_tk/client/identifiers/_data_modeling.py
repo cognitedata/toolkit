@@ -1,5 +1,7 @@
 from abc import ABC
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
+
+from pydantic import PlainSerializer
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 
@@ -14,7 +16,7 @@ class SpaceReference(Identifier):
 class DataModelingIdentifier(Identifier, ABC):
     type: str
 
-    def dump(self, camel_case: bool = True, exclude_extra: bool = False, include_type: bool = True) -> dict[str, Any]:
+    def dump(self, camel_case: bool = True, exclude_extra: bool = False, include_type: bool = False) -> dict[str, Any]:
         """Dumps the identifier to a dictionary.
 
         Args:
@@ -104,6 +106,15 @@ class NodeReference(InstanceIdDefinition):
 
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}"
+
+
+def _dump_no_type(instance: NodeReference) -> dict[str, Any]:
+    return instance.dump(include_instance_type=False)
+
+
+# We use an annotated type here to ensure that NodeReference(...) == NodeReferenceUntyped(...) but that
+# the serialization is different.
+NodeReferenceUntyped = Annotated[NodeReference, PlainSerializer(_dump_no_type, when_used="always")]
 
 
 class EdgeReference(InstanceIdDefinition):

@@ -10,7 +10,11 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     T_RequestResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerReference, NodeReference, ViewReference
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    ContainerReference,
+    NodeReferenceUntyped,
+    ViewReference,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedEdgeIdentifier, TypedNodeIdentifier
 
 
@@ -93,7 +97,7 @@ class NodeRequest(InstanceRequestDefinition):
     """A node request resource."""
 
     instance_type: Literal["node"] = "node"
-    type: NodeReference | None = None
+    type: NodeReferenceUntyped | None = None
 
     def as_id(self) -> TypedNodeIdentifier:
         return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
@@ -103,9 +107,9 @@ class EdgeRequest(InstanceRequestDefinition):
     """An edge request resource."""
 
     instance_type: Literal["edge"] = "edge"
-    type: NodeReference
-    start_node: NodeReference
-    end_node: NodeReference
+    type: NodeReferenceUntyped
+    start_node: NodeReferenceUntyped
+    end_node: NodeReferenceUntyped
 
     def as_id(self) -> TypedEdgeIdentifier:
         return TypedEdgeIdentifier(space=self.space, external_id=self.external_id)
@@ -115,7 +119,7 @@ class NodeResponse(InstanceResponseDefinition[NodeRequest]):
     """A node response from the API."""
 
     instance_type: Literal["node"] = "node"
-    type: NodeReference | None = None
+    type: NodeReferenceUntyped | None = None
 
     def as_id(self) -> TypedNodeIdentifier:
         return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
@@ -138,9 +142,9 @@ class EdgeResponse(InstanceResponseDefinition[EdgeRequest]):
     """An edge response from the API."""
 
     instance_type: Literal["edge"] = "edge"
-    type: NodeReference
-    start_node: NodeReference
-    end_node: NodeReference
+    type: NodeReferenceUntyped
+    start_node: NodeReferenceUntyped
+    end_node: NodeReferenceUntyped
 
     def as_id(self) -> TypedEdgeIdentifier:
         return TypedEdgeIdentifier(space=self.space, external_id=self.external_id)
