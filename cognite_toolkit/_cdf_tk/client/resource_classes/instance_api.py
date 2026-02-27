@@ -292,8 +292,3 @@ class WrappedInstanceListResponse(ResponseResource[T_InstancesListRequest], ABC)
 
 
 T_InstancesListResponse = TypeVar("T_InstancesListResponse", bound=WrappedInstanceListResponse)
-
-
-class NodeReference(BaseModelObject):
-    space: str
-    external_id: str
