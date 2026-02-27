@@ -38,6 +38,12 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    ContainerReference,
+    DataModelReference,
+    SpaceReference,
+    ViewReference,
+)
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     ContainerFilter,
     DataModelFilter,
@@ -45,10 +51,8 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     ViewFilter,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    ContainerReference,
     ContainerRequest,
     ContainerResponse,
-    DataModelReference,
     DataModelRequest,
     DataModelResponse,
     DirectNodeRelation,
@@ -57,11 +61,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     NodeRequest,
     NodeResponse,
     RequiresConstraintDefinition,
-    SpaceReference,
     SpaceRequest,
     SpaceResponse,
     ViewCorePropertyResponse,
-    ViewReference,
     ViewRequest,
     ViewResponse,
 )
@@ -73,7 +75,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
     TypedEdgeIdentifier,
     TypedNodeIdentifier,
-    TypedViewReference,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HAS_DATA_FILTER_LIMIT
 from cognite_toolkit._cdf_tk.cruds._base_cruds import (
@@ -1044,7 +1045,7 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
         client: ToolkitClient,
         build_dir: Path | None,
         console: Console | None = None,
-        view_id: TypedViewReference | None = None,
+        view_id: ViewReference | None = None,
     ) -> None:
         super().__init__(client, build_dir, console)
         # View ID is used to retrieve nodes with properties.
@@ -1111,9 +1112,7 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
     def dump_resource(self, resource: NodeResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
         local = local or {}
-        sources = [
-            TypedViewReference._load(source["source"]) for source in local.get("sources", []) if "source" in source
-        ]
+        sources = [ViewReference._load(source["source"]) for source in local.get("sources", []) if "source" in source]
 
         # Default dump
         dumped = resource.as_request_resource().dump()
@@ -1145,9 +1144,7 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
 
     def retrieve(self, ids: Sequence[TypedNodeIdentifier]) -> list[NodeResponse]:
         source_ref = (
-            TypedViewReference(
-                space=self.view_id.space, external_id=self.view_id.external_id, version=self.view_id.version
-            )
+            ViewReference(space=self.view_id.space, external_id=self.view_id.external_id, version=self.view_id.version)
             if self.view_id
             else None
         )
@@ -1173,9 +1170,7 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[NodeResponse]:
         source_ref = (
-            TypedViewReference(
-                space=self.view_id.space, external_id=self.view_id.external_id, version=self.view_id.version
-            )
+            ViewReference(space=self.view_id.space, external_id=self.view_id.external_id, version=self.view_id.version)
             if self.view_id
             else None
         )
@@ -1489,9 +1484,7 @@ class EdgeCRUD(ResourceContainerCRUD[TypedEdgeIdentifier, EdgeRequest, EdgeRespo
     def dump_resource(self, resource: EdgeResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
         local = local or {}
-        sources = [
-            TypedViewReference._load(source["source"]) for source in local.get("sources", []) if "source" in source
-        ]
+        sources = [ViewReference._load(source["source"]) for source in local.get("sources", []) if "source" in source]
 
         # Default dump
         dumped = resource.as_request_resource().dump()

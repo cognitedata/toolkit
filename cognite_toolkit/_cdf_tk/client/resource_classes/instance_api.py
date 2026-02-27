@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, ViewReference
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -107,7 +107,7 @@ class WrappedInstanceRequest(RequestResource, ABC):
     It is used to define resources that are
     """
 
-    VIEW_ID: ClassVar[TypedViewReference]
+    VIEW_ID: ClassVar[ViewReference]
     instance_type: InstanceType
     space: str
     external_id: str
@@ -153,7 +153,7 @@ T_WrappedInstanceRequest = TypeVar("T_WrappedInstanceRequest", bound=WrappedInst
 
 
 class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
-    VIEW_ID: ClassVar[TypedViewReference]
+    VIEW_ID: ClassVar[ViewReference]
     instance_type: InstanceType
     space: str
     external_id: str
@@ -207,7 +207,7 @@ class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
         return output
 
 
-def move_properties(values: dict[str, Any], view_id: TypedViewReference) -> dict[str, Any]:
+def move_properties(values: dict[str, Any], view_id: ViewReference) -> dict[str, Any]:
     """Help function to move properties from properties.space.externalId/version to the top level.
 
     It is used in WrappedInstanceResponse to move properties from the response to the top level.
@@ -229,7 +229,7 @@ T_WrappedInstanceResponse = TypeVar("T_WrappedInstanceResponse", bound=WrappedIn
 
 
 class WrappedInstanceListRequest(RequestResource, ABC):
-    VIEW_ID: ClassVar[TypedViewReference]
+    VIEW_ID: ClassVar[ViewReference]
     instance_type: Literal["node"] = "node"
     space: str
     external_id: str
@@ -256,7 +256,7 @@ T_InstancesListRequest = TypeVar("T_InstancesListRequest", bound=WrappedInstance
 
 
 class WrappedInstanceListResponse(ResponseResource[T_InstancesListRequest], ABC):
-    VIEW_ID: ClassVar[TypedViewReference]
+    VIEW_ID: ClassVar[ViewReference]
     instance_type: Literal["node"] = "node"
     space: str
     external_id: str

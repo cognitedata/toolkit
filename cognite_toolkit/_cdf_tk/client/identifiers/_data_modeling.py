@@ -69,6 +69,9 @@ class ViewReference(ViewReferenceNoVersion):
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}(version={self.version})"
 
+    def as_property_reference(self, property_id: str) -> list[str]:
+        return [self.space, f"{self.external_id}/{self.version}", property_id]
+
 
 def _dump_view_reference_untyped(instance: ViewReferenceNoVersion) -> dict[str, Any]:
     return instance.dump(include_type=False)

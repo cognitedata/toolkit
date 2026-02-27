@@ -8,6 +8,7 @@ from pydantic import JsonValue
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.identifiers import ViewReference
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceRequest,
@@ -27,7 +28,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
     T_WrappedInstanceResponse,
     TypedInstanceIdentifier,
     TypedNodeIdentifier,
-    TypedViewReference,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
@@ -66,7 +66,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         return response_items
 
     def retrieve(
-        self, items: Sequence[TypedInstanceIdentifier], source: TypedViewReference | None = None
+        self, items: Sequence[TypedInstanceIdentifier], source: ViewReference | None = None
     ) -> list[InstanceResponse]:
         """Retrieve instances from CDF.
 
@@ -198,7 +198,7 @@ class WrappedInstancesAPI(
 ):
     """API for wrapped instances in CDF. It is intended to be subclassed for specific wrapped instance types."""
 
-    def __init__(self, http_client: HTTPClient, view_id: TypedViewReference) -> None:
+    def __init__(self, http_client: HTTPClient, view_id: ViewReference) -> None:
         super().__init__(http_client=http_client, method_endpoint_map=METHOD_MAP)
         self._view_id = view_id
 
@@ -263,7 +263,7 @@ class WrappedInstancesAPI(
         filter_ = InstanceFilter(
             instance_type=instance_type,
             space=spaces,
-            source=TypedViewReference(
+            source=ViewReference(
                 space=self._view_id.space,
                 external_id=self._view_id.external_id,
                 version=self._view_id.version,

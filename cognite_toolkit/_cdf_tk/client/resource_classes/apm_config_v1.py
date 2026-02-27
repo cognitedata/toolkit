@@ -11,15 +11,15 @@ from typing import ClassVar, Literal
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.identifiers import ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
     TypedNodeIdentifier,
-    TypedViewReference,
     WrappedInstanceRequest,
     WrappedInstanceResponse,
 )
 
 APM_CONFIG_SPACE: Literal["APM_Config"] = "APM_Config"
-APM_CONFIG_VIEW_ID = TypedViewReference(space=APM_CONFIG_SPACE, external_id="APM_Config", version="1")
+APM_CONFIG_VIEW_ID = ViewReference(space=APM_CONFIG_SPACE, external_id="APM_Config", version="1")
 
 
 class EnabledToggle(BaseModelObject):
@@ -178,7 +178,7 @@ class APMConfig(BaseModelObject):
 class APMConfigRequest(WrappedInstanceRequest, APMConfig):
     """APM Config request resource for creating/updating nodes."""
 
-    VIEW_ID: ClassVar[TypedViewReference] = APM_CONFIG_VIEW_ID
+    VIEW_ID: ClassVar[ViewReference] = APM_CONFIG_VIEW_ID
     instance_type: Literal["node"] = "node"
     space: Literal["APM_Config"] = APM_CONFIG_SPACE
 
@@ -189,7 +189,7 @@ class APMConfigRequest(WrappedInstanceRequest, APMConfig):
 class APMConfigResponse(WrappedInstanceResponse[APMConfigRequest], APMConfig):
     """APM Config response resource returned from API."""
 
-    VIEW_ID: ClassVar[TypedViewReference] = APM_CONFIG_VIEW_ID
+    VIEW_ID: ClassVar[ViewReference] = APM_CONFIG_VIEW_ID
     instance_type: Literal["node"] = "node"
     space: Literal["APM_Config"] = APM_CONFIG_SPACE
 

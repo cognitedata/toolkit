@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     NameId,
+    ViewReference,
     WorkflowVersionId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter, StreamlitFilter, ViewFilter
@@ -42,7 +43,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
     SpaceReference,
     SpaceResponse,
-    ViewReference,
     ViewReferenceNoVersion,
     ViewResponse,
 )
@@ -50,7 +50,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRespo
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
@@ -475,21 +474,16 @@ class NodeFinder(ResourceFinder[ViewReferenceNoVersion]):
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
-        view_id: TypedViewReference
         identifier = self._selected()
 
         if isinstance(identifier, ViewReference):
-            view_id = TypedViewReference(
-                space=identifier.space,
-                external_id=identifier.external_id,
-                version=identifier.version,
-            )
+            view_id = identifier
         else:
             # Find latest version of view.
             view = self.client.tool.views.retrieve([self.identifier])
             if not view:
                 raise ToolkitResourceMissingError(f"View {identifier} not found", str(identifier))
-            view_id = view[0].as_typed_id()
+            view_id = view[0].as_id()
 
         loader = NodeCRUD(self.client, None, None, view_id)
         if self.is_interactive:

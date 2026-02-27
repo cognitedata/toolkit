@@ -3,15 +3,14 @@ from datetime import datetime
 from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.identifiers import NodeReferenceUntyped
+from cognite_toolkit._cdf_tk.client.identifiers import NodeReferenceUntyped, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
     TypedNodeIdentifier,
-    TypedViewReference,
     WrappedInstanceRequest,
     WrappedInstanceResponse,
 )
 
-COGNITE_FILE_VIEW_ID = TypedViewReference(space="cdf_cdm", external_id="CogniteFile", version="v1")
+COGNITE_FILE_VIEW_ID = ViewReference(space="cdf_cdm", external_id="CogniteFile", version="v1")
 
 
 class CogniteFile(BaseModelObject):
@@ -38,7 +37,7 @@ class CogniteFile(BaseModelObject):
 class CogniteFileRequest(WrappedInstanceRequest, CogniteFile):
     """CogniteFile request resource for creating/updating nodes."""
 
-    VIEW_ID: ClassVar[TypedViewReference] = COGNITE_FILE_VIEW_ID
+    VIEW_ID: ClassVar[ViewReference] = COGNITE_FILE_VIEW_ID
     instance_type: Literal["node"] = "node"
     space: str
     external_id: str
@@ -50,7 +49,7 @@ class CogniteFileRequest(WrappedInstanceRequest, CogniteFile):
 class CogniteFileResponse(WrappedInstanceResponse[CogniteFileRequest], CogniteFile):
     """CogniteFile response resource returned from API."""
 
-    VIEW_ID: ClassVar[TypedViewReference] = COGNITE_FILE_VIEW_ID
+    VIEW_ID: ClassVar[ViewReference] = COGNITE_FILE_VIEW_ID
     instance_type: Literal["node"] = "node"
     space: str
     external_id: str
