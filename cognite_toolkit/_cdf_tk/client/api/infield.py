@@ -51,7 +51,7 @@ class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, In
                         "from": "locationConfig",
                         "direction": "outwards",
                         "through": {
-                            "source": InFieldLocationConfig.VIEW_ID.dump(),
+                            "source": InFieldLocationConfig.VIEW_ID.dump(include_type=True),
                             "identifier": "dataExplorationConfig",
                         },
                     }
@@ -59,10 +59,10 @@ class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, In
             },
             "select": {
                 self._LOCATION_REF: {
-                    "sources": [{"source": InFieldLocationConfig.VIEW_ID.dump(), "properties": ["*"]}],
+                    "sources": [{"source": InFieldLocationConfig.VIEW_ID.dump(include_type=True), "properties": ["*"]}],
                 },
                 self._EXPLORATION_REF: {
-                    "sources": [{"source": DataExplorationConfig.VIEW_ID.dump(), "properties": ["*"]}],
+                    "sources": [{"source": DataExplorationConfig.VIEW_ID.dump(include_type=True), "properties": ["*"]}],
                 },
             },
         }
