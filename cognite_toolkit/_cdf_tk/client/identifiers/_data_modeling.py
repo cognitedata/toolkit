@@ -114,7 +114,9 @@ class InstanceIdDefinition(Identifier):
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}"
 
-    def dump(self, camel_case: bool = True, exclude_extra: bool = False, include_instance_type: bool = True) -> dict:
+    def dump(
+        self, camel_case: bool = True, exclude_extra: bool = False, include_instance_type: bool = True
+    ) -> dict[str, Any]:
         """Dumps the identifier to a dictionary.
 
         Args:
