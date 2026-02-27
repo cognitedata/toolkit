@@ -72,7 +72,9 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             List of retrieved InstanceResponse objects.
         """
         return self._request_item_response(
-            items, method="retrieve", extra_body={"sources": [{"source": source.dump()}]} if source else None
+            items,
+            method="retrieve",
+            extra_body={"sources": [{"source": source.dump(include_type=True)}]} if source else None,
         )
 
     def delete(self, items: Sequence[InstanceIdDefinition]) -> list[InstanceIdDefinition]:
@@ -224,7 +226,7 @@ class WrappedInstancesAPI(
             List of retrieved InstanceResponse objects.
         """
         return self._request_item_response(
-            items, method="retrieve", extra_body={"sources": [{"source": self._view_id.dump()}]}
+            items, method="retrieve", extra_body={"sources": [{"source": self._view_id.dump(include_type=True)}]}
         )
 
     def delete(self, items: Sequence[T_InstanceId]) -> list[T_InstanceId]:

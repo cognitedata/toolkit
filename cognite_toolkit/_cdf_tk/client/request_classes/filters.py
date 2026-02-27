@@ -100,7 +100,7 @@ class InstanceFilter(Filter):
         if self.instance_type is not None:
             body["instanceType"] = self.instance_type
         if self.source is not None:
-            body["sources"] = [{"source": self.source.dump()}]
+            body["sources"] = [{"source": self.source.dump(include_type=True)}]
         if self.space is not None:
             instance_type = self.instance_type or "node"
             body["filter"] = {
