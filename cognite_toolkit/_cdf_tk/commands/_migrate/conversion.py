@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Mapping, Set
+from collections.abc import Iterable, Mapping, Sequence, Set
 from datetime import date, datetime
 from typing import Any, ClassVar, Literal, cast
 
@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DirectNodeRelation,
     EdgeReference,
     EdgeRequest,
+    EdgeResponse,
     InstanceRequest,
     InstanceResponse,
     InstanceSource,
@@ -470,6 +471,7 @@ def instance_to_instance(
     new_id: InstanceIdDefinition,
     destination_properties: dict[str, ViewResponseProperty],
     mapping: ViewToViewMapping,
+    edges: Sequence[EdgeResponse] | None = None,
     direct_relation_cache: TimeSeriesFilesReferenceCache | None = None,
 ) -> tuple[InstanceRequest | None, ConversionIssue]:
     raise NotImplementedError()
