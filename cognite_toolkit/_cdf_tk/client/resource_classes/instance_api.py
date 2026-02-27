@@ -1,70 +1,22 @@
 import sys
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Set
+from collections.abc import Set
 from typing import Any, ClassVar, Literal, TypeAlias, TypeVar
 
 from pydantic import model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
-    Identifier,
     RequestResource,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, ViewReference
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition, NodeReference, ViewReference
 
 if sys.version_info >= (3, 11):
-    from typing import Self
+    pass
 else:
-    from typing_extensions import Self
+    pass
 
 InstanceType: TypeAlias = Literal["node", "edge"]
-
-
-class TypedInstanceIdentifier(Identifier):
-    """Identifier for an Instance instance."""
-
-    instance_type: InstanceType
-    space: str
-    external_id: str
-
-    def __str__(self) -> str:
-        return f"Instance({self.instance_type}, {self.space}, {self.external_id})"
-
-    def dump(self, camel_case: bool = True, include_type: bool = True) -> dict[str, Any]:
-        """Dump the resource to a dictionary.
-
-        This is the default serialization method for request resources.
-        """
-        return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=not include_type)
-
-
-class TypedNodeIdentifier(TypedInstanceIdentifier):
-    instance_type: Literal["node"] = "node"
-
-    def __str__(self) -> str:
-        return f"Node({self.space}, {self.external_id})"
-
-    @classmethod
-    def from_external_id(cls, item: ExternalId, space: str) -> Self:
-        return cls(instance_type="node", space=space, external_id=item.external_id)
-
-    @classmethod
-    def from_external_ids(cls, items: Iterable[ExternalId], space: str) -> list[Self]:
-        return [cls.from_external_id(item, space) for item in items]
-
-    @classmethod
-    def from_str_ids(cls, items: Iterable[str], space: str) -> list[Self]:
-        return [cls(instance_type="node", space=space, external_id=item) for item in items]
-
-
-class TypedEdgeIdentifier(TypedInstanceIdentifier):
-    instance_type: Literal["edge"] = "edge"
-
-    def __str__(self) -> str:
-        return f"Edge({self.space}, {self.external_id})"
-
-
-T_TypedInstanceIdentifier = TypeVar("T_TypedInstanceIdentifier", bound=TypedInstanceIdentifier)
 
 
 ######################################################
@@ -211,15 +163,14 @@ class WrappedInstanceListRequest(RequestResource, ABC):
         """Dumps the object to a list of instance request dictionaries."""
         raise NotImplementedError()
 
-    def as_id(self) -> TypedNodeIdentifier:
-        return TypedNodeIdentifier(
-            instance_type=self.instance_type,
+    def as_id(self) -> NodeReference:
+        return NodeReference(
             space=self.space,
             external_id=self.external_id,
         )
 
     @abstractmethod
-    def as_ids(self) -> list[TypedInstanceIdentifier]:
+    def as_ids(self) -> list[InstanceIdDefinition]:
         """Convert the response to a list of typed instance identifiers."""
         raise NotImplementedError()
 
@@ -240,7 +191,7 @@ class WrappedInstanceListResponse(ResponseResource[T_InstancesListRequest], ABC)
         return move_properties(values, cls.VIEW_ID)
 
     @abstractmethod
-    def as_ids(self) -> list[TypedInstanceIdentifier]:
+    def as_ids(self) -> list[InstanceIdDefinition]:
         """Convert the response to a list of typed instance identifiers."""
         raise NotImplementedError()
 

@@ -25,7 +25,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReference,
     ViewResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     ContainerReferenceApply,
     FdmInstanceContainerReferenceApply,
@@ -108,7 +107,7 @@ class AssetCentricMapper(
 
     def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
         ingestion_view_ids = source_selector.get_ingestion_mappings()
-        node_ids = TypedNodeIdentifier.from_str_ids(ingestion_view_ids, space=RESOURCE_VIEW_MAPPING_SPACE)
+        node_ids = NodeReference.from_str_ids(ingestion_view_ids, space=RESOURCE_VIEW_MAPPING_SPACE)
         ingestion_views = self.client.migration.resource_view_mapping.retrieve(node_ids)
         defaults = {mapping.external_id: mapping for mapping in create_default_mappings()}
         # Custom mappings from CDF override the default mappings

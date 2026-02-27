@@ -1,9 +1,17 @@
+import sys
 from abc import ABC
+from collections.abc import Iterable
 from typing import Annotated, Any, Literal, TypeVar
 
 from pydantic import PlainSerializer
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.identifiers._identifiers import ExternalId
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 class SpaceReference(Identifier):
@@ -128,6 +136,18 @@ class NodeReference(InstanceIdDefinition):
 
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}"
+
+    @classmethod
+    def from_external_id(cls, item: ExternalId, space: str) -> Self:
+        return cls(space=space, external_id=item.external_id)
+
+    @classmethod
+    def from_external_ids(cls, items: Iterable[ExternalId], space: str) -> list[Self]:
+        return [cls.from_external_id(item, space) for item in items]
+
+    @classmethod
+    def from_str_ids(cls, str_ids: Iterable[str], space: str) -> list[Self]:
+        return [cls(space=space, external_id=str_id) for str_id in str_ids]
 
 
 class EdgeReference(InstanceIdDefinition):

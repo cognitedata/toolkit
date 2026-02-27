@@ -3,9 +3,8 @@ from datetime import datetime
 from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.identifiers import NodeReferenceUntyped, ViewReference
+from cognite_toolkit._cdf_tk.client.identifiers import NodeReference, NodeReferenceUntyped, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
-    TypedNodeIdentifier,
     WrappedInstanceRequest,
     WrappedInstanceResponse,
 )
@@ -42,8 +41,8 @@ class CogniteFileRequest(WrappedInstanceRequest, CogniteFile):
     space: str
     external_id: str
 
-    def as_id(self) -> TypedNodeIdentifier:
-        return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
+    def as_id(self) -> NodeReference:
+        return NodeReference(space=self.space, external_id=self.external_id)
 
 
 class CogniteFileResponse(WrappedInstanceResponse[CogniteFileRequest], CogniteFile):

@@ -26,9 +26,11 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 from cognite_toolkit._cdf_tk.client.identifiers import (
     InstanceId as DataModelingInstanceId,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    InstanceIdDefinition,
+    InternalId,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, SpaceReference
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedInstanceIdentifier
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     ContainerCRUD,
@@ -726,7 +728,7 @@ class PurgeCommand(ToolkitCommand):
             ItemsRequest(
                 endpoint_url=delete_client.config.create_api_url("/models/instances/delete"),
                 method="POST",
-                items=[TypedInstanceIdentifier._load(item) for item in items],
+                items=[InstanceIdDefinition._load(item) for item in items],
             )
         )
         for response in responses:

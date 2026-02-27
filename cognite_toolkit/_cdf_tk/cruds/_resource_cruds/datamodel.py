@@ -41,6 +41,8 @@ from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ContainerReference,
     DataModelReference,
+    EdgeReference,
+    NodeReference,
     SpaceReference,
     ViewReference,
 )
@@ -71,10 +73,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance imp
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
     GraphQLDataModelRequest,
     GraphQLDataModelResponse,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
-    TypedEdgeIdentifier,
-    TypedNodeIdentifier,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HAS_DATA_FILTER_LIMIT
 from cognite_toolkit._cdf_tk.cruds._base_cruds import (
@@ -225,14 +223,14 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceReference, SpaceRequest, SpaceRespons
             nr_of_deleted += len(node_ids)
         return nr_of_deleted
 
-    def _iterate_over_nodes(self, spaces: list[str]) -> Iterable[list[TypedNodeIdentifier]]:
+    def _iterate_over_nodes(self, spaces: list[str]) -> Iterable[list[NodeReference]]:
         if not spaces:
             return
         filter_ = InstanceFilter(instance_type="node", space=spaces)
         for instances in self.client.tool.instances.iterate(filter=filter_):
             yield [inst.as_id() for inst in instances]  # type: ignore[misc]
 
-    def _iterate_over_edges(self, spaces: list[str]) -> Iterable[list[TypedEdgeIdentifier]]:
+    def _iterate_over_edges(self, spaces: list[str]) -> Iterable[list[EdgeReference]]:
         if not spaces:
             return
         filter_ = InstanceFilter(instance_type="edge", space=spaces)
@@ -423,7 +421,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
             nr_of_deleted += len(edge_ids)
         return nr_of_deleted
 
-    def _iterate_over_nodes(self, containers: list[ContainerResponse]) -> Iterable[list[TypedNodeIdentifier]]:
+    def _iterate_over_nodes(self, containers: list[ContainerResponse]) -> Iterable[list[NodeReference]]:
         container_ids = [container.as_id() for container in containers if container.used_for in ["node", "all"]]
         if not container_ids:
             return
@@ -434,9 +432,9 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
             for instances in self.client.data_modeling.instances(
                 chunk_size=1000, instance_type="node", filter=is_container, limit=-1
             ):
-                yield [TypedNodeIdentifier(space=nid.space, external_id=nid.external_id) for nid in instances.as_ids()]
+                yield [NodeReference(space=nid.space, external_id=nid.external_id) for nid in instances.as_ids()]
 
-    def _iterate_over_edges(self, containers: list[ContainerResponse]) -> Iterable[list[TypedEdgeIdentifier]]:
+    def _iterate_over_edges(self, containers: list[ContainerResponse]) -> Iterable[list[EdgeReference]]:
         container_ids = [container.as_id() for container in containers if container.used_for in ["edge", "all"]]
         if not container_ids:
             return
@@ -448,7 +446,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
             for instances in self.client.data_modeling.instances(
                 chunk_size=1000, instance_type="edge", limit=-1, filter=is_container
             ):
-                yield [TypedEdgeIdentifier(space=eid.space, external_id=eid.external_id) for eid in instances.as_ids()]
+                yield [EdgeReference(space=eid.space, external_id=eid.external_id) for eid in instances.as_ids()]
 
     def _lookup_containers(
         self, container_ids: Sequence[ContainerReference]
@@ -1029,7 +1027,7 @@ class DataModelCRUD(ResourceCRUD[DataModelReference, DataModelRequest, DataModel
 
 
 @final
-class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeResponse]):
+class NodeCRUD(ResourceContainerCRUD[NodeReference, NodeRequest, NodeResponse]):
     item_name = "nodes"
     folder_name = "data_modeling"
     resource_cls = NodeResponse
@@ -1076,16 +1074,16 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
         )
 
     @classmethod
-    def get_id(cls, item: NodeRequest | NodeResponse | dict) -> TypedNodeIdentifier:
+    def get_id(cls, item: NodeRequest | NodeResponse | dict) -> NodeReference:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"space", "externalId"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return TypedNodeIdentifier(space=item["space"], external_id=item["externalId"])
+            return NodeReference(space=item["space"], external_id=item["externalId"])
         return item.as_id()
 
     @classmethod
-    def dump_id(cls, id: TypedNodeIdentifier) -> dict[str, Any]:
+    def dump_id(cls, id: NodeReference) -> dict[str, Any]:
         return id.dump()
 
     @classmethod
@@ -1142,7 +1140,7 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
     def create(self, items: Sequence[NodeRequest]) -> list[InstanceSlimDefinition]:
         return self.client.tool.instances.create(list(items))
 
-    def retrieve(self, ids: Sequence[TypedNodeIdentifier]) -> list[NodeResponse]:
+    def retrieve(self, ids: Sequence[NodeReference]) -> list[NodeResponse]:
         source_ref = (
             ViewReference(space=self.view_id.space, external_id=self.view_id.external_id, version=self.view_id.version)
             if self.view_id
@@ -1154,7 +1152,7 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
     def update(self, items: Sequence[NodeRequest]) -> list[InstanceSlimDefinition]:
         return self.client.tool.instances.create(list(items))
 
-    def delete(self, ids: Sequence[TypedNodeIdentifier]) -> int:
+    def delete(self, ids: Sequence[NodeReference]) -> int:
         try:
             deleted = self.client.tool.instances.delete(list(ids))
         except ToolkitAPIError as e:
@@ -1184,15 +1182,15 @@ class NodeCRUD(ResourceContainerCRUD[TypedNodeIdentifier, NodeRequest, NodeRespo
                 if isinstance(inst, NodeResponse):
                     yield inst
 
-    def count(self, ids: Sequence[TypedNodeIdentifier]) -> int:
+    def count(self, ids: Sequence[NodeReference]) -> int:
         return len(ids)
 
-    def drop_data(self, ids: Sequence[TypedNodeIdentifier]) -> int:
+    def drop_data(self, ids: Sequence[NodeReference]) -> int:
         # Nodes will be deleted in .delete call.
         return 0
 
     @classmethod
-    def as_str(cls, id: TypedNodeIdentifier) -> str:
+    def as_str(cls, id: NodeReference) -> str:
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
@@ -1404,7 +1402,7 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelReference, GraphQLDataModelRequ
 
 
 @final
-class EdgeCRUD(ResourceContainerCRUD[TypedEdgeIdentifier, EdgeRequest, EdgeResponse]):
+class EdgeCRUD(ResourceContainerCRUD[EdgeReference, EdgeRequest, EdgeResponse]):
     item_name = "edges"
     folder_name = "data_modeling"
     resource_cls = EdgeResponse
@@ -1439,20 +1437,20 @@ class EdgeCRUD(ResourceContainerCRUD[TypedEdgeIdentifier, EdgeRequest, EdgeRespo
         )
 
     @classmethod
-    def get_id(cls, item: EdgeRequest | EdgeResponse | dict) -> TypedEdgeIdentifier:
+    def get_id(cls, item: EdgeRequest | EdgeResponse | dict) -> EdgeReference:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"space", "externalId"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return TypedEdgeIdentifier(space=item["space"], external_id=item["externalId"])
+            return EdgeReference(space=item["space"], external_id=item["externalId"])
         return item.as_id()
 
     @classmethod
-    def dump_id(cls, id: TypedEdgeIdentifier) -> dict[str, Any]:
+    def dump_id(cls, id: EdgeReference) -> dict[str, Any]:
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: TypedEdgeIdentifier) -> str:
+    def as_str(cls, id: EdgeReference) -> str:
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
     @classmethod
@@ -1479,7 +1477,7 @@ class EdgeCRUD(ResourceContainerCRUD[TypedEdgeIdentifier, EdgeRequest, EdgeRespo
         for key in ["startNode", "endNode", "type"]:
             if node_ref := item.get(key):
                 if isinstance(node_ref, dict) and in_dict(("space", "externalId"), node_ref):
-                    yield NodeCRUD, TypedNodeIdentifier(space=node_ref["space"], external_id=node_ref["externalId"])
+                    yield NodeCRUD, NodeReference(space=node_ref["space"], external_id=node_ref["externalId"])
 
     def dump_resource(self, resource: EdgeResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
@@ -1513,14 +1511,14 @@ class EdgeCRUD(ResourceContainerCRUD[TypedEdgeIdentifier, EdgeRequest, EdgeRespo
     def create(self, items: Sequence[EdgeRequest]) -> list[InstanceSlimDefinition]:
         return self.client.tool.instances.create(list(items))
 
-    def retrieve(self, ids: Sequence[TypedEdgeIdentifier]) -> list[EdgeResponse]:
+    def retrieve(self, ids: Sequence[EdgeReference]) -> list[EdgeResponse]:
         results = self.client.tool.instances.retrieve(list(ids))
         return [r for r in results if isinstance(r, EdgeResponse)]
 
     def update(self, items: Sequence[EdgeRequest]) -> list[InstanceSlimDefinition]:
         return self.client.tool.instances.create(list(items))
 
-    def delete(self, ids: Sequence[TypedEdgeIdentifier]) -> int:
+    def delete(self, ids: Sequence[EdgeReference]) -> int:
         try:
             deleted = self.client.tool.instances.delete(list(ids))
         except ToolkitAPIError as e:
@@ -1544,10 +1542,10 @@ class EdgeCRUD(ResourceContainerCRUD[TypedEdgeIdentifier, EdgeRequest, EdgeRespo
                 if isinstance(inst, EdgeResponse):
                     yield inst
 
-    def count(self, ids: Sequence[TypedEdgeIdentifier]) -> int:
+    def count(self, ids: Sequence[EdgeReference]) -> int:
         return len(ids)
 
-    def drop_data(self, ids: Sequence[TypedEdgeIdentifier]) -> int:
+    def drop_data(self, ids: Sequence[EdgeReference]) -> int:
         # Edges will be deleted in .delete call.
         return 0
 

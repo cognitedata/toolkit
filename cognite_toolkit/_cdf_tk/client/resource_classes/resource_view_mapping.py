@@ -4,8 +4,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
 )
 
-from .data_modeling import ViewReference
-from .instance_api import TypedNodeIdentifier, WrappedInstanceRequest, WrappedInstanceResponse
+from .data_modeling import NodeReference, ViewReference
+from .instance_api import WrappedInstanceRequest, WrappedInstanceResponse
 
 RESOURCE_VIEW_MAPPING_SPACE: Literal["cognite_migration"] = "cognite_migration"
 RESOURCE_MAPPING_VIEW_ID = ViewReference(
@@ -24,8 +24,8 @@ class ResourceViewMappingRequest(WrappedInstanceRequest, ResourceViewMapping):
     space: Literal["cognite_migration"] = RESOURCE_VIEW_MAPPING_SPACE
     instance_type: Literal["node"] = "node"
 
-    def as_id(self) -> TypedNodeIdentifier:
-        return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
+    def as_id(self) -> NodeReference:
+        return NodeReference(space=self.space, external_id=self.external_id)
 
 
 class ResourceViewMappingResponse(WrappedInstanceResponse[ResourceViewMappingRequest], ResourceViewMapping):

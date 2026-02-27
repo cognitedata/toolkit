@@ -3,12 +3,15 @@ from typing import Any, ClassVar, Literal
 from pydantic import JsonValue, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataModelReference, ViewReference
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    DataModelReference,
+    NodeReference,
+    ViewReference,
+)
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 
 from .instance_api import (
-    TypedInstanceIdentifier,
-    TypedNodeIdentifier,
     WrappedInstanceListRequest,
     WrappedInstanceListResponse,
     WrappedInstanceRequest,
@@ -112,15 +115,15 @@ class InFieldLocationConfigRequest(WrappedInstanceListRequest, InFieldLocationCo
             )
         return output
 
-    def as_ids(self) -> list[TypedInstanceIdentifier]:
-        output: list[TypedInstanceIdentifier] = [self.as_id()]
+    def as_ids(self) -> list[InstanceIdDefinition]:
+        output: list[InstanceIdDefinition] = [self.as_id()]
         if (
             self.data_exploration_config
             and self.data_exploration_config.space
             and self.data_exploration_config.external_id
         ):
             output.append(
-                TypedNodeIdentifier(
+                NodeReference(
                     space=self.data_exploration_config.space,
                     external_id=self.data_exploration_config.external_id,
                 )
@@ -133,15 +136,15 @@ class InFieldLocationConfigResponse(WrappedInstanceListResponse, InFieldLocation
     def request_cls(cls) -> type[InFieldLocationConfigRequest]:
         return InFieldLocationConfigRequest
 
-    def as_ids(self) -> list[TypedInstanceIdentifier]:
-        output: list[TypedInstanceIdentifier] = [TypedNodeIdentifier(space=self.space, external_id=self.external_id)]
+    def as_ids(self) -> list[InstanceIdDefinition]:
+        output: list[InstanceIdDefinition] = [NodeReference(space=self.space, external_id=self.external_id)]
         if (
             self.data_exploration_config
             and self.data_exploration_config.space
             and self.data_exploration_config.external_id
         ):
             output.append(
-                TypedNodeIdentifier(
+                NodeReference(
                     space=self.data_exploration_config.space,
                     external_id=self.data_exploration_config.external_id,
                 )
@@ -165,8 +168,8 @@ class InFieldCDMLocationConfigRequest(WrappedInstanceRequest, InFieldCDMLocation
     VIEW_ID: ClassVar[ViewReference] = INFIELD_CDM_LOCATION_CONFIG_VIEW_ID
     instance_type: Literal["node"] = "node"
 
-    def as_id(self) -> TypedNodeIdentifier:
-        return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
+    def as_id(self) -> NodeReference:
+        return NodeReference(space=self.space, external_id=self.external_id)
 
 
 class InFieldCDMLocationConfigResponse(

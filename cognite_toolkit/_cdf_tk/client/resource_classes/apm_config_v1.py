@@ -11,9 +11,8 @@ from typing import ClassVar, Literal
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.identifiers import ViewReference
+from cognite_toolkit._cdf_tk.client.identifiers import NodeReference, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
-    TypedNodeIdentifier,
     WrappedInstanceRequest,
     WrappedInstanceResponse,
 )
@@ -182,8 +181,8 @@ class APMConfigRequest(WrappedInstanceRequest, APMConfig):
     instance_type: Literal["node"] = "node"
     space: Literal["APM_Config"] = APM_CONFIG_SPACE
 
-    def as_id(self) -> TypedNodeIdentifier:
-        return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
+    def as_id(self) -> NodeReference:
+        return NodeReference(space=self.space, external_id=self.external_id)
 
 
 class APMConfigResponse(WrappedInstanceResponse[APMConfigRequest], APMConfig):
