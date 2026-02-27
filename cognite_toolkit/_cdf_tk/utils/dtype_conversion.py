@@ -323,11 +323,11 @@ class _SourceConverter(_SpecialCaseConverter, ABC):
     def convert(self, value: str | int | float | bool | dict | list | None) -> PropertyValueWrite:
         if isinstance(value, str | int):
             if value in self.direct_relation_lookup:
-                return self.direct_relation_lookup[value].dump(exclude_extra=True)
+                return self.direct_relation_lookup[value].dump(include_instance_type=False)
             elif isinstance(value, str) and value.casefold() in self.direct_relation_lookup:
                 # The aggregate endpoint used to create source system lowercases all sources, thus
                 # we do a case-insensitive lookup as a fallback.
-                return self.direct_relation_lookup[value.casefold()].dump(exclude_extra=True)
+                return self.direct_relation_lookup[value.casefold()].dump(include_instance_type=False)
         raise ValueError(f"Cannot convert {value!r} to NodeReference. Invalid data type or missing in lookup.")
 
 
@@ -543,7 +543,7 @@ class _DirectRelationshipConverter(_ValueConverter):
 
     def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
         if isinstance(value, str | int) and value in self.direct_relation_lookup:
-            return self.direct_relation_lookup[value].dump(exclude_extra=True)
+            return self.direct_relation_lookup[value].dump(include_instance_type=False)
         raise ValueError(f"Cannot convert {value!r} to NodeReference. Invalid data type or missing in lookup.")
 
 
