@@ -5,7 +5,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client._resource_base import UpdatableRequestResource, _get_annotation_origin
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.identifiers import PrincipalId
+from cognite_toolkit._cdf_tk.client.identifiers import NodeReference, PrincipalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeRequest
@@ -376,7 +376,7 @@ class TestGetAnnotationOrigin:
 
 
 class TestNodeRequest:
-    def test_node_untyped_behavior(self):
+    def test_node_untyped_behavior(self) -> None:
         node = NodeRequest.model_validate(
             {
                 "space": "my_space",
@@ -403,3 +403,29 @@ class TestNodeRequest:
                 # No instance type field here.
             },
         }
+
+    def test_convert_node_type_to_untyped(self) -> None:
+        my_node_type = NodeReference(space="my_space", external_id="my_node")
+        my_node_request = NodeRequest(
+            space="my_space",
+            external_id="instance_node",
+            type=my_node_type,
+        )
+        # Dumped with type
+        assert my_node_type.dump() == {
+            "space": "my_space",
+            "externalId": "my_node",
+            "instanceType": "node",
+        }
+        # the .type dumped without the instance type field, as it's untyped
+        assert my_node_request.dump() == {
+            "space": "my_space",
+            "externalId": "instance_node",
+            "instanceType": "node",
+            "type": {
+                "space": "my_space",
+                "externalId": "my_node",
+                # No instance type field here.
+            },
+        }
+        assert my_node_request.type == my_node_type

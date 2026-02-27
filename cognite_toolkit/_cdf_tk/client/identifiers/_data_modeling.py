@@ -173,7 +173,7 @@ class ContainerConstraintReference(ContainerReference):
 class DatapointSubscriptionTimeSeriesId(Identifier):
     external_id: str | None = None
     id: int | None = None
-    instance_id: NodeReference | None = None
+    instance_id: NodeReferenceUntyped | None = None
 
     def __str__(self) -> str:
         if self.external_id is not None:
@@ -187,14 +187,11 @@ class DatapointSubscriptionTimeSeriesId(Identifier):
 
 
 class InstanceId(Identifier):
-    instance_id: NodeReference
+    """This is an instance identifier. It is used in the classic timeseries/files API
+    to reference a CogniteTimeSeries/CogniteFile by its instanceId.
+    """
+
+    instance_id: NodeReferenceUntyped
 
     def __str__(self) -> str:
         return f"instanceId='{self.instance_id}'"
-
-    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
-        return {
-            "instanceId" if camel_case else "instance_id": self.instance_id.dump(
-                camel_case=camel_case, exclude_extra=exclude_extra, include_instance_type=False
-            )
-        }
