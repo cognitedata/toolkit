@@ -62,6 +62,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigRequest, APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest, AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerResponse,
@@ -339,6 +340,18 @@ def get_examples_minimum_requests(request_cls: type[ResponseResource]) -> list[d
             }
         ],
         AssetResponse: [{"name": "smoke-test-asset", "externalId": "smoke-test-asset"}],
+        ChartResponse: [
+            {
+                "externalId": "smoke-test-chart",
+                "visibility": "PRIVATE",
+                "data": {
+                    "name": "Smoke test chart",
+                    "version": 1,
+                    "dateFrom": "2024-01-01T00:00:00Z",
+                    "dateTo": "2026-03-02T00:00:00Z",
+                },
+            }
+        ],
         CogniteFileResponse: [{"externalId": "smoke-test-file", "space": SMOKE_SPACE}],
         DatapointSubscriptionResponse: [
             {

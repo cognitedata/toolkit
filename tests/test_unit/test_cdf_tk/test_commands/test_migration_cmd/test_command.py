@@ -483,7 +483,10 @@ class TestMigrationCommand:
                 last_updated_time=1,
                 visibility="PUBLIC",
                 data=ChartData(
+                    version=1,
                     name="My Chart",
+                    date_from="2025-01-01T00:00:00.000Z",
+                    date_to="2025-12-31T23:59:59.999Z",
                     time_series_collection=[
                         ChartTimeseries(
                             tsExternalId="ts_1", type="timeseries", id="87654321-4321-8765-4321-876543218765"
@@ -583,7 +586,10 @@ class TestMigrationCommand:
                 "externalId": "my_chart",
                 "visibility": "PUBLIC",
                 "data": {
+                    "version": 1,
                     "name": "My Chart",
+                    "dateFrom": "2025-01-01T00:00:00.000Z",
+                    "dateTo": "2025-12-31T23:59:59.999Z",
                     "coreTimeseriesCollection": [
                         {
                             "type": "coreTimeseries",

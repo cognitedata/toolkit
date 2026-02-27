@@ -38,8 +38,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils import datetime_to_ms
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import NodeReference
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceFileSelector

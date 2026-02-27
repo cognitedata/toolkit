@@ -172,10 +172,10 @@ class ChartScheduledCalculation(ChartElement):
 
 
 class ChartData(ChartObject):
-    version: int | None = None
-    name: str | None = None
-    date_from: str | None = None
-    date_to: str | None = None
+    version: int
+    name: str
+    date_from: str
+    date_to: str
     user_info: UserInfo | None = None
     live_mode: bool | None = None
     time_series_collection: list[ChartTimeseries] | None = None

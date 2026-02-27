@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ContainerDirectReference,
     ContainerReference,
-    NodeReference,
+    NodeReferenceUntyped,
     ViewDirectReference,
     ViewReference,
 )
@@ -72,7 +72,7 @@ class ConnectionPropertyDefinition(ViewPropertyDefinition, ABC):
 
 class EdgeProperty(ConnectionPropertyDefinition, ABC):
     source: ViewReference
-    type: NodeReference
+    type: NodeReferenceUntyped
     edge_source: ViewReference | None = None
     direction: Literal["outwards", "inwards"] = "outwards"
 

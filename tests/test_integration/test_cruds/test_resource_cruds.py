@@ -45,7 +45,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     IDScopeLowerCase,
     TimeSeriesAcl,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import (
     ExtendableCogniteFileApply,
@@ -1098,9 +1097,7 @@ class TestNodeLoader:
 
             retrieved = toolkit_client.tool.instances.retrieve(
                 [existing_node.as_id()],
-                source=TypedViewReference(
-                    space=view_id.space, external_id=view_id.external_id, version=view_id.version
-                ),
+                source=ViewReference(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
             )
             assert len(retrieved) == 1
             node = retrieved[0]

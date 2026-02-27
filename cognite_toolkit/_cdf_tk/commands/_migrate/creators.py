@@ -35,7 +35,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     INFIELD_ON_CDM_DATA_MODEL,
     InFieldCDMLocationConfigRequest,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterRequest
 from cognite_toolkit._cdf_tk.cruds import (
     InFieldCDMLocationConfigCRUD,
@@ -298,7 +297,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
     def create_resources(self) -> Iterable[ToCreateResources]:
         if self.external_ids is not None:
             apm_configs = self.client.infield.apm_config.retrieve(
-                TypedNodeIdentifier.from_str_ids(self.external_ids, space=APM_CONFIG_SPACE)
+                NodeReference.from_str_ids(self.external_ids, space=APM_CONFIG_SPACE)
             )
         else:
             # We know this is not None from the check in __init__
@@ -427,7 +426,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
             data_filters[key] = {"instanceSpaces": [config.source_data_instance_space]}
 
         data_storage: dict[str, JsonValue] = {
-            "rootLocation": root_node.dump(),
+            "rootLocation": root_node.dump(include_instance_type=False),
             "appInstanceSpace": config.app_data_instance_space,
         }
         view_mappings: dict[str, JsonValue] = {}
