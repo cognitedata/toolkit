@@ -45,6 +45,15 @@ class ContainerReference(DataModelingIdentifier):
         return self.space, self.external_id
 
 
+def _dump_container_reference_with_type(instance: ContainerReference) -> dict[str, Any]:
+    return instance.dump(include_type=True)
+
+
+ContainerReferenceTyped = Annotated[
+    ContainerReference, PlainSerializer(_dump_container_reference_with_type, when_used="always")
+]
+
+
 class ViewReferenceNoVersion(DataModelingIdentifier):
     type: Literal["view"] = "view"
     space: str
@@ -59,6 +68,13 @@ class ViewReference(ViewReferenceNoVersion):
 
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}(version={self.version})"
+
+
+def _dump_view_reference_with_type(instance: ViewReference) -> dict[str, Any]:
+    return instance.dump(include_type=True)
+
+
+ViewReferenceTyped = Annotated[ViewReference, PlainSerializer(_dump_view_reference_with_type, when_used="always")]
 
 
 class DataModelReferenceNoVersion(Identifier):
