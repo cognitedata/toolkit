@@ -13,8 +13,8 @@ from rich.panel import Panel
 from rich.text import Text
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeReference, NodeReference, ViewReference
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeReferenceUntyped, InternalId, NodeReferenceUntyped
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
@@ -48,7 +48,7 @@ class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore",
     """
 
     resource_type: str
-    instance_id: NodeReference | EdgeReference
+    instance_id: NodeReferenceUntyped | EdgeReferenceUntyped
     id: int
     data_set_id: int | None = None
     ingestion_view: str | None = None
@@ -195,27 +195,27 @@ class MigrationMappingList(ModelList[MigrationMapping]):
 
 class AssetMapping(MigrationMapping):
     resource_type: Literal["asset"] = "asset"
-    instance_id: NodeReference
+    instance_id: NodeReferenceUntyped
 
 
 class EventMapping(MigrationMapping):
     resource_type: Literal["event"] = "event"
-    instance_id: NodeReference
+    instance_id: NodeReferenceUntyped
 
 
 class TimeSeriesMapping(MigrationMapping):
     resource_type: Literal["timeseries"] = "timeseries"
-    instance_id: NodeReference
+    instance_id: NodeReferenceUntyped
 
 
 class FileMapping(MigrationMapping):
     resource_type: Literal["file"] = "file"
-    instance_id: NodeReference
+    instance_id: NodeReferenceUntyped
 
 
 class AnnotationMapping(MigrationMapping):
     resource_type: Literal["annotation"] = "annotation"
-    instance_id: EdgeReference
+    instance_id: EdgeReferenceUntyped
     annotation_type: Literal["diagrams.AssetLink", "diagrams.FileLink"] | None = None
 
     def get_ingestion_view(self) -> str:

@@ -427,7 +427,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
             data_filters[key] = {"instanceSpaces": [config.source_data_instance_space]}
 
         data_storage: dict[str, JsonValue] = {
-            "rootLocation": root_node.dump(),
+            "rootLocation": root_node.dump(include_instance_type=False),
             "appInstanceSpace": config.app_data_instance_space,
         }
         view_mappings: dict[str, JsonValue] = {}

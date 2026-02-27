@@ -127,7 +127,14 @@ class NodeReference(InstanceIdDefinition):
         return f"{self.space}:{self.external_id}"
 
 
-def _dump_no_type(instance: NodeReference) -> dict[str, Any]:
+class EdgeReference(InstanceIdDefinition):
+    instance_type: Literal["edge"] = "edge"
+
+    def __str__(self) -> str:
+        return f"{self.space}:{self.external_id}"
+
+
+def _dump_no_type(instance: NodeReference | EdgeReference) -> dict[str, Any]:
     return instance.dump(include_instance_type=False)
 
 
@@ -136,11 +143,7 @@ def _dump_no_type(instance: NodeReference) -> dict[str, Any]:
 NodeReferenceUntyped = Annotated[NodeReference, PlainSerializer(_dump_no_type, when_used="always")]
 
 
-class EdgeReference(InstanceIdDefinition):
-    instance_type: Literal["edge"] = "edge"
-
-    def __str__(self) -> str:
-        return f"{self.space}:{self.external_id}"
+EdgeReferenceUntyped = Annotated[EdgeReference, PlainSerializer(_dump_no_type, when_used="always")]
 
 
 class ContainerDirectReference(Identifier):
