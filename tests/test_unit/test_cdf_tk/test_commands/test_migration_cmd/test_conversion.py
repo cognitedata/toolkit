@@ -1,11 +1,13 @@
 import json
 from collections.abc import Mapping
 from typing import Any, ClassVar
+from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.data_classes import Sequence
 from pydantic import JsonValue
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -15,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DirectNodeRelation,
     EdgeReference,
     EdgeRequest,
+    EdgeResponse,
     EnumProperty,
     EnumValue,
     InstanceSource,
@@ -22,20 +25,23 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     JSONProperty,
     MultiEdgeProperty,
     NodeReference,
+    NodeResponse,
     TextProperty,
     TimestampProperty,
     ViewCorePropertyResponse,
     ViewReference,
-    ViewResponseProperty, NodeResponse, EdgeResponse, NodeRequest,
+    ViewResponseProperty,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId, CreatedSourceSystem
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     DirectRelationCache,
+    TimeSeriesFilesReferenceCache,
     asset_centric_to_dm,
     create_properties,
     instance_to_instance,
@@ -1226,20 +1232,156 @@ class TestAssetCentricConversion:
 
 
 class TestInstanceToInstanceConversion:
+    SOURCE_VIEW = ViewReference(space="src_space", external_id="SrcView", version="v1")
+    DEST_VIEW = ViewReference(space="dst_space", external_id="DstView", version="v1")
+    CONTAINER_ID = ContainerReference(space="dst_space", external_id="DstContainer")
+    NEW_ID = NodeReference(space="dst_space", external_id="new_nodeA")
+    DEFAULT_ARGS: ClassVar = dict(
+        nullable=True, immutable=False, auto_increment=False, constraint_state=ConstraintOrIndexState()
+    )
+
+    DESTINATION_PROPERTIES: ClassVar[dict[str, ViewResponseProperty]] = {
+        "name": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="name",
+            type=TextProperty(),
+            **DEFAULT_ARGS,
+        ),
+        "count": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="count",
+            type=Int64Property(),
+            **DEFAULT_ARGS,
+        ),
+        "sensorTs": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="sensorTs",
+            type=DirectNodeRelation(),
+            **DEFAULT_ARGS,
+        ),
+        "relatedAsset": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="relatedAsset",
+            type=DirectNodeRelation(),
+            **DEFAULT_ARGS,
+        ),
+        "parentAsset": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="parentAsset",
+            type=DirectNodeRelation(),
+            **DEFAULT_ARGS,
+        ),
+    }
+
+    MAPPING = ViewToViewMapping(
+        source_view=SOURCE_VIEW,
+        destination_view=DEST_VIEW,
+        property_mapping={
+            "name": "name",
+            "count": "count",
+            "sensorTs": "sensorTs",
+            "relatesTo": "relatedAsset",
+            "hasChild": "parentAsset",
+        },
+    )
+
     @pytest.mark.parametrize(
-        "instance",
-        "expected",
+        "input_properties,edges,expected_properties",
         [
-            pytest.param()
-        ]
+            pytest.param(
+                {
+                    SOURCE_VIEW: {"name": "Sensor1", "sensorTs": "ts_ext_1"},
+                },
+                None,
+                {
+                    "name": "Sensor1",
+                    "sensorTs": {"space": "ts_space", "externalId": "ts_node_1"},
+                },
+                id="timeseries_reference",
+            ),
+            pytest.param(
+                {
+                    SOURCE_VIEW: {"name": "Counter", "count": "42"},
+                },
+                None,
+                {
+                    "name": "Counter",
+                    "count": 42,
+                },
+                id="string_to_int",
+            ),
+            pytest.param(
+                {
+                    SOURCE_VIEW: {"name": "NodeC"},
+                },
+                [
+                    EdgeResponse(
+                        space="src_space",
+                        external_id="edge1",
+                        version=1,
+                        created_time=0,
+                        last_updated_time=0,
+                        type=NodeReference(space="src_space", external_id="relatesTo"),
+                        start_node=NodeReference(space="src_space", external_id="nodeC"),
+                        end_node=NodeReference(space="other_space", external_id="nodeD"),
+                    )
+                ],
+                {
+                    "name": "NodeC",
+                    "relatedAsset": {"space": "other_space", "externalId": "nodeD"},
+                },
+                id="edge_to_direct_relation",
+            ),
+            pytest.param(
+                {
+                    SOURCE_VIEW: {"name": "NodeE"},
+                },
+                [
+                    EdgeResponse(
+                        space="src_space",
+                        external_id="edge2",
+                        version=1,
+                        created_time=0,
+                        last_updated_time=0,
+                        type=NodeReference(space="src_space", external_id="hasChild"),
+                        start_node=NodeReference(space="other_space", external_id="parentNode"),
+                        end_node=NodeReference(space="src_space", external_id="nodeE"),
+                    )
+                ],
+                {
+                    "name": "NodeE",
+                    "parentAsset": {"space": "other_space", "externalId": "parentNode"},
+                },
+                id="edge_to_reverse_direct_relation",
+            ),
+        ],
     )
     def test_instance_to_instance_conversion(
         self,
-        instance: NodeResponse | EdgeResponse,
-        expected: NodeRequest | EdgeRequest,
+        input_properties: dict[str, Any],
+        edges: list[EdgeResponse] | None,
+        expected_properties: dict[str, Any],
     ) -> None:
-        actual, issue = instance_to_instance(instance
-                                             )
+        cache = TimeSeriesFilesReferenceCache(MagicMock(spec=ToolkitClient))
+        cache._cache["timeseries"]["ts_ext_1"] = NodeReference(space="ts_space", external_id="ts_node_1")
+        instance = NodeResponse(
+            space="src_space",
+            external_id="nodeA",
+            version=1,
+            created_time=0,
+            last_updated_time=0,
+            properties=input_properties,
+        )
+
+        actual, _ = instance_to_instance(
+            instance,
+            self.NEW_ID,
+            self.DESTINATION_PROPERTIES,
+            self.MAPPING,
+            edges=edges,
+            direct_relation_cache=cache,
+        )
 
         assert actual is not None
-        assert actual.dump() == expected.dump()
+        assert actual.sources
+        assert actual.sources[0].properties == expected_properties
