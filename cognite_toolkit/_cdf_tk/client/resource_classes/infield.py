@@ -88,7 +88,7 @@ class InFieldLocationConfigRequest(WrappedInstanceListRequest, InFieldLocationCo
                 "externalId": self.external_id,
                 "sources": [
                     {
-                        "source": self.VIEW_ID.dump(),
+                        "source": self.VIEW_ID.dump(include_type=True),
                         "properties": properties,
                     }
                 ],
@@ -102,7 +102,7 @@ class InFieldLocationConfigRequest(WrappedInstanceListRequest, InFieldLocationCo
                     "externalId": external_id,
                     "sources": [
                         {
-                            "source": DataExplorationConfig.VIEW_ID.dump(),
+                            "source": DataExplorationConfig.VIEW_ID.dump(include_type=True),
                             "properties": self.data_exploration_config.model_dump(
                                 by_alias=True, exclude_unset=True, exclude={"space", "external_id"}
                             ),
