@@ -4,8 +4,7 @@ from typing import Any
 from pydantic import model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
-
-from .instance_api import NodeReference
+from cognite_toolkit._cdf_tk.client.identifiers import NodeReferenceUntyped
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -18,7 +17,7 @@ class PendingInstanceId(RequestItem):
     to a DM node that will be created later by the syncer service.
     """
 
-    pending_instance_id: NodeReference
+    pending_instance_id: NodeReferenceUntyped
     id: int | None = None
     external_id: str | None = None
 

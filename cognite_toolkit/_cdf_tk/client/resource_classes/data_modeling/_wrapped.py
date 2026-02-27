@@ -1,123 +1,21 @@
-import sys
+"""
+The classes below are helper classes for making instances request/responses.
+By using these, we can avoid having to include the instances specific classes in the DTO classes
+that are instance. Instead, these classes can now only have the properties they need to define.
+"""
+
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Set
-from typing import Any, ClassVar, Literal, TypeAlias, TypeVar
+from collections.abc import Set
+from typing import Any, ClassVar, Literal, TypeVar
 
 from pydantic import model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
-    BaseModelObject,
-    Identifier,
     RequestResource,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
-InstanceType: TypeAlias = Literal["node", "edge"]
-
-
-class TypedInstanceIdentifier(Identifier):
-    """Identifier for an Instance instance."""
-
-    instance_type: InstanceType
-    space: str
-    external_id: str
-
-    def __str__(self) -> str:
-        return f"Instance({self.instance_type}, {self.space}, {self.external_id})"
-
-    def dump(self, camel_case: bool = True, include_type: bool = True) -> dict[str, Any]:
-        """Dump the resource to a dictionary.
-
-        This is the default serialization method for request resources.
-        """
-        return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=not include_type)
-
-
-class TypedNodeIdentifier(TypedInstanceIdentifier):
-    instance_type: Literal["node"] = "node"
-
-    def __str__(self) -> str:
-        return f"Node({self.space}, {self.external_id})"
-
-    @classmethod
-    def from_external_id(cls, item: ExternalId, space: str) -> Self:
-        return cls(instance_type="node", space=space, external_id=item.external_id)
-
-    @classmethod
-    def from_external_ids(cls, items: Iterable[ExternalId], space: str) -> list[Self]:
-        return [cls.from_external_id(item, space) for item in items]
-
-    @classmethod
-    def from_str_ids(cls, items: Iterable[str], space: str) -> list[Self]:
-        return [cls(instance_type="node", space=space, external_id=item) for item in items]
-
-
-class TypedEdgeIdentifier(TypedInstanceIdentifier):
-    instance_type: Literal["edge"] = "edge"
-
-    def __str__(self) -> str:
-        return f"Edge({self.space}, {self.external_id})"
-
-
-T_TypedInstanceIdentifier = TypeVar("T_TypedInstanceIdentifier", bound=TypedInstanceIdentifier)
-
-
-class InstanceIdentifier(Identifier):
-    space: str
-    external_id: str
-
-    def __str__(self) -> str:
-        return f"Instance({self.space}, {self.external_id})"
-
-
-class InstanceResult(BaseModelObject):
-    instance_type: InstanceType
-    version: int
-    was_modified: bool
-    space: str
-    external_id: str
-    created_time: int
-    last_updated_time: int
-
-    def as_id(self) -> TypedInstanceIdentifier:
-        return TypedInstanceIdentifier(
-            instance_type=self.instance_type,
-            space=self.space,
-            external_id=self.external_id,
-        )
-
-
-class TypedViewReference(Identifier):
-    type: Literal["view"] = "view"
-    space: str
-    external_id: str
-    version: str
-
-    def __str__(self) -> str:
-        return f"View({self.space}, {self.external_id}, v{self.version})"
-
-    def dump(self, camel_case: bool = True, include_type: bool = True) -> dict[str, Any]:
-        """Dump the resource to a dictionary.
-
-        This is the default serialization method for request resources.
-        """
-        return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=not include_type)
-
-    def as_property_reference(self, property_name: str) -> list[str]:
-        return [self.space, f"{self.external_id}/{self.version}", property_name]
-
-
-######################################################
-# The classes below are helper classes for making instances request/responses.
-# By using these, we can avoid having to include the instances specific classes in the DTO classes
-# that are instance. Instead, these classes can now only have the properties they need to define.
-#######################################################
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition, NodeReference, ViewReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._constants import InstanceType
 
 
 class WrappedInstanceRequest(RequestResource, ABC):
@@ -125,7 +23,7 @@ class WrappedInstanceRequest(RequestResource, ABC):
     It is used to define resources that are
     """
 
-    VIEW_ID: ClassVar[TypedViewReference]
+    VIEW_ID: ClassVar[ViewReference]
     instance_type: InstanceType
     space: str
     external_id: str
@@ -171,7 +69,7 @@ T_WrappedInstanceRequest = TypeVar("T_WrappedInstanceRequest", bound=WrappedInst
 
 
 class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
-    VIEW_ID: ClassVar[TypedViewReference]
+    VIEW_ID: ClassVar[ViewReference]
     instance_type: InstanceType
     space: str
     external_id: str
@@ -225,7 +123,7 @@ class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
         return output
 
 
-def move_properties(values: dict[str, Any], view_id: TypedViewReference) -> dict[str, Any]:
+def move_properties(values: dict[str, Any], view_id: ViewReference) -> dict[str, Any]:
     """Help function to move properties from properties.space.externalId/version to the top level.
 
     It is used in WrappedInstanceResponse to move properties from the response to the top level.
@@ -247,7 +145,7 @@ T_WrappedInstanceResponse = TypeVar("T_WrappedInstanceResponse", bound=WrappedIn
 
 
 class WrappedInstanceListRequest(RequestResource, ABC):
-    VIEW_ID: ClassVar[TypedViewReference]
+    VIEW_ID: ClassVar[ViewReference]
     instance_type: Literal["node"] = "node"
     space: str
     external_id: str
@@ -257,15 +155,14 @@ class WrappedInstanceListRequest(RequestResource, ABC):
         """Dumps the object to a list of instance request dictionaries."""
         raise NotImplementedError()
 
-    def as_id(self) -> TypedNodeIdentifier:
-        return TypedNodeIdentifier(
-            instance_type=self.instance_type,
+    def as_id(self) -> NodeReference:
+        return NodeReference(
             space=self.space,
             external_id=self.external_id,
         )
 
     @abstractmethod
-    def as_ids(self) -> list[TypedInstanceIdentifier]:
+    def as_ids(self) -> list[InstanceIdDefinition]:
         """Convert the response to a list of typed instance identifiers."""
         raise NotImplementedError()
 
@@ -274,7 +171,7 @@ T_InstancesListRequest = TypeVar("T_InstancesListRequest", bound=WrappedInstance
 
 
 class WrappedInstanceListResponse(ResponseResource[T_InstancesListRequest], ABC):
-    VIEW_ID: ClassVar[TypedViewReference]
+    VIEW_ID: ClassVar[ViewReference]
     instance_type: Literal["node"] = "node"
     space: str
     external_id: str
@@ -286,14 +183,9 @@ class WrappedInstanceListResponse(ResponseResource[T_InstancesListRequest], ABC)
         return move_properties(values, cls.VIEW_ID)
 
     @abstractmethod
-    def as_ids(self) -> list[TypedInstanceIdentifier]:
+    def as_ids(self) -> list[InstanceIdDefinition]:
         """Convert the response to a list of typed instance identifiers."""
         raise NotImplementedError()
 
 
 T_InstancesListResponse = TypeVar("T_InstancesListResponse", bound=WrappedInstanceListResponse)
-
-
-class NodeReference(BaseModelObject):
-    space: str
-    external_id: str

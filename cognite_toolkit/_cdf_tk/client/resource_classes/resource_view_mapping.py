@@ -1,16 +1,17 @@
 from typing import ClassVar, Literal
 
-from pydantic import field_serializer
-
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    WrappedInstanceRequest,
+    WrappedInstanceResponse,
+)
 
-from .data_modeling import ViewReference
-from .instance_api import TypedNodeIdentifier, TypedViewReference, WrappedInstanceRequest, WrappedInstanceResponse
+from .data_modeling import NodeReference, ViewReference
 
 RESOURCE_VIEW_MAPPING_SPACE: Literal["cognite_migration"] = "cognite_migration"
-RESOURCE_MAPPING_VIEW_ID = TypedViewReference(
+RESOURCE_MAPPING_VIEW_ID = ViewReference(
     space=RESOURCE_VIEW_MAPPING_SPACE, external_id="ResourceViewMapping", version="v1"
 )
 
@@ -20,22 +21,18 @@ class ResourceViewMapping(BaseModelObject):
     view_id: ViewReference
     property_mapping: dict[str, str]
 
-    @field_serializer("view_id")
-    def serialize_view_id(self, view_id: ViewReference) -> dict:
-        return {**view_id.dump(), "type": "view"}
-
 
 class ResourceViewMappingRequest(WrappedInstanceRequest, ResourceViewMapping):
-    VIEW_ID: ClassVar[TypedViewReference] = RESOURCE_MAPPING_VIEW_ID
+    VIEW_ID: ClassVar[ViewReference] = RESOURCE_MAPPING_VIEW_ID
     space: Literal["cognite_migration"] = RESOURCE_VIEW_MAPPING_SPACE
     instance_type: Literal["node"] = "node"
 
-    def as_id(self) -> TypedNodeIdentifier:
-        return TypedNodeIdentifier(space=self.space, external_id=self.external_id)
+    def as_id(self) -> NodeReference:
+        return NodeReference(space=self.space, external_id=self.external_id)
 
 
 class ResourceViewMappingResponse(WrappedInstanceResponse[ResourceViewMappingRequest], ResourceViewMapping):
-    VIEW_ID: ClassVar[TypedViewReference] = RESOURCE_MAPPING_VIEW_ID
+    VIEW_ID: ClassVar[ViewReference] = RESOURCE_MAPPING_VIEW_ID
     space: Literal["cognite_migration"] = RESOURCE_VIEW_MAPPING_SPACE
     instance_type: Literal["node"] = "node"
 

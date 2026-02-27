@@ -21,6 +21,7 @@ from cognite.client.data_classes.files import FileMetadata
 from cognite.client.data_classes.time_series import TimeSeries
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.identifiers import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerResponse,
     DataModelResponse,
@@ -30,7 +31,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceViewSelector, SelectedView

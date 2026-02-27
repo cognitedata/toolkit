@@ -11,9 +11,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId, ThreeDModelRevisionId
-
-from .data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeReferenceUntyped, ThreeDModelRevisionId
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -50,7 +48,7 @@ class ThreeDModelClassicRequest(ThreeDModelRequest, UpdatableRequestResource):
 class ThreeDModelDMSRequest(ThreeDModelRequest):
     space: str
     type: Literal["CAD", "PointCloud", "Image360"]
-    thumbnail_reference: NodeReference | None = None
+    thumbnail_reference: NodeReferenceUntyped | None = None
 
 
 class ThreeDModelClassicResponse(ResponseResource[ThreeDModelClassicRequest]):
@@ -141,7 +139,7 @@ class ThreeDRevisionClassicResponse(ResponseResource[ThreeDRevisionClassicReques
 
 class AssetMappingDMRequest(RequestResource, Identifier):
     node_id: int
-    asset_instance_id: NodeReference
+    asset_instance_id: NodeReferenceUntyped
     # These fields are part of the path request and not the body schema.
     model_id: int = Field(exclude=True)
     revision_id: int = Field(exclude=True)
@@ -156,7 +154,7 @@ class AssetMappingDMRequest(RequestResource, Identifier):
 class AssetMappingClassicRequest(RequestResource, Identifier):
     node_id: int
     asset_id: int | None = None
-    asset_instance_id: NodeReference | None = None
+    asset_instance_id: NodeReferenceUntyped | None = None
     # These fields are part of the path request and not the body schema.
     model_id: int = Field(exclude=True)
     revision_id: int = Field(exclude=True)
@@ -178,7 +176,7 @@ class AssetMappingClassicRequest(RequestResource, Identifier):
 class AssetMappingClassicResponse(ResponseResource[AssetMappingClassicRequest]):
     node_id: int
     asset_id: int | None = None
-    asset_instance_id: NodeReference | None = None
+    asset_instance_id: NodeReferenceUntyped | None = None
     tree_index: int | None = None
     subtree_size: int | None = None
     # These fields are part of the path request and response, but they are included here for convenience.
@@ -197,7 +195,7 @@ class AssetMappingClassicResponse(ResponseResource[AssetMappingClassicRequest]):
 
 class AssetMappingDMResponse(ResponseResource[AssetMappingDMRequest]):
     node_id: int
-    asset_instance_id: NodeReference
+    asset_instance_id: NodeReferenceUntyped
     tree_index: int | None = None
     subtree_size: int | None = None
     # These fields are part of the path request and response, but they are included here for convenience.
