@@ -77,7 +77,8 @@ class MigrationCommand(ToolkitCommand):
             table.add_row(str(selected), item_count)
         console.print(table)
 
-        self.validate_available_capacity(data.client, total_all_items)
+        if total_all_items:
+            self.validate_available_capacity(data.client, total_all_items)
 
         results_by_selector: dict[str, list[MigrationStatusResult]] = {}
         for selected in selectors:
