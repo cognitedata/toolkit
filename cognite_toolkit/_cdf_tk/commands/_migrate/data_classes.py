@@ -6,7 +6,7 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
-from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, NodeId
+from cognite.client.data_classes.data_modeling import InstanceApply
 from cognite.client.utils._text import to_camel_case
 from pydantic import BaseModel, Field, field_validator, model_validator
 from rich.panel import Panel
@@ -18,7 +18,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewRe
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     ASSET_ANNOTATIONS_ID,
     FILE_ANNOTATIONS_ID,
@@ -110,24 +109,9 @@ class MigrationMappingList(ModelList[MigrationMapping]):
         """Return a list of IDs from the migration mappings."""
         return [mapping.id for mapping in self]
 
-    def as_node_ids(self) -> list[NodeId]:
-        """Return a list of NodeIds from the migration mappings."""
-        return [mapping.instance_id for mapping in self if isinstance(mapping.instance_id, NodeId)]
-
-    def as_edge_ids(self) -> list[EdgeId]:
-        """Return a list of EdgeIds from the migration mappings."""
-        return [mapping.instance_id for mapping in self if isinstance(mapping.instance_id, EdgeId)]
-
     def spaces(self) -> set[str]:
         """Return a set of spaces from the migration mappings."""
         return {mapping.instance_id.space for mapping in self}
-
-    def as_pending_ids(self) -> list[PendingInstanceId]:
-        return [
-            PendingInstanceId(pending_instance_id=mapping.instance_id, id=mapping.id)
-            for mapping in self
-            if isinstance(mapping.instance_id, NodeId)
-        ]
 
     def get_data_set_ids(self) -> set[int]:
         """Return a list of data set IDs from the migration mappings."""

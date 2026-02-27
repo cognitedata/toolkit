@@ -1,6 +1,6 @@
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.identifiers._data_modeling import ViewIdNoVersionUntyped
 
-from ..identifiers._data_modeling import ViewIdNoVersionUntyped
 from .data_modeling import ViewReferenceNoVersion
 
 

@@ -48,7 +48,7 @@ class ThreeDModelClassicRequest(ThreeDModelRequest, UpdatableRequestResource):
 class ThreeDModelDMSRequest(ThreeDModelRequest):
     space: str
     type: Literal["CAD", "PointCloud", "Image360"]
-    thumbnail_reference: NodeReference | None = None
+    thumbnail_reference: NodeReferenceUntyped | None = None
 
 
 class ThreeDModelClassicResponse(ResponseResource[ThreeDModelClassicRequest]):
