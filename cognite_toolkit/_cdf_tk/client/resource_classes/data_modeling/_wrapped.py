@@ -1,7 +1,12 @@
-import sys
+"""
+The classes below are helper classes for making instances request/responses.
+By using these, we can avoid having to include the instances specific classes in the DTO classes
+that are instance. Instead, these classes can now only have the properties they need to define.
+"""
+
 from abc import ABC, abstractmethod
 from collections.abc import Set
-from typing import Any, ClassVar, Literal, TypeAlias, TypeVar
+from typing import Any, ClassVar, Literal, TypeVar
 
 from pydantic import model_validator
 
@@ -10,20 +15,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition, NodeReference, ViewReference
-
-if sys.version_info >= (3, 11):
-    pass
-else:
-    pass
-
-InstanceType: TypeAlias = Literal["node", "edge"]
-
-
-######################################################
-# The classes below are helper classes for making instances request/responses.
-# By using these, we can avoid having to include the instances specific classes in the DTO classes
-# that are instance. Instead, these classes can now only have the properties they need to define.
-#######################################################
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._constants import InstanceType
 
 
 class WrappedInstanceRequest(RequestResource, ABC):

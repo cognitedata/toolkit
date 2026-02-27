@@ -14,17 +14,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceRequest,
     InstanceResponse,
     QueryRequest,
+    T_InstancesListRequest,
+    T_InstancesListResponse,
+    T_WrappedInstanceRequest,
+    T_WrappedInstanceResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import (
     QueryResponseTyped,
     QueryResponseUntyped,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling.instance_api import (
-    T_InstancesListRequest,
-    T_InstancesListResponse,
-    T_WrappedInstanceRequest,
-    T_WrappedInstanceResponse,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 

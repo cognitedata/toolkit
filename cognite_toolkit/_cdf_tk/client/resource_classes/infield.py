@@ -8,8 +8,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelReference,
     NodeReference,
     ViewReference,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling.instance_api import (
     WrappedInstanceListRequest,
     WrappedInstanceListResponse,
     WrappedInstanceRequest,
