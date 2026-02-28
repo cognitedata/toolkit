@@ -1412,7 +1412,7 @@ class TestInstanceToInstanceConversion:
             self.NEW_ID,
             self.DESTINATION_PROPERTIES,
             self.MAPPING,
-            source_properties=self.SOURCE_PROPERTIES,
+            source_view=self.SOURCE_PROPERTIES,
             edges=edges,
             direct_relation_cache=cache,
         )

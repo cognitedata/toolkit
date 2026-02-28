@@ -1,6 +1,7 @@
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence, Set
 from datetime import date, datetime
+from functools import cached_property
 from typing import Any, ClassVar, Literal, cast
 
 from pydantic import JsonValue
@@ -469,17 +470,33 @@ class TimeSeriesFilesReferenceCache:
     def get_cache(self, resource_type: Literal["timeseries", "file"]) -> dict[str, NodeReference]:
         return self._cache.get(resource_type, {})
 
+class SourceView:
+    """Represents a source view for node-to-node conversion."""
+
+    def __init__(self) -> None:
+        self.view_id = ViewReference(space=COGNITE_MIGRATION_SPACE_ID, external_id="source_view", version="1")
+
+    @cached_property
+    def timeseries_reference_property_ids(self) -> Set[str]:
+        """All """
+        raise NotImplementedError()
+
+    @cached_property
+    def file_reference_property_ids(self) -> Set[str]:
+        """All property IDs in the source view that are file reference properties."""
+        raise NotImplementedError()
+
 
 def node_to_node(
     item: NodeResponse,
     new_id: NodeReference,
     destination_properties: dict[str, ViewResponseProperty],
     mapping: ViewToViewMapping,
-    source_properties: dict[str, ViewResponseProperty] | None = None,
+    source_view: SourceView | None = None,
     edges: Sequence[EdgeResponse] | None = None,
     direct_relation_cache: TimeSeriesFilesReferenceCache | None = None,
 ) -> tuple[NodeRequest, NodeToNodeConversionIssue]:
-    if source_properties is None and (not edges or not direct_relation_cache):
+    if source_view is None and (not edges or not direct_relation_cache):
         raise ValueError(
             "To convert edge and timeseries/file reference properties, source_properties must be provided."
         )
@@ -498,9 +515,9 @@ def node_to_node(
         type=item.type if mapping.preserve_type else None,
     )
     input_properties: dict[str, Any] = {}
-    if edges and source_properties:
+    if edges and source_view:
         prop_ids_by_edge_type = defaultdict(list)
-        for prop_id, prop in source_properties.items():
+        for prop_id, prop in source_view.items():
             if isinstance(prop, EdgeProperty):
                 prop_ids_by_edge_type[prop.type].append(prop_id)
         for edge in edges:
@@ -540,7 +557,7 @@ def node_to_node(
         destination_properties,
         mapping.property_mapping,
         mapping.map_identical_id_properties,
-        source_properties,
+        ...,
         direct_relation_cache,
     )
     issue.error_messages.extend(errors)
@@ -553,7 +570,7 @@ def create_properties_from_instance(
     destination_properties: dict[str, ViewResponseProperty],
     property_mapping: dict[str, str],
     map_identical_id_properties: bool,
-    source_properties: dict[str, ViewResponseProperty] | None = None,
+    view: SourceView | None = None,
     direct_relation_cache: TimeSeriesFilesReferenceCache | None = None,
 ) -> tuple[dict[str, JsonValue], list[str]]:
     """
@@ -590,26 +607,11 @@ def create_properties_from_instance(
             continue
 
         cache: dict[str, NodeReference] | None = None
-        if source_properties:
-            if source_prop_id in source_properties:
-                source_prop = source_properties[source_prop_id]
-                if isinstance(source_prop, EdgeProperty):
-                    if not isinstance(dm_prop.type, DirectNodeRelation):
-                        errors.append(
-                            f"Edge property {source_prop_id!r} can only be converted to a direct relation property, but destination property {dest_prop_id!r} is of type {dm_prop.type!r}."
-                        )
-                    else:
-                        created_properties[dest_prop_id] = value
-                    continue
-                if isinstance(source_prop, ViewCorePropertyResponse):
-                    if isinstance(source_prop.type, TimeseriesCDFExternalIdReference):
-                        cache = direct_relation_cache.get_cache("timeseries") if direct_relation_cache else None
-                    elif isinstance(source_prop, FileCDFExternalIdReference):
-                        cache = direct_relation_cache.get_cache("file") if direct_relation_cache else None
-            else:
-                errors.append(
-                    f"Source property {source_prop_id!r} is not defined in the source view, cannot perform direct relation lookup for edge/timeseries reference properties."
-                )
+        if view and source_prop_id in view.timeseries_reference_property_ids:
+            cache = direct_relation_cache.get_cache("timeseries") if direct_relation_cache else None
+        elif view and source_prop_id in view.file_reference_property_ids:
+            cache = direct_relation_cache.get_cache("file") if direct_relation_cache else None
+
         try:
             created_value = convert_to_primary_property(
                 value,
