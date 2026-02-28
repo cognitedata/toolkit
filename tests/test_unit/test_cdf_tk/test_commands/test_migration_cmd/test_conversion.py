@@ -1394,8 +1394,8 @@ class TestCreateContainerConnectionProperties:
                     "sensorTs": COGNITE_TIMESERIES.dump(include_instance_type=False),
                     "count": 42,
                 },
-                ["Destination instance is missing property 'unmappedProp'."],
-                id="Timeseries reference to direct relation",
+                ["Source instance property 'unmappedProp' is not mapped to any destination property."],
+                id="Successful mapping with unmapped property, string to int conversion and timeseries reference conversion",
             ),
             pytest.param(
                 {

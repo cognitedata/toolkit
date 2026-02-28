@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Mapping, Sequence, Set
+from collections.abc import Iterable, Mapping, Set
 from datetime import date, datetime
 from functools import cached_property
 from typing import Any, ClassVar, Literal, cast
@@ -520,7 +520,9 @@ def create_container_properties(
     errors: list[str] = []
     for source_prop_id, value in source_properties.items():
         dest_prop_id = mapping.get_destination_property(source_prop_id)
-        if not dest_prop_id:
+        if not dest_prop_id or (
+            dest_prop_id not in destination_properties and dest_prop_id not in mapping.property_mapping
+        ):
             errors.append(f"Source instance property {source_prop_id!r} is not mapped to any destination property.")
             continue
         if dest_prop_id not in destination_properties:
