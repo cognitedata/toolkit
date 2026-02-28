@@ -15,11 +15,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     BooleanProperty,
     ConstraintOrIndexState,
     ContainerReference,
+    DateProperty,
     DirectNodeRelation,
     EdgeReference,
     EdgeRequest,
     EnumProperty,
     EnumValue,
+    FileCDFExternalIdReference,
     InstanceSource,
     Int64Property,
     JSONProperty,
@@ -1262,6 +1264,18 @@ class TestCreateContainerConnectionProperties:
             type=TimeseriesCDFExternalIdReference(),
             **DEFAULT_ARGS,
         ),
+        "fileRef": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="fileRef",
+            type=FileCDFExternalIdReference(),
+            **DEFAULT_ARGS,
+        ),
+        "dateVal": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="dateVal",
+            type=TextProperty(),
+            **DEFAULT_ARGS,
+        ),
         "relatesTo": MultiEdgeProperty(
             type=NodeReference(space="src_space", external_id="relatesTo"),
             source=SOURCE_VIEW_ID,
@@ -1270,6 +1284,23 @@ class TestCreateContainerConnectionProperties:
             type=NodeReference(space="src_space", external_id="hasChild"),
             source=SOURCE_VIEW_ID,
             direction="inwards",
+        ),
+        "listRel": MultiEdgeProperty(
+            type=NodeReference(space="src_space", external_id="listRel"),
+            source=SOURCE_VIEW_ID,
+        ),
+        "textEdge": MultiEdgeProperty(
+            type=NodeReference(space="src_space", external_id="textEdge"),
+            source=SOURCE_VIEW_ID,
+        ),
+        "edgeRel": MultiEdgeProperty(
+            type=NodeReference(space="src_space", external_id="edgeRel"),
+            source=SOURCE_VIEW_ID,
+            direction="inwards",
+        ),
+        "dupRel": MultiEdgeProperty(
+            type=NodeReference(space="src_space", external_id="dupRel"),
+            source=SOURCE_VIEW_ID,
         ),
     }
 
@@ -1292,10 +1323,34 @@ class TestCreateContainerConnectionProperties:
             type=DirectNodeRelation(),
             **DEFAULT_ARGS,
         ),
+        "fileRef": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="fileRef",
+            type=DirectNodeRelation(),
+            **DEFAULT_ARGS,
+        ),
+        "dateVal": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="dateVal",
+            type=DateProperty(),
+            **DEFAULT_ARGS,
+        ),
         "relatedAsset": ViewCorePropertyResponse(
             container=CONTAINER_ID,
             container_property_identifier="relatedAsset",
             type=DirectNodeRelation(),
+            **DEFAULT_ARGS,
+        ),
+        "listAssets": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="listAssets",
+            type=DirectNodeRelation(list=True),
+            **DEFAULT_ARGS,
+        ),
+        "textProp": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="textProp",
+            type=TextProperty(),
             **DEFAULT_ARGS,
         ),
         "parentAsset": MultiReverseDirectRelationPropertyResponse(
@@ -1306,8 +1361,14 @@ class TestCreateContainerConnectionProperties:
                 identifier="hasChild",
             ),
         ),
+        "destEdge": MultiEdgeProperty(
+            type=NodeReference(space="dst_space", external_id="destEdgeType"),
+            source=DEST_VIEW_ID,
+            direction="inwards",
+        ),
     }
     COGNITE_TIMESERIES = NodeReference(space="ts_space", external_id="ts_node_1")
+    COGNITE_FILE = NodeReference(space="file_space", external_id="file_node_1")
     SOURCE_VIEW = ConversionSourceView(SOURCE_PROPERTIES)
     MAPPING = ViewToViewMapping(
         source_view=SOURCE_VIEW_ID,
@@ -1316,6 +1377,10 @@ class TestCreateContainerConnectionProperties:
         property_mapping={
             "relatesTo": "relatedAsset",
             "hasChild": "parentAsset",
+            "listRel": "listAssets",
+            "textEdge": "textProp",
+            "edgeRel": "destEdge",
+            "dupRel": "relatedAsset",
         },
     )
 
@@ -1332,6 +1397,23 @@ class TestCreateContainerConnectionProperties:
                 ["Destination instance is missing property 'unmappedProp'."],
                 id="Timeseries reference to direct relation",
             ),
+            pytest.param(
+                {
+                    "fileRef": "file_ext_1",
+                    "dateVal": "2023-06-15",
+                    "count": "not-a-number",
+                    "parentAsset": "whatever",
+                },
+                {
+                    "fileRef": COGNITE_FILE.dump(include_instance_type=False),
+                    "dateVal": "2023-06-15",
+                },
+                [
+                    "Failed to convert property 'count' with value 'not-a-number':"
+                    " Cannot convert not-a-number to int64.",
+                ],
+                id="File reference, date formatting, conversion error, and reverse relation skip",
+            ),
         ],
     )
     def test_create_container_properties(
@@ -1342,6 +1424,7 @@ class TestCreateContainerConnectionProperties:
     ) -> None:
         cache = TimeSeriesFilesReferenceCache(MagicMock(spec=ToolkitClient))
         cache._cache["timeseries"]["ts_ext_1"] = self.COGNITE_TIMESERIES
+        cache._cache["file"]["file_ext_1"] = self.COGNITE_FILE
 
         actual_properties, errors = create_container_properties(
             source_properties,
@@ -1372,6 +1455,51 @@ class TestCreateContainerConnectionProperties:
                 [],
                 [],
                 id="Edge creation with direct relations",
+            ),
+            pytest.param(
+                {
+                    (NodeReference(space="src_space", external_id="relatesTo"), "outwards"): [
+                        NodeReference(space="dst_space", external_id="asset_C"),
+                        NodeReference(space="dst_space", external_id="asset_D"),
+                    ],
+                    (NodeReference(space="src_space", external_id="listRel"), "outwards"): [
+                        NodeReference(space="dst_space", external_id="asset_A"),
+                        NodeReference(space="dst_space", external_id="asset_B"),
+                    ],
+                    (NodeReference(space="src_space", external_id="textEdge"), "outwards"): [
+                        NodeReference(space="dst_space", external_id="asset_E"),
+                    ],
+                    (NodeReference(space="src_space", external_id="edgeRel"), "inwards"): [
+                        NodeReference(space="dst_space", external_id="asset_F"),
+                    ],
+                    (NodeReference(space="src_space", external_id="dupRel"), "outwards"): [
+                        NodeReference(space="dst_space", external_id="asset_G"),
+                    ],
+                },
+                {
+                    "relatedAsset": {"space": "dst_space", "externalId": "asset_C"},
+                    "listAssets": [
+                        {"space": "dst_space", "externalId": "asset_A"},
+                        {"space": "dst_space", "externalId": "asset_B"},
+                    ],
+                },
+                [
+                    EdgeRequest(
+                        space="dst_space",
+                        external_id="new_nodeA_edgeRel__asset_F",
+                        type=NodeReference(space="dst_space", external_id="destEdgeType"),
+                        start_node=NodeReference(space="dst_space", external_id="asset_F"),
+                        end_node=NEW_ID,
+                    ),
+                ],
+                [
+                    "Multiple edges mapped to single-valued direct relation property 'relatedAsset'."
+                    " Keeping the first one and ignoring the rest.",
+                    "Cannot map edge property 'textEdge' to non-connection property text.",
+                    "Multiple edges mapped to single-valued direct relation property 'relatedAsset'."
+                    " Keeping the first one and ignoring the rest.",
+                ],
+                id="List relation, multi-target single, edge creation (inwards), non-connection error, and duplicate mapping",
             ),
         ],
     )
