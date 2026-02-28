@@ -186,9 +186,9 @@ class NodeToNodeConversionIssue(MigrationIssue):
     """Represents an issue encountered during instance to instance conversion in migration.
 
     Attributes:
-        source_instance_id (NodeReferenceUntyped): The NodeReference of the source instance.
-        target_instance_id (NodeReferenceUntyped): The NodeReference of the target instance.
-        error_message (str): An error message providing additional details about the conversion issue.
+        source (NodeReference): The NodeReference of the source instance.
+        destination (NodeReference): The NodeReference of the destination instance.
+        error_messages (list[str]): A list of error messages providing additional details about the conversion issue.
     """
 
     type: Literal["nodeToNodeConversion"] = "nodeToNodeConversion"
