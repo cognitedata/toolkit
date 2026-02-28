@@ -661,6 +661,11 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
 
     """
 
+    def __init__(self, client: ToolkitClient, target_space: str) -> None:
+        super().__init__(client)
+        self.target_space = target_space
+        self._direct_relation_cache = DirectRelationCache(client)
+
     def prepare(self, source_selector: InstanceViewSelector) -> None:
         pass
 
