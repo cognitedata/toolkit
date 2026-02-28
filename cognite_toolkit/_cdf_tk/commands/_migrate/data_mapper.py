@@ -670,4 +670,8 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         pass
 
     def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
+        self._populate_cache(source)
+        raise NotImplementedError()
+
+    def _populate_cache(self, source: Sequence[InstanceResponse]) -> None:
         raise NotImplementedError()
