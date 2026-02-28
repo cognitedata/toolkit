@@ -483,7 +483,6 @@ def node_to_node(
         raise ValueError(
             "To convert edge and timeseries/file reference properties, source_properties must be provided."
         )
-
     # Todo:
     #   - Assumes unchanged IDs, as the other side of the edge is unchanged.from
     #   - Inefficient. Doing processing of the source properties for each instance. Should first do that processing
