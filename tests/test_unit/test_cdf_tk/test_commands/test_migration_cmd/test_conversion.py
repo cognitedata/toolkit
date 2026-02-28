@@ -18,7 +18,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DirectNodeRelation,
     EdgeReference,
     EdgeRequest,
-    EdgeResponse,
     EnumProperty,
     EnumValue,
     InstanceSource,
@@ -27,7 +26,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     MultiEdgeProperty,
     MultiReverseDirectRelationPropertyResponse,
     NodeReference,
-    NodeResponse,
     TextProperty,
     TimeseriesCDFExternalIdReference,
     TimestampProperty,
@@ -43,11 +41,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSerie
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
+    ConversionSourceView,
     DirectRelationCache,
     TimeSeriesFilesReferenceCache,
     asset_centric_to_dm,
-    create_properties,
     create_container_properties,
+    create_properties,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ConversionIssue,
@@ -1234,7 +1233,7 @@ class TestAssetCentricConversion:
         assert edge is None
 
 
-class TestCreateContainerProperties:
+class TestCreateContainerConnectionProperties:
     SOURCE_VIEW = ViewReference(space="src_space", external_id="SrcView", version="v1")
     DEST_VIEW = ViewReference(space="dst_space", external_id="DstView", version="v1")
     CONTAINER_ID = ContainerReference(space="dst_space", external_id="DstContainer")
@@ -1307,116 +1306,50 @@ class TestCreateContainerProperties:
             ),
         ),
     }
+    COGNITE_TIMESERIES = NodeReference(space="ts_space", external_id="ts_node_1")
 
     MAPPING = ViewToViewMapping(
         source_view=SOURCE_VIEW,
         destination_view=DEST_VIEW,
+        map_identical_id_properties=True,
         property_mapping={
-            "name": "name",
-            "count": "count",
-            "sensorTs": "sensorTs",
             "relatesTo": "relatedAsset",
             "hasChild": "parentAsset",
         },
     )
 
     @pytest.mark.parametrize(
-        "input_properties,edges,expected_properties",
+        "source_properties,expected_properties,expected_errors",
         [
             pytest.param(
-                {
-                    SOURCE_VIEW: {"name": "Sensor1", "sensorTs": "ts_ext_1"},
-                },
-                None,
+                {"name": "Sensor1", "sensorTs": "ts_ext_1", "unmappedProp": "value", "count": "42"},
                 {
                     "name": "Sensor1",
-                    "sensorTs": {"space": "ts_space", "externalId": "ts_node_1"},
-                },
-                id="Timeseries reference to direct relation",
-            ),
-            pytest.param(
-                {
-                    SOURCE_VIEW: {"name": "Counter", "count": "42"},
-                },
-                None,
-                {
-                    "name": "Counter",
+                    "sensorTs": COGNITE_TIMESERIES.dump(include_instance_type=False),
                     "count": 42,
                 },
-                id="String to int conversion for count property",
-            ),
-            pytest.param(
-                {
-                    SOURCE_VIEW: {"name": "NodeC"},
-                },
-                [
-                    EdgeResponse(
-                        space="src_space",
-                        external_id="edge1",
-                        version=1,
-                        created_time=0,
-                        last_updated_time=0,
-                        type=NodeReference(space="src_space", external_id="relatesTo"),
-                        start_node=SOURCE_ID,
-                        end_node=NodeReference(space="other_space", external_id="nodeD"),
-                    )
-                ],
-                {
-                    "name": "NodeC",
-                    "relatedAsset": {"space": "other_space", "externalId": "nodeD"},
-                },
-                id="Edge to direct relation",
-            ),
-            pytest.param(
-                {
-                    SOURCE_VIEW: {"name": "NodeE"},
-                },
-                [
-                    EdgeResponse(
-                        space="src_space",
-                        external_id="edge2",
-                        version=1,
-                        created_time=0,
-                        last_updated_time=0,
-                        type=NodeReference(space="src_space", external_id="hasChild"),
-                        start_node=NodeReference(space="other_space", external_id="parentNode"),
-                        end_node=SOURCE_ID,
-                    )
-                ],
-                {
-                    "name": "NodeE",
-                },
-                id="Edge to reverse direct relation (should ignore the edge since the reverse is populated in the opposite direction)",
+                ["Destination instance is missing property 'unmappedProp'."],
+                id="Timeseries reference to direct relation",
             ),
         ],
     )
-    def test_instance_to_instance_conversion(
+    def test_create_container_properties(
         self,
-        input_properties: dict[str, Any],
-        edges: dict[str, EdgeResponse] | None,
+        source_properties: dict[str, Any],
         expected_properties: dict[str, Any],
+        expected_errors: list[str],
     ) -> None:
         cache = TimeSeriesFilesReferenceCache(MagicMock(spec=ToolkitClient))
-        cache._cache["timeseries"]["ts_ext_1"] = NodeReference(space="ts_space", external_id="ts_node_1")
-        instance = NodeResponse(
-            space="src_space",
-            external_id="nodeA",
-            version=1,
-            created_time=0,
-            last_updated_time=0,
-            properties=input_properties,
-        )
+        cache._cache["timeseries"]["ts_ext_1"] = self.COGNITE_TIMESERIES
+        view = ConversionSourceView(self.SOURCE_PROPERTIES)
 
-        actual, _ = node_to_node(
-            instance,
-            self.NEW_ID,
-            self.DESTINATION_PROPERTIES,
+        actual_properties, errors = create_container_properties(
+            source_properties,
             self.MAPPING,
-            source_view=self.SOURCE_PROPERTIES,
-            edges=edges,
+            self.DESTINATION_PROPERTIES,
+            view=view,
             direct_relation_cache=cache,
         )
 
-        assert actual is not None
-        assert actual.sources
-        assert actual.sources[0].properties == expected_properties
+        assert actual_properties == expected_properties
+        assert errors == expected_errors
