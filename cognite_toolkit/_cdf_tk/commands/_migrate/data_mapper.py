@@ -664,9 +664,9 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
 
     """
 
-    def __init__(self, client: ToolkitClient, target_space: str) -> None:
+    def __init__(self, client: ToolkitClient, space_mapping: dict[str, str]) -> None:
         super().__init__(client)
-        self.target_space = target_space
+        self.space_mapping = space_mapping
         self._direct_relation_cache = DirectRelationCache(client)
         # Replace ViewResponse with ConversionSourceView when we have that implemented.
         self._source_by_view_id: dict[ViewReference, ViewResponse] = {}
