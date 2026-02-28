@@ -492,9 +492,9 @@ class ConversionSourceView:
         }
 
     @cached_property
-    def edges(self) -> Sequence[tuple[str, EdgeProperty]]:
+    def edges(self) -> dict[str, EdgeProperty]:
         """All edge properties in the source view."""
-        return [(prop_id, prop) for prop_id, prop in self._view_properties.items() if isinstance(prop, EdgeProperty)]
+        return {prop_id: prop for prop_id, prop in self._view_properties.items() if isinstance(prop, EdgeProperty)}
 
 
 def create_container_properties(
@@ -569,7 +569,7 @@ def create_connection_properties(
     destination_properties: dict[str, ViewResponseProperty],
     source_edges: dict[str, EdgeProperty],
     source_id: NodeReference,
-) -> tuple[dict[str, JsonValue], list[EdgeRequest]]:
+) -> tuple[dict[str, JsonValue], list[EdgeRequest], list[str]]:
     created_direct_relations: dict[str, JsonValue] = {}
     created_edges: list[EdgeRequest] = []
     errors: list[str] = []
@@ -620,4 +620,4 @@ def create_connection_properties(
                 )
         # else reverse direct relation, which we assume is handled in the other direction and thus ignore here.
 
-    return created_direct_relations, created_edges
+    return created_direct_relations, created_edges, errors

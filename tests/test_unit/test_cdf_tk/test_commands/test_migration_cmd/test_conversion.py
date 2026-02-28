@@ -1,6 +1,6 @@
 import json
 from collections.abc import Mapping
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 from unittest.mock import MagicMock
 
 import pytest
@@ -46,7 +46,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     TimeSeriesFilesReferenceCache,
     asset_centric_to_dm,
     create_container_properties,
-    create_properties,
+    create_properties, create_connection_properties,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ConversionIssue,
@@ -1234,8 +1234,8 @@ class TestAssetCentricConversion:
 
 
 class TestCreateContainerConnectionProperties:
-    SOURCE_VIEW = ViewReference(space="src_space", external_id="SrcView", version="v1")
-    DEST_VIEW = ViewReference(space="dst_space", external_id="DstView", version="v1")
+    SOURCE_VIEW_ID = ViewReference(space="src_space", external_id="SrcView", version="v1")
+    DEST_VIEW_ID = ViewReference(space="dst_space", external_id="DstView", version="v1")
     CONTAINER_ID = ContainerReference(space="dst_space", external_id="DstContainer")
     SOURCE_ID = NodeReference(space="src_space", external_id="nodeA")
     NEW_ID = NodeReference(space="dst_space", external_id="new_nodeA")
@@ -1263,11 +1263,11 @@ class TestCreateContainerConnectionProperties:
         ),
         "relatesTo": MultiEdgeProperty(
             type=NodeReference(space="src_space", external_id="relatesTo"),
-            source=SOURCE_VIEW,
+            source=SOURCE_VIEW_ID,
         ),
         "hasChild": MultiEdgeProperty(
             type=NodeReference(space="src_space", external_id="hasChild"),
-            source=SOURCE_VIEW,
+            source=SOURCE_VIEW_ID,
             direction="inwards",
         ),
     }
@@ -1299,18 +1299,18 @@ class TestCreateContainerConnectionProperties:
         ),
         "parentAsset": MultiReverseDirectRelationPropertyResponse(
             targets_list=True,
-            source=SOURCE_VIEW,
+            source=SOURCE_VIEW_ID,
             through=ViewDirectReference(
-                source=SOURCE_VIEW,
+                source=SOURCE_VIEW_ID,
                 identifier="hasChild",
             ),
         ),
     }
     COGNITE_TIMESERIES = NodeReference(space="ts_space", external_id="ts_node_1")
-
+    SOURCE_VIEW= ConversionSourceView(SOURCE_PROPERTIES)
     MAPPING = ViewToViewMapping(
-        source_view=SOURCE_VIEW,
-        destination_view=DEST_VIEW,
+        source_view=SOURCE_VIEW_ID,
+        destination_view=DEST_VIEW_ID,
         map_identical_id_properties=True,
         property_mapping={
             "relatesTo": "relatedAsset",
@@ -1341,15 +1341,53 @@ class TestCreateContainerConnectionProperties:
     ) -> None:
         cache = TimeSeriesFilesReferenceCache(MagicMock(spec=ToolkitClient))
         cache._cache["timeseries"]["ts_ext_1"] = self.COGNITE_TIMESERIES
-        view = ConversionSourceView(self.SOURCE_PROPERTIES)
 
         actual_properties, errors = create_container_properties(
             source_properties,
             self.MAPPING,
             self.DESTINATION_PROPERTIES,
-            view=view,
+            view=self.SOURCE_VIEW,
             direct_relation_cache=cache,
         )
 
         assert actual_properties == expected_properties
+        assert errors == expected_errors
+
+    @pytest.mark.parametrize(
+        "edge_targets,expected_relations,expected_edges,expected_errors",
+        [
+            pytest.param(
+                {
+                    (NodeReference(space="src_space", external_id="relatesTo"), "outwards"): [
+                        NodeReference(space="dst_space", external_id="asset_123")
+                    ],
+                    (NodeReference(space="src_space", external_id="hasChild"), "inwards"):
+                        [NodeReference(space="dst_space", external_id="asset_456")]
+                },
+                {
+                    "relatedAsset": DirectNodeRelation(),
+                    "parentAsset": DirectNodeRelation(list=True, max_list_size=1000),
+                },
+                [
+                    EdgeRequest(
+                        space=DEST_VIEW_ID.space,
+                        external_id=f"{NEW_ID.external_id}_relatedAsset_asset_123",
+                        start_node=NEW_ID,
+                        end_node=NodeReference(space="dst_space", external_id="asset_123"),
+                        type=NodeReference(space="dst_space", external_id="relatedAsset"),
+                        sources=None,
+                    )],
+                    EdgeRequest(
+
+    def test_create_connection_properties(self, edge_targets: dict[tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]], expected_relations:  dict[str, JsonValue], expected_edges: list[EdgeRequest], expected_errors: list[str]) -> None:
+        relations, edges, errors = create_connection_properties(
+            edge_targets,
+            self.MAPPING,
+            self.DESTINATION_PROPERTIES,
+            source_edges=self.SOURCE_VIEW.edges,
+            source_id=self.NEW_ID,
+        )
+
+        assert relations == expected_relations
+        assert [edge.model_dump() for edge in edges] == [edge.model_dump() for edge in expected_edges]
         assert errors == expected_errors
