@@ -19,10 +19,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     EdgeRequest,
+    EdgeResponse,
     InstanceRequest,
     InstanceResponse,
     NodeReference,
     NodeRequest,
+    NodeResponse,
     ViewReference,
     ViewResponse,
 )
@@ -42,6 +44,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     RevisionStatus,
     ThreeDModelClassicResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     DirectRelationCache,
     asset_centric_to_dm,
@@ -665,13 +668,47 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         super().__init__(client)
         self.target_space = target_space
         self._direct_relation_cache = DirectRelationCache(client)
-
-    def prepare(self, source_selector: InstanceViewSelector) -> None:
-        pass
+        # Replace ViewResponse with ConversionSourceView when we have that implemented.
+        self._source_by_view_id: dict[ViewReference, ViewResponse] = {}
+        self._mappings_by_view_id: dict[ViewReference, ViewToViewMapping] = {}
+        self._destination_by_view_id: dict[ViewReference, ViewResponse] = {}
 
     def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
         self._populate_cache(source)
-        raise NotImplementedError()
+        nodes: list[NodeResponse] = []
+        other_side_by_edge_type_and_direction_by_source: dict[
+            NodeReference, dict[tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]]
+        ] = defaultdict(lambda: defaultdict(list))
+        for item in source:
+            if isinstance(item, NodeResponse):
+                nodes.append(item)
+            elif isinstance(item, EdgeResponse):
+                other_side_by_edge_type_and_direction_by_source[item.start_node][(item.type, "outwards")].append(
+                    item.end_node
+                )
+                other_side_by_edge_type_and_direction_by_source[item.end_node][(item.type, "inwards")].append(
+                    item.start_node
+                )
+        mapped_nodes: list[NodeRequest | None] = []
+        for node in nodes:
+            mapped_node = self._map_single_node(node, other_side_by_edge_type_and_direction_by_source[node.as_id()])
+            mapped_nodes.append(mapped_node)
+            # We currently ignore edges in the mapping as they will be converted to direct/reverse or ignored.
+        return mapped_nodes
 
     def _populate_cache(self, source: Sequence[InstanceResponse]) -> None:
+        # Todo: Look up all views in the source and convert them to ConversionSourceView.
+        #    Then, look up all timeseries/file references and cache those as well.
+        raise NotImplementedError()
+
+    def _map_single_node(
+        self,
+        node: NodeResponse,
+        other_side_by_edge_type_and_direction: dict[
+            tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]
+        ],
+    ) -> NodeRequest | None:
+        # We look up the mapping for the node's view and use that to determine how to map the node and its edges.
+        # If the mapping indicates that the edges should be converted to direct/reverse relations,
+        # we look up the other side of the edge in the cache and create the appropriate relation.
         raise NotImplementedError()
