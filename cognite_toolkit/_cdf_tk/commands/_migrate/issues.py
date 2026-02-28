@@ -3,7 +3,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_serializer
 from pydantic.alias_generators import to_camel
 
-from cognite_toolkit._cdf_tk.client.identifiers import NodeReference, NodeReferenceUntyped
+from cognite_toolkit._cdf_tk.client.identifiers import NodeReferenceUntyped
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.storageio.logger import LogEntry
 
@@ -180,21 +180,6 @@ class ConversionIssue(MigrationIssue):
             "resourceType": asset_centric_id.resource_type,
             "id": asset_centric_id.id_,
         }
-
-
-class NodeToNodeConversionIssue(MigrationIssue):
-    """Represents an issue encountered during instance to instance conversion in migration.
-
-    Attributes:
-        source (NodeReference): The NodeReference of the source instance.
-        destination (NodeReference): The NodeReference of the destination instance.
-        error_messages (list[str]): A list of error messages providing additional details about the conversion issue.
-    """
-
-    type: Literal["nodeToNodeConversion"] = "nodeToNodeConversion"
-    source: NodeReference
-    destination: NodeReference
-    error_messages: list[str] = Field(default_factory=list)
 
 
 class WriteIssue(MigrationIssue):
