@@ -47,7 +47,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     TimeSeriesFilesReferenceCache,
     asset_centric_to_dm,
     create_properties,
-    node_to_node,
+    create_container_properties,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ConversionIssue,
@@ -1234,7 +1234,7 @@ class TestAssetCentricConversion:
         assert edge is None
 
 
-class TestInstanceToInstanceConversion:
+class TestCreateContainerProperties:
     SOURCE_VIEW = ViewReference(space="src_space", external_id="SrcView", version="v1")
     DEST_VIEW = ViewReference(space="dst_space", external_id="DstView", version="v1")
     CONTAINER_ID = ContainerReference(space="dst_space", external_id="DstContainer")
