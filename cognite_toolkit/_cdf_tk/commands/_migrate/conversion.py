@@ -523,7 +523,9 @@ def create_container_properties(
         if not dest_prop_id or (
             dest_prop_id not in destination_properties and dest_prop_id not in mapping.property_mapping
         ):
-            errors.append(f"Source instance property {source_prop_id!r} is not mapped to any destination property.")
+            # We do not warn about the node properties, as they are typically ignored.
+            if not source_prop_id.startswith("node."):
+                errors.append(f"Source instance property {source_prop_id!r} is not mapped to any destination property.")
             continue
         if dest_prop_id not in destination_properties:
             errors.append(f"Destination instance is missing property {dest_prop_id!r}.")

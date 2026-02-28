@@ -48,6 +48,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     DirectRelationCache,
     asset_centric_to_dm,
+    create_container_properties,
+    create_connection_properties,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     Model,
@@ -731,8 +733,9 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
             if conversion_source is None:
                 # Todo: log
                 continue
-            destination_properties = create_container_properies(source_properties, mapping, conversion_source, destination_view.properties)
-            container_connections, new_edges = create_connection_properties(other_side_by_edge_type_and_direction, mapping, conversion_source, destination_view, new_id)
+            source_properties.update({"node.createdTime": node.created_time, "node.lastUpdatedTime": node.last_updated_time, "node.version": node.version})
+            destination_properties, container_errors = create_container_properties(source_properties, mapping, conversion_source, destination_view.properties)
+            container_connections, new_edges, connection_errors = create_connection_properties(other_side_by_edge_type_and_direction, mapping, conversion_source, destination_view, new_id)
             destination_properties.update(container_connections)
             if destination_properties:
                 sources.append(InstanceSource(source=view_id, properties=destination_properties))
