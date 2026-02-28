@@ -14,9 +14,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     EdgeProperty,
     EdgeReference,
     EdgeRequest,
+    FileCDFExternalIdReference,
     InstanceSource,
     NodeReference,
     NodeRequest,
+    TimeseriesCDFExternalIdReference,
     ViewCorePropertyResponse,
     ViewReference,
     ViewResponseProperty,
@@ -469,23 +471,30 @@ class TimeSeriesFilesReferenceCache:
 class ConversionSourceView:
     """Represents a source view for node-to-node conversion."""
 
-    def __init__(self) -> None:
-        self.view_id = ViewReference(space=COGNITE_MIGRATION_SPACE_ID, external_id="source_view", version="1")
+    def __init__(self, view_properties: dict[str, ViewResponseProperty]) -> None:
+        self._view_properties = view_properties
 
     @cached_property
     def timeseries_reference_property_ids(self) -> Set[str]:
-        """All"""
-        raise NotImplementedError()
+        return {
+            prop_id
+            for prop_id, prop in self._view_properties.items()
+            if isinstance(prop, ViewCorePropertyResponse) and isinstance(prop.type, TimeseriesCDFExternalIdReference)
+        }
 
     @cached_property
     def file_reference_property_ids(self) -> Set[str]:
         """All property IDs in the source view that are file reference properties."""
-        raise NotImplementedError()
+        return {
+            prop_id
+            for prop_id, prop in self._view_properties.items()
+            if isinstance(prop, ViewCorePropertyResponse) and isinstance(prop.type, FileCDFExternalIdReference)
+        }
 
     @cached_property
     def edges(self) -> Sequence[tuple[str, EdgeProperty]]:
         """All edge properties in the source view."""
-        raise NotImplementedError()
+        return [(prop_id, prop) for prop_id, prop in self._view_properties.items() if isinstance(prop, EdgeProperty)]
 
 
 def create_container_properties(
