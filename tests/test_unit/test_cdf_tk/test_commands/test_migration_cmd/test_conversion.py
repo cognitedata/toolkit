@@ -45,8 +45,9 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     DirectRelationCache,
     TimeSeriesFilesReferenceCache,
     asset_centric_to_dm,
+    create_connection_properties,
     create_container_properties,
-    create_properties, create_connection_properties,
+    create_properties,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     ConversionIssue,
@@ -1307,7 +1308,7 @@ class TestCreateContainerConnectionProperties:
         ),
     }
     COGNITE_TIMESERIES = NodeReference(space="ts_space", external_id="ts_node_1")
-    SOURCE_VIEW= ConversionSourceView(SOURCE_PROPERTIES)
+    SOURCE_VIEW = ConversionSourceView(SOURCE_PROPERTIES)
     MAPPING = ViewToViewMapping(
         source_view=SOURCE_VIEW_ID,
         destination_view=DEST_VIEW_ID,
@@ -1361,25 +1362,26 @@ class TestCreateContainerConnectionProperties:
                     (NodeReference(space="src_space", external_id="relatesTo"), "outwards"): [
                         NodeReference(space="dst_space", external_id="asset_123")
                     ],
-                    (NodeReference(space="src_space", external_id="hasChild"), "inwards"):
-                        [NodeReference(space="dst_space", external_id="asset_456")]
+                    (NodeReference(space="src_space", external_id="hasChild"), "inwards"): [
+                        NodeReference(space="dst_space", external_id="asset_456")
+                    ],
                 },
                 {
-                    "relatedAsset": DirectNodeRelation(),
-                    "parentAsset": DirectNodeRelation(list=True, max_list_size=1000),
+                    "relatedAsset": {"space": "dst_space", "externalId": "asset_123"},
                 },
-                [
-                    EdgeRequest(
-                        space=DEST_VIEW_ID.space,
-                        external_id=f"{NEW_ID.external_id}_relatedAsset_asset_123",
-                        start_node=NEW_ID,
-                        end_node=NodeReference(space="dst_space", external_id="asset_123"),
-                        type=NodeReference(space="dst_space", external_id="relatedAsset"),
-                        sources=None,
-                    )],
-                    EdgeRequest(
-
-    def test_create_connection_properties(self, edge_targets: dict[tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]], expected_relations:  dict[str, JsonValue], expected_edges: list[EdgeRequest], expected_errors: list[str]) -> None:
+                [],
+                [],
+                id="Edge creation with direct relations",
+            ),
+        ],
+    )
+    def test_create_connection_properties(
+        self,
+        edge_targets: dict[tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]],
+        expected_relations: dict[str, JsonValue],
+        expected_edges: list[EdgeRequest],
+        expected_errors: list[str],
+    ) -> None:
         relations, edges, errors = create_connection_properties(
             edge_targets,
             self.MAPPING,
