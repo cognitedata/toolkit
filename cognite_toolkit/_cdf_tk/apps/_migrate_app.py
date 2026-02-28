@@ -1327,11 +1327,13 @@ class MigrateApp(typer.Typer):
         target_space = "<todo>"
         cmd.run(
             lambda: cmd.migrate(  # type: ignore[misc]
-                selected=InstanceViewSelector(
-                    view=SelectedView(space="cdf_apm", external_id="Checklist", version="v7"),
-                    instance_spaces=selected_instance_space,
-                    include_edges=True,
-                ),
+                selectors=[
+                    InstanceViewSelector(
+                        view=SelectedView(space="cdf_apm", external_id="Checklist", version="v7"),
+                        instance_spaces=selected_instance_space,
+                        include_edges=True,
+                    )
+                ],
                 data=InstanceIO(client),
                 mapper=FDMtoCDMMapper(client, target_space),
                 log_dir=log_dir,
