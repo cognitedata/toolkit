@@ -1271,11 +1271,11 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def infield_data(
         ctx: typer.Context,
-        instance_spaces: list[str] | None = typer.Option(
+        instance_space: str | None = typer.Option(
             None,
-            "--instance-spaces",
+            "--instance-space",
             "-i",
-            help="The instance spaces to migrate Infield data from. If not provided, an interactive selection will be performed to select the instance spaces.",
+            help="The instance space to migrate Infield data from. If not provided, an interactive selection will be performed to select the instance space.",
         ),
         log_dir: Annotated[
             Path,
@@ -1306,14 +1306,15 @@ class MigrateApp(typer.Typer):
         client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = MigrationCommand(client=client)
-        if instance_spaces is None:
+        if instance_space is None:
             space_selector = DataModelingSelect(client, "migrate")
-            selected_instance_spaces = tuple(
+            # Todo select instance space from APM Configuration.
+            selected_instance_space = (
                 space_selector.select_instance_space(
-                    multiselect=True,
-                    message="Select the instance spaces to migrate Infield data from:",
+                    multiselect=False,
+                    message="Select the instance space to migrate Infield data from:",
                     include_empty=False,
-                )
+                ),
             )
             log_dir = Path(
                 questionary.path("Specify log directory for migration logs:", default=str(log_dir)).unsafe_ask()
@@ -1321,16 +1322,18 @@ class MigrateApp(typer.Typer):
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
         else:
-            selected_instance_spaces = tuple(instance_spaces)
+            selected_instance_space = (instance_space,)
+        # Lookup in the new config.
+        target_space = "<todo>"
         cmd.run(
             lambda: cmd.migrate(  # type: ignore[misc]
                 selected=InstanceViewSelector(
                     view=SelectedView(space="cdf_apm", external_id="Checklist", version="v7"),
-                    instance_spaces=selected_instance_spaces,
+                    instance_spaces=selected_instance_space,
                     include_edges=True,
                 ),
                 data=InstanceIO(client),
-                mapper=FDMtoCDMMapper(client),
+                mapper=FDMtoCDMMapper(client, target_space),
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
