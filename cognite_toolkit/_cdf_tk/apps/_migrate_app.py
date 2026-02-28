@@ -1335,7 +1335,7 @@ class MigrateApp(typer.Typer):
                     )
                 ],
                 data=InstanceIO(client),
-                mapper=FDMtoCDMMapper(client, target_space),
+                mapper=FDMtoCDMMapper(client, {selected_instance_space[0]: target_space}),
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
