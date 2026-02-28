@@ -26,7 +26,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     NodeRequest,
     NodeResponse,
     ViewReference,
-    ViewResponse,
+    ViewResponse, InstanceSource,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     ContainerReferenceApply,
@@ -675,6 +675,16 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
 
     def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
         self._populate_cache(source)
+        nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)
+        mapped_instances: list[InstanceRequest | None] = []
+        for node in nodes:
+            mapped_node, edges = self._map_single_node(node, other_side_by_edge_type_and_direction_by_source[node.as_id()])
+            mapped_instances.append(mapped_node)
+            mapped_instances.extend(edges)
+        return mapped_instances
+
+    def _as_nodes_and_edges(self, source: Sequence[NodeResponse | EdgeResponse]) -> tuple[list[NodeResponse], dict[
+        NodeReference, dict[tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]]]]:
         nodes: list[NodeResponse] = []
         other_side_by_edge_type_and_direction_by_source: dict[
             NodeReference, dict[tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]]
@@ -684,17 +694,12 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
                 nodes.append(item)
             elif isinstance(item, EdgeResponse):
                 other_side_by_edge_type_and_direction_by_source[item.start_node][(item.type, "outwards")].append(
-                    item.end_node
+                    NodeReference(space=self.target_space, external_id=item.end_node.external_id)
                 )
                 other_side_by_edge_type_and_direction_by_source[item.end_node][(item.type, "inwards")].append(
-                    item.start_node
+                    NodeReference(space=self.target_space, external_id=item.start_node.external_id)
                 )
-        mapped_nodes: list[NodeRequest | None] = []
-        for node in nodes:
-            mapped_node = self._map_single_node(node, other_side_by_edge_type_and_direction_by_source[node.as_id()])
-            mapped_nodes.append(mapped_node)
-            # We currently ignore edges in the mapping as they will be converted to direct/reverse or ignored.
-        return mapped_nodes
+        return nodes, other_side_by_edge_type_and_direction_by_source
 
     def _populate_cache(self, source: Sequence[InstanceResponse]) -> None:
         # Todo: Look up all views in the source and convert them to ConversionSourceView.
@@ -707,8 +712,30 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         other_side_by_edge_type_and_direction: dict[
             tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]
         ],
-    ) -> NodeRequest | None:
-        # We look up the mapping for the node's view and use that to determine how to map the node and its edges.
-        # If the mapping indicates that the edges should be converted to direct/reverse relations,
-        # we look up the other side of the edge in the cache and create the appropriate relation.
-        raise NotImplementedError()
+    ) -> tuple[NodeRequest, list[EdgeRequest]]:
+        new_id = NodeReference(space=self.target_space, external_id=node.external_id)
+        new_edges: list[EdgeRequest] = []
+        sources: list[InstanceSource] = []
+        for view_id, source_properties in (node.properties or {}).items():
+            if not isinstance(view_id, ViewReference):
+                continue
+            mapping = self._mappings_by_view_id.get(view_id)
+            if mapping is None:
+                # Todo: log
+                continue
+            destination_view = self._destination_by_view_id.get(view_id)
+            if destination_view is None:
+                # Todo: log
+                continue
+            conversion_source = self._source_by_view_id.get(view_id)
+            if conversion_source is None:
+                # Todo: log
+                continue
+            destination_properties = create_container_properies(source_properties, mapping, conversion_source, destination_view.properties)
+            container_connections, new_edges = create_connection_properties(other_side_by_edge_type_and_direction, mapping, conversion_source, destination_view, new_id)
+            destination_properties.update(container_connections)
+            if destination_properties:
+                sources.append(InstanceSource(source=view_id, properties=destination_properties))
+            new_edges.extend(new_edges)
+
+        return NodeRequest(space=self.target_space, external_id=node.external_id, sources=sources or None), new_edges
