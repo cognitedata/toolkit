@@ -36,7 +36,7 @@ class FunctionRequest(FunctionBase, RequestResource):
 
 
 class FunctionAPIError(BaseModelObject):
-    code: int
+    code: int | None = None
     message: str
 
 
