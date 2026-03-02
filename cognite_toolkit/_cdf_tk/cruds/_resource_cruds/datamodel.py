@@ -69,8 +69,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewRequest,
     ViewResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import ReverseDirectRelationProperty
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import ReverseDirectRelationProperty
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
     GraphQLDataModelRequest,
     GraphQLDataModelResponse,
@@ -81,6 +81,7 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import (
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_classes import (
     ContainerYAML,
     DataModelYAML,
@@ -695,47 +696,37 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
+        if Flags.VIEW_TOPOLOGICAL_SORT.is_enabled():
+            return self._create_topologically_sorted(items)
         try:
             return self.client.tool.views.create(items)
         except ToolkitAPIError as e1:
             if e1.is_auto_retryable:
                 # Fallback to creating one by one if the error is auto-retryable.
                 return self._fallback_create_one_by_one(items, e1)
-            elif self._is_false_not_exists(e1, {item.as_id() for item in items}):
-                return self._try_to_recover_coupled(items, e1)
             raise
 
-    @staticmethod
-    def _is_false_not_exists(e: ToolkitAPIError, request_views: set[ViewReference]) -> bool:
-        if "not exist" not in e.message and 400 <= (e.code or 0) < 500:
-            return False
-        results = re.findall(r"'([a-zA-Z0-9_-]+):([a-zA-Z0-9_]+)/([.a-zA-Z0-9_-]+)'", e.message)
-        if not results:
-            return False
-        error_message_views = {
-            ViewReference(space=space, external_id=external_id, version=version)
-            for space, external_id, version in results
-        }
-        return error_message_views.issubset(request_views)
+    def _create_topologically_sorted(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
+        creation_order = self._topological_sort(items)
+        created: list[ViewResponse] = []
+        for batch in creation_order:
+            try:
+                created.extend(self.client.tool.views.create(batch))
+            except ToolkitAPIError as e:
+                if e.is_auto_retryable:
+                    created.extend(self._fallback_create_one_by_one(batch, e))
+                else:
+                    raise
+        return created
 
-    def _try_to_recover_coupled(
-        self, items: Sequence[ViewRequest], original_error: ToolkitAPIError
-    ) -> list[ViewResponse]:
-        """The /models/views endpoint can give faulty 400 about missing views that are part of the request.
+    def _topological_sort(self, items: Sequence[ViewRequest]) -> list[list[ViewRequest]]:
+        """Sorts views into batches based on their dependency graph (implements and reverse direct relations).
 
-        This method tries to recover from such errors by identifying the strongly connected components in the graph
-        defined by the implements and through properties of the views. We then create the components in topological
-        order.
-
-        Args:
-            items: The items that failed to create.
-            original_error: The original error that was raised. If the problem is not recoverable, this error is raised.
-
-        Returns:
-            The views that were created.
-
+        Returns the strongly connected components in topological order, so that views
+        are created after their dependencies.
         """
         views_by_id = {self.get_id(item): item for item in items}
+
         parents_by_child: dict[ViewReference, set[ViewReference]] = {
             view_id: {parent for parent in view.implements or [] if parent in views_by_id}
             for view_id, view in views_by_id.items()
@@ -754,28 +745,18 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                     if isinstance(through_source, ViewReference) and through_source in views_by_id:
                         dependencies_by_id[view_id].add(through_source)
 
-        LowSeverityWarning(
-            f"Failed to create {len(items)} views: {escape(original_error.message)}.\nAttempting to recover..."
-        ).print_warning(include_timestamp=True, console=self.console)
-        created: list[ViewResponse] = []
-        for strongly_connected in tarjan(dependencies_by_id):
-            to_create = [views_by_id[view_id] for view_id in strongly_connected]
-            try:
-                created_set = self.client.tool.views.create(to_create)
-            except ToolkitAPIError as error:
-                self.client.tool.views.delete([item.as_id() for item in created])
-                HighSeverityWarning(
-                    f"Recovering attempt failed. Could not create views {self.get_ids(to_create)}: "
-                    f"{escape(error.message)}.\n Raising original error."
+        batches = [
+            [views_by_id[view_id] for view_id in strongly_connected]
+            for strongly_connected in tarjan(dependencies_by_id)
+        ]
+        for batch in batches:
+            if len(batch) > 100:
+                view_ids = self.get_ids(batch)
+                MediumSeverityWarning(
+                    f"Found a strongly interdependent set of {len(batch)} views ({view_ids}). "
+                    "These views are too interconnected, and the deployment might fail due to API batch size limits."
                 ).print_warning(console=self.console)
-                raise original_error
-            created.extend(created_set)
-        message = f"Recovery attempt succeeded. Created {len(created)} views."
-        if self.console:
-            self.console.print(message)
-        else:
-            print(message)
-        return created
+        return batches
 
     def _fallback_create_one_by_one(
         self, items: Sequence[ViewRequest], e1: ToolkitAPIError, warn: bool = True
