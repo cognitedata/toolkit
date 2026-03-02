@@ -90,13 +90,13 @@ def all_acls() -> Iterable[tuple]:
         {
             "rawAcl": {
                 "actions": ["READ", "WRITE", "LIST"],
-                "scope": {"tableScope": {"dbsToTables": {"no table in this": []}}},
+                "scope": {"tableScope": {"dbsToTables": {"no_tables_db": {"tables": []}}}},
             }
         },
         {
             "rawAcl": {
                 "actions": ["READ", "WRITE", "LIST"],
-                "scope": {"tableScope": {"dbsToTables": {"test db 1": ["empty tbl", "test tbl 1"]}}},
+                "scope": {"tableScope": {"dbsToTables": {"test db 1": {"tables": ["empty tbl", "test tbl 1"]}}}},
             }
         },
         {"relationshipsAcl": {"actions": ["READ"], "scope": {"all": {}}}},

@@ -6,7 +6,7 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BeforeValidator, Field, TypeAdapter, field_validator
+from pydantic import BeforeValidator, Field, TypeAdapter, field_serializer, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import SCOPE_NAME
@@ -93,6 +93,11 @@ class TableScope(ScopeDefinition):
                     f"Invalid format for dbsToTables: expected dict[str, list[str]] or dict[str, dict[tables: list[str]]], got {type(tables).__name__} for db '{db}'"
                 )
         return standardized
+
+    @field_serializer("dbs_to_tables")
+    def serialize_dbs_to_tables(self, value: dict[str, list[str]]) -> dict[str, Any]:
+        """Serialize the dbs_to_tables field to match the format expected by the API."""
+        return {db: {"tables": tables} for db, tables in value.items()}
 
 
 class ExtractionPipelineScope(ScopeDefinition):
