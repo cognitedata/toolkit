@@ -114,3 +114,14 @@ class BuildFolder(BaseModel):
                 if resource not in resources:
                     resources.append(resource)
         return resources
+
+    @cached_property
+    def dependencies(self) -> dict[AbsoluteFilePath, dict[type[ToolkitResource], list[Identifier]]]:
+        """Get external dependencies for all built modules."""
+        dependencies: dict[AbsoluteFilePath, dict[type[ToolkitResource], list[Identifier]]] = {}
+
+        for built_module in self.built_modules:
+            module_dep = built_module.dependencies
+
+            dependencies.update(module_dep)
+        return dependencies

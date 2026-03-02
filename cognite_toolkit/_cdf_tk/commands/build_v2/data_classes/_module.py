@@ -1,7 +1,9 @@
+from functools import cached_property
+
 from pydantic import BaseModel, ConfigDict, DirectoryPath, Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.cruds import ResourceTypes
+from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND, ResourceTypes
 from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
 
 from ._insights import ConsistencyError, ModelSyntaxError, Recommendation
@@ -54,6 +56,7 @@ class SuccessfulReadResource(ReadResource):
     resource: ToolkitResource
     insights: list[Recommendation] = Field(default_factory=list)
 
+
 class Module(BaseModel):
     """Class used to store module in-memory"""
 
@@ -64,3 +67,21 @@ class Module(BaseModel):
     @property
     def is_success(self) -> bool:
         return all(isinstance(resource, SuccessfulReadResource) for resource in self.resources)
+
+    @cached_property
+    def dependencies(self) -> dict[AbsoluteFilePath, dict[type[ToolkitResource], list[Identifier]]]:
+        """Get external dependencies for all resources in the module."""
+        dependencies: dict[AbsoluteFilePath, dict[type[ToolkitResource], list[Identifier]]] = {}
+
+        for resource in self.resources:
+            if not isinstance(resource, SuccessfulReadResource):
+                continue
+
+            # get crud for the given resource to be able to get dependencies
+            kind = resource.resource_type.kind
+            folder_name = resource.resource_type.resource_folder
+            crud = RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[folder_name][kind]
+
+            dependencies[resource.source_path] = crud.get_dependencies(resource.resource)
+
+        return dependencies

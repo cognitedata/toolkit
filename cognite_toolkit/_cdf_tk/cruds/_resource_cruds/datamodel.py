@@ -21,7 +21,7 @@ from collections.abc import Hashable, Iterable, Sequence
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from time import sleep
-from typing import Any, final
+from typing import Any, cast, final
 
 from cognite.client.data_classes import filters
 from cognite.client.data_classes.capabilities import (
@@ -30,7 +30,6 @@ from cognite.client.data_classes.capabilities import (
     DataModelsAcl,
 )
 from cognite.client.data_classes.data_modeling import ContainerId, DataModelId, ViewId
-from numpy import isin
 from rich import print
 from rich.console import Console
 from rich.markup import escape
@@ -92,7 +91,6 @@ from cognite_toolkit._cdf_tk.resource_classes import (
     ViewYAML,
 )
 from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
-from cognite_toolkit._cdf_tk.resource_classes.container_field_definitions import ContainerPropertyDefinition
 from cognite_toolkit._cdf_tk.resource_classes.view_field_definitions import ContainerViewProperty
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -587,24 +585,26 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
     def dump_id(cls, id: ViewReference) -> dict[str, Any]:
         return id.dump()
 
-
     @classmethod
-    def get_dependent_resources(cls, item: ViewYAML) -> dict[type[ToolkitResource], list[Identifier]]:
+    def get_dependencies(cls, resource: ViewYAML) -> dict[type[ToolkitResource], list[Identifier]]:
+        dependencies: dict[type[ToolkitResource], list[Identifier]] = cast(
+            dict[type[ToolkitResource], list[Identifier]],
+            {
+                SpaceYAML: [SpaceReference(space=resource.space)],
+                ContainerYAML: [],
+                ViewYAML: [],
+            },
+        )
 
-        dependencies: dict = {SpaceYAML: [],
-                              ContainerYAML: [],
-                              ViewYAML: []}
-        dependencies[SpaceYAML].append(SpaceReference(space=item.space))
-
-        for implement in item.implements or []:
+        for implement in resource.implements or []:
             if implement not in dependencies[ViewYAML]:
-                dependencies[ViewYAML].append(implement)
+                dependencies[ViewYAML].append(implement)  # type: ignore[arg-type]
 
-        if item.properties:
+        if resource.properties:
+            for prop in resource.properties.values():
+                if isinstance(prop, ContainerViewProperty) and prop.container not in dependencies[ContainerYAML]:
+                    dependencies[ContainerYAML].append(prop.container)  # type: ignore[arg-type]
 
-            for prop in item.properties.values():
-                if isinstance(prop, ContainerViewProperty) and prop.container not in  dependencies[ContainerYAML]:
-                    dependencies[ContainerYAML].append(prop.container)
         return dependencies
 
     @classmethod
