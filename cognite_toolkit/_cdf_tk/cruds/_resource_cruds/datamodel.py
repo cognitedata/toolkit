@@ -69,6 +69,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewRequest,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import ReverseDirectRelationProperty
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
     GraphQLDataModelRequest,
@@ -705,17 +706,21 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
             raise
 
     @staticmethod
-    def _is_false_not_exists(e: CogniteAPIError, request_views: set[ViewId]) -> bool:
-        if "not exist" not in e.message and 400 <= e.code < 500:
+    def _is_false_not_exists(e: ToolkitAPIError, request_views: set[ViewReference]) -> bool:
+        if "not exist" not in e.message and 400 <= (e.code or 0) < 500:
             return False
         results = re.findall(r"'([a-zA-Z0-9_-]+):([a-zA-Z0-9_]+)/([.a-zA-Z0-9_-]+)'", e.message)
         if not results:
-            # No view references in the message
             return False
-        error_message_views = {ViewId(*result) for result in results}
+        error_message_views = {
+            ViewReference(space=space, external_id=external_id, version=version)
+            for space, external_id, version in results
+        }
         return error_message_views.issubset(request_views)
 
-    def _try_to_recover_coupled(self, items: Sequence[ViewApply], original_error: CogniteAPIError) -> ViewList:
+    def _try_to_recover_coupled(
+        self, items: Sequence[ViewRequest], original_error: ToolkitAPIError
+    ) -> list[ViewResponse]:
         """The /models/views endpoint can give faulty 400 about missing views that are part of the request.
 
         This method tries to recover from such errors by identifying the strongly connected components in the graph
@@ -731,34 +736,34 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
 
         """
         views_by_id = {self.get_id(item): item for item in items}
-        parents_by_child: dict[ViewId, set[ViewId]] = {
+        parents_by_child: dict[ViewReference, set[ViewReference]] = {
             view_id: {parent for parent in view.implements or [] if parent in views_by_id}
             for view_id, view in views_by_id.items()
         }
-        # Check for cycles in the implements graph
         try:
             TopologicalSorter(parents_by_child).static_order()
         except CycleError as e:
             raise ToolkitCycleError(f"Failed to deploy views. This likely due to a cycle in implements. {e.args[1]}")
 
-        dependencies_by_id: dict[ViewId, set[ViewId]] = defaultdict(set)
+        dependencies_by_id: dict[ViewReference, set[ViewReference]] = defaultdict(set)
         for view_id, view in views_by_id.items():
             dependencies_by_id[view_id].update([parent for parent in view.implements or [] if parent in views_by_id])
-            for properties in (view.properties or {}).values():
-                if isinstance(properties, ReverseDirectRelationApply):
-                    if isinstance(properties.through.source, ViewId) and properties.through.source in views_by_id:
-                        dependencies_by_id[view_id].add(properties.through.source)
+            for view_property in (view.properties or {}).values():
+                if isinstance(view_property, ReverseDirectRelationProperty):
+                    through_source = view_property.through.source
+                    if isinstance(through_source, ViewReference) and through_source in views_by_id:
+                        dependencies_by_id[view_id].add(through_source)
 
         LowSeverityWarning(
             f"Failed to create {len(items)} views: {escape(original_error.message)}.\nAttempting to recover..."
         ).print_warning(include_timestamp=True, console=self.console)
-        created = ViewList([])
+        created: list[ViewResponse] = []
         for strongly_connected in tarjan(dependencies_by_id):
             to_create = [views_by_id[view_id] for view_id in strongly_connected]
             try:
-                created_set = self.client.data_modeling.views.apply(to_create)
-            except CogniteAPIError as error:
-                self.client.data_modeling.views.delete(created.as_ids())
+                created_set = self.client.tool.views.create(to_create)
+            except ToolkitAPIError as error:
+                self.client.tool.views.delete([item.as_id() for item in created])
                 HighSeverityWarning(
                     f"Recovering attempt failed. Could not create views {self.get_ids(to_create)}: "
                     f"{escape(error.message)}.\n Raising original error."
@@ -771,10 +776,6 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
         else:
             print(message)
         return created
-
-    @staticmethod
-    def _is_auto_retryable(e: CogniteAPIError) -> bool:
-        return isinstance(e.extra, dict) and "isAutoRetryable" in e.extra and e.extra["isAutoRetryable"]
 
     def _fallback_create_one_by_one(
         self, items: Sequence[ViewRequest], e1: ToolkitAPIError, warn: bool = True
