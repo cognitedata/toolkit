@@ -41,7 +41,7 @@ If the user chose **Stage only**, stop here.
 
 ## 5. PR creation (if needed)
 
-- Check if a PR exists: `gh pr view --json url 2>/dev/null`.
+- Check if a PR exists: `gh pr view --json url --repo cognitedata/toolkit 2>/dev/null`.
 - **If no PR exists**, suggest creating one:
   - Ask the user for the Jira ticket ID.
   - Propose a title: `[TICKET-ID] Description of changes`.
@@ -51,7 +51,7 @@ If the user chose **Stage only**, stop here.
   - If the user confirms, create the PR as a **draft**:
 
     ```bash
-    gh pr create --title "..." --body "..." --base main --draft
+    gh pr create --title "..." --body "..." --base main --draft --repo cognitedata/toolkit
     ```
 
   - After creation, verify the PR body doesn't contain "Made with Cursor". If it does,
@@ -61,14 +61,14 @@ If the user chose **Stage only**, stop here.
 
 ## 6. Monitor CI
 
-- Launch a **background agent** (`subagent_type="shell"`) to run `gh pr checks --watch`.
+- Launch a **background agent** (`subagent_type="shell"`) to run `gh pr checks --watch --repo cognitedata/toolkit`.
 - When checks complete, report back: **green** (all passing) or **red** (with names of failed checks).
-- **If all checks pass**, mark the PR as ready for review: `gh pr ready`.
+- **If all checks pass**, mark the PR as ready for review: `gh pr ready --repo cognitedata/toolkit`.
 - **If checks fail:**
-  - For each failed check, fetch its logs with `gh pr checks` and
-    `gh run view <run-id> --log-failed`.
+  - For each failed check, fetch its logs with `gh pr checks --repo cognitedata/toolkit` and
+    `gh run view <run-id> --log-failed --repo cognitedata/toolkit`.
   - **Transient failures** (network timeouts, flaky tests, rate limits, runner issues):
-    re-run the failed job once with `gh run rerun <run-id> --failed`.
+    re-run the failed job once with `gh run rerun <run-id> --failed --repo cognitedata/toolkit`.
   - **Non-transient failures** (lint errors, test assertions, type errors, build failures):
     read the logs, fix the underlying code issue, then run the full "send it" flow again
     (stage, commit, push, monitor).
