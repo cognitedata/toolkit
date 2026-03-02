@@ -8,13 +8,13 @@ from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
-from cognite_toolkit._cdf_tk.constants import VIEW_CONTAINER_UPSERT_BATCH_LIMIT
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerReference,
     ContainerRequest,
     ContainerResponse,
 )
+from cognite_toolkit._cdf_tk.constants import VIEW_CONTAINER_UPSERT_BATCH_LIMIT
 
 
 class ContainersAPI(CDFResourceAPI[ContainerResponse]):
@@ -27,7 +27,9 @@ class ContainersAPI(CDFResourceAPI[ContainerResponse]):
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "upsert": Endpoint(method="POST", path="/models/containers", item_limit=VIEW_CONTAINER_UPSERT_BATCH_LIMIT),
+                "upsert": Endpoint(
+                    method="POST", path="/models/containers", item_limit=VIEW_CONTAINER_UPSERT_BATCH_LIMIT
+                ),
                 "retrieve": Endpoint(method="POST", path="/models/containers/byids", item_limit=100),
                 "delete": Endpoint(method="POST", path="/models/containers/delete", item_limit=100),
                 "list": Endpoint(method="GET", path="/models/containers", item_limit=1000),

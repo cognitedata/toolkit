@@ -46,7 +46,6 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     SpaceReference,
     ViewReference,
 )
-from cognite_toolkit._cdf_tk.client.identifiers._data_modeling import ViewReference
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     ContainerFilter,
     DataModelFilter,

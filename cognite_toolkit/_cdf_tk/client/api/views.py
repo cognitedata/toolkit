@@ -8,7 +8,6 @@ from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
-from cognite_toolkit._cdf_tk.constants import VIEW_CONTAINER_UPSERT_BATCH_LIMIT
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReference,
@@ -16,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewRequest,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.constants import VIEW_CONTAINER_UPSERT_BATCH_LIMIT
 
 
 class ViewsAPI(CDFResourceAPI[ViewResponse]):

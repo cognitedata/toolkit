@@ -311,17 +311,30 @@ class TestViewDeployTopologicalSort:
     def test_create_dependency_ordered_calls_api_per_batch(self) -> None:
         parent = ViewRequest(space="sp_space", external_id="Parent", version="v1")
         child = ViewRequest(
-            space="sp_space", external_id="Child", version="v1",
+            space="sp_space",
+            external_id="Child",
+            version="v1",
             implements=[ViewReference(space="sp_space", external_id="Parent", version="v1")],
         )
 
         def fake_create(items: list[ViewRequest]) -> list[ViewResponse]:
             return [
                 ViewResponse(
-                    space=v.space, external_id=v.external_id, version=v.version,
-                    name=None, description=None, implements=v.implements or [], properties={},
-                    last_updated_time=1, created_time=1, filter=None, writable=True,
-                    used_for="node", is_global=False, mapped_containers=[], queryable=False,
+                    space=v.space,
+                    external_id=v.external_id,
+                    version=v.version,
+                    name=None,
+                    description=None,
+                    implements=v.implements or [],
+                    properties={},
+                    last_updated_time=1,
+                    created_time=1,
+                    filter=None,
+                    writable=True,
+                    used_for="node",
+                    is_global=False,
+                    mapped_containers=[],
+                    queryable=False,
                 )
                 for v in items
             ]
@@ -336,11 +349,15 @@ class TestViewDeployTopologicalSort:
 
     def test_cycle_in_implements_raises(self) -> None:
         view_a = ViewRequest(
-            space="sp_space", external_id="A", version="v1",
+            space="sp_space",
+            external_id="A",
+            version="v1",
             implements=[ViewReference(space="sp_space", external_id="B", version="v1")],
         )
         view_b = ViewRequest(
-            space="sp_space", external_id="B", version="v1",
+            space="sp_space",
+            external_id="B",
+            version="v1",
             implements=[ViewReference(space="sp_space", external_id="A", version="v1")],
         )
 
@@ -348,4 +365,3 @@ class TestViewDeployTopologicalSort:
             loader = ViewCRUD(client, Path("build_dir"), None)
             with pytest.raises(ToolkitCycleError):
                 loader._compute_deploy_batches([view_a, view_b])
-
