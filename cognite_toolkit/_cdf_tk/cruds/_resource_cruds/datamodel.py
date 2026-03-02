@@ -702,7 +702,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
-        if Flags.VIEW_TOPOLOGICAL_SORT.is_enabled():
+        if Flags.DEPENDENCY_ORDERED_DEPLOY.is_enabled():
             return self._create_topologically_sorted(items)
         try:
             return self.client.tool.views.create(items)
