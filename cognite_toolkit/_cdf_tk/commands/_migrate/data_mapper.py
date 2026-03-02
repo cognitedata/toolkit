@@ -64,6 +64,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     CanvasMigrationIssue,
     ChartMigrationIssue,
     ConversionIssue,
+    InstanceConversionIssue,
     ThreeDModelMigrationIssue,
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
@@ -682,16 +683,27 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         self._populate_cache(source)
         nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)
         mapped_instances: list[InstanceRequest | None] = []
+        issue_list: list[InstanceConversionIssue] = []
         for node in nodes:
+            node_id = node.as_id()
             if node.space not in self.space_mapping:
-                ...
+                issue_list.append(
+                    InstanceConversionIssue(
+                        id=str(node_id), errors=[f"No target space mapping for source space '{node.space}'"]
+                    )
+                )
+                self.logger.tracker.finalize_item(str(node.as_id()), "failure")
             else:
                 target_space = self.space_mapping[node.space]
-                mapped_node, edges = self._map_single_node(
+                mapped_node, edges, issue = self._map_single_node(
                     node, other_side_by_edge_type_and_direction_by_source[node.as_id()], target_space
                 )
+                if issue.has_issues:
+                    issue_list.append(issue)
                 mapped_instances.append(mapped_node)
                 mapped_instances.extend(edges)
+        if issue_list:
+            self.logger.log(issue_list)
         return mapped_instances
 
     def _as_nodes_and_edges(
@@ -710,7 +722,8 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
             elif isinstance(item, EdgeResponse):
                 target_space = self.space_mapping.get(item.space)
                 if target_space is None:
-                    ...  # Todo: log missing space mapping
+                    # We still want to include the edge in the mapping, but we won't be able to convert it to a direct relation.
+                    continue
                 else:
                     other_side_by_edge_type_and_direction_by_source[item.start_node][(item.type, "outwards")].append(
                         NodeReference(space=target_space, external_id=item.end_node.external_id)
@@ -729,11 +742,11 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
             tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]
         ],
         target_space: str,
-    ) -> tuple[NodeRequest, list[EdgeRequest]]:
+    ) -> tuple[NodeRequest, list[EdgeRequest], InstanceConversionIssue]:
         new_id = NodeReference(space=target_space, external_id=node.external_id)
-        sources, new_edges = self._create_instance_data(new_id, node, other_side_by_edge_type_and_direction)
+        sources, new_edges, issue = self._create_instance_data(new_id, node, other_side_by_edge_type_and_direction)
 
-        return NodeRequest(space=target_space, external_id=node.external_id, sources=sources or None), new_edges
+        return NodeRequest(space=target_space, external_id=node.external_id, sources=sources or None), new_edges, issue
 
     def _create_instance_data(
         self,
@@ -742,23 +755,26 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         other_side_by_edge_type_and_direction: dict[
             tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]
         ],
-    ) -> tuple[list[InstanceSource], list[EdgeRequest]]:
+    ) -> tuple[list[InstanceSource], list[EdgeRequest], InstanceConversionIssue]:
         new_edges: list[EdgeRequest] = []
         sources: list[InstanceSource] = []
+        issue = InstanceConversionIssue(id=str(new_id))
         for view_id, source_properties in (node.properties or {}).items():
             if not isinstance(view_id, ViewReference):
                 continue
             mapping = self._mappings_by_view_id.get(view_id)
             if mapping is None:
-                # Todo: log
+                issue.errors.append(f"No mapping found for view '{view_id}'")
                 continue
-            destination_view = self._destination_by_view_id.get(view_id)
+            destination_view = self._destination_by_view_id.get(mapping.destination_view)
             if destination_view is None:
-                # Todo: log
+                issue.errors.append(
+                    f"Invalid mapping {mapping.external_id}': destination view {mapping.destination_view} not found."
+                )
                 continue
             conversion_source = self._source_by_view_id.get(view_id)
             if conversion_source is None:
-                # Todo: log
+                issue.errors.append(f"Invalid mapping {mapping.external_id}': source view {view_id} not found.")
                 continue
             source_properties.update(
                 {
@@ -770,6 +786,7 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
             destination_properties, container_errors = create_container_properties(
                 source_properties, mapping, destination_view.properties, conversion_source, self._direct_relation_cache
             )
+            issue.errors.extend(container_errors)
             container_connections, new_edges, connection_errors = create_connection_properties(
                 other_side_by_edge_type_and_direction,
                 mapping,
@@ -777,8 +794,9 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
                 conversion_source.edges,
                 new_id,
             )
+            issue.errors.extend(connection_errors)
             destination_properties.update(container_connections)
             if destination_properties:
                 sources.append(InstanceSource(source=view_id, properties=destination_properties))
             new_edges.extend(new_edges)
-        return sources, new_edges
+        return sources, new_edges, issue
