@@ -103,6 +103,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverity
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
     calculate_hash,
+    humanize_collection,
     in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
@@ -759,10 +760,9 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                 current_batch = []
             current_batch.extend(scc_views)
             if len(scc_views) > VIEW_CONTAINER_UPSERT_BATCH_LIMIT:
-                view_ids = self.get_ids(scc_views)
                 MediumSeverityWarning(
-                    f"Found a strongly interdependent set of {len(scc_views)} views: ({view_ids}). "
-                    "These views are highly interconnected, and the deployment might fail due to API batch size limits."
+                    f"Found a strongly interdependent set of {len(scc_views)} views: {humanize_collection(self.get_ids(scc_views))}. "
+                    "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
                 ).print_warning(console=self.console)
         if len(current_batch) > 0:
             batches.append(current_batch)

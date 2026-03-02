@@ -49,7 +49,7 @@ HAS_DATA_FILTER_LIMIT = 10
 
 # The actual API limit for view and container upsert is 100, but depending on the number
 # of properties DMS struggles with large batches, thus, we set it to 50 to be safe.
-VIEW_CONTAINER_UPSERT_BATCH_LIMIT = 50
+VIEW_CONTAINER_UPSERT_BATCH_LIMIT = 3
 
 DEV_ONLY_MODULES = frozenset(["cdf_auth_readwrite_all"])
 
