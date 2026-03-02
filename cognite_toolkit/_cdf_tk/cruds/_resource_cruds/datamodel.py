@@ -30,6 +30,7 @@ from cognite.client.data_classes.capabilities import (
     DataModelsAcl,
 )
 from cognite.client.data_classes.data_modeling import ContainerId, DataModelId, ViewId
+from numpy import isin
 from rich import print
 from rich.console import Console
 from rich.markup import escape
@@ -37,6 +38,7 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ContainerReference,
@@ -89,6 +91,9 @@ from cognite_toolkit._cdf_tk.resource_classes import (
     SpaceYAML,
     ViewYAML,
 )
+from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
+from cognite_toolkit._cdf_tk.resource_classes.container_field_definitions import ContainerPropertyDefinition
+from cognite_toolkit._cdf_tk.resource_classes.view_field_definitions import ContainerViewProperty
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
@@ -581,6 +586,26 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
     @classmethod
     def dump_id(cls, id: ViewReference) -> dict[str, Any]:
         return id.dump()
+
+
+    @classmethod
+    def get_dependent_resources(cls, item: ViewYAML) -> dict[type[ToolkitResource], list[Identifier]]:
+
+        dependencies: dict = {SpaceYAML: [],
+                              ContainerYAML: [],
+                              ViewYAML: []}
+        dependencies[SpaceYAML].append(SpaceReference(space=item.space))
+
+        for implement in item.implements or []:
+            if implement not in dependencies[ViewYAML]:
+                dependencies[ViewYAML].append(implement)
+
+        if item.properties:
+
+            for prop in item.properties.values():
+                if isinstance(prop, ContainerViewProperty) and prop.container not in  dependencies[ContainerYAML]:
+                    dependencies[ContainerYAML].append(prop.container)
+        return dependencies
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:

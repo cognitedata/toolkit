@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -10,6 +11,7 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2._module_source_parser import ModuleSourceParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
@@ -34,7 +36,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._plugins import NeatPlugin
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, MODULES
-from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME, RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND, ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
@@ -243,7 +245,11 @@ class BuildV2Command(ToolkitCommand):
 
             if module.is_success:
                 self._local_validation(module)
+
+
                 built_module.built_files = self._export_module(module, build_dir)
+                built_module.built_resources_identifiers = [resource.resource.as_id() for resource in module.resources if isinstance(resource, SuccessfulReadResource)]
+                built_module.dependencies = self._get_external_dependencies(module)
 
             built_module.insights.extend(module.insights)
             for resource in module.resources:
@@ -252,6 +258,24 @@ class BuildV2Command(ToolkitCommand):
             folder.built_modules.append(built_module)
 
         return folder
+
+    def _get_external_dependencies(self, module: Module) -> dict[AbsoluteFilePath, dict[type[ToolkitResource], list[Identifier]]]:
+        dependency : dict[AbsoluteFilePath, dict[type[ToolkitResource], list[Identifier]]] = {}
+
+        for resource in module.resources:
+            if not isinstance(resource, SuccessfulReadResource):
+                continue
+
+            dependency[resource.source_path] = {}
+            if isinstance(resource, SuccessfulReadResource):
+                kind = resource.resource_type.kind
+                folder_name = resource.resource_type.resource_folder
+                crud = RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[folder_name][kind]
+
+                dependency[resource.source_path] = crud.get_dependent_resources(resource.resource)
+
+        return dependency
+
 
     def _import_module(self, source: ModuleSource) -> Module:
         resources: list[ReadResource] = []

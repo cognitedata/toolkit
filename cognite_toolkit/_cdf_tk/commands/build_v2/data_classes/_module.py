@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict, DirectoryPath, Field
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.cruds import ResourceTypes
 from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
 
@@ -52,7 +53,6 @@ class SuccessfulReadResource(ReadResource):
     resource_type: ResourceType
     resource: ToolkitResource
     insights: list[Recommendation] = Field(default_factory=list)
-
 
 class Module(BaseModel):
     """Class used to store module in-memory"""
