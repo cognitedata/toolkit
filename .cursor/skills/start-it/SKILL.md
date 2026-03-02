@@ -24,7 +24,14 @@ When the user says **"start it"**:
   - Example: `CDF-1234` with summary "Add data product validation" → `cdf-1234/add-data-product-validation`.
 - Confirm the branch name with the user before creating it.
 
-## 4. Plan and start working
+## 4. Check if the ticket involves a new resource type
+
+- If the Jira ticket is about adding or supporting a **new CDF resource type**, ask the user to provide either:
+  - A **service contract YAML** file, or
+  - A link to the **API documentation page**
+- Do not proceed to implementation until this information is available, as it is needed to correctly model the resource.
+
+## 5. Plan and start working
 
 - Based on the Jira ticket details, create a **todo list** breaking the task into concrete implementation steps.
 - Explore the codebase to understand relevant files and patterns before making changes.
