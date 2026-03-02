@@ -46,6 +46,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     SpaceReference,
     ViewReference,
 )
+from cognite_toolkit._cdf_tk.client.identifiers._data_modeling import ViewReference
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     ContainerFilter,
     DataModelFilter,
@@ -75,7 +76,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
     GraphQLDataModelRequest,
     GraphQLDataModelResponse,
 )
-from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HAS_DATA_FILTER_LIMIT
+from cognite_toolkit._cdf_tk.constants import (
+    BUILD_FOLDER_ENCODING,
+    HAS_DATA_FILTER_LIMIT,
+    VIEW_CONTAINER_UPSERT_BATCH_LIMIT,
+)
 from cognite_toolkit._cdf_tk.cruds._base_cruds import (
     ResourceContainerCRUD,
     ResourceCRUD,
@@ -709,7 +714,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
     def _create_topologically_sorted(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
         creation_order = self._topological_sort(items)
         created: list[ViewResponse] = []
-        for batch in creation_order:
+        for batch in creation_order:  # TODO: Smarter batching strategy across SCCs
             try:
                 created.extend(self.client.tool.views.create(batch))
             except ToolkitAPIError as e:
@@ -732,7 +737,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
             for view_id, view in views_by_id.items()
         }
         try:
-            TopologicalSorter(parents_by_child).static_order()
+            TopologicalSorter[ViewReference](parents_by_child).static_order()
         except CycleError as e:
             raise ToolkitCycleError(f"Failed to deploy views. This likely due to a cycle in implements. {e.args[1]}")
 
@@ -750,11 +755,11 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
             for strongly_connected in tarjan(dependencies_by_id)
         ]
         for batch in batches:
-            if len(batch) > 100:
+            if len(batch) > VIEW_CONTAINER_UPSERT_BATCH_LIMIT:
                 view_ids = self.get_ids(batch)
                 MediumSeverityWarning(
-                    f"Found a strongly interdependent set of {len(batch)} views ({view_ids}). "
-                    "These views are too interconnected, and the deployment might fail due to API batch size limits."
+                    f"Found a strongly interdependent set of {len(batch)} views: ({view_ids}). "
+                    "These views are highly interconnected, and the deployment might fail due to API batch size limits."
                 ).print_warning(console=self.console)
         return batches
 
