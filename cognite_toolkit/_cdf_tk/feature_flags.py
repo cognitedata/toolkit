@@ -94,6 +94,10 @@ class Flags(Enum):
         visible=True,
         description="Enables JSON output format for the modules list command",
     )
+    VIEW_TOPOLOGICAL_SORT = FlagMetadata(
+        visible=True,
+        description="Enables topological sorting of views before deployment to avoid dependency errors",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
