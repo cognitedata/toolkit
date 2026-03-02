@@ -1,28 +1,35 @@
 import json
 from collections.abc import Mapping
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
+from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.data_classes import Sequence
 from pydantic import JsonValue
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import ViewDirectReference
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     BooleanProperty,
     ConstraintOrIndexState,
     ContainerReference,
+    DateProperty,
     DirectNodeRelation,
     EdgeReference,
     EdgeRequest,
     EnumProperty,
     EnumValue,
+    FileCDFExternalIdReference,
     InstanceSource,
     Int64Property,
     JSONProperty,
     MultiEdgeProperty,
+    MultiReverseDirectRelationPropertyResponse,
     NodeReference,
     TextProperty,
+    TimeseriesCDFExternalIdReference,
     TimestampProperty,
     ViewCorePropertyResponse,
     ViewReference,
@@ -33,10 +40,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMet
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId, CreatedSourceSystem
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
+    ConversionSourceView,
     DirectRelationCache,
+    TimeSeriesFilesReferenceCache,
     asset_centric_to_dm,
+    create_connection_properties,
+    create_container_properties,
     create_properties,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
@@ -1222,3 +1234,290 @@ class TestAssetCentricConversion:
 
         assert issue.dump() == expected_issue.dump()
         assert edge is None
+
+
+class TestCreateContainerConnectionProperties:
+    SOURCE_VIEW_ID = ViewReference(space="src_space", external_id="SrcView", version="v1")
+    DEST_VIEW_ID = ViewReference(space="dst_space", external_id="DstView", version="v1")
+    CONTAINER_ID = ContainerReference(space="dst_space", external_id="DstContainer")
+    SOURCE_ID = NodeReference(space="src_space", external_id="nodeA")
+    NEW_ID = NodeReference(space="dst_space", external_id="new_nodeA")
+    DEFAULT_ARGS: ClassVar = dict(
+        nullable=True, immutable=False, auto_increment=False, constraint_state=ConstraintOrIndexState()
+    )
+    SOURCE_PROPERTIES: ClassVar[dict[str, ViewResponseProperty]] = {
+        "name": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="name",
+            type=TextProperty(),
+            **DEFAULT_ARGS,
+        ),
+        "count": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="count",
+            type=TextProperty(),  # Note that this is a string in the source view to test string to int conversion
+            **DEFAULT_ARGS,
+        ),
+        "sensorTs": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="sensorTs",
+            type=TimeseriesCDFExternalIdReference(),
+            **DEFAULT_ARGS,
+        ),
+        "fileRef": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="fileRef",
+            type=FileCDFExternalIdReference(),
+            **DEFAULT_ARGS,
+        ),
+        "dateVal": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="dateVal",
+            type=TextProperty(),
+            **DEFAULT_ARGS,
+        ),
+        "relatesTo": MultiEdgeProperty(
+            type=NodeReference(space="src_space", external_id="relatesTo"),
+            source=SOURCE_VIEW_ID,
+        ),
+        "hasChild": MultiEdgeProperty(
+            type=NodeReference(space="src_space", external_id="hasChild"),
+            source=SOURCE_VIEW_ID,
+            direction="inwards",
+        ),
+        "listRel": MultiEdgeProperty(
+            type=NodeReference(space="src_space", external_id="listRel"),
+            source=SOURCE_VIEW_ID,
+        ),
+        "textEdge": MultiEdgeProperty(
+            type=NodeReference(space="src_space", external_id="textEdge"),
+            source=SOURCE_VIEW_ID,
+        ),
+        "edgeRel": MultiEdgeProperty(
+            type=NodeReference(space="src_space", external_id="edgeRel"),
+            source=SOURCE_VIEW_ID,
+            direction="inwards",
+        ),
+        "dupRel": MultiEdgeProperty(
+            type=NodeReference(space="src_space", external_id="dupRel"),
+            source=SOURCE_VIEW_ID,
+        ),
+    }
+
+    DESTINATION_PROPERTIES: ClassVar[dict[str, ViewResponseProperty]] = {
+        "name": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="name",
+            type=TextProperty(),
+            **DEFAULT_ARGS,
+        ),
+        "count": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="count",
+            type=Int64Property(),
+            **DEFAULT_ARGS,
+        ),
+        "sensorTs": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="sensorTs",
+            type=DirectNodeRelation(),
+            **DEFAULT_ARGS,
+        ),
+        "fileRef": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="fileRef",
+            type=DirectNodeRelation(),
+            **DEFAULT_ARGS,
+        ),
+        "dateVal": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="dateVal",
+            type=DateProperty(),
+            **DEFAULT_ARGS,
+        ),
+        "relatedAsset": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="relatedAsset",
+            type=DirectNodeRelation(),
+            **DEFAULT_ARGS,
+        ),
+        "listAssets": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="listAssets",
+            type=DirectNodeRelation(list=True),
+            **DEFAULT_ARGS,
+        ),
+        "textProp": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="textProp",
+            type=TextProperty(),
+            **DEFAULT_ARGS,
+        ),
+        "parentAsset": MultiReverseDirectRelationPropertyResponse(
+            targets_list=True,
+            source=SOURCE_VIEW_ID,
+            through=ViewDirectReference(
+                source=SOURCE_VIEW_ID,
+                identifier="hasChild",
+            ),
+        ),
+        "destEdge": MultiEdgeProperty(
+            type=NodeReference(space="dst_space", external_id="destEdgeType"),
+            source=DEST_VIEW_ID,
+            direction="inwards",
+        ),
+    }
+    COGNITE_TIMESERIES = NodeReference(space="ts_space", external_id="ts_node_1")
+    COGNITE_FILE = NodeReference(space="file_space", external_id="file_node_1")
+    SOURCE_VIEW = ConversionSourceView(SOURCE_PROPERTIES)
+    MAPPING = ViewToViewMapping(
+        source_view=SOURCE_VIEW_ID,
+        destination_view=DEST_VIEW_ID,
+        map_identical_id_properties=True,
+        property_mapping={
+            "relatesTo": "relatedAsset",
+            "hasChild": "parentAsset",
+            "listRel": "listAssets",
+            "textEdge": "textProp",
+            "edgeRel": "destEdge",
+            "dupRel": "relatedAsset",
+        },
+    )
+
+    @pytest.mark.parametrize(
+        "source_properties,expected_properties,expected_errors",
+        [
+            pytest.param(
+                {"name": "Sensor1", "sensorTs": "ts_ext_1", "unmappedProp": "value", "count": "42"},
+                {
+                    "name": "Sensor1",
+                    "sensorTs": COGNITE_TIMESERIES.dump(include_instance_type=False),
+                    "count": 42,
+                },
+                ["Source instance property 'unmappedProp' is not mapped to any destination property."],
+                id="Successful mapping with unmapped property, string to int conversion and timeseries reference conversion",
+            ),
+            pytest.param(
+                {
+                    "fileRef": "file_ext_1",
+                    "dateVal": "2023-06-15",
+                    "count": "not-a-number",
+                    "parentAsset": "whatever",
+                },
+                {
+                    "fileRef": COGNITE_FILE.dump(include_instance_type=False),
+                    "dateVal": "2023-06-15",
+                },
+                [
+                    "Failed to convert property 'count' with value 'not-a-number':"
+                    " Cannot convert not-a-number to int64.",
+                ],
+                id="File reference, date formatting, conversion error, and reverse relation skip",
+            ),
+        ],
+    )
+    def test_create_container_properties(
+        self,
+        source_properties: dict[str, Any],
+        expected_properties: dict[str, Any],
+        expected_errors: list[str],
+    ) -> None:
+        cache = TimeSeriesFilesReferenceCache(MagicMock(spec=ToolkitClient))
+        cache._cache["timeseries"]["ts_ext_1"] = self.COGNITE_TIMESERIES
+        cache._cache["file"]["file_ext_1"] = self.COGNITE_FILE
+
+        actual_properties, errors = create_container_properties(
+            source_properties,
+            self.MAPPING,
+            self.DESTINATION_PROPERTIES,
+            view=self.SOURCE_VIEW,
+            direct_relation_cache=cache,
+        )
+
+        assert actual_properties == expected_properties
+        assert errors == expected_errors
+
+    @pytest.mark.parametrize(
+        "edge_targets,expected_relations,expected_edges,expected_errors",
+        [
+            pytest.param(
+                {
+                    (NodeReference(space="src_space", external_id="relatesTo"), "outwards"): [
+                        NodeReference(space="dst_space", external_id="asset_123")
+                    ],
+                    (NodeReference(space="src_space", external_id="hasChild"), "inwards"): [
+                        NodeReference(space="dst_space", external_id="asset_456")
+                    ],
+                },
+                {
+                    "relatedAsset": {"space": "dst_space", "externalId": "asset_123"},
+                },
+                [],
+                [],
+                id="Edge creation with direct relations",
+            ),
+            pytest.param(
+                {
+                    (NodeReference(space="src_space", external_id="relatesTo"), "outwards"): [
+                        NodeReference(space="dst_space", external_id="asset_C"),
+                        NodeReference(space="dst_space", external_id="asset_D"),
+                    ],
+                    (NodeReference(space="src_space", external_id="listRel"), "outwards"): [
+                        NodeReference(space="dst_space", external_id="asset_A"),
+                        NodeReference(space="dst_space", external_id="asset_B"),
+                    ],
+                    (NodeReference(space="src_space", external_id="textEdge"), "outwards"): [
+                        NodeReference(space="dst_space", external_id="asset_E"),
+                    ],
+                    (NodeReference(space="src_space", external_id="edgeRel"), "inwards"): [
+                        NodeReference(space="dst_space", external_id="asset_F"),
+                    ],
+                    (NodeReference(space="src_space", external_id="dupRel"), "outwards"): [
+                        NodeReference(space="dst_space", external_id="asset_G"),
+                    ],
+                },
+                {
+                    "relatedAsset": {"space": "dst_space", "externalId": "asset_C"},
+                    "listAssets": [
+                        {"space": "dst_space", "externalId": "asset_A"},
+                        {"space": "dst_space", "externalId": "asset_B"},
+                    ],
+                },
+                [
+                    EdgeRequest(
+                        space="dst_space",
+                        external_id="new_nodeA_edgeRel__asset_F",
+                        type=NodeReference(space="dst_space", external_id="destEdgeType"),
+                        start_node=NodeReference(space="dst_space", external_id="asset_F"),
+                        end_node=NEW_ID,
+                    ),
+                ],
+                [
+                    "Multiple edges mapped to single-valued direct relation property 'relatedAsset'."
+                    " Keeping the first one and ignoring the rest.",
+                    "Cannot map edge property 'textEdge' to non-connection property text.",
+                    "Multiple edges mapped to single-valued direct relation property 'relatedAsset'."
+                    " Keeping the first one and ignoring the rest.",
+                ],
+                id="List relation, multi-target single, edge creation (inwards), non-connection error, and duplicate mapping",
+            ),
+        ],
+    )
+    def test_create_connection_properties(
+        self,
+        edge_targets: dict[tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]],
+        expected_relations: dict[str, JsonValue],
+        expected_edges: list[EdgeRequest],
+        expected_errors: list[str],
+    ) -> None:
+        relations, edges, errors = create_connection_properties(
+            edge_targets,
+            self.MAPPING,
+            self.DESTINATION_PROPERTIES,
+            source_edges=self.SOURCE_VIEW.edges,
+            source_id=self.NEW_ID,
+        )
+
+        assert relations == expected_relations
+        assert [edge.model_dump() for edge in edges] == [edge.model_dump() for edge in expected_edges]
+        assert errors == expected_errors
