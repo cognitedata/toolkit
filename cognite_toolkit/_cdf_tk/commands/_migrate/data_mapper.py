@@ -19,9 +19,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     EdgeRequest,
+    EdgeResponse,
     InstanceRequest,
+    InstanceResponse,
+    InstanceSource,
     NodeReference,
     NodeRequest,
+    NodeResponse,
     ViewReference,
     ViewResponse,
 )
@@ -41,7 +45,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     RevisionStatus,
     ThreeDModelClassicResponse,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.conversion import DirectRelationCache, asset_centric_to_dm
+from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
+from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
+    ConversionSourceView,
+    DirectRelationCache,
+    TimeSeriesFilesReferenceCache,
+    asset_centric_to_dm,
+    create_connection_properties,
+    create_container_properties,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     Model,
     ThreeDMigrationRequest,
@@ -59,7 +71,12 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitVal
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector
 from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, NoOpLogger
-from cognite_toolkit._cdf_tk.storageio.selectors import CanvasSelector, ChartSelector, ThreeDSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import (
+    CanvasSelector,
+    ChartSelector,
+    InstanceViewSelector,
+    ThreeDSelector,
+)
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
 
@@ -638,3 +655,127 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, 
             asset_instance_id=asset_instance_id,
         )
         return mapped_request, issue
+
+
+class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, InstanceRequest]):
+    """This mapper maps instances to instances accounting for the difference between older data models
+    (back when they were called Flexible Data Models) and newer data models (backed by Cognite Core Data Model).
+
+    This means in particular the following:
+
+    - Supports converting edges to direct/reverse direct relations.
+    - Supports converting timeseries/files references to direct relation pointing to the CogniteTimeSeries/CogniteFile
+        views.
+
+    """
+
+    def __init__(self, client: ToolkitClient, space_mapping: dict[str, str]) -> None:
+        super().__init__(client)
+        self.space_mapping = space_mapping
+        self._direct_relation_cache = TimeSeriesFilesReferenceCache(client)
+        # Replace ViewResponse with ConversionSourceView when we have that implemented.
+        self._source_by_view_id: dict[ViewReference, ConversionSourceView] = {}
+        self._mappings_by_view_id: dict[ViewReference, ViewToViewMapping] = {}
+        self._destination_by_view_id: dict[ViewReference, ViewResponse] = {}
+
+    def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
+        self._populate_cache(source)
+        nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)
+        mapped_instances: list[InstanceRequest | None] = []
+        for node in nodes:
+            if node.space not in self.space_mapping:
+                ...
+            else:
+                target_space = self.space_mapping[node.space]
+                mapped_node, edges = self._map_single_node(
+                    node, other_side_by_edge_type_and_direction_by_source[node.as_id()], target_space
+                )
+                mapped_instances.append(mapped_node)
+                mapped_instances.extend(edges)
+        return mapped_instances
+
+    def _as_nodes_and_edges(
+        self, source: Sequence[NodeResponse | EdgeResponse]
+    ) -> tuple[
+        list[NodeResponse],
+        dict[NodeReference, dict[tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]]],
+    ]:
+        nodes: list[NodeResponse] = []
+        other_side_by_edge_type_and_direction_by_source: dict[
+            NodeReference, dict[tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]]
+        ] = defaultdict(lambda: defaultdict(list))
+        for item in source:
+            if isinstance(item, NodeResponse):
+                nodes.append(item)
+            elif isinstance(item, EdgeResponse):
+                target_space = self.space_mapping.get(item.space)
+                if target_space is None:
+                    ...  # Todo: log missing space mapping
+                else:
+                    other_side_by_edge_type_and_direction_by_source[item.start_node][(item.type, "outwards")].append(
+                        NodeReference(space=target_space, external_id=item.end_node.external_id)
+                    )
+                target_space = self.space_mapping.get(item.space)
+                if target_space is None:
+                    ...  # Todo: log missing space mapping
+                else:
+                    other_side_by_edge_type_and_direction_by_source[item.end_node][(item.type, "inwards")].append(
+                        NodeReference(space=target_space, external_id=item.start_node.external_id)
+                    )
+        return nodes, other_side_by_edge_type_and_direction_by_source
+
+    def _populate_cache(self, source: Sequence[InstanceResponse]) -> None:
+        # Todo: Look up all views in the source and convert them to ConversionSourceView.
+        #    Then, look up all timeseries/file references and cache those as well.
+        raise NotImplementedError()
+
+    def _map_single_node(
+        self,
+        node: NodeResponse,
+        other_side_by_edge_type_and_direction: dict[
+            tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]
+        ],
+        target_space: str,
+    ) -> tuple[NodeRequest, list[EdgeRequest]]:
+
+        new_id = NodeReference(space=target_space, external_id=node.external_id)
+        new_edges: list[EdgeRequest] = []
+        sources: list[InstanceSource] = []
+        for view_id, source_properties in (node.properties or {}).items():
+            if not isinstance(view_id, ViewReference):
+                continue
+            mapping = self._mappings_by_view_id.get(view_id)
+            if mapping is None:
+                # Todo: log
+                continue
+            destination_view = self._destination_by_view_id.get(view_id)
+            if destination_view is None:
+                # Todo: log
+                continue
+            conversion_source = self._source_by_view_id.get(view_id)
+            if conversion_source is None:
+                # Todo: log
+                continue
+            source_properties.update(
+                {
+                    "node.createdTime": node.created_time,
+                    "node.lastUpdatedTime": node.last_updated_time,
+                    "node.version": node.version,
+                }
+            )
+            destination_properties, container_errors = create_container_properties(
+                source_properties, mapping, destination_view.properties, conversion_source, self._direct_relation_cache
+            )
+            container_connections, new_edges, connection_errors = create_connection_properties(
+                other_side_by_edge_type_and_direction,
+                mapping,
+                destination_view.properties,
+                conversion_source.edges,
+                new_id,
+            )
+            destination_properties.update(container_connections)
+            if destination_properties:
+                sources.append(InstanceSource(source=view_id, properties=destination_properties))
+            new_edges.extend(new_edges)
+
+        return NodeRequest(space=target_space, external_id=node.external_id, sources=sources or None), new_edges

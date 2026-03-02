@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     AssetCentricMapper,
     CanvasMapper,
     ChartMapper,
+    FDMtoCDMMapper,
     ThreeDAssetMapper,
     ThreeDMapper,
 )
@@ -34,10 +35,12 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     MigrationCSVFileSelector,
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
+from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO, InstanceIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
+    InstanceViewSelector,
+    SelectedView,
     ThreeDModelIdSelector,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -76,6 +79,7 @@ class MigrateApp(typer.Typer):
         self.command("3d-mappings")(self.three_d_asset_mapping)
         if Flags.INFIELD_MIGRATE.is_enabled():
             self.command("infield-configs")(self.infield_configs)
+            self.command("infield-data")(self.infield_data)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
@@ -1260,6 +1264,80 @@ class MigrateApp(typer.Typer):
                 output_dir=output_dir,
                 dry_run=False,
                 deploy=False,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def infield_data(
+        ctx: typer.Context,
+        instance_space: str | None = typer.Option(
+            None,
+            "--instance-space",
+            "-i",
+            help="The instance space to migrate Infield data from. If not provided, an interactive selection will be performed to select the instance space.",
+        ),
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where migration logs will be stored.",
+            ),
+        ] = Path(f"migration_logs_{TODAY}"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrates Infield data from existing APM instance spaces in CDF to the new InfieldOnCDM data model."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+
+        cmd = MigrationCommand(client=client)
+        if instance_space is None:
+            space_selector = DataModelingSelect(client, "migrate")
+            # Todo select instance space from APM Configuration.
+            selected_instance_space = (
+                space_selector.select_instance_space(
+                    multiselect=False,
+                    message="Select the instance space to migrate Infield data from:",
+                    include_empty=False,
+                ),
+            )
+            log_dir = Path(
+                questionary.path("Specify log directory for migration logs:", default=str(log_dir)).unsafe_ask()
+            )
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
+        else:
+            selected_instance_space = (instance_space,)
+        # Lookup in the new config.
+        target_space = "<todo>"
+        cmd.run(
+            lambda: cmd.migrate(  # type: ignore[misc]
+                selectors=[
+                    InstanceViewSelector(
+                        view=SelectedView(space="cdf_apm", external_id="Checklist", version="v7"),
+                        instance_spaces=selected_instance_space,
+                        include_edges=True,
+                    )
+                ],
+                data=InstanceIO(client),
+                mapper=FDMtoCDMMapper(client, {selected_instance_space[0]: target_space}),
+                log_dir=log_dir,
+                dry_run=dry_run,
                 verbose=verbose,
             )
         )
