@@ -855,7 +855,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
         Returns:
             Dictionary mapping each view ID to the set of view IDs it depends on (implements)
         """
-        dependencies: dict[ViewReference, set[ViewReference]] = {} 
+        dependencies: dict[ViewReference, set[ViewReference]] = {}
         for view_id, view in view_by_ids.items():
             dependencies[view_id] = set()
             for implemented_view_id in view.implements or []:
@@ -877,7 +877,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
             return list(TopologicalSorter(parents_by_child).static_order())
         except CycleError as e:
             raise ToolkitCycleError(
-                f"Failed to deploy views. This is likely due to a cycle in implements. {e.args[1]}"
+                f"Failed to sort views topologically. This is likely due to a cycle in implements. {e.args[1]}"
             )
 
     def topological_sort_implements(self, view_ids: list[ViewReference]) -> list[ViewReference]:
