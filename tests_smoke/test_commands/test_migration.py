@@ -78,7 +78,7 @@ def migrated_asset(
     client = toolkit_client
     cmd = MigrationCommand()
     cmd.migrate(
-        selected=MigrationCSVFileSelector(datafile=csv_file, kind="Assets"),
+        selectors=[MigrationCSVFileSelector(datafile=csv_file, kind="Assets")],
         data=AssetCentricMigrationIO(client),
         mapper=AssetCentricMapper(client),
         log_dir=tmp_path / "migration_logs",
@@ -422,7 +422,7 @@ class TestMigrateFile:
 
         cmd = MigrationCommand()
         cmd.migrate(
-            selected=MigrationCSVFileSelector(kind="FileMetadata", datafile=input_file),
+            selectors=[MigrationCSVFileSelector(kind="FileMetadata", datafile=input_file)],
             data=AssetCentricMigrationIO(client, skip_linking=False),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "migration_logs",

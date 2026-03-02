@@ -80,7 +80,7 @@ class TestMigrateAssetsCommand:
 
         cmd = MigrationCommand(skip_tracking=True, silent=True)
         cmd.migrate(
-            selected=MigrationCSVFileSelector(datafile=input_file, kind="Assets"),
+            selectors=[MigrationCSVFileSelector(datafile=input_file, kind="Assets")],
             data=AssetCentricMigrationIO(client),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
@@ -97,19 +97,20 @@ class TestMigrateAssetsCommand:
         client = toolkit_client
         hierarchy = migration_hierarchy_minimal
         cmd = MigrationCommand(skip_tracking=True, silent=True)
+        selector = MigrateDataSetSelector(
+            kind="Assets",
+            data_set_external_id=hierarchy.dataset.external_id,
+            ingestion_mapping=ASSET_ID,
+            preferred_consumer_view=ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
+        )
         result = cmd.migrate(
-            selected=MigrateDataSetSelector(
-                kind="Assets",
-                data_set_external_id=hierarchy.dataset.external_id,
-                ingestion_mapping=ASSET_ID,
-                preferred_consumer_view=ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
-            ),
+            selectors=[selector],
             data=AssetCentricMigrationIO(client),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path,
             dry_run=True,
         )
-        results = {item.status: item.count for item in result}
+        results = {item.status: item.count for item in result[str(selector)]}
         assert results == {"failure": 0, "pending": 2, "success": 0, "unchanged": 0}
 
 
@@ -120,19 +121,20 @@ class TestMigrateEventsCommand:
         client = toolkit_client
         hierarchy = migration_hierarchy_minimal
         cmd = MigrationCommand(skip_tracking=True, silent=True)
+        selector = MigrateDataSetSelector(
+            kind="Events",
+            data_set_external_id=hierarchy.dataset.external_id,
+            ingestion_mapping=EVENT_ID,
+            preferred_consumer_view=ViewReference(space="cdf_cdm", external_id="CogniteActivity", version="v1"),
+        )
         result = cmd.migrate(
-            selected=MigrateDataSetSelector(
-                kind="Events",
-                data_set_external_id=hierarchy.dataset.external_id,
-                ingestion_mapping=EVENT_ID,
-                preferred_consumer_view=ViewReference(space="cdf_cdm", external_id="CogniteActivity", version="v1"),
-            ),
+            selectors=[selector],
             data=AssetCentricMigrationIO(client),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path,
             dry_run=True,
         )
-        results = {item.status: item.count for item in result}
+        results = {item.status: item.count for item in result[str(selector)]}
         assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0}
 
 
@@ -143,19 +145,20 @@ class TestMigrateTimeSeriesCommand:
         client = toolkit_client
         hierarchy = migration_hierarchy_minimal
         cmd = MigrationCommand(skip_tracking=True, silent=True)
+        selector = MigrateDataSetSelector(
+            kind="TimeSeries",
+            data_set_external_id=hierarchy.dataset.external_id,
+            ingestion_mapping=TIME_SERIES_ID,
+            preferred_consumer_view=ViewReference(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"),
+        )
         result = cmd.migrate(
-            selected=MigrateDataSetSelector(
-                kind="TimeSeries",
-                data_set_external_id=hierarchy.dataset.external_id,
-                ingestion_mapping=TIME_SERIES_ID,
-                preferred_consumer_view=ViewReference(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"),
-            ),
+            selectors=[selector],
             data=AssetCentricMigrationIO(client, skip_linking=True),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path,
             dry_run=True,
         )
-        results = {item.status: item.count for item in result}
+        results = {item.status: item.count for item in result[str(selector)]}
         assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0}
 
 
@@ -166,19 +169,20 @@ class TestMigrateFileMetadataCommand:
         client = toolkit_client
         hierarchy = migration_hierarchy_minimal
         cmd = MigrationCommand(skip_tracking=True, silent=True)
+        selector = MigrateDataSetSelector(
+            kind="FileMetadata",
+            data_set_external_id=hierarchy.dataset.external_id,
+            ingestion_mapping=FILE_METADATA_ID,
+            preferred_consumer_view=ViewReference(space="cdf_cdm", external_id="CogniteFile", version="v1"),
+        )
         result = cmd.migrate(
-            selected=MigrateDataSetSelector(
-                kind="FileMetadata",
-                data_set_external_id=hierarchy.dataset.external_id,
-                ingestion_mapping=FILE_METADATA_ID,
-                preferred_consumer_view=ViewReference(space="cdf_cdm", external_id="CogniteFile", version="v1"),
-            ),
+            selectors=[selector],
             data=AssetCentricMigrationIO(client, skip_linking=False),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path,
             dry_run=True,
         )
-        results = {item.status: item.count for item in result}
+        results = {item.status: item.count for item in result[str(selector)]}
         assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0}
 
 
@@ -189,16 +193,17 @@ class TestMigrateAnnotations:
         client = toolkit_client
         hierarchy = migration_hierarchy_minimal
         cmd = MigrationCommand(skip_tracking=True, silent=True)
+        selector = MigrateDataSetSelector(
+            kind="Annotations",
+            data_set_external_id=hierarchy.dataset.external_id,
+        )
         result = cmd.migrate(
-            selected=MigrateDataSetSelector(
-                kind="Annotations",
-                data_set_external_id=hierarchy.dataset.external_id,
-            ),
+            selectors=[selector],
             data=AnnotationMigrationIO(client, instance_space="my_annotations_space"),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path,
             dry_run=True,
             verbose=True,
         )
-        results = {item.status: item.count for item in result}
+        results = {item.status: item.count for item in result[str(selector)]}
         assert results == {"failure": 0, "pending": 2, "success": 0, "unchanged": 0}

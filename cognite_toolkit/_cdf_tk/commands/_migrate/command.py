@@ -22,7 +22,6 @@ from cognite_toolkit._cdf_tk.constants import DMS_INSTANCE_LIMIT_MARGIN
 from cognite_toolkit._cdf_tk.cruds import ResourceWorker
 from cognite_toolkit._cdf_tk.data_classes import DeployResults
 from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitFileExistsError,
     ToolkitMigrationError,
     ToolkitValueError,
 )
@@ -54,61 +53,78 @@ class MigrationStatusResult:
 class MigrationCommand(ToolkitCommand):
     def migrate(
         self,
-        selected: T_Selector,
+        selectors: Sequence[T_Selector],
         data: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
         mapper: DataMapper[T_Selector, T_ResourceResponse, T_ResourceRequest],
         log_dir: Path,
         dry_run: bool = False,
         verbose: bool = False,
-    ) -> list[MigrationStatusResult]:
-        if log_dir.exists() and any(log_dir.iterdir()):
-            raise ToolkitFileExistsError(
-                f"Log directory {log_dir} already exists. Please remove it or choose another directory."
-            )
+    ) -> dict[str, list[MigrationStatusResult]]:
         self.validate_migration_model_available(data.client)
         log_dir.mkdir(parents=True, exist_ok=True)
-        mapper.prepare(selected)
 
-        iteration_count: int | None = None
-        total_items = data.count(selected)
-        if total_items is not None:
-            iteration_count = (total_items // data.CHUNK_SIZE) + (1 if total_items % data.CHUNK_SIZE > 0 else 0)
-            self.validate_available_capacity(data.client, total_items)
+        console = data.client.console
+        counts_by_selector: dict[T_Selector, int | None] = {}
+        total_all_items = 0
+        table = Table(title="Planned Migrations")
+        table.add_column("Data Type", style="cyan")
+        table.add_column("Item Count", justify="right", style="green")
+        for selected in selectors:
+            total_items = data.count(selected)
+            total_all_items += total_items if total_items is not None else 0
+            counts_by_selector[selected] = total_items
+            item_count = str(total_items) if total_items is not None else "Unknown"
+            table.add_row(str(selected), item_count)
+        console.print(table)
 
-        console = Console()
-        with (
-            NDJsonWriter(log_dir, kind=f"{selected.kind}MigrationIssues", compression=Uncompressed) as log_file,
-            HTTPClient(config=data.client.config) as write_client,
-        ):
-            logger = FileDataLogger(log_file)
-            data.logger = logger
-            mapper.logger = logger
+        if total_all_items:
+            self.validate_available_capacity(data.client, total_all_items)
 
-            executor = ProducerWorkerExecutor[Sequence[T_ResourceResponse], Sequence[UploadItem[T_ResourceRequest]]](
-                download_iterable=(page.items for page in data.stream_data(selected)),
-                process=self._convert(mapper, data),
-                write=self._upload(selected, write_client, data, dry_run),
-                iteration_count=iteration_count,
-                max_queue_size=10,
-                download_description=f"Downloading {selected.display_name}",
-                process_description="Converting",
-                write_description="Uploading",
-                console=console,
-                verbose=verbose,
-            )
+        results_by_selector: dict[str, list[MigrationStatusResult]] = {}
+        for selected in selectors:
+            mapper.prepare(selected)
 
-            executor.run()
-            total = executor.total_items
+            iteration_count: int | None = None
+            total_items = counts_by_selector[selected]
+            if total_items is not None:
+                iteration_count = (total_items // data.CHUNK_SIZE) + (1 if total_items % data.CHUNK_SIZE > 0 else 0)
 
-        results = self._create_status_summary(logger)
+            with (
+                NDJsonWriter(log_dir, kind=f"{selected.kind}MigrationIssues", compression=Uncompressed) as log_file,
+                HTTPClient(config=data.client.config) as write_client,
+            ):
+                logger = FileDataLogger(log_file)
+                data.logger = logger
+                mapper.logger = logger
 
-        self._print_rich_tables(results, console)
-        self._print_txt(results, log_dir, f"{selected.kind}Items", console)
-        executor.raise_on_error()
-        action = "Would migrate" if dry_run else "Migrating"
-        console.print(f"{action} {total:,} {selected.display_name} to instances.")
+                executor = ProducerWorkerExecutor[
+                    Sequence[T_ResourceResponse], Sequence[UploadItem[T_ResourceRequest]]
+                ](
+                    download_iterable=(page.items for page in data.stream_data(selected)),
+                    process=self._convert(mapper, data),
+                    write=self._upload(selected, write_client, data, dry_run),
+                    iteration_count=iteration_count,
+                    max_queue_size=10,
+                    download_description=f"Downloading {selected.display_name}",
+                    process_description="Converting",
+                    write_description="Uploading",
+                    console=console,
+                    verbose=verbose,
+                )
 
-        return results
+                executor.run()
+                total = executor.total_items
+
+            results = self._create_status_summary(logger)
+            results_by_selector[str(selected)] = results
+
+            self._print_rich_tables(results, console)
+            self._print_txt(results, log_dir, f"{selected.kind}Items", console)
+            executor.raise_on_error()
+            action = "Would migrate" if dry_run else "Migrating"
+            console.print(f"{action} {total:,} {selected.display_name} to instances.")
+
+        return results_by_selector
 
     # Todo: Move to the logger module
     @classmethod
