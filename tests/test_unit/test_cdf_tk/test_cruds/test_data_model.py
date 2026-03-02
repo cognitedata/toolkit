@@ -308,7 +308,7 @@ class TestViewDeployTopologicalSort:
         flat_ids = [view.external_id for batch in batches for view in batch]
         assert flat_ids.index("Target") < flat_ids.index("Source")
 
-    def test_create_topologically_sorted_calls_api_per_batch(self) -> None:
+    def test_create_dependency_ordered_calls_api_per_batch(self) -> None:
         parent = ViewRequest(space="sp_space", external_id="Parent", version="v1")
         child = ViewRequest(
             space="sp_space", external_id="Child", version="v1",
@@ -329,7 +329,7 @@ class TestViewDeployTopologicalSort:
         with monkeypatch_toolkit_client() as client:
             client.tool.views.create.side_effect = fake_create
             loader = ViewCRUD(client, Path("build_dir"), None)
-            result = loader._create_topologically_sorted([child, parent])
+            result = loader._create_dependency_ordered([child, parent])
 
         assert [r.external_id for r in result] == ["Parent", "Child"]
         assert client.tool.views.create.call_count == 2

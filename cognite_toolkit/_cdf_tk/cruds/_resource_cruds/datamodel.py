@@ -703,7 +703,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
 
     def create(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
         if Flags.DEPENDENCY_ORDERED_DEPLOY.is_enabled():
-            return self._create_topologically_sorted(items)
+            return self._create_dependency_ordered(items)
         try:
             return self.client.tool.views.create(items)
         except ToolkitAPIError as e1:
@@ -712,7 +712,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                 return self._fallback_create_one_by_one(items, e1)
             raise
 
-    def _create_topologically_sorted(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
+    def _create_dependency_ordered(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
         creation_order = self._compute_deploy_batches(items)
         created: list[ViewResponse] = []
         for batch in creation_order:  # TODO: Smarter batching strategy across SCCs
