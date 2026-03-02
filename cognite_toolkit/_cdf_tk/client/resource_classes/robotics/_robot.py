@@ -5,7 +5,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import DataSetId
+from cognite_toolkit._cdf_tk.client._types import Metadata
+from cognite_toolkit._cdf_tk.client.identifiers import DataSetId
 
 from ._common import RobotType
 
@@ -29,7 +30,7 @@ class Robot(BaseModelObject):
     robot_type: RobotType
     data_set_id: int
     description: str | None = None
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
     location_external_id: str | None = None
 
     def as_id(self) -> DataSetId:
@@ -54,5 +55,6 @@ class RobotResponse(Robot, ResponseResource[RobotRequest]):
     created_time: int
     updated_time: int
 
-    def as_request_resource(self) -> RobotRequest:
-        return RobotRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[RobotRequest]:
+        return RobotRequest

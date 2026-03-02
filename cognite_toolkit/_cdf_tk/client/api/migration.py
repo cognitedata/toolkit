@@ -14,8 +14,8 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from cognite_toolkit._cdf_tk.client.api.instances import WrappedInstancesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, ViewReference
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
+from cognite_toolkit._cdf_tk.client.identifiers import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
     AssetCentricId,
     CreatedSourceSystem,
@@ -83,14 +83,12 @@ class InstanceSourceAPI:
         return NodeList[InstanceSource]([InstanceSource._load(node.dump()) for node in nodes])
 
 
-class ResourceViewMappingsAPI(
-    WrappedInstancesAPI[TypedNodeIdentifier, ResourceViewMappingRequest, ResourceViewMappingResponse]
-):
+class ResourceViewMappingsAPI(WrappedInstancesAPI[NodeReference, ResourceViewMappingResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(http_client, ResourceViewMappingRequest.VIEW_ID)
 
-    def _validate_response(self, response: SuccessResponse) -> ResponseItems[TypedNodeIdentifier]:
-        return ResponseItems[TypedNodeIdentifier].model_validate_json(response.body)
+    def _validate_response(self, response: SuccessResponse) -> ResponseItems[NodeReference]:
+        return ResponseItems[NodeReference].model_validate_json(response.body)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse

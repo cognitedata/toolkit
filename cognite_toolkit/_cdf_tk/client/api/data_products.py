@@ -5,13 +5,13 @@ from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 
 from .data_product_versions import DataProductVersionsAPI
 
 
-class DataProductsAPI(CDFResourceAPI[ExternalId, DataProductRequest, DataProductResponse]):
+class DataProductsAPI(CDFResourceAPI[DataProductResponse]):
     """API for managing CDF data products."""
 
     def __init__(self, http_client: HTTPClient) -> None:

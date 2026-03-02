@@ -19,6 +19,7 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.builders import create_builder
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, ENV_VAR_PATTERN
 from cognite_toolkit._cdf_tk.cruds import (
     ExtractionPipelineConfigCRUD,
@@ -44,7 +45,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
     YAMLComments,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResourceError, ToolkitValueError
-from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     YAMLComment,
@@ -515,7 +515,7 @@ class PullCommand(ToolkitCommand):
             if not issubclass(loader_cls, ResourceCRUD):
                 continue
             loader = loader_cls.create_loader(client, build_dir)
-            resources: BuiltFullResourceList[T_ID] = built_modules.get_resources(  # type: ignore[valid-type]
+            resources: BuiltFullResourceList[T_Identifier] = built_modules.get_resources(  # type: ignore[valid-type]
                 None,
                 loader.folder_name,  # type: ignore[arg-type]
                 loader.kind,
@@ -550,13 +550,13 @@ class PullCommand(ToolkitCommand):
 
     def _pull_resources(
         self,
-        loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
-        resources: BuiltFullResourceList[T_ID],
+        loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        resources: BuiltFullResourceList[T_Identifier],
         dry_run: bool,
         environment_variables: dict[str, str | None],
     ) -> ResourceDeployResult:
         cdf_resources = loader.retrieve(resources.identifiers)
-        cdf_resource_by_id: dict[T_ID, T_ResourceResponse] = {loader.get_id(r): r for r in cdf_resources}
+        cdf_resource_by_id: dict[T_Identifier, T_ResponseResource] = {loader.get_id(r): r for r in cdf_resources}
 
         resources_by_file = resources.by_file()
         file_results = ResourceDeployResult(loader.display_name)
@@ -580,9 +580,9 @@ class PullCommand(ToolkitCommand):
     def _get_to_write(
         self,
         local_resource_by_id: dict[T_ID, dict[str, Any]],
-        cdf_resource_by_id: dict[T_ID, T_ResourceResponse],
+        cdf_resource_by_id: dict[T_ID, T_ResponseResource],
         file_results: ResourceDeployResult,
-        loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
+        loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
     ) -> tuple[bool, dict[T_ID, dict[str, Any]]]:
         to_write: dict[T_ID, dict[str, Any]] = {}
         has_changes = False
@@ -611,11 +611,11 @@ class PullCommand(ToolkitCommand):
     @staticmethod
     def _get_local_resource_dict_by_id(
         resources: BuiltFullResourceList[T_ID],
-        loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
+        loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         environment_variables: dict[str, str | None],
-    ) -> dict[T_ID, dict[str, Any]]:
+    ) -> dict[T_Identifier, dict[str, Any]]:
         unique_destinations = {r.destination for r in resources if r.destination}
-        local_resource_by_id: dict[T_ID, dict[str, Any]] = {}
+        local_resource_by_id: dict[T_Identifier, dict[str, Any]] = {}
         local_resource_ids = set(resources.identifiers)
         for destination in unique_destinations:
             resource_list = loader.load_resource_file(destination, environment_variables)
@@ -648,7 +648,7 @@ class PullCommand(ToolkitCommand):
         to_write: dict[T_ID, dict[str, Any]],
         resources: BuiltFullResourceList[T_ID],
         environment_variables: dict[str, str | None],
-        loader: ResourceCRUD[T_ID, T_ResourceRequest, T_ResourceResponse],
+        loader: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         source_file: Path,
     ) -> tuple[str, dict[Path, str]]:
         """Convert resource data from CDF into YAML file content ready to be written to disk.
@@ -742,7 +742,9 @@ class PullCommand(ToolkitCommand):
         if isinstance(loaded, dict) and isinstance(loaded_with_placeholder, dict):
             item_id = loader.get_id(loaded)
             updated = self._update(
-                item_id,
+                # Here we make a T_Identifier into a T_ID.
+                # T_Identifier < T_ID so it should be safe to ignore the type here.
+                item_id,  # type: ignore[misc]
                 loaded,
                 loaded_with_placeholder,
                 to_write,
@@ -756,7 +758,9 @@ class PullCommand(ToolkitCommand):
                 item_id = loader.get_id(item)
                 updated.append(
                     self._update(
-                        item_id,
+                        # Here we make a T_Identifier into a T_ID
+                        # T_Identifier < T_ID so it should be safe to ignore the type here.
+                        item_id,  # type: ignore[misc]
                         item,
                         loaded_with_placeholder[i],
                         to_write,

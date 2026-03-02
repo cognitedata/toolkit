@@ -5,9 +5,15 @@ from pydantic import Field, JsonValue, TypeAdapter, field_serializer
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    ContainerDirectReference,
+    ContainerReference,
+    NodeReferenceUntyped,
+    ViewDirectReference,
+    ViewReference,
+)
 
 from ._data_types import DataType
-from ._references import ContainerDirectReference, ContainerReference, NodeReference, ViewDirectReference, ViewReference
 
 
 class ViewPropertyDefinition(BaseModelObject, ABC):
@@ -66,7 +72,7 @@ class ConnectionPropertyDefinition(ViewPropertyDefinition, ABC):
 
 class EdgeProperty(ConnectionPropertyDefinition, ABC):
     source: ViewReference
-    type: NodeReference
+    type: NodeReferenceUntyped
     edge_source: ViewReference | None = None
     direction: Literal["outwards", "inwards"] = "outwards"
 

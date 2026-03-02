@@ -4,12 +4,13 @@ import sys
 import types
 from abc import ABC, abstractmethod
 from functools import total_ordering
-from typing import Any, ClassVar, Generic, Literal, TypeVar, Union, get_args, get_origin
+from typing import Annotated, Any, ClassVar, Generic, Literal, TypeVar, Union, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 from pydantic_core import PydanticUndefined
 
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, yaml_safe_dump
 
 if sys.version_info >= (3, 11):
@@ -22,7 +23,9 @@ class BaseModelObject(BaseModel):
     """Base class for all object. This includes resources and nested objects."""
 
     # We allow extra fields to support forward compatibility.
-    model_config = ConfigDict(alias_generator=to_camel, extra="allow", populate_by_name=True)
+    model_config = ConfigDict(
+        alias_generator=to_camel, extra="allow" if Flags.v08.is_enabled() else "ignore", populate_by_name=True
+    )
 
     def model_post_init(self, __context: Any) -> None:
         super().model_post_init(__context)
@@ -73,6 +76,9 @@ class BaseModelObject(BaseModel):
         if not isinstance(content, dict):
             raise ValueError(f"YAML content must be a dictionary to load into {cls}, got {type(content)}")
         return cls._load(content)
+
+
+T_BaseModelObject = TypeVar("T_BaseModelObject", bound=BaseModelObject)
 
 
 class RequestItem(BaseModelObject, ABC):
@@ -189,6 +195,12 @@ def _get_annotation_origin(field_type: Any) -> Any:
     origin = get_origin(field_type)
     args = get_args(field_type)
 
+    # Handle Annotated types by extracting the underlying type
+    if origin is Annotated and args:
+        field_type = args[0]
+        origin = get_origin(field_type)
+        args = get_args(field_type)
+
     # Check for Union type (both typing.Union and | syntax from Python 3.10+)
     is_union = origin is Union or isinstance(field_type, getattr(types, "UnionType", ()))
 
@@ -199,14 +211,24 @@ def _get_annotation_origin(field_type: Any) -> Any:
         if len(non_none_args) == 1:
             field_type = non_none_args[0]
             origin = get_origin(field_type) or field_type
+
+            if origin is Annotated:
+                return _get_annotation_origin(field_type)
+
     return origin
 
 
 class ResponseResource(BaseModelObject, Generic[T_RequestResource], ABC):
+    @classmethod
     @abstractmethod
+    def request_cls(cls) -> type[T_RequestResource]:
+        """Return the class of the corresponding request resource."""
+        raise NotImplementedError()
+
     def as_request_resource(self) -> T_RequestResource:
         """Convert the response resource to a request resource."""
-        raise NotImplementedError()
+        request_cls = self.request_cls()
+        return request_cls.model_validate(self.dump(), extra="ignore", by_alias=True)
 
     # Todo remove when CogniteClient data classes are completely removed from the codebase
     # and we only use the pydantic resource classes instead.from

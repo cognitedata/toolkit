@@ -34,6 +34,7 @@ class CLIConfig:
     default_env: str = "dev"
     default_config_yaml = "dev"
     file_encoding: str | None = None
+    file_upload_timeout_seconds: int = 120
     has_user_set_default_org: bool = False
     has_user_set_default_env: bool = False
 
@@ -42,12 +43,14 @@ class CLIConfig:
         has_user_set_default_org = "default_organization_dir" in raw
         has_user_set_default_env = "default_env" in raw
         default_organization_dir = cwd / raw["default_organization_dir"] if has_user_set_default_org else Path.cwd()
+
         return cls(
             default_organization_dir=default_organization_dir,
             default_env=raw.get("default_env", "dev"),
             file_encoding=raw.get("file_encoding"),
             has_user_set_default_org=has_user_set_default_org,
             has_user_set_default_env=has_user_set_default_env,
+            file_upload_timeout_seconds=raw.get("file_upload_timeout_seconds", 120),
         )
 
 

@@ -25,25 +25,24 @@ from cognite.client.data_classes.capabilities import (
     GroupsAcl,
     SecurityCategoriesAcl,
 )
-from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.console import Console
 from rich.markup import escape
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
-from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    GroupRequest,
-    GroupResponse,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
+from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     InternalId,
     InternalIdUnwrapped,
     NameId,
     RawDatabaseId,
     RawTableId,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    GroupRequest,
+    GroupResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryRequest,
@@ -181,7 +180,7 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
                     if extraction_pipeline_ids := scope.get(cap.ExtractionPipelineScope._scope_name, []):
                         if isinstance(extraction_pipeline_ids, dict) and "ids" in extraction_pipeline_ids:
                             for extraction_pipeline_id in extraction_pipeline_ids["ids"]:
-                                yield ExtractionPipelineCRUD, extraction_pipeline_id
+                                yield ExtractionPipelineCRUD, ExternalId(external_id=extraction_pipeline_id)
                     if asset_root_ids := scope.get(cap.AssetRootIDScope._scope_name, []):
                         if isinstance(asset_root_ids, dict) and "rootIds" in asset_root_ids:
                             for asset_root_id in asset_root_ids["rootIds"]:
@@ -202,7 +201,7 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
                             loader = LocationFilterCRUD
                         if loader is not None and isinstance(ids, dict) and "ids" in ids:
                             for id_ in ids["ids"]:
-                                if loader in {TimeSeriesCRUD, LocationFilterCRUD, DataSetsCRUD}:
+                                if loader in {TimeSeriesCRUD, LocationFilterCRUD, DataSetsCRUD, ExtractionPipelineCRUD}:
                                     yield loader, ExternalId(external_id=id_)
                                 elif loader is SecurityCategoryCRUD:
                                     yield loader, NameId(name=id_)
@@ -379,12 +378,12 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
                     created_list.extend(created)
             return created_list
 
-    def retrieve(self, ids: SequenceNotStr[NameId]) -> list[GroupResponse]:
+    def retrieve(self, ids: Sequence[NameId]) -> list[GroupResponse]:
         names = {id.name for id in ids}
         remote = self.client.tool.groups.list(all_groups=True)
         return [g for g in remote if g.name in names]
 
-    def delete(self, ids: SequenceNotStr[NameId]) -> int:
+    def delete(self, ids: Sequence[NameId]) -> int:
         return self._delete(self.retrieve(ids), check_own_principal=True)
 
     def _delete(self, delete_candidates: list[GroupResponse], check_own_principal: bool = True) -> int:
@@ -531,12 +530,12 @@ class SecurityCategoryCRUD(ResourceCRUD[NameId, SecurityCategoryRequest, Securit
     def create(self, items: Sequence[SecurityCategoryRequest]) -> list[SecurityCategoryResponse]:
         return self.client.tool.security_categories.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[NameId]) -> list[SecurityCategoryResponse]:
+    def retrieve(self, ids: Sequence[NameId]) -> list[SecurityCategoryResponse]:
         names = {id.name for id in ids}
         categories = self.client.tool.security_categories.list(limit=None)
         return [c for c in categories if c.name in names]
 
-    def delete(self, ids: SequenceNotStr[NameId]) -> int:
+    def delete(self, ids: Sequence[NameId]) -> int:
         retrieved = self.retrieve(ids)
         if retrieved:
             self.client.tool.security_categories.delete([InternalIdUnwrapped(id=cat.id) for cat in retrieved])

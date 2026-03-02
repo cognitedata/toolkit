@@ -11,6 +11,7 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.exceptions import CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartCoreTimeseries,
     ChartSource,
@@ -24,14 +25,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewReference,
     ViewResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceIdentifier, TypedNodeIdentifier
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     ContainerReferenceApply,
     FdmInstanceContainerReferenceApply,
     IndustrialCanvas,
     IndustrialCanvasApply,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartWrite
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     RESOURCE_VIEW_MAPPING_SPACE,
     ResourceViewMappingRequest,
@@ -108,7 +107,7 @@ class AssetCentricMapper(
 
     def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
         ingestion_view_ids = source_selector.get_ingestion_mappings()
-        node_ids = TypedNodeIdentifier.from_str_ids(ingestion_view_ids, space=RESOURCE_VIEW_MAPPING_SPACE)
+        node_ids = NodeReference.from_str_ids(ingestion_view_ids, space=RESOURCE_VIEW_MAPPING_SPACE)
         ingestion_views = self.client.migration.resource_view_mapping.retrieve(node_ids)
         defaults = {mapping.external_id: mapping for mapping in create_default_mappings()}
         # Custom mappings from CDF override the default mappings
@@ -202,10 +201,10 @@ class AssetCentricMapper(
         return instance, conversion_issue
 
 
-class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
-    def map(self, source: Sequence[Chart]) -> Sequence[ChartWrite | None]:
+class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
+    def map(self, source: Sequence[ChartResponse]) -> Sequence[ChartRequest | None]:
         self._populate_cache(source)
-        output: list[ChartWrite | None] = []
+        output: list[ChartRequest | None] = []
         issues: list[ChartMigrationIssue] = []
         for item in source:
             mapped_item, issue = self._map_single_item(item)
@@ -228,7 +227,7 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
             self.logger.log(issues)
         return output
 
-    def _populate_cache(self, source: Sequence[Chart]) -> None:
+    def _populate_cache(self, source: Sequence[ChartResponse]) -> None:
         """Populate the internal cache with timeseries from the source charts.
 
         Note that the consumption views are also cached as part of the timeseries lookup.
@@ -246,7 +245,7 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
         if timeseries_external_ids:
             self.client.migration.lookup.time_series(external_id=list(timeseries_external_ids))
 
-    def _map_single_item(self, item: Chart) -> tuple[ChartWrite | None, ChartMigrationIssue]:
+    def _map_single_item(self, item: ChartResponse) -> tuple[ChartRequest | None, ChartMigrationIssue]:
         issue = ChartMigrationIssue(chart_external_id=item.external_id, id=item.external_id)
         time_series_collection = item.data.time_series_collection or []
         timeseries_core_collection = self._create_timeseries_core_collection(time_series_collection, issue)
@@ -257,7 +256,7 @@ class ChartMapper(DataMapper[ChartSelector, Chart, ChartWrite]):
             item.data.source_collection or [], time_series_collection, timeseries_core_collection
         )
 
-        mapped_chart = item.as_write()
+        mapped_chart = item.as_request_resource()
         mapped_chart.data.core_timeseries_collection = timeseries_core_collection
         mapped_chart.data.time_series_collection = None
         mapped_chart.data.source_collection = updated_source_collection
@@ -564,7 +563,7 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeD
                 type=model_type,
                 revision_id=last_revision_id,
                 model=Model(
-                    instance_id=InstanceIdentifier(
+                    instance_id=NodeReference(
                         space=instance_space,
                         external_id=f"cog_3d_model_{item.id!s}",
                     )

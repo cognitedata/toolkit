@@ -5,7 +5,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExtractionPipelineConfigId
+from cognite_toolkit._cdf_tk.client.identifiers import ExtractionPipelineConfigId
 
 
 class ExtractionPipelineConfig(BaseModelObject):
@@ -45,6 +45,6 @@ class ExtractionPipelineConfigResponse(ExtractionPipelineConfig, ResponseResourc
     revision: int
     created_time: int
 
-    def as_request_resource(self) -> ExtractionPipelineConfigRequest:
-        """Convert the response object to a request resource object."""
-        return ExtractionPipelineConfigRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[ExtractionPipelineConfigRequest]:
+        return ExtractionPipelineConfigRequest

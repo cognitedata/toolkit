@@ -5,8 +5,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
-
-from .identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 
 
 class TransformationNotification(BaseModelObject):
@@ -34,5 +33,6 @@ class TransformationNotificationResponse(
     transformation_id: int
     transformation_external_id: str | None = None
 
-    def as_request_resource(self) -> TransformationNotificationRequest:
-        return TransformationNotificationRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[TransformationNotificationRequest]:
+        return TransformationNotificationRequest

@@ -7,9 +7,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
+from cognite_toolkit._cdf_tk.client.identifiers import DataProductVersionId, SemanticVersion
 from cognite_toolkit._cdf_tk.constants import SPACE_FORMAT_PATTERN
-
-from .identifiers import DataProductVersionId, SemanticVersion
 
 SpaceId = Annotated[str, Field(pattern=SPACE_FORMAT_PATTERN, max_length=43)]
 
@@ -91,6 +90,10 @@ class DataProductVersionResponse(DataProductVersion, ResponseResource[DataProduc
     data_product_external_id: str = Field(default="", exclude=True)
     created_time: int
     last_updated_time: int
+
+    @classmethod
+    def request_cls(cls) -> type[DataProductVersionRequest]:
+        return DataProductVersionRequest
 
     def as_request_resource(self) -> DataProductVersionRequest:
         data = self.dump(camel_case=False)

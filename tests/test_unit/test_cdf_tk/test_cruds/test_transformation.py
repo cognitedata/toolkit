@@ -7,12 +7,12 @@ import yaml
 from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelReference,
     SpaceReference,
     ViewReference,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     NonceCredentials,
     TransformationRequest,

@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 
 
-class ContainersAPI(CDFResourceAPI[ContainerReference, ContainerRequest, ContainerResponse]):
+class ContainersAPI(CDFResourceAPI[ContainerResponse]):
     """API for managing CDF data modeling containers.
 
     Containers use an apply/upsert pattern for create and update operations.
@@ -26,7 +26,9 @@ class ContainersAPI(CDFResourceAPI[ContainerReference, ContainerRequest, Contain
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                "upsert": Endpoint(method="POST", path="/models/containers", item_limit=100),
+                # The actual API limit is 100, but depending on the number of properties DMS struggles with large
+                # batches, thus, we set it to 50 to be safe.
+                "upsert": Endpoint(method="POST", path="/models/containers", item_limit=50),
                 "retrieve": Endpoint(method="POST", path="/models/containers/byids", item_limit=100),
                 "delete": Endpoint(method="POST", path="/models/containers/delete", item_limit=100),
                 "list": Endpoint(method="GET", path="/models/containers", item_limit=1000),

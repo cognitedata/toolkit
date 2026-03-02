@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+import yaml
 from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
 from cognite.client.credentials import OAuthClientCredentials
@@ -28,7 +29,9 @@ from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelRequest,
     InstanceSource,
@@ -44,8 +47,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     IDScopeLowerCase,
     TimeSeriesAcl,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import (
     ExtendableCogniteFileApply,
@@ -68,6 +69,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     CogniteFileCRUD,
     DataModelCRUD,
     DatapointSubscriptionCRUD,
+    ExtractionPipelineCRUD,
     FunctionCRUD,
     FunctionScheduleCRUD,
     GroupCRUD,
@@ -83,6 +85,7 @@ from cognite_toolkit._cdf_tk.cruds import (
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from cognite_toolkit._cdf_tk.utils import read_yaml_content
 from tests.test_integration.constants import RUN_UNIQUE_ID
+from tests.test_integration.helpers import retry_on_deadlock
 
 
 class TestFunctionScheduleLoader:
@@ -713,13 +716,15 @@ class TestCogniteFileLoader:
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> None:
         loader = CogniteFileCRUD(toolkit_client, None)
         # Loading from YAML to test the loading of extra properties as well
-        file = ExtendableCogniteFileApply.load(f"""space: {toolkit_space.space}
+        file = CogniteFileRequest._load(
+            yaml.safe_load(f"""space: {toolkit_space.space}
 externalId: tmp_test_create_update_delete_file_{RUN_UNIQUE_ID}
 name: My file
 description: Original description
 """)
+        )
         try:
-            created = loader.create(ExtendableCogniteFileApplyList([file]))
+            created = loader.create([file])
             assert len(created) == 1
 
             retrieved = loader.retrieve([file.as_id()])
@@ -727,10 +732,9 @@ description: Original description
             assert retrieved[0].name == "My file"
             assert retrieved[0].description == "Original description"
 
-            update = ExtendableCogniteFileApply._load(file.dump(context="local"))
-            update.description = "Updated description"
+            update = file.model_copy(update={"description": "Updated description"})
 
-            updated = loader.update(ExtendableCogniteFileApplyList([update]))
+            updated = retry_on_deadlock(lambda: loader.update([update]))
             assert len(updated) == 1
 
             retrieved = loader.retrieve([file.as_id()])
@@ -738,7 +742,7 @@ description: Original description
             assert retrieved[0].description == "Updated description"
             assert retrieved[0].name == "My file"
         finally:
-            loader.delete([file.as_id()])
+            retry_on_deadlock(lambda: loader.delete([file.as_id()]))
 
     @pytest.mark.skip("For now, we do not support creating extensions")
     def test_create_update_retrieve_delete_extension(
@@ -1091,14 +1095,12 @@ class TestNodeLoader:
             created = loader.create([existing_node])
             assert len(created) == 1
 
-            updated = loader.update([updated_node])
+            updated = retry_on_deadlock(lambda: loader.update([updated_node]))
             assert len(updated) == 1
 
             retrieved = toolkit_client.tool.instances.retrieve(
                 [existing_node.as_id()],
-                source=TypedViewReference(
-                    space=view_id.space, external_id=view_id.external_id, version=view_id.version
-                ),
+                source=ViewReference(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
             )
             assert len(retrieved) == 1
             node = retrieved[0]
@@ -1108,7 +1110,7 @@ class TestNodeLoader:
                 "aliases": ["alias1", "alias2"],  # Add new aliases
             }
         finally:
-            loader.delete([existing_node.as_id()])
+            _ = retry_on_deadlock(lambda: loader.delete([existing_node.as_id()]))
 
 
 class TestViewLoader:
@@ -1238,3 +1240,46 @@ description: ""
                     client.tool.functions.delete([ExternalId(external_id=external_id)])
 
                 client.data_modeling.instances.delete((toolkit_space.space, external_id))
+
+
+class TestExtractionPipelineIO:
+    def test_unchanged_no_redeploy(
+        self, toolkit_client: ToolkitClient, toolkit_dataset: DataSet, populated_raw_table: RawTableId
+    ) -> None:
+        definition_yaml = f"""externalId: test_extraction_pipeline_io_no_redeploy_{RUN_UNIQUE_ID}
+name: Test Extraction Pipeline IO No Redeploy
+dataSetExternalId: {toolkit_dataset.external_id}
+description: Export Data to CDF
+rawTables:
+- dbName: {populated_raw_table.db_name}
+  tableName: {populated_raw_table.name}
+schedule: 55 * * * *
+contacts:
+- name: A person to notify
+  email: example@email.com
+  role: Support
+  sendNotification: true
+source: here
+documentation: To Do
+createdBy: null
+"""
+        loader = ExtractionPipelineCRUD.create_loader(toolkit_client)
+
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = definition_yaml
+
+        resource_dict = loader.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(resource_dict[0])
+        if not loader.retrieve([resource.as_id()]):
+            _ = loader.create([resource])
+
+        worker = ResourceWorker(loader, "deploy")
+        resources = worker.prepare_resources([filepath])
+
+        assert {
+            "create": len(resources.to_create),
+            "change": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
+        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}

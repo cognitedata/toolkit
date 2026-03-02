@@ -3,16 +3,17 @@ from uuid import uuid4
 
 import pytest
 from cognite.client.data_classes import TimeSeries, TimeSeriesWrite, UserProfile
-from cognite.client.exceptions import CogniteNotFoundError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartData,
     ChartSource,
     ChartTimeseries,
     UserInfo,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartWrite
 
 
 @pytest.fixture(scope="session")
@@ -31,65 +32,66 @@ def timeseries(toolkit_client: ToolkitClient) -> TimeSeries:
 
 
 class TestChartsAPI:
-    def test_upsert_retrieve_list_delete(self, toolkit_client: ToolkitClient, timeseries: TimeSeries) -> None:
+    def test_create_retrieve_list_delete(self, toolkit_client: ToolkitClient, timeseries: TimeSeries) -> None:
         me = toolkit_client.iam.user_profiles.me()
         chart_id = str(uuid4())
         chart = self.create_chart(chart_id, me, timeseries)
 
-        created: Chart | None = None
+        created: list[ChartResponse] = []
         try:
-            created = toolkit_client.charts.upsert(chart)
+            created = toolkit_client.charts.create([chart])
 
-            retrieved = toolkit_client.charts.retrieve(external_id=chart_id)
-            assert retrieved.external_id == chart_id
+            retrieved = toolkit_client.charts.retrieve([ExternalId(external_id=chart_id)])
+            assert len(retrieved) == 1
+            assert retrieved[0].external_id == chart_id
 
             listed = toolkit_client.charts.list(is_owned=True, visibility="PUBLIC")
             assert any(c.external_id == chart_id for c in listed)
 
-            toolkit_client.charts.delete(external_id=chart_id)
+            toolkit_client.charts.delete([ExternalId(external_id=chart_id)])
 
-            retrieved2 = toolkit_client.charts.retrieve(external_id=chart_id)
-            assert retrieved2 is None, "Chart should be deleted and not retrievable."
+            with pytest.raises(ToolkitAPIError):
+                toolkit_client.charts.retrieve([ExternalId(external_id=chart_id)])
         finally:
             if created:
-                with suppress(CogniteNotFoundError):
-                    toolkit_client.charts.delete(chart_id)
+                with suppress(ToolkitAPIError):
+                    toolkit_client.charts.delete([ExternalId(external_id=chart_id)])
 
     @staticmethod
-    def create_chart(chart_id: str, me: UserProfile, ts: TimeSeries) -> ChartWrite:
+    def create_chart(chart_id: str, me: UserProfile, ts: TimeSeries) -> ChartRequest:
         ts_chart_id = str(uuid4())
-        return ChartWrite(
+        return ChartRequest(
             external_id=chart_id,
             visibility="PUBLIC",
             data=ChartData(
                 version=1,
                 name="Toolkit Test Chart",
-                dateFrom="1916-06-15T12:35:46.880Z",
-                dateTo="2279-04-14T07:10:41.670Z",
-                userInfo=UserInfo(id=me.user_identifier, email=me.email, displayName=me.display_name),
-                liveMode=False,
-                timeSeriesCollection=[
+                date_from="1916-06-15T12:35:46.880Z",
+                date_to="2279-04-14T07:10:41.670Z",
+                user_info=UserInfo(id=me.user_identifier, email=me.email, display_name=me.display_name),
+                live_mode=False,
+                time_series_collection=[
                     ChartTimeseries(
                         type="timeseries",
                         id=ts_chart_id,
                         name=ts.name,
                         color="#1192e8",
-                        tsId=ts.id,
-                        tsExternalId=ts.external_id,
-                        lineWeight=1.0,
-                        lineStyle="solid",
+                        ts_id=ts.id,
+                        ts_external_id=ts.external_id,
+                        line_weight=1.0,
+                        line_style="solid",
                         interpolation="linear",
-                        displayMode="lines",
+                        display_mode="lines",
                         enabled=True,
                         unit="",
-                        originalUnit="",
-                        preferredUnit="",
+                        original_unit="",
+                        preferred_unit="",
                         description="-",
-                        range=(None, None),
-                        createdAt=1755456114956,
+                        range=[None, None],
+                        created_at=1755456114956,
                     )
                 ],
-                workflowCollection=[],
-                sourceCollection=[ChartSource(type="timeseries", id=ts_chart_id)],
+                workflow_collection=[],
+                source_collection=[ChartSource(type="timeseries", id=ts_chart_id)],
             ),
         )

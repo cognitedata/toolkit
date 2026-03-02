@@ -8,14 +8,13 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage,
     SuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReferenceNoVersion
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import (
     SearchConfigRequest,
     SearchConfigResponse,
 )
 
 
-class SearchConfigurationsAPI(CDFResourceAPI[ViewReferenceNoVersion, SearchConfigRequest, SearchConfigResponse]):
+class SearchConfigurationsAPI(CDFResourceAPI[SearchConfigResponse]):
     """API for managing Search Configurations using the CDFResourceAPI pattern.
 
     This API manages search view configurations at:

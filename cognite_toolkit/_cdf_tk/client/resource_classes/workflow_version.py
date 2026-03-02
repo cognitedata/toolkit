@@ -5,11 +5,11 @@ from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
+    Identifier,
     RequestResource,
     ResponseResource,
 )
-
-from .identifiers import Identifier, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
 
 TaskType: TypeAlias = Literal["function", "transformation", "cdf", "dynamic", "subworkflow", "simulation"]
 
@@ -159,5 +159,6 @@ class WorkflowVersionResponse(WorkflowVersion, ResponseResource[WorkflowVersionR
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> WorkflowVersionRequest:
-        return WorkflowVersionRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[WorkflowVersionRequest]:
+        return WorkflowVersionRequest

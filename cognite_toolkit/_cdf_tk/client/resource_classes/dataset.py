@@ -5,15 +5,15 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
-
-from .identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client._types import Metadata
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 
 class DataSet(BaseModelObject):
     external_id: str | None = None
     name: str | None = None
     description: str | None = None
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
     write_protected: bool | None = None
 
     def as_id(self) -> ExternalId:
@@ -32,5 +32,6 @@ class DataSetResponse(DataSet, ResponseResource[DataSetRequest]):
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> DataSetRequest:
-        return DataSetRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[DataSetRequest]:
+        return DataSetRequest

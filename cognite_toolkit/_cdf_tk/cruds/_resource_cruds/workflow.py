@@ -24,12 +24,11 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     WorkflowOrchestrationAcl,
 )
-from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     NonceCredentials,
@@ -135,7 +134,7 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         return dumped
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[WorkflowResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[WorkflowResponse]:
         return self.client.tool.workflows.retrieve(list(ids), ignore_unknown_ids=True)
 
     def create(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
@@ -144,7 +143,7 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
     def update(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
         return self.client.tool.workflows.update(items)
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.workflows.delete(list(ids))
@@ -384,7 +383,7 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest
                 )
         return warnings
 
-    def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> list[WorkflowVersionResponse]:
+    def retrieve(self, ids: Sequence[WorkflowVersionId]) -> list[WorkflowVersionResponse]:
         if not ids:
             return []
         return self.client.tool.workflows.versions.retrieve(list(ids), ignore_unknown_ids=True)
@@ -401,7 +400,7 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest
     def update(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
         return self._upsert(items)
 
-    def delete(self, ids: SequenceNotStr[WorkflowVersionId]) -> int:
+    def delete(self, ids: Sequence[WorkflowVersionId]) -> int:
         if not ids:
             return 0
         self.client.tool.workflows.versions.delete(list(ids))
@@ -542,7 +541,7 @@ class WorkflowTriggerCRUD(ResourceCRUD[ExternalId, WorkflowTriggerRequest, Workf
                 raise ResourceCreationError(f"Failed to create WorkflowTrigger {item.external_id}: {hint}") from e
             raise e
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[WorkflowTriggerResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[WorkflowTriggerResponse]:
         all_triggers = self.client.tool.workflows.triggers.list(limit=None)
         lookup = {id_.external_id for id_ in ids}
         return [trigger for trigger in all_triggers if trigger.external_id in lookup]
@@ -550,7 +549,7 @@ class WorkflowTriggerCRUD(ResourceCRUD[ExternalId, WorkflowTriggerRequest, Workf
     def update(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
         return self._upsert(items)
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.workflows.triggers.delete(list(ids))

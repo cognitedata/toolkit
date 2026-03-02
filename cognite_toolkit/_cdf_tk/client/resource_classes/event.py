@@ -1,3 +1,4 @@
+import builtins
 from typing import ClassVar
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
@@ -5,8 +6,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
-
-from .identifiers import ExternalId, InternalOrExternalId
+from cognite_toolkit._cdf_tk.client._types import Metadata
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalOrExternalId
 
 
 class Event(BaseModelObject):
@@ -17,7 +18,7 @@ class Event(BaseModelObject):
     type: str | None = None
     subtype: str | None = None
     description: str | None = None
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
     asset_ids: list[int] | None = None
     source: str | None = None
 
@@ -36,5 +37,6 @@ class EventResponse(Event, ResponseResource[EventRequest]):
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> EventRequest:
-        return EventRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> builtins.type[EventRequest]:
+        return EventRequest

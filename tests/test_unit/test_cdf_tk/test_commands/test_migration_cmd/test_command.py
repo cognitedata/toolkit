@@ -9,7 +9,6 @@ import httpx
 import pytest
 import responses
 import respx
-from cognite.client.data_classes import Annotation, AnnotationList
 from cognite.client.data_classes.data_modeling import (
     DataModel,
     DataModelList,
@@ -22,11 +21,12 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData, ChartSource, ChartTimeseries
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import ContainerReference, IndustrialCanvas
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource as LegacyInstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
@@ -230,8 +230,9 @@ class TestMigrationCommand:
 
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)
-        result = command.migrate(
-            selected=MigrationCSVFileSelector(datafile=csv_file, kind="Assets"),
+        selector = MigrationCSVFileSelector(datafile=csv_file, kind="Assets")
+        results_by_selector = command.migrate(
+            selectors=[selector],
             data=AssetCentricMigrationIO(client),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
@@ -277,6 +278,7 @@ class TestMigrationCommand:
             for asset in assets
         ]
         assert actual_instances == expected_instance
+        result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
         assert actual_results == {"failure": 0, "pending": 0, "success": len(assets), "unchanged": 0}
 
@@ -290,7 +292,7 @@ class TestMigrationCommand:
     ) -> None:
         respx_mock = cognite_migration_model
         config = toolkit_config
-        asset_annotation = Annotation(
+        asset_annotation = AnnotationResponse(
             id=2000,
             annotated_resource_type="file",
             annotated_resource_id=3000,
@@ -298,13 +300,15 @@ class TestMigrationCommand:
                 "assetRef": {"id": 4000},
                 "textRegion": {"xMin": 10.0, "xMax": 100.0, "yMin": 20.0, "yMax": 200.0},
             },
-            status="Approved",
+            status="approved",
             creating_user="doctrino",
             creating_app="my_app",
             creating_app_version="v1",
             annotation_type="diagrams.AssetLink",
+            created_time=0,
+            last_updated_time=0,
         )
-        file_annotation = Annotation(
+        file_annotation = AnnotationResponse(
             id=2001,
             annotated_resource_type="file",
             annotated_resource_id=3001,
@@ -312,13 +316,15 @@ class TestMigrationCommand:
                 "fileRef": {"id": 5000},
                 "textRegion": {"xMin": 15.0, "xMax": 150.0, "yMin": 25.0, "yMax": 250.0},
             },
-            status="Approved",
+            status="approved",
             creating_user="doctrino",
             creating_app="my_app",
             creating_app_version="v1",
             annotation_type="diagrams.FileLink",
+            created_time=0,
+            last_updated_time=0,
         )
-        annotations = AnnotationList([asset_annotation, file_annotation])
+        annotations = [asset_annotation, file_annotation]
         space = "my_space"
         csv_content = "id,space,externalId,ingestionView\n" + "\n".join(
             (
@@ -326,11 +332,12 @@ class TestMigrationCommand:
                 f"{2001},{space},annotation_{2001},{FILE_ANNOTATIONS_ID}",
             )
         )
-        # Annotation retrieve ids
-        rsps.post(
-            config.create_api_url("/annotations/byids"),
-            json={"items": [annotation.dump() for annotation in annotations]},
-            status=200,
+        # Annotation retrieve ids (toolkit API uses httpx)
+        respx_mock.post(config.create_api_url("/annotations/byids")).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={"items": [annotation.dump() for annotation in annotations]},
+            )
         )
         # Lookup asset and file instance ID
         for items in [
@@ -394,14 +401,16 @@ class TestMigrationCommand:
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)
 
-        result = command.migrate(
-            selected=MigrationCSVFileSelector(datafile=csv_file, kind="Annotations"),
+        selector = MigrationCSVFileSelector(datafile=csv_file, kind="Annotations")
+        results_by_selector = command.migrate(
+            selectors=[selector],
             data=AnnotationMigrationIO(client),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path / "logs",
             dry_run=False,
             verbose=True,
         )
+        result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
         assert actual_results == {"failure": 0, "pending": 0, "success": len(annotations), "unchanged": 0}
 
@@ -424,7 +433,7 @@ class TestMigrationCommand:
                             "sourceContext": asset_annotation.creating_app_version,
                             "sourceCreatedUser": asset_annotation.creating_user,
                             "sourceId": asset_annotation.creating_app,
-                            "status": asset_annotation.status,
+                            "status": "Approved",
                             "startNodeXMax": asset_annotation.data["textRegion"]["xMax"],
                             "startNodeXMin": asset_annotation.data["textRegion"]["xMin"],
                             "startNodeYMax": asset_annotation.data["textRegion"]["yMax"],
@@ -446,7 +455,7 @@ class TestMigrationCommand:
                             "sourceContext": file_annotation.creating_app_version,
                             "sourceCreatedUser": file_annotation.creating_user,
                             "sourceId": file_annotation.creating_app,
-                            "status": file_annotation.status,
+                            "status": "Approved",
                             "startNodeXMax": file_annotation.data["textRegion"]["xMax"],
                             "startNodeXMin": file_annotation.data["textRegion"]["xMin"],
                             "startNodeYMax": file_annotation.data["textRegion"]["yMax"],
@@ -468,13 +477,16 @@ class TestMigrationCommand:
         respx_mock = cognite_migration_model
         config = toolkit_config
         charts = [
-            Chart(
+            ChartResponse(
                 external_id="my_chart",
                 created_time=1,
                 last_updated_time=1,
                 visibility="PUBLIC",
                 data=ChartData(
+                    version=1,
                     name="My Chart",
+                    date_from="2025-01-01T00:00:00.000Z",
+                    date_to="2025-12-31T23:59:59.999Z",
                     time_series_collection=[
                         ChartTimeseries(
                             tsExternalId="ts_1", type="timeseries", id="87654321-4321-8765-4321-876543218765"
@@ -489,14 +501,14 @@ class TestMigrationCommand:
                 owner_id="1234",
             )
         ]
-        # Chart retrieve ids
-        rsps.add(
-            responses.POST,
+        # Chart list
+        respx.post(
             config.create_app_url("/storage/charts/charts/list"),
+        ).respond(
+            status_code=200,
             json={
                 "items": [chart.dump() for chart in charts],
             },
-            status=200,
         )
         # TimeSeries Instance ID lookup
         rsps.add(
@@ -549,20 +561,22 @@ class TestMigrationCommand:
             uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
             uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
         ]
+        selector = ChartExternalIdSelector(external_ids=("my_chart",))
         with patch(f"{ChartMapper.__module__}.uuid4", side_effect=new_uuids):
-            result = command.migrate(
-                selected=ChartExternalIdSelector(external_ids=("my_chart",)),
+            results_by_selector = command.migrate(
+                selectors=[selector],
                 data=ChartIO(client),
                 mapper=ChartMapper(client),
                 log_dir=tmp_path / "logs",
                 dry_run=False,
                 verbose=True,
             )
+        result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
         assert actual_results == {"failure": 0, "pending": 0, "success": len(charts), "unchanged": 0}
 
         calls = respx_mock.calls
-        assert len(calls) == 2
+        assert len(calls) == 3
         last_call = calls[-1]
         assert last_call.request.url == config.create_app_url("/storage/charts/charts")
         assert last_call.request.method == "PUT"
@@ -572,7 +586,10 @@ class TestMigrationCommand:
                 "externalId": "my_chart",
                 "visibility": "PUBLIC",
                 "data": {
+                    "version": 1,
                     "name": "My Chart",
+                    "dateFrom": "2025-01-01T00:00:00.000Z",
+                    "dateTo": "2025-12-31T23:59:59.999Z",
                     "coreTimeseriesCollection": [
                         {
                             "type": "coreTimeseries",
@@ -710,8 +727,9 @@ class TestMigrationCommand:
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)
 
-        result = command.migrate(
-            selected=CanvasExternalIdSelector(external_ids=(canvas.canvas.external_id,)),
+        selector = CanvasExternalIdSelector(external_ids=(canvas.canvas.external_id,))
+        results_by_selector = command.migrate(
+            selectors=[selector],
             data=CanvasIO(client, exclude_existing_version=True),
             mapper=CanvasMapper(client, dry_run=False, skip_on_missing_ref=False),
             log_dir=tmp_path / "logs",
@@ -719,6 +737,7 @@ class TestMigrationCommand:
             verbose=False,
         )
 
+        result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
         assert actual_results == {"failure": 0, "pending": 0, "success": 1, "unchanged": 0}
 

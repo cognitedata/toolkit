@@ -15,9 +15,7 @@ from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestItem,
-    T_Identifier,
-    T_RequestResource,
-    T_ResponseResource,
+    T_BaseModelObject,
     UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -43,7 +41,7 @@ class Endpoint:
 APIMethod: TypeAlias = Literal["create", "retrieve", "update", "delete", "list", "upsert"]
 
 
-class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource], ABC):
+class CDFResourceAPI(Generic[T_BaseModelObject], ABC):
     """Generic resource API for CDF APIs
 
     This class provides the logic for working with CDF resources,
@@ -85,7 +83,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
     @abstractmethod
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
-    ) -> PagedResponse[T_ResponseResource]:
+    ) -> PagedResponse[T_BaseModelObject]:
         """Parse a single item response."""
         raise NotImplementedError()
 
@@ -95,9 +93,9 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
 
     def _update(
         self, items: Sequence[UpdatableRequestResource], mode: Literal["patch", "replace"]
-    ) -> list[T_ResponseResource]:
+    ) -> list[T_BaseModelObject]:
         """Update resources in chunks."""
-        response_items: list[T_ResponseResource] = []
+        response_items: list[T_BaseModelObject] = []
         for response in self._chunk_requests(
             items, "update", serialization=partial(self._serialize_updates, mode=mode)
         ):
@@ -111,8 +109,8 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
         endpoint: str | None = None,
-    ) -> list[T_ResponseResource]:
-        response_items: list[T_ResponseResource] = []
+    ) -> list[T_BaseModelObject]:
+        response_items: list[T_BaseModelObject] = []
         for response in self._chunk_requests(items, method, self._serialize_items, params, extra_body, endpoint):
             response_items.extend(self._validate_page_response(response).items)
         return response_items
@@ -172,7 +170,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         method: APIMethod,
         params: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
-    ) -> list[T_ResponseResource]:
+    ) -> list[T_BaseModelObject]:
         """Request items with retries, splitting on failures.
 
         This method handles large batches of items by chunking them according to the endpoint's item limit.
@@ -186,7 +184,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         Returns:
             List of response items.
         """
-        response_items: list[T_ResponseResource] = []
+        response_items: list[T_BaseModelObject] = []
         for response in self._chunk_requests_items_split_retries(items, method, params, extra_body):
             response_items.extend(self._validate_page_response(response).items)
         return response_items
@@ -280,7 +278,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         params: dict[str, Any] | None = None,
         body: dict[str, Any] | None = None,
         endpoint_path: str | None = None,
-    ) -> PagedResponse[T_ResponseResource]:
+    ) -> PagedResponse[T_BaseModelObject]:
         """Fetch a single page of resources.
 
         Args:
@@ -335,7 +333,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         params: dict[str, Any] | None = None,
         body: dict[str, Any] | None = None,
         endpoint_path: str | None = None,
-    ) -> Iterable[list[T_ResponseResource]]:
+    ) -> Iterable[list[T_BaseModelObject]]:
         """Iterate over all resources, handling pagination automatically."""
         next_cursor = cursor
         total = 0
@@ -357,7 +355,7 @@ class CDFResourceAPI(Generic[T_Identifier, T_RequestResource, T_ResponseResource
         params: dict[str, Any] | None = None,
         endpoint_path: str | None = None,
         body: dict[str, Any] | None = None,
-    ) -> list[T_ResponseResource]:
+    ) -> list[T_BaseModelObject]:
         """List all resources, handling pagination automatically."""
         return [
             item

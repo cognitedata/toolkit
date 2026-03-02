@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 from ._common import MapType
 
@@ -61,5 +61,6 @@ class RobotMapResponse(RobotMap, ResponseResource[RobotMapRequest]):
     created_time: int
     updated_time: int
 
-    def as_request_resource(self) -> RobotMapRequest:
-        return RobotMapRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[RobotMapRequest]:
+        return RobotMapRequest

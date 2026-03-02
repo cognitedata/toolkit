@@ -23,8 +23,14 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsRequest,
     ItemsSuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedInstanceIdentifier
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    InstanceId as DataModelingInstanceId,
+)
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    InstanceIdDefinition,
+    InternalId,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, SpaceReference
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     ContainerCRUD,
@@ -722,7 +728,7 @@ class PurgeCommand(ToolkitCommand):
             ItemsRequest(
                 endpoint_url=delete_client.config.create_api_url("/models/instances/delete"),
                 method="POST",
-                items=[TypedInstanceIdentifier._load(item) for item in items],
+                items=[InstanceIdDefinition._load(item) for item in items],
             )
         )
         for response in responses:
@@ -737,13 +743,21 @@ class PurgeCommand(ToolkitCommand):
     ) -> list[InstanceId]:
         node_ids = [instance for instance in instances if isinstance(instance, NodeId)]
         if node_ids:
-            timeseries = client.time_series.retrieve_multiple(instance_ids=node_ids, ignore_unknown_ids=True)
+            timeseries = client.tool.timeseries.retrieve(
+                [
+                    DataModelingInstanceId(instance_id=NodeReference(space=node.space, external_id=node.external_id))
+                    for node in node_ids
+                ],
+                ignore_unknown_ids=True,
+            )
+            migrated_timeseries_ids = [
+                InternalId(id=ts.id) for ts in timeseries if ts.instance_id and ts.pending_instance_id
+            ]
             if not dry_run and timeseries:
-                migrated_timeseries_ids = [ts.id for ts in timeseries if ts.instance_id and ts.pending_instance_id]  # type: ignore[attr-defined]
-                client.time_series.unlink_instance_ids(id=migrated_timeseries_ids)
+                client.tool.timeseries.unlink_instance_ids(migrated_timeseries_ids)
                 if verbose:
                     console.print(f"Unlinked {len(migrated_timeseries_ids)} timeseries from datapoints.")
-            elif verbose and timeseries:
+            elif verbose and migrated_timeseries_ids:
                 console.print(f"Would have unlinked {len(timeseries)} timeseries from datapoints.")
         return list(instances)
 
@@ -753,16 +767,20 @@ class PurgeCommand(ToolkitCommand):
     ) -> list[InstanceId]:
         file_ids = [instance for instance in instances if isinstance(instance, NodeId)]
         if file_ids:
-            files = client.files.retrieve_multiple(instance_ids=file_ids, ignore_unknown_ids=True)
+            files = client.tool.filemetadata.retrieve(
+                [
+                    DataModelingInstanceId(instance_id=NodeReference(space=node.space, external_id=node.external_id))
+                    for node in file_ids
+                ],
+                ignore_unknown_ids=True,
+            )
+            migrated_file_ids = [
+                InternalId(id=file.id) for file in files if file.instance_id and file.pending_instance_id
+            ]
             if not dry_run and files:
-                migrated_file_ids = [
-                    file.id
-                    for file in files
-                    if file.instance_id and file.pending_instance_id and file.id is not None  # type: ignore[attr-defined]
-                ]
-                client.files.unlink_instance_ids(id=migrated_file_ids)
+                client.tool.filemetadata.unlink_instance_ids(migrated_file_ids)
                 if verbose:
                     console.print(f"Unlinked {len(migrated_file_ids)} files from nodes.")
             elif verbose and files:
-                console.print(f"Would have unlinked {len(files)} files from their blob content.")
+                console.print(f"Would have unlinked {len(migrated_file_ids)} files from their blob content.")
         return list(instances)

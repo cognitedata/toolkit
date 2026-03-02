@@ -4,14 +4,14 @@ from typing import Any
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     WorkflowTriggerRequest,
     WorkflowTriggerResponse,
 )
 
 
-class WorkflowTriggersAPI(CDFResourceAPI[ExternalId, WorkflowTriggerRequest, WorkflowTriggerResponse]):
+class WorkflowTriggersAPI(CDFResourceAPI[WorkflowTriggerResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,

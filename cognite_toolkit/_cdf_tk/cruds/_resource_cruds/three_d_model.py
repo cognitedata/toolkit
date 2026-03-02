@@ -3,9 +3,8 @@ from typing import Any, final
 
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
+from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     InternalId,
     NameId,
@@ -90,7 +89,7 @@ class ThreeDModelCRUD(ResourceContainerCRUD[NameId, ThreeDModelClassicRequest, T
     def create(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelClassicResponse]:
         return self.client.tool.three_d.models_classic.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[NameId]) -> list[ThreeDModelClassicResponse]:
+    def retrieve(self, ids: Sequence[NameId]) -> list[ThreeDModelClassicResponse]:
         selected_names = {id_.name for id_ in ids}
         output: list[ThreeDModelClassicResponse] = []
         for models in self.client.tool.three_d.models_classic.iterate(limit=None):
@@ -105,7 +104,7 @@ class ThreeDModelCRUD(ResourceContainerCRUD[NameId, ThreeDModelClassicRequest, T
     def update(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelClassicResponse]:
         return self.client.tool.three_d.models_classic.update(items)
 
-    def delete(self, ids: SequenceNotStr[NameId]) -> int:
+    def delete(self, ids: Sequence[NameId]) -> int:
         models = self.retrieve(ids)
         internal_ids = [InternalId(id=model.id) for model in models]
         self.client.tool.three_d.models_classic.delete(internal_ids)
@@ -127,7 +126,7 @@ class ThreeDModelCRUD(ResourceContainerCRUD[NameId, ThreeDModelClassicRequest, T
                 if model.data_set_id == data_set_id:
                     yield model
 
-    def drop_data(self, ids: SequenceNotStr[NameId]) -> int:
+    def drop_data(self, ids: Sequence[NameId]) -> int:
         models = self.retrieve(ids)
         count = 0
         for model in models:
@@ -137,7 +136,7 @@ class ThreeDModelCRUD(ResourceContainerCRUD[NameId, ThreeDModelClassicRequest, T
                 count += len(revisions)
         return count
 
-    def count(self, ids: SequenceNotStr[NameId]) -> int:
+    def count(self, ids: Sequence[NameId]) -> int:
         models = self.retrieve(ids)
         count = 0
         for model in models:

@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Any, final
 
 from cognite.client.data_classes.capabilities import AppConfigAcl, Capability
-from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -103,7 +102,7 @@ class SearchConfigCRUD(ResourceCRUD[ViewReferenceNoVersion, SearchConfigRequest,
         """
         return self.client.tool.search_configurations.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ViewReferenceNoVersion]) -> list[SearchConfigResponse]:
+    def retrieve(self, ids: Sequence[ViewReferenceNoVersion]) -> list[SearchConfigResponse]:
         """Retrieve search configurations by their IDs"""
         all_configs = self.client.tool.search_configurations.list()
         id_set = set(ids)
@@ -116,7 +115,7 @@ class SearchConfigCRUD(ResourceCRUD[ViewReferenceNoVersion, SearchConfigRequest,
         """
         return self.client.tool.search_configurations.update(items)
 
-    def delete(self, ids: SequenceNotStr[ViewReferenceNoVersion]) -> int:
+    def delete(self, ids: Sequence[ViewReferenceNoVersion]) -> int:
         """
         Delete is not implemented in the API client
         """

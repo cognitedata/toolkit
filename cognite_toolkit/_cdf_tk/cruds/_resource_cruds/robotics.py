@@ -4,9 +4,8 @@ from typing import Any
 
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotCapabilityRequest,
     RobotCapabilityResponse,
@@ -79,13 +78,13 @@ class RoboticFrameCRUD(ResourceCRUD[ExternalId, RobotFrameRequest, RobotFrameRes
     def create(self, items: Sequence[RobotFrameRequest]) -> list[RobotFrameResponse]:
         return self.client.tool.robotics.frames.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[RobotFrameResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[RobotFrameResponse]:
         return self.client.tool.robotics.frames.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[RobotFrameRequest]) -> list[RobotFrameResponse]:
         return self.client.tool.robotics.frames.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.robotics.frames.delete(list(ids), ignore_unknown_ids=True)
@@ -147,13 +146,13 @@ class RoboticLocationCRUD(ResourceCRUD[ExternalId, RobotLocationRequest, RobotLo
     def create(self, items: Sequence[RobotLocationRequest]) -> list[RobotLocationResponse]:
         return self.client.tool.robotics.locations.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[RobotLocationResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[RobotLocationResponse]:
         return self.client.tool.robotics.locations.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[RobotLocationRequest]) -> list[RobotLocationResponse]:
         return self.client.tool.robotics.locations.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.robotics.locations.delete(list(ids), ignore_unknown_ids=True)
@@ -223,7 +222,7 @@ class RoboticsDataPostProcessingCRUD(
     def create(self, items: Sequence[RobotDataPostProcessingRequest]) -> list[RobotDataPostProcessingResponse]:
         return self.client.tool.robotics.data_postprocessing.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[RobotDataPostProcessingResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[RobotDataPostProcessingResponse]:
         return self.client.tool.robotics.data_postprocessing.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[RobotDataPostProcessingRequest]) -> list[RobotDataPostProcessingResponse]:
@@ -241,7 +240,7 @@ class RoboticsDataPostProcessingCRUD(
 
         return self.client.tool.robotics.data_postprocessing.update(to_update, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.robotics.data_postprocessing.delete(list(ids), ignore_unknown_ids=True)
@@ -310,7 +309,7 @@ class RobotCapabilityCRUD(ResourceCRUD[ExternalId, RobotCapabilityRequest, Robot
     def create(self, items: Sequence[RobotCapabilityRequest]) -> list[RobotCapabilityResponse]:
         return self.client.tool.robotics.capabilities.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[RobotCapabilityResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[RobotCapabilityResponse]:
         return self.client.tool.robotics.capabilities.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[RobotCapabilityRequest]) -> list[RobotCapabilityResponse]:
@@ -331,7 +330,7 @@ class RobotCapabilityCRUD(ResourceCRUD[ExternalId, RobotCapabilityRequest, Robot
 
         return self.client.tool.robotics.capabilities.update(to_update, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.robotics.capabilities.delete(list(ids), ignore_unknown_ids=True)
@@ -421,13 +420,13 @@ class RoboticMapCRUD(ResourceCRUD[ExternalId, RobotMapRequest, RobotMapResponse]
     def create(self, items: Sequence[RobotMapRequest]) -> list[RobotMapResponse]:
         return self.client.tool.robotics.maps.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[RobotMapResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[RobotMapResponse]:
         return self.client.tool.robotics.maps.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[RobotMapRequest]) -> list[RobotMapResponse]:
         return self.client.tool.robotics.maps.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.robotics.maps.delete(list(ids), ignore_unknown_ids=True)

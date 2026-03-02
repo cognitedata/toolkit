@@ -2,11 +2,11 @@ from collections.abc import Hashable, Iterable, Sequence
 from typing import Any
 
 from cognite.client.data_classes.capabilities import AgentsAcl, Capability
-from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.function import FunctionCRUD
 from cognite_toolkit._cdf_tk.resource_classes import AgentYAML
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
@@ -18,6 +18,7 @@ class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):
     resource_write_cls = AgentRequest
     kind = "Agent"
     yaml_cls = AgentYAML
+    dependencies = frozenset({FunctionCRUD})
     _doc_base_url = ""
     _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/main_ai_agents_post/"
 
@@ -36,6 +37,13 @@ class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):
         return sanitize_filename(id.external_id)
 
     @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+        for tool in item.get("tools", []):
+            if tool.get("type") == "callFunction":
+                if ext_id := tool.get("configuration", {}).get("externalId"):
+                    yield FunctionCRUD, ExternalId(external_id=ext_id)
+
+    @classmethod
     def get_required_capability(
         cls, items: Sequence[AgentRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
@@ -49,13 +57,13 @@ class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):
     def create(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
         return self.client.tool.agents.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[AgentResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[AgentResponse]:
         return self.client.tool.agents.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
         return self.client.tool.agents.update(items)
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         self.client.tool.agents.delete(list(ids), ignore_unknown_ids=True)
         return len(ids)
 

@@ -22,9 +22,15 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     ExtractionPipelinesAcl,
 )
-from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    ExternalId,
+    ExtractionPipelineConfigId,
+    InternalOrExternalId,
+    RawDatabaseId,
+    RawTableId,
+)
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import (
     ExtractionPipelineRequest,
@@ -33,13 +39,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import 
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config import (
     ExtractionPipelineConfigRequest,
     ExtractionPipelineConfigResponse,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
-    ExternalId,
-    ExtractionPipelineConfigId,
-    InternalOrExternalId,
-    RawDatabaseId,
-    RawTableId,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
@@ -155,6 +154,8 @@ class ExtractionPipelineCRUD(ResourceCRUD[ExternalId, ExtractionPipelineRequest,
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if dumped.get("createdBy") == "unknown" and "createdBy" not in local:
             dumped.pop("createdBy", None)
+        elif dumped.get("createdBy") == "unknown" and "createdBy" in local and local["createdBy"] is None:
+            dumped["createdBy"] = None
         return dumped
 
     def diff_list(
@@ -167,13 +168,13 @@ class ExtractionPipelineCRUD(ResourceCRUD[ExternalId, ExtractionPipelineRequest,
     def create(self, items: Sequence[ExtractionPipelineRequest]) -> list[ExtractionPipelineResponse]:
         return self.client.tool.extraction_pipelines.create(list(items))
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[ExtractionPipelineResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[ExtractionPipelineResponse]:
         return self.client.tool.extraction_pipelines.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[ExtractionPipelineRequest]) -> list[ExtractionPipelineResponse]:
         return self.client.tool.extraction_pipelines.update(list(items), mode="replace")
 
-    def delete(self, ids: SequenceNotStr[InternalOrExternalId]) -> int:
+    def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.extraction_pipelines.delete(list(ids), ignore_unknown_ids=True)
@@ -336,12 +337,12 @@ class ExtractionPipelineConfigCRUD(
     def create(self, items: Sequence[ExtractionPipelineConfigRequest]) -> list[ExtractionPipelineConfigResponse]:
         return self._upsert(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[ExtractionPipelineConfigResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[ExtractionPipelineConfigResponse]:
         return self.client.tool.extraction_pipelines.configs.retrieve(
             [ExtractionPipelineConfigId(external_id=pipeline_id.external_id) for pipeline_id in ids]
         )
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         """Delete is not supported for extraction pipeline configs.
 
         Instead, we assume that when the user deletes the extraction pipeline configs, they are also deleting the

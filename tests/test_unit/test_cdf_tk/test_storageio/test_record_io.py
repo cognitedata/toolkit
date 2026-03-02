@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors._records import SelectedContain
 class TestRecordIO:
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_upload_items(self, toolkit_config: ToolkitClientConfig) -> None:
-        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
+        client = ToolkitClient(config=toolkit_config)
         selector = RecordContainerSelector(
             stream=SelectedStream(external_id="my_stream"),
             container=SelectedContainer(space="my_space", external_id="my_container"),

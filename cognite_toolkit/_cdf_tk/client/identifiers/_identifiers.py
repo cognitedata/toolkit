@@ -153,3 +153,25 @@ class TransformationNotificationId(Identifier):
 
     def __str__(self) -> str:
         return f"transformationExternalId='{self.transformation_external_id}', destination='{self.destination}'"
+
+
+class PrincipalId(Identifier):
+    id: str
+
+    def __str__(self) -> str:
+        return f"id='{self.id}'"
+
+
+class UserProfileId(Identifier):
+    user_identifier: str
+
+    def __str__(self) -> str:
+        return f"userIdentifier='{self.user_identifier}'"
+
+
+class PrincipalLoginId(Identifier):
+    principal: str
+    id: str
+
+    def __str__(self) -> str:
+        return f"principal='{self.principal}', id='{self.id}'"

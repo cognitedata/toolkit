@@ -5,8 +5,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
-
-from .identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 
 class TransformationSchedule(BaseModelObject):
@@ -29,5 +28,6 @@ class TransformationScheduleResponse(TransformationSchedule, ResponseResource[Tr
     last_updated_time: int
     is_paused: bool
 
-    def as_request_resource(self) -> TransformationScheduleRequest:
-        return TransformationScheduleRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[TransformationScheduleRequest]:
+        return TransformationScheduleRequest

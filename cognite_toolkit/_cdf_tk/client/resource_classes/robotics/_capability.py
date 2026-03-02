@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 
 class RobotCapability(BaseModelObject):
@@ -49,5 +49,6 @@ class RobotCapabilityResponse(RobotCapability, ResponseResource[RobotCapabilityR
     input_schema: dict[str, JsonValue]
     data_handling_schema: dict[str, JsonValue]
 
-    def as_request_resource(self) -> RobotCapabilityRequest:
-        return RobotCapabilityRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[RobotCapabilityRequest]:
+        return RobotCapabilityRequest

@@ -1,8 +1,7 @@
 from abc import ABC
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
-
-from ._references import SpaceReference
+from cognite_toolkit._cdf_tk.client.identifiers import SpaceReference
 
 
 class Space(BaseModelObject, ABC):
@@ -22,5 +21,6 @@ class SpaceResponse(Space, ResponseResource[SpaceRequest]):
     last_updated_time: int
     is_global: bool
 
-    def as_request_resource(self) -> SpaceRequest:
-        return SpaceRequest.model_validate(self.model_dump(by_alias=True), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[SpaceRequest]:
+        return SpaceRequest

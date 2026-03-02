@@ -1,4 +1,5 @@
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.identifiers._data_modeling import ViewIdNoVersionUntyped
 
 from .data_modeling import ViewReferenceNoVersion
 
@@ -15,7 +16,7 @@ class SearchConfigViewProperty(BaseModelObject):
 class SearchConfigBase(BaseModelObject):
     """Base class for search configuration with common fields."""
 
-    view: ViewReferenceNoVersion
+    view: ViewIdNoVersionUntyped
     use_as_name: str | None = None
     use_as_description: str | None = None
     columns_layout: list[SearchConfigViewProperty] | None = None
@@ -40,5 +41,6 @@ class SearchConfigResponse(SearchConfigBase, ResponseResource[SearchConfigReques
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> SearchConfigRequest:
-        return SearchConfigRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[SearchConfigRequest]:
+        return SearchConfigRequest

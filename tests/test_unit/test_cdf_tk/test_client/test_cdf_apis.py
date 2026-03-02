@@ -1,16 +1,20 @@
 from typing import Any
+from unittest.mock import MagicMock
 
 import httpx
 import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource
 from cognite_toolkit._cdf_tk.client.api.annotations import AnnotationsAPI
 from cognite_toolkit._cdf_tk.client.api.data_products import DataProductsAPI
 from cognite_toolkit._cdf_tk.client.api.filemetadata import FileMetadataAPI
 from cognite_toolkit._cdf_tk.client.api.function_schedules import FunctionSchedulesAPI
 from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
+from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
+from cognite_toolkit._cdf_tk.client.api.principals import PrincipalLoginSessionsAPI, PrincipalsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.streams import StreamsAPI
@@ -21,8 +25,10 @@ from cognite_toolkit._cdf_tk.client.api.workflows import WorkflowsAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, PrincipalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeResponse, NodeResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
@@ -32,8 +38,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
     GraphQLDataModelResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
+    LoginSession,
+    ServiceAccountPrincipal,
+    UserPrincipal,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
@@ -770,3 +780,154 @@ class TestCDFResourceAPI:
         iterated = list(api.iterate())
         assert len(iterated) == 1
         assert iterated[0][0].dump() == resource
+
+    def test_principals_api_me_retrieve_list(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        org_id = "test-org"
+        sa_resource = get_example_minimum_responses(ServiceAccountPrincipal)
+        user_resource = get_example_minimum_responses(UserPrincipal)
+        config = toolkit_config
+        client = HTTPClient(config)
+        project_api = MagicMock()
+        project_api.get_organization_id.return_value = org_id
+        api = PrincipalsAPI(client, project_api)
+
+        # Test me (service account)
+        respx_mock.get(config.create_auth_url("/principals/me")).mock(
+            return_value=httpx.Response(status_code=200, json=sa_resource)
+        )
+        me = api.me()
+        assert isinstance(me, ServiceAccountPrincipal)
+        assert me.id == sa_resource["id"]
+
+        # Test me (user principal)
+        respx_mock.get(config.create_auth_url("/principals/me")).mock(
+            return_value=httpx.Response(status_code=200, json=user_resource)
+        )
+        me_user = api.me()
+        assert isinstance(me_user, UserPrincipal)
+        assert me_user.id == user_resource["id"]
+
+        # Test retrieve
+        respx_mock.post(config.create_auth_url(f"/orgs/{org_id}/principals/byids")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [sa_resource]})
+        )
+        retrieved = api.retrieve([PrincipalId(id=sa_resource["id"])])
+        assert len(retrieved) == 1
+        assert retrieved[0].id == sa_resource["id"]
+
+        # Test list
+        respx_mock.get(config.create_auth_url(f"/orgs/{org_id}/principals")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [sa_resource, user_resource]})
+        )
+        listed = api.list(limit=10)
+        assert len(listed) == 2
+
+        # Test paginate
+        page = api.paginate(limit=10)
+        assert isinstance(page, PagedResponse)
+        assert len(page.items) == 2
+
+        # Test iterate
+        iterated = list(api.iterate(limit=10))
+        assert len(iterated) >= 1
+        items = [item for batch in iterated for item in batch]
+        assert len(items) == 2
+
+    def test_principals_api_list_with_types_filter(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        org_id = "test-org"
+        sa_resource = get_example_minimum_responses(ServiceAccountPrincipal)
+        config = toolkit_config
+        client = HTTPClient(config)
+        project_api = MagicMock()
+        project_api.get_organization_id.return_value = org_id
+        api = PrincipalsAPI(client, project_api)
+
+        respx_mock.get(config.create_auth_url(f"/orgs/{org_id}/principals")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [sa_resource]})
+        )
+        listed = api.list(types=["SERVICE_ACCOUNT"], limit=10)
+        assert len(listed) == 1
+
+    def test_principal_login_sessions_api_list_paginate_iterate(
+        self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        org_id = "test-org"
+        principal_id = "principal-sa-001"
+        session_resource = get_example_minimum_responses(LoginSession)
+        config = toolkit_config
+        client = HTTPClient(config)
+        project_api = MagicMock()
+        project_api.get_organization_id.return_value = org_id
+        api = PrincipalLoginSessionsAPI(client, project_api)
+
+        sessions_url = config.create_auth_url(f"/orgs/{org_id}/principals/{principal_id}/sessions")
+
+        # Test list
+        respx_mock.get(sessions_url).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [session_resource]})
+        )
+        listed = api.list(principal_id=principal_id, limit=10)
+        assert len(listed) == 1
+        assert listed[0].id == session_resource["id"]
+        assert listed[0].principal == principal_id
+
+        # Test paginate
+        page = api.paginate(principal_id=principal_id, limit=10)
+        assert isinstance(page, PagedResponse)
+        assert len(page.items) == 1
+        assert page.items[0].principal == principal_id
+
+        # Test iterate
+        iterated = list(api.iterate(principal_id=principal_id, limit=10))
+        assert len(iterated) >= 1
+        items = [item for batch in iterated for item in batch]
+        assert len(items) == 1
+        assert items[0].principal == principal_id
+
+    @pytest.mark.parametrize("instance_cls", [NodeResponse, EdgeResponse])
+    def test_instance_crudls(
+        self, instance_cls: type[ResponseResource], toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter
+    ) -> None:
+        """Test InstanceAPI create, retrieve, update, delete, list, paginate, and iterate methods.
+        Instances returns a slim definition from the create method so we cannot use the generic test above.
+        """
+        example = get_example_minimum_responses(instance_cls)
+        instance = instance_cls.model_validate(example)
+        request = instance.as_request_resource()
+        config = toolkit_config
+        api = InstancesAPI(HTTPClient(config))
+
+        # Test create
+        respx_mock.post(config.create_api_url("/models/instances")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [{**example, "wasModified": False}]})
+        )
+        created = api.create([request])
+        assert len(created) == 1
+
+        # Test retrieve
+        respx_mock.post(config.create_api_url("/models/instances/byids")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [example]})
+        )
+        retrieved = api.retrieve([request.as_id()])
+        assert len(retrieved) == 1
+        assert retrieved[0].dump() == example
+
+        # Test delete
+        respx_mock.post(config.create_api_url("/models/instances/delete")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [request.as_id().dump()]})
+        )
+        deleted = api.delete([request.as_id()])
+        assert len(respx_mock.calls) >= 1  # At least one call should have been made
+        assert len(deleted) == 1
+
+        # Test list/paginate/iterate
+        respx_mock.post(config.create_api_url("/models/instances/list")).mock(
+            return_value=httpx.Response(status_code=200, json={"items": [example]})
+        )
+        listed = api.list(limit=10)
+        assert len(listed) == 1
+        assert listed[0].dump() == example

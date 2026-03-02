@@ -7,10 +7,10 @@ from typing import Any, final
 import pandas as pd
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter, SequenceRowFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import (
     AssetAggregateItem,
@@ -18,7 +18,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import (
     AssetResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
 from cognite_toolkit._cdf_tk.constants import TABLE_FORMATS, YAML_SUFFIX
@@ -114,13 +113,13 @@ class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
     def create(self, items: collections.abc.Sequence[AssetRequest]) -> list[AssetResponse]:
         return self.client.tool.assets.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[AssetResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[AssetResponse]:
         return self.client.tool.assets.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: collections.abc.Sequence[AssetRequest]) -> list[AssetResponse]:
         return self.client.tool.assets.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[InternalOrExternalId]) -> int:
+    def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.assets.delete(list(ids), ignore_unknown_ids=True)
@@ -315,13 +314,13 @@ class SequenceCRUD(ResourceCRUD[ExternalId, SequenceRequest, SequenceResponse]):
     def create(self, items: collections.abc.Sequence[SequenceRequest]) -> list[SequenceResponse]:
         return self.client.tool.sequences.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[SequenceResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[SequenceResponse]:
         return self.client.tool.sequences.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: collections.abc.Sequence[SequenceRequest]) -> list[SequenceResponse]:
         return self.client.tool.sequences.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[InternalOrExternalId]) -> int:
+    def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.sequences.delete(list(ids), ignore_unknown_ids=True)
@@ -398,7 +397,7 @@ class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRows
         self.client.tool.sequences.rows.create(list(items))
         return items
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[SequenceRowsResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[SequenceRowsResponse]:
         results: list[SequenceRowsResponse] = []
         for id_ in ids:
             row_filter = SequenceRowFilter(external_id=id_.external_id)
@@ -406,7 +405,7 @@ class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRows
             results.extend(responses)
         return results
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         deleted: int = 0
         for id_ in ids:
             row_filter = SequenceRowFilter(external_id=id_.external_id)
@@ -535,13 +534,13 @@ class EventCRUD(ResourceCRUD[ExternalId, EventRequest, EventResponse]):
     def create(self, items: collections.abc.Sequence[EventRequest]) -> list[EventResponse]:
         return self.client.tool.events.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[EventResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[EventResponse]:
         return self.client.tool.events.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: collections.abc.Sequence[EventRequest]) -> list[EventResponse]:
         return self.client.tool.events.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[InternalOrExternalId]) -> int:
+    def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.events.delete(list(ids), ignore_unknown_ids=True)

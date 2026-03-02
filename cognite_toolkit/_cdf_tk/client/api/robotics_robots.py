@@ -4,11 +4,11 @@ from typing import Literal
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import DataSetId
+from cognite_toolkit._cdf_tk.client.identifiers import DataSetId
 from cognite_toolkit._cdf_tk.client.resource_classes.robotics._robot import RobotRequest, RobotResponse
 
 
-class RobotsAPI(CDFResourceAPI[DataSetId, RobotRequest, RobotResponse]):
+class RobotsAPI(CDFResourceAPI[RobotResponse]):
     """API for managing Robot resources in CDF."""
 
     def __init__(self, http_client: HTTPClient) -> None:

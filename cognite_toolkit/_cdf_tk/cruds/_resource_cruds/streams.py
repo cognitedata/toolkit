@@ -2,9 +2,8 @@ from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, StreamsAcl
-from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamRequest,
     StreamResponse,
@@ -57,10 +56,10 @@ class StreamCRUD(ResourceCRUD[ExternalId, StreamRequest, StreamResponse]):
     def create(self, items: Sequence[StreamRequest]) -> list[StreamResponse]:
         return self.client.streams.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[StreamResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[StreamResponse]:
         return self.client.streams.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         self.client.streams.delete(list(ids), ignore_unknown_ids=True)
         return len(ids)
 

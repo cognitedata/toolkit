@@ -1,8 +1,7 @@
 from typing import Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
-
-from .identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 
 class SimulatorModelRevision(BaseModelObject):
@@ -34,5 +33,6 @@ class SimulatorModelRevisionResponse(ResponseResource[SimulatorModelRevisionRequ
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> SimulatorModelRevisionRequest:
-        return SimulatorModelRevisionRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[SimulatorModelRevisionRequest]:
+        return SimulatorModelRevisionRequest

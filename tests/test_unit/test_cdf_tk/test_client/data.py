@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client._resource_base import Identifier, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Identifier, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.api.agents import AgentsAPI
 from cognite_toolkit._cdf_tk.client.api.assets import AssetsAPI
 from cognite_toolkit._cdf_tk.client.api.containers import ContainersAPI
@@ -20,7 +20,6 @@ from cognite_toolkit._cdf_tk.client.api.hosted_extractor_destinations import Hos
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_jobs import HostedExtractorJobsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_mappings import HostedExtractorMappingsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractor_sources import HostedExtractorSourcesAPI
-from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI
 from cognite_toolkit._cdf_tk.client.api.labels import LabelsAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawDatabasesAPI
 from cognite_toolkit._cdf_tk.client.api.relationships import RelationshipsAPI
@@ -104,6 +103,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, 
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
     LocationFilterResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.principal import (
+    LoginSession,
+    ServiceAccountPrincipal,
+    UserPrincipal,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
@@ -206,9 +210,9 @@ class CDFResource:
         return self.request_instance.as_id()
 
 
-def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[str, Any]:
+def get_example_minimum_responses(resource_cls: type[BaseModelObject]) -> dict[str, Any]:
     """Return an example with the only required and identifier fields for the given resource class."""
-    responses: dict[type[ResponseResource], dict[str, Any]] = {
+    responses: dict[type[BaseModelObject], dict[str, Any]] = {
         AssetResponse: {
             "id": 123,
             "externalId": "asset_001",
@@ -366,7 +370,6 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "instanceType": "node",
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
-            "wasModified": False,
             "version": 1,
             "properties": {
                 "my_space": {
@@ -394,7 +397,6 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             },
             "createdTime": 1622547800000,
             "lastUpdatedTime": 1622547800000,
-            "wasModified": False,
             "version": 1,
             "properties": {
                 "my_space": {
@@ -551,10 +553,7 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
         },
         GroupResponse: {
             "id": 202,
-            "externalId": "group_001",
             "name": "Example Group",
-            "createdTime": 1622547800000,
-            "lastUpdatedTime": 1622547800000,
             "isDeleted": False,
         },
         SequenceRowsResponse: {
@@ -636,8 +635,6 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "method": "capture_ptz",
             "inputSchema": {"type": "object"},
             "dataHandlingSchema": {"type": "object"},
-            "createdTime": 1622547800000,
-            "updatedTime": 1622547800000,
         },
         RobotLocationResponse: {
             "externalId": "location_001",
@@ -658,8 +655,6 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
             "name": "Gauge Reader",
             "method": "read_gauge",
             "inputSchema": {"type": "object"},
-            "createdTime": 1622547800000,
-            "updatedTime": 1622547800000,
         },
         RobotMapResponse: {
             "externalId": "map_001",
@@ -739,6 +734,31 @@ def get_example_minimum_responses(resource_cls: type[ResponseResource]) -> dict[
                     }
                 }
             },
+        },
+        ServiceAccountPrincipal: {
+            "id": "principal-sa-001",
+            "type": "SERVICE_ACCOUNT",
+            "name": "My Service Account",
+            "pictureUrl": "",
+            "description": "A test service account",
+            "externalId": "sa-ext-001",
+            "createdBy": {"orgId": "org-001", "userId": "admin@example.com"},
+            "createdTime": 1622547800000,
+            "lastUpdatedTime": 1622547800000,
+        },
+        UserPrincipal: {
+            "id": "principal-user-001",
+            "type": "USER",
+            "name": "Jane Doe",
+            "pictureUrl": "https://example.com/avatar.png",
+            "email": "jane@example.com",
+            "givenName": "Jane",
+            "familyName": "Doe",
+        },
+        LoginSession: {
+            "id": "session-001",
+            "createdTime": 1622547800000,
+            "status": "ACTIVE",
         },
     }
     try:
@@ -900,7 +920,6 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=NodeResponse,
             request_cls=NodeRequest,
             example_data=get_example_minimum_responses(NodeResponse),
-            api_class=InstancesAPI,
         ),
         id="Node",
     )
@@ -909,7 +928,6 @@ def iterate_cdf_resources() -> Iterable[tuple]:
             response_cls=EdgeResponse,
             request_cls=EdgeRequest,
             example_data=get_example_minimum_responses(EdgeResponse),
-            api_class=InstancesAPI,
         ),
         id="Edge",
     )

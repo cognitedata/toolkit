@@ -5,8 +5,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
-
-from .identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 
 class LabelRef(BaseModelObject):
@@ -45,5 +44,6 @@ class RelationshipResponse(Relationship, ResponseResource[RelationshipRequest]):
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> RelationshipRequest:
-        return RelationshipRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[RelationshipRequest]:
+        return RelationshipRequest

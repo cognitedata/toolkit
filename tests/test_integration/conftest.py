@@ -43,8 +43,8 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPResult, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, SpaceRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWTableRequest,
@@ -128,12 +128,6 @@ def max_two_workers():
 
 
 @pytest.fixture(scope="session")
-def toolkit_client_with_pending_ids(toolkit_client_config: ToolkitClientConfig) -> ToolkitClient:
-    """Returns a ToolkitClient configured to enable pending IDs."""
-    return ToolkitClient(toolkit_client_config, enable_set_pending_ids=True)
-
-
-@pytest.fixture(scope="session")
 def env_vars(toolkit_client: ToolkitClient) -> EnvironmentVariables:
     env_vars = EnvironmentVariables.create_from_environment()
     # Ensure we use the client above that has CLIENT NAME set to the test name
@@ -195,7 +189,7 @@ def dev_cluster_client() -> ToolkitClient | None:
         credentials=credentials,
         is_strict_validation=False,
     )
-    return ToolkitClient(config, enable_set_pending_ids=True)
+    return ToolkitClient(config)
 
 
 @pytest.fixture(scope="session")

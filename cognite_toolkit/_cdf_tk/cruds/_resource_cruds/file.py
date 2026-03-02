@@ -23,15 +23,18 @@ from cognite.client.data_classes.capabilities import (
     FilesAcl,
 )
 from cognite.client.utils._time import convert_data_modelling_timestamp
-from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    ExternalId,
+    InternalOrExternalId,
+    NameId,
+    NodeReference,
+    SpaceReference,
+)
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, SpaceReference
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId, NameId
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedNodeIdentifier
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
@@ -138,13 +141,13 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
     def create(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
         return self.client.tool.filemetadata.create(items, overwrite=True)
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[FileMetadataResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[FileMetadataResponse]:
         return self.client.tool.filemetadata.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
         return self.client.tool.filemetadata.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[InternalOrExternalId]) -> int:
+    def delete(self, ids: Sequence[InternalOrExternalId]) -> int:
         if not ids:
             return 0
         self.client.tool.filemetadata.delete(list(ids), ignore_unknown_ids=True)
@@ -160,12 +163,12 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         for files in self.client.tool.filemetadata.iterate(filter=filter_, limit=None):
             yield from files
 
-    def count(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def count(self, ids: Sequence[ExternalId]) -> int:
         return sum(
             1 for meta in self.client.tool.filemetadata.retrieve(list(ids), ignore_unknown_ids=True) if meta.uploaded
         )
 
-    def drop_data(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def drop_data(self, ids: Sequence[ExternalId]) -> int:
         existing = self.client.tool.filemetadata.retrieve(list(ids), ignore_unknown_ids=True)
         # File and FileMetadata is tightly coupled, so we need to delete the metadata and recreate it
         # without the source set to delete the file.
@@ -260,18 +263,18 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, C
     def create(self, items: Sequence[CogniteFileRequest]) -> list[InstanceSlimDefinition]:
         return self.client.tool.cognite_files.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[NodeReference]) -> list[CogniteFileResponse]:
+    def retrieve(self, ids: Sequence[NodeReference]) -> list[CogniteFileResponse]:
         return self.client.tool.cognite_files.retrieve(
-            [TypedNodeIdentifier(space=id_.space, external_id=id_.external_id) for id_ in ids]
+            [NodeReference(space=id_.space, external_id=id_.external_id) for id_ in ids]
         )
 
     def update(self, items: Sequence[CogniteFileRequest]) -> list[InstanceSlimDefinition]:
         return self.client.tool.cognite_files.create(items)
 
-    def delete(self, ids: SequenceNotStr[NodeReference]) -> int:
+    def delete(self, ids: Sequence[NodeReference]) -> int:
         return len(
             self.client.tool.cognite_files.delete(
-                [TypedNodeIdentifier(space=id_.space, external_id=id_.external_id) for id_ in ids]
+                [NodeReference(space=id_.space, external_id=id_.external_id) for id_ in ids]
             )
         )
 
@@ -284,10 +287,10 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, C
         # We do not have a way to know the source of the file, so we cannot filter on that.
         return []
 
-    def count(self, ids: SequenceNotStr[NodeReference]) -> int:
+    def count(self, ids: Sequence[NodeReference]) -> int:
         return sum(bool(file.is_uploaded or False) for file in self.retrieve(ids))
 
-    def drop_data(self, ids: SequenceNotStr[NodeReference]) -> int:
+    def drop_data(self, ids: Sequence[NodeReference]) -> int:
         # Deleting and recreating the file, will remove the file contents but keep the metadata.
         retrieved = self.retrieve(ids)
         self.delete(ids)
@@ -304,8 +307,8 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, C
             yield SpaceCRUD, SpaceReference(space=item["space"])
         for key in ["source", "category", "type"]:
             if key in item and in_dict(("space", "externalId"), item[key]):
-                yield NodeCRUD, TypedNodeIdentifier(space=item[key]["space"], external_id=item[key]["externalId"])
+                yield NodeCRUD, NodeReference(space=item[key]["space"], external_id=item[key]["externalId"])
         if "assets" in item:
             for asset in item["assets"]:
                 if isinstance(asset, dict) and in_dict(("space", "externalId"), asset):
-                    yield NodeCRUD, TypedNodeIdentifier(space=asset["space"], external_id=asset["externalId"])
+                    yield NodeCRUD, NodeReference(space=asset["space"], external_id=asset["externalId"])

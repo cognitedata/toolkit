@@ -28,6 +28,12 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    ExternalId,
+    NameId,
+    ViewReference,
+    WorkflowVersionId,
+)
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter, StreamlitFilter, ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -37,7 +43,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
     SpaceReference,
     SpaceResponse,
-    ViewReference,
     ViewReferenceNoVersion,
     ViewResponse,
 )
@@ -45,12 +50,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRespo
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import (
-    ExternalId,
-    NameId,
-    WorkflowVersionId,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigResponse
@@ -83,7 +82,6 @@ from cognite_toolkit._cdf_tk.cruds import (
     WorkflowTriggerCRUD,
     WorkflowVersionCRUD,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import T_ID
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceRetrievalError,
     ToolkitMissingResourceError,
@@ -95,6 +93,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import FileExistsWarning, HighSeverityW
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.interactive_select import DataModelingSelect
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID
 
 from ._base import ToolkitCommand
 
@@ -475,21 +474,16 @@ class NodeFinder(ResourceFinder[ViewReferenceNoVersion]):
         self,
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
-        view_id: TypedViewReference
         identifier = self._selected()
 
         if isinstance(identifier, ViewReference):
-            view_id = TypedViewReference(
-                space=identifier.space,
-                external_id=identifier.external_id,
-                version=identifier.version,
-            )
+            view_id = identifier
         else:
             # Find latest version of view.
             view = self.client.tool.views.retrieve([self.identifier])
             if not view:
                 raise ToolkitResourceMissingError(f"View {identifier} not found", str(identifier))
-            view_id = view[0].as_typed_id()
+            view_id = view[0].as_id()
 
         loader = NodeCRUD(self.client, None, None, view_id)
         if self.is_interactive:

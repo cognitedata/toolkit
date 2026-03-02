@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 if sys.version_info >= (3, 11):
@@ -46,8 +46,9 @@ class RAWDatabaseResponse(ResponseResource[RAWDatabaseRequest]):
     name: str
     created_time: int
 
-    def as_request_resource(self) -> RAWDatabaseRequest:
-        return RAWDatabaseRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[RAWDatabaseRequest]:
+        return RAWDatabaseRequest
 
     def as_id(self) -> RawDatabaseId:
         return RawDatabaseId(name=self.name)
@@ -97,6 +98,10 @@ class RAWTableResponse(ResponseResource[RAWTableRequest]):
     db_name: str = Field(default="", exclude=True)
     name: str
     created_time: int
+
+    @classmethod
+    def request_cls(cls) -> type[RAWTableRequest]:
+        return RAWTableRequest
 
     def as_request_resource(self) -> RAWTableRequest:
         dumped = {**self.dump(), "dbName": self.db_name}

@@ -3,16 +3,17 @@ from datetime import datetime
 
 import pytest
 import responses
+import respx
 from cognite.client.data_classes.data_modeling import NodeList, NodeListWithCursor
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
     Canvas,
     ContainerReference,
     IndustrialCanvas,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
@@ -25,68 +26,72 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
 
 
 @pytest.fixture
-def twenty_charts() -> ChartList:
-    return ChartList(
-        [
-            Chart(
-                external_id=f"chart_{i}",
-                visibility="PUBLIC",
-                data=ChartData(),
-                owner_id="evenOwner" if i % 2 == 0 else "oddOwner",
-                created_time=1700000000000,
-                last_updated_time=1700000000000,
-            )
-            for i in range(20)
-        ]
-    )
+def twenty_charts() -> list[ChartResponse]:
+    return [
+        ChartResponse(
+            external_id=f"chart_{i}",
+            visibility="PUBLIC",
+            data=ChartData(
+                version=1, name=f"chart_{i}", date_from="2025-01-01T00:00:00.000Z", date_to="2025-12-31T23:59:59.999Z"
+            ),
+            owner_id="evenOwner" if i % 2 == 0 else "oddOwner",
+            created_time=1700000000000,
+            last_updated_time=1700000000000,
+        )
+        for i in range(20)
+    ]
 
 
 class TestChartIO:
-    def test_download_chart(self, toolkit_config: ToolkitClientConfig) -> None:
+    def test_download_chart(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         client = ToolkitClient(config=toolkit_config)
         chart_url = toolkit_config.create_app_url("/storage/charts/charts/list")
         ts_url = toolkit_config.create_api_url("/timeseries/byids")
         selector = AllChartsSelector()
         io = ChartIO(client)
 
+        respx_mock.post(chart_url).respond(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "externalId": "chart_1",
+                        "ownerId": "100",
+                        "visibility": "PUBLIC",
+                        "createdTime": 1700000000000,
+                        "lastUpdatedTime": 1700000000000,
+                        "data": {
+                            "version": 1,
+                            "name": "Chart 1",
+                            "dateFrom": "2025-01-01T00:00:00.000Z",
+                            "dateTo": "2025-12-31T23:59:59.999Z",
+                            "timeSeriesCollection": [
+                                {"tsId": 200, "tsExternalId": None},
+                                {"tsId": None, "tsExternalId": "ts_2"},
+                            ],
+                        },
+                    },
+                    {
+                        "externalId": "chart_2",
+                        "ownerId": "101",
+                        "visibility": "PUBLIC",
+                        "createdTime": 1700000000000,
+                        "lastUpdatedTime": 1700000000000,
+                        "data": {
+                            "version": 1,
+                            "name": "Chart 2",
+                            "dateFrom": "2025-01-01T00:00:00.000Z",
+                            "dateTo": "2025-12-31T23:59:59.999Z",
+                            "timeSeriesCollection": [
+                                {"tsId": 201, "tsExternalId": None},
+                                {"tsId": None, "tsExternalId": "ts_3"},
+                            ],
+                        },
+                    },
+                ]
+            },
+        )
         with responses.RequestsMock() as rsps:
-            rsps.add(
-                responses.POST,
-                chart_url,
-                json={
-                    "items": [
-                        {
-                            "externalId": "chart_1",
-                            "ownerId": 100,
-                            "visibility": "PUBLIC",
-                            "createdTime": 1700000000000,
-                            "lastUpdatedTime": 1700000000000,
-                            "data": {
-                                "name": "Chart 1",
-                                "timeSeriesCollection": [
-                                    {"tsId": 200, "tsExternalId": None},
-                                    {"tsId": None, "tsExternalId": "ts_2"},
-                                ],
-                            },
-                        },
-                        {
-                            "externalId": "chart_2",
-                            "ownerId": 101,
-                            "visibility": "PUBLIC",
-                            "createdTime": 1700000000000,
-                            "lastUpdatedTime": 1700000000000,
-                            "data": {
-                                "name": "Chart 2",
-                                "timeSeriesCollection": [
-                                    {"tsId": 201, "tsExternalId": None},
-                                    {"tsId": None, "tsExternalId": "ts_3"},
-                                ],
-                            },
-                        },
-                    ]
-                },
-                status=200,
-            )
             rsps.add(
                 responses.POST,
                 ts_url,
@@ -136,13 +141,17 @@ class TestChartIO:
         ],
     )
     def test_download_iterable(
-        self, limit: int | None, selector: ChartSelector, expected_external_ids: list[str], twenty_charts: ChartList
+        self,
+        limit: int | None,
+        selector: ChartSelector,
+        expected_external_ids: list[str],
+        twenty_charts: list[ChartResponse],
     ) -> None:
         with monkeypatch_toolkit_client() as client:
             client.charts.list.return_value = twenty_charts
             io = ChartIO(client)
             chunks = list(io.stream_data(selector=selector, limit=limit))
-            all_charts = ChartList([])
+            all_charts: list[ChartResponse] = []
             for chunk in chunks:
                 all_charts.extend(chunk.items)
             assert [chart.external_id for chart in all_charts] == expected_external_ids

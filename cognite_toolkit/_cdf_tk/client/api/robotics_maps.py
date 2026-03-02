@@ -4,11 +4,11 @@ from typing import Literal
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.robotics._map import RobotMapRequest, RobotMapResponse
 
 
-class MapsAPI(CDFResourceAPI[ExternalId, RobotMapRequest, RobotMapResponse]):
+class MapsAPI(CDFResourceAPI[RobotMapResponse]):
     """API for managing Map resources in CDF."""
 
     def __init__(self, http_client: HTTPClient) -> None:

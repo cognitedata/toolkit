@@ -4,14 +4,13 @@ from pathlib import Path
 from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, LocationFiltersAcl
-from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelReference,
     SpaceReference,
     ViewReference,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
     LocationFilterResponse,
@@ -195,7 +194,7 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
             created.extend(self.client.tool.location_filters.create([item]))
         return created
 
-    def retrieve(self, external_ids: SequenceNotStr[ExternalId]) -> list[LocationFilterResponse]:
+    def retrieve(self, external_ids: Sequence[ExternalId]) -> list[LocationFilterResponse]:
         # Use flat=True to get all locations in a flat list
         all_locations = self.client.tool.location_filters.list(flat=True)
         external_id_set = {ext_id.external_id for ext_id in external_ids}
@@ -209,7 +208,7 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
             item.id = ids[item.external_id]
         return self.client.tool.location_filters.update(items)
 
-    def delete(self, external_ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, external_ids: Sequence[ExternalId]) -> int:
         locations = self.retrieve(external_ids)
         if not locations:
             return 0

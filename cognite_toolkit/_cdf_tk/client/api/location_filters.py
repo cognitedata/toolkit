@@ -9,14 +9,14 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage,
     SuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
     LocationFilterResponse,
 )
 
 
-class LocationFiltersAPI(CDFResourceAPI[InternalId, LocationFilterRequest, LocationFilterResponse]):
+class LocationFiltersAPI(CDFResourceAPI[LocationFilterResponse]):
     """API for managing Location Filters using the CDFResourceAPI pattern.
 
     This API manages location filter configurations at:

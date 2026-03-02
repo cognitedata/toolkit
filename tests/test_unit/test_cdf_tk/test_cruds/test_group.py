@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
@@ -13,7 +14,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupRequest,
     GroupResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.cruds import (
     DataSetsCRUD,
     ExtractionPipelineCRUD,
@@ -181,7 +181,7 @@ class TestGroupLoader:
                     ]
                 },
                 [
-                    (ExtractionPipelineCRUD, "ex_my_extraction"),
+                    (ExtractionPipelineCRUD, ExternalId(external_id="ex_my_extraction")),
                 ],
                 id="Extraction pipeline scope",
             ),
@@ -203,7 +203,7 @@ class TestGroupLoader:
             pytest.param(
                 {"capabilities": [{"extractionPipelinesAcl": {"scope": {"idscope": {"ids": ["ex_my_extraction"]}}}}]},
                 [
-                    (ExtractionPipelineCRUD, "ex_my_extraction"),
+                    (ExtractionPipelineCRUD, ExternalId(external_id="ex_my_extraction")),
                 ],
                 id="ID scope extractionpipline ",
             ),

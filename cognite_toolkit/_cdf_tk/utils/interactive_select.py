@@ -20,8 +20,10 @@ from questionary import Choice
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawTableId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter, ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse, Visibility
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerReference,
     DataModelReference,
@@ -32,9 +34,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import Canvas
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList, Visibility
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
@@ -442,8 +442,10 @@ class InteractiveChartSelect:
         return selected_charts or []
 
     @classmethod
-    def _select_charts_by_user(cls, available_charts: ChartList, users: UserProfileList) -> ChartList:
-        chart_by_user: dict[str, list[Chart]] = defaultdict(list)
+    def _select_charts_by_user(
+        cls, available_charts: list[ChartResponse], users: UserProfileList
+    ) -> list[ChartResponse]:
+        chart_by_user: dict[str, list[ChartResponse]] = defaultdict(list)
         for chart in available_charts:
             chart_by_user[chart.owner_id].append(chart)
         user_response = questionary.select(
@@ -457,8 +459,7 @@ class InteractiveChartSelect:
                 if user.user_identifier in chart_by_user
             ],
         ).unsafe_ask()
-        available_charts = ChartList(user_response)
-        return available_charts
+        return list(user_response)
 
 
 class AssetCentricDestinationSelect:

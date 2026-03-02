@@ -5,12 +5,12 @@ from typing import get_args
 import pytest
 
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.resource_classes.agent import AgentYAML
-from cognite_toolkit._cdf_tk.resource_classes.agent_tools import (
+from cognite_toolkit._cdf_tk.resource_classes.agent import (
     AgentInstanceSpaces,
     AgentInstanceSpacesDefinition,
     AgentTool,
     AgentToolDefinition,
+    AgentYAML,
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -42,8 +42,9 @@ def invalid_test_cases() -> Iterable:
             "In field model input should be 'azure/o3', 'azure/o4-mini', 'azure/gpt-4o', "
             "'azure/gpt-4o-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-nano', "
             "'azure/gpt-4.1-mini', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', "
-            "'gcp/gemini-2.5-pro', 'gcp/gemini-2.5-flash', 'aws/claude-4-sonnet', "
-            "'aws/claude-4-opus', 'aws/claude-4.1-opus' or 'aws/claude-3.5-sonnet'. Got "
+            "'azure/gpt-5.1', 'gcp/claude-4.5-sonnet', 'gcp/claude-4.5-haiku', "
+            "'gcp/gemini-2.5-pro', 'gcp/gemini-2.5-flash', 'aws/claude-4.5-sonnet', "
+            "'aws/claude-4.5-haiku', 'aws/claude-4-sonnet' or 'aws/claude-3.5-sonnet'. Got "
             "'invalid-model'.",
             "In field name string should have at least 1 character",
             "In field tools list should have at most 20 items after validation, not 21",
@@ -150,8 +151,9 @@ def invalid_test_cases() -> Iterable:
             "In field model input should be 'azure/o3', 'azure/o4-mini', 'azure/gpt-4o', "
             "'azure/gpt-4o-mini', 'azure/gpt-4.1', 'azure/gpt-4.1-nano', "
             "'azure/gpt-4.1-mini', 'azure/gpt-5', 'azure/gpt-5-mini', 'azure/gpt-5-nano', "
-            "'gcp/gemini-2.5-pro', 'gcp/gemini-2.5-flash', 'aws/claude-4-sonnet', "
-            "'aws/claude-4-opus', 'aws/claude-4.1-opus' or 'aws/claude-3.5-sonnet'. Got "
+            "'azure/gpt-5.1', 'gcp/claude-4.5-sonnet', 'gcp/claude-4.5-haiku', "
+            "'gcp/gemini-2.5-pro', 'gcp/gemini-2.5-flash', 'aws/claude-4.5-sonnet', "
+            "'aws/claude-4.5-haiku', 'aws/claude-4-sonnet' or 'aws/claude-3.5-sonnet'. Got "
             "True.",
             "In field name input should be a valid string. Got None of type NoneType. "
             "Hint: Use double quotes to force string.",
@@ -160,6 +162,13 @@ def invalid_test_cases() -> Iterable:
             "Unknown field: 'external_id'",
         },
         id="type-validation-errors",
+    )
+    yield pytest.param(
+        {"externalId": "valid_id", "name": "Valid Name", "tools": [{"type": "invalid"}]},
+        {
+            "In tools[1] input tag 'invalid' found using 'type' does not match any of the expected tags: 'analyzeImage', 'analyzeTimeSeries', 'askDocument', 'callFunction', 'callRestApi', 'examineDataSemantically', 'queryKnowledgeGraph', 'queryTimeSeriesDatapoints', 'runPythonCode', 'summarizeDocument', 'timeSeriesAnalysis'",
+        },
+        id="invalid-tool-type-validation-errors",
     )
 
 
@@ -178,6 +187,22 @@ class TestAgentYAML:
         assert isinstance(format_warning, ResourceFormatWarning)
 
         assert set(format_warning.errors) == expected_errors
+
+    def test_unknown_tool_type_is_validation_error(self) -> None:
+        data = {
+            "externalId": "my_agent",
+            "name": "My Agent",
+            "tools": [
+                {"type": "unknownTool", "name": "Mystery", "description": "A valid tool description for testing"},
+            ],
+        }
+
+        warning_list = validate_resource_yaml_pydantic(data, AgentYAML, Path("agent.yaml"))
+
+        assert len(warning_list) == 1
+        warning = warning_list[0]
+        assert isinstance(warning, ResourceFormatWarning)
+        assert any("unknownTool" in e for e in warning.errors)
 
     def test_tools_are_in_union(self) -> None:
         all_agent_tools = get_concrete_subclasses(AgentToolDefinition)

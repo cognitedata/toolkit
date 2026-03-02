@@ -4,11 +4,11 @@ from typing import Literal
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerReference
 
 from ._constraints import Constraint
 from ._data_types import DataType
 from ._indexes import Index
-from ._references import ContainerReference
 
 
 class ContainerPropertyDefinition(BaseModelObject):
@@ -46,5 +46,6 @@ class ContainerResponse(Container, ResponseResource[ContainerRequest]):
     last_updated_time: int
     is_global: bool
 
-    def as_request_resource(self) -> "ContainerRequest":
-        return ContainerRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[ContainerRequest]:
+        return ContainerRequest

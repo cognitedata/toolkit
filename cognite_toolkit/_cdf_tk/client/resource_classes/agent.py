@@ -3,8 +3,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BeforeValidator, Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
-
-from .identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 
 class AgentToolDefinition(BaseModelObject):
@@ -13,8 +12,31 @@ class AgentToolDefinition(BaseModelObject):
     description: str
 
 
+class AnalyzeImage(AgentToolDefinition):
+    type: Literal["analyzeImage"] = "analyzeImage"
+
+
+class AnalyzeTimeSeries(AgentToolDefinition):
+    type: Literal["analyzeTimeSeries"] = "analyzeTimeSeries"
+
+
 class AskDocument(AgentToolDefinition):
     type: Literal["askDocument"] = "askDocument"
+
+
+class CallFunctionConfig(BaseModelObject):
+    external_id: str
+    max_polling_time: int = 540
+    schema_: dict[str, Any] | None = Field(None, alias="schema")
+
+
+class CallFunction(AgentToolDefinition):
+    type: Literal["callFunction"] = "callFunction"
+    configuration: CallFunctionConfig
+
+
+class CallRestApi(AgentToolDefinition):
+    type: Literal["callRestApi"] = "callRestApi"
 
 
 class ExamineDataSemantically(AgentToolDefinition):
@@ -63,8 +85,16 @@ class QueryTimeSeriesDatapoints(AgentToolDefinition):
     type: Literal["queryTimeSeriesDatapoints"] = "queryTimeSeriesDatapoints"
 
 
+class RunPythonCode(AgentToolDefinition):
+    type: Literal["runPythonCode"] = "runPythonCode"
+
+
 class SummarizeDocument(AgentToolDefinition):
     type: Literal["summarizeDocument"] = "summarizeDocument"
+
+
+class TimeSeriesAnalysis(AgentToolDefinition):
+    type: Literal["timeSeriesAnalysis"] = "timeSeriesAnalysis"
 
 
 class UnknownAgentTool(AgentToolDefinition):
@@ -73,13 +103,18 @@ class UnknownAgentTool(AgentToolDefinition):
     ...
 
 
-# Mapping of known agent tool types to their classes
 KNOWN_TOOLS: dict[str, type[AgentToolDefinition]] = {
+    "analyzeImage": AnalyzeImage,
+    "analyzeTimeSeries": AnalyzeTimeSeries,
     "askDocument": AskDocument,
+    "callFunction": CallFunction,
+    "callRestApi": CallRestApi,
     "examineDataSemantically": ExamineDataSemantically,
     "queryKnowledgeGraph": QueryKnowledgeGraph,
     "queryTimeSeriesDatapoints": QueryTimeSeriesDatapoints,
+    "runPythonCode": RunPythonCode,
     "summarizeDocument": SummarizeDocument,
+    "timeSeriesAnalysis": TimeSeriesAnalysis,
 }
 
 
@@ -94,11 +129,17 @@ def _handle_unknown_tool(value: Any) -> Any:
 
 
 AgentTool = Annotated[
-    AskDocument
+    AnalyzeImage
+    | AnalyzeTimeSeries
+    | AskDocument
+    | CallFunction
+    | CallRestApi
+    | ExamineDataSemantically
     | QueryKnowledgeGraph
     | QueryTimeSeriesDatapoints
+    | RunPythonCode
     | SummarizeDocument
-    | ExamineDataSemantically
+    | TimeSeriesAnalysis
     | UnknownAgentTool,
     BeforeValidator(_handle_unknown_tool),
 ]
@@ -126,5 +167,6 @@ class AgentResponse(Agent, ResponseResource[AgentRequest]):
     owner_id: str
     runtime_version: str
 
-    def as_request_resource(self) -> AgentRequest:
-        return AgentRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[AgentRequest]:
+        return AgentRequest

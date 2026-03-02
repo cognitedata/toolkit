@@ -3,15 +3,15 @@ from collections.abc import Iterable, Sequence
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import SimulatorModelRoutineFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine import (
     SimulatorRoutineRequest,
     SimulatorRoutineResponse,
 )
 
 
-class SimulatorRoutinesAPI(CDFResourceAPI[InternalOrExternalId, SimulatorRoutineRequest, SimulatorRoutineResponse]):
+class SimulatorRoutinesAPI(CDFResourceAPI[SimulatorRoutineResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,

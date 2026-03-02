@@ -4,9 +4,9 @@ from typing import Annotated, Any
 
 import questionary
 import typer
-from cognite.client.data_classes import Annotation
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerReference
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
@@ -110,7 +110,7 @@ class MigrateApp(typer.Typer):
         This mapping will be used when migrating applications such as Canvas, Charts, as well as resources that
         depend on the primary resources 3D and annotations.
         """
-        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        client = EnvironmentVariables.create_from_environment().get_client()
         cmd = MigrationPrepareCommand(client=client)
         cmd.run(
             lambda: cmd.deploy_cognite_migration(
@@ -361,7 +361,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
-                selected=selected,
+                selectors=[selected],
                 data=AssetCentricMigrationIO(client),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
@@ -533,7 +533,7 @@ class MigrateApp(typer.Typer):
 
         cmd.run(
             lambda: cmd.migrate(
-                selected=selected,
+                selectors=[selected],
                 data=AssetCentricMigrationIO(client),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
@@ -626,7 +626,7 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate TimeSeries to CogniteTimeSeries."""
-        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        client = EnvironmentVariables.create_from_environment().get_client()
 
         selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
             client=client,
@@ -649,7 +649,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
-                selected=selected,
+                selectors=[selected],
                 data=AssetCentricMigrationIO(client, skip_linking=skip_linking),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
@@ -742,7 +742,7 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate Files to CogniteFiles."""
-        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        client = EnvironmentVariables.create_from_environment().get_client()
 
         selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
             client=client,
@@ -766,7 +766,7 @@ class MigrateApp(typer.Typer):
 
         cmd.run(
             lambda: cmd.migrate(
-                selected=selected,
+                selectors=[selected],
                 data=AssetCentricMigrationIO(client, skip_linking=skip_linking),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
@@ -907,9 +907,9 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
-                selected=selected,
+                selectors=[selected],
                 data=annotation_io,
-                mapper=AssetCentricMapper[Annotation](client),
+                mapper=AssetCentricMapper[AnnotationResponse](client),
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
@@ -981,7 +981,7 @@ class MigrateApp(typer.Typer):
         selector = CanvasExternalIdSelector(external_ids=tuple(external_id))
         cmd.run(
             lambda: cmd.migrate(
-                selected=selector,
+                selectors=[selector],
                 data=CanvasIO(client, exclude_existing_version=True),
                 mapper=CanvasMapper(client, dry_run=dry_run, skip_on_missing_ref=not allow_missing_ref),
                 log_dir=log_dir,
@@ -1043,7 +1043,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
-                selected=ChartExternalIdSelector(external_ids=tuple(selected_external_ids)),
+                selectors=[ChartExternalIdSelector(external_ids=tuple(selected_external_ids))],
                 data=ChartIO(client),
                 mapper=ChartMapper(client),
                 log_dir=log_dir,
@@ -1105,7 +1105,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
-                selected=ThreeDModelIdSelector(ids=tuple(selected_ids)),
+                selectors=[ThreeDModelIdSelector(ids=tuple(selected_ids))],
                 data=ThreeDMigrationIO(client),
                 mapper=ThreeDMapper(client),
                 log_dir=log_dir,
@@ -1199,7 +1199,7 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
-                selected=ThreeDModelIdSelector(ids=tuple(selected_ids)),
+                selectors=[ThreeDModelIdSelector(ids=tuple(selected_ids))],
                 data=ThreeDAssetMappingMigrationIO(
                     client, object_3D_space=object_3D_space, cad_node_space=cad_node_space
                 ),

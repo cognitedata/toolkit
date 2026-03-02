@@ -5,8 +5,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
     UpdatableRequestResource,
 )
-
-from .identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 
 class DataProduct(BaseModelObject):
@@ -47,5 +46,6 @@ class DataProductResponse(DataProduct, ResponseResource[DataProductRequest]):
     created_time: int
     last_updated_time: int
 
-    def as_request_resource(self) -> DataProductRequest:
-        return DataProductRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[DataProductRequest]:
+        return DataProductRequest

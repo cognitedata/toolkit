@@ -7,8 +7,8 @@ from cognite.client.data_classes.data_modeling import EdgeId, NodeId
 from cognite.client.utils._identifier import InstanceId
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference, ViewReferenceNoVersion
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedInstanceIdentifier
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
 from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceIdCSVList
 from cognite_toolkit._cdf_tk.storageio.selectors._base import DataSelector, SelectorObject
@@ -65,6 +65,7 @@ class InstanceViewSelector(InstanceSelector):
     view: SelectedView
     instance_type: Literal["node", "edge"] = "node"
     instance_spaces: tuple[str, ...] | None = None
+    include_edges: bool = False
 
     def get_schema_spaces(self) -> list[str] | None:
         return [self.view.space]
@@ -112,9 +113,9 @@ class InstanceFileSelector(InstanceSelector):
         return InstanceIdCSVList.read_csv_file(self.datafile)
 
     @cached_property
-    def ids(self) -> list[TypedInstanceIdentifier]:
+    def ids(self) -> list[InstanceIdDefinition]:
         return [
-            TypedInstanceIdentifier(space=item.space, external_id=item.external_id, instance_type=item.instance_type)
+            InstanceIdDefinition(space=item.space, external_id=item.external_id, instance_type=item.instance_type)
             for item in self.items
         ]
 

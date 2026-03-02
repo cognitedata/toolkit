@@ -3,9 +3,9 @@ from typing import Literal
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 
 from .data_modeling import DataModelReference
-from .identifiers import ExternalId, InternalId
 
 
 class LocationFilterScene(BaseModelObject):
@@ -82,5 +82,6 @@ class LocationFilterResponse(LocationFilter, ResponseResource[LocationFilterRequ
     last_updated_time: int
     locations: list["LocationFilterResponse"] | None = None
 
-    def as_request_resource(self) -> LocationFilterRequest:
-        return LocationFilterRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[LocationFilterRequest]:
+        return LocationFilterRequest

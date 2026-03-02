@@ -9,12 +9,12 @@ from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationRequest, AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
 
 
-class AnnotationsAPI(CDFResourceAPI[InternalId, AnnotationRequest, AnnotationResponse]):
+class AnnotationsAPI(CDFResourceAPI[AnnotationResponse]):
     """API for managing CDF annotations."""
 
     def __init__(self, http_client: HTTPClient) -> None:
@@ -94,7 +94,7 @@ class AnnotationsAPI(CDFResourceAPI[InternalId, AnnotationRequest, AnnotationRes
         Returns:
             PagedResponse of AnnotationResponse objects.
         """
-        return self._paginate(cursor=cursor, limit=limit, body=filter.dump())
+        return self._paginate(cursor=cursor, limit=limit, body={"filter": filter.dump()})
 
     def iterate(
         self,
@@ -110,7 +110,7 @@ class AnnotationsAPI(CDFResourceAPI[InternalId, AnnotationRequest, AnnotationRes
         Returns:
             Iterable of lists of AnnotationResponse objects.
         """
-        return self._iterate(limit=limit, body=filter.dump())
+        return self._iterate(limit=limit, body={"filter": filter.dump()})
 
     def list(
         self,
@@ -126,4 +126,4 @@ class AnnotationsAPI(CDFResourceAPI[InternalId, AnnotationRequest, AnnotationRes
         Returns:
             List of AnnotationResponse objects.
         """
-        return self._list(limit=limit, body=filter.dump())
+        return self._list(limit=limit, body={"filter": filter.dump()})

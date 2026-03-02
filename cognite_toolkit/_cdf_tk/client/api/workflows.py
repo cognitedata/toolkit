@@ -8,14 +8,14 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage,
     SuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
 
 from .workflow_triggers import WorkflowTriggersAPI
 from .workflow_versions import WorkflowVersionsAPI
 
 
-class WorkflowsAPI(CDFResourceAPI[ExternalId, WorkflowRequest, WorkflowResponse]):
+class WorkflowsAPI(CDFResourceAPI[WorkflowResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,

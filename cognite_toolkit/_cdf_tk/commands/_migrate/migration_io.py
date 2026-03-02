@@ -1,7 +1,6 @@
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import ClassVar, Literal, cast
 
-from cognite.client.data_classes import Annotation
 from cognite.client.data_classes.data_modeling import NodeId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -16,6 +15,8 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsResultList,
     ItemsSuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeReference, InstanceRequest, NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -235,7 +236,7 @@ class AssetCentricMigrationIO(
 
 
 class AnnotationMigrationIO(
-    UploadableStorageIO[AssetCentricMigrationSelector, AssetCentricMapping[Annotation], InstanceRequest]
+    UploadableStorageIO[AssetCentricMigrationSelector, AssetCentricMapping[AnnotationResponse], InstanceRequest]
 ):
     """IO class for migrating Annotations.
 
@@ -269,7 +270,7 @@ class AnnotationMigrationIO(
         self.default_asset_annotation_mapping = default_asset_annotation_mapping or ASSET_ANNOTATIONS_ID
         self.default_file_annotation_mapping = default_file_annotation_mapping or FILE_ANNOTATIONS_ID
 
-    def as_id(self, item: AssetCentricMapping[Annotation]) -> str:
+    def as_id(self, item: AssetCentricMapping[AnnotationResponse]) -> str:
         return f"Annotation_{item.mapping.id}"
 
     def count(self, selector: AssetCentricMigrationSelector) -> int | None:
@@ -290,12 +291,12 @@ class AnnotationMigrationIO(
 
     def _stream_from_dataset(
         self, selector: MigrateDataSetSelector, limit: int | None = None
-    ) -> Iterator[Sequence[AssetCentricMapping[Annotation]]]:
+    ) -> Iterator[Sequence[AssetCentricMapping[AnnotationResponse]]]:
         if self.instance_space is None:
             raise ToolkitValueError("Instance space must be provided for dataset-based annotation migration.")
         asset_centric_selector = selector.as_asset_centric_selector()
         for data_chunk in self.annotation_io.stream_data(asset_centric_selector, limit):
-            mapping_list = AssetCentricMappingList[Annotation]([])
+            mapping_list = AssetCentricMappingList[AnnotationResponse]([])
             for resource in data_chunk.items:
                 if resource.annotation_type not in self.SUPPORTED_ANNOTATION_TYPES:
                     # This should not happen, as the annotation_io should already filter these out.
@@ -306,7 +307,6 @@ class AnnotationMigrationIO(
                     id=resource.id,
                     ingestion_view=self._get_mapping(selector.ingestion_mapping, resource),
                     preferred_consumer_view=selector.preferred_consumer_view,
-                    # The PySDK is poorly typed.
                     annotation_type=resource.annotation_type,  # type: ignore[arg-type]
                 )
                 mapping_list.append(AssetCentricMapping(mapping=mapping, resource=resource))
@@ -314,13 +314,13 @@ class AnnotationMigrationIO(
 
     def _stream_from_csv(
         self, selector: MigrationCSVFileSelector, limit: int | None = None
-    ) -> Iterator[Sequence[AssetCentricMapping[Annotation]]]:
+    ) -> Iterator[Sequence[AssetCentricMapping[AnnotationResponse]]]:
         items = selector.items
         if limit is not None:
             items = MigrationMappingList(items[:limit])
-        chunk: list[AssetCentricMapping[Annotation]] = []
+        chunk: list[AssetCentricMapping[AnnotationResponse]] = []
         for current_batch in chunker_sequence(items, self.CHUNK_SIZE):
-            resources = self.client.annotations.retrieve_multiple(current_batch.get_ids())
+            resources = self.client.tool.annotations.retrieve([InternalId(id=id_) for id_ in current_batch.get_ids()])
             resources_by_id = {resource.id: resource for resource in resources}
             not_found = 0
             incorrect_type_count = 0
@@ -347,7 +347,7 @@ class AnnotationMigrationIO(
                     "'diagrams.FileLink' are supported. These annotations will be skipped during migration."
                 ).print_warning(include_timestamp=True, console=self.client.console)
 
-    def _get_mapping(self, current_mapping: str | None, resource: Annotation) -> str:
+    def _get_mapping(self, current_mapping: str | None, resource: AnnotationResponse) -> str:
         try:
             return (
                 current_mapping
@@ -367,7 +367,7 @@ class AnnotationMigrationIO(
 
     def data_to_json_chunk(
         self,
-        data_chunk: Sequence[AssetCentricMapping[Annotation]],
+        data_chunk: Sequence[AssetCentricMapping[AnnotationResponse]],
         selector: AssetCentricMigrationSelector | None = None,
     ) -> list[dict[str, JsonVal]]:
         raise NotImplementedError("Serializing Annotation Migrations to JSON is not supported.")

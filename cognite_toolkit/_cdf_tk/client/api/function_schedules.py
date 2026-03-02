@@ -9,14 +9,14 @@ from typing import Any
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
     FunctionScheduleResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import InternalId
 
 
-class FunctionSchedulesAPI(CDFResourceAPI[InternalId, FunctionScheduleRequest, FunctionScheduleResponse]):
+class FunctionSchedulesAPI(CDFResourceAPI[FunctionScheduleResponse]):
     """API for managing CDF function schedules.
 
     Note: Function schedules do not support update operations.

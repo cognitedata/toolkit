@@ -3,8 +3,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
+from cognite_toolkit._cdf_tk.client.identifiers import SequenceRowId
 
-from .identifiers import SequenceRowId
 from .sequence import SequenceColumnSlim
 
 
@@ -43,6 +43,10 @@ class SequenceRowsResponse(SequenceRows, ResponseResource[SequenceRowsRequest]):
     id: int
     columns: list[SequenceColumnSlim]
     next_cursor: str | None = None
+
+    @classmethod
+    def request_cls(cls) -> type[SequenceRowsRequest]:
+        return SequenceRowsRequest
 
     def as_request_resource(self) -> SequenceRowsRequest:
         dumped = self.dump()

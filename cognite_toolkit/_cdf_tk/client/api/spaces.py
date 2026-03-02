@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessR
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference, SpaceRequest, SpaceResponse
 
 
-class SpacesAPI(CDFResourceAPI[SpaceReference, SpaceRequest, SpaceResponse]):
+class SpacesAPI(CDFResourceAPI[SpaceResponse]):
     """API for managing CDF data modeling spaces.
 
     Spaces use an apply/upsert pattern for create and update operations.

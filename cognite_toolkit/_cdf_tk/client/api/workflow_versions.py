@@ -9,14 +9,14 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage,
     SuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import (
     WorkflowVersionRequest,
     WorkflowVersionResponse,
 )
 
 
-class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionId, WorkflowVersionRequest, WorkflowVersionResponse]):
+class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(
             http_client=http_client,

@@ -1,10 +1,10 @@
+import builtins
 from typing import Any, Literal
 
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource, UpdatableRequestResource
-
-from .identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 
 class SimulatorModelRequest(UpdatableRequestResource):
@@ -43,6 +43,10 @@ class SimulatorModelResponse(ResponseResource[SimulatorModelRequest]):
     type: str | None = None
     created_time: int
     last_updated_time: int
+
+    @classmethod
+    def request_cls(cls) -> builtins.type[SimulatorModelRequest]:
+        return SimulatorModelRequest
 
     def as_request_resource(self) -> SimulatorModelRequest:
         if self.type is None:

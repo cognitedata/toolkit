@@ -1,8 +1,8 @@
 from typing import Literal, TypeAlias
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
-
-from .identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client._types import Metadata
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 FunctionStatus: TypeAlias = Literal["Queued", "Deploying", "Ready", "Failed", "Retired"]
 
@@ -21,7 +21,7 @@ class FunctionBase(BaseModelObject):
     cpu: float | None = None
     memory: float | None = None
     runtime: Literal["py38", "py39", "py310", "py311", "py312"] | None = None
-    metadata: dict[str, str] | None = None
+    metadata: Metadata | None = None
     index_url: str | None = None
     extra_index_urls: list[str] | None = None
 
@@ -49,5 +49,6 @@ class FunctionResponse(FunctionBase, ResponseResource[FunctionRequest]):
     status: FunctionStatus | None = None
     error: FunctionAPIError | None = None
 
-    def as_request_resource(self) -> FunctionRequest:
-        return FunctionRequest.model_validate(self.dump(), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[FunctionRequest]:
+        return FunctionRequest

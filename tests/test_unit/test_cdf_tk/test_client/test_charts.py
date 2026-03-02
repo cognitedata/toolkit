@@ -1,10 +1,12 @@
 from collections.abc import Iterator
 
 import pytest
-import responses
+import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartCoreTimeseries,
     ChartData,
@@ -16,9 +18,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartWorkflow,
     UserInfo,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList, ChartWrite
 
-CHART = Chart(
+CHART = ChartResponse(
     external_id="chart",
     created_time=1,
     last_updated_time=2,
@@ -41,71 +42,27 @@ CHART = Chart(
 
 
 class TestChartAPI:
-    @pytest.mark.parametrize(
-        "items, expected_return_cls",
-        [
-            pytest.param(
-                CHART.as_write(),
-                Chart,
-                id="Single ChartWrite",
-            ),
-            pytest.param(
-                [CHART.as_write()],
-                ChartList,
-                id="List of ChartWrite",
-            ),
-        ],
-    )
-    def test_upsert_return_type(
-        self,
-        items: ChartWrite | list[ChartWrite],
-        expected_return_cls: type,
-        toolkit_config: ToolkitClientConfig,
-    ) -> None:
-        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
-        url = f"{toolkit_config.base_url}/apps/v1/projects/{toolkit_config.project}/storage/charts/charts"
+    def test_create(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        url = toolkit_config.create_app_url("/storage/charts/charts")
 
-        with responses.RequestsMock() as rsps:
-            rsps.add(
-                responses.PUT,
-                url,
-                status=200,
-                json={"items": [CHART.dump()]},
-            )
-            result = client.charts.upsert(items)
+        respx_mock.put(url).respond(status_code=200, json={"items": [CHART.dump()]})
+        result = client.charts.create([CHART.as_request_resource()])
 
-        assert isinstance(result, expected_return_cls)
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert isinstance(result[0], ChartResponse)
 
-    @pytest.mark.parametrize(
-        "external_id, expected_return_cls",
-        [
-            pytest.param(
-                CHART.external_id,
-                Chart,
-                id="Single Chart",
-            ),
-            pytest.param(
-                [CHART.external_id],
-                ChartList,
-                id="List of Chart",
-            ),
-        ],
-    )
-    def test_retrieve_return_type(
-        self, external_id: str | list[str], expected_return_cls: type, toolkit_config: ToolkitClientConfig
-    ) -> None:
-        client = ToolkitClient(config=toolkit_config, enable_set_pending_ids=True)
-        url = f"{toolkit_config.base_url}/apps/v1/projects/{toolkit_config.project}/storage/charts/charts/byids"
-        with responses.RequestsMock() as rsps:
-            rsps.add(
-                responses.POST,
-                url,
-                status=200,
-                json={"items": [CHART.dump()]},
-            )
-            result = client.charts.retrieve(external_id=external_id)
+    def test_retrieve(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
+        client = ToolkitClient(config=toolkit_config)
+        url = toolkit_config.create_app_url("/storage/charts/charts/byids")
 
-        assert isinstance(result, expected_return_cls)
+        respx_mock.post(url).respond(status_code=200, json={"items": [CHART.dump()]})
+        result = client.charts.retrieve([ExternalId(external_id=CHART.external_id)])
+
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert isinstance(result[0], ChartResponse)
 
 
 def chart_data_generator() -> Iterator[tuple]:
@@ -322,6 +279,10 @@ class TestChartDTOs:
         the serialization and deserialization works correctly.
         """
         chart_data = {
+            "version": 1,
+            "name": "TestChart",
+            "dateFrom": "2025-04-26T22:00:00.000Z",
+            "dateTo": "2025-05-27T21:59:59.999Z",
             "this": "is",
             "completely": {
                 "changed": ["compared", "to", "the", "previous", "version"],

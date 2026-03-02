@@ -11,16 +11,14 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     RequestMessage,
     SuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.identifiers import DataProductVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import (
     DataProductVersionRequest,
     DataProductVersionResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import DataProductVersionId
 
 
-class DataProductVersionsAPI(
-    CDFResourceAPI[DataProductVersionId, DataProductVersionRequest, DataProductVersionResponse]
-):
+class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
     """API for managing data product versions.
 
     All endpoints are scoped under a parent data product: /dataproducts/{externalId}/versions.

@@ -5,8 +5,8 @@ from pydantic import field_serializer
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
+from cognite_toolkit._cdf_tk.client.identifiers import DataModelReference, ViewReference
 
-from ._references import DataModelReference, ViewReference
 from ._view import ViewResponse
 
 
@@ -51,8 +51,9 @@ class DataModelResponse(DataModel, ResponseResource[DataModelRequest]):
     last_updated_time: int
     is_global: bool
 
-    def as_request_resource(self) -> DataModelRequest:
-        return DataModelRequest.model_validate(self.model_dump(by_alias=True), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[DataModelRequest]:
+        return DataModelRequest
 
     @field_serializer("views", mode="plain")
     @classmethod
@@ -70,5 +71,6 @@ class DataModelResponseWithViews(DataModel, ResponseResource[DataModelRequest]):
     last_updated_time: int
     is_global: bool
 
-    def as_request_resource(self) -> DataModelRequest:
-        return DataModelRequest.model_validate(self.model_dump(by_alias=True), extra="ignore")
+    @classmethod
+    def request_cls(cls) -> type[DataModelRequest]:
+        return DataModelRequest

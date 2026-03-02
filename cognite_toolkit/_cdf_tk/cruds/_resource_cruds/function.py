@@ -18,18 +18,18 @@ from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
 from cognite.client.exceptions import CogniteAPIError
-from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.console import Console
 
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleId,
     FunctionScheduleRequest,
     FunctionScheduleResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
@@ -51,6 +51,8 @@ from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
 from .group_scoped import GroupResourceScopedCRUD
 
+CDF_TOML = CDFToml.load()
+
 
 @final
 class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
@@ -69,11 +71,18 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         function_hash = "cognite-toolkit-hash"
         secret_hash = "cdf-toolkit-secret-hash"
 
-    def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
+    def __init__(
+        self,
+        client: ToolkitClient,
+        build_path: Path | None,
+        console: Console | None,
+        file_upload_timeout_seconds: float = CDF_TOML.cdf.file_upload_timeout_seconds,
+    ):
         super().__init__(client, build_path, console)
         self.data_set_id_by_external_id: dict[str, int] = {}
         self.space_by_external_id: dict[str, str] = {}
         self.function_dir_by_external_id: dict[str, Path] = {}
+        self._file_upload_timeout_seconds = file_upload_timeout_seconds
 
     @cached_property
     def project_data_modeling_status(self) -> Literal["HYBRID", "DATA_MODELING_ONLY"]:
@@ -315,18 +324,21 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
             # Wait until the files is available
             t0 = time.perf_counter()
             sleep_time = 1.0  # seconds
-            for i in range(6):
-                file = self.client.files.retrieve(id=file_id)
-                if file and file.uploaded:
+            while (elapsed_time := (time.perf_counter() - t0)) < self._file_upload_timeout_seconds:
+                file = self.client.tool.filemetadata.retrieve([InternalId(id=file_id)])
+                if file and file[0].uploaded:
                     break
-                time.sleep(sleep_time)
+                elapsed_time = time.perf_counter() - t0
+                to_sleep = min(sleep_time, self._file_upload_timeout_seconds - elapsed_time)
+                time.sleep(to_sleep)
                 sleep_time *= 2
             else:
-                elapsed_time = time.perf_counter() - t0
                 raise ResourceCreationError(
                     f"Failed to create function {external_id}. CDF API timed out after {elapsed_time:.0f} "
                     "seconds while waiting for the function code to be uploaded. Wait and try again.\nIf the"
                     " problem persists, please contact Cognite support."
+                    "You can increase the timeout by setting the 'file_upload_timeout_seconds' parameter in "
+                    f"the CDF TOML configuration file. Current value: {self._file_upload_timeout_seconds} seconds."
                 )
             # Create a copy with the file_id set
             item_to_create = FunctionRequest.model_validate({**item.dump(), "fileId": file_id})
@@ -408,12 +420,12 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
             f"Function {prefix} is not configurable. Function {item.external_id!r} set {suffix}"
         ).print_warning()
 
-    def retrieve(self, ids: SequenceNotStr[ExternalId]) -> list[FunctionResponse]:
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[FunctionResponse]:
         if not self._is_activated("retrieve"):
             return []
         return self.client.tool.functions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def delete(self, ids: SequenceNotStr[ExternalId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         functions = self.retrieve(ids)
 
         self.client.tool.functions.delete(list(ids), ignore_unknown_ids=True)
@@ -560,7 +572,7 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
             dumped["authentication"] = local["authentication"]
         return dumped
 
-    def retrieve(self, ids: SequenceNotStr[FunctionScheduleId]) -> list[FunctionScheduleResponse]:
+    def retrieve(self, ids: Sequence[FunctionScheduleId]) -> list[FunctionScheduleResponse]:
         names_by_function: dict[str, set[str]] = defaultdict(set)
         for id_ in ids:
             names_by_function[id_.function_external_id].add(id_.name)
@@ -631,10 +643,10 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
             f"Could not find function{plural_fun} {humanize_collection(missing_functions)!r}"
         )
 
-    def delete(self, ids: SequenceNotStr[FunctionScheduleId]) -> int:
+    def delete(self, ids: Sequence[FunctionScheduleId]) -> int:
         schedules = self.retrieve(ids)
-        ids = [InternalId(id=schedule.id) for schedule in schedules if schedule.id]
-        self.client.tool.functions.schedules.delete(ids)
+        internal_ids = [InternalId(id=schedule.id) for schedule in schedules if schedule.id]
+        self.client.tool.functions.schedules.delete(internal_ids)
         return len(ids)
 
     def _iterate(

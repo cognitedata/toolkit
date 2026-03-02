@@ -4,11 +4,10 @@ from typing import Any, Literal
 from pydantic import ConfigDict, Field, JsonValue, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes import streamlit_
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationStatus, AnnotationType
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import TypedViewReference
 
 from .base import BaseModelRequest
 
@@ -86,7 +85,7 @@ class DataModelFilter(DataModelingFilter):
 
 class InstanceFilter(Filter):
     instance_type: Literal["node", "edge"] | None = None
-    source: TypedViewReference | None = None
+    source: ViewReference | None = None
     space: list[str] | None = None
     filter: dict[str, JsonValue] | None = None
 
@@ -101,7 +100,7 @@ class InstanceFilter(Filter):
         if self.instance_type is not None:
             body["instanceType"] = self.instance_type
         if self.source is not None:
-            body["sources"] = [{"source": self.source.dump()}]
+            body["sources"] = [{"source": self.source.dump(include_type=True)}]
         if self.space is not None:
             instance_type = self.instance_type or "node"
             body["filter"] = {
