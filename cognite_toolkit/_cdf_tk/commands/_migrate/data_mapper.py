@@ -733,7 +733,42 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
     def _populate_cache(self, source: Sequence[InstanceResponse]) -> None:
         # Todo: Look up all views in the source and convert them to ConversionSourceView.
         #    Then, look up all timeseries/file references and cache those as well.
-        raise NotImplementedError()
+        unique_views = {
+            view_id
+            for node in source
+            for view_id in (node.properties or {}).keys()
+            if isinstance(view_id, ViewReference)
+        }
+        missing_views = unique_views - set(self._source_by_view_id.keys())
+        if missing_views:
+            views = self.client.tool.views.retrieve(list(missing_views))
+            for view in views:
+                self._source_by_view_id[view.as_id()] = ConversionSourceView(view.properties or {})
+
+        timeseries_ref_ids: list[str] = []
+        file_ref_ids: list[str] = []
+        for node in source:
+            for view_id, properties in (node.properties or {}).items():
+                if not isinstance(view_id, ViewReference):
+                    continue
+                source_view = self._source_by_view_id.get(view_id)
+                if source_view is None:
+                    continue
+                for prop_id, value in properties.items():
+                    if prop_id in source_view.timeseries_reference_property_ids:
+                        if isinstance(value, str):
+                            timeseries_ref_ids.append(value)
+                        elif isinstance(value, list) and all(isinstance(v, str) for v in value):
+                            timeseries_ref_ids.extend(value)  # type: ignore[arg-type]
+                    elif prop_id in source_view.file_reference_property_ids:
+                        if isinstance(value, str):
+                            file_ref_ids.append(value)
+                        elif isinstance(value, list) and all(isinstance(v, str) for v in value):
+                            file_ref_ids.extend(value)  # type: ignore[arg-type]
+        if timeseries_ref_ids:
+            self._direct_relation_cache.update("timeseries", timeseries_ref_ids)
+        if file_ref_ids:
+            self._direct_relation_cache.update("file", file_ref_ids)
 
     def _map_single_node(
         self,
