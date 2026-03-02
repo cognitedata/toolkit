@@ -68,7 +68,7 @@ class Flags(Enum):
     )
     EXTEND_DOWNLOAD = FlagMetadata(
         visible=True,
-        description="Enables extended download to support downloading file content and datapoints",
+        description="Enables extended download to support downloading file content, datapoints and records",
     )
     EXTEND_UPLOAD = FlagMetadata(
         visible=True,

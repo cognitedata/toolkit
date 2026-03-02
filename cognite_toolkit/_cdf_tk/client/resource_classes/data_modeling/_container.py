@@ -26,7 +26,7 @@ class Container(BaseModelObject, ABC):
     external_id: str
     name: str | None = None
     description: str | None = None
-    used_for: Literal["node", "edge", "all"] | None = None
+    used_for: Literal["node", "edge", "record", "all"] | None = None
     properties: dict[str, ContainerPropertyDefinition]
     constraints: dict[str, Constraint] | None = None
     indexes: dict[str, Index] | None = None
