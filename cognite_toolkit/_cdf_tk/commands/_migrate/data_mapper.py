@@ -715,13 +715,6 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
                     other_side_by_edge_type_and_direction_by_source[item.start_node][(item.type, "outwards")].append(
                         NodeReference(space=target_space, external_id=item.end_node.external_id)
                     )
-                target_space = self.space_mapping.get(item.space)
-                if target_space is None:
-                    ...  # Todo: log missing space mapping
-                else:
-                    other_side_by_edge_type_and_direction_by_source[item.end_node][(item.type, "inwards")].append(
-                        NodeReference(space=target_space, external_id=item.start_node.external_id)
-                    )
         return nodes, other_side_by_edge_type_and_direction_by_source
 
     def _populate_cache(self, source: Sequence[InstanceResponse]) -> None:
@@ -737,8 +730,19 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         ],
         target_space: str,
     ) -> tuple[NodeRequest, list[EdgeRequest]]:
-
         new_id = NodeReference(space=target_space, external_id=node.external_id)
+        sources, new_edges = self._create_instance_data(new_id, node, other_side_by_edge_type_and_direction)
+
+        return NodeRequest(space=target_space, external_id=node.external_id, sources=sources or None), new_edges
+
+    def _create_instance_data(
+        self,
+        new_id: NodeReference,
+        node: NodeResponse,
+        other_side_by_edge_type_and_direction: dict[
+            tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]
+        ],
+    ) -> tuple[list[InstanceSource], list[EdgeRequest]]:
         new_edges: list[EdgeRequest] = []
         sources: list[InstanceSource] = []
         for view_id, source_properties in (node.properties or {}).items():
@@ -777,5 +781,4 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
             if destination_properties:
                 sources.append(InstanceSource(source=view_id, properties=destination_properties))
             new_edges.extend(new_edges)
-
-        return NodeRequest(space=target_space, external_id=node.external_id, sources=sources or None), new_edges
+        return sources, new_edges
