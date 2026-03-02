@@ -54,7 +54,7 @@ class BuiltModule(BaseModel):
     source: ModuleSource
     built_files: list[Path] = Field(default_factory=list)
     built_resources_identifiers: list[Identifier] = Field(default_factory=list)
-    dependencies: dict[AbsoluteFilePath, dict[type[ToolkitResource], list[Identifier]]] = Field(default_factory=dict)
+    dependencies: dict[AbsoluteFilePath, dict[type[ToolkitResource], set[Identifier]]] = Field(default_factory=dict)
     insights: InsightList = Field(default_factory=InsightList)
 
     @property
@@ -106,19 +106,17 @@ class BuildFolder(BaseModel):
         return modules_by_success
 
     @cached_property
-    def built_resources_identifiers(self) -> list[Identifier]:
+    def built_resources_identifiers(self) -> set[Identifier]:
         """List of all built resources across all modules."""
-        resources: list[Identifier] = []
+        resources: set[Identifier] = set()
         for built_module in self.built_modules:
-            for resource in built_module.built_resources_identifiers:
-                if resource not in resources:
-                    resources.append(resource)
+            resources.update(built_module.built_resources_identifiers)
         return resources
 
     @cached_property
-    def dependencies(self) -> dict[AbsoluteFilePath, dict[type[ToolkitResource], list[Identifier]]]:
+    def dependencies(self) -> dict[AbsoluteFilePath, dict[type[ToolkitResource], set[Identifier]]]:
         """Get external dependencies for all built modules."""
-        dependencies: dict[AbsoluteFilePath, dict[type[ToolkitResource], list[Identifier]]] = {}
+        dependencies: dict[AbsoluteFilePath, dict[type[ToolkitResource], set[Identifier]]] = {}
 
         for built_module in self.built_modules:
             module_dep = built_module.dependencies

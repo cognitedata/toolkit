@@ -21,7 +21,7 @@ from collections.abc import Hashable, Iterable, Sequence
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from time import sleep
-from typing import Any, cast, final
+from typing import Any, final
 
 from cognite.client.data_classes import filters
 from cognite.client.data_classes.capabilities import (
@@ -586,25 +586,19 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
         return id.dump()
 
     @classmethod
-    def get_dependencies(cls, resource: ViewYAML) -> dict[type[ToolkitResource], list[Identifier]]:
-        dependencies: dict[type[ToolkitResource], list[Identifier]] = cast(
-            dict[type[ToolkitResource], list[Identifier]],
-            {
-                SpaceYAML: [SpaceReference(space=resource.space)],
-                ContainerYAML: [],
-                ViewYAML: [],
-            },
-        )
-
+    def get_dependencies(cls, resource: ViewYAML) -> dict[type[ToolkitResource], set[Identifier]]:
+        dependencies: dict[type[ToolkitResource], set[Identifier]] = defaultdict(set)
+        dependencies[SpaceYAML].add(SpaceReference(space=resource.space))
         for implement in resource.implements or []:
-            if implement not in dependencies[ViewYAML]:
-                dependencies[ViewYAML].append(implement)  # type: ignore[arg-type]
-
+            dependencies[ViewYAML].add(
+                ViewReference(space=implement.space, external_id=implement.external_id, version=str(implement.version))
+            )
         if resource.properties:
             for prop in resource.properties.values():
-                if isinstance(prop, ContainerViewProperty) and prop.container not in dependencies[ContainerYAML]:
-                    dependencies[ContainerYAML].append(prop.container)  # type: ignore[arg-type]
-
+                if isinstance(prop, ContainerViewProperty):
+                    dependencies[ContainerYAML].add(
+                        ContainerReference(space=prop.container.space, external_id=prop.container.external_id)
+                    )
         return dependencies
 
     @classmethod

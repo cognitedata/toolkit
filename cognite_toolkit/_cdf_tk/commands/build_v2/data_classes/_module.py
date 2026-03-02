@@ -69,9 +69,9 @@ class Module(BaseModel):
         return all(isinstance(resource, SuccessfulReadResource) for resource in self.resources)
 
     @cached_property
-    def dependencies(self) -> dict[AbsoluteFilePath, dict[type[ToolkitResource], list[Identifier]]]:
+    def dependencies(self) -> dict[AbsoluteFilePath, dict[type[ToolkitResource], set[Identifier]]]:
         """Get external dependencies for all resources in the module."""
-        dependencies: dict[AbsoluteFilePath, dict[type[ToolkitResource], list[Identifier]]] = {}
+        dependencies: dict[AbsoluteFilePath, dict[type[ToolkitResource], set[Identifier]]] = {}
 
         for resource in self.resources:
             if not isinstance(resource, SuccessfulReadResource):
