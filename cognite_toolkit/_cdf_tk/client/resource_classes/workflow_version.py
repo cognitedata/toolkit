@@ -11,7 +11,9 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
 )
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
 
-TaskType: TypeAlias = Literal["function", "transformation", "cdf", "dynamic", "subworkflow", "simulation"]
+TaskType: TypeAlias = Literal[
+    "function", "transformation", "cdf", "dynamic", "subworkflow", "simulation", "functionApp"
+]
 
 
 class TaskId(Identifier):
@@ -100,13 +102,27 @@ class SimulationTaskParameters(TaskParameterDefinition):
     simulation: SimulationRef
 
 
+class FunctionAppRef(BaseModelObject):
+    external_id: str
+    path: str
+    method: str
+    parameters: dict[str, str] | None = None
+    body: JsonValue | None = None
+
+
+class FunctionAppTaskParameters(TaskParameterDefinition):
+    type: Literal["functionApp"] = Field("functionApp", exclude=True)
+    function_app: FunctionAppRef
+
+
 Parameter = Annotated[
     FunctionTaskParameters
     | TransformationTaskParameters
     | CDFTaskParameters
     | DynamicTaskParameters
     | SubworkflowTaskParameters
-    | SimulationTaskParameters,
+    | SimulationTaskParameters
+    | FunctionAppTaskParameters,
     Field(discriminator="type"),
 ]
 

@@ -84,7 +84,7 @@ def invalid_workflow_version_test_cases() -> Iterable:
         {
             "In workflowDefinition.tasks[1] input tag 'unknownType' found using 'type' "
             "does not match any of the expected tags: 'function', 'transformation', "
-            "'cdfRequest', 'dynamic', 'subworkflow', 'simulation'"
+            "'cdfRequest', 'dynamic', 'subworkflow', 'simulation', 'functionApp'"
         },
         id="Invalid task type",
     )

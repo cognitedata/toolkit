@@ -215,8 +215,38 @@ class SimulationTask(TaskDefinition):
     parameters: SimulationTaskParameters
 
 
+class FunctionAppRef(BaseModelResource):
+    external_id: str = Field(
+        description="The external id of the Function App. This can be either an external ID or a reference like ${myTaskExternalId.output.someKey}"
+    )
+    path: str = Field(
+        max_length=255,
+        description="The HTTP path to invoke on the Function App.",
+    )
+    method: Literal["GET", "POST", "PUT", "DELETE", "PATCH"] | str = Field(
+        description="The HTTP method to use when invoking the Function App."
+    )
+    parameters: dict[str, str] | None = Field(
+        None,
+        description="Optional query parameters to pass to the Function App. Maximum 10 entries.",
+    )
+    body: JsonValue | None = Field(
+        None,
+        description="Optional request body to pass to the Function App.",
+    )
+
+
+class FunctionAppTaskParameters(BaseModelResource):
+    function_app: FunctionAppRef = Field(description="Reference to the Function App to invoke.")
+
+
+class FunctionAppTask(TaskDefinition):
+    type: Literal["functionApp"] = "functionApp"
+    parameters: FunctionAppTaskParameters
+
+
 Task = Annotated[
-    FunctionTask | TransformationTask | CDFTask | DynamicTask | SubworkflowTask | SimulationTask,
+    FunctionTask | TransformationTask | CDFTask | DynamicTask | SubworkflowTask | SimulationTask | FunctionAppTask,
     Field(discriminator="type"),
 ]
 
