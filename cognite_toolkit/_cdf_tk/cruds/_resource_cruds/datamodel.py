@@ -733,11 +733,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
         """
         views_by_id = {self.get_id(item): item for item in items}
 
-        parents_by_child = self._build_view_implements_dependencies(views_by_id)
-        try:
-            TopologicalSorter(parents_by_child).static_order()
-        except CycleError as e:
-            raise ToolkitCycleError(f"Failed to deploy views. This likely due to a cycle in implements. {e.args[1]}")
+        self._sort_implements_or_raise_cycle(views_by_id)
 
         dependencies_by_id: dict[ViewReference, set[ViewReference]] = defaultdict(set)
         for view_id, view in views_by_id.items():
@@ -846,8 +842,9 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                 readonly_properties.add(property_identifier)
         return readonly_properties
 
+    @staticmethod
     def _build_view_implements_dependencies(
-        self, view_by_ids: Mapping[ViewReference, View], include: set[ViewReference] | None = None
+        view_by_ids: Mapping[ViewReference, View], include: set[ViewReference] | None = None
     ) -> dict[ViewReference, set[ViewReference]]:
         """Build a dependency graph based on view implements relationships.
 
@@ -866,19 +863,27 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                     dependencies[view_id].add(implemented_view_id)
         return dependencies
 
+    @staticmethod
+    def _sort_implements_or_raise_cycle(
+        view_by_ids: Mapping[ViewReference, View],
+    ) -> list[ViewReference]:
+        """Builds the implements dependency graph and returns views in topological order.
+
+        Raises ToolkitCycleError if there is a cycle in implements.
+        """
+        parents_by_child = ViewCRUD._build_view_implements_dependencies(view_by_ids)
+        try:
+            # static_order() returns a lazy generator in Python 3.11+; must be consumed to trigger CycleError
+            return list(TopologicalSorter(parents_by_child).static_order())
+        except CycleError as e:
+            raise ToolkitCycleError(
+                f"Failed to deploy views. This is likely due to a cycle in implements. {e.args[1]}"
+            )
+
     def topological_sort_implements(self, view_ids: list[ViewReference]) -> list[ViewReference]:
         """Sorts the views in topological order based on their implements and through properties."""
         view_by_ids = self._lookup_views(view_ids)
-        parents_by_child = self._build_view_implements_dependencies(view_by_ids)
-
-        try:
-            sorted_views = list(TopologicalSorter(parents_by_child).static_order())
-        except CycleError as e:
-            raise ToolkitCycleError(
-                f"Failed to sort views topologically. This likely due to a cycle in implements. {e.args[1]}"
-            )
-
-        return sorted_views
+        return self._sort_implements_or_raise_cycle(view_by_ids)
 
     def topological_sort_container_constraints(
         self, view_ids: list[ViewReference]
