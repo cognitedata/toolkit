@@ -1,5 +1,4 @@
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.resource_classes.group import GroupCapability, GroupRequest, RawAcl, TableScope
 
 
@@ -20,14 +19,17 @@ class TestGroupsAPI:
                     ),
                 )
             ],
+            metadata={},
+            source_id="",
         )
-        try:
+        # Ideally, this test should have created, and deleted the group for each run. However,
+        # creating and deleting groups accumulates in CDF and will eventually cause issues with too many groups, which
+        # needs manual cleanup. Therefore, we check that at least once we have be able to create a group
+        # with the specified table scope.
+        existing_groups = toolkit_client.tool.groups.list(all_groups=True)
+        if existing := next((group for group in existing_groups if group.name == group_request.name), None):
+            created_group = existing
+        else:
             created_group = toolkit_client.tool.groups.create([group_request])
-        except ToolkitAPIError as e:
-            if e.code == 400 and e.duplicated:
-                # If the group already exists, retrieve it instead of failing the test
-                existing_groups = toolkit_client.tool.groups.list(name=group_request.name)
-                assert existing_groups, f"Group with name {group_request.name} should exist but was not found."
-                created_group = existing_groups[0]
 
-        assert created_group, "Failed to create or retrieve the group"
+        assert created_group.as_request_resource().dump() == group_request.dump()
