@@ -17,7 +17,7 @@ import re
 import sys
 import time
 from collections import defaultdict
-from collections.abc import Hashable, Iterable, Sequence
+from collections.abc import Hashable, Iterable, Mapping, Sequence
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from time import sleep
@@ -66,6 +66,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     RequiresConstraintDefinition,
     SpaceRequest,
     SpaceResponse,
+    View,
     ViewCorePropertyResponse,
     ViewRequest,
     ViewResponse,
@@ -712,7 +713,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
             raise
 
     def _create_topologically_sorted(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
-        creation_order = self._topological_sort(items)
+        creation_order = self._compute_deploy_batches(items)
         created: list[ViewResponse] = []
         for batch in creation_order:  # TODO: Smarter batching strategy across SCCs
             try:
@@ -724,7 +725,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                     raise
         return created
 
-    def _topological_sort(self, items: Sequence[ViewRequest]) -> list[list[ViewRequest]]:
+    def _compute_deploy_batches(self, items: Sequence[ViewRequest]) -> list[list[ViewRequest]]:
         """Sorts views into batches based on their dependency graph (implements and reverse direct relations).
 
         Returns the strongly connected components in topological order, so that views
@@ -732,12 +733,9 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
         """
         views_by_id = {self.get_id(item): item for item in items}
 
-        parents_by_child: dict[ViewReference, set[ViewReference]] = {
-            view_id: {parent for parent in view.implements or [] if parent in views_by_id}
-            for view_id, view in views_by_id.items()
-        }
+        parents_by_child = self._build_view_implements_dependencies(views_by_id)
         try:
-            TopologicalSorter[ViewReference](parents_by_child).static_order()
+            TopologicalSorter(parents_by_child).static_order()
         except CycleError as e:
             raise ToolkitCycleError(f"Failed to deploy views. This likely due to a cycle in implements. {e.args[1]}")
 
@@ -849,7 +847,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
         return readonly_properties
 
     def _build_view_implements_dependencies(
-        self, view_by_ids: dict[ViewReference, ViewResponse], include: set[ViewReference] | None = None
+        self, view_by_ids: Mapping[ViewReference, View], include: set[ViewReference] | None = None
     ) -> dict[ViewReference, set[ViewReference]]:
         """Build a dependency graph based on view implements relationships.
 
@@ -860,7 +858,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
         Returns:
             Dictionary mapping each view ID to the set of view IDs it depends on (implements)
         """
-        dependencies: dict[ViewReference, set[ViewReference]] = {}
+        dependencies: dict[ViewReference, set[ViewReference]] = {} 
         for view_id, view in view_by_ids.items():
             dependencies[view_id] = set()
             for implemented_view_id in view.implements or []:

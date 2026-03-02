@@ -19,6 +19,7 @@ extend-upload = true
 simulators = true
 v08 = false
 data-products = true
+view-topological-sort = true
 
 [plugins]
 run = true
