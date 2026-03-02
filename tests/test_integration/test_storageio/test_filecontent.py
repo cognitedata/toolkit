@@ -86,11 +86,11 @@ class TestFileContentIO:
             file_directory=tmp_path,
             template=FileDataModelingTemplate.model_validate(
                 dict(
-                    instance_id=TemplateNodeId(
+                    instanceId=TemplateNodeId(
                         space=toolkit_space.space,
-                        external_id=FILENAME_VARIABLE,
+                        externalId=FILENAME_VARIABLE,
                     ),
-                )
+                ),
             ),
         )
         io = FileContentIO(toolkit_client, tmp_path)

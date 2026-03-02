@@ -332,7 +332,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
             message=RequestMessage(
                 endpoint_url=http_client.config.create_api_url("/files/uploadlink"),
                 method="POST",
-                body_content={"items": [{"instanceId": instance_id.dump()}]},
+                body_content={"items": [{"instanceId": instance_id.dump(include_instance_type=False)}]},
             )
         )
         if isinstance(response, FailedResponse) and response.error.missing and not created_node:
