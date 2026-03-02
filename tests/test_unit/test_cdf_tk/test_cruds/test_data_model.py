@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client.identifiers import ViewDirectReference
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerReference, ViewDirectReference
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelRequest,
     DataModelResponse,
@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import (
     SingleReverseDirectRelationPropertyRequest,
+    ViewCorePropertyRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
@@ -284,68 +285,44 @@ class TestViewLoader:
 
 
 class TestViewDeployTopologicalSort:
-    def test_reverse_direct_relation_through_dependency(self) -> None:
-        source_view = ViewRequest(
-            space="sp_space",
-            external_id="Source",
-            version="v1",
-            properties={
-                "reverse_prop": SingleReverseDirectRelationPropertyRequest(
-                    source=ViewReference(space="sp_space", external_id="Target", version="v1"),
+    @pytest.mark.parametrize(
+        "dependency_property",
+        [
+            pytest.param(
+                SingleReverseDirectRelationPropertyRequest(
+                    source=ViewReference(space="sp_space", external_id="Dependency", version="v1"),
                     through=ViewDirectReference(
-                        source=ViewReference(space="sp_space", external_id="Target", version="v1"),
+                        source=ViewReference(space="sp_space", external_id="Dependency", version="v1"),
                         identifier="direct_prop",
                     ),
-                )
-            },
+                ),
+                id="reverse_direct_relation_through",
+            ),
+            pytest.param(
+                ViewCorePropertyRequest(
+                    container=ContainerReference(space="sp_space", external_id="some_container"),
+                    container_property_identifier="ref",
+                    source=ViewReference(space="sp_space", external_id="Dependency", version="v1"),
+                ),
+                id="direct_relation_source",
+            ),
+        ],
+    )
+    def test_property_dependency_ordering(self, dependency_property: ViewCorePropertyRequest) -> None:
+        dependent_view = ViewRequest(
+            space="sp_space",
+            external_id="Dependent",
+            version="v1",
+            properties={"prop": dependency_property},
         )
-        target_view = ViewRequest(space="sp_space", external_id="Target", version="v1")
+        dependency_view = ViewRequest(space="sp_space", external_id="Dependency", version="v1")
 
         with monkeypatch_toolkit_client() as client:
             loader = ViewCRUD(client, Path("build_dir"), None)
-            batches = loader._compute_deploy_batches([source_view, target_view])
+            batches = loader._compute_deploy_batches([dependent_view, dependency_view])
 
         flat_ids = [view.external_id for batch in batches for view in batch]
-        assert flat_ids.index("Target") < flat_ids.index("Source")
-
-    def test_create_dependency_ordered_calls_api_per_batch(self) -> None:
-        parent = ViewRequest(space="sp_space", external_id="Parent", version="v1")
-        child = ViewRequest(
-            space="sp_space",
-            external_id="Child",
-            version="v1",
-            implements=[ViewReference(space="sp_space", external_id="Parent", version="v1")],
-        )
-
-        def fake_create(items: list[ViewRequest]) -> list[ViewResponse]:
-            return [
-                ViewResponse(
-                    space=v.space,
-                    external_id=v.external_id,
-                    version=v.version,
-                    name=None,
-                    description=None,
-                    implements=v.implements or [],
-                    properties={},
-                    last_updated_time=1,
-                    created_time=1,
-                    filter=None,
-                    writable=True,
-                    used_for="node",
-                    is_global=False,
-                    mapped_containers=[],
-                    queryable=False,
-                )
-                for v in items
-            ]
-
-        with monkeypatch_toolkit_client() as client:
-            client.tool.views.create.side_effect = fake_create
-            loader = ViewCRUD(client, Path("build_dir"), None)
-            result = loader._create_dependency_ordered([child, parent])
-
-        assert [r.external_id for r in result] == ["Parent", "Child"]
-        assert client.tool.views.create.call_count == 2
+        assert flat_ids.index("Dependency") < flat_ids.index("Dependent")
 
     def test_cycle_in_implements_raises(self) -> None:
         view_a = ViewRequest(

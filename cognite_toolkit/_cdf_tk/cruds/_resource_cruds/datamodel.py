@@ -717,7 +717,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
     def _create_dependency_ordered(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
         creation_order = self._compute_deploy_batches(items)
         created: list[ViewResponse] = []
-        for batch in creation_order:  # TODO: Smarter batching strategy across SCCs
+        for batch in creation_order:
             try:
                 created.extend(self.client.tool.views.create(batch))
             except ToolkitAPIError as e:
@@ -728,10 +728,11 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
         return created
 
     def _compute_deploy_batches(self, items: Sequence[ViewRequest]) -> list[list[ViewRequest]]:
-        """Sorts views into batches based on their dependency graph (implements and reverse direct relations).
+        """Sorts views into batches based on their dependency graph (implements, reverse direct relations,
+        and direct relation sources).
 
-        Returns the strongly connected components in topological order, so that views
-        are created after their dependencies.
+        Computes the strongly connected components in topological order, then packs
+        consecutive SCCs into batches up to VIEW_CONTAINER_UPSERT_BATCH_LIMIT.
         """
         views_by_id = {self.get_id(item): item for item in items}
 
@@ -749,17 +750,22 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                     if view_property.source in views_by_id:
                         dependencies_by_id[view_id].add(view_property.source)
 
-        batches = [
-            [views_by_id[view_id] for view_id in strongly_connected]
-            for strongly_connected in tarjan(dependencies_by_id)
-        ]
-        for batch in batches:
-            if len(batch) > VIEW_CONTAINER_UPSERT_BATCH_LIMIT:
-                view_ids = self.get_ids(batch)
+        batches: list[list[ViewRequest]] = []
+        current_batch: list[ViewRequest] = []
+        for strongly_connected in tarjan(dependencies_by_id):
+            scc_views = [views_by_id[view_id] for view_id in strongly_connected]
+            if len(current_batch) + len(scc_views) > VIEW_CONTAINER_UPSERT_BATCH_LIMIT and len(current_batch) > 0:
+                batches.append(current_batch)
+                current_batch = []
+            current_batch.extend(scc_views)
+            if len(scc_views) > VIEW_CONTAINER_UPSERT_BATCH_LIMIT:
+                view_ids = self.get_ids(scc_views)
                 MediumSeverityWarning(
-                    f"Found a strongly interdependent set of {len(batch)} views: ({view_ids}). "
+                    f"Found a strongly interdependent set of {len(scc_views)} views: ({view_ids}). "
                     "These views are highly interconnected, and the deployment might fail due to API batch size limits."
                 ).print_warning(console=self.console)
+        if len(current_batch) > 0:
+            batches.append(current_batch)
         return batches
 
     def _fallback_create_one_by_one(
