@@ -584,16 +584,16 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
         return id.dump()
 
     @classmethod
-    def get_dependencies(cls, resource: ViewYAML) -> dict[type[ToolkitResource], set[Identifier]]:
-        dependencies: dict[type[ToolkitResource], set[Identifier]] = defaultdict(set)
-        dependencies[SpaceYAML].add(SpaceId(space=resource.space))
+    def get_dependencies(cls, resource: ViewYAML) -> Iterable[tuple[type[ToolkitResource], Identifier]]:
+
+        yield SpaceYAML, SpaceId(space=resource.space)
+
         for implement in resource.implements or []:
-            dependencies[ViewYAML].add(implement.as_id())
+            yield ViewYAML, implement.as_id()
         if resource.properties:
             for prop in resource.properties.values():
                 if isinstance(prop, ContainerViewProperty):
-                    dependencies[ContainerYAML].add(prop.container.as_id())
-        return dependencies
+                    yield ContainerYAML, prop.container.as_id()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:

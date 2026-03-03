@@ -1,4 +1,5 @@
 from functools import cached_property
+from itertools import chain
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
@@ -54,7 +55,7 @@ class BuiltModule(BaseModel):
     source: ModuleSource
     built_files: list[Path] = Field(default_factory=list)
     built_resources_identifiers: list[Identifier] = Field(default_factory=list)
-    dependencies: dict[AbsoluteFilePath, dict[type[ToolkitResource], set[Identifier]]] = Field(default_factory=dict)
+    dependencies: dict[AbsoluteFilePath, set[tuple[type[ToolkitResource], Identifier]]] = Field(default_factory=dict)
     insights: InsightList = Field(default_factory=InsightList)
 
     @property
@@ -114,12 +115,6 @@ class BuildFolder(BaseModel):
         return resources
 
     @cached_property
-    def dependencies(self) -> dict[AbsoluteFilePath, dict[type[ToolkitResource], set[Identifier]]]:
+    def dependencies(self) -> dict[AbsoluteFilePath, set[tuple[type[ToolkitResource], Identifier]]]:
         """Get external dependencies for all built modules."""
-        dependencies: dict[AbsoluteFilePath, dict[type[ToolkitResource], set[Identifier]]] = {}
-
-        for built_module in self.built_modules:
-            module_dep = built_module.dependencies
-
-            dependencies.update(module_dep)
-        return dependencies
+        return dict(chain.from_iterable(module.dependencies.items() for module in self.built_modules))
