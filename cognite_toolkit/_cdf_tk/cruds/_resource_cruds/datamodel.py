@@ -84,7 +84,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
 from cognite_toolkit._cdf_tk.constants import (
     BUILD_FOLDER_ENCODING,
     HAS_DATA_FILTER_LIMIT,
-    VIEW_CONTAINER_UPSERT_BATCH_LIMIT,
+    VIEW_UPSERT_BATCH_LIMIT,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import (
     ResourceContainerCRUD,
@@ -747,7 +747,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
         and direct relation sources).
 
         Computes the strongly connected components in topological order, then packs
-        consecutive SCCs into batches up to VIEW_CONTAINER_UPSERT_BATCH_LIMIT.
+        consecutive SCCs into batches up to VIEW_UPSERT_BATCH_LIMIT.
         """
         views_by_id = {self.get_id(item): item for item in items}
 
@@ -776,11 +776,11 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
         current_batch: list[ViewRequest] = []
         for strongly_connected in tarjan(dependencies_by_id):
             scc_views = [views_by_id[view_id] for view_id in strongly_connected]
-            if len(current_batch) + len(scc_views) > VIEW_CONTAINER_UPSERT_BATCH_LIMIT and len(current_batch) > 0:
+            if len(current_batch) + len(scc_views) > VIEW_UPSERT_BATCH_LIMIT and len(current_batch) > 0:
                 batches.append(current_batch)
                 current_batch = []
             current_batch.extend(scc_views)
-            if len(scc_views) > VIEW_CONTAINER_UPSERT_BATCH_LIMIT:
+            if len(scc_views) > VIEW_UPSERT_BATCH_LIMIT:
                 MediumSeverityWarning(
                     f"Found a strongly interdependent set of {len(scc_views)} views: {humanize_collection(self.get_ids(scc_views))}. "
                     "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
