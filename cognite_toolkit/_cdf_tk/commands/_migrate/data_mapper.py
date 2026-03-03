@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Generic, Literal, cast
 from uuid import uuid4
 
@@ -671,7 +671,7 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
     """
 
     def __init__(
-        self, client: ToolkitClient, space_mapping: dict[str, str], mappings: Sequence[ViewToViewMapping]
+        self, client: ToolkitClient, space_mapping: Mapping[str, str], mappings: Sequence[ViewToViewMapping]
     ) -> None:
         super().__init__(client)
         self.space_mapping = space_mapping

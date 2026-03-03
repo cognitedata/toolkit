@@ -1,3 +1,4 @@
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, ClassVar
 from unittest.mock import MagicMock
@@ -10,10 +11,26 @@ from cognite.client.data_classes.data_modeling import (
     ViewId,
 )
 
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerReference, ViewDirectReference
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ConstraintOrIndexState,
     DataModelResponseWithViews,
+    DirectNodeRelation,
+    FileCDFExternalIdReference,
+    InstanceRequest,
+    InstanceResponse,
+    InstanceSource,
+    Int64Property,
+    MultiEdgeProperty,
+    MultiReverseDirectRelationPropertyResponse,
     NodeReference,
+    NodeRequest,
+    NodeResponse,
+    TextProperty,
+    TimeseriesCDFExternalIdReference,
+    TimestampProperty,
+    ViewCorePropertyResponse,
     ViewReference,
     ViewResponse,
 )
@@ -24,13 +41,19 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
     AssetMappingDMRequest,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     AssetCentricMapping,
     AssetCentricMappingList,
     MigrationMapping,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, CanvasMapper, ThreeDAssetMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
+    AssetCentricMapper,
+    CanvasMapper,
+    FDMtoCDMMapper,
+    ThreeDAssetMapper,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, OperationTracker
@@ -341,3 +364,158 @@ class TestCanvasMapper:
                 unexpected_uuid.append(item.id_)
         # After the migration, there should be no references to the original components of the Canvas.
         assert not unexpected_uuid, f"Found unexpected user data in migrated canvas: {unexpected_uuid}"
+
+
+class TestFDMtoCDMMapper:
+    DEFAULT_ARGS: Mapping[str, Any] = dict(
+        created_time=0,
+        last_updated_time=1,
+        writable=True,
+        queryable=True,
+        used_for="node",
+        is_global=False,
+        mapped_containers=[],
+    )
+    # Used for non-important references in the test dat.
+    SOME_VIEW_ID = ViewReference(space="schema_space1", external_id="SomeOtherView", version="v1")
+    SOME_CONTAINER_ID = ContainerReference(space="schema_space1", external_id="SomeContainer")
+    SOURCE_VIEW = ViewResponse(
+        space="schema_space1",
+        external_id="SourceView",
+        version="v1",
+        **DEFAULT_ARGS,
+        properties={
+            "sourceEdge1": MultiEdgeProperty(
+                type=NodeReference(space="schema_space1", external_id="sourceEdge1"), source=SOME_VIEW_ID
+            ),
+            "sourceEdge2": MultiEdgeProperty(
+                type=NodeReference(space="schema_space1", external_id="sourceEdge2"), source=SOME_VIEW_ID
+            ),
+            "sourceEdge3": MultiEdgeProperty(
+                type=NodeReference(space="schema_space1", external_id="sourceEdge3"), source=SOME_VIEW_ID
+            ),
+            "timeseriesRef": ViewCorePropertyResponse(
+                constraint_state=ConstraintOrIndexState(),
+                type=TimeseriesCDFExternalIdReference(),
+                container_property_identifier="timeseriesRef",
+                container=SOME_CONTAINER_ID,
+            ),
+            "fileRef": ViewCorePropertyResponse(
+                constraint_state=ConstraintOrIndexState(),
+                type=FileCDFExternalIdReference(),
+                container_property_identifier="fileRef",
+                container=SOME_CONTAINER_ID,
+            ),
+            "textProp": ViewCorePropertyResponse(
+                constraint_state=ConstraintOrIndexState(),
+                type=TextProperty(),
+                container_property_identifier="textProp",
+                container=SOME_CONTAINER_ID,
+            ),
+        },
+    )
+    DESTINATION_VIEW = ViewResponse(
+        space="schema_space2",
+        external_id="DestinationView",
+        version="v1",
+        **DEFAULT_ARGS,
+        properties={
+            "targetEdge1": MultiEdgeProperty(
+                type=NodeReference(space="schema_space2", external_id="targetEdge1"), source=SOME_VIEW_ID
+            ),
+            "targetDirect1": ViewCorePropertyResponse(
+                constraint_state=ConstraintOrIndexState(),
+                type=DirectNodeRelation(),
+                container_property_identifier="targetDirect1",
+                container=SOME_CONTAINER_ID,
+            ),
+            "targetReverse1": MultiReverseDirectRelationPropertyResponse(
+                source=SOME_VIEW_ID,
+                through=ViewDirectReference(source=SOME_VIEW_ID, identifier="someProp"),
+                targets_list=True,
+            ),
+            "targetDirectTimeseries": ViewCorePropertyResponse(
+                constraint_state=ConstraintOrIndexState(),
+                type=TimeseriesCDFExternalIdReference(),
+                container_property_identifier="targetDirectTimeseries",
+                container=SOME_CONTAINER_ID,
+            ),
+            "targetDirectFile": ViewCorePropertyResponse(
+                constraint_state=ConstraintOrIndexState(),
+                type=FileCDFExternalIdReference(),
+                container_property_identifier="targetDirectFile",
+                container=SOME_CONTAINER_ID,
+            ),
+            "targetInt": ViewCorePropertyResponse(
+                constraint_state=ConstraintOrIndexState(),
+                type=Int64Property(),
+                container_property_identifier="targetDirectText",
+                container=SOME_CONTAINER_ID,
+            ),
+            "targetTimestamp": ViewCorePropertyResponse(
+                constraint_state=ConstraintOrIndexState(),
+                type=TimestampProperty(),
+                container_property_identifier="targetTimestamp",
+                container=SOME_CONTAINER_ID,
+            ),
+        },
+    )
+    SOURCE_SPACE = "source_space"
+    TARGET_SPACE = "target_space"
+    SPACE_MAPPING: Mapping[str, str] = {SOURCE_SPACE: TARGET_SPACE}
+    VIEW_MAPPINGS: Sequence[ViewToViewMapping] = [
+        ViewToViewMapping(
+            external_id="mapping_1",
+            source_view=SOURCE_VIEW.as_id(),
+            destination_view=DESTINATION_VIEW.as_id(),
+            property_mapping={
+                # Edge to edge
+                "sourceEdge1": "targetEdge1",
+                # Edge to direct relation
+                "sourceEdge2": "targetDirect1",
+                # Edge to reverse
+                "sourceEdge3": "targetReverse1",
+                # TimeReference to TimeReference
+                "timeseriesRef": "targetDirectTimeseries",
+                # FileReference to FileReference
+                "fileRef": "targetDirectFile",
+                # Text to Int with type change
+                "textProp": "targetInt",
+                # Node property moved to container property with type change
+                "node.lastUpdatedTime": "targetTimestamp",
+            },
+        )
+    ]
+
+    @pytest.mark.parametrize(
+        "instances, expected",
+        [
+            pytest.param(
+                [
+                    NodeResponse(
+                        space=SOURCE_SPACE,
+                        external_id="node1",
+                        last_updated_time=1772522715,
+                        created_time=0,
+                        version=1,
+                    )
+                ],
+                [
+                    NodeRequest(
+                        space=TARGET_SPACE,
+                        external_id="node1",
+                        sources=[InstanceSource(source=DESTINATION_VIEW.as_id(), properties={"targetTimestamp": ""})],
+                    )
+                ],
+                id="Map node property to container property with type change",
+            ),
+        ],
+    )
+    def test_map_fdm_to_cdm(self, instances: Sequence[InstanceResponse], expected: Sequence[InstanceRequest]):
+        with monkeypatch_toolkit_client() as client:
+            mapper = FDMtoCDMMapper(client, self.SPACE_MAPPING, self.VIEW_MAPPINGS)
+            logger = MagicMock(spec=DataLogger)
+            mapper.logger = logger
+
+            actual = mapper.map(instances)
+            assert [item.dump() for item in actual] == [item.dump() for item in expected]
