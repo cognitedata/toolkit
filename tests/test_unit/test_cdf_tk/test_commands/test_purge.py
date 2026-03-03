@@ -78,7 +78,7 @@ def cognite_files_2000_list() -> NodeList[CogniteFile]:
 def timeseries_by_node_id(
     cognite_timeseries_2000_list: NodeList[CogniteTimeSeries],
 ) -> dict[dm.NodeId, dict[str, Any]]:
-    result: dict[NodeId, dict[str, Any]] = {}
+    result: dict[dm.NodeId, dict[str, Any]] = {}
     for i, ts in enumerate(cognite_timeseries_2000_list):
         node_id = ts.as_id()
         ref = NodeReference(space=node_id.space, external_id=node_id.external_id)
@@ -100,7 +100,7 @@ def timeseries_by_node_id(
 def files_by_node_id(
     cognite_files_2000_list: NodeList[CogniteFile],
 ) -> dict[dm.NodeId, dict[str, Any]]:
-    result: dict[NodeId, dict[str, Any]] = {}
+    result: dict[dm.NodeId, dict[str, Any]] = {}
     for i, file in enumerate(cognite_files_2000_list):
         node_id = file.as_id()
         ref = NodeReference(space=node_id.space, external_id=node_id.external_id)
