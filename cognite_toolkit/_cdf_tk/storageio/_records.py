@@ -35,7 +35,7 @@ class RecordIO(UploadableStorageIO[RecordContainerSelector, RecordResponse, Reco
     SYNC_ENDPOINT = "/streams/{streamId}/records/sync"
     # TODO: Replace with adaptive limit that targets ~3MB uncompressed response size
     CHUNK_SIZE = 500
-    MAX_TOTAL_RECORDS = 5_000_000
+    MAX_TOTAL_RECORDS = 1_000_000
     BASE_SELECTOR = RecordContainerSelector
 
     def as_id(self, item: RecordResponse) -> str:
@@ -47,15 +47,13 @@ class RecordIO(UploadableStorageIO[RecordContainerSelector, RecordResponse, Reco
     def stream_data(self, selector: RecordContainerSelector, limit: int | None = None) -> Iterable[Page]:
         effective_limit = min(limit, self.MAX_TOTAL_RECORDS) if limit is not None else self.MAX_TOTAL_RECORDS
         url = self.SYNC_ENDPOINT.format(streamId=selector.stream.external_id)
-        config = self.client.config
-        container = selector.container
 
         has_data_filter: dict[str, object] = {
             "hasData": [
                 {
                     "type": "container",
-                    "space": container.space,
-                    "externalId": container.external_id,
+                    "space": selector.container.space,
+                    "externalId": selector.container.external_id,
                 }
             ]
         }
@@ -76,8 +74,8 @@ class RecordIO(UploadableStorageIO[RecordContainerSelector, RecordResponse, Reco
                 {
                     "source": {
                         "type": "container",
-                        "space": container.space,
-                        "externalId": container.external_id,
+                        "space": selector.container.space,
+                        "externalId": selector.container.external_id,
                     },
                     "properties": ["*"],
                 }
@@ -89,14 +87,15 @@ class RecordIO(UploadableStorageIO[RecordContainerSelector, RecordResponse, Reco
 
         total = 0
         while True:
-            page_limit = min(self.CHUNK_SIZE, effective_limit - total)
+            remaining = effective_limit - total
+            page_limit = min(self.CHUNK_SIZE, remaining)
             if page_limit <= 0:
                 break
             body["limit"] = page_limit
 
             result = self.client.http_client.request_single_retries(
                 RequestMessage(
-                    endpoint_url=config.create_api_url(url),
+                    endpoint_url=self.client.config.create_api_url(url),
                     method="POST",
                     body_content=body,  # type: ignore[arg-type]
                 )
@@ -107,10 +106,8 @@ class RecordIO(UploadableStorageIO[RecordContainerSelector, RecordResponse, Reco
             if not sync_response.items:
                 break
 
-            remaining = effective_limit - total
-            items = sync_response.items[:remaining]
-            total += len(items)
-            yield Page(worker_id="main", items=items, next_cursor=sync_response.next_cursor)  # pyright: ignore[reportArgumentType]
+            total += len(sync_response.items)
+            yield Page(worker_id="main", items=sync_response.items, next_cursor=sync_response.next_cursor)  # pyright: ignore[reportArgumentType]
 
             if not sync_response.has_next or total >= effective_limit:
                 break
@@ -135,10 +132,9 @@ class RecordIO(UploadableStorageIO[RecordContainerSelector, RecordResponse, Reco
         if selector is None:
             raise ToolkitValueError("Selector must be provided for RecordIO upload_items")
         url = self.UPLOAD_ENDPOINT.format(streamId=selector.stream.external_id)
-        config = http_client.config
         return http_client.request_items_retries(
             message=ItemsRequest(
-                endpoint_url=config.create_api_url(url),
+                endpoint_url=http_client.config.create_api_url(url),
                 method="POST",
                 items=data_chunk,
             )
