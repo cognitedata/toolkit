@@ -946,7 +946,7 @@ class DownloadApp(typer.Typer):
         ).unsafe_ask()
         limit_prompt = f"The maximum number of {display_name} to download per {selector_type}. "
         if max_limit is not None:
-            limit_prompt += f"Use -1 to download up to the maximum of {max_limit:,}."
+            limit_prompt += f"Use -1 to download up to the maximum of {max_limit:,} {display_name}."
         else:
             limit_prompt += f"Use -1 to download all {display_name}."
         selected_limit = int(
