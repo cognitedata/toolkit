@@ -1,8 +1,9 @@
 from collections.abc import Iterable, Sequence
 from typing import ClassVar
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest, RecordResponse
@@ -13,11 +14,15 @@ from ._base import Page, UploadableStorageIO, UploadItem
 from .selectors import RecordContainerSelector
 
 
-class RecordSyncResponse(BaseModel):
-    """Response from the Records /sync endpoint."""
+class RecordSyncResponse(PagedResponse[RecordResponse]):
+    """Response from the Records /sync endpoint.
 
-    items: list[RecordResponse]
-    next_cursor: str = Field(alias="nextCursor")
+    Extends PagedResponse with `has_next` because the records service deviates from
+    the typical API behavior. The records service may return fewer items than requested
+    per page in case of large records being queried. We must therefore rely on `has_next`
+    rather than the number of returned items to decide whether to continue pagination.
+    """
+
     has_next: bool = Field(alias="hasNext")
 
 
