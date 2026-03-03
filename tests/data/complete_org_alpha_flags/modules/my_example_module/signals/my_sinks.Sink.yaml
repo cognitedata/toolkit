@@ -1,0 +1,6 @@
+- type: email
+  externalId: sink-with-known-email
+  emailAddress: known-user@example.com
+- type: email
+  externalId: sink-with-unknown-email
+  emailAddress: nobody@nonexistent.invalid
