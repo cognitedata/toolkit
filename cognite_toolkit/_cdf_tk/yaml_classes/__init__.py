@@ -43,6 +43,7 @@ from .search_config import SearchConfigYAML
 from .securitycategories import SecurityCategoriesYAML
 from .sequence import SequenceRowYAML, SequenceYAML
 from .signal_sink import EmailSinkYAML, SignalSinkYAML, UserSinkYAML
+from .signal_subscription import SignalSubscriptionYAML
 from .simulator_model import SimulatorModelYAML
 from .simulator_model_revision import SimulatorModelRevisionYAML
 from .simulator_routine import SimulatorRoutineYAML
@@ -104,6 +105,7 @@ __all__ = [
     "SequenceRowYAML",
     "SequenceYAML",
     "SignalSinkYAML",
+    "SignalSubscriptionYAML",
     "SimulatorModelRevisionYAML",
     "SimulatorModelYAML",
     "SimulatorRoutineRevisionYAML",
