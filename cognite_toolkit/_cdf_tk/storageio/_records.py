@@ -10,7 +10,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordReques
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import Page, UploadableStorageIO, UploadItem
+from . import StorageIOConfig
+from ._base import ConfigurableStorageIO, Page, UploadableStorageIO, UploadItem
 from .selectors import RecordContainerSelector
 
 
@@ -26,7 +27,10 @@ class RecordSyncResponse(PagedResponse[RecordResponse]):
     has_next: bool = Field(alias="hasNext")
 
 
-class RecordIO(UploadableStorageIO[RecordContainerSelector, RecordResponse, RecordRequest]):  # pyright: ignore[reportInvalidTypeArguments]
+class RecordIO(
+    ConfigurableStorageIO[RecordContainerSelector, RecordResponse],
+    UploadableStorageIO[RecordContainerSelector, RecordResponse, RecordRequest],
+):  # pyright: ignore[reportInvalidTypeArguments]
     KIND = "Records"
     SUPPORTED_DOWNLOAD_FORMATS: ClassVar[frozenset[str]] = frozenset({".ndjson"})
     SUPPORTED_COMPRESSIONS: ClassVar[frozenset[str]] = frozenset({".gz"})
@@ -43,6 +47,11 @@ class RecordIO(UploadableStorageIO[RecordContainerSelector, RecordResponse, Reco
 
     def count(self, selector: RecordContainerSelector) -> int | None:
         return None
+
+    # TODO: Download container and space (and stream?) definitions alongside record data,
+    # similar to how InstanceIO downloads views, containers, and spaces.
+    def configurations(self, selector: RecordContainerSelector) -> Iterable[StorageIOConfig]:
+        return ()
 
     def stream_data(self, selector: RecordContainerSelector, limit: int | None = None) -> Iterable[Page]:
         effective_limit = min(limit, self.MAX_TOTAL_RECORDS) if limit is not None else self.MAX_TOTAL_RECORDS
@@ -103,13 +112,11 @@ class RecordIO(UploadableStorageIO[RecordContainerSelector, RecordResponse, Reco
             response = result.get_success_or_raise()
 
             sync_response = RecordSyncResponse.model_validate_json(response.body)
-            if not sync_response.items:
-                break
-
             total += len(sync_response.items)
-            yield Page(worker_id="main", items=sync_response.items, next_cursor=sync_response.next_cursor)  # pyright: ignore[reportArgumentType]
-
-            if not sync_response.has_next or total >= effective_limit:
+            if sync_response.items:
+                yield Page(worker_id="main", items=sync_response.items, next_cursor=sync_response.next_cursor)  # pyright: ignore[reportArgumentType]
+            if not sync_response.has_next or total >= effective_limit or not sync_response.items:
+                # Not sure if has_next=true and items=[] can happen, but handling it just in case
                 break
 
             body.pop("initializeCursor", None)
