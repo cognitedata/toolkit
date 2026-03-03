@@ -76,7 +76,7 @@ class Flags(Enum):
     )
     SIGNALS = FlagMetadata(
         visible=True,
-        description="Enablessupport for signal resources",
+        description="Enables support for signal resources",
     )
     SIMULATORS = FlagMetadata(
         visible=True,
