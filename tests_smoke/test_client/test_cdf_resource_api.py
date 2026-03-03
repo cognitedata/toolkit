@@ -55,7 +55,7 @@ from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessRe
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExtractionPipelineConfigId,
     InternalId,
-    InternalIdUnwrapped,
+    InternalUnwrappedId,
     ThreeDModelRevisionId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import AnnotationFilter, SequenceRowFilter
@@ -1280,7 +1280,7 @@ class TestCDFResourceAPI:
 
         # Cleanup any existing security categories with the same name
         existing_list = client.tool.security_categories.list(limit=None)
-        to_delete: list[InternalIdUnwrapped] = []
+        to_delete: list[InternalUnwrappedId] = []
         for existing in existing_list:
             if existing.name == security_category_request.name:
                 to_delete.append(existing.as_id())

@@ -104,7 +104,7 @@ class DataModelId(DataModelNoVersionId):
         return f"{self.space}:{self.external_id}(version={self.version})"
 
 
-class InstanceIdDefinition(Identifier):
+class InstanceDefinitionId(Identifier):
     instance_type: str
     space: str
     external_id: str
@@ -131,7 +131,7 @@ class InstanceIdDefinition(Identifier):
         return self.model_dump(mode="json", by_alias=camel_case, exclude=exclude)
 
 
-class NodeId(InstanceIdDefinition):
+class NodeId(InstanceDefinitionId):
     instance_type: Literal["node"] = "node"
 
     def __str__(self) -> str:
@@ -150,7 +150,7 @@ class NodeId(InstanceIdDefinition):
         return [cls(space=space, external_id=str_id) for str_id in str_ids]
 
 
-class EdgeId(InstanceIdDefinition):
+class EdgeId(InstanceDefinitionId):
     instance_type: Literal["edge"] = "edge"
 
     def __str__(self) -> str:
@@ -166,7 +166,7 @@ NodeUntypedId = Annotated[NodeId, PlainSerializer(_dump_no_type, when_used="alwa
 
 EdgeUntypedId = Annotated[EdgeId, PlainSerializer(_dump_no_type, when_used="always")]
 
-T_InstanceId = TypeVar("T_InstanceId", bound=InstanceIdDefinition)
+T_InstanceId = TypeVar("T_InstanceId", bound=InstanceDefinitionId)
 
 
 class ContainerDirectId(Identifier):

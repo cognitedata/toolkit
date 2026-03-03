@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse,
     SuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition, NodeId
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APM_CONFIG_SPACE,
     APMConfigRequest,
@@ -33,7 +33,7 @@ class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, In
         # 500 is chosen as 1000 is the maximum for nodes, and each location config consists of 1 or 2 nodes
         super().__init__(http_client, query_chunk=500)
 
-    def _retrieve_query(self, items: Sequence[InstanceIdDefinition]) -> dict[str, Any]:
+    def _retrieve_query(self, items: Sequence[InstanceDefinitionId]) -> dict[str, Any]:
         return {
             "with": {
                 self._LOCATION_REF: {

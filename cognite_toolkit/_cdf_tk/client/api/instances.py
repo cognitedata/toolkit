@@ -8,7 +8,7 @@ from pydantic import JsonValue
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod, Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
-from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition, NodeId, T_InstanceId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId, NodeId, T_InstanceId, ViewId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceRequest,
@@ -44,8 +44,8 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
     ) -> PagedResponse[InstanceResponse]:
         return PagedResponse[InstanceResponse].model_validate_json(response.body)
 
-    def _validate_response(self, response: SuccessResponse) -> ResponseItems[InstanceIdDefinition]:
-        return ResponseItems[InstanceIdDefinition].model_validate_json(response.body)
+    def _validate_response(self, response: SuccessResponse) -> ResponseItems[InstanceDefinitionId]:
+        return ResponseItems[InstanceDefinitionId].model_validate_json(response.body)
 
     def create(self, items: Sequence[InstanceRequest]) -> list[InstanceSlimDefinition]:
         """Create instances in CDF.
@@ -60,7 +60,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             response_items.extend(PagedResponse[InstanceSlimDefinition].model_validate_json(response.body).items)
         return response_items
 
-    def retrieve(self, items: Sequence[InstanceIdDefinition], source: ViewId | None = None) -> list[InstanceResponse]:
+    def retrieve(self, items: Sequence[InstanceDefinitionId], source: ViewId | None = None) -> list[InstanceResponse]:
         """Retrieve instances from CDF.
 
         Args:
@@ -75,13 +75,13 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             extra_body={"sources": [{"source": source.dump(include_type=True)}]} if source else None,
         )
 
-    def delete(self, items: Sequence[InstanceIdDefinition]) -> list[InstanceIdDefinition]:
+    def delete(self, items: Sequence[InstanceDefinitionId]) -> list[InstanceDefinitionId]:
         """Delete instances from CDF.
 
         Args:
             items: List of TypedInstanceIdentifier objects to delete.
         """
-        response_items: list[InstanceIdDefinition] = []
+        response_items: list[InstanceDefinitionId] = []
         for response in self._chunk_requests(items, "delete", self._serialize_items):
             response_items.extend(self._validate_response(response).items)
         return response_items
@@ -289,7 +289,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
         self._query_chunk = query_chunk
 
     @abstractmethod
-    def _retrieve_query(self, item: Sequence[InstanceIdDefinition]) -> dict[str, Any]:
+    def _retrieve_query(self, item: Sequence[InstanceDefinitionId]) -> dict[str, Any]:
         raise NotImplementedError()
 
     @abstractmethod

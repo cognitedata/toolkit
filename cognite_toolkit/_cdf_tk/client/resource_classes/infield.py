@@ -3,7 +3,7 @@ from typing import Any, ClassVar, Literal
 from pydantic import JsonValue, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelId,
     NodeId,
@@ -112,8 +112,8 @@ class InFieldLocationConfigRequest(WrappedInstanceListRequest, InFieldLocationCo
             )
         return output
 
-    def as_ids(self) -> list[InstanceIdDefinition]:
-        output: list[InstanceIdDefinition] = [self.as_id()]
+    def as_ids(self) -> list[InstanceDefinitionId]:
+        output: list[InstanceDefinitionId] = [self.as_id()]
         if (
             self.data_exploration_config
             and self.data_exploration_config.space
@@ -133,8 +133,8 @@ class InFieldLocationConfigResponse(WrappedInstanceListResponse, InFieldLocation
     def request_cls(cls) -> type[InFieldLocationConfigRequest]:
         return InFieldLocationConfigRequest
 
-    def as_ids(self) -> list[InstanceIdDefinition]:
-        output: list[InstanceIdDefinition] = [NodeId(space=self.space, external_id=self.external_id)]
+    def as_ids(self) -> list[InstanceDefinitionId]:
+        output: list[InstanceDefinitionId] = [NodeId(space=self.space, external_id=self.external_id)]
         if (
             self.data_exploration_config
             and self.data_exploration_config.space

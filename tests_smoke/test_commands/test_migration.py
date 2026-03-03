@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
-    AssetMappingClassicRequest,
+    AssetMappingClassicRequestId,
     ThreeDModelClassicRequest,
     ThreeDModelClassicResponse,
 )
@@ -161,7 +161,7 @@ def tmp_3D_model_with_asset_mapping(
         raise AssertionError("3D model node has no ID.")
     created_mapping = client.tool.three_d.asset_mappings_classic.create(
         [
-            AssetMappingClassicRequest(
+            AssetMappingClassicRequestId(
                 node_id=three_d_node.id,
                 asset_id=classic_asset.id,
                 model_id=model.id,

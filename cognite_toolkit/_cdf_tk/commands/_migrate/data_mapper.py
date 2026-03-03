@@ -34,7 +34,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
-    AssetMappingDMRequest,
+    AssetMappingDMRequestId,
     RevisionStatus,
     ThreeDModelClassicResponse,
 )
@@ -578,9 +578,9 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeD
             return None
 
 
-class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequest]):
-    def map(self, source: Sequence[AssetMappingClassicResponse]) -> Sequence[AssetMappingDMRequest | None]:
-        output: list[AssetMappingDMRequest | None] = []
+class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequestId]):
+    def map(self, source: Sequence[AssetMappingClassicResponse]) -> Sequence[AssetMappingDMRequestId | None]:
+        output: list[AssetMappingDMRequestId | None] = []
         issues: list[ThreeDModelMigrationIssue] = []
         self._populate_cache(source)
         for item in source:
@@ -611,7 +611,7 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, 
 
     def _map_single_item(
         self, item: AssetMappingClassicResponse
-    ) -> tuple[AssetMappingDMRequest | None, ThreeDModelMigrationIssue]:
+    ) -> tuple[AssetMappingDMRequestId | None, ThreeDModelMigrationIssue]:
         issue = ThreeDModelMigrationIssue(
             model_name=f"AssetMapping_{item.model_id}", model_id=item.model_id, id=f"AssetMapping_{item.model_id}"
         )
@@ -626,7 +626,7 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, 
         if asset_instance_id is None:
             issue.error_message.append("Neither assetInstanceId nor assetId provided for mapping.")
             return None, issue
-        mapped_request = AssetMappingDMRequest(
+        mapped_request = AssetMappingDMRequestId(
             model_id=item.model_id,
             revision_id=item.revision_id,
             node_id=item.node_id,

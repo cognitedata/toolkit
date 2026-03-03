@@ -34,7 +34,7 @@ from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     InternalId,
-    InternalIdUnwrapped,
+    InternalUnwrappedId,
     NameId,
     RawDatabaseId,
     RawTableId,
@@ -538,7 +538,7 @@ class SecurityCategoryCRUD(ResourceCRUD[NameId, SecurityCategoryRequest, Securit
     def delete(self, ids: Sequence[NameId]) -> int:
         retrieved = self.retrieve(ids)
         if retrieved:
-            self.client.tool.security_categories.delete([InternalIdUnwrapped(id=cat.id) for cat in retrieved])
+            self.client.tool.security_categories.delete([InternalUnwrappedId(id=cat.id) for cat in retrieved])
         return len(retrieved)
 
     def _iterate(

@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import Cre
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
-    AssetMappingDMRequest,
+    AssetMappingDMRequestId,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
@@ -229,7 +229,7 @@ class TestThreeDAssetMapper:
                     **DEFAULTS,
                 ),
                 None,
-                AssetMappingDMRequest(
+                AssetMappingDMRequestId(
                     nodeId=1234,
                     assetInstanceId=NodeId(space="my_space", externalId="asset_1"),
                     **DEFAULTS,
@@ -243,7 +243,7 @@ class TestThreeDAssetMapper:
                     **DEFAULTS,
                 ),
                 dm.NodeId(space="my_space", external_id="asset_2"),
-                AssetMappingDMRequest(
+                AssetMappingDMRequestId(
                     nodeId=5678,
                     assetInstanceId=NodeId(space="my_space", externalId="asset_2"),
                     **DEFAULTS,
@@ -275,7 +275,7 @@ class TestThreeDAssetMapper:
         self,
         response: AssetMappingClassicResponse,
         lookup_asset: dm.NodeId | None,
-        expected: AssetMappingDMRequest | str,
+        expected: AssetMappingDMRequestId | str,
     ) -> None:
         with monkeypatch_toolkit_client() as client:
             client.migration.lookup.assets.return_value = lookup_asset
@@ -292,7 +292,7 @@ class TestThreeDAssetMapper:
                 last_call = client.migration.lookup.assets.call_args_list[-1]
                 assert last_call.args == (response.asset_id,)
 
-            if isinstance(expected, AssetMappingDMRequest):
+            if isinstance(expected, AssetMappingDMRequestId):
                 logger.log.assert_not_called()
                 logger.tracker.add_issue.assert_not_called()
                 assert mapped is not None

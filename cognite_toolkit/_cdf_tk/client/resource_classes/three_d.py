@@ -137,7 +137,7 @@ class ThreeDRevisionClassicResponse(ResponseResource[ThreeDRevisionClassicReques
         return ThreeDRevisionClassicRequest.model_validate(dumped, extra="ignore")
 
 
-class AssetMappingDMRequest(RequestResource, Identifier):
+class AssetMappingDMRequestId(RequestResource, Identifier):
     node_id: int
     asset_instance_id: NodeUntypedId
     # These fields are part of the path request and not the body schema.
@@ -151,7 +151,7 @@ class AssetMappingDMRequest(RequestResource, Identifier):
         return f"{self.model_id}_{self.revision_id}_{self.node_id}_{self.asset_instance_id.space}_{self.asset_instance_id.external_id}"
 
 
-class AssetMappingClassicRequest(RequestResource, Identifier):
+class AssetMappingClassicRequestId(RequestResource, Identifier):
     node_id: int
     asset_id: int | None = None
     asset_instance_id: NodeUntypedId | None = None
@@ -173,7 +173,7 @@ class AssetMappingClassicRequest(RequestResource, Identifier):
         return f"{self.model_id}_{self.revision_id}_{self.node_id}_{asset_part}"
 
 
-class AssetMappingClassicResponse(ResponseResource[AssetMappingClassicRequest]):
+class AssetMappingClassicResponse(ResponseResource[AssetMappingClassicRequestId]):
     node_id: int
     asset_id: int | None = None
     asset_instance_id: NodeUntypedId | None = None
@@ -184,16 +184,16 @@ class AssetMappingClassicResponse(ResponseResource[AssetMappingClassicRequest]):
     revision_id: int = Field(-1, exclude=True)
 
     @classmethod
-    def request_cls(cls) -> type[AssetMappingClassicRequest]:
-        return AssetMappingClassicRequest
+    def request_cls(cls) -> type[AssetMappingClassicRequestId]:
+        return AssetMappingClassicRequestId
 
-    def as_request_resource(self) -> AssetMappingClassicRequest:
-        return AssetMappingClassicRequest.model_validate(
+    def as_request_resource(self) -> AssetMappingClassicRequestId:
+        return AssetMappingClassicRequestId.model_validate(
             {**self.dump(), "modelId": self.model_id, "revisionId": self.revision_id}
         )
 
 
-class AssetMappingDMResponse(ResponseResource[AssetMappingDMRequest]):
+class AssetMappingDMResponse(ResponseResource[AssetMappingDMRequestId]):
     node_id: int
     asset_instance_id: NodeUntypedId
     tree_index: int | None = None
@@ -203,10 +203,10 @@ class AssetMappingDMResponse(ResponseResource[AssetMappingDMRequest]):
     revision_id: int = Field(-1, exclude=True)
 
     @classmethod
-    def request_cls(cls) -> type[AssetMappingDMRequest]:
-        return AssetMappingDMRequest
+    def request_cls(cls) -> type[AssetMappingDMRequestId]:
+        return AssetMappingDMRequestId
 
-    def as_request_resource(self) -> AssetMappingDMRequest:
-        return AssetMappingDMRequest.model_validate(
+    def as_request_resource(self) -> AssetMappingDMRequestId:
+        return AssetMappingDMRequestId.model_validate(
             {**self.dump(), "modelId": self.model_id, "revisionId": self.revision_id}
         )

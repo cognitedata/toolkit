@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
-    AssetMappingDMRequest,
+    AssetMappingDMRequestId,
     ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import ThreeDMigrationRequest
@@ -483,7 +483,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
 
 
 class ThreeDAssetMappingMigrationIO(
-    UploadableStorageIO[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequest]
+    UploadableStorageIO[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequestId]
 ):
     KIND = "3DMigrationAssetMapping"
     SUPPORTED_DOWNLOAD_FORMATS = frozenset({".ndjson"})
@@ -539,7 +539,7 @@ class ThreeDAssetMappingMigrationIO(
 
     def upload_items(
         self,
-        data_chunk: Sequence[UploadItem[AssetMappingDMRequest]],
+        data_chunk: Sequence[UploadItem[AssetMappingDMRequestId]],
         http_client: HTTPClient,
         selector: T_Selector | None = None,
     ) -> ItemsResultList:
@@ -566,7 +566,7 @@ class ThreeDAssetMappingMigrationIO(
             )
         )
 
-    def json_to_resource(self, item_json: dict[str, JsonVal]) -> AssetMappingDMRequest:
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> AssetMappingDMRequestId:
         raise NotImplementedError("Deserializing 3D Asset Mappings from JSON is not supported.")
 
     def data_to_json_chunk(

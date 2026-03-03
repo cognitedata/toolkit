@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition, NodeId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId, NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._constants import InstanceType
 
 
@@ -162,7 +162,7 @@ class WrappedInstanceListRequest(RequestResource, ABC):
         )
 
     @abstractmethod
-    def as_ids(self) -> list[InstanceIdDefinition]:
+    def as_ids(self) -> list[InstanceDefinitionId]:
         """Convert the response to a list of typed instance identifiers."""
         raise NotImplementedError()
 
@@ -183,7 +183,7 @@ class WrappedInstanceListResponse(ResponseResource[T_InstancesListRequest], ABC)
         return move_properties(values, cls.VIEW_ID)
 
     @abstractmethod
-    def as_ids(self) -> list[InstanceIdDefinition]:
+    def as_ids(self) -> list[InstanceDefinitionId]:
         """Convert the response to a list of typed instance identifiers."""
         raise NotImplementedError()
 

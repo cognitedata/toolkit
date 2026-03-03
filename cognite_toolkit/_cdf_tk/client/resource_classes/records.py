@@ -6,7 +6,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Ident
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 
 
-class RecordIdentifier(Identifier):
+class RecordId(Identifier):
     space: str
     external_id: str
 
@@ -30,8 +30,8 @@ class RecordRequest(RequestResource):
     external_id: str
     sources: list[RecordSource]
 
-    def as_id(self) -> RecordIdentifier:
-        return RecordIdentifier(space=self.space, external_id=self.external_id)
+    def as_id(self) -> RecordId:
+        return RecordId(space=self.space, external_id=self.external_id)
 
 
 class RecordResponse(ResponseResource[RecordRequest]):
