@@ -4,3 +4,5 @@
 - type: email
   externalId: sink-with-unknown-email
   emailAddress: nobody@nonexistent.invalid
+- type: user
+  externalId: sink-user-type
