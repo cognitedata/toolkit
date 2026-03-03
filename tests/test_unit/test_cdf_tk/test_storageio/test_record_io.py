@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.storageio import RecordIO, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import RecordContainerSelector
 from cognite_toolkit._cdf_tk.storageio.selectors._records import SelectedContainer, SelectedStream
@@ -187,6 +188,7 @@ class TestRecordIO:
         request_body = json.loads(route.calls[0].request.content)
         assert request_body["limit"] == 5
 
+    @pytest.mark.skipif(not Flags.EXTEND_UPLOAD.is_enabled(), reason="Alpha feature is not enabled")
     @pytest.mark.usefixtures("disable_gzip", "disable_pypi_check")
     def test_download_upload_round_trip(
         self,
