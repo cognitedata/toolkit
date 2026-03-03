@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerReference, NodeReference, ViewDirectReference
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeId, ViewDirectId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelRequest,
     DataModelResponse,
@@ -292,7 +292,7 @@ class TestViewDeployTopologicalSort:
             pytest.param(
                 SingleReverseDirectRelationPropertyRequest(
                     source=ViewId(space="sp_space", external_id="Other", version="v1"),
-                    through=ViewDirectReference(
+                    through=ViewDirectId(
                         source=ViewId(space="sp_space", external_id="Dependency", version="v1"),
                         identifier="direct_prop",
                     ),
@@ -302,7 +302,7 @@ class TestViewDeployTopologicalSort:
             pytest.param(
                 SingleReverseDirectRelationPropertyRequest(
                     source=ViewId(space="sp_space", external_id="Dependency", version="v1"),
-                    through=ViewDirectReference(
+                    through=ViewDirectId(
                         source=ViewId(space="sp_space", external_id="Other", version="v1"),
                         identifier="direct_prop",
                     ),
@@ -311,7 +311,7 @@ class TestViewDeployTopologicalSort:
             ),
             pytest.param(
                 ViewCorePropertyRequest(
-                    container=ContainerReference(space="sp_space", external_id="some_container"),
+                    container=ContainerId(space="sp_space", external_id="some_container"),
                     container_property_identifier="ref",
                     source=ViewId(space="sp_space", external_id="Dependency", version="v1"),
                 ),
@@ -320,14 +320,14 @@ class TestViewDeployTopologicalSort:
             pytest.param(
                 SingleEdgeProperty(
                     source=ViewId(space="sp_space", external_id="Dependency", version="v1"),
-                    type=NodeReference(space="sp_space", external_id="edge_type"),
+                    type=NodeId(space="sp_space", external_id="edge_type"),
                 ),
                 id="edge_connection_source",
             ),
             pytest.param(
                 SingleEdgeProperty(
                     source=ViewId(space="sp_space", external_id="Other", version="v1"),
-                    type=NodeReference(space="sp_space", external_id="edge_type"),
+                    type=NodeId(space="sp_space", external_id="edge_type"),
                     edge_source=ViewId(space="sp_space", external_id="Dependency", version="v1"),
                 ),
                 id="edge_connection_edge_source",
