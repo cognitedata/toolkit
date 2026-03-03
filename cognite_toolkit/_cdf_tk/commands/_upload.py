@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsResultMessage,
     ItemsSuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.cruds import ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError, ToolkitValueError
@@ -113,11 +113,11 @@ class UploadCommand(ToolkitCommand):
         if (counts[InstanceSpaceSelector] + counts[InstanceViewSelector]) <= 1:
             return data_files_by_selector
 
-        selector_by_view_id: dict[ViewReference, Selector] = {}
+        selector_by_view_id: dict[ViewId, Selector] = {}
         for selector in data_files_by_selector:
             if isinstance(selector, InstanceSpaceSelector | InstanceViewSelector) and selector.view is not None:
                 view_ref = selector.view.as_id()
-                if not isinstance(view_ref, ViewReference):
+                if not isinstance(view_ref, ViewId):
                     raise RuntimeError(
                         f"View {view_ref} does not have a version, which is required for topological sorting."
                     )

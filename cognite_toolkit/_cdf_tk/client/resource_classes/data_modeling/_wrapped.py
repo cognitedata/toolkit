@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition, NodeReference, ViewReference
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition, NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._constants import InstanceType
 
 
@@ -23,7 +23,7 @@ class WrappedInstanceRequest(RequestResource, ABC):
     It is used to define resources that are
     """
 
-    VIEW_ID: ClassVar[ViewReference]
+    VIEW_ID: ClassVar[ViewId]
     instance_type: InstanceType
     space: str
     external_id: str
@@ -69,7 +69,7 @@ T_WrappedInstanceRequest = TypeVar("T_WrappedInstanceRequest", bound=WrappedInst
 
 
 class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
-    VIEW_ID: ClassVar[ViewReference]
+    VIEW_ID: ClassVar[ViewId]
     instance_type: InstanceType
     space: str
     external_id: str
@@ -123,7 +123,7 @@ class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
         return output
 
 
-def move_properties(values: dict[str, Any], view_id: ViewReference) -> dict[str, Any]:
+def move_properties(values: dict[str, Any], view_id: ViewId) -> dict[str, Any]:
     """Help function to move properties from properties.space.externalId/version to the top level.
 
     It is used in WrappedInstanceResponse to move properties from the response to the top level.
@@ -145,7 +145,7 @@ T_WrappedInstanceResponse = TypeVar("T_WrappedInstanceResponse", bound=WrappedIn
 
 
 class WrappedInstanceListRequest(RequestResource, ABC):
-    VIEW_ID: ClassVar[ViewReference]
+    VIEW_ID: ClassVar[ViewId]
     instance_type: Literal["node"] = "node"
     space: str
     external_id: str
@@ -155,8 +155,8 @@ class WrappedInstanceListRequest(RequestResource, ABC):
         """Dumps the object to a list of instance request dictionaries."""
         raise NotImplementedError()
 
-    def as_id(self) -> NodeReference:
-        return NodeReference(
+    def as_id(self) -> NodeId:
+        return NodeId(
             space=self.space,
             external_id=self.external_id,
         )
@@ -171,7 +171,7 @@ T_InstancesListRequest = TypeVar("T_InstancesListRequest", bound=WrappedInstance
 
 
 class WrappedInstanceListResponse(ResponseResource[T_InstancesListRequest], ABC):
-    VIEW_ID: ClassVar[ViewReference]
+    VIEW_ID: ClassVar[ViewId]
     instance_type: Literal["node"] = "node"
     space: str
     external_id: str

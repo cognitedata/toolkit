@@ -5,19 +5,19 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse,
     SuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import NodeReference
+from cognite_toolkit._cdf_tk.client.identifiers import NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import (
     CogniteFileRequest,
     CogniteFileResponse,
 )
 
 
-class CogniteFilesAPI(WrappedInstancesAPI[NodeReference, CogniteFileResponse]):
+class CogniteFilesAPI(WrappedInstancesAPI[NodeId, CogniteFileResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(http_client, CogniteFileRequest.VIEW_ID)
 
-    def _validate_response(self, response: SuccessResponse) -> ResponseItems[NodeReference]:
-        return ResponseItems[NodeReference].model_validate_json(response.body)
+    def _validate_response(self, response: SuccessResponse) -> ResponseItems[NodeId]:
+        return ResponseItems[NodeId].model_validate_json(response.body)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse

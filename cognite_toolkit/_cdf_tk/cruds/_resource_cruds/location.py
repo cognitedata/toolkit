@@ -7,9 +7,9 @@ from cognite.client.data_classes.capabilities import Capability, LocationFilters
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    DataModelReference,
-    SpaceReference,
-    ViewReference,
+    DataModelId,
+    SpaceId,
+    ViewId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
@@ -250,15 +250,15 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
             if in_dict(["space", "externalId", "version"], view):
                 yield (
                     ViewCRUD,
-                    ViewReference(space=view["space"], external_id=view["externalId"], version=view["version"]),
+                    ViewId(space=view["space"], external_id=view["externalId"], version=view["version"]),
                 )
         for space in item.get("instanceSpaces", []):
-            yield SpaceCRUD, SpaceReference(space=space)
+            yield SpaceCRUD, SpaceId(space=space)
         for data_model in item.get("dataModels", []):
             if in_dict(["space", "externalId", "version"], data_model):
                 yield (
                     DataModelCRUD,
-                    DataModelReference(
+                    DataModelId(
                         space=data_model["space"], external_id=data_model["externalId"], version=data_model["version"]
                     ),
                 )

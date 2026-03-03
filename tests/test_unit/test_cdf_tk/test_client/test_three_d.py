@@ -6,7 +6,7 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicRequest,
     AssetMappingDMRequest,
@@ -111,7 +111,7 @@ class TestAssetsMappingsDM:
             [
                 AssetMappingDMRequest(
                     nodeId=123,
-                    assetInstanceId=NodeReference(space="my_space", externalId="my_external_id"),
+                    assetInstanceId=NodeId(space="my_space", externalId="my_external_id"),
                     modelId=37,
                     revisionId=42,
                 )
@@ -139,7 +139,7 @@ class TestAssetsMappingsDM:
             [
                 AssetMappingDMRequest(
                     nodeId=123,
-                    assetInstanceId=NodeReference(space="my_space", externalId="my_external_id"),
+                    assetInstanceId=NodeId(space="my_space", externalId="my_external_id"),
                     modelId=37,
                     revisionId=42,
                 )
@@ -172,7 +172,7 @@ class TestAssetsMappingsDM:
         mappings = [
             AssetMappingDMRequest(
                 nodeId=i,
-                assetInstanceId=NodeReference(space="space", externalId=f"external_{i}"),
+                assetInstanceId=NodeId(space="space", externalId=f"external_{i}"),
                 modelId=37 if i % 2 == 0 else 38,
                 revisionId=42,
             )

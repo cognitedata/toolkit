@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
 )
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeReference, InstanceRequest, NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeId, InstanceRequest, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.pending_instances_ids import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
@@ -134,7 +134,7 @@ class AssetCentricMigrationIO(
                     external_id = MISSING_EXTERNAL_ID.format(project=self.client.config.project, id=resource.id)
                 mapping = MigrationMapping(
                     resource_type=self._kind_to_resource_type(selector.kind),
-                    instance_id=NodeReference(
+                    instance_id=NodeId(
                         space=instance_space,
                         external_id=external_id,
                     ),
@@ -303,7 +303,7 @@ class AnnotationMigrationIO(
                     # This is just in case.
                     continue
                 mapping = AnnotationMapping(
-                    instance_id=EdgeReference(space=self.instance_space, external_id=f"annotation_{resource.id!r}"),
+                    instance_id=EdgeId(space=self.instance_space, external_id=f"annotation_{resource.id!r}"),
                     id=resource.id,
                     ingestion_view=self._get_mapping(selector.ingestion_mapping, resource),
                     preferred_consumer_view=selector.preferred_consumer_view,

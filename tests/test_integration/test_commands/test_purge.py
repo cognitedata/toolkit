@@ -39,7 +39,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils import datetime_to_ms
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeReference
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceFileSelector
@@ -97,7 +97,7 @@ def file_ts_nodes(
         client.tool.filemetadata.set_pending_ids(
             [
                 PendingInstanceId(
-                    pending_instance_id=NodeReference(space=file.space, external_id=file.external_id),
+                    pending_instance_id=NodeId(space=file.space, external_id=file.external_id),
                     id=file_id,
                 )
             ]
@@ -105,7 +105,7 @@ def file_ts_nodes(
         client.tool.timeseries.set_pending_ids(
             [
                 PendingInstanceId(
-                    pending_instance_id=NodeReference(space=ts.space, external_id=ts.external_id),
+                    pending_instance_id=NodeId(space=ts.space, external_id=ts.external_id),
                     id=ts_id,
                 )
             ]

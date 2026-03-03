@@ -28,8 +28,8 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     InternalOrExternalId,
     NameId,
-    NodeReference,
-    SpaceReference,
+    NodeId,
+    SpaceId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
@@ -178,7 +178,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
 
 
 @final
-class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, CogniteFileResponse]):
+class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteFileResponse]):
     template_pattern = "$FILENAME"
     item_name = "file contents"
     folder_name = "files"
@@ -195,16 +195,16 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, C
         return "cognite files"
 
     @classmethod
-    def get_id(cls, item: CogniteFileResponse | CogniteFileRequest | dict) -> NodeReference:
+    def get_id(cls, item: CogniteFileResponse | CogniteFileRequest | dict) -> NodeId:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"space", "externalId"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return NodeReference(space=item["space"], external_id=item["externalId"])
-        return NodeReference(space=item.space, external_id=item.external_id)
+            return NodeId(space=item["space"], external_id=item["externalId"])
+        return NodeId(space=item.space, external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: NodeReference) -> dict[str, Any]:
+    def dump_id(cls, id: NodeId) -> dict[str, Any]:
         return id.dump()
 
     @classmethod
@@ -263,19 +263,17 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, C
     def create(self, items: Sequence[CogniteFileRequest]) -> list[InstanceSlimDefinition]:
         return self.client.tool.cognite_files.create(items)
 
-    def retrieve(self, ids: Sequence[NodeReference]) -> list[CogniteFileResponse]:
+    def retrieve(self, ids: Sequence[NodeId]) -> list[CogniteFileResponse]:
         return self.client.tool.cognite_files.retrieve(
-            [NodeReference(space=id_.space, external_id=id_.external_id) for id_ in ids]
+            [NodeId(space=id_.space, external_id=id_.external_id) for id_ in ids]
         )
 
     def update(self, items: Sequence[CogniteFileRequest]) -> list[InstanceSlimDefinition]:
         return self.client.tool.cognite_files.create(items)
 
-    def delete(self, ids: Sequence[NodeReference]) -> int:
+    def delete(self, ids: Sequence[NodeId]) -> int:
         return len(
-            self.client.tool.cognite_files.delete(
-                [NodeReference(space=id_.space, external_id=id_.external_id) for id_ in ids]
-            )
+            self.client.tool.cognite_files.delete([NodeId(space=id_.space, external_id=id_.external_id) for id_ in ids])
         )
 
     def _iterate(
@@ -287,10 +285,10 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, C
         # We do not have a way to know the source of the file, so we cannot filter on that.
         return []
 
-    def count(self, ids: Sequence[NodeReference]) -> int:
+    def count(self, ids: Sequence[NodeId]) -> int:
         return sum(bool(file.is_uploaded or False) for file in self.retrieve(ids))
 
-    def drop_data(self, ids: Sequence[NodeReference]) -> int:
+    def drop_data(self, ids: Sequence[NodeId]) -> int:
         # Deleting and recreating the file, will remove the file contents but keep the metadata.
         retrieved = self.retrieve(ids)
         self.delete(ids)
@@ -304,11 +302,11 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, C
         DatasetLoader and identifier of that dataset.
         """
         if "space" in item:
-            yield SpaceCRUD, SpaceReference(space=item["space"])
+            yield SpaceCRUD, SpaceId(space=item["space"])
         for key in ["source", "category", "type"]:
             if key in item and in_dict(("space", "externalId"), item[key]):
-                yield NodeCRUD, NodeReference(space=item[key]["space"], external_id=item[key]["externalId"])
+                yield NodeCRUD, NodeId(space=item[key]["space"], external_id=item[key]["externalId"])
         if "assets" in item:
             for asset in item["assets"]:
                 if isinstance(asset, dict) and in_dict(("space", "externalId"), asset):
-                    yield NodeCRUD, NodeReference(space=asset["space"], external_id=asset["externalId"])
+                    yield NodeCRUD, NodeId(space=asset["space"], external_id=asset["externalId"])

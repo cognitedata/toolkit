@@ -3,7 +3,7 @@ from typing import Any
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import MigrationMapping, MigrationMappingList
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence, flatten_dict_json_path
 
@@ -39,13 +39,13 @@ class TestChunkSequence:
                     resource_type="timeseries",
                     id=1,
                     data_set_id=123,
-                    instance_id=NodeReference(space="sp_full_ts", external_id="full_ts_id"),
+                    instance_id=NodeId(space="sp_full_ts", external_id="full_ts_id"),
                 ),
                 MigrationMapping(
                     resource_type="timeseries",
                     id=2,
                     data_set_id=None,
-                    instance_id=NodeReference(space="sp_step_ts", external_id="step_ts_id"),
+                    instance_id=NodeId(space="sp_step_ts", external_id="step_ts_id"),
                 ),
             ]
         )

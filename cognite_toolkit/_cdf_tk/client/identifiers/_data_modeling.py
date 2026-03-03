@@ -14,14 +14,14 @@ else:
     from typing_extensions import Self
 
 
-class SpaceReference(Identifier):
+class SpaceId(Identifier):
     space: str
 
     def __str__(self) -> str:
         return self.space
 
 
-class DataModelingIdentifier(Identifier, ABC):
+class DataModelingId(Identifier, ABC):
     type: str
 
     def dump(self, camel_case: bool = True, exclude_extra: bool = False, include_type: bool = False) -> dict[str, Any]:
@@ -41,7 +41,7 @@ class DataModelingIdentifier(Identifier, ABC):
         return self.model_dump(mode="json", by_alias=camel_case, exclude=exclude)
 
 
-class ContainerReference(DataModelingIdentifier):
+class ContainerId(DataModelingId):
     type: Literal["container"] = "container"
     space: str
     external_id: str
@@ -53,16 +53,16 @@ class ContainerReference(DataModelingIdentifier):
         return self.space, self.external_id
 
 
-def _dump_container_reference_untyped(instance: ContainerReference) -> dict[str, Any]:
+def _dump_container_reference_untyped(instance: ContainerId) -> dict[str, Any]:
     return instance.dump(include_type=False)
 
 
 ContainerReferenceUntyped = Annotated[
-    ContainerReference, PlainSerializer(_dump_container_reference_untyped, when_used="always")
+    ContainerId, PlainSerializer(_dump_container_reference_untyped, when_used="always")
 ]
 
 
-class ViewReferenceNoVersion(DataModelingIdentifier):
+class ViewNoVersionId(DataModelingId):
     type: Literal["view"] = "view"
     space: str
     external_id: str
@@ -71,7 +71,7 @@ class ViewReferenceNoVersion(DataModelingIdentifier):
         return f"{self.space}:{self.external_id}"
 
 
-class ViewReference(ViewReferenceNoVersion):
+class ViewId(ViewNoVersionId):
     version: str
 
     def __str__(self) -> str:
@@ -81,17 +81,15 @@ class ViewReference(ViewReferenceNoVersion):
         return [self.space, f"{self.external_id}/{self.version}", property_id]
 
 
-def _dump_view_reference_untyped(instance: ViewReferenceNoVersion) -> dict[str, Any]:
+def _dump_view_reference_untyped(instance: ViewNoVersionId) -> dict[str, Any]:
     return instance.dump(include_type=False)
 
 
-ViewIdNoVersionUntyped = Annotated[
-    ViewReferenceNoVersion, PlainSerializer(_dump_view_reference_untyped, when_used="always")
-]
-ViewReferenceUntyped = Annotated[ViewReference, PlainSerializer(_dump_view_reference_untyped, when_used="always")]
+ViewNoVersionUntypedId = Annotated[ViewNoVersionId, PlainSerializer(_dump_view_reference_untyped, when_used="always")]
+ViewUntypedId = Annotated[ViewId, PlainSerializer(_dump_view_reference_untyped, when_used="always")]
 
 
-class DataModelReferenceNoVersion(Identifier):
+class DataModelNoVersionId(Identifier):
     space: str
     external_id: str
 
@@ -99,7 +97,7 @@ class DataModelReferenceNoVersion(Identifier):
         return f"{self.space}:{self.external_id}"
 
 
-class DataModelReference(DataModelReferenceNoVersion):
+class DataModelId(DataModelNoVersionId):
     version: str
 
     def __str__(self) -> str:
@@ -133,7 +131,7 @@ class InstanceIdDefinition(Identifier):
         return self.model_dump(mode="json", by_alias=camel_case, exclude=exclude)
 
 
-class NodeReference(InstanceIdDefinition):
+class NodeId(InstanceIdDefinition):
     instance_type: Literal["node"] = "node"
 
     def __str__(self) -> str:
@@ -152,49 +150,49 @@ class NodeReference(InstanceIdDefinition):
         return [cls(space=space, external_id=str_id) for str_id in str_ids]
 
 
-class EdgeReference(InstanceIdDefinition):
+class EdgeId(InstanceIdDefinition):
     instance_type: Literal["edge"] = "edge"
 
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}"
 
 
-def _dump_no_type(instance: NodeReference | EdgeReference) -> dict[str, Any]:
+def _dump_no_type(instance: NodeId | EdgeId) -> dict[str, Any]:
     return instance.dump(include_instance_type=False)
 
 
-NodeReferenceUntyped = Annotated[NodeReference, PlainSerializer(_dump_no_type, when_used="always")]
+NodeUntypedId = Annotated[NodeId, PlainSerializer(_dump_no_type, when_used="always")]
 
 
-EdgeReferenceUntyped = Annotated[EdgeReference, PlainSerializer(_dump_no_type, when_used="always")]
+EdgeUntypedId = Annotated[EdgeId, PlainSerializer(_dump_no_type, when_used="always")]
 
 T_InstanceId = TypeVar("T_InstanceId", bound=InstanceIdDefinition)
 
 
-class ContainerDirectReference(Identifier):
-    source: ContainerReference
+class ContainerDirectId(Identifier):
+    source: ContainerId
     identifier: str
 
     def __str__(self) -> str:
         return f"{self.source!s}.{self.identifier}"
 
 
-class ViewDirectReference(Identifier):
-    source: ViewReference
+class ViewDirectId(Identifier):
+    source: ViewId
     identifier: str
 
     def __str__(self) -> str:
         return f"{self.source!s}.{self.identifier}"
 
 
-class ContainerIndexReference(ContainerReference):
+class ContainerIndexId(ContainerId):
     identifier: str
 
     def __str__(self) -> str:
         return f"{self.space}:{self.external_id}(index={self.identifier})"
 
 
-class ContainerConstraintReference(ContainerReference):
+class ContainerConstraintId(ContainerId):
     identifier: str
 
     def __str__(self) -> str:
@@ -204,7 +202,7 @@ class ContainerConstraintReference(ContainerReference):
 class DatapointSubscriptionTimeSeriesId(Identifier):
     external_id: str | None = None
     id: int | None = None
-    instance_id: NodeReferenceUntyped | None = None
+    instance_id: NodeUntypedId | None = None
 
     def __str__(self) -> str:
         if self.external_id is not None:
@@ -222,7 +220,7 @@ class InstanceId(Identifier):
     to reference a CogniteTimeSeries/CogniteFile by its instanceId.
     """
 
-    instance_id: NodeReferenceUntyped
+    instance_id: NodeUntypedId
 
     def __str__(self) -> str:
         return f"instanceId='{self.instance_id}'"

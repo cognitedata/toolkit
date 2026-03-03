@@ -11,9 +11,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     BooleanProperty,
     ConstraintOrIndexState,
-    ContainerReference,
+    ContainerId,
     DirectNodeRelation,
-    EdgeReference,
+    EdgeId,
     EdgeRequest,
     EnumProperty,
     EnumValue,
@@ -21,11 +21,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     Int64Property,
     JSONProperty,
     MultiEdgeProperty,
-    NodeReference,
+    NodeId,
     TextProperty,
     TimestampProperty,
     ViewCorePropertyResponse,
-    ViewReference,
+    ViewId,
     ViewResponseProperty,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
@@ -50,12 +50,10 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
 def direct_relation_cache() -> DirectRelationCache:
     with monkeypatch_toolkit_client() as client:
         client.migration.lookup.assets.return_value = {
-            123: NodeReference(space="test_space", external_id="asset_123_instance"),
-            1: NodeReference(space="instance_space", external_id="MyFirstAsset"),
+            123: NodeId(space="test_space", external_id="asset_123_instance"),
+            1: NodeId(space="instance_space", external_id="MyFirstAsset"),
         }
-        client.migration.lookup.files.return_value = {
-            42: NodeReference(space="test_space", external_id="file_456_instance")
-        }
+        client.migration.lookup.files.return_value = {42: NodeId(space="test_space", external_id="file_456_instance")}
         client.migration.created_source_system.retrieve.return_value = [
             CreatedSourceSystem(
                 space="test_space",
@@ -98,8 +96,8 @@ def direct_relation_cache() -> DirectRelationCache:
 
 
 class TestCreateProperties:
-    INSTANCE_ID = NodeReference(space="test_space", external_id="test_instance")
-    CONTAINER_ID = ContainerReference(space="test_space", external_id="test_container")
+    INSTANCE_ID = NodeId(space="test_space", external_id="test_instance")
+    CONTAINER_ID = ContainerId(space="test_space", external_id="test_container")
     DEFAULT_CONTAINER_ARGS: ClassVar = dict(
         nullable=True, immutable=False, auto_increment=False, constraint_state=ConstraintOrIndexState()
     )
@@ -217,8 +215,8 @@ class TestCreateProperties:
                 {"name": "MyAsset"},
                 {
                     "nameId": MultiEdgeProperty(
-                        type=NodeReference(space="space", external_id="Other"),
-                        source=ViewReference(space="space", external_id="view", version="v1"),
+                        type=NodeId(space="space", external_id="Other"),
+                        source=ViewId(space="space", external_id="view", version="v1"),
                         name=None,
                         description=None,
                         edge_source=None,
@@ -291,7 +289,7 @@ class TestCreateProperties:
                         **DEFAULT_CONTAINER_ARGS,
                     ),
                     "tags": ViewCorePropertyResponse(
-                        container=ContainerReference(space="cdf_cdm", external_id="CogniteDescribable"),
+                        container=ContainerId(space="cdf_cdm", external_id="CogniteDescribable"),
                         container_property_identifier="tags",
                         type=TextProperty(list=True),
                         **DEFAULT_CONTAINER_ARGS,
@@ -446,7 +444,7 @@ class TestCreateProperties:
                         **DEFAULT_CONTAINER_ARGS,
                     ),
                     "source": ViewCorePropertyResponse(
-                        container=ContainerReference(space="cdf_cdm", external_id="CogniteSourceable"),
+                        container=ContainerId(space="cdf_cdm", external_id="CogniteSourceable"),
                         container_property_identifier="source",
                         type=DirectNodeRelation(),
                         **DEFAULT_CONTAINER_ARGS,
@@ -497,16 +495,16 @@ class TestCreateProperties:
 
 
 class TestAssetCentricConversion:
-    INSTANCE_ID = NodeReference(space="test_space", external_id="test_instance")
-    INSTANCE_REF = NodeReference(space="test_space", external_id="test_instance")
-    CONTAINER_ID = ContainerReference(space="test_space", external_id="test_container")
-    VIEW_ID = ViewReference(space="test_space", external_id="test_view", version="v1")
-    INSTANCE_SOURCE_VIEW_ID = ViewReference(space="cognite_migration", external_id="InstanceSource", version="v1")
-    ASSET_INSTANCE_ID_BY_ID: ClassVar[Mapping[int, NodeReference]] = {
-        123: NodeReference(space="test_space", external_id="asset_123_instance")
+    INSTANCE_ID = NodeId(space="test_space", external_id="test_instance")
+    INSTANCE_REF = NodeId(space="test_space", external_id="test_instance")
+    CONTAINER_ID = ContainerId(space="test_space", external_id="test_container")
+    VIEW_ID = ViewId(space="test_space", external_id="test_view", version="v1")
+    INSTANCE_SOURCE_VIEW_ID = ViewId(space="cognite_migration", external_id="InstanceSource", version="v1")
+    ASSET_INSTANCE_ID_BY_ID: ClassVar[Mapping[int, NodeId]] = {
+        123: NodeId(space="test_space", external_id="asset_123_instance")
     }
-    SOURCE_SYSTEM_INSTANCE_ID_BY_EXTERNAL_ID: ClassVar[Mapping[str, NodeReference]] = {
-        "source_system_1": NodeReference(space="test_space", external_id="source_system_1_instance")
+    SOURCE_SYSTEM_INSTANCE_ID_BY_EXTERNAL_ID: ClassVar[Mapping[str, NodeId]] = {
+        "source_system_1": NodeId(space="test_space", external_id="source_system_1_instance")
     }
 
     @pytest.mark.parametrize(
@@ -529,12 +527,12 @@ class TestAssetCentricConversion:
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="asset",
-                    view_id=ViewReference(space="test_space", external_id="test_view", version="v1"),
+                    view_id=ViewId(space="test_space", external_id="test_view", version="v1"),
                     property_mapping={"name": "assetName", "description": "assetDescription"},
                 ),
                 {
                     "assetName": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="assetName",
                         type=TextProperty(),
                         nullable=True,
@@ -543,7 +541,7 @@ class TestAssetCentricConversion:
                         constraint_state=ConstraintOrIndexState(),
                     ),
                     "assetDescription": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="assetDescription",
                         type=TextProperty(),
                         nullable=True,
@@ -581,7 +579,7 @@ class TestAssetCentricConversion:
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="timeseries",
-                    view_id=ViewReference(space="test_space", external_id="test_view", version="v1"),
+                    view_id=ViewId(space="test_space", external_id="test_view", version="v1"),
                     property_mapping={
                         "name": "timeseriesName",
                         "unit": "measurementUnit",
@@ -591,7 +589,7 @@ class TestAssetCentricConversion:
                 ),
                 {
                     "timeseriesName": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="timeseriesName",
                         type=TextProperty(),
                         nullable=True,
@@ -600,7 +598,7 @@ class TestAssetCentricConversion:
                         constraint_state=ConstraintOrIndexState(),
                     ),
                     "measurementUnit": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="measurementUnit",
                         type=TextProperty(),
                         nullable=True,
@@ -609,7 +607,7 @@ class TestAssetCentricConversion:
                         constraint_state=ConstraintOrIndexState(),
                     ),
                     "sensorType": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="sensorType",
                         type=TextProperty(),
                         nullable=True,
@@ -618,7 +616,7 @@ class TestAssetCentricConversion:
                         constraint_state=ConstraintOrIndexState(),
                     ),
                     "deviceLocation": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="deviceLocation",
                         type=TextProperty(),
                         nullable=True,
@@ -674,7 +672,7 @@ class TestAssetCentricConversion:
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="event",
-                    view_id=ViewReference(space="test_space", external_id="test_view", version="v1"),
+                    view_id=ViewId(space="test_space", external_id="test_view", version="v1"),
                     property_mapping={
                         "source": "source",
                         "assetIds": "assets",
@@ -690,7 +688,7 @@ class TestAssetCentricConversion:
                 ),
                 {
                     "source": ViewCorePropertyResponse(
-                        container=ContainerReference(space="cdf_cdm", external_id="CogniteSourceable"),
+                        container=ContainerId(space="cdf_cdm", external_id="CogniteSourceable"),
                         container_property_identifier="source",
                         type=DirectNodeRelation(),
                         nullable=True,
@@ -699,7 +697,7 @@ class TestAssetCentricConversion:
                         constraint_state=ConstraintOrIndexState(),
                     ),
                     "assets": ViewCorePropertyResponse(
-                        container=ContainerReference(space="cdf_cdm", external_id="CogniteFile"),
+                        container=ContainerId(space="cdf_cdm", external_id="CogniteFile"),
                         container_property_identifier="assets",
                         type=DirectNodeRelation(list=True, max_list_size=1200),
                         nullable=True,
@@ -708,7 +706,7 @@ class TestAssetCentricConversion:
                         constraint_state=ConstraintOrIndexState(),
                     ),
                     "eventStart": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="eventStart",
                         type=TimestampProperty(),
                         nullable=True,
@@ -717,7 +715,7 @@ class TestAssetCentricConversion:
                         constraint_state=ConstraintOrIndexState(),
                     ),
                     "eventEnd": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="eventEnd",
                         type=TimestampProperty(),
                         nullable=True,
@@ -726,7 +724,7 @@ class TestAssetCentricConversion:
                         constraint_state=ConstraintOrIndexState(),
                     ),
                     "eventSeverity": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="eventSeverity",
                         type=EnumProperty(values={"high": EnumValue(), "low": EnumValue(), "medium": EnumValue()}),
                         nullable=True,
@@ -735,7 +733,7 @@ class TestAssetCentricConversion:
                         constraint_state=ConstraintOrIndexState(),
                     ),
                     "eventValue": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="eventValue",
                         type=Int64Property(),
                         nullable=True,
@@ -744,8 +742,8 @@ class TestAssetCentricConversion:
                         constraint_state=ConstraintOrIndexState(),
                     ),
                     "some_other_event": MultiEdgeProperty(
-                        type=NodeReference(space="schema_space", external_id="Operation"),
-                        source=ViewReference(space="test_space", external_id="test_view", version="v1"),
+                        type=NodeId(space="schema_space", external_id="Operation"),
+                        source=ViewId(space="test_space", external_id="test_view", version="v1"),
                         name=None,
                         description=None,
                         edge_source=None,
@@ -798,12 +796,12 @@ class TestAssetCentricConversion:
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="file",
-                    view_id=ViewReference(space="test_space", external_id="test_view", version="v1"),
+                    view_id=ViewId(space="test_space", external_id="test_view", version="v1"),
                     property_mapping={},
                 ),
                 {
                     "fileName": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="fileName",
                         type=TextProperty(),
                         nullable=True,
@@ -812,7 +810,7 @@ class TestAssetCentricConversion:
                         constraint_state=ConstraintOrIndexState(),
                     ),
                     "fileDescription": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="fileDescription",
                         type=TextProperty(),
                         nullable=True,
@@ -821,7 +819,7 @@ class TestAssetCentricConversion:
                         constraint_state=ConstraintOrIndexState(),
                     ),
                     "fileType": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="fileType",
                         type=TextProperty(),
                         nullable=True,
@@ -830,7 +828,7 @@ class TestAssetCentricConversion:
                         constraint_state=ConstraintOrIndexState(),
                     ),
                     "isConfidential": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="isConfidential",
                         type=BooleanProperty(),
                         nullable=True,
@@ -876,12 +874,12 @@ class TestAssetCentricConversion:
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="timeseries",
-                    view_id=ViewReference(space="test_space", external_id="test_view", version="v1"),
+                    view_id=ViewId(space="test_space", external_id="test_view", version="v1"),
                     property_mapping={"name": "timeSeriesName", "metadata.category": "timeSeriesCategory"},
                 ),
                 {
                     "timeSeriesName": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="timeSeriesName",
                         type=TextProperty(),
                         nullable=True,
@@ -890,7 +888,7 @@ class TestAssetCentricConversion:
                         constraint_state=ConstraintOrIndexState(),
                     ),
                     "timeSeriesCategory": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="timeSeriesCategory",
                         type=TextProperty(),
                         nullable=True,
@@ -928,12 +926,12 @@ class TestAssetCentricConversion:
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="asset",
-                    view_id=ViewReference(space="test_space", external_id="test_view", version="v1"),
+                    view_id=ViewId(space="test_space", external_id="test_view", version="v1"),
                     property_mapping={"name": "assetName", "description": "assetDescription"},
                 ),
                 {
                     "assetName": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="assetName",
                         type=TextProperty(),
                         nullable=False,
@@ -942,7 +940,7 @@ class TestAssetCentricConversion:
                         constraint_state=ConstraintOrIndexState(),
                     ),
                     "assetDescription": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="assetDescription",
                         type=TextProperty(),
                         nullable=False,
@@ -978,12 +976,12 @@ class TestAssetCentricConversion:
                     last_updated_time=1000000,
                     created_time=1000000,
                     resource_type="event",
-                    view_id=ViewReference(space="test_space", external_id="test_view", version="v1"),
+                    view_id=ViewId(space="test_space", external_id="test_view", version="v1"),
                     property_mapping={"type": "category", "metadata.category": "category", "source": "source"},
                 ),
                 {
                     "category": ViewCorePropertyResponse(
-                        container=ContainerReference(space="test_space", external_id="test_container"),
+                        container=ContainerId(space="test_space", external_id="test_container"),
                         container_property_identifier="category",
                         type=TextProperty(),
                         nullable=True,
@@ -992,7 +990,7 @@ class TestAssetCentricConversion:
                         constraint_state=ConstraintOrIndexState(),
                     ),
                     "source": ViewCorePropertyResponse(
-                        container=ContainerReference(space="cdf_cdm", external_id="CogniteSourceable"),
+                        container=ContainerId(space="cdf_cdm", external_id="CogniteSourceable"),
                         container_property_identifier="source",
                         type=DirectNodeRelation(),
                         nullable=True,
@@ -1065,7 +1063,7 @@ class TestAssetCentricConversion:
 
         assert expected_issue.dump() == issue.dump()
 
-    ANNOTATION_ID = EdgeReference(space="test_space", external_id="annotation_37")
+    ANNOTATION_ID = EdgeId(space="test_space", external_id="annotation_37")
     DEFAULT_PROPERTIES: ClassVar[dict[str, Any]] = dict(
         nullable=True, immutable=False, auto_increment=False, constraint_state=ConstraintOrIndexState()
     )
@@ -1080,7 +1078,7 @@ class TestAssetCentricConversion:
     }
     ANNOTATION_MAPPING = ResourceViewMappingResponse(
         external_id="file_annotation_mapping",
-        view_id=ViewReference(space="cdf_cdm", external_id="CogniteDiagramAnnotation", version="v1"),
+        view_id=ViewId(space="cdf_cdm", external_id="CogniteDiagramAnnotation", version="v1"),
         property_mapping={
             "annotatedResourceId": "edge.startNode",
             "annotationType": "edge.type.externalId",
@@ -1094,8 +1092,8 @@ class TestAssetCentricConversion:
         created_time=1000000,
         resource_type="annotation",
     )
-    FILE_INSTANCE_BY_ID: ClassVar[Mapping[int, NodeReference]] = {
-        42: NodeReference(space="test_space", external_id="file_456_instance")
+    FILE_INSTANCE_BY_ID: ClassVar[Mapping[int, NodeId]] = {
+        42: NodeId(space="test_space", external_id="file_456_instance")
     }
 
     @pytest.mark.parametrize(
@@ -1119,12 +1117,12 @@ class TestAssetCentricConversion:
                 EdgeRequest(
                     space=ANNOTATION_ID.space,
                     external_id=ANNOTATION_ID.external_id,
-                    start_node=NodeReference(space="test_space", external_id="file_456_instance"),
-                    end_node=NodeReference(space="test_space", external_id="asset_123_instance"),
-                    type=NodeReference(space="test_space", external_id="diagrams.FileLink"),
+                    start_node=NodeId(space="test_space", external_id="file_456_instance"),
+                    end_node=NodeId(space="test_space", external_id="asset_123_instance"),
+                    type=NodeId(space="test_space", external_id="diagrams.FileLink"),
                     sources=[
                         InstanceSource(
-                            source=ViewReference(space="cdf_cdm", external_id="CogniteDiagramAnnotation", version="v1"),
+                            source=ViewId(space="cdf_cdm", external_id="CogniteDiagramAnnotation", version="v1"),
                             properties={"status": "Approved"},
                         )
                     ],
@@ -1132,7 +1130,7 @@ class TestAssetCentricConversion:
                 ConversionIssue(
                     id=str(AssetCentricId("annotation", 37)),
                     asset_centric_id=AssetCentricId("annotation", id_=37),
-                    instance_id=NodeReference(space="test_space", external_id="annotation_37"),
+                    instance_id=NodeId(space="test_space", external_id="annotation_37"),
                     ignored_asset_centric_properties=[
                         "annotatedResourceType",
                         "createdTime",
@@ -1188,7 +1186,7 @@ class TestAssetCentricConversion:
 
         edge, issue = asset_centric_to_dm(
             resource,
-            EdgeReference(space="test_space", external_id="annotation_38"),
+            EdgeId(space="test_space", external_id="annotation_38"),
             self.ANNOTATION_MAPPING,
             self.DIAGRAM_ANNOTATION_PROPERTIES,
             direct_relation_cache,
@@ -1197,7 +1195,7 @@ class TestAssetCentricConversion:
         expected_issue = ConversionIssue(
             id=str(AssetCentricId("annotation", 38)),
             asset_centric_id=AssetCentricId("annotation", id_=38),
-            instance_id=NodeReference(space="test_space", external_id="annotation_38"),
+            instance_id=NodeId(space="test_space", external_id="annotation_38"),
             ignored_asset_centric_properties=[
                 "annotatedResourceType",
                 "createdTime",

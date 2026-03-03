@@ -6,7 +6,7 @@ from cognite.client.data_classes.data_modeling import SpaceApply
 
 from cognite_toolkit._cdf_tk.apps._dump_app import DumpConfigApp
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataModelReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataModelId
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
@@ -46,9 +46,7 @@ class TestDumpResource:
         output_dir = tmp_path / "output"
         cmd = DumpResourceCommand(silent=True)
         cmd.dump_to_yamls(
-            DataModelFinder(
-                toolkit_client, DataModelReference(space="cdf_cdm", external_id="CogniteCore", version="v1")
-            ),
+            DataModelFinder(toolkit_client, DataModelId(space="cdf_cdm", external_id="CogniteCore", version="v1")),
             output_dir=output_dir,
             clean=False,
             verbose=False,

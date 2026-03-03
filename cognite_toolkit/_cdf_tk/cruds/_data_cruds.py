@@ -9,7 +9,7 @@ from cognite.client.data_classes import FileMetadataWrite
 
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import ExtendableCogniteFileApply
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
@@ -122,7 +122,7 @@ class FileCRUD(DataCRUD):
                 identifier = resource.identifier
                 if isinstance(identifier, ExternalId):
                     identifier = identifier.external_id
-                elif isinstance(identifier, NodeReference):
+                elif isinstance(identifier, NodeId):
                     identifier = dm.NodeId(identifier.space, identifier.external_id)
                 if dry_run:
                     yield f" Would upload file '{datafile!s}' to file with {id_name}={identifier!r}", 1

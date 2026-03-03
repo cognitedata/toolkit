@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsFailedResponse, ItemsResultList
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.cruds import FileMetadataCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
@@ -327,7 +327,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
 
         """
         # We know that instance_id is always set for data modeling uploads
-        instance_id = cast(NodeReference, item.item.instance_id)
+        instance_id = cast(NodeId, item.item.instance_id)
         response = http_client.request_single_retries(
             message=RequestMessage(
                 endpoint_url=http_client.config.create_api_url("/files/uploadlink"),
@@ -345,7 +345,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
 
     @classmethod
     def _create_cognite_file_node(
-        cls, instance_id: NodeReference, http_client: HTTPClient, upload_id: str, results: ItemsResultList
+        cls, instance_id: NodeId, http_client: HTTPClient, upload_id: str, results: ItemsResultList
     ) -> bool:
         node_creation = http_client.request_single_retries(
             message=RequestMessage(

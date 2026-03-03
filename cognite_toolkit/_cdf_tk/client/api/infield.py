@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse,
     SuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition, NodeReference
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APM_CONFIG_SPACE,
     APMConfigRequest,
@@ -84,12 +84,12 @@ class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, In
         return results
 
 
-class InFieldCDMConfigAPI(WrappedInstancesAPI[NodeReference, InFieldCDMLocationConfigResponse]):
+class InFieldCDMConfigAPI(WrappedInstancesAPI[NodeId, InFieldCDMLocationConfigResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(http_client, InFieldCDMLocationConfigRequest.VIEW_ID)
 
-    def _validate_response(self, response: SuccessResponse) -> ResponseItems[NodeReference]:
-        return ResponseItems[NodeReference].model_validate_json(response.body)
+    def _validate_response(self, response: SuccessResponse) -> ResponseItems[NodeId]:
+        return ResponseItems[NodeId].model_validate_json(response.body)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
@@ -97,12 +97,12 @@ class InFieldCDMConfigAPI(WrappedInstancesAPI[NodeReference, InFieldCDMLocationC
         return PagedResponse[InFieldCDMLocationConfigResponse].model_validate_json(response.body)
 
 
-class APMConfigAPI(WrappedInstancesAPI[NodeReference, APMConfigResponse]):
+class APMConfigAPI(WrappedInstancesAPI[NodeId, APMConfigResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(http_client, APMConfigRequest.VIEW_ID)
 
-    def _validate_response(self, response: SuccessResponse) -> ResponseItems[NodeReference]:
-        return ResponseItems[NodeReference].model_validate_json(response.body)
+    def _validate_response(self, response: SuccessResponse) -> ResponseItems[NodeId]:
+        return ResponseItems[NodeId].model_validate_json(response.body)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse

@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
     APMConfigResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, SpaceReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldCDMLocationConfigRequest,
@@ -93,13 +93,13 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
         return self.client.infield.apm_config.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[APMConfigResponse]:
-        return self.client.infield.apm_config.retrieve(NodeReference.from_external_ids(ids, space=APM_CONFIG_SPACE))
+        return self.client.infield.apm_config.retrieve(NodeId.from_external_ids(ids, space=APM_CONFIG_SPACE))
 
     def update(self, items: Sequence[APMConfigRequest]) -> list[InstanceSlimDefinition]:
         return self.client.infield.apm_config.create(items)
 
     def delete(self, ids: Sequence[ExternalId]) -> int:
-        deleted = self.client.infield.apm_config.delete(NodeReference.from_external_ids(ids, space=APM_CONFIG_SPACE))
+        deleted = self.client.infield.apm_config.delete(NodeId.from_external_ids(ids, space=APM_CONFIG_SPACE))
         return len(deleted)
 
     def _iterate(
@@ -113,18 +113,18 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if isinstance(app_data_space_id := item.get("appDataSpaceId"), str):
-            yield SpaceCRUD, SpaceReference(space=app_data_space_id)
+            yield SpaceCRUD, SpaceId(space=app_data_space_id)
         if isinstance(customer_data_space_id := item.get("customerDataSpaceId"), str):
-            yield SpaceCRUD, SpaceReference(space=customer_data_space_id)
+            yield SpaceCRUD, SpaceId(space=customer_data_space_id)
         for config in cls._get_root_location_configurations(item) or []:
             if isinstance(asset_external_id := config.get("assetExternalId"), str):
                 yield AssetCRUD, ExternalId(external_id=asset_external_id)
             if isinstance(data_set_external_id := config.get("dataSetExternalId"), str):
                 yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
             if isinstance(app_data_instance_space := config.get("appDataInstanceSpace"), str):
-                yield SpaceCRUD, SpaceReference(space=app_data_instance_space)
+                yield SpaceCRUD, SpaceId(space=app_data_instance_space)
             if isinstance(source_data_instance_space := config.get("sourceDataInstanceSpace"), str):
-                yield SpaceCRUD, SpaceReference(space=source_data_instance_space)
+                yield SpaceCRUD, SpaceId(space=source_data_instance_space)
             for key in cls._group_keys:
                 for group in config.get(key, []):
                     if isinstance(group, str):
@@ -144,7 +144,7 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
                         yield AssetCRUD, ExternalId(external_id=asset_external_id)
                 if app_data_instance_space := filter_.get("appDataInstanceSpace"):
                     if isinstance(app_data_instance_space, str):
-                        yield SpaceCRUD, SpaceReference(space=app_data_instance_space)
+                        yield SpaceCRUD, SpaceId(space=app_data_instance_space)
 
     def safe_read(self, filepath: Path | str) -> str:
         # The customerDataSpaceVersion is a string, but the user often writes it as an int.
@@ -231,9 +231,7 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
 
 
 @final
-class InFieldLocationConfigCRUD(
-    ResourceCRUD[NodeReference, InFieldLocationConfigRequest, InFieldLocationConfigResponse]
-):
+class InFieldLocationConfigCRUD(ResourceCRUD[NodeId, InFieldLocationConfigRequest, InFieldLocationConfigResponse]):
     folder_name = "cdf_applications"
     resource_cls = InFieldLocationConfigResponse
     resource_write_cls = InFieldLocationConfigRequest
@@ -247,13 +245,13 @@ class InFieldLocationConfigCRUD(
         return "infield location configs"
 
     @classmethod
-    def get_id(cls, item: InFieldLocationConfigRequest | InFieldLocationConfigResponse | dict) -> NodeReference:
+    def get_id(cls, item: InFieldLocationConfigRequest | InFieldLocationConfigResponse | dict) -> NodeId:
         if isinstance(item, dict):
-            return NodeReference(space=item["space"], external_id=item["externalId"])
-        return NodeReference(space=item.space, external_id=item.external_id)
+            return NodeId(space=item["space"], external_id=item["externalId"])
+        return NodeId(space=item.space, external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: NodeReference) -> dict[str, Any]:
+    def dump_id(cls, id: NodeId) -> dict[str, Any]:
         return {
             "space": id.space,
             "externalId": id.external_id,
@@ -296,13 +294,13 @@ class InFieldLocationConfigCRUD(
     def create(self, items: Sequence[InFieldLocationConfigRequest]) -> list[InstanceSlimDefinition]:
         return self.client.infield.config.create(items)
 
-    def retrieve(self, ids: Sequence[NodeReference]) -> list[InFieldLocationConfigResponse]:
+    def retrieve(self, ids: Sequence[NodeId]) -> list[InFieldLocationConfigResponse]:
         return self.client.infield.config.retrieve(list(ids))
 
     def update(self, items: Sequence[InFieldLocationConfigRequest]) -> Sized:
         return self.client.infield.config.update(items)
 
-    def delete(self, ids: Sequence[NodeReference]) -> int:
+    def delete(self, ids: Sequence[NodeId]) -> int:
         return len(self.client.infield.config.delete(list(ids)))
 
     def _iterate(
@@ -329,7 +327,7 @@ class InFieldLocationConfigCRUD(
 
 @final
 class InFieldCDMLocationConfigCRUD(
-    ResourceCRUD[NodeReference, InFieldCDMLocationConfigRequest, InFieldCDMLocationConfigResponse]
+    ResourceCRUD[NodeId, InFieldCDMLocationConfigRequest, InFieldCDMLocationConfigResponse]
 ):
     folder_name = "cdf_applications"
     resource_cls = InFieldCDMLocationConfigResponse
@@ -344,13 +342,13 @@ class InFieldCDMLocationConfigCRUD(
         return "infield CDM location configs"
 
     @classmethod
-    def get_id(cls, item: InFieldCDMLocationConfigRequest | InFieldCDMLocationConfigResponse | dict) -> NodeReference:
+    def get_id(cls, item: InFieldCDMLocationConfigRequest | InFieldCDMLocationConfigResponse | dict) -> NodeId:
         if isinstance(item, dict):
-            return NodeReference(space=item["space"], external_id=item["externalId"])
-        return NodeReference(space=item.space, external_id=item.external_id)
+            return NodeId(space=item["space"], external_id=item["externalId"])
+        return NodeId(space=item.space, external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: NodeReference) -> dict[str, Any]:
+    def dump_id(cls, id: NodeId) -> dict[str, Any]:
         return {
             "space": id.space,
             "externalId": id.external_id,
@@ -387,13 +385,13 @@ class InFieldCDMLocationConfigCRUD(
     def create(self, items: Sequence[InFieldCDMLocationConfigRequest]) -> list[InstanceSlimDefinition]:
         return self.client.infield.cdm_config.create(items)
 
-    def retrieve(self, ids: Sequence[NodeReference]) -> list[InFieldCDMLocationConfigResponse]:
+    def retrieve(self, ids: Sequence[NodeId]) -> list[InFieldCDMLocationConfigResponse]:
         return self.client.infield.cdm_config.retrieve(list(ids))
 
     def update(self, items: Sequence[InFieldCDMLocationConfigRequest]) -> Sized:
         return self.create(items)
 
-    def delete(self, ids: Sequence[NodeReference]) -> int:
+    def delete(self, ids: Sequence[NodeId]) -> int:
         deleted = self.client.infield.cdm_config.delete(list(ids))
         return len(deleted)
 
