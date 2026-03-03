@@ -10,6 +10,7 @@ from cognite.client.data_classes.capabilities import Capability
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter, SequenceRowFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import (
@@ -401,7 +402,12 @@ class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRows
         results: list[SequenceRowsResponse] = []
         for id_ in ids:
             row_filter = SequenceRowFilter(external_id=id_.external_id)
-            responses = self.client.tool.sequences.rows.list(row_filter)
+            try:
+                responses = self.client.tool.sequences.rows.list(row_filter)
+            except ToolkitAPIError as e:
+                if e.missing == [id_.dump()]:
+                    continue
+                raise e
             results.extend(responses)
         return results
 
