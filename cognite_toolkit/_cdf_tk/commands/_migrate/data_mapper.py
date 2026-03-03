@@ -853,6 +853,6 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
             issue.errors.extend(connection_errors)
             destination_properties.update(container_connections)
             if destination_properties:
-                sources.append(InstanceSource(source=view_id, properties=destination_properties))
+                sources.append(InstanceSource(source=destination_view.as_id(), properties=destination_properties))
             new_edges.extend(new_edges)
         return sources, new_edges, issue
