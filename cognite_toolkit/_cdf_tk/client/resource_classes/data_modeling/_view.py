@@ -5,7 +5,7 @@ from pydantic import Field, JsonValue, field_serializer, model_validator
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerReference, ViewReference
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, ViewId
 
 from ._data_types import DirectNodeRelation
 from ._view_property import (
@@ -25,10 +25,10 @@ class View(BaseModelObject, ABC):
     name: str | None = None
     description: str | None = None
     filter: JsonValue | None = None
-    implements: list[ViewReference] | None = None
+    implements: list[ViewId] | None = None
 
-    def as_id(self) -> ViewReference:
-        return ViewReference(space=self.space, external_id=self.external_id, version=self.version)
+    def as_id(self) -> ViewId:
+        return ViewId(space=self.space, external_id=self.external_id, version=self.version)
 
     @model_validator(mode="before")
     def set_connection_type_on_primary_properties(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -59,7 +59,7 @@ class View(BaseModelObject, ABC):
     @field_serializer("implements", mode="plain")
     @classmethod
     def serialize_implements(
-        cls, implements: list[ViewReference] | None, info: FieldSerializationInfo
+        cls, implements: list[ViewId] | None, info: FieldSerializationInfo
     ) -> list[dict[str, Any]] | None:
         if implements is None:
             return None
@@ -78,7 +78,7 @@ class ViewRequest(View, RequestResource):
     )
 
     @property
-    def used_containers(self) -> set[ContainerReference]:
+    def used_containers(self) -> set[ContainerId]:
         """Get all containers referenced by this view."""
         return {
             prop.container for prop in (self.properties or {}).values() if isinstance(prop, ViewCorePropertyRequest)
@@ -94,7 +94,7 @@ class ViewResponse(View, ResponseResource[ViewRequest]):
     queryable: bool
     used_for: Literal["node", "edge", "all"]
     is_global: bool
-    mapped_containers: list[ContainerReference]
+    mapped_containers: list[ContainerId]
 
     @classmethod
     def request_cls(cls) -> type[ViewRequest]:
@@ -126,7 +126,7 @@ class ViewResponse(View, ResponseResource[ViewRequest]):
     @field_serializer("mapped_containers", mode="plain")
     @classmethod
     def serialize_mapped_containers(
-        cls, mapped_containers: list[ContainerReference], info: FieldSerializationInfo
+        cls, mapped_containers: list[ContainerId], info: FieldSerializationInfo
     ) -> list[dict[str, Any]]:
         return [container.model_dump(**vars(info)) | {"type": "container"} for container in mapped_containers]
 

@@ -1,8 +1,9 @@
 import time
 from pathlib import Path
 
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import DataSet
-from cognite.client.data_classes.data_modeling import NodeId, Space
+from cognite.client.data_classes.data_modeling import Space
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
@@ -81,16 +82,16 @@ class TestFileContentIO:
         external_id = f"test_upload_dm_file_001_{RUN_UNIQUE_ID}.txt"
         my_text_file = tmp_path / external_id
         my_text_file.write_text("This is some test content for data modeling.", encoding="utf-8")
-        instance_id = NodeId(space=toolkit_space.space, external_id=external_id)
+        instance_id = dm.NodeId(space=toolkit_space.space, external_id=external_id)
         selector = FileDataModelingTemplateSelector(
             file_directory=tmp_path,
             template=FileDataModelingTemplate.model_validate(
                 dict(
-                    instance_id=TemplateNodeId(
+                    instanceId=TemplateNodeId(
                         space=toolkit_space.space,
-                        external_id=FILENAME_VARIABLE,
+                        externalId=FILENAME_VARIABLE,
                     ),
-                )
+                ),
             ),
         )
         io = FileContentIO(toolkit_client, tmp_path)

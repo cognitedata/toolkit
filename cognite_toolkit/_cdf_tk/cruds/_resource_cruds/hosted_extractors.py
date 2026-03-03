@@ -35,13 +35,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
-from cognite_toolkit._cdf_tk.resource_classes import (
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.yaml_classes import (
     HostedExtractorDestinationYAML,
     HostedExtractorJobYAML,
     HostedExtractorMappingYAML,
     HostedExtractorSourceYAML,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 
 from .data_organization import DataSetsCRUD
 

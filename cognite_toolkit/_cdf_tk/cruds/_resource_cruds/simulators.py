@@ -27,11 +27,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
-from cognite_toolkit._cdf_tk.resource_classes import SimulatorModelYAML
-from cognite_toolkit._cdf_tk.resource_classes.simulator_model_revision import SimulatorModelRevisionYAML
-from cognite_toolkit._cdf_tk.resource_classes.simulator_routine import SimulatorRoutineYAML
-from cognite_toolkit._cdf_tk.resource_classes.simulator_routine_revision import SimulatorRoutineRevisionYAML
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
+from cognite_toolkit._cdf_tk.yaml_classes import SimulatorModelYAML
+from cognite_toolkit._cdf_tk.yaml_classes.simulator_model_revision import SimulatorModelRevisionYAML
+from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine import SimulatorRoutineYAML
+from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine_revision import SimulatorRoutineRevisionYAML
 
 from .data_organization import DataSetsCRUD
 from .file import FileMetadataCRUD

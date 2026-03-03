@@ -3,9 +3,9 @@ from datetime import datetime
 from unittest.mock import MagicMock
 
 import pytest
+from cognite.client import data_modeling as dm
 from cognite.client._api.data_modeling import InstancesAPI
 from cognite.client.data_classes._base import CogniteResource
-from cognite.client.data_classes.data_modeling import NodeId
 
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
@@ -70,15 +70,15 @@ class TestCanvasAPI:
     @pytest.mark.parametrize(
         "external_id, expected_arg",
         [
-            ("test_canvas", [NodeId(CANVAS_INSTANCE_SPACE, "test_canvas")]),
+            ("test_canvas", [dm.NodeId(CANVAS_INSTANCE_SPACE, "test_canvas")]),
             (
                 ["canvas1", "canvas2"],
-                [NodeId(CANVAS_INSTANCE_SPACE, "canvas1"), NodeId(CANVAS_INSTANCE_SPACE, "canvas2")],
+                [dm.NodeId(CANVAS_INSTANCE_SPACE, "canvas1"), dm.NodeId(CANVAS_INSTANCE_SPACE, "canvas2")],
             ),
         ],
     )
     def test_delete(
-        self, external_id: str | list[str], expected_arg: NodeId | list[NodeId], instance_api: MagicMock
+        self, external_id: str | list[str], expected_arg: dm.NodeId | list[dm.NodeId], instance_api: MagicMock
     ) -> None:
         canvas_api = CanvasAPI(instance_api=instance_api)
 
@@ -90,14 +90,14 @@ class TestCanvasAPI:
     @pytest.mark.parametrize(
         "external_id, expected_arg",
         [
-            ("test_canvas", NodeId(CANVAS_INSTANCE_SPACE, "test_canvas")),
+            ("test_canvas", dm.NodeId(CANVAS_INSTANCE_SPACE, "test_canvas")),
             (
                 ["canvas1", "canvas2"],
-                [NodeId(CANVAS_INSTANCE_SPACE, "canvas1"), NodeId(CANVAS_INSTANCE_SPACE, "canvas2")],
+                [dm.NodeId(CANVAS_INSTANCE_SPACE, "canvas1"), dm.NodeId(CANVAS_INSTANCE_SPACE, "canvas2")],
             ),
         ],
     )
-    def test_retrieve(self, external_id: str | list[str], expected_arg: NodeId, instance_api: MagicMock) -> None:
+    def test_retrieve(self, external_id: str | list[str], expected_arg: dm.NodeId, instance_api: MagicMock) -> None:
         canvas_api = CanvasAPI(instance_api=instance_api)
 
         canvas_api.retrieve(external_id)

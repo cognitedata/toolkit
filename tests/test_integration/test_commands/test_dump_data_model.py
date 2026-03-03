@@ -1,11 +1,12 @@
 from pathlib import Path
 
 import pytest
-from cognite.client.data_classes.data_modeling import DataModelId, SpaceApply
+from cognite.client import data_modeling as dm
+from cognite.client.data_classes.data_modeling import SpaceApply
 
 from cognite_toolkit._cdf_tk.apps._dump_app import DumpConfigApp
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataModelReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataModelId
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
@@ -14,7 +15,7 @@ from tests.data import NAUGHTY_PROJECT
 
 
 @pytest.fixture()
-def deployed_misbehaving_grandparent(toolkit_client: ToolkitClient) -> DataModelId:
+def deployed_misbehaving_grandparent(toolkit_client: ToolkitClient) -> dm.DataModelId:
     loader = GraphQLCRUD.create_loader(toolkit_client)
     filepaths = loader.find_files(NAUGHTY_PROJECT / MODULES / "difficult_graphql")
     assert len(filepaths) == 1
@@ -45,9 +46,7 @@ class TestDumpResource:
         output_dir = tmp_path / "output"
         cmd = DumpResourceCommand(silent=True)
         cmd.dump_to_yamls(
-            DataModelFinder(
-                toolkit_client, DataModelReference(space="cdf_cdm", external_id="CogniteCore", version="v1")
-            ),
+            DataModelFinder(toolkit_client, DataModelId(space="cdf_cdm", external_id="CogniteCore", version="v1")),
             output_dir=output_dir,
             clean=False,
             verbose=False,
@@ -62,7 +61,7 @@ class TestDumpResource:
 
     @pytest.mark.skip("Failing likely due to changes in the SchemaService validation.")
     def test_dump_misbehaving_grandparent(
-        self, deployed_misbehaving_grandparent: DataModelId, toolkit_client: ToolkitClient, tmp_path: Path
+        self, deployed_misbehaving_grandparent: dm.DataModelId, toolkit_client: ToolkitClient, tmp_path: Path
     ) -> None:
         output_dir = tmp_path / "output"
         cmd = DumpResourceCommand(silent=True)

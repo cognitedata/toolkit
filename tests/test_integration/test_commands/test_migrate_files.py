@@ -4,8 +4,9 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import FileMetadataList, FileMetadataWrite
-from cognite.client.data_classes.data_modeling import NodeId, Space
+from cognite.client.data_classes.data_modeling import Space
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -32,7 +33,7 @@ def three_files_with_content(toolkit_client: ToolkitClient, toolkit_space: Space
         try:
             client.files.delete(external_id=output.as_external_ids(), ignore_unknown_ids=True)
         except CogniteAPIError:
-            client.data_modeling.instances.delete([NodeId(space, ts.external_id) for ts in output])
+            client.data_modeling.instances.delete([dm.NodeId(space, ts.external_id) for ts in output])
     created = FileMetadataList([])
     for file in files:
         uploaded = client.files.upload_bytes(b"test content", **file.dump(camel_case=False))
@@ -41,7 +42,7 @@ def three_files_with_content(toolkit_client: ToolkitClient, toolkit_space: Space
     yield created
 
     # Cleanup after test
-    deleted = client.data_modeling.instances.delete([NodeId(space, file.external_id) for file in created])
+    deleted = client.data_modeling.instances.delete([dm.NodeId(space, file.external_id) for file in created])
     if deleted.nodes:
         return
     client.files.delete(external_id=created.as_external_ids(), ignore_unknown_ids=True)

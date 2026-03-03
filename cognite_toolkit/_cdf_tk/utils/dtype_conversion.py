@@ -10,10 +10,10 @@ from dateutil import parser
 
 from cognite_toolkit._cdf_tk.client.resource_classes import data_modeling
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    ContainerReference,
+    ContainerId,
     EnumProperty,
     ListablePropertyTypeDefinition,
-    NodeReference,
+    NodeId,
     PropertyTypeDefinition,
 )
 from cognite_toolkit._cdf_tk.constants import CDF_UNIT_SPACE
@@ -42,9 +42,9 @@ def asset_centric_convert_to_primary_property(
     value: str | int | float | bool | dict | list | None,
     type_: PropertyTypeDefinition,
     nullable: bool,
-    destination_container_property: tuple[data_modeling.ContainerReference, str],
+    destination_container_property: tuple[data_modeling.ContainerId, str],
     source_property: tuple[AssetCentricTypeExtended, str],
-    direct_relation_lookup: Mapping[str | int, NodeReference] | None = None,
+    direct_relation_lookup: Mapping[str | int, NodeId] | None = None,
 ) -> PropertyValueWrite:
     if (source_property, destination_container_property) in SPECIAL_CONVERTER_BY_SOURCE_DESTINATION:
         converter_cls = SPECIAL_CONVERTER_BY_SOURCE_DESTINATION[(source_property, destination_container_property)]
@@ -63,7 +63,7 @@ def convert_to_primary_property(
     value: str | int | float | bool | dict | list | None,
     type_: PropertyTypeDefinition,
     nullable: bool,
-    direct_relation_lookup: Mapping[str | int, NodeReference] | None = None,
+    direct_relation_lookup: Mapping[str | int, NodeId] | None = None,
 ) -> PropertyValueWrite:
     """Convert a string value to the appropriate type based on the provided property type.
 
@@ -71,7 +71,7 @@ def convert_to_primary_property(
         value (str | int | float | bool): The value to convert.
         type_ (PropertyTypeDefinition): The type of the property to convert to.
         nullable (bool): Whether the property can be null.
-        direct_relation_lookup (Mapping[str | int, NodeReference] | None): A mapping from external/internal
+        direct_relation_lookup (Mapping[str | int, NodeId] | None): A mapping from external/internal
             IDs to NodeReference objects,
 
     Returns:
@@ -258,12 +258,12 @@ class _SpecialCaseConverter(_Converter, ABC):
     """Abstract base class for converters handling special cases."""
 
     source_property: ClassVar[tuple[AssetCentricType, str]]
-    destination_container_property: ClassVar[tuple[ContainerReference, str]]
+    destination_container_property: ClassVar[tuple[ContainerId, str]]
 
 
 class _TimeSeriesTypeConverter(_SpecialCaseConverter):
     source_property = ("timeseries", "isString")
-    destination_container_property = (ContainerReference(space="cdf_cdm", external_id="CogniteTimeSeries"), "type")
+    destination_container_property = (ContainerId(space="cdf_cdm", external_id="CogniteTimeSeries"), "type")
 
     def convert(self, value: str | int | float | bool | dict | list | None) -> str:
         if isinstance(value, bool):
@@ -273,7 +273,7 @@ class _TimeSeriesTypeConverter(_SpecialCaseConverter):
 
 class _TimeSeriesUnitConverter(_SpecialCaseConverter):
     source_property = ("timeseries", "unitExternalId")
-    destination_container_property = (ContainerReference(space="cdf_cdm", external_id="CogniteTimeSeries"), "unit")
+    destination_container_property = (ContainerId(space="cdf_cdm", external_id="CogniteTimeSeries"), "unit")
 
     def convert(self, value: str | int | float | bool | dict | list | None) -> dict[str, str] | None:
         if value is None:
@@ -284,7 +284,7 @@ class _TimeSeriesUnitConverter(_SpecialCaseConverter):
 
 
 class _LabelConverter(_SpecialCaseConverter, ABC):
-    destination_container_property = (ContainerReference(space="cdf_cdm", external_id="CogniteDescribable"), "tags")
+    destination_container_property = (ContainerId(space="cdf_cdm", external_id="CogniteDescribable"), "tags")
 
     def convert(self, value: str | int | float | bool | dict | list | None) -> list[str]:
         if not isinstance(value, list):
@@ -315,9 +315,9 @@ class _FileLabelConverter(_LabelConverter):
 
 
 class _SourceConverter(_SpecialCaseConverter, ABC):
-    destination_container_property = (ContainerReference(space="cdf_cdm", external_id="CogniteSourceable"), "source")
+    destination_container_property = (ContainerId(space="cdf_cdm", external_id="CogniteSourceable"), "source")
 
-    def __init__(self, direct_relation_lookup: Mapping[str | int, NodeReference]) -> None:
+    def __init__(self, direct_relation_lookup: Mapping[str | int, NodeId]) -> None:
         self.direct_relation_lookup = direct_relation_lookup
 
     def convert(self, value: str | int | float | bool | dict | list | None) -> PropertyValueWrite:
@@ -537,7 +537,7 @@ class _EnumConverter(_ValueConverter):
 class _DirectRelationshipConverter(_ValueConverter):
     type_str = "direct"
 
-    def __init__(self, direct_relation_lookup: Mapping[str | int, NodeReference]) -> None:
+    def __init__(self, direct_relation_lookup: Mapping[str | int, NodeId]) -> None:
         super().__init__(nullable=True)
         self.direct_relation_lookup = direct_relation_lookup
 
@@ -573,7 +573,7 @@ CONVERTER_BY_DTYPE: Mapping[str, type[_ValueConverter]] = {
     for cls_ in _ValueConverter.__subclasses__()
 }
 SPECIAL_CONVERTER_BY_SOURCE_DESTINATION: Mapping[
-    tuple[tuple[AssetCentricTypeExtended, str], tuple[ContainerReference, str]],
+    tuple[tuple[AssetCentricTypeExtended, str], tuple[ContainerId, str]],
     type[_SpecialCaseConverter],
 ] = {
     (subclass.source_property, subclass.destination_container_property): subclass

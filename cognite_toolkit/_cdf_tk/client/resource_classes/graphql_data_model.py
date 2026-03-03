@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
 )
 
-from .data_modeling import DataModelReference, ViewReference
+from .data_modeling import DataModelId, ViewId
 
 
 class GraphQLDataModel(BaseModelObject):
@@ -21,8 +21,8 @@ class GraphQLDataModel(BaseModelObject):
     description: str | None = None
     graph_ql_dml: str | None = None
 
-    def as_id(self) -> DataModelReference:
-        return DataModelReference(space=self.space, external_id=self.external_id, version=self.version)
+    def as_id(self) -> DataModelId:
+        return DataModelId(space=self.space, external_id=self.external_id, version=self.version)
 
 
 class GraphQLDataModelRequest(GraphQLDataModel, RequestResource):
@@ -39,7 +39,7 @@ class GraphQLDataModelResponse(GraphQLDataModel, ResponseResource[GraphQLDataMod
 
     created_time: datetime
     last_updated_time: datetime
-    views: list[ViewReference] | None = None
+    views: list[ViewId] | None = None
 
     @classmethod
     def request_cls(cls) -> type[GraphQLDataModelRequest]:

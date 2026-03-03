@@ -34,12 +34,12 @@ from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     InternalId,
-    InternalIdUnwrapped,
+    InternalUnwrappedId,
     NameId,
     RawDatabaseId,
     RawTableId,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupRequest,
     GroupResponse,
@@ -50,7 +50,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
-from cognite_toolkit._cdf_tk.resource_classes import GroupYAML, SecurityCategoriesYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     MediumSeverityWarning,
@@ -58,6 +57,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
+from cognite_toolkit._cdf_tk.yaml_classes import GroupYAML, SecurityCategoriesYAML
 
 
 @dataclass
@@ -164,7 +164,7 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
                     if space_ids := scope.get(cap.SpaceIDScope._scope_name, []):
                         if isinstance(space_ids, dict) and "spaceIds" in space_ids:
                             for space_id in space_ids["spaceIds"]:
-                                yield SpaceCRUD, SpaceReference(space=space_id)
+                                yield SpaceCRUD, SpaceId(space=space_id)
                     if data_set_ids := scope.get(cap.DataSetScope._scope_name, []):
                         if isinstance(data_set_ids, dict) and "ids" in data_set_ids:
                             for data_set_id in data_set_ids["ids"]:
@@ -538,7 +538,7 @@ class SecurityCategoryCRUD(ResourceCRUD[NameId, SecurityCategoryRequest, Securit
     def delete(self, ids: Sequence[NameId]) -> int:
         retrieved = self.retrieve(ids)
         if retrieved:
-            self.client.tool.security_categories.delete([InternalIdUnwrapped(id=cat.id) for cat in retrieved])
+            self.client.tool.security_categories.delete([InternalUnwrappedId(id=cat.id) for cat in retrieved])
         return len(retrieved)
 
     def _iterate(

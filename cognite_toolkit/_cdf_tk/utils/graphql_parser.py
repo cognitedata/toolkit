@@ -4,7 +4,7 @@ from collections.abc import MutableSequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
-from cognite.client.data_classes.data_modeling import DataModelId, ViewId
+from cognite.client import data_modeling as dm
 
 if TYPE_CHECKING:
     pass
@@ -14,14 +14,14 @@ class GraphQLParser:
     _token_pattern = re.compile(r"[\w\n]+|[^\w\s]", flags=re.DOTALL)
     _multi_newline = re.compile(r"\n+")
 
-    def __init__(self, raw: str, data_model_id: DataModelId) -> None:
+    def __init__(self, raw: str, data_model_id: dm.DataModelId) -> None:
         # Ensure consistent line endings
         self.raw = raw.replace("\r\n", "\n").replace("\r", "\n")
         self.data_model_id = data_model_id
         self._entities: list[_Entity] | None = None
 
-    def get_views(self, include_version: bool = False) -> set[ViewId]:
-        views: set[ViewId] = set()
+    def get_views(self, include_version: bool = False) -> set[dm.ViewId]:
+        views: set[dm.ViewId] = set()
         for entity in self._get_entities():
             if entity.is_imported:
                 continue
@@ -32,18 +32,18 @@ class GraphQLParser:
                     break
             if view_directive:
                 views.add(
-                    ViewId(
+                    dm.ViewId(
                         view_directive.space or self.data_model_id.space,
                         view_directive.external_id or entity.identifier,
                         version=view_directive.version if include_version else None,
                     )
                 )
             else:
-                views.add(ViewId(self.data_model_id.space, entity.identifier))
+                views.add(dm.ViewId(self.data_model_id.space, entity.identifier))
         return views
 
-    def get_dependencies(self, include_version: bool = False) -> set[ViewId | DataModelId]:
-        dependencies: set[ViewId | DataModelId] = set()
+    def get_dependencies(self, include_version: bool = False) -> set[dm.ViewId | dm.DataModelId]:
+        dependencies: set[dm.ViewId | dm.DataModelId] = set()
         for entity in self._get_entities():
             view_directive: _ViewDirective | None = None
             is_dependency = False
@@ -57,7 +57,7 @@ class GraphQLParser:
                     view_directive = directive
             if is_dependency and view_directive:
                 dependencies.add(
-                    ViewId(
+                    dm.ViewId(
                         view_directive.space or self.data_model_id.space,
                         view_directive.external_id or entity.identifier,
                         version=view_directive.version if include_version else None,
@@ -269,14 +269,14 @@ class _ViewDirective(_Directive):
 
 @dataclass
 class _Import(_Directive):
-    data_model: DataModelId | None = None
+    data_model: dm.DataModelId | None = None
 
     @classmethod
     def _load(cls, data: dict[str, Any] | str) -> "_Import":
         if isinstance(data, str):
             return _Import()
         if "dataModel" in data:
-            return _Import(data_model=DataModelId.load(data["dataModel"]))
+            return _Import(data_model=dm.DataModelId.load(data["dataModel"]))
         return _Import()
 
 

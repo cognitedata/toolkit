@@ -6,10 +6,10 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
-    AssetMappingClassicRequest,
-    AssetMappingDMRequest,
+    AssetMappingClassicRequestId,
+    AssetMappingDMRequestId,
 )
 
 
@@ -50,7 +50,7 @@ class TestAssetsMappingsClassic:
         respx_mock.post(url).respond(status_code=200, json={"items": [asset_mapping_classic]})
 
         responses = toolkit_client.tool.three_d.asset_mappings_classic.create(
-            [AssetMappingClassicRequest(nodeId=123, assetId=456, modelId=37, revisionId=42)]
+            [AssetMappingClassicRequestId(nodeId=123, assetId=456, modelId=37, revisionId=42)]
         )
         assert len(responses) == 1
         response = responses[0]
@@ -69,7 +69,7 @@ class TestAssetsMappingsClassic:
         respx_mock.post(url).respond(status_code=200, json={})
 
         toolkit_client.tool.three_d.asset_mappings_classic.delete(
-            [AssetMappingClassicRequest(nodeId=123, assetId=456, modelId=37, revisionId=42)]
+            [AssetMappingClassicRequestId(nodeId=123, assetId=456, modelId=37, revisionId=42)]
         )
 
     @pytest.mark.parametrize(
@@ -109,9 +109,9 @@ class TestAssetsMappingsDM:
 
         responses = toolkit_client.tool.three_d.asset_mappings_dm.create(
             [
-                AssetMappingDMRequest(
+                AssetMappingDMRequestId(
                     nodeId=123,
-                    assetInstanceId=NodeReference(space="my_space", externalId="my_external_id"),
+                    assetInstanceId=NodeId(space="my_space", externalId="my_external_id"),
                     modelId=37,
                     revisionId=42,
                 )
@@ -137,9 +137,9 @@ class TestAssetsMappingsDM:
 
         toolkit_client.tool.three_d.asset_mappings_dm.delete(
             [
-                AssetMappingDMRequest(
+                AssetMappingDMRequestId(
                     nodeId=123,
-                    assetInstanceId=NodeReference(space="my_space", externalId="my_external_id"),
+                    assetInstanceId=NodeId(space="my_space", externalId="my_external_id"),
                     modelId=37,
                     revisionId=42,
                 )
@@ -170,9 +170,9 @@ class TestAssetsMappingsDM:
         respx_mock.post(url_model_38).mock(side_effect=callback)
 
         mappings = [
-            AssetMappingDMRequest(
+            AssetMappingDMRequestId(
                 nodeId=i,
-                assetInstanceId=NodeReference(space="space", externalId=f"external_{i}"),
+                assetInstanceId=NodeId(space="space", externalId=f"external_{i}"),
                 modelId=37 if i % 2 == 0 else 38,
                 revisionId=42,
             )

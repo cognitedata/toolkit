@@ -4,7 +4,7 @@ import pytest
 import responses
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, ViewReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource
 
 
@@ -29,8 +29,8 @@ class TestMigrationLookup:
     SPACE = "my_space"
     EXISTING_ID = 123
     EXISTING_EXTERNAL_ID = "node_123"
-    EXISTING_NODE_ID = NodeReference(space=SPACE, external_id="node_123")
-    CONSUMER_VIEW = ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1")
+    EXISTING_NODE_ID = NodeId(space=SPACE, external_id="node_123")
+    CONSUMER_VIEW = ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")
     QUERY_RESPONSE: ClassVar[dict[str, Any]] = {
         "items": {
             "instanceSource": [
@@ -70,7 +70,7 @@ class TestMigrationLookup:
     def test_return_type_given_input(
         self,
         args: dict[str, Any],
-        expected_return: dict | NodeReference | None,
+        expected_return: dict | NodeId | None,
         lookup_client: tuple[ToolkitClient, responses.RequestsMock],
     ) -> None:
         client, _ = lookup_client
@@ -116,7 +116,7 @@ class TestMigrationLookup:
     def test_get_preferred_consumer_view(
         self,
         args: dict[str, Any],
-        expected_return: ViewReference,
+        expected_return: ViewId,
         lookup_client: tuple[ToolkitClient, responses.RequestsMock],
     ) -> None:
         client, _ = lookup_client
