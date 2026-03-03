@@ -186,10 +186,16 @@ class FakeCogniteResourceGenerator:
         seed: int | None = None,
         cognite_client: CogniteClientMock | CogniteClient | None = None,
         max_list_dict_items: int = 3,
+        sample_from_string: str = string.ascii_uppercase + string.digits + string.ascii_lowercase + string.punctuation,
+        min_string_length: int = 1,
+        max_string_length: int = 100,
     ) -> None:
         self._random = random.Random(seed)
         self._cognite_client = cognite_client or CogniteClientMock()
         self._max_list_dict_items = max_list_dict_items
+        self._sample_from_string = sample_from_string
+        self._min_string_length = min_string_length
+        self._max_string_length = max_string_length
 
     def create_instances(self, list_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
         return list_cls(
@@ -508,9 +514,10 @@ class FakeCogniteResourceGenerator:
     def _random_string(
         self,
         size: int | None = None,
-        sample_from: str = string.ascii_uppercase + string.digits + string.ascii_lowercase + string.punctuation,
+        sample_from: str | None = None,
     ) -> str:
-        k = size or self._random.randint(1, 100)
+        k = size or self._random.randint(self._min_string_length, self._max_string_length)
+        sample_from = sample_from if sample_from is not None else self._sample_from_string
         return "".join(self._random.choices(sample_from, k=k))
 
     @staticmethod
