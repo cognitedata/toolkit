@@ -568,6 +568,7 @@ class TestFDMtoCDMMapper:
                         ],
                     )
                 ],
+                id="Timeseries/File reference to direct relations.",
             ),
             pytest.param(
                 [
@@ -645,6 +646,7 @@ class TestFDMtoCDMMapper:
                         end_node=NodeReference(space=TARGET_SPACE, external_id="node2"),
                     ),
                 ],
+                id="Edges converted to edge, direct relations, and reverse direct relations (ignored).",
             ),
         ],
     )
