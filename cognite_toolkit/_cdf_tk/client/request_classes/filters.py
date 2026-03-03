@@ -4,10 +4,10 @@ from typing import Any, Literal
 from pydantic import ConfigDict, Field, JsonValue, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, ViewReference
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes import streamlit_
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationStatus, AnnotationType
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
 
 from .base import BaseModelRequest
 
@@ -85,7 +85,7 @@ class DataModelFilter(DataModelingFilter):
 
 class InstanceFilter(Filter):
     instance_type: Literal["node", "edge"] | None = None
-    source: ViewReference | None = None
+    source: ViewId | None = None
     space: list[str] | None = None
     filter: dict[str, JsonValue] | None = None
 
@@ -132,7 +132,7 @@ class ThreeDAssetMappingAssetIdFilter(ThreeDAssetMappingFilter):
 
 
 class ThreeDAssetMappingAssetInstanceIdFilter(ThreeDAssetMappingFilter):
-    asset_instance_ids: list[NodeReference] = Field(max_length=100)
+    asset_instance_ids: list[NodeId] = Field(max_length=100)
 
 
 class ThreeDAssetMapping3DNodeFilter(ThreeDAssetMappingFilter):

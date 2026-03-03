@@ -15,13 +15,13 @@ from cognite_toolkit._cdf_tk import cdf_toml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import NameId, WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerId,
     ContainerPropertyDefinition,
-    ContainerReference,
     ContainerResponse,
-    DataModelReference,
+    DataModelId,
     DataModelResponse,
     Float64Property,
-    SpaceReference,
+    SpaceId,
     SpaceResponse,
     TextProperty,
     ViewCorePropertyResponse,
@@ -367,7 +367,7 @@ def test_dump_datamodel(
     env_vars_with_client: EnvironmentVariables,
 ) -> None:
     # Create a datamodel and append it to the approval client
-    container_ref = ContainerReference(space="my_space", external_id="my_container")
+    container_ref = ContainerId(space="my_space", external_id="my_container")
     space = SpaceResponse(space="my_space", is_global=False, last_updated_time=0, created_time=0)
     container = ContainerResponse(
         space="my_space",
@@ -446,7 +446,7 @@ def test_dump_datamodel(
     cmd.dump_to_yamls(
         DataModelFinder(
             env_vars_with_client.get_client(),
-            DataModelReference(space="my_space", external_id="my_data_model", version="1"),
+            DataModelId(space="my_space", external_id="my_data_model", version="1"),
         ),
         clean=True,
         output_dir=build_tmp_path,
@@ -493,11 +493,11 @@ def test_dump_datamodel_skip_global(
     local_space = SpaceResponse(space="my_space", **default_space_args)
     global_space = SpaceResponse(space="cdf_cdm", **{**default_space_args, "is_global": True})
     toolkit_client_approval.append(SpaceResponse, [local_space, global_space])
-    local_container_ref = ContainerReference(space=local_space.space, external_id="MyAsset")
+    local_container_ref = ContainerId(space=local_space.space, external_id="MyAsset")
     local_container = ContainerResponse(
         space=local_space.space, external_id="MyAsset", properties={}, **default_container_args
     )
-    global_container_ref = ContainerReference(space=global_space.space, external_id="CogniteAsset")
+    global_container_ref = ContainerId(space=global_space.space, external_id="CogniteAsset")
     global_container = ContainerResponse(
         space=global_space.space,
         external_id="CogniteAsset",
@@ -551,7 +551,7 @@ def test_dump_datamodel_skip_global(
     cmd.dump_to_yamls(
         finder=DataModelFinder(
             env_vars_with_client.get_client(),
-            DataModelReference(space="my_space", external_id="my_data_model", version="1"),
+            DataModelId(space="my_space", external_id="my_data_model", version="1"),
             include_global=False,
         ),
         clean=True,
@@ -1011,6 +1011,6 @@ capabilities:
     assert len(cmd.warning_list) == 1
     warning = cmd.warning_list[0]
     assert isinstance(warning, MissingDependencyWarning)
-    assert warning.identifier == SpaceReference(space="my_non_existent_space")
+    assert warning.identifier == SpaceId(space="my_non_existent_space")
 
     assert warning.required_by == {(NameId(name="scoped_group"), yaml_filepath.relative_to(my_org))}

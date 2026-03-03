@@ -4,12 +4,12 @@ from typing import Any, final
 from cognite.client.data_classes.capabilities import Capability
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.auth import GroupAllScopedCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import SpaceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import DataProductYAML
+from cognite_toolkit._cdf_tk.yaml_classes import DataProductYAML
 
 
 @final
@@ -43,7 +43,7 @@ class DataProductCRUD(ResourceCRUD[ExternalId, DataProductRequest, DataProductRe
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "schemaSpace" in item:
-            yield SpaceCRUD, SpaceReference(space=item["schemaSpace"])
+            yield SpaceCRUD, SpaceId(space=item["schemaSpace"])
 
     @classmethod
     def get_required_capability(

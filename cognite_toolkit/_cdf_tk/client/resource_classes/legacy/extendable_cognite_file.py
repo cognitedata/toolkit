@@ -4,8 +4,9 @@ from datetime import datetime
 from typing import Any, Literal
 
 from cognite.client import CogniteClient
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes._base import CogniteResourceList, WriteableCogniteResourceList
-from cognite.client.data_classes.data_modeling import DirectRelationReference, ViewId
+from cognite.client.data_classes.data_modeling import DirectRelationReference
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, CogniteFileApply
 from cognite.client.utils._text import to_camel_case
 
@@ -38,7 +39,7 @@ class ExtendableCogniteFileApply(CogniteFileApply):
         category: DirectRelationReference | tuple[str, str] | None = None,
         existing_version: int | None = None,
         type: DirectRelationReference | tuple[str, str] | None = None,
-        node_source: ViewId | None = None,
+        node_source: dm.ViewId | None = None,
         extra_properties: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(
@@ -131,7 +132,7 @@ class ExtendableCogniteFileApply(CogniteFileApply):
             "uploadedTime",
         }
         if "nodeSource" in resource:
-            properties["node_source"] = ViewId.load(resource["nodeSource"])
+            properties["node_source"] = dm.ViewId.load(resource["nodeSource"])
             loaded_keys.add("nodeSource")
         if extra_keys := (set(resource) - loaded_keys):
             properties["extra_properties"] = {key: resource[key] for key in extra_keys}
@@ -198,8 +199,8 @@ class ExtendableCogniteFile(CogniteFile):
         self.extra_properties = extra_properties
 
     @classmethod
-    def get_source(cls) -> ViewId:
-        return ViewId(space="cdf_cdm", external_id="CogniteFile", version="v1")
+    def get_source(cls) -> dm.ViewId:
+        return dm.ViewId(space="cdf_cdm", external_id="CogniteFile", version="v1")
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:

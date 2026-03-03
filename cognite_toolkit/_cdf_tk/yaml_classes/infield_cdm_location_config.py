@@ -1,6 +1,6 @@
 from typing import Any
 
-from cognite_toolkit._cdf_tk.client.identifiers import NodeReference
+from cognite_toolkit._cdf_tk.client.identifiers import NodeId
 
 from .base import BaseModelResource, ToolkitResource
 
@@ -111,5 +111,5 @@ class InFieldCDMLocationConfigYAML(ToolkitResource):
     disciplines: list[Discipline] | None = None
     data_exploration_config: dict[str, Any] | None = None
 
-    def as_id(self) -> NodeReference:
-        return NodeReference(space=self.space, external_id=self.external_id)
+    def as_id(self) -> NodeId:
+        return NodeId(space=self.space, external_id=self.external_id)

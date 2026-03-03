@@ -4,7 +4,7 @@ from typing import ClassVar, Generic, TypeVar
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ConsistencyError, Recommendation
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Module
-from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
+from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
 T_Resource = TypeVar("T_Resource", bound=ToolkitResource)
 T_Resources = TypeVar("T_Resources", bound=Sequence[ToolkitResource] | Module)
