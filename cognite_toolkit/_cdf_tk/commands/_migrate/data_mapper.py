@@ -674,7 +674,6 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         super().__init__(client)
         self.space_mapping = space_mapping
         self._direct_relation_cache = TimeSeriesFilesReferenceCache(client)
-        # Replace ViewResponse with ConversionSourceView when we have that implemented.
         self._source_by_view_id: dict[ViewReference, ConversionSourceView] = {}
         self._mappings_by_view_id: dict[ViewReference, ViewToViewMapping] = {}
         self._destination_by_view_id: dict[ViewReference, ViewResponse] = {}
@@ -720,13 +719,13 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
             if isinstance(item, NodeResponse):
                 nodes.append(item)
             elif isinstance(item, EdgeResponse):
-                target_space = self.space_mapping.get(item.space)
-                if target_space is None:
-                    # We still want to include the edge in the mapping, but we won't be able to convert it to a direct relation.
-                    continue
-                else:
+                if end_space := self.space_mapping.get(item.end_node.space):
                     other_side_by_edge_type_and_direction_by_source[item.start_node][(item.type, "outwards")].append(
-                        NodeReference(space=target_space, external_id=item.end_node.external_id)
+                        NodeReference(space=end_space, external_id=item.end_node.external_id)
+                    )
+                if start_space := self.space_mapping.get(item.start_node.space):
+                    other_side_by_edge_type_and_direction_by_source[item.end_node][(item.type, "inwards")].append(
+                        NodeReference(space=start_space, external_id=item.start_node.external_id)
                     )
         return nodes, other_side_by_edge_type_and_direction_by_source
 
@@ -743,6 +742,13 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
             for view in views:
                 self._source_by_view_id[view.as_id()] = ConversionSourceView(view.properties or {})
 
+        timeseries_ref_ids, file_ref_ids = self._get_timeseries_files_references(source)
+        if timeseries_ref_ids:
+            self._direct_relation_cache.update("timeseries", timeseries_ref_ids)
+        if file_ref_ids:
+            self._direct_relation_cache.update("file", file_ref_ids)
+
+    def _get_timeseries_files_references(self, source: Sequence[InstanceResponse]) -> tuple[list[str], list[str]]:
         timeseries_ref_ids: list[str] = []
         file_ref_ids: list[str] = []
         for node in source:
@@ -763,10 +769,7 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
                             file_ref_ids.append(value)
                         elif isinstance(value, list) and all(isinstance(v, str) for v in value):
                             file_ref_ids.extend(value)  # type: ignore[arg-type]
-        if timeseries_ref_ids:
-            self._direct_relation_cache.update("timeseries", timeseries_ref_ids)
-        if file_ref_ids:
-            self._direct_relation_cache.update("file", file_ref_ids)
+        return timeseries_ref_ids, file_ref_ids
 
     def _map_single_node(
         self,
@@ -779,7 +782,11 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         new_id = NodeReference(space=target_space, external_id=node.external_id)
         sources, new_edges, issue = self._create_instance_data(new_id, node, other_side_by_edge_type_and_direction)
 
-        return NodeRequest(space=target_space, external_id=node.external_id, sources=sources or None), new_edges, issue
+        return (
+            NodeRequest(space=new_id.space, external_id=new_id.external_id, sources=sources or None),
+            new_edges,
+            issue,
+        )
 
     def _create_instance_data(
         self,
@@ -794,6 +801,9 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         issue = InstanceConversionIssue(id=str(new_id))
         for view_id, source_properties in (node.properties or {}).items():
             if not isinstance(view_id, ViewReference):
+                issue.errors.append(
+                    f"Migration of ContainerReferenced properties is not supported. Found property with non-view ID '{view_id}' on node '{node.as_id()}'."
+                )
                 continue
             mapping = self._mappings_by_view_id.get(view_id)
             if mapping is None:
