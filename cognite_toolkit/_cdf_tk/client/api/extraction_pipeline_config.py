@@ -56,13 +56,17 @@ class ExtractionPipelineConfigsAPI(CDFResourceAPI[ExtractionPipelineConfigRespon
             results.append(ExtractionPipelineConfigResponse.model_validate_json(response.body))
         return results
 
-    def retrieve(self, items: Sequence[ExtractionPipelineConfigId]) -> list[ExtractionPipelineConfigResponse]:
+    def retrieve(
+        self, items: Sequence[ExtractionPipelineConfigId], ignore_unknown_ids: bool = False
+    ) -> list[ExtractionPipelineConfigResponse]:
         """Retrieve configuration revisions by their identifiers.
 
         Each identifier specifies an extraction pipeline external ID and a revision number.
 
         Args:
             items: List of ExtractionPipelineConfigId objects to retrieve.
+            ignore_unknown_ids: Whether to ignore unknown IDs. If False, an error will be raised
+                if any of the provided IDs do not exist.
 
         Returns:
             List of retrieved configuration revisions.
@@ -75,8 +79,14 @@ class ExtractionPipelineConfigsAPI(CDFResourceAPI[ExtractionPipelineConfigRespon
                 method=endpoint.method,
                 parameters=item.dump(),
             )
-            response = self._http_client.request_single_retries(request).get_success_or_raise()
-            results.append(ExtractionPipelineConfigResponse.model_validate_json(response.body))
+            response = self._http_client.request_single_retries(request)
+            if isinstance(response, SuccessResponse):
+                results.append(ExtractionPipelineConfigResponse.model_validate_json(response.body))
+            elif ignore_unknown_ids:
+                continue
+            else:
+                _ = response.get_success_or_raise()
+
         return results
 
     def paginate(
