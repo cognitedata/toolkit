@@ -17,6 +17,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
     DataModelResponseWithViews,
     DirectNodeRelation,
+    EdgeRequest,
+    EdgeResponse,
     FileCDFExternalIdReference,
     InstanceRequest,
     InstanceResponse,
@@ -565,6 +567,83 @@ class TestFDMtoCDMMapper:
                             )
                         ],
                     )
+                ],
+            ),
+            pytest.param(
+                [
+                    NodeResponse(
+                        space=SOURCE_SPACE,
+                        external_id="node1",
+                        last_updated_time=1772522715000,
+                        created_time=0,
+                        version=1,
+                        properties={
+                            SOURCE_VIEW_ID: {
+                                "textProp": "37",
+                            }
+                        },
+                    ),
+                    EdgeResponse(
+                        space=SOURCE_SPACE,
+                        external_id="edge1",
+                        last_updated_time=1,
+                        created_time=0,
+                        version=1,
+                        type=NodeReference(space=SOURCE_SPACE, external_id="sourceEdge1"),
+                        start_node=NodeReference(space=SOURCE_SPACE, external_id="node1"),
+                        end_node=NodeReference(space=SOURCE_SPACE, external_id="node2"),
+                    ),
+                    EdgeResponse(
+                        space=SOURCE_SPACE,
+                        external_id="edge2",
+                        last_updated_time=2,
+                        created_time=0,
+                        version=1,
+                        type=NodeReference(space=SOURCE_SPACE, external_id="sourceEdge2"),
+                        start_node=NodeReference(space=SOURCE_SPACE, external_id="node1"),
+                        end_node=NodeReference(space=SOURCE_SPACE, external_id="node3"),
+                    ),
+                    EdgeResponse(
+                        space=SOURCE_SPACE,
+                        external_id="edge3",
+                        last_updated_time=3,
+                        created_time=0,
+                        version=1,
+                        type=NodeReference(space=SOURCE_SPACE, external_id="sourceEdge3"),
+                        start_node=NodeReference(space=SOURCE_SPACE, external_id="node1"),
+                        end_node=NodeReference(space=SOURCE_SPACE, external_id="node4"),
+                    ),
+                ],
+                {
+                    # Edge to edge
+                    "sourceEdge1": "targetEdge1",
+                    # Edge to direct relation
+                    "sourceEdge2": "targetDirect1",
+                    # Edge to reverse
+                    "sourceEdge3": "targetReverse1",
+                },
+                [
+                    NodeRequest(
+                        space=TARGET_SPACE,
+                        external_id="node1",
+                        sources=[
+                            InstanceSource(
+                                source=DESTINATION_VIEW_ID,
+                                properties={
+                                    "targetInt": 37,
+                                    "targetDirect1": {"space": TARGET_SPACE, "externalId": "node3"},
+                                    # Revers should be ignored.
+                                },
+                            )
+                        ],
+                    ),
+                    EdgeRequest(
+                        space=TARGET_SPACE,
+                        external_id="edge1",
+                        type=NodeReference(space="schema_space2", external_id="targetEdge1"),
+                        start_node=NodeReference(space=TARGET_SPACE, external_id="node1"),
+                        end_node=NodeReference(space=TARGET_SPACE, external_id="node2"),
+                    ),
                 ],
             ),
         ],
