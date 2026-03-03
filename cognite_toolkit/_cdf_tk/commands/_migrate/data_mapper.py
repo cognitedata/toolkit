@@ -8,6 +8,7 @@ from cognite.client import data_modeling as dm
 from cognite.client.exceptions import CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeId
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartCoreTimeseries,
@@ -717,23 +718,31 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         self, source: Sequence[NodeResponse | EdgeResponse]
     ) -> tuple[
         list[NodeResponse],
-        dict[NodeId, dict[tuple[NodeId, Literal["outwards", "inwards"]], list[NodeId]]],
+        dict[NodeId, dict[tuple[NodeId, Literal["outwards", "inwards"]], list[tuple[NodeId, EdgeId]]]],
     ]:
         nodes: list[NodeResponse] = []
         other_side_by_edge_type_and_direction_by_source: dict[
-            NodeId, dict[tuple[NodeId, Literal["outwards", "inwards"]], list[NodeId]]
+            NodeId, dict[tuple[NodeId, Literal["outwards", "inwards"]], list[tuple[NodeId, EdgeId]]]
         ] = defaultdict(lambda: defaultdict(list))
         for item in source:
             if isinstance(item, NodeResponse):
                 nodes.append(item)
             elif isinstance(item, EdgeResponse):
+                edge_id = item.as_id()
+                if item.space not in self.space_mapping:
+                    self.logger.tracker.add_issue(
+                        str(edge_id), f"No target space mapping for source space '{item.space}' on edge '{edge_id}'"
+                    )
+                    continue
+                edge_space = self.space_mapping[item.space]
+                new_edge_id = EdgeId(space=edge_space, external_id=edge_id.external_id)
                 if end_space := self.space_mapping.get(item.end_node.space):
                     other_side_by_edge_type_and_direction_by_source[item.start_node][(item.type, "outwards")].append(
-                        NodeId(space=end_space, external_id=item.end_node.external_id)
+                        (NodeId(space=end_space, external_id=item.end_node.external_id), new_edge_id)
                     )
                 if start_space := self.space_mapping.get(item.start_node.space):
                     other_side_by_edge_type_and_direction_by_source[item.end_node][(item.type, "inwards")].append(
-                        NodeId(space=start_space, external_id=item.start_node.external_id)
+                        (NodeId(space=start_space, external_id=item.start_node.external_id), new_edge_id)
                     )
         return nodes, other_side_by_edge_type_and_direction_by_source
 
@@ -779,7 +788,9 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
     def _map_single_node(
         self,
         node: NodeResponse,
-        other_side_by_edge_type_and_direction: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[NodeId]],
+        other_side_by_edge_type_and_direction: dict[
+            tuple[NodeId, Literal["outwards", "inwards"]], list[tuple[NodeId, EdgeId]]
+        ],
         target_space: str,
     ) -> tuple[NodeRequest, list[EdgeRequest], InstanceConversionIssue]:
         new_id = NodeId(space=target_space, external_id=node.external_id)
@@ -795,7 +806,9 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         self,
         new_id: NodeId,
         node: NodeResponse,
-        other_side_by_edge_type_and_direction: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[NodeId]],
+        other_side_by_edge_type_and_direction: dict[
+            tuple[NodeId, Literal["outwards", "inwards"]], list[tuple[NodeId, EdgeId]]
+        ],
     ) -> tuple[list[InstanceSource], list[EdgeRequest], InstanceConversionIssue]:
         new_edges: list[EdgeRequest] = []
         sources: list[InstanceSource] = []
@@ -831,7 +844,7 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
                 source_properties, mapping, destination_view.properties, conversion_source, self._direct_relation_cache
             )
             issue.errors.extend(container_errors)
-            container_connections, new_edges, connection_errors = create_connection_properties(
+            container_connections, created_edges, connection_errors = create_connection_properties(
                 other_side_by_edge_type_and_direction,
                 mapping,
                 destination_view.properties,
@@ -842,5 +855,5 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
             destination_properties.update(container_connections)
             if destination_properties:
                 sources.append(InstanceSource(source=destination_view.as_id(), properties=destination_properties))
-            new_edges.extend(new_edges)
+            new_edges.extend(created_edges)
         return sources, new_edges, issue

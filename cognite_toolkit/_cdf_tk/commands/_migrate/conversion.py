@@ -34,7 +34,6 @@ from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     asset_centric_convert_to_primary_property,
     convert_to_primary_property,
 )
-from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricTypeExtended
 from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResourceExtended
 
@@ -564,7 +563,9 @@ def create_container_properties(
 
 
 def create_connection_properties(
-    edge_targets_by_type_and_direction: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[NodeId]],
+    edge_targets_by_type_and_direction: dict[
+        tuple[NodeId, Literal["outwards", "inwards"]], list[tuple[NodeId, EdgeId]]
+    ],
     mapping: ViewToViewMapping,
     destination_properties: dict[str, ViewResponseProperty],
     source_edges: dict[str, EdgeProperty],
@@ -588,7 +589,7 @@ def create_connection_properties(
             if dm_prop.type.list is True:
                 # MyPy complains, but we know that dm_prop_id will always be a list as dm_prop.type.list is True.
                 created_direct_relations.setdefault(dest_prop_id, []).extend(  # type: ignore[union-attr]
-                    target.dump(include_instance_type=False) for target in edge_targets
+                    target.dump(include_instance_type=False) for target, _ in edge_targets
                 )
             elif dest_prop_id in created_direct_relations:
                 errors.append(
@@ -599,20 +600,18 @@ def create_connection_properties(
                     errors.append(
                         f"Multiple edges mapped to single-valued direct relation property {dest_prop_id!r}. Keeping the first one and ignoring the rest."
                     )
-                created_direct_relations[dest_prop_id] = edge_targets[0].dump(include_instance_type=False)
+                created_direct_relations[dest_prop_id] = edge_targets[0][0].dump(include_instance_type=False)
         elif isinstance(dm_prop, ViewCorePropertyResponse):
             errors.append(f"Cannot map edge property {prop_id!r} to non-connection property {dm_prop.type.type!s}.")
         elif isinstance(dm_prop, EdgeProperty):
-            for target in edge_targets:
+            for target, new_edge_id in edge_targets:
                 start_node, end_node = source_id, target
                 if dm_prop.direction == "inwards":
                     start_node, end_node = end_node, start_node
                 created_edges.append(
                     EdgeRequest(
-                        space=source_id.space,
-                        external_id=sanitize_instance_external_id(
-                            f"{source_id.external_id}_{prop_id}__{target.external_id}"
-                        ),
+                        space=new_edge_id.space,
+                        external_id=new_edge_id.external_id,
                         type=dm_prop.type,
                         start_node=start_node,
                         end_node=end_node,
