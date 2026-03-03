@@ -5,6 +5,7 @@ from typing import Any, ClassVar, Literal, cast
 from pydantic import Field, ModelWrapValidatorHandler, model_serializer, model_validator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
+from cognite_toolkit._cdf_tk.client import identifiers
 from cognite_toolkit._cdf_tk.constants import (
     DM_EXTERNAL_ID_PATTERN,
     SPACE_FORMAT_PATTERN,
@@ -33,6 +34,10 @@ class ContainerReference(BaseModelResource):
         max_length=255,
         pattern=DM_EXTERNAL_ID_PATTERN,
     )
+
+    def as_id(self) -> identifiers.ContainerId:
+        """Converts the reference to a ContainerId identifier."""
+        return identifiers.ContainerId(space=self.space, external_id=self.external_id)
 
 
 class ConstraintDefinition(BaseModelResource):

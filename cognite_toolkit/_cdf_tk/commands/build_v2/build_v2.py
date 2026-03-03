@@ -34,7 +34,10 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._plugins import NeatPlugin
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, MODULES
-from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds import (
+    RESOURCE_CRUD_BY_FOLDER_NAME,
+    ResourceCRUD,
+)
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
@@ -53,6 +56,8 @@ class BuildV2Command(ToolkitCommand):
         module_sources = self._parse_module_sources(build_files)
 
         build_folder = self._build_modules(module_sources, parameters.build_dir)
+
+        self._dependency_validation(build_folder, client)
 
         # Todo: Some mixpanel tracking.
         # Can be parallelized with number of plugins.
@@ -243,7 +248,14 @@ class BuildV2Command(ToolkitCommand):
 
             if module.is_success:
                 self._local_validation(module)
+
                 built_module.built_files = self._export_module(module, build_dir)
+                built_module.built_resources_identifiers = [
+                    resource.resource.as_id()
+                    for resource in module.resources
+                    if isinstance(resource, SuccessfulReadResource)
+                ]
+                built_module.dependencies = module.dependencies
 
             built_module.insights.extend(module.insights)
             for resource in module.resources:
@@ -443,6 +455,10 @@ class BuildV2Command(ToolkitCommand):
     def _local_validation(self, module: Module) -> None:
         """Local validations are post-syntax validations executed"""
         RulesOrchestrator().run(module)
+
+    def _dependency_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
+        """Dependency validations are validations that check that the dependent resources exist."""
+        ...
 
     def _global_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
         """This validation is performed per resource type and not per individual resource and against CDF

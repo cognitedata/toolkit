@@ -8,7 +8,12 @@ from cognite.client.data_classes.capabilities import Capability
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import (
+    Identifier,
+    T_Identifier,
+    T_RequestResource,
+    T_ResponseResource,
+)
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
@@ -221,6 +226,20 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
         to work. For example, the InfieldV1CRUD and the ResourceViewMappingCRUD.
         """
         return None
+
+    @classmethod
+    def get_dependencies(cls, resource: Any) -> Iterable[tuple[type[ToolkitResource], Identifier]]:
+        """Returns dependencies for a given resource.
+        This is used to determine the order of deployment and to check for missing dependencies.
+
+        Args:
+            resource: The resource to get dependencies for.
+
+        """
+        # TODO: Temporary set to return empty dict until all resource CRUDs have implemented this method.
+        # Once all resource CRUDs have implemented this method,
+        # we can remove the default implementation that returns an empty dict.
+        return {}
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceCRUD], Hashable]]":
