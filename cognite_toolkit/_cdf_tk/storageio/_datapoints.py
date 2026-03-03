@@ -174,6 +174,7 @@ class DatapointsIO(
                     if page := self._fetch_datapoints_batch(batch, config):
                         yield page
                     batch = []
+                    batch_count = 0
 
                 if left_over > 0:
                     batch.append(
