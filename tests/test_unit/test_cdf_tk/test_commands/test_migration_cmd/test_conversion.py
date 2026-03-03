@@ -8,7 +8,7 @@ from cognite.client.data_classes import Sequence
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ViewDirectReference
+from cognite_toolkit._cdf_tk.client.identifiers import ViewDirectId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -1352,7 +1352,7 @@ class TestCreateContainerConnectionProperties:
         "parentAsset": MultiReverseDirectRelationPropertyResponse(
             targets_list=True,
             source=SOURCE_VIEW_ID,
-            through=ViewDirectReference(
+            through=ViewDirectId(
                 source=SOURCE_VIEW_ID,
                 identifier="hasChild",
             ),
@@ -1367,6 +1367,7 @@ class TestCreateContainerConnectionProperties:
     COGNITE_FILE = NodeId(space="file_space", external_id="file_node_1")
     SOURCE_VIEW = ConversionSourceView(SOURCE_PROPERTIES)
     MAPPING = ViewToViewMapping(
+        external_id="mapping_1",
         source_view=SOURCE_VIEW_ID,
         destination_view=DEST_VIEW_ID,
         map_identical_id_properties=True,
