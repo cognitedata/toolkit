@@ -4,7 +4,7 @@ from typing import Literal
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
-from cognite_toolkit._cdf_tk.client.identifiers import InternalIdUnwrapped
+from cognite_toolkit._cdf_tk.client.identifiers import InternalUnwrappedId
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryRequest,
     SecurityCategoryResponse,
@@ -27,8 +27,8 @@ class SecurityCategoriesAPI(CDFResourceAPI[SecurityCategoryResponse]):
     ) -> PagedResponse[SecurityCategoryResponse]:
         return PagedResponse[SecurityCategoryResponse].model_validate_json(response.body)
 
-    def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalIdUnwrapped]:
-        return ResponseItems[InternalIdUnwrapped].model_validate_json(response.body)
+    def _reference_response(self, response: SuccessResponse) -> ResponseItems[InternalUnwrappedId]:
+        return ResponseItems[InternalUnwrappedId].model_validate_json(response.body)
 
     def create(self, items: Sequence[SecurityCategoryRequest]) -> list[SecurityCategoryResponse]:
         """Create security categories in CDF.
@@ -40,7 +40,7 @@ class SecurityCategoriesAPI(CDFResourceAPI[SecurityCategoryResponse]):
         """
         return self._request_item_response(items, "create")
 
-    def delete(self, items: Sequence[InternalIdUnwrapped]) -> None:
+    def delete(self, items: Sequence[InternalUnwrappedId]) -> None:
         """Delete security categories from CDF.
 
         Args:

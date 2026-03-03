@@ -46,7 +46,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCycleError,
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.resource_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
     MissingReferencedWarning,
     ToolkitWarning,
@@ -59,6 +58,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
+from cognite_toolkit._cdf_tk.yaml_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
 
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD

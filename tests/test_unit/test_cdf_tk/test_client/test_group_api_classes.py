@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 
 from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, GroupRequest
-from cognite_toolkit._cdf_tk.resource_classes.capabilities import Capability
+from cognite_toolkit._cdf_tk.yaml_classes.capabilities import Capability
 from tests.test_unit.test_cdf_tk.test_tk_warnings.test_warnings_metatest import get_all_subclasses
 
 

@@ -9,9 +9,9 @@ from _pytest.monkeypatch import MonkeyPatch
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    DataModelReference,
-    SpaceReference,
-    ViewReference,
+    DataModelId,
+    SpaceId,
+    ViewId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     NonceCredentials,
@@ -185,8 +185,8 @@ authentication:
                 },
                 [
                     (DataSetsCRUD, ExternalId(external_id="ds_my_dataset")),
-                    (SpaceCRUD, SpaceReference(space="sp_data_space")),
-                    (DataModelCRUD, DataModelReference(space="sp_model_space", external_id="my_model", version="v1")),
+                    (SpaceCRUD, SpaceId(space="sp_data_space")),
+                    (DataModelCRUD, DataModelId(space="sp_model_space", external_id="my_model", version="v1")),
                 ],
                 id="Transformation to data model",
             ),
@@ -199,8 +199,8 @@ authentication:
                     }
                 },
                 [
-                    (SpaceCRUD, SpaceReference(space="sp_data_space")),
-                    (ViewCRUD, ViewReference(space="sp_space", external_id="my_view", version="v1")),
+                    (SpaceCRUD, SpaceId(space="sp_data_space")),
+                    (ViewCRUD, ViewId(space="sp_space", external_id="my_view", version="v1")),
                 ],
                 id="Transformation to nodes ",
             ),

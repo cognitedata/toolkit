@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, 
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    ContainerReference,
+    ContainerId,
     ContainerRequest,
     ContainerResponse,
 )
@@ -62,7 +62,7 @@ class ContainersAPI(CDFResourceAPI[ContainerResponse]):
         """
         return self._request_item_response(items, "upsert")
 
-    def retrieve(self, items: Sequence[ContainerReference]) -> list[ContainerResponse]:
+    def retrieve(self, items: Sequence[ContainerId]) -> list[ContainerResponse]:
         """Retrieve containers from CDF.
 
         Args:
@@ -73,7 +73,7 @@ class ContainersAPI(CDFResourceAPI[ContainerResponse]):
         """
         return self._request_item_response(items, method="retrieve")
 
-    def delete(self, items: Sequence[ContainerReference]) -> None:
+    def delete(self, items: Sequence[ContainerId]) -> None:
         """Delete containers from CDF.
 
         Args:

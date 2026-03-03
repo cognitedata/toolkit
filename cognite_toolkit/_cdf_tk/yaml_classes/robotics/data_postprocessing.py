@@ -1,7 +1,7 @@
 from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
+from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
 
 class RobotDataPostProcessingYAML(ToolkitResource):

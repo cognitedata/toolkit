@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from cognite_toolkit._cdf_tk.resource_classes.migration import ResourceViewMappingYAML
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
+from cognite_toolkit._cdf_tk.yaml_classes.migration import ResourceViewMappingYAML
 
 
 def invalid_mapping_test_cases() -> Iterable:

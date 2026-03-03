@@ -7,13 +7,13 @@ from functools import cached_property, lru_cache, partial
 from typing import ClassVar, Literal, TypeVar, get_args, overload
 
 import questionary
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     Asset,
     UserProfileList,
     filters,
 )
 from cognite.client.data_classes.aggregations import Count
-from cognite.client.data_classes.data_modeling import ViewId
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.utils import ms_to_datetime
 from questionary import Choice
@@ -25,12 +25,12 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilt
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse, Visibility
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    ContainerReference,
-    DataModelReference,
+    ContainerId,
+    DataModelId,
     DataModelResponse,
     DataModelResponseWithViews,
     SpaceResponse,
-    ViewReference,
+    ViewId,
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
@@ -512,8 +512,8 @@ class ViewSelectFilter:
     include_global: bool | None = None
     schema_space: str | None = None
     instance_type: Literal["node", "edge", "all"] | None = None
-    mapped_container: ContainerReference | None = None
-    data_model: DataModelReference | None = None
+    mapped_container: ContainerId | None = None
+    data_model: DataModelId | None = None
 
     def __str__(self) -> str:
         message: list[str] = []
@@ -761,7 +761,7 @@ class DataModelingSelect:
     def select_instance_space(
         self,
         multiselect: Literal[False],
-        selected_view: ViewReference | None = None,
+        selected_view: ViewId | None = None,
         instance_type: Literal["node", "edge"] | None = None,
         message: str | None = None,
         include_empty: bool = False,
@@ -771,7 +771,7 @@ class DataModelingSelect:
     def select_instance_space(
         self,
         multiselect: Literal[True] = True,
-        selected_view: ViewReference | None = None,
+        selected_view: ViewId | None = None,
         instance_type: Literal["node", "edge"] | None = None,
         message: str | None = None,
         include_empty: bool = False,
@@ -780,7 +780,7 @@ class DataModelingSelect:
     def select_instance_space(
         self,
         multiselect: bool = True,
-        selected_view: ViewReference | None = None,
+        selected_view: ViewId | None = None,
         instance_type: Literal["node", "edge"] | None = None,
         message: str | None = None,
         include_empty: bool = False,
@@ -866,7 +866,7 @@ class DataModelingSelect:
         return selected_spaces
 
     def _get_instance_count_in_view_by_space(
-        self, all_spaces: list[SpaceResponse], view_id: ViewReference, instance_type: Literal["node", "edge"]
+        self, all_spaces: list[SpaceResponse], view_id: ViewId, instance_type: Literal["node", "edge"]
     ) -> dict[str, float]:
         count_by_space: dict[str, float] = {}
         result = self.client.data_modeling.statistics.project()
@@ -885,10 +885,10 @@ class DataModelingSelect:
 
     @lru_cache
     def _instance_count_space(
-        self, space: str, view_id: ViewReference, instance_type: Literal["node", "edge"]
+        self, space: str, view_id: ViewId, instance_type: Literal["node", "edge"]
     ) -> tuple[str, float]:
         """Get the count of instances in a specific space for a given view and instance type."""
-        sdk_view_id = ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version)
+        sdk_view_id = dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version)
         return space, self.client.data_modeling.instances.aggregate(
             sdk_view_id, Count("externalId"), instance_type=instance_type, space=space
         ).value or 0.0

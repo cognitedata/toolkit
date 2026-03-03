@@ -3,18 +3,17 @@ from typing import Any, ClassVar
 from unittest.mock import MagicMock
 
 import pytest
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes.data_modeling import (
     InstanceApply,
-    NodeId,
     NodeList,
-    ViewId,
 )
 
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponseWithViews,
-    NodeReference,
-    ViewReference,
+    NodeId,
+    ViewId,
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import IndustrialCanvas
@@ -22,7 +21,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import Cre
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
-    AssetMappingDMRequest,
+    AssetMappingDMRequestId,
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
@@ -50,7 +49,7 @@ class TestAssetCentricMapper:
                 AssetCentricMapping(
                     mapping=MigrationMapping(
                         resource_type="asset",
-                        instance_id=NodeReference(space="my_space", external_id=f"asset_{i}"),
+                        instance_id=NodeId(space="my_space", external_id=f"asset_{i}"),
                         id=1000 + i,
                         ingestion_view="cdf_asset_mapping",
                     ),
@@ -80,7 +79,7 @@ class TestAssetCentricMapper:
                 ResourceViewMappingResponse(
                     external_id="cdf_asset_mapping",
                     resource_type="asset",
-                    view_id=ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
+                    view_id=ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
                     property_mapping={
                         "name": "name",
                         "description": "description",
@@ -123,7 +122,7 @@ class TestAssetCentricMapper:
             # Check lookup calls
             assert client.migration.resource_view_mapping.retrieve.call_count == 1
             client.migration.resource_view_mapping.retrieve.assert_called_with(
-                [NodeReference(space="cognite_migration", external_id="cdf_asset_mapping")]
+                [NodeId(space="cognite_migration", external_id="cdf_asset_mapping")]
             )
             assert client.migration.created_source_system.retrieve.call_count == 1
             assert client.tool.views.retrieve.call_count == 1
@@ -136,7 +135,7 @@ class TestAssetCentricMapper:
         source = AssetCentricMapping(
             mapping=MigrationMapping(
                 resource_type="asset",
-                instance_id=NodeReference(space="my_space", external_id="asset_1"),
+                instance_id=NodeId(space="my_space", external_id="asset_1"),
                 id=1001,
                 ingestion_view="cdf_asset_mapping",
             ),
@@ -191,7 +190,7 @@ class TestAssetCentricMapper:
                 ResourceViewMappingResponse(
                     external_id="cdf_asset_mapping",
                     resource_type="asset",
-                    view_id=ViewReference(space="my_space", external_id="MyAsset", version="v1"),
+                    view_id=ViewId(space="my_space", external_id="MyAsset", version="v1"),
                     property_mapping={
                         "name": "name",
                         "description": "description",
@@ -226,13 +225,13 @@ class TestThreeDAssetMapper:
             pytest.param(
                 AssetMappingClassicResponse(
                     nodeId=1234,
-                    assetInstanceId=NodeReference(space="my_space", externalId="asset_1"),
+                    assetInstanceId=NodeId(space="my_space", externalId="asset_1"),
                     **DEFAULTS,
                 ),
                 None,
-                AssetMappingDMRequest(
+                AssetMappingDMRequestId(
                     nodeId=1234,
-                    assetInstanceId=NodeReference(space="my_space", externalId="asset_1"),
+                    assetInstanceId=NodeId(space="my_space", externalId="asset_1"),
                     **DEFAULTS,
                 ),
                 id="Return existing assetInstanceId",
@@ -243,10 +242,10 @@ class TestThreeDAssetMapper:
                     assetId=37,
                     **DEFAULTS,
                 ),
-                NodeId(space="my_space", external_id="asset_2"),
-                AssetMappingDMRequest(
+                dm.NodeId(space="my_space", external_id="asset_2"),
+                AssetMappingDMRequestId(
                     nodeId=5678,
-                    assetInstanceId=NodeReference(space="my_space", externalId="asset_2"),
+                    assetInstanceId=NodeId(space="my_space", externalId="asset_2"),
                     **DEFAULTS,
                 ),
                 id="Lookup and return found assetInstanceId",
@@ -275,8 +274,8 @@ class TestThreeDAssetMapper:
     def test_map_chunk(
         self,
         response: AssetMappingClassicResponse,
-        lookup_asset: NodeId | None,
-        expected: AssetMappingDMRequest | str,
+        lookup_asset: dm.NodeId | None,
+        expected: AssetMappingDMRequestId | str,
     ) -> None:
         with monkeypatch_toolkit_client() as client:
             client.migration.lookup.assets.return_value = lookup_asset
@@ -293,7 +292,7 @@ class TestThreeDAssetMapper:
                 last_call = client.migration.lookup.assets.call_args_list[-1]
                 assert last_call.args == (response.asset_id,)
 
-            if isinstance(expected, AssetMappingDMRequest):
+            if isinstance(expected, AssetMappingDMRequestId):
                 logger.log.assert_not_called()
                 logger.tracker.add_issue.assert_not_called()
                 assert mapped is not None
@@ -309,20 +308,20 @@ class TestCanvasMapper:
         input_canvas_path = MIGRATION_DIR / "canvas" / "annotated_canvas.yaml"
         input_canvas = IndustrialCanvas.load(input_canvas_path.read_text(encoding="utf-8"))
         with monkeypatch_toolkit_client() as client:
-            client.migration.lookup.assets.return_value = NodeId(space="my_space", external_id="asset_1")
-            client.migration.lookup.events.return_value = NodeId(space="my_space", external_id="event_1")
-            client.migration.lookup.files.return_value = NodeId(space="my_space", external_id="file_1")
-            client.migration.lookup.time_series.return_value = NodeId(space="my_space", external_id="timeseries_1")
-            client.migration.lookup.assets.consumer_view.return_value = ViewId(
+            client.migration.lookup.assets.return_value = dm.NodeId(space="my_space", external_id="asset_1")
+            client.migration.lookup.events.return_value = dm.NodeId(space="my_space", external_id="event_1")
+            client.migration.lookup.files.return_value = dm.NodeId(space="my_space", external_id="file_1")
+            client.migration.lookup.time_series.return_value = dm.NodeId(space="my_space", external_id="timeseries_1")
+            client.migration.lookup.assets.consumer_view.return_value = dm.ViewId(
                 space="cdm_cdm", external_id="CogniteAsset", version="v1"
             )
-            client.migration.lookup.events.consumer_view.return_value = ViewId(
+            client.migration.lookup.events.consumer_view.return_value = dm.ViewId(
                 space="cdf_cdm", external_id="CogniteActivity", version="v1"
             )
-            client.migration.lookup.files.consumer_view.return_value = ViewId(
+            client.migration.lookup.files.consumer_view.return_value = dm.ViewId(
                 space="cdf_cdm", external_id="CogniteFile", version="v1"
             )
-            client.migration.lookup.time_series.consumer_view.return_value = ViewId(
+            client.migration.lookup.time_series.consumer_view.return_value = dm.ViewId(
                 space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
             )
 

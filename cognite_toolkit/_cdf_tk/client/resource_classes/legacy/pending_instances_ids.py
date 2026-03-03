@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from cognite.client import CogniteClient
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes._base import CogniteObject
-from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.utils._auxiliary import exactly_one_is_not_none
 
 if sys.version_info >= (3, 11):
@@ -20,7 +20,7 @@ class PendingInstanceId(CogniteObject):
     TimeSeries or FileMetadata.
     """
 
-    pending_instance_id: NodeId
+    pending_instance_id: dm.NodeId
     id: int | None = None
     external_id: str | None = None
 
@@ -32,7 +32,7 @@ class PendingInstanceId(CogniteObject):
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         """Load a PendingInstanceId from a dictionary."""
         return cls(
-            pending_instance_id=NodeId.load(resource["pendingInstanceId"]),
+            pending_instance_id=dm.NodeId.load(resource["pendingInstanceId"]),
             id=resource.get("id"),
             external_id=resource.get("externalId"),
         )

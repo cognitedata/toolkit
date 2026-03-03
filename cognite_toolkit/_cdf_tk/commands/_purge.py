@@ -6,8 +6,9 @@ from functools import partial
 from typing import Any, Literal, cast
 
 import questionary
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import DataSetUpdate
-from cognite.client.data_classes.data_modeling import Edge, NodeId
+from cognite.client.data_classes.data_modeling import Edge
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._identifier import InstanceId
@@ -24,13 +25,13 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import (
-    InstanceId as DataModelingInstanceId,
-)
-from cognite_toolkit._cdf_tk.client.identifiers import (
-    InstanceIdDefinition,
+    InstanceDefinitionId,
     InternalId,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, SpaceReference
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    InstanceId as DataModelingInstanceId,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     ContainerCRUD,
@@ -154,7 +155,7 @@ class NodesToDelete(ToDelete):
         def check_for_data(chunk: list[ResourceResponseProtocol]) -> list[JsonVal]:
             # We know that all node resources implement as_id
             node_ids = [
-                NodeId(space=item.space, external_id=item.external_id)  # type: ignore[attr-defined]
+                dm.NodeId(space=item.space, external_id=item.external_id)  # type: ignore[attr-defined]
                 for item in chunk
             ]
             found_ids: set[InstanceId] = set()
@@ -300,7 +301,7 @@ class PurgeCommand(ToolkitCommand):
     def _delete_space(self, client: ToolkitClient, selected_space: str, results: DeployResults) -> None:
         space_loader = SpaceCRUD.create_loader(client)
         try:
-            space_loader.delete([SpaceReference(space=selected_space)])
+            space_loader.delete([SpaceId(space=selected_space)])
             print(f"Space {selected_space} deleted")
         except CogniteAPIError as e:
             self.warn(HighSeverityWarning(f"Failed to delete space {selected_space!r}: {e}"))
@@ -728,7 +729,7 @@ class PurgeCommand(ToolkitCommand):
             ItemsRequest(
                 endpoint_url=delete_client.config.create_api_url("/models/instances/delete"),
                 method="POST",
-                items=[InstanceIdDefinition._load(item) for item in items],
+                items=[InstanceDefinitionId._load(item) for item in items],
             )
         )
         for response in responses:
@@ -741,11 +742,11 @@ class PurgeCommand(ToolkitCommand):
     def _unlink_timeseries(
         instances: Sequence[InstanceId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
     ) -> list[InstanceId]:
-        node_ids = [instance for instance in instances if isinstance(instance, NodeId)]
+        node_ids = [instance for instance in instances if isinstance(instance, dm.NodeId)]
         if node_ids:
             timeseries = client.tool.timeseries.retrieve(
                 [
-                    DataModelingInstanceId(instance_id=NodeReference(space=node.space, external_id=node.external_id))
+                    DataModelingInstanceId(instance_id=NodeId(space=node.space, external_id=node.external_id))
                     for node in node_ids
                 ],
                 ignore_unknown_ids=True,
@@ -765,11 +766,11 @@ class PurgeCommand(ToolkitCommand):
     def _unlink_files(
         instances: Sequence[InstanceId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
     ) -> list[InstanceId]:
-        file_ids = [instance for instance in instances if isinstance(instance, NodeId)]
+        file_ids = [instance for instance in instances if isinstance(instance, dm.NodeId)]
         if file_ids:
             files = client.tool.filemetadata.retrieve(
                 [
-                    DataModelingInstanceId(instance_id=NodeReference(space=node.space, external_id=node.external_id))
+                    DataModelingInstanceId(instance_id=NodeId(space=node.space, external_id=node.external_id))
                     for node in file_ids
                 ],
                 ignore_unknown_ids=True,

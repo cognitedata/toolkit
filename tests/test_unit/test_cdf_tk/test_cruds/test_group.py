@@ -6,7 +6,7 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawDatabaseId, RawTableId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
     AssetsAcl,
@@ -164,7 +164,7 @@ class TestGroupLoader:
         [
             pytest.param(
                 {"capabilities": [{"dataModelsAcl": {"scope": {"spaceIdScope": {"spaceIds": ["space1", "space2"]}}}}]},
-                [(SpaceCRUD, SpaceReference(space="space1")), (SpaceCRUD, SpaceReference(space="space2"))],
+                [(SpaceCRUD, SpaceId(space="space1")), (SpaceCRUD, SpaceId(space="space2"))],
                 id="SpaceId scope",
             ),
             pytest.param(

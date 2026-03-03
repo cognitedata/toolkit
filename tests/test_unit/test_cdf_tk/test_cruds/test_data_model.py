@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ContainerReference, NodeR
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelRequest,
     DataModelResponse,
-    ViewReference,
+    ViewId,
     ViewRequest,
     ViewResponse,
 )
@@ -36,8 +36,8 @@ class TestDataModelLoader:
             external_id="my_model",
             version="1",
             views=[
-                ViewReference(space="sp_space", external_id="first", version="1"),
-                ViewReference(space="sp_space", external_id="second", version="1"),
+                ViewId(space="sp_space", external_id="first", version="1"),
+                ViewId(space="sp_space", external_id="second", version="1"),
             ],
             last_updated_time=1,
             created_time=1,
@@ -53,8 +53,8 @@ class TestDataModelLoader:
             external_id="my_model",
             version="1",
             views=[
-                ViewReference(space="sp_space", external_id="second", version="1"),
-                ViewReference(space="sp_space", external_id="first", version="1"),
+                ViewId(space="sp_space", external_id="second", version="1"),
+                ViewId(space="sp_space", external_id="first", version="1"),
             ],
             description=None,
             name=None,
@@ -90,7 +90,7 @@ views:
             space="sp_space",
             external_id="my_model",
             version="1",
-            views=[ViewReference(space="sp_space", external_id="first", version="1")],
+            views=[ViewId(space="sp_space", external_id="first", version="1")],
             last_updated_time=1,
             created_time=1,
             description=None,
@@ -218,7 +218,7 @@ def parent_grandparent_view() -> list[ViewResponse]:
             version="v1",
             name="Parent",
             description=None,
-            implements=[ViewReference(space="space", external_id="GrandParent", version="v1")],
+            implements=[ViewId(space="space", external_id="GrandParent", version="v1")],
             properties={},
             last_updated_time=1,
             created_time=1,
@@ -253,8 +253,8 @@ class TestViewLoader:
     def test_topological_sorting(self, parent_grandparent_view: list[ViewResponse]) -> None:
         with monkeypatch_toolkit_client() as client:
             client.tool.views.retrieve.return_value = parent_grandparent_view
-            parent = ViewReference(space="space", external_id="Parent", version="v1")
-            grandparent = ViewReference(space="space", external_id="GrandParent", version="v1")
+            parent = ViewId(space="space", external_id="Parent", version="v1")
+            grandparent = ViewId(space="space", external_id="GrandParent", version="v1")
             loader = ViewCRUD(client, Path("build_dir"), None, topological_sort_implements=True)
             actual = loader.topological_sort_implements(
                 [
@@ -269,8 +269,8 @@ class TestViewLoader:
         parent_grandparent_view[1] = parent_grandparent_view[1].model_copy(
             update={"implements": [parent_grandparent_view[0].as_id()]}
         )
-        parent = ViewReference(space="space", external_id="Parent", version="v1")
-        grandparent = ViewReference(space="space", external_id="GrandParent", version="v1")
+        parent = ViewId(space="space", external_id="Parent", version="v1")
+        grandparent = ViewId(space="space", external_id="GrandParent", version="v1")
 
         with monkeypatch_toolkit_client() as client, pytest.raises(ToolkitCycleError) as exc_info:
             client.tool.views.retrieve.return_value = parent_grandparent_view
@@ -291,9 +291,9 @@ class TestViewDeployTopologicalSort:
         [
             pytest.param(
                 SingleReverseDirectRelationPropertyRequest(
-                    source=ViewReference(space="sp_space", external_id="Other", version="v1"),
+                    source=ViewId(space="sp_space", external_id="Other", version="v1"),
                     through=ViewDirectReference(
-                        source=ViewReference(space="sp_space", external_id="Dependency", version="v1"),
+                        source=ViewId(space="sp_space", external_id="Dependency", version="v1"),
                         identifier="direct_prop",
                     ),
                 ),
@@ -301,9 +301,9 @@ class TestViewDeployTopologicalSort:
             ),
             pytest.param(
                 SingleReverseDirectRelationPropertyRequest(
-                    source=ViewReference(space="sp_space", external_id="Dependency", version="v1"),
+                    source=ViewId(space="sp_space", external_id="Dependency", version="v1"),
                     through=ViewDirectReference(
-                        source=ViewReference(space="sp_space", external_id="Other", version="v1"),
+                        source=ViewId(space="sp_space", external_id="Other", version="v1"),
                         identifier="direct_prop",
                     ),
                 ),
@@ -313,22 +313,22 @@ class TestViewDeployTopologicalSort:
                 ViewCorePropertyRequest(
                     container=ContainerReference(space="sp_space", external_id="some_container"),
                     container_property_identifier="ref",
-                    source=ViewReference(space="sp_space", external_id="Dependency", version="v1"),
+                    source=ViewId(space="sp_space", external_id="Dependency", version="v1"),
                 ),
                 id="direct_relation_source",
             ),
             pytest.param(
                 SingleEdgeProperty(
-                    source=ViewReference(space="sp_space", external_id="Dependency", version="v1"),
+                    source=ViewId(space="sp_space", external_id="Dependency", version="v1"),
                     type=NodeReference(space="sp_space", external_id="edge_type"),
                 ),
                 id="edge_connection_source",
             ),
             pytest.param(
                 SingleEdgeProperty(
-                    source=ViewReference(space="sp_space", external_id="Other", version="v1"),
+                    source=ViewId(space="sp_space", external_id="Other", version="v1"),
                     type=NodeReference(space="sp_space", external_id="edge_type"),
-                    edge_source=ViewReference(space="sp_space", external_id="Dependency", version="v1"),
+                    edge_source=ViewId(space="sp_space", external_id="Dependency", version="v1"),
                 ),
                 id="edge_connection_edge_source",
             ),
@@ -355,13 +355,13 @@ class TestViewDeployTopologicalSort:
             space="sp_space",
             external_id="A",
             version="v1",
-            implements=[ViewReference(space="sp_space", external_id="B", version="v1")],
+            implements=[ViewId(space="sp_space", external_id="B", version="v1")],
         )
         view_b = ViewRequest(
             space="sp_space",
             external_id="B",
             version="v1",
-            implements=[ViewReference(space="sp_space", external_id="A", version="v1")],
+            implements=[ViewId(space="sp_space", external_id="A", version="v1")],
         )
 
         with monkeypatch_toolkit_client() as client:

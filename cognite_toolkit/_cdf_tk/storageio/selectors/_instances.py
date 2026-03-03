@@ -3,12 +3,12 @@ from functools import cached_property
 from pathlib import Path
 from typing import Literal
 
-from cognite.client.data_classes.data_modeling import EdgeId, NodeId
+from cognite.client import data_modeling as dm
 from cognite.client.utils._identifier import InstanceId
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference, ViewReferenceNoVersion
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
 from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceIdCSVList
 from cognite_toolkit._cdf_tk.storageio.selectors._base import DataSelector, SelectorObject
@@ -34,10 +34,10 @@ class SelectedView(SelectorObject):
         pattern=DM_VERSION_PATTERN,
     )
 
-    def as_id(self) -> ViewReferenceNoVersion:
+    def as_id(self) -> ViewNoVersionId:
         if self.version is None:
-            return ViewReferenceNoVersion(space=self.space, external_id=self.external_id)
-        return ViewReference(space=self.space, external_id=self.external_id, version=self.version)
+            return ViewNoVersionId(space=self.space, external_id=self.external_id)
+        return ViewId(space=self.space, external_id=self.external_id, version=self.version)
 
     def __str__(self) -> str:
         base_str = f"{self.space}:{self.external_id}"
@@ -113,21 +113,21 @@ class InstanceFileSelector(InstanceSelector):
         return InstanceIdCSVList.read_csv_file(self.datafile)
 
     @cached_property
-    def ids(self) -> list[InstanceIdDefinition]:
+    def ids(self) -> list[InstanceDefinitionId]:
         return [
-            InstanceIdDefinition(space=item.space, external_id=item.external_id, instance_type=item.instance_type)
+            InstanceDefinitionId(space=item.space, external_id=item.external_id, instance_type=item.instance_type)
             for item in self.items
         ]
 
     @cached_property
-    def _ids_by_type(self) -> tuple[list[NodeId], list[EdgeId]]:
-        node_ids: list[NodeId] = []
-        edge_ids: list[EdgeId] = []
+    def _ids_by_type(self) -> tuple[list[dm.NodeId], list[dm.EdgeId]]:
+        node_ids: list[dm.NodeId] = []
+        edge_ids: list[dm.EdgeId] = []
         for instance in self.items:
             if instance.instance_type == "node":
-                node_ids.append(NodeId(instance.space, instance.external_id))
+                node_ids.append(dm.NodeId(instance.space, instance.external_id))
             else:
-                edge_ids.append(EdgeId(instance.space, instance.external_id))
+                edge_ids.append(dm.EdgeId(instance.space, instance.external_id))
         return node_ids, edge_ids
 
     @property
@@ -136,11 +136,11 @@ class InstanceFileSelector(InstanceSelector):
         return [*node_ids, *edge_ids]
 
     @property
-    def node_ids(self) -> list[NodeId]:
+    def node_ids(self) -> list[dm.NodeId]:
         return self._ids_by_type[0]
 
     @property
-    def edge_ids(self) -> list[EdgeId]:
+    def edge_ids(self) -> list[dm.EdgeId]:
         return self._ids_by_type[1]
 
     def get_schema_spaces(self) -> list[str] | None:

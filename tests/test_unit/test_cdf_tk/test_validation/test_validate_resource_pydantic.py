@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from cognite_toolkit._cdf_tk.resource_classes import GroupYAML, TimeSeriesYAML
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import as_json_path, validate_resource_yaml_pydantic
+from cognite_toolkit._cdf_tk.yaml_classes import GroupYAML, TimeSeriesYAML
 
 
 def timeseries_yaml_test_cases() -> Iterable:

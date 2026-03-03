@@ -6,11 +6,11 @@ from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.identifiers import (
-    ContainerDirectReference,
-    ContainerReference,
-    NodeReferenceUntyped,
-    ViewDirectReference,
-    ViewReference,
+    ContainerDirectId,
+    ContainerId,
+    NodeUntypedId,
+    ViewDirectId,
+    ViewId,
 )
 
 from ._data_types import DataType
@@ -27,21 +27,21 @@ class ViewCoreProperty(ViewPropertyDefinition, ABC):
     connection_type: Literal["primary_property"] = Field(default="primary_property", exclude=True)
     name: str | None = None
     description: str | None = None
-    container: ContainerReference
+    container: ContainerId
     container_property_identifier: str
 
     @field_serializer("container", mode="plain")
     @classmethod
-    def serialize_container(cls, container: ContainerReference, info: FieldSerializationInfo) -> dict[str, Any]:
+    def serialize_container(cls, container: ContainerId, info: FieldSerializationInfo) -> dict[str, Any]:
         return {**container.model_dump(**vars(info)), "type": "container"}
 
 
 class ViewCorePropertyRequest(ViewCoreProperty):
-    source: ViewReference | None = None
+    source: ViewId | None = None
 
     @field_serializer("source", mode="plain")
     @classmethod
-    def serialize_source(cls, source: ViewReference | None, info: FieldSerializationInfo) -> dict[str, Any] | None:
+    def serialize_source(cls, source: ViewId | None, info: FieldSerializationInfo) -> dict[str, Any] | None:
         if source is None:
             return None
         return {**source.model_dump(**vars(info)), "type": "view"}
@@ -71,14 +71,14 @@ class ConnectionPropertyDefinition(ViewPropertyDefinition, ABC):
 
 
 class EdgeProperty(ConnectionPropertyDefinition, ABC):
-    source: ViewReference
-    type: NodeReferenceUntyped
-    edge_source: ViewReference | None = None
+    source: ViewId
+    type: NodeUntypedId
+    edge_source: ViewId | None = None
     direction: Literal["outwards", "inwards"] = "outwards"
 
     @field_serializer("source", "edge_source", mode="plain")
     @classmethod
-    def serialize_source(cls, source: ViewReference | None, info: FieldSerializationInfo) -> dict[str, Any] | None:
+    def serialize_source(cls, source: ViewId | None, info: FieldSerializationInfo) -> dict[str, Any] | None:
         if source is None:
             return None
         return {**source.model_dump(**vars(info)), "type": "view"}
@@ -93,21 +93,21 @@ class MultiEdgeProperty(EdgeProperty):
 
 
 class ReverseDirectRelationProperty(ConnectionPropertyDefinition, ABC):
-    source: ViewReference
-    through: ContainerDirectReference | ViewDirectReference
+    source: ViewId
+    through: ContainerDirectId | ViewDirectId
 
     @field_serializer("source", mode="plain")
     @classmethod
-    def serialize_source(cls, source: ViewReference, info: FieldSerializationInfo) -> dict[str, Any]:
+    def serialize_source(cls, source: ViewId, info: FieldSerializationInfo) -> dict[str, Any]:
         return {**source.model_dump(**vars(info)), "type": "view"}
 
     @field_serializer("through", mode="plain")
     @classmethod
     def serialize_through(
-        cls, through: ContainerDirectReference | ViewDirectReference, info: FieldSerializationInfo
+        cls, through: ContainerDirectId | ViewDirectId, info: FieldSerializationInfo
     ) -> dict[str, Any]:
         output = through.model_dump(**vars(info))
-        if isinstance(through, ContainerDirectReference):
+        if isinstance(through, ContainerDirectId):
             output["source"]["type"] = "container"
         else:
             output["source"]["type"] = "view"

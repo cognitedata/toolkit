@@ -1,8 +1,8 @@
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
 
-def parse_view_str(view_str: str) -> ViewReference:
+def parse_view_str(view_str: str) -> ViewId:
     """Parse a view string into a ViewId.
 
     Args:
@@ -30,4 +30,4 @@ def parse_view_str(view_str: str) -> ViewReference:
         )
     external_id = external_id_and_version[0]
     version = external_id_and_version[1]
-    return ViewReference(space=space, external_id=external_id, version=version)
+    return ViewId(space=space, external_id=external_id, version=version)

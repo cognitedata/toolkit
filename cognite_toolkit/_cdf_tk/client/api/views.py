@@ -10,8 +10,8 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, 
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    ViewReference,
-    ViewReferenceNoVersion,
+    ViewId,
+    ViewNoVersionId,
     ViewRequest,
     ViewResponse,
 )
@@ -60,7 +60,7 @@ class ViewsAPI(CDFResourceAPI[ViewResponse]):
         return self._request_item_response(items, "upsert")
 
     def retrieve(
-        self, items: Sequence[ViewReferenceNoVersion], include_inherited_properties: bool = True
+        self, items: Sequence[ViewNoVersionId], include_inherited_properties: bool = True
     ) -> list[ViewResponse]:
         """Retrieve views from CDF.
 
@@ -75,7 +75,7 @@ class ViewsAPI(CDFResourceAPI[ViewResponse]):
             items, method="retrieve", params={"includeInheritedProperties": include_inherited_properties}
         )
 
-    def delete(self, items: Sequence[ViewReference]) -> None:
+    def delete(self, items: Sequence[ViewId]) -> None:
         """Delete views from CDF.
 
         Args:
