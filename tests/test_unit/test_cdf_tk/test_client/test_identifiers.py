@@ -8,6 +8,10 @@ from cognite_toolkit._cdf_tk.client.identifiers import NodeReference
 
 class TestIdentifiers:
     def test_all_identifiers_suffix_id(self) -> None:
+        """Test that all identifier classes are subclasses of Identifier and that their names end with 'Id'.
+
+        This is to make sure that it is clear that these are identifiers and avoid confusing them with other classes.
+        """
         subclasses = set(get_concrete_subclasses(Identifier))
 
         assert NodeReference in subclasses, "NodeReference should be a subclass of Identifier"
