@@ -1,13 +1,16 @@
 from functools import cached_property
+from itertools import chain
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 from ._insights import InsightList
 from ._module import ModuleSource
-from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath, ValidationType
+from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
 
 class BuildParameters(BaseModel):
@@ -51,6 +54,8 @@ class BuiltModule(BaseModel):
 
     source: ModuleSource
     built_files: list[Path] = Field(default_factory=list)
+    built_resources_identifiers: list[Identifier] = Field(default_factory=list)
+    dependencies: dict[AbsoluteFilePath, set[tuple[type[ToolkitResource], Identifier]]] = Field(default_factory=dict)
     insights: InsightList = Field(default_factory=InsightList)
 
     @property
@@ -87,12 +92,12 @@ class BuildFolder(BaseModel):
             insights.extend(module.insights)
         return insights
 
-    @property
+    @cached_property
     def lineage(self) -> BuildLineage:
         """Lineage should be generated based on the built modules, but for now it is just a placeholder."""
         return BuildLineage()
 
-    @property
+    @cached_property
     def built_modules_by_success(self) -> dict[bool, list[str]]:
         """Organizes built modules by their success status."""
         modules_by_success: dict[bool, list[str]] = {True: [], False: []}
@@ -100,3 +105,16 @@ class BuildFolder(BaseModel):
             modules_by_success[built_module.is_success].append(built_module.source.name)
 
         return modules_by_success
+
+    @cached_property
+    def built_resources_identifiers(self) -> set[Identifier]:
+        """List of all built resources across all modules."""
+        resources: set[Identifier] = set()
+        for built_module in self.built_modules:
+            resources.update(built_module.built_resources_identifiers)
+        return resources
+
+    @cached_property
+    def dependencies(self) -> dict[AbsoluteFilePath, set[tuple[type[ToolkitResource], Identifier]]]:
+        """Get external dependencies for all built modules."""
+        return dict(chain.from_iterable(module.dependencies.items() for module in self.built_modules))

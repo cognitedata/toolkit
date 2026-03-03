@@ -193,3 +193,15 @@ class WriteIssue(MigrationIssue):
     type: Literal["write"] = "write"
     status_code: int
     message: str | None = None
+
+
+class InstanceConversionIssue(MigrationIssue):
+    """Represents an instance conversion issue encountered during migration."""
+
+    type: Literal["instanceConversion"] = "instanceConversion"
+    errors: list[str] = Field(default_factory=list)
+
+    @property
+    def has_issues(self) -> bool:
+        """Check if there are any issues recorded in this InstanceConversionIssue."""
+        return bool(self.errors)

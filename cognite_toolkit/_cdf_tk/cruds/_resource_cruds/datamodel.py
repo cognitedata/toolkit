@@ -37,6 +37,7 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ContainerId,
@@ -99,8 +100,10 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
     GraphQLDataModelYAML,
     NodeYAML,
     SpaceYAML,
+    ToolkitResource,
     ViewYAML,
 )
+from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ContainerViewProperty
 
 from .auth import GroupAllScopedCRUD
 
@@ -579,6 +582,18 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
     @classmethod
     def dump_id(cls, id: ViewId) -> dict[str, Any]:
         return id.dump()
+
+    @classmethod
+    def get_dependencies(cls, resource: ViewYAML) -> Iterable[tuple[type[ToolkitResource], Identifier]]:
+
+        yield SpaceYAML, SpaceId(space=resource.space)
+
+        for implement in resource.implements or []:
+            yield ViewYAML, implement.as_id()
+        if resource.properties:
+            for prop in resource.properties.values():
+                if isinstance(prop, ContainerViewProperty):
+                    yield ContainerYAML, prop.container.as_id()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
