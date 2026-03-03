@@ -1,4 +1,5 @@
 Action:
+  externalId: InFieldActionMapping
   sourceView:
     space: cdf_apm
     externalId: Action
@@ -14,6 +15,7 @@ Action:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
 Checklist:
+  externalId: InFieldChecklistMapping
   sourceView:
     space: cdf_apm
     externalId: Checklist
@@ -29,6 +31,7 @@ Checklist:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
 ChecklistItem:
+  externalId: InFieldChecklistItemMapping
   sourceView:
     space: cdf_apm
     externalId: ChecklistItem
@@ -44,6 +47,7 @@ ChecklistItem:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
 Condition:
+  externalId: InFieldConditionMapping
   sourceView:
     space: cdf_apm
     externalId: Condition
@@ -59,6 +63,7 @@ Condition:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
 ConditionalAction:
+  externalId: InFieldConditionalActionMapping
   sourceView:
     space: cdf_apm
     externalId: ConditionalAction
@@ -74,6 +79,7 @@ ConditionalAction:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
 MeasurementReading:
+  externalId: InFieldMeasurementReadingMapping
   sourceView:
     space: cdf_apm
     externalId: MeasurementReading
@@ -89,6 +95,7 @@ MeasurementReading:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
 Schedule:
+  externalId: InFieldScheduleMapping
   sourceView:
     space: cdf_apm
     externalId: Schedule
@@ -104,6 +111,7 @@ Schedule:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
 Template:
+  externalId: InFieldTemplateMapping
   sourceView:
     space: cdf_apm
     externalId: Template
@@ -119,6 +127,7 @@ Template:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
 TemplateItem:
+  externalId: InFieldTemplateItemMapping
   sourceView:
     space: cdf_apm
     externalId: TemplateItem

@@ -1367,6 +1367,7 @@ class TestCreateContainerConnectionProperties:
     COGNITE_FILE = NodeId(space="file_space", external_id="file_node_1")
     SOURCE_VIEW = ConversionSourceView(SOURCE_PROPERTIES)
     MAPPING = ViewToViewMapping(
+        external_id="mapping_1",
         source_view=SOURCE_VIEW_ID,
         destination_view=DEST_VIEW_ID,
         map_identical_id_properties=True,
@@ -1433,16 +1434,18 @@ class TestCreateContainerConnectionProperties:
         assert actual_properties == expected_properties
         assert errors == expected_errors
 
+    IGNORED_EDGE_ID = EdgeId(space="src_space", external_id="ignored_edge")
+
     @pytest.mark.parametrize(
         "edge_targets,expected_relations,expected_edges,expected_errors",
         [
             pytest.param(
                 {
                     (NodeId(space="src_space", external_id="relatesTo"), "outwards"): [
-                        NodeId(space="dst_space", external_id="asset_123")
+                        (NodeId(space="dst_space", external_id="asset_123"), IGNORED_EDGE_ID)
                     ],
                     (NodeId(space="src_space", external_id="hasChild"), "inwards"): [
-                        NodeId(space="dst_space", external_id="asset_456")
+                        (NodeId(space="dst_space", external_id="asset_456"), IGNORED_EDGE_ID)
                     ],
                 },
                 {
@@ -1455,21 +1458,24 @@ class TestCreateContainerConnectionProperties:
             pytest.param(
                 {
                     (NodeId(space="src_space", external_id="relatesTo"), "outwards"): [
-                        NodeId(space="dst_space", external_id="asset_C"),
-                        NodeId(space="dst_space", external_id="asset_D"),
+                        (NodeId(space="dst_space", external_id="asset_C"), IGNORED_EDGE_ID),
+                        (NodeId(space="dst_space", external_id="asset_D"), IGNORED_EDGE_ID),
                     ],
                     (NodeId(space="src_space", external_id="listRel"), "outwards"): [
-                        NodeId(space="dst_space", external_id="asset_A"),
-                        NodeId(space="dst_space", external_id="asset_B"),
+                        (NodeId(space="dst_space", external_id="asset_A"), IGNORED_EDGE_ID),
+                        (NodeId(space="dst_space", external_id="asset_B"), IGNORED_EDGE_ID),
                     ],
                     (NodeId(space="src_space", external_id="textEdge"), "outwards"): [
-                        NodeId(space="dst_space", external_id="asset_E"),
+                        (NodeId(space="dst_space", external_id="asset_E"), IGNORED_EDGE_ID),
                     ],
                     (NodeId(space="src_space", external_id="edgeRel"), "inwards"): [
-                        NodeId(space="dst_space", external_id="asset_F"),
+                        (
+                            NodeId(space="dst_space", external_id="asset_F"),
+                            EdgeId(space="dst_space", external_id="dst_edge"),
+                        ),
                     ],
                     (NodeId(space="src_space", external_id="dupRel"), "outwards"): [
-                        NodeId(space="dst_space", external_id="asset_G"),
+                        (NodeId(space="dst_space", external_id="asset_G"), IGNORED_EDGE_ID),
                     ],
                 },
                 {
@@ -1482,7 +1488,7 @@ class TestCreateContainerConnectionProperties:
                 [
                     EdgeRequest(
                         space="dst_space",
-                        external_id="new_nodeA_edgeRel__asset_F",
+                        external_id="dst_edge",
                         type=NodeId(space="dst_space", external_id="destEdgeType"),
                         start_node=NodeId(space="dst_space", external_id="asset_F"),
                         end_node=NEW_ID,
@@ -1501,7 +1507,7 @@ class TestCreateContainerConnectionProperties:
     )
     def test_create_connection_properties(
         self,
-        edge_targets: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[NodeId]],
+        edge_targets: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[tuple[NodeId, EdgeId]]],
         expected_relations: dict[str, JsonValue],
         expected_edges: list[EdgeRequest],
         expected_errors: list[str],
