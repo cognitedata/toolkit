@@ -670,12 +670,16 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
 
     """
 
-    def __init__(self, client: ToolkitClient, space_mapping: dict[str, str]) -> None:
+    def __init__(
+        self, client: ToolkitClient, space_mapping: dict[str, str], mappings: Sequence[ViewToViewMapping]
+    ) -> None:
         super().__init__(client)
         self.space_mapping = space_mapping
         self._direct_relation_cache = TimeSeriesFilesReferenceCache(client)
         self._source_by_view_id: dict[ViewReference, ConversionSourceView] = {}
-        self._mappings_by_view_id: dict[ViewReference, ViewToViewMapping] = {}
+        self._mappings_by_view_id: dict[ViewReference, ViewToViewMapping] = {
+            mapping.source_view: mapping for mapping in mappings
+        }
         self._destination_by_view_id: dict[ViewReference, ViewResponse] = {}
 
     def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
