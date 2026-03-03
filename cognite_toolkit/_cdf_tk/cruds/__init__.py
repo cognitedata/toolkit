@@ -63,6 +63,7 @@ from ._resource_cruds import (
     SecurityCategoryCRUD,
     SequenceCRUD,
     SequenceRowCRUD,
+    SignalSinkCRUD,
     SimulatorModelCRUD,
     SimulatorModelRevisionCRUD,
     SimulatorRoutineCRUD,
@@ -93,6 +94,8 @@ if not FeatureFlag.is_enabled(Flags.MIGRATE):
     _EXCLUDED_CRUDS.add(ResourceViewMappingCRUD)
 if not FeatureFlag.is_enabled(Flags.STREAMS):
     _EXCLUDED_CRUDS.add(StreamCRUD)
+if not FeatureFlag.is_enabled(Flags.SIGNALS):
+    _EXCLUDED_CRUDS.add(SignalSinkCRUD)
 if not FeatureFlag.is_enabled(Flags.SIMULATORS):
     _EXCLUDED_CRUDS.add(SimulatorModelCRUD)
     _EXCLUDED_CRUDS.add(SimulatorRoutineRevisionCRUD)
@@ -166,6 +169,7 @@ ResourceTypes: TypeAlias = Literal[
     "functions",
     "raw",
     "robotics",
+    "signals",
     "simulators",
     "streams",
     "streamlit",
@@ -242,6 +246,7 @@ __all__ = [
     "SecurityCategoryCRUD",
     "SequenceCRUD",
     "SequenceRowCRUD",
+    "SignalSinkCRUD",
     "SimulatorModelCRUD",
     "SpaceCRUD",
     "StreamlitCRUD",

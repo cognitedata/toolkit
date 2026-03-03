@@ -175,3 +175,11 @@ class PrincipalLoginId(Identifier):
 
     def __str__(self) -> str:
         return f"principal='{self.principal}', id='{self.id}'"
+
+
+class SignalSinkId(Identifier):
+    type: Literal["email", "user"]
+    external_id: str
+
+    def __str__(self) -> str:
+        return f"type='{self.type}', externalId='{self.external_id}'"

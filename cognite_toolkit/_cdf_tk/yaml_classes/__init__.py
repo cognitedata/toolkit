@@ -42,6 +42,7 @@ from .robotics import RobotCapabilityYAML, RobotDataPostProcessingYAML, RobotFra
 from .search_config import SearchConfigYAML
 from .securitycategories import SecurityCategoriesYAML
 from .sequence import SequenceRowYAML, SequenceYAML
+from .signal_sink import SignalSinkYAML
 from .simulator_model import SimulatorModelYAML
 from .simulator_model_revision import SimulatorModelRevisionYAML
 from .simulator_routine import SimulatorRoutineYAML
@@ -101,6 +102,7 @@ __all__ = [
     "SecurityCategoriesYAML",
     "SequenceRowYAML",
     "SequenceYAML",
+    "SignalSinkYAML",
     "SimulatorModelRevisionYAML",
     "SimulatorModelYAML",
     "SimulatorRoutineRevisionYAML",
