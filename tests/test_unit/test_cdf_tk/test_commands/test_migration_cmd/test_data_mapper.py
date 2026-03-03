@@ -437,13 +437,13 @@ class TestFDMtoCDMMapper:
             ),
             "targetDirectTimeseries": ViewCorePropertyResponse(
                 constraint_state=ConstraintOrIndexState(),
-                type=TimeseriesCDFExternalIdReference(),
+                type=DirectNodeRelation(),
                 container_property_identifier="targetDirectTimeseries",
                 container=SOME_CONTAINER_ID,
             ),
             "targetDirectFile": ViewCorePropertyResponse(
                 constraint_state=ConstraintOrIndexState(),
-                type=FileCDFExternalIdReference(),
+                type=DirectNodeRelation(),
                 container_property_identifier="targetDirectFile",
                 container=SOME_CONTAINER_ID,
             ),
