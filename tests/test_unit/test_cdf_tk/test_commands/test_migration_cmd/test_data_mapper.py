@@ -587,7 +587,7 @@ class TestFDMtoCDMMapper:
                         last_updated_time=1,
                         created_time=0,
                         version=1,
-                        type=NodeId(space=SOURCE_SPACE, external_id="sourceEdge1"),
+                        type=NodeId(space="schema_space1", external_id="sourceEdge1"),
                         start_node=NodeId(space=SOURCE_SPACE, external_id="node1"),
                         end_node=NodeId(space=SOURCE_SPACE, external_id="node2"),
                     ),
@@ -597,7 +597,7 @@ class TestFDMtoCDMMapper:
                         last_updated_time=2,
                         created_time=0,
                         version=1,
-                        type=NodeId(space=SOURCE_SPACE, external_id="sourceEdge2"),
+                        type=NodeId(space="schema_space1", external_id="sourceEdge2"),
                         start_node=NodeId(space=SOURCE_SPACE, external_id="node1"),
                         end_node=NodeId(space=SOURCE_SPACE, external_id="node3"),
                     ),
@@ -607,7 +607,7 @@ class TestFDMtoCDMMapper:
                         last_updated_time=3,
                         created_time=0,
                         version=1,
-                        type=NodeId(space=SOURCE_SPACE, external_id="sourceEdge3"),
+                        type=NodeId(space="schema_space1", external_id="sourceEdge3"),
                         start_node=NodeId(space=SOURCE_SPACE, external_id="node1"),
                         end_node=NodeId(space=SOURCE_SPACE, external_id="node4"),
                     ),
@@ -619,6 +619,8 @@ class TestFDMtoCDMMapper:
                     "sourceEdge2": "targetDirect1",
                     # Edge to reverse
                     "sourceEdge3": "targetReverse1",
+                    # Text to Int with type change
+                    "textProp": "targetInt",
                 },
                 [
                     NodeRequest(
