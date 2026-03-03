@@ -552,8 +552,10 @@ def create_container_properties(
                 dm_prop.nullable if dm_prop.nullable is not None else True,
                 direct_relation_lookup=cache,  # type: ignore[arg-type]
             )
-            if isinstance(created_value, date | datetime):
+            if isinstance(created_value, date):
                 created_properties[dest_prop_id] = created_value.isoformat()
+            elif isinstance(created_value, datetime):
+                created_properties[dest_prop_id] = created_value.isoformat(timespec="milliseconds")
             else:
                 created_properties[dest_prop_id] = created_value
         except (ValueError, TypeError, NotImplementedError) as e:
