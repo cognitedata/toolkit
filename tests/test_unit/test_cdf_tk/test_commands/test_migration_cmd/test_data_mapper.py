@@ -655,6 +655,8 @@ class TestFDMtoCDMMapper:
     ):
         with monkeypatch_toolkit_client() as client:
             client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
+            client.tool.timeseries.retrieve.return_value = [self.TIMESERIES_RESPONSE]
+            client.tool.filemetadata.retrieve.return_value = [self.FILE_RESPONSE]
 
             mapping = self.VIEW_MAPPING.model_copy(update={"property_mapping": property_mapping})
             mapper = FDMtoCDMMapper(client, self.SPACE_MAPPING, [mapping])
