@@ -13,9 +13,9 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId, ThreeDModelRevisionId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ThreeDAssetMappingFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
-    AssetMappingClassicRequest,
+    AssetMappingClassicRequestId,
     AssetMappingClassicResponse,
-    AssetMappingDMRequest,
+    AssetMappingDMRequestId,
     AssetMappingDMResponse,
     ThreeDModelClassicRequest,
     ThreeDModelClassicResponse,
@@ -302,7 +302,7 @@ class ThreeDClassicRevisionsAPI(CDFResourceAPI[ThreeDRevisionClassicResponse]):
         return items
 
 
-T_RequestMapping = TypeVar("T_RequestMapping", bound=AssetMappingClassicRequest | AssetMappingDMRequest)
+T_RequestMapping = TypeVar("T_RequestMapping", bound=AssetMappingClassicRequestId | AssetMappingDMRequestId)
 
 
 class ThreeDClassicAssetMappingAPI(CDFResourceAPI[AssetMappingClassicResponse]):
@@ -324,11 +324,11 @@ class ThreeDClassicAssetMappingAPI(CDFResourceAPI[AssetMappingClassicResponse]):
     ) -> PagedResponse[AssetMappingClassicResponse]:
         return PagedResponse[AssetMappingClassicResponse].model_validate_json(response.body)
 
-    def create(self, mappings: Sequence[AssetMappingClassicRequest]) -> list[AssetMappingClassicResponse]:
+    def create(self, mappings: Sequence[AssetMappingClassicRequestId]) -> list[AssetMappingClassicResponse]:
         """Create 3D asset mappings.
 
         Args:
-            mappings (Sequence[AssetMappingClassicRequest]):
+            mappings (Sequence[AssetMappingClassicRequestId]):
                 The 3D asset mapping(s) to create.
 
         Returns:
@@ -349,11 +349,11 @@ class ThreeDClassicAssetMappingAPI(CDFResourceAPI[AssetMappingClassicResponse]):
             results.extend(result)
         return results
 
-    def delete(self, mappings: Sequence[AssetMappingClassicRequest]) -> None:
+    def delete(self, mappings: Sequence[AssetMappingClassicRequestId]) -> None:
         """Delete 3D asset mappings.
 
         Args:
-            mappings (Sequence[AssetMappingClassicRequest]):
+            mappings (Sequence[AssetMappingClassicRequestId]):
                 The 3D asset mapping(s) to delete.
         """
         endpoint = self._method_endpoint_map["delete"]
@@ -447,12 +447,12 @@ class ThreeDDMAssetMappingAPI(CDFResourceAPI[AssetMappingDMResponse]):
         return PagedResponse[AssetMappingDMResponse].model_validate_json(response.body)
 
     def create(
-        self, mappings: Sequence[AssetMappingDMRequest], object_3d_space: str, cad_node_space: str
+        self, mappings: Sequence[AssetMappingDMRequestId], object_3d_space: str, cad_node_space: str
     ) -> list[AssetMappingDMResponse]:
         """Create 3D asset mappings in Data Modeling format.
 
         Args:
-            mappings (Sequence[AssetMappingDMRequest]):
+            mappings (Sequence[AssetMappingDMRequestId]):
                 The 3D asset mapping(s) to create
             object_3d_space (str):
                 The instance space where the Cognite3DObject are located.
@@ -485,11 +485,11 @@ class ThreeDDMAssetMappingAPI(CDFResourceAPI[AssetMappingDMResponse]):
             results.extend(result)
         return results
 
-    def delete(self, mappings: Sequence[AssetMappingDMRequest], object_3d_space: str, cad_node_space: str) -> None:
+    def delete(self, mappings: Sequence[AssetMappingDMRequestId], object_3d_space: str, cad_node_space: str) -> None:
         """Delete 3D asset mappings in Data Modeling format.
 
         Args:
-            mappings (Sequence[AssetMappingDMRequest]):
+            mappings (Sequence[AssetMappingDMRequestId]):
                 The 3D asset mapping(s) to delete.
             object_3d_space (str):
                 The instance space where the Cognite3DObject are located.

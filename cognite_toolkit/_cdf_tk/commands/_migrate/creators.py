@@ -25,10 +25,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
-    NodeReference,
+    NodeId,
     NodeRequest,
     SpaceRequest,
-    ViewReference,
+    ViewId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
@@ -195,7 +195,7 @@ class InstanceSpaceCreator(MigrationCreator):
 
 
 class SourceSystemCreator(MigrationCreator):
-    COGNITE_SOURCE_SYSTEM_VIEW_ID = ViewReference(space="cdf_cdm", external_id="CogniteSourceSystem", version="v1")
+    COGNITE_SOURCE_SYSTEM_VIEW_ID = ViewId(space="cdf_cdm", external_id="CogniteSourceSystem", version="v1")
 
     def __init__(
         self,
@@ -247,9 +247,9 @@ class SourceSystemCreator(MigrationCreator):
             store_linage=lambda: len(to_create),
         )
 
-    def _get_existing_source_systems(self) -> dict[str, NodeReference]:
+    def _get_existing_source_systems(self) -> dict[str, NodeId]:
         all_existing = self.client.migration.created_source_system.list(limit=-1)
-        return {node.source: NodeReference(space=node.space, external_id=node.external_id) for node in all_existing}
+        return {node.source: NodeId(space=node.space, external_id=node.external_id) for node in all_existing}
 
     def _lookup_sources(self) -> Iterable[UniqueResult]:
         yield from self.client.assets.aggregate_unique_values(AssetProperty.source, filter=self._simple_filter)
@@ -297,7 +297,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
     def create_resources(self) -> Iterable[ToCreateResources]:
         if self.external_ids is not None:
             apm_configs = self.client.infield.apm_config.retrieve(
-                NodeReference.from_str_ids(self.external_ids, space=APM_CONFIG_SPACE)
+                NodeId.from_str_ids(self.external_ids, space=APM_CONFIG_SPACE)
             )
         else:
             # We know this is not None from the check in __init__
@@ -431,11 +431,11 @@ class InfieldV2ConfigCreator(MigrationCreator):
         }
         view_mappings: dict[str, JsonValue] = {}
         for key, default_view in [
-            ("asset", ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1")),
-            ("operation", ViewReference(space="cdf_idm", external_id="CogniteOperation", version="v1")),
-            ("notification", ViewReference(space="cdf_idm", external_id="CogniteNotification", version="v1")),
-            ("maintenanceOrder", ViewReference(space="cdf_idm", external_id="CogniteMaintenanceOrder", version="v1")),
-            ("file", ViewReference(space="cdf_cdm", external_id="CogniteFile", version="v1")),
+            ("asset", ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")),
+            ("operation", ViewId(space="cdf_idm", external_id="CogniteOperation", version="v1")),
+            ("notification", ViewId(space="cdf_idm", external_id="CogniteNotification", version="v1")),
+            ("maintenanceOrder", ViewId(space="cdf_idm", external_id="CogniteMaintenanceOrder", version="v1")),
+            ("file", ViewId(space="cdf_cdm", external_id="CogniteFile", version="v1")),
         ]:
             view_mappings[key] = default_view.dump()
 

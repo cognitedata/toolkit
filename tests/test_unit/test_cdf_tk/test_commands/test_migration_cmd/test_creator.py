@@ -10,7 +10,7 @@ from pytest_regressions.data_regression import DataRegressionFixture
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
-    NodeReference,
+    NodeId,
     NodeRequest,
     SpaceRequest,
     ViewResponse,
@@ -205,7 +205,7 @@ class TestCreator:
         output: dict[str, Any] = {}
         with monkeypatch_toolkit_client() as client:
             asset_external_id = apm_config.feature_configuration.root_location_configurations[0].asset_external_id
-            client.migration.lookup.assets.return_value = NodeReference(space="migrated", external_id=asset_external_id)
+            client.migration.lookup.assets.return_value = NodeId(space="migrated", external_id=asset_external_id)
             creator = InfieldV2ConfigCreator(client, apm_configs=[apm_config])
             for to_create in creator.create_resources():
                 for resource in to_create.resources:

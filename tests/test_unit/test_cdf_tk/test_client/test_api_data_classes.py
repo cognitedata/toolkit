@@ -5,7 +5,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client._resource_base import UpdatableRequestResource, _get_annotation_origin
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.identifiers import NodeReference, PrincipalId
+from cognite_toolkit._cdf_tk.client.identifiers import NodeId, PrincipalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeRequest
@@ -405,7 +405,7 @@ class TestNodeRequest:
         }
 
     def test_convert_node_type_to_untyped(self) -> None:
-        my_node_type = NodeReference(space="my_space", external_id="my_node")
+        my_node_type = NodeId(space="my_space", external_id="my_node")
         my_node_request = NodeRequest(
             space="my_space",
             external_id="instance_node",

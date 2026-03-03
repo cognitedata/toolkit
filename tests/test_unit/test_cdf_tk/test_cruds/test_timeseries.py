@@ -2,7 +2,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client.identifiers import (
     DatapointSubscriptionTimeSeriesId,
-    NodeReference,
+    NodeId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import DatapointSubscriptionRequest
 from cognite_toolkit._cdf_tk.cruds import DatapointSubscriptionCRUD
@@ -29,7 +29,7 @@ class TestDatapointSubscriptionLoader:
             external_id="mySub",
             partition_count=1,
             time_series_ids=[f"timeseries_{i}" for i in range(ts_count)] or None,
-            instance_ids=[NodeReference(space="my_space", external_id=f"node_{i}") for i in range(node_count)] or None,
+            instance_ids=[NodeId(space="my_space", external_id=f"node_{i}") for i in range(node_count)] or None,
         )
 
         to_upsert, batches = DatapointSubscriptionCRUD.create_split_timeseries_ids(sub)
@@ -43,7 +43,7 @@ class TestDatapointSubscriptionLoader:
             external_id="mySub",
             partition_count=1,
             time_series_ids=[f"timeseries_{i}" for i in range(6_000)],
-            instance_ids=[NodeReference(space="my_space", external_id=f"node_{i}") for i in range(6_000)],
+            instance_ids=[NodeId(space="my_space", external_id=f"node_{i}") for i in range(6_000)],
         )
 
         with pytest.raises(ToolkitValueError) as exc:
@@ -77,7 +77,7 @@ class TestDatapointSubscriptionLoader:
             current.extend(
                 [
                     DatapointSubscriptionTimeSeriesId(
-                        instance_id=NodeReference(space="my_space", external_id=f"node_{i}"),
+                        instance_id=NodeId(space="my_space", external_id=f"node_{i}"),
                         id=i + existing_ts_count,
                     )
                     for i in range(existing_node_count)
@@ -87,7 +87,7 @@ class TestDatapointSubscriptionLoader:
             external_id="mySub",
             partition_count=1,
             time_series_ids=[f"timeseries_{i}" for i in range(ts_count)] or None,
-            instance_ids=[NodeReference(space="my_space", external_id=f"node_{i}") for i in range(node_count)] or None,
+            instance_ids=[NodeId(space="my_space", external_id=f"node_{i}") for i in range(node_count)] or None,
         )
 
         _, batches = DatapointSubscriptionCRUD.update_split_timeseries_ids(sub, current)
@@ -99,7 +99,7 @@ class TestDatapointSubscriptionLoader:
             external_id="mySub",
             partition_count=1,
             time_series_ids=[f"timeseries_{i}" for i in range(6_000)],
-            instance_ids=[NodeReference(space="my_space", external_id=f"node_{i}") for i in range(6_000)],
+            instance_ids=[NodeId(space="my_space", external_id=f"node_{i}") for i in range(6_000)],
         )
 
         with pytest.raises(ToolkitValueError) as exc:

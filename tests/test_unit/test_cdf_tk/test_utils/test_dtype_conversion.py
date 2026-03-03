@@ -5,7 +5,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     BooleanProperty,
-    ContainerReference,
+    ContainerId,
     DirectNodeRelation,
     EnumProperty,
     EnumValue,
@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     Int32Property,
     Int64Property,
     JSONProperty,
-    NodeReference,
+    NodeId,
     PropertyTypeDefinition,
     TextProperty,
     TimestampProperty,
@@ -242,8 +242,8 @@ class TestConvertToContainerProperty:
         expected_value: PropertyValueWrite,
     ):
         cache = {
-            1: NodeReference(space="my_space", external_id="parent1"),
-            2: NodeReference(space="my_space", external_id="parent2"),
+            1: NodeId(space="my_space", external_id="parent1"),
+            2: NodeId(space="my_space", external_id="parent2"),
         }
         actual = convert_to_primary_property(value, type_, nullable, direct_relation_lookup=cache)
 
@@ -430,7 +430,7 @@ class TestConvertToContainerProperty:
             pytest.param(
                 True,
                 EnumProperty(values={"numeric": EnumValue(), "string": EnumValue()}),
-                (ContainerReference(space="cdf_cdm", external_id="CogniteTimeSeries"), "type"),
+                (ContainerId(space="cdf_cdm", external_id="CogniteTimeSeries"), "type"),
                 ("timeseries", "isString"),
                 "string",
                 id="TimeSeries.isString to Enum conversion",
@@ -438,7 +438,7 @@ class TestConvertToContainerProperty:
             pytest.param(
                 False,
                 EnumProperty(values={"numeric": EnumValue(), "string": EnumValue()}),
-                (ContainerReference(space="cdf_cdm", external_id="CogniteTimeSeries"), "type"),
+                (ContainerId(space="cdf_cdm", external_id="CogniteTimeSeries"), "type"),
                 ("timeseries", "isString"),
                 "numeric",
                 id="TimeSeries.isString to Enum conversion (False case)",
@@ -446,7 +446,7 @@ class TestConvertToContainerProperty:
             pytest.param(
                 False,
                 BooleanProperty(),
-                (ContainerReference(space="some_other_space", external_id="SomeOtherView"), "type"),
+                (ContainerId(space="some_other_space", external_id="SomeOtherView"), "type"),
                 ("timeseries", "isString"),
                 False,
                 id="Non-asset-centric boolean to primary property conversion",
@@ -454,7 +454,7 @@ class TestConvertToContainerProperty:
             pytest.param(
                 "acceleration:m-per-sec2",
                 DirectNodeRelation(),
-                (ContainerReference(space="cdf_cdm", external_id="CogniteTimeSeries"), "unit"),
+                (ContainerId(space="cdf_cdm", external_id="CogniteTimeSeries"), "unit"),
                 ("timeseries", "unitExternalId"),
                 {"space": "cdf_cdm_units", "externalId": "acceleration:m-per-sec2"},
                 id="TimeSeries unitExternalId to DirectRelation conversion",
@@ -462,7 +462,7 @@ class TestConvertToContainerProperty:
             pytest.param(
                 None,
                 DirectNodeRelation(),
-                (ContainerReference(space="cdf_cdm", external_id="CogniteTimeSeries"), "unit"),
+                (ContainerId(space="cdf_cdm", external_id="CogniteTimeSeries"), "unit"),
                 ("timeseries", "unitExternalId"),
                 None,
                 id="TimeSeries unitExternalId to DirectRelation conversion with None value (nullable)",
@@ -470,7 +470,7 @@ class TestConvertToContainerProperty:
             pytest.param(
                 "source1",
                 DirectNodeRelation(),
-                (ContainerReference(space="cdf_cdm", external_id="CogniteSourceable"), "source"),
+                (ContainerId(space="cdf_cdm", external_id="CogniteSourceable"), "source"),
                 ("timeseries", "source"),
                 {"space": "spaceA", "externalId": "source1"},
                 id="TimeSeries sourceExternalId to DirectRelation conversion with cache lookup",
@@ -481,13 +481,13 @@ class TestConvertToContainerProperty:
         self,
         value: str | int | float | bool | dict | list,
         type_: PropertyTypeDefinition,
-        destination_container_property: tuple[ContainerReference, str],
+        destination_container_property: tuple[ContainerId, str],
         source_property: tuple[AssetCentricType, str],
         expected: PropertyValueWrite,
     ):
         cache = {
-            "source1": NodeReference(space="spaceA", external_id="source1"),
-            "source2": NodeReference(space="spaceB", external_id="source2"),
+            "source1": NodeId(space="spaceA", external_id="source1"),
+            "source2": NodeId(space="spaceB", external_id="source2"),
         }
 
         actual = asset_centric_convert_to_primary_property(
@@ -502,7 +502,7 @@ class TestConvertToContainerProperty:
             pytest.param(
                 "invalid_value",
                 EnumProperty(values={"numeric": EnumValue(), "string": EnumValue()}),
-                (ContainerReference(space="cdf_cdm", external_id="CogniteTimeSeries"), "type"),
+                (ContainerId(space="cdf_cdm", external_id="CogniteTimeSeries"), "type"),
                 ("timeseries", "isString"),
                 "Cannot convert invalid_value to TimeSeries type. Expected a boolean value.",
                 id="Invalid TimeSeries type input value conversion error",
@@ -510,7 +510,7 @@ class TestConvertToContainerProperty:
             pytest.param(
                 "not_a_list",
                 TextProperty(list=True),
-                (ContainerReference(space="cdf_cdm", external_id="CogniteDescribable"), "tags"),
+                (ContainerId(space="cdf_cdm", external_id="CogniteDescribable"), "tags"),
                 ("asset", "labels"),
                 "Cannot convert not_a_list to labels. Expected a list of Labels, objects, or LabelDefinitions.",
                 id="List to Text conversion error",
@@ -518,7 +518,7 @@ class TestConvertToContainerProperty:
             pytest.param(
                 True,
                 DirectNodeRelation(),
-                (ContainerReference(space="cdf_cdm", external_id="CogniteTimeSeries"), "unit"),
+                (ContainerId(space="cdf_cdm", external_id="CogniteTimeSeries"), "unit"),
                 ("timeseries", "unitExternalId"),
                 "Cannot convert True to TimeSeries unit. Expected a string representing the externalId.",
                 id="TimeSeries unitExternalId to DirectRelation conversion error",
@@ -526,7 +526,7 @@ class TestConvertToContainerProperty:
             pytest.param(
                 "unknown_source",
                 DirectNodeRelation(),
-                (ContainerReference(space="cdf_cdm", external_id="CogniteSourceable"), "source"),
+                (ContainerId(space="cdf_cdm", external_id="CogniteSourceable"), "source"),
                 ("timeseries", "source"),
                 "Cannot convert 'unknown_source' to NodeReference. Invalid data type or missing in lookup.",
                 id="TimeSeries sourceExternalId to DirectRelation conversion with missing cache entry",
@@ -537,7 +537,7 @@ class TestConvertToContainerProperty:
         self,
         value: str | int | float | bool | dict | list,
         type_: PropertyTypeDefinition,
-        destination_container_property: tuple[ContainerReference, str],
+        destination_container_property: tuple[ContainerId, str],
         source_property: tuple[AssetCentricType, str],
         error_message: str,
     ):

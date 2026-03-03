@@ -1,15 +1,14 @@
 from collections.abc import Iterable, Sequence
 from typing import Any, overload
 
+from cognite.client import data_modeling as dm
 from cognite.client._api.data_modeling.instances import InstancesAPI
 from cognite.client._constants import DEFAULT_LIMIT_READ
 from cognite.client.data_classes.data_modeling import (
     EdgeApply,
-    EdgeId,
     InstanceSort,
     NodeApply,
     NodeApplyResultList,
-    NodeId,
     NodeList,
     filters,
     query,
@@ -47,7 +46,7 @@ class CanvasAPI:
 
     def delete(self, external_id: str | SequenceNotStr[str]) -> list[str]:
         external_ids = [external_id] if isinstance(external_id, str) else external_id
-        result = self._instance_api.delete([NodeId(self.instance_space, item) for item in external_ids])
+        result = self._instance_api.delete([dm.NodeId(self.instance_space, item) for item in external_ids])
         return [item.external_id for item in result.nodes]
 
     @overload
@@ -58,10 +57,10 @@ class CanvasAPI:
 
     def retrieve(self, external_id: str | SequenceNotStr[str] | None = None) -> Canvas | NodeList[Canvas] | None:
         if isinstance(external_id, str):
-            return self._instance_api.retrieve_nodes(NodeId(self.instance_space, external_id), node_cls=Canvas)
+            return self._instance_api.retrieve_nodes(dm.NodeId(self.instance_space, external_id), node_cls=Canvas)
         elif isinstance(external_id, Iterable):
             return self._instance_api.retrieve_nodes(
-                [NodeId(self.instance_space, item) for item in external_id], node_cls=Canvas
+                [dm.NodeId(self.instance_space, item) for item in external_id], node_cls=Canvas
             )
         else:
             raise TypeError(f"Expected str or SequenceNotStr[str], got {type(external_id)}")
@@ -85,8 +84,8 @@ class IndustrialCanvasAPI:
     def create(self, canvas: IndustrialCanvasApply) -> InstancesApplyResultList:
         instance_ids = canvas.as_instance_ids()
         existing = self._instance_api.retrieve(
-            nodes=[node for node in instance_ids if isinstance(node, NodeId)],
-            edges=[edge for edge in instance_ids if isinstance(edge, EdgeId)],
+            nodes=[node for node in instance_ids if isinstance(node, dm.NodeId)],
+            edges=[edge for edge in instance_ids if isinstance(edge, dm.EdgeId)],
         )
         if existing.nodes or existing.edges:
             raise CogniteDuplicatedError(duplicated=existing.nodes.as_ids() + existing.edges.as_ids())
@@ -123,17 +122,17 @@ class IndustrialCanvasAPI:
         sdk_result = self._instance_api.apply(nodes=nodes, edges=edges)
         result = InstancesApplyResultList([*sdk_result.nodes, *sdk_result.edges])
         if to_delete:
-            nodes_ids = [node for node in to_delete if isinstance(node, NodeId)]
-            edges_ids = [edge for edge in to_delete if isinstance(edge, EdgeId)]
+            nodes_ids = [node for node in to_delete if isinstance(node, dm.NodeId)]
+            edges_ids = [edge for edge in to_delete if isinstance(edge, dm.EdgeId)]
             # Delete components that are not in the new canvas
             self._instance_api.delete(nodes=nodes_ids, edges=edges_ids)
         return result
 
-    def delete(self, canvas: IndustrialCanvasApply) -> list[NodeId | EdgeId]:
+    def delete(self, canvas: IndustrialCanvasApply) -> list[dm.NodeId | dm.EdgeId]:
         # Solution tags are used by multiple canvases, so we do not include them in the deletion.
         instance_ids = canvas.as_instance_ids(include_solution_tags=False)
-        nodes_ids = [node for node in instance_ids if isinstance(node, NodeId)]
-        edges_ids = [edge for edge in instance_ids if isinstance(edge, EdgeId)]
+        nodes_ids = [node for node in instance_ids if isinstance(node, dm.NodeId)]
+        edges_ids = [edge for edge in instance_ids if isinstance(edge, dm.EdgeId)]
 
         result = self._instance_api.delete(nodes_ids, edges_ids)
         return result.nodes + result.edges

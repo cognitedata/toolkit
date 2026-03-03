@@ -1,12 +1,12 @@
 from collections.abc import Hashable, Iterable, Sequence, Sized
 from typing import Any, final
 
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.data_classes.data_modeling import ViewId
 
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeReference
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference, ViewReference
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     RESOURCE_MAPPING_VIEW_ID,
     ResourceViewMappingRequest,
@@ -14,8 +14,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
 )
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import ResourceViewMappingYAML
 from cognite_toolkit._cdf_tk.utils import in_dict, sanitize_filename
+from cognite_toolkit._cdf_tk.yaml_classes import ResourceViewMappingYAML
 
 from .datamodel import SpaceCRUD, ViewCRUD
 
@@ -68,7 +68,7 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
     def prerequisite_warning(self) -> str | None:
         view_id = RESOURCE_MAPPING_VIEW_ID
         views = self.client.data_modeling.views.retrieve(
-            ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version)
+            dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version)
         )
         if len(views) > 0:
             return None
@@ -81,11 +81,11 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
         return self.client.migration.resource_view_mapping.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ResourceViewMappingResponse]:
-        node_ids = NodeReference.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
+        node_ids = NodeId.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
         return self.client.migration.resource_view_mapping.retrieve(node_ids)
 
     def delete(self, ids: Sequence[ExternalId]) -> int:
-        node_ids = NodeReference.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
+        node_ids = NodeId.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
         result = self.client.migration.resource_view_mapping.delete(node_ids)
         return len(result)
 
@@ -102,11 +102,11 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceCRUD], Hashable]]":
-        yield SpaceCRUD, SpaceReference(space=COGNITE_MIGRATION_SPACE)
+        yield SpaceCRUD, SpaceId(space=COGNITE_MIGRATION_SPACE)
         view_id = RESOURCE_MAPPING_VIEW_ID
         yield (
             ViewCRUD,
-            ViewReference(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
+            ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
         )
 
         if "viewId" in item:
@@ -114,7 +114,7 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
             if isinstance(view_id_dict, dict) and in_dict(("space", "externalId", "version"), view_id_dict):
                 yield (
                     ViewCRUD,
-                    ViewReference(
+                    ViewId(
                         space=view_id_dict["space"],
                         external_id=view_id_dict["externalId"],
                         version=view_id_dict["version"],

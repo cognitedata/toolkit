@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, DirectoryPath, Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND, ResourceTypes
-from cognite_toolkit._cdf_tk.resource_classes.base import ToolkitResource
+from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
 from ._insights import ConsistencyError, ModelSyntaxError, Recommendation
 from ._types import AbsoluteFilePath, RelativeDirPath

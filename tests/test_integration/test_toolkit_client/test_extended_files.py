@@ -5,7 +5,7 @@ from cognite.client.data_classes.data_modeling import NodeApplyResultList, Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeReference
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from tests.test_integration.constants import RUN_UNIQUE_ID
@@ -79,9 +79,7 @@ class TestExtendedFilesAPI:
             updated = client.tool.filemetadata.set_pending_ids(
                 [
                     PendingInstanceId(
-                        pending_instance_id=NodeReference(
-                            space=cognite_file.space, external_id=cognite_file.external_id
-                        ),
+                        pending_instance_id=NodeId(space=cognite_file.space, external_id=cognite_file.external_id),
                         id=created.id,
                     )
                 ]

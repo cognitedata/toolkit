@@ -6,7 +6,7 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteTimeSeriesAp
 from cognite.client.utils._time import datetime_to_ms
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeReference
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 
 
@@ -47,7 +47,7 @@ class TestExtendedTimeSeriesAPI:
         ]
         created: TimeSeries | None = None
         created_dm: NodeApplyResultList | None = None
-        node_ref = NodeReference(space=dev_space, external_id=ts.external_id)
+        node_ref = NodeId(space=dev_space, external_id=ts.external_id)
         try:
             created = client.time_series.create(ts)
             client.time_series.data.insert(datapoints, external_id=ts.external_id)
@@ -96,7 +96,7 @@ class TestExtendedTimeSeriesAPI:
         )
         created: TimeSeries | None = None
         created_dm: NodeApplyResultList | None = None
-        node_ref = NodeReference(space=space, external_id=ts.external_id)
+        node_ref = NodeId(space=space, external_id=ts.external_id)
         try:
             created = client.time_series.create(ts)
             updated_list = client.tool.timeseries.set_pending_ids(

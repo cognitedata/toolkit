@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import RelationshipYAML
+from cognite_toolkit._cdf_tk.yaml_classes import RelationshipYAML
 
 from .classic import AssetCRUD, EventCRUD, SequenceCRUD
 from .data_organization import DataSetsCRUD, LabelCRUD
