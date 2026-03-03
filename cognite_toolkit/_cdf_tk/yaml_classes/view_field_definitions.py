@@ -6,6 +6,7 @@ from typing import Any, ClassVar, Literal, cast
 from pydantic import Field, ModelWrapValidatorHandler, model_serializer, model_validator
 from pydantic_core.core_schema import SerializerFunctionWrapHandler
 
+from cognite_toolkit._cdf_tk.client import identifiers
 from cognite_toolkit._cdf_tk.constants import (
     CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN,
     DM_EXTERNAL_ID_PATTERN,
@@ -44,6 +45,10 @@ class ViewReference(BaseModelResource, populate_by_name=True):
         max_length=43,
         pattern=DM_VERSION_PATTERN,
     )
+
+    def as_id(self) -> identifiers.ViewId:
+        """Converts the reference to a ViewId identifier."""
+        return identifiers.ViewId(space=self.space, external_id=self.external_id, version=self.version)
 
 
 class DirectRelationReference(BaseModelResource):
