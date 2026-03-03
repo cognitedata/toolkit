@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast, final
 
 import pandas as pd
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import FileMetadataWrite
-from cognite.client.data_classes.data_modeling import NodeId
 
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
@@ -123,7 +123,7 @@ class FileCRUD(DataCRUD):
                 if isinstance(identifier, ExternalId):
                     identifier = identifier.external_id
                 elif isinstance(identifier, NodeReference):
-                    identifier = NodeId(identifier.space, identifier.external_id)
+                    identifier = dm.NodeId(identifier.space, identifier.external_id)
                 if dry_run:
                     yield f" Would upload file '{datafile!s}' to file with {id_name}={identifier!r}", 1
                 else:

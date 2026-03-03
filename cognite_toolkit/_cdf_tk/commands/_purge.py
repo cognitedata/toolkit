@@ -6,8 +6,9 @@ from functools import partial
 from typing import Any, Literal, cast
 
 import questionary
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import DataSetUpdate
-from cognite.client.data_classes.data_modeling import Edge, NodeId
+from cognite.client.data_classes.data_modeling import Edge
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._identifier import InstanceId
@@ -154,7 +155,7 @@ class NodesToDelete(ToDelete):
         def check_for_data(chunk: list[ResourceResponseProtocol]) -> list[JsonVal]:
             # We know that all node resources implement as_id
             node_ids = [
-                NodeId(space=item.space, external_id=item.external_id)  # type: ignore[attr-defined]
+                dm.NodeId(space=item.space, external_id=item.external_id)  # type: ignore[attr-defined]
                 for item in chunk
             ]
             found_ids: set[InstanceId] = set()
@@ -741,7 +742,7 @@ class PurgeCommand(ToolkitCommand):
     def _unlink_timeseries(
         instances: Sequence[InstanceId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
     ) -> list[InstanceId]:
-        node_ids = [instance for instance in instances if isinstance(instance, NodeId)]
+        node_ids = [instance for instance in instances if isinstance(instance, dm.NodeId)]
         if node_ids:
             timeseries = client.tool.timeseries.retrieve(
                 [
@@ -765,7 +766,7 @@ class PurgeCommand(ToolkitCommand):
     def _unlink_files(
         instances: Sequence[InstanceId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
     ) -> list[InstanceId]:
-        file_ids = [instance for instance in instances if isinstance(instance, NodeId)]
+        file_ids = [instance for instance in instances if isinstance(instance, dm.NodeId)]
         if file_ids:
             files = client.tool.filemetadata.retrieve(
                 [

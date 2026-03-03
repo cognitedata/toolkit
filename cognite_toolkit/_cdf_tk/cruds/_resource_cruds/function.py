@@ -5,6 +5,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Literal, cast, final
 
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes.capabilities import (
     AllScope,
@@ -14,7 +15,6 @@ from cognite.client.data_classes.capabilities import (
     FunctionsAcl,
     SessionsAcl,
 )
-from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
 from cognite.client.exceptions import CogniteAPIError
@@ -431,7 +431,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         self.client.tool.functions.delete(list(ids), ignore_unknown_ids=True)
         file_ids = {func.file_id for func in functions if func.file_id}
         files = self.client.files.retrieve_multiple(list(file_ids), ignore_unknown_ids=True)
-        dm_file_nodes: set[NodeId] = set()
+        dm_file_nodes: set[dm.NodeId] = set()
         classic_file_ids: set[int] = set()
         for file in files:
             if file.instance_id is not None:

@@ -2,8 +2,8 @@ from collections.abc import Iterable, Mapping, Sequence
 from types import MappingProxyType
 from typing import Any, ClassVar, Literal, cast
 
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes.aggregations import Count
-from cognite.client.data_classes.data_modeling import EdgeId, NodeId, ViewId
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk import constants
@@ -291,9 +291,9 @@ class InstanceIO(
         else:
             yield from (
                 [
-                    NodeId(space=instance.space, external_id=instance.external_id)
+                    dm.NodeId(space=instance.space, external_id=instance.external_id)
                     if instance.instance_type == "node"
-                    else EdgeId(space=instance.space, external_id=instance.external_id)
+                    else dm.EdgeId(space=instance.space, external_id=instance.external_id)
                     for instance in chunk.items
                 ]
                 for chunk in self.stream_data(selector, limit)
@@ -305,7 +305,7 @@ class InstanceIO(
         ):
             view_id = cast(SelectedView, selector.view)
             result = self.client.data_modeling.instances.aggregate(
-                view=ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
+                view=dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
                 aggregates=Count("externalId"),
                 instance_type=selector.instance_type,
                 space=selector.get_instance_spaces(),

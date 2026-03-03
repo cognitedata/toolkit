@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     Asset,
     AssetWrite,
@@ -32,7 +33,7 @@ from cognite.client.data_classes import (
     Workflow,
     WorkflowUpsert,
 )
-from cognite.client.data_classes.data_modeling import NodeId, Space
+from cognite.client.data_classes.data_modeling import Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply, CogniteTimeSeriesApply
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils import datetime_to_ms
@@ -48,7 +49,7 @@ from tests.test_integration.constants import RUN_UNIQUE_ID
 @pytest.fixture()
 def file_ts_nodes(
     toolkit_client: ToolkitClient, toolkit_space: Space
-) -> Iterable[tuple[tuple[NodeId, int], tuple[NodeId, int]]]:
+) -> Iterable[tuple[tuple[dm.NodeId, int], tuple[dm.NodeId, int]]]:
     client = toolkit_client
     file = CogniteFileApply(
         space=toolkit_space.space,
@@ -290,7 +291,7 @@ def cleanup_populated_dataset(client: ToolkitClient, populated: PopulatedDataSet
 class TestPurge:
     def test_purge_instances_with_unlink(
         self,
-        file_ts_nodes: tuple[tuple[NodeId, int], tuple[NodeId, int]],
+        file_ts_nodes: tuple[tuple[dm.NodeId, int], tuple[dm.NodeId, int]],
         toolkit_client: ToolkitClient,
         tmp_path: Path,
     ) -> None:

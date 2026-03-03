@@ -8,13 +8,14 @@ import pytest
 import requests
 import responses
 import respx
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes.capabilities import (
     DataModelInstancesAcl,
     DataModelsAcl,
     FilesAcl,
     TimeSeriesAcl,
 )
-from cognite.client.data_classes.data_modeling import NodeId, NodeList, Space
+from cognite.client.data_classes.data_modeling import NodeList, Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, CogniteTimeSeries
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.data_classes.files import FileMetadata
@@ -76,7 +77,7 @@ def cognite_files_2000_list() -> NodeList[CogniteFile]:
 @pytest.fixture()
 def timeseries_by_node_id(
     cognite_timeseries_2000_list: NodeList[CogniteTimeSeries],
-) -> dict[NodeId, dict[str, Any]]:
+) -> dict[dm.NodeId, dict[str, Any]]:
     result: dict[NodeId, dict[str, Any]] = {}
     for i, ts in enumerate(cognite_timeseries_2000_list):
         node_id = ts.as_id()
@@ -98,7 +99,7 @@ def timeseries_by_node_id(
 @pytest.fixture()
 def files_by_node_id(
     cognite_files_2000_list: NodeList[CogniteFile],
-) -> dict[NodeId, dict[str, Any]]:
+) -> dict[dm.NodeId, dict[str, Any]]:
     result: dict[NodeId, dict[str, Any]] = {}
     for i, file in enumerate(cognite_files_2000_list):
         node_id = file.as_id()
@@ -191,9 +192,9 @@ class TestPurgeInstances:
         purge_responses: responses.RequestsMock,
         respx_mock: respx.MockRouter,
         cognite_timeseries_2000_list: NodeList[CogniteTimeSeries],
-        timeseries_by_node_id: dict[NodeId, dict[str, Any]],
+        timeseries_by_node_id: dict[dm.NodeId, dict[str, Any]],
         cognite_files_2000_list: NodeList[CogniteFile],
-        files_by_node_id: dict[NodeId, dict[str, Any]],
+        files_by_node_id: dict[dm.NodeId, dict[str, Any]],
     ) -> None:
         config = purge_client.config
         rsps = purge_responses

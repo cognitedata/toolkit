@@ -39,7 +39,6 @@ from cognite.client.data_classes.data_modeling import (
     EdgeApply,
     EdgeApplyResult,
     EdgeApplyResultList,
-    EdgeId,
     EdgeList,
     InstancesApplyResult,
     InstancesDeleteResult,
@@ -48,7 +47,6 @@ from cognite.client.data_classes.data_modeling import (
     NodeApply,
     NodeApplyResult,
     NodeApplyResultList,
-    NodeId,
     Space,
     VersionedDataModelingId,
     View,
@@ -326,29 +324,29 @@ class ApprovalToolkitClient:
             return deleted
 
         def delete_instances(
-            nodes: NodeId | Sequence[NodeId] | tuple[str, str] | Sequence[tuple[str, str]] | None = None,
-            edges: EdgeId | Sequence[EdgeId] | tuple[str, str] | Sequence[tuple[str, str]] | None = None,
+            nodes: dm.NodeId | Sequence[dm.NodeId] | tuple[str, str] | Sequence[tuple[str, str]] | None = None,
+            edges: dm.EdgeId | Sequence[dm.EdgeId] | tuple[str, str] | Sequence[tuple[str, str]] | None = None,
         ) -> InstancesDeleteResult:
             deleted = []
-            if isinstance(nodes, NodeId):
+            if isinstance(nodes, dm.NodeId):
                 deleted.append(nodes.dump(camel_case=True, include_instance_type=True))
             elif isinstance(nodes, tuple):
-                deleted.append(NodeId(*nodes).dump(camel_case=True, include_instance_type=True))
-            elif isinstance(edges, EdgeId):
+                deleted.append(dm.NodeId(*nodes).dump(camel_case=True, include_instance_type=True))
+            elif isinstance(edges, dm.EdgeId):
                 deleted.append(edges.dump(camel_case=True, include_instance_type=True))
             elif isinstance(edges, tuple):
-                deleted.append(EdgeId(*edges).dump(camel_case=True, include_instance_type=True))
+                deleted.append(dm.EdgeId(*edges).dump(camel_case=True, include_instance_type=True))
             elif isinstance(nodes, Sequence):
                 deleted.extend(
                     [
-                        node.dump(camel_case=True, include_instance_type=True) if isinstance(node, NodeId) else node
+                        node.dump(camel_case=True, include_instance_type=True) if isinstance(node, dm.NodeId) else node
                         for node in nodes
                     ]
                 )
             elif isinstance(edges, Sequence):
                 deleted.extend(
                     [
-                        edge.dump(camel_case=True, include_instance_type=True) if isinstance(edge, EdgeId) else edge
+                        edge.dump(camel_case=True, include_instance_type=True) if isinstance(edge, dm.EdgeId) else edge
                         for edge in edges
                     ]
                 )
@@ -680,7 +678,7 @@ class ApprovalToolkitClient:
         def upload_file_content_path_files_api(
             path: str,
             external_id: str | None = None,
-            instance_id: NodeId | None = None,
+            instance_id: dm.NodeId | None = None,
         ) -> FileMetadata:
             return _upload_file_content_files_api(
                 calculate_hash(Path(path), shorten=True), external_id=external_id, instance_id=instance_id

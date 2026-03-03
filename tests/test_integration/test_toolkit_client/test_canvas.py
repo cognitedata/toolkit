@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 
 import pytest
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import EventList, EventWrite, EventWriteList
-from cognite.client.data_classes.data_modeling import EdgeId, NodeId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
@@ -102,7 +102,7 @@ class TestIndustrialCanvasAPI:
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient, three_events: EventList) -> None:
         canvas = create_canvas(three_events)
 
-        deleted: list[NodeId | EdgeId] | None = None
+        deleted: list[dm.NodeId | dm.EdgeId] | None = None
         try:
             created = toolkit_client.canvas.industrial.create(canvas)
             assert set(created.as_ids()) == set(canvas.as_instance_ids(include_solution_tags=True))

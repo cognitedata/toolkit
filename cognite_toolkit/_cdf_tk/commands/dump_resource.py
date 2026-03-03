@@ -14,7 +14,6 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     filters,
 )
-from cognite.client.data_classes.data_modeling import ViewId
 from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.functions import (
     Function,
@@ -488,7 +487,7 @@ class NodeFinder(ResourceFinder[ViewReferenceNoVersion]):
         loader = NodeCRUD(self.client, None, None, view_id)
         if self.is_interactive:
             count = self.client.data_modeling.instances.aggregate(
-                ViewId(
+                dm.ViewId(
                     self.identifier.space,
                     self.identifier.external_id,
                     self.identifier.version if isinstance(self.identifier, ViewReference) else None,

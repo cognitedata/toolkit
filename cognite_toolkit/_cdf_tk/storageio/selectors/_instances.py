@@ -3,7 +3,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Literal
 
-from cognite.client.data_classes.data_modeling import EdgeId, NodeId
+from cognite.client import data_modeling as dm
 from cognite.client.utils._identifier import InstanceId
 from pydantic import Field
 
@@ -120,14 +120,14 @@ class InstanceFileSelector(InstanceSelector):
         ]
 
     @cached_property
-    def _ids_by_type(self) -> tuple[list[NodeId], list[EdgeId]]:
-        node_ids: list[NodeId] = []
-        edge_ids: list[EdgeId] = []
+    def _ids_by_type(self) -> tuple[list[dm.NodeId], list[dm.EdgeId]]:
+        node_ids: list[dm.NodeId] = []
+        edge_ids: list[dm.EdgeId] = []
         for instance in self.items:
             if instance.instance_type == "node":
-                node_ids.append(NodeId(instance.space, instance.external_id))
+                node_ids.append(dm.NodeId(instance.space, instance.external_id))
             else:
-                edge_ids.append(EdgeId(instance.space, instance.external_id))
+                edge_ids.append(dm.EdgeId(instance.space, instance.external_id))
         return node_ids, edge_ids
 
     @property
@@ -136,11 +136,11 @@ class InstanceFileSelector(InstanceSelector):
         return [*node_ids, *edge_ids]
 
     @property
-    def node_ids(self) -> list[NodeId]:
+    def node_ids(self) -> list[dm.NodeId]:
         return self._ids_by_type[0]
 
     @property
-    def edge_ids(self) -> list[EdgeId]:
+    def edge_ids(self) -> list[dm.EdgeId]:
         return self._ids_by_type[1]
 
     def get_schema_spaces(self) -> list[str] | None:

@@ -3,11 +3,10 @@ from typing import Any, ClassVar
 from unittest.mock import MagicMock
 
 import pytest
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes.data_modeling import (
     InstanceApply,
-    NodeId,
     NodeList,
-    ViewId,
 )
 
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
@@ -243,7 +242,7 @@ class TestThreeDAssetMapper:
                     assetId=37,
                     **DEFAULTS,
                 ),
-                NodeId(space="my_space", external_id="asset_2"),
+                dm.NodeId(space="my_space", external_id="asset_2"),
                 AssetMappingDMRequest(
                     nodeId=5678,
                     assetInstanceId=NodeReference(space="my_space", externalId="asset_2"),
@@ -275,7 +274,7 @@ class TestThreeDAssetMapper:
     def test_map_chunk(
         self,
         response: AssetMappingClassicResponse,
-        lookup_asset: NodeId | None,
+        lookup_asset: dm.NodeId | None,
         expected: AssetMappingDMRequest | str,
     ) -> None:
         with monkeypatch_toolkit_client() as client:
@@ -309,20 +308,20 @@ class TestCanvasMapper:
         input_canvas_path = MIGRATION_DIR / "canvas" / "annotated_canvas.yaml"
         input_canvas = IndustrialCanvas.load(input_canvas_path.read_text(encoding="utf-8"))
         with monkeypatch_toolkit_client() as client:
-            client.migration.lookup.assets.return_value = NodeId(space="my_space", external_id="asset_1")
-            client.migration.lookup.events.return_value = NodeId(space="my_space", external_id="event_1")
-            client.migration.lookup.files.return_value = NodeId(space="my_space", external_id="file_1")
-            client.migration.lookup.time_series.return_value = NodeId(space="my_space", external_id="timeseries_1")
-            client.migration.lookup.assets.consumer_view.return_value = ViewId(
+            client.migration.lookup.assets.return_value = dm.NodeId(space="my_space", external_id="asset_1")
+            client.migration.lookup.events.return_value = dm.NodeId(space="my_space", external_id="event_1")
+            client.migration.lookup.files.return_value = dm.NodeId(space="my_space", external_id="file_1")
+            client.migration.lookup.time_series.return_value = dm.NodeId(space="my_space", external_id="timeseries_1")
+            client.migration.lookup.assets.consumer_view.return_value = dm.ViewId(
                 space="cdm_cdm", external_id="CogniteAsset", version="v1"
             )
-            client.migration.lookup.events.consumer_view.return_value = ViewId(
+            client.migration.lookup.events.consumer_view.return_value = dm.ViewId(
                 space="cdf_cdm", external_id="CogniteActivity", version="v1"
             )
-            client.migration.lookup.files.consumer_view.return_value = ViewId(
+            client.migration.lookup.files.consumer_view.return_value = dm.ViewId(
                 space="cdf_cdm", external_id="CogniteFile", version="v1"
             )
-            client.migration.lookup.time_series.consumer_view.return_value = ViewId(
+            client.migration.lookup.time_series.consumer_view.return_value = dm.ViewId(
                 space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
             )
 
