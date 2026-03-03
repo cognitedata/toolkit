@@ -682,6 +682,15 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         }
         self._destination_by_view_id: dict[ViewReference, ViewResponse] = {}
 
+    def prepare(self, source_selector: InstanceViewSelector) -> None:
+        view_ids = set(mapping.source_view for mapping in self._mappings_by_view_id.values()) | set(
+            mapping.destination_view for mapping in self._mappings_by_view_id.values()
+        )
+        views = self.client.tool.views.retrieve(list(view_ids))
+        for view in views:
+            self._destination_by_view_id[view.as_id()] = view
+            self._source_by_view_id[view.as_id()] = ConversionSourceView(view.properties or {})
+
     def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
         self._populate_cache(source)
         nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)

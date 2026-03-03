@@ -460,14 +460,16 @@ class TestFDMtoCDMMapper:
             ),
         },
     )
+    SOURCE_VIEW_ID = SOURCE_VIEW.as_id()
+    DESTINATION_VIEW_ID = DESTINATION_VIEW.as_id()
     SOURCE_SPACE = "source_space"
     TARGET_SPACE = "target_space"
     SPACE_MAPPING: Mapping[str, str] = {SOURCE_SPACE: TARGET_SPACE}
     VIEW_MAPPINGS: Sequence[ViewToViewMapping] = [
         ViewToViewMapping(
             external_id="mapping_1",
-            source_view=SOURCE_VIEW.as_id(),
-            destination_view=DESTINATION_VIEW.as_id(),
+            source_view=SOURCE_VIEW_ID,
+            destination_view=DESTINATION_VIEW_ID,
             property_mapping={
                 # Edge to edge
                 "sourceEdge1": "targetEdge1",
@@ -495,27 +497,34 @@ class TestFDMtoCDMMapper:
                     NodeResponse(
                         space=SOURCE_SPACE,
                         external_id="node1",
-                        last_updated_time=1772522715,
+                        last_updated_time=1772522715000,
                         created_time=0,
                         version=1,
+                        properties={SOURCE_VIEW_ID: {"textProp": "37"}},
                     )
                 ],
                 [
                     NodeRequest(
                         space=TARGET_SPACE,
                         external_id="node1",
-                        sources=[InstanceSource(source=DESTINATION_VIEW.as_id(), properties={"targetTimestamp": ""})],
+                        sources=[
+                            InstanceSource(
+                                source=DESTINATION_VIEW_ID,
+                                properties={"targetTimestamp": "2026-03-03T07:25:15+00:00", "targetInt": 37},
+                            )
+                        ],
                     )
                 ],
-                id="Map node property to container property with type change",
+                id="Node.property mapped to container property and type change.",
             ),
         ],
     )
     def test_map_fdm_to_cdm(self, instances: Sequence[InstanceResponse], expected: Sequence[InstanceRequest]):
         with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [self.SOURCE_VIEW, self.DESTINATION_VIEW]
+
             mapper = FDMtoCDMMapper(client, self.SPACE_MAPPING, self.VIEW_MAPPINGS)
-            logger = MagicMock(spec=DataLogger)
-            mapper.logger = logger
+            mapper.prepare(MagicMock())
 
             actual = mapper.map(instances)
             assert [item.dump() for item in actual] == [item.dump() for item in expected]
