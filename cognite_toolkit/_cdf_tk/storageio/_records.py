@@ -30,7 +30,7 @@ class RecordIO(UploadableStorageIO[RecordContainerSelector, RecordResponse, Reco
     SYNC_ENDPOINT = "/streams/{streamId}/records/sync"
     # TODO: Replace with adaptive limit that targets ~3MB uncompressed response size
     CHUNK_SIZE = 500
-    MAX_TOTAL_RECORDS = 1_000_000
+    MAX_TOTAL_RECORDS = 5_000_000
     BASE_SELECTOR = RecordContainerSelector
 
     def as_id(self, item: RecordResponse) -> str:

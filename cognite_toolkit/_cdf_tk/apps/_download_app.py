@@ -1313,7 +1313,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--limit",
                 "-l",
-                help="The maximum number of records to download per container. Use -1 to download up to the maximum of 1,000,000.",
+                help=f"The maximum number of records to download per container. Use -1 to download up to the maximum of {RecordIO.MAX_TOTAL_RECORDS} records.",
                 max=RecordIO.MAX_TOTAL_RECORDS,
             ),
         ] = 100_000,
