@@ -742,15 +742,20 @@ class TransformationNotificationCRUD(
             for notifications in self.client.tool.transformations.notifications.iterate(limit=None):
                 yield from notifications
         else:
-            for parent_id in parent_ids:
-                if not isinstance(parent_id, ExternalId):
-                    continue
-                filter = TransformationNotificationFilter(transformation_external_id=parent_id.external_id)
-                for notifications in self.client.tool.transformations.notifications.iterate(limit=None, filter=filter):
-                    for notification in notifications:
-                        # This is not set by the API.
-                        notification.transformation_external_id = parent_id.external_id
-                        yield notification
+            parent_external_ids = [parent_id for parent_id in parent_ids if isinstance(parent_id, ExternalId)]
+            if parent_external_ids:
+                existing_parents = self.client.tool.transformations.retrieve(
+                    parent_external_ids, ignore_unknown_ids=True
+                )
+                for parent_id in existing_parents:
+                    filter = TransformationNotificationFilter(transformation_external_id=parent_id.external_id)
+                    for notifications in self.client.tool.transformations.notifications.iterate(
+                        limit=None, filter=filter
+                    ):
+                        for notification in notifications:
+                            # This is not set by the API.
+                            notification.transformation_external_id = parent_id.external_id
+                            yield notification
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
