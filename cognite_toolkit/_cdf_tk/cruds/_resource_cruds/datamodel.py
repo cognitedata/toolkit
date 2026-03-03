@@ -588,15 +588,11 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
         dependencies: dict[type[ToolkitResource], set[Identifier]] = defaultdict(set)
         dependencies[SpaceYAML].add(SpaceId(space=resource.space))
         for implement in resource.implements or []:
-            dependencies[ViewYAML].add(
-                ViewId(space=implement.space, external_id=implement.external_id, version=str(implement.version))
-            )
+            dependencies[ViewYAML].add(implement.as_id())
         if resource.properties:
             for prop in resource.properties.values():
                 if isinstance(prop, ContainerViewProperty):
-                    dependencies[ContainerYAML].add(
-                        ContainerId(space=prop.container.space, external_id=prop.container.external_id)
-                    )
+                    dependencies[ContainerYAML].add(prop.container.as_id())
         return dependencies
 
     @classmethod
