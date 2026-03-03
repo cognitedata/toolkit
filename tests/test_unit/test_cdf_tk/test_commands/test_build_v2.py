@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
-from cognite.client.data_classes.data_modeling import DataModelId
+from cognite.client import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
@@ -176,8 +176,8 @@ externalId: some_external_id
         assert len(source_files) == 1
         source_file = source_files[0]
         assert isinstance(source_file.loaded, dict)
-        actual = DataModelId.load(source_file.loaded["destination"]["dataModel"])
-        assert actual == DataModelId("my_space", "MyModel", "1_0_0")
+        actual = dm.DataModelId.load(source_file.loaded["destination"]["dataModel"])
+        assert actual == dm.DataModelId("my_space", "MyModel", "1_0_0")
 
     def test_track_module_build(self, tmp_path: Path) -> None:
         cmd = BuildCommand(print_warning=True, skip_tracking=True)

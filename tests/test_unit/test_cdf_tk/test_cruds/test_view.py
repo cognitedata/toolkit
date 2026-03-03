@@ -6,15 +6,15 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
+    ContainerId,
     ContainerPropertyDefinition,
-    ContainerReference,
     ContainerResponse,
     DirectNodeRelation,
     RequiresConstraintDefinition,
-    SpaceReference,
+    SpaceId,
     TextProperty,
     ViewCorePropertyResponse,
-    ViewReference,
+    ViewId,
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
@@ -128,8 +128,8 @@ class TestViewLoader:
                     },
                 },
                 [
-                    (SpaceCRUD, SpaceReference(space="sp_my_space")),
-                    (ContainerCRUD, ContainerReference(space="my_container_space", external_id="my_container")),
+                    (SpaceCRUD, SpaceId(space="sp_my_space")),
+                    (ContainerCRUD, ContainerId(space="my_container_space", external_id="my_container")),
                 ],
                 id="View with one container property",
             ),
@@ -154,9 +154,9 @@ class TestViewLoader:
                     },
                 },
                 [
-                    (SpaceCRUD, SpaceReference(space="sp_my_space")),
-                    (ViewCRUD, ViewReference(space="my_view_space", external_id="my_view", version="1")),
-                    (ViewCRUD, ViewReference(space="my_other_view_space", external_id="my_edge_view", version="42")),
+                    (SpaceCRUD, SpaceId(space="sp_my_space")),
+                    (ViewCRUD, ViewId(space="my_view_space", external_id="my_view", version="1")),
+                    (ViewCRUD, ViewId(space="my_other_view_space", external_id="my_edge_view", version="42")),
                 ],
                 id="View with one container property",
             ),
@@ -172,18 +172,18 @@ class TestViewLoader:
         [
             pytest.param(
                 [
-                    ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
-                    ViewReference(space="cdf_cdm", external_id="CogniteSourceable", version="v1"),
-                    ViewReference(space="cdf_cdm", external_id="CogniteSourceSystem", version="v1"),
+                    ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
+                    ViewId(space="cdf_cdm", external_id="CogniteSourceable", version="v1"),
+                    ViewId(space="cdf_cdm", external_id="CogniteSourceSystem", version="v1"),
                 ],
                 [
                     (
-                        ViewReference(space="cdf_cdm", external_id="CogniteSourceSystem", version="v1"),
-                        ViewReference(space="cdf_cdm", external_id="CogniteSourceable", version="v1"),
+                        ViewId(space="cdf_cdm", external_id="CogniteSourceSystem", version="v1"),
+                        ViewId(space="cdf_cdm", external_id="CogniteSourceable", version="v1"),
                     ),
                     (
-                        ViewReference(space="cdf_cdm", external_id="CogniteSourceable", version="v1"),
-                        ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
+                        ViewId(space="cdf_cdm", external_id="CogniteSourceable", version="v1"),
+                        ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
                     ),
                 ],
                 "Transitive chain: CogniteSourceSystem -> CogniteSourceable -> CogniteAsset",
@@ -191,19 +191,19 @@ class TestViewLoader:
             ),
             pytest.param(
                 [
-                    ViewReference(space="cdf_cdm", external_id="CogniteActivity", version="v1"),
-                    ViewReference(space="cdf_cdm", external_id="CogniteSourceable", version="v1"),
-                    ViewReference(space="cdf_cdm", external_id="CogniteSchedulable", version="v1"),
-                    ViewReference(space="cdf_cdm", external_id="CogniteSourceSystem", version="v1"),
+                    ViewId(space="cdf_cdm", external_id="CogniteActivity", version="v1"),
+                    ViewId(space="cdf_cdm", external_id="CogniteSourceable", version="v1"),
+                    ViewId(space="cdf_cdm", external_id="CogniteSchedulable", version="v1"),
+                    ViewId(space="cdf_cdm", external_id="CogniteSourceSystem", version="v1"),
                 ],
                 [
                     (
-                        ViewReference(space="cdf_cdm", external_id="CogniteSourceSystem", version="v1"),
-                        ViewReference(space="cdf_cdm", external_id="CogniteSourceable", version="v1"),
+                        ViewId(space="cdf_cdm", external_id="CogniteSourceSystem", version="v1"),
+                        ViewId(space="cdf_cdm", external_id="CogniteSourceable", version="v1"),
                     ),
                     (
-                        ViewReference(space="cdf_cdm", external_id="CogniteSchedulable", version="v1"),
-                        ViewReference(space="cdf_cdm", external_id="CogniteActivity", version="v1"),
+                        ViewId(space="cdf_cdm", external_id="CogniteSchedulable", version="v1"),
+                        ViewId(space="cdf_cdm", external_id="CogniteActivity", version="v1"),
                     ),
                 ],
                 "Multiple independent chains: (CogniteSourceSystem -> CogniteSourceable) and (CogniteSchedulable -> CogniteActivity)",
@@ -211,27 +211,27 @@ class TestViewLoader:
             ),
             pytest.param(
                 [
-                    ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
-                    ViewReference(space="cdf_cdm", external_id="CogniteAssetClass", version="v1"),
-                    ViewReference(space="cdf_cdm", external_id="CogniteAssetType", version="v1"),
-                    ViewReference(space="cdf_cdm", external_id="CogniteDescribable", version="v1"),
+                    ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
+                    ViewId(space="cdf_cdm", external_id="CogniteAssetClass", version="v1"),
+                    ViewId(space="cdf_cdm", external_id="CogniteAssetType", version="v1"),
+                    ViewId(space="cdf_cdm", external_id="CogniteDescribable", version="v1"),
                 ],
                 [
                     (
-                        ViewReference(space="cdf_cdm", external_id="CogniteDescribable", version="v1"),
-                        ViewReference(space="cdf_cdm", external_id="CogniteAssetType", version="v1"),
+                        ViewId(space="cdf_cdm", external_id="CogniteDescribable", version="v1"),
+                        ViewId(space="cdf_cdm", external_id="CogniteAssetType", version="v1"),
                     ),
                     (
-                        ViewReference(space="cdf_cdm", external_id="CogniteDescribable", version="v1"),
-                        ViewReference(space="cdf_cdm", external_id="CogniteAssetClass", version="v1"),
+                        ViewId(space="cdf_cdm", external_id="CogniteDescribable", version="v1"),
+                        ViewId(space="cdf_cdm", external_id="CogniteAssetClass", version="v1"),
                     ),
                     (
-                        ViewReference(space="cdf_cdm", external_id="CogniteAssetClass", version="v1"),
-                        ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
+                        ViewId(space="cdf_cdm", external_id="CogniteAssetClass", version="v1"),
+                        ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
                     ),
                     (
-                        ViewReference(space="cdf_cdm", external_id="CogniteAssetType", version="v1"),
-                        ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
+                        ViewId(space="cdf_cdm", external_id="CogniteAssetType", version="v1"),
+                        ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
                     ),
                 ],
                 "Diamond: CogniteDescribable -> CogniteAssetType/CogniteAssetClass -> CogniteAsset",
@@ -244,8 +244,8 @@ class TestViewLoader:
         toolkit_client_approval: ApprovalToolkitClient,
         cognite_core_no_3D: DataModelResponseWithViews,
         cognite_core_containers_no_3D: list[ContainerResponse],
-        view_ids: list[ViewReference],
-        ordering_constraints: list[tuple[ViewReference, ViewReference]],
+        view_ids: list[ViewId],
+        ordering_constraints: list[tuple[ViewId, ViewId]],
         test_description: str,
     ) -> None:
         """Test various dependency patterns: transitive chains, independent chains, and diamond dependencies."""
@@ -282,7 +282,7 @@ class TestViewLoader:
             "ContainerA",
             {
                 "refB": ContainerPropertyDefinition(
-                    type=DirectNodeRelation(container=ContainerReference(space="my_space", external_id="ContainerB")),
+                    type=DirectNodeRelation(container=ContainerId(space="my_space", external_id="ContainerB")),
                     nullable=True,
                     immutable=False,
                     auto_increment=False,
@@ -298,7 +298,7 @@ class TestViewLoader:
             },
             {
                 "requiresA": RequiresConstraintDefinition(
-                    require=ContainerReference(space="my_space", external_id="ContainerA")
+                    require=ContainerId(space="my_space", external_id="ContainerA")
                 ),
             },
         )
@@ -328,17 +328,17 @@ class TestViewLoader:
         "view_id,expected_readonly_props",
         [
             pytest.param(
-                ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
+                ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
                 {"pathLastUpdatedTime", "path", "root"},
                 id="CogniteAsset_has_readonly_properties",
             ),
             pytest.param(
-                ViewReference(space="cdf_cdm", external_id="CogniteFile", version="v1"),
+                ViewId(space="cdf_cdm", external_id="CogniteFile", version="v1"),
                 {"isUploaded", "uploadedTime"},
                 id="CogniteFile_has_readonly_properties",
             ),
             pytest.param(
-                ViewReference(space="cdf_cdm", external_id="CogniteSourceSystem", version="v1"),
+                ViewId(space="cdf_cdm", external_id="CogniteSourceSystem", version="v1"),
                 set(),
                 id="CogniteSourceSystem_no_readonly_properties",
             ),
@@ -348,7 +348,7 @@ class TestViewLoader:
         self,
         toolkit_client_approval: ApprovalToolkitClient,
         cognite_core_no_3D: DataModelResponseWithViews,
-        view_id: ViewReference,
+        view_id: ViewId,
         expected_readonly_props: set[str],
     ) -> None:
         """Test that get_readonly_properties identifies readonly properties from containers."""

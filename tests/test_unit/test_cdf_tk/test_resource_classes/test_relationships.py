@@ -4,9 +4,9 @@ from typing import Any
 
 import pytest
 
-from cognite_toolkit._cdf_tk.resource_classes.relationship import RelationshipYAML
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
+from cognite_toolkit._cdf_tk.yaml_classes.relationship import RelationshipYAML
 from tests.test_unit.utils import find_resources
 
 

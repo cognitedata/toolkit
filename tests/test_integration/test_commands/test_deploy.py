@@ -6,7 +6,7 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
-from cognite.client.data_classes.data_modeling import NodeId
+from cognite.client import data_modeling as dm
 from mypy.checkexpr import defaultdict
 from rich import print
 from rich.panel import Panel
@@ -147,7 +147,7 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
         worker = ResourceWorker(loader, "deploy")
         files = worker.load_files()
         resources = worker.prepare_resources(files, environment_variables=env_vars.dump())
-        if changed := (set(loader.get_ids(resources.to_update)) - {NodeId("sp_nodes", "MyExtendedFile")}):
+        if changed := (set(loader.get_ids(resources.to_update)) - {dm.NodeId("sp_nodes", "MyExtendedFile")}):
             # We do not have a way to get CogniteFile extensions. This is a workaround to avoid the test failing.
             changed_resources[loader.display_name] = changed
 

@@ -1,7 +1,7 @@
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
-from cognite_toolkit._cdf_tk.resource_classes.data_model import DataModelYAML
 from cognite_toolkit._cdf_tk.rules._base import ToolkitResourceRule
+from cognite_toolkit._cdf_tk.yaml_classes.data_model import DataModelYAML
 
 
 class DummyDataModelRule(ToolkitResourceRule[DataModelYAML]):

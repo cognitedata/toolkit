@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import
     DataProductVersionResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import DataProductVersionYAML
+from cognite_toolkit._cdf_tk.yaml_classes import DataProductVersionYAML
 
 from .data_product import DataProductCRUD
 from .datamodel import DataModelCRUD

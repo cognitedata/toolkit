@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import StreamYAML
+from cognite_toolkit._cdf_tk.yaml_classes import StreamYAML
 
 from .datamodel import ContainerCRUD
 

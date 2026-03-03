@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     NameId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (
     AddRemove,
     DatapointSubscriptionRequest,
@@ -32,11 +32,11 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.resource_classes import DatapointSubscriptionYAML, TimeSeriesYAML
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
+from cognite_toolkit._cdf_tk.yaml_classes import DatapointSubscriptionYAML, TimeSeriesYAML
 
 from .auth import GroupAllScopedCRUD, SecurityCategoryCRUD
 from .classic import AssetCRUD
@@ -411,8 +411,8 @@ class DatapointSubscriptionCRUD(
 
     @classmethod
     def _split_ts_instance_ids(
-        cls, ids: list[tuple[Literal["ts"], str] | tuple[Literal["instance"], NodeReference]]
-    ) -> tuple[list[str], list[NodeReference]]:
+        cls, ids: list[tuple[Literal["ts"], str] | tuple[Literal["instance"], NodeId]]
+    ) -> tuple[list[str], list[NodeId]]:
         ts_ids, instance_ids = [], []
         for id_type, identifier in ids:
             if id_type == "ts":
@@ -447,7 +447,7 @@ class DatapointSubscriptionCRUD(
 
         # Get current time series IDs from the subscription
         current_timeseries_ids: set[str] = set()
-        current_instance_ids: set[NodeReference] = set()
+        current_instance_ids: set[NodeId] = set()
         for ts in current_ts:
             if ts.external_id and ts.instance_id is None:
                 current_timeseries_ids.add(ts.external_id)

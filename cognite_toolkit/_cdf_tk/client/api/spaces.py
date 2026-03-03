@@ -8,7 +8,7 @@ from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference, SpaceRequest, SpaceResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId, SpaceRequest, SpaceResponse
 
 
 class SpacesAPI(CDFResourceAPI[SpaceResponse]):
@@ -42,7 +42,7 @@ class SpacesAPI(CDFResourceAPI[SpaceResponse]):
         """
         return self._request_item_response(items, "upsert")
 
-    def retrieve(self, items: Sequence[SpaceReference]) -> list[SpaceResponse]:
+    def retrieve(self, items: Sequence[SpaceId]) -> list[SpaceResponse]:
         """Retrieve spaces from CDF.
 
         Args:
@@ -53,7 +53,7 @@ class SpacesAPI(CDFResourceAPI[SpaceResponse]):
         """
         return self._request_item_response(items, method="retrieve")
 
-    def delete(self, items: Sequence[SpaceReference]) -> None:
+    def delete(self, items: Sequence[SpaceId]) -> None:
         """Delete spaces from CDF.
 
         Args:

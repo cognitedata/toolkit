@@ -38,7 +38,8 @@ GroupResponse:
       scope:
         tableScope:
           dbsToTables:
-            ingestion: []
+            ingestion:
+              tables: []
   - dataModelInstancesAcl:
       actions:
       - READ

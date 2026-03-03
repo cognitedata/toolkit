@@ -2,7 +2,7 @@ import pytest
 from cognite.client.data_classes.data_modeling import NodeApply, NodeApplyList, NodeList, NodeOrEdgeData, Space
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
     CreatedSourceSystem,
     InstanceSource,
@@ -89,7 +89,7 @@ class TestResourceViewMappingAPI:
         source = ResourceViewMappingRequest(
             external_id="test_view_source",
             resource_type="asset",
-            view_id=ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
+            view_id=ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
             property_mapping={
                 "name": "name",
                 "description": "description",

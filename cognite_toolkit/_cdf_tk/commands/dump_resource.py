@@ -14,7 +14,6 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     filters,
 )
-from cognite.client.data_classes.data_modeling import ViewId
 from cognite.client.data_classes.documents import SourceFileProperty
 from cognite.client.data_classes.functions import (
     Function,
@@ -31,19 +30,19 @@ from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     NameId,
-    ViewReference,
+    ViewId,
     WorkflowVersionId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter, StreamlitFilter, ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    ContainerReference,
-    DataModelReference,
-    DataModelReferenceNoVersion,
+    ContainerId,
+    DataModelId,
+    DataModelNoVersionId,
     DataModelResponse,
-    SpaceReference,
+    SpaceId,
     SpaceResponse,
-    ViewReferenceNoVersion,
+    ViewNoVersionId,
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
@@ -122,18 +121,18 @@ class ResourceFinder(Iterable, ABC, Generic[T_ID]):
     def update(self, resources: Sequence[ResourceResponseProtocol]) -> None: ...
 
 
-class DataModelFinder(ResourceFinder[DataModelReferenceNoVersion]):
+class DataModelFinder(ResourceFinder[DataModelNoVersionId]):
     def __init__(
-        self, client: ToolkitClient, identifier: DataModelReferenceNoVersion | None = None, include_global: bool = False
+        self, client: ToolkitClient, identifier: DataModelNoVersionId | None = None, include_global: bool = False
     ):
         super().__init__(client, identifier)
         self._include_global = include_global
         self.data_model: DataModelResponse | None = None
-        self.view_ids: set[ViewReference] = set()
-        self.container_ids: set[ContainerReference] = set()
-        self.space_ids: set[SpaceReference] = set()
+        self.view_ids: set[ViewId] = set()
+        self.container_ids: set[ContainerId] = set()
+        self.space_ids: set[SpaceId] = set()
 
-    def _interactive_select(self) -> DataModelReference:
+    def _interactive_select(self) -> DataModelId:
         all_models = self.client.tool.data_models.list(
             filter=DataModelFilter(all_versions=False, include_global=self._include_global)
         )
@@ -152,7 +151,7 @@ class DataModelFinder(ResourceFinder[DataModelReferenceNoVersion]):
             key=lambda model: (model.space, model.external_id, model.version),
         )
 
-        selected_data_model: DataModelReference = questionary.select(
+        selected_data_model: DataModelId = questionary.select(
             "Which data model would you like to dump?",
             [
                 Choice(f"{model_id!r}", value=model_id)
@@ -163,7 +162,7 @@ class DataModelFinder(ResourceFinder[DataModelReferenceNoVersion]):
         ).unsafe_ask()
 
         all_versions = self.client.tool.data_models.retrieve(
-            [DataModelReferenceNoVersion(space=selected_space, external_id=selected_data_model.external_id)]
+            [DataModelNoVersionId(space=selected_space, external_id=selected_data_model.external_id)]
         )
         retrieved_models = [m for m in all_versions if m.external_id == selected_data_model.external_id]
         if not retrieved_models:
@@ -207,7 +206,7 @@ class DataModelFinder(ResourceFinder[DataModelReferenceNoVersion]):
                     self.container_ids |= set(item.mapped_containers)
         elif isinstance(first, SpaceResponse):
             return
-        self.space_ids |= {SpaceReference(space=item.space) for item in resources if hasattr(item, "space")}
+        self.space_ids |= {SpaceId(space=item.space) for item in resources if hasattr(item, "space")}
 
     def __iter__(
         self,
@@ -445,12 +444,12 @@ class AgentFinder(ResourceFinder[tuple[str, ...]]):
             yield [ExternalId(external_id=external_id) for external_id in self.identifier], None, loader, None
 
 
-class NodeFinder(ResourceFinder[ViewReferenceNoVersion]):
-    def __init__(self, client: ToolkitClient, identifier: ViewReferenceNoVersion | None = None):
+class NodeFinder(ResourceFinder[ViewNoVersionId]):
+    def __init__(self, client: ToolkitClient, identifier: ViewNoVersionId | None = None):
         super().__init__(client, identifier)
         self.is_interactive = False
 
-    def _interactive_select(self) -> ViewReferenceNoVersion:
+    def _interactive_select(self) -> ViewNoVersionId:
         self.is_interactive = True
         spaces = self.client.tool.spaces.list(limit=None)
         if not spaces:
@@ -464,7 +463,7 @@ class NodeFinder(ResourceFinder[ViewReferenceNoVersion]):
             raise ToolkitMissingResourceError(f"No views found in {selected_space}")
         if len(views) == 1:
             return views[0].as_id()
-        selected_view_id: ViewReference = questionary.select(
+        selected_view_id: ViewId = questionary.select(
             "Which node property view would you like to dump?",
             [Choice(repr(view.as_id()), value=view.as_id()) for view in views],
         ).unsafe_ask()
@@ -476,7 +475,7 @@ class NodeFinder(ResourceFinder[ViewReferenceNoVersion]):
         self.identifier = self._selected()
         identifier = self._selected()
 
-        if isinstance(identifier, ViewReference):
+        if isinstance(identifier, ViewId):
             view_id = identifier
         else:
             # Find latest version of view.
@@ -488,10 +487,10 @@ class NodeFinder(ResourceFinder[ViewReferenceNoVersion]):
         loader = NodeCRUD(self.client, None, None, view_id)
         if self.is_interactive:
             count = self.client.data_modeling.instances.aggregate(
-                ViewId(
+                dm.ViewId(
                     self.identifier.space,
                     self.identifier.external_id,
-                    self.identifier.version if isinstance(self.identifier, ViewReference) else None,
+                    self.identifier.version if isinstance(self.identifier, ViewId) else None,
                 ),
                 dm.aggregations.Count("externalId"),
                 instance_type="node",
@@ -822,15 +821,15 @@ class SpaceFinder(ResourceFinder[tuple[str, ...]]):
     ) -> Iterator[tuple[Sequence[Hashable], Sequence[ResourceResponseProtocol] | None, ResourceCRUD, None | str]]:
         self.identifier = self._selected()
         loader = SpaceCRUD.create_loader(self.client)
-        yield [SpaceReference(space=space) for space in self.identifier], None, loader, None
+        yield [SpaceId(space=space) for space in self.identifier], None, loader, None
 
 
-class SearchConfigFinder(ResourceFinder[tuple[ViewReferenceNoVersion, ...]]):
-    def __init__(self, client: ToolkitClient, identifier: tuple[ViewReferenceNoVersion, ...] | None = None):
+class SearchConfigFinder(ResourceFinder[tuple[ViewNoVersionId, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[ViewNoVersionId, ...] | None = None):
         super().__init__(client, identifier)
         self.search_configs: list[SearchConfigResponse] | None = None
 
-    def _interactive_select(self) -> tuple[ViewReferenceNoVersion, ...]:
+    def _interactive_select(self) -> tuple[ViewNoVersionId, ...]:
         self.search_configs = self.client.tool.search_configurations.list()
         if not self.search_configs:
             raise ToolkitMissingResourceError("No search configurations found!")
@@ -838,7 +837,7 @@ class SearchConfigFinder(ResourceFinder[tuple[ViewReferenceNoVersion, ...]]):
             Choice(f"{config.view.external_id} {config.view.space}", value=config.view)
             for config in self.search_configs
         ]
-        selected_view_ids: list[ViewReferenceNoVersion] | None = questionary.checkbox(
+        selected_view_ids: list[ViewNoVersionId] | None = questionary.checkbox(
             "For which view would you like to dump the search configuration?",
             choices=choices,
             validate=lambda choices: True if choices else "You must select at least one view.",

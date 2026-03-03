@@ -3,7 +3,7 @@ from typing import Literal
 from pydantic import Field, JsonValue, field_serializer
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.identifiers import ViewReference
+from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 
 from ._instance import InstanceResponse
 
@@ -36,7 +36,7 @@ class QueryTargetUnit(BaseModelObject):
 class QueryThrough(BaseModelObject):
     """Traversal specification through a direct relation property on a view."""
 
-    source: ViewReference
+    source: ViewId
     identifier: str
 
 
@@ -87,12 +87,12 @@ class QueryEdgeExpression(QueryExpression):
 class QuerySelectSource(BaseModelObject):
     """Source selector specifying which view properties to return."""
 
-    source: ViewReference
+    source: ViewId
     properties: list[str]
     target_units: list[QueryTargetUnit] | None = None
 
     @field_serializer("source")
-    def include_type(self, source: ViewReference) -> dict[str, str]:
+    def include_type(self, source: ViewId) -> dict[str, str]:
         return {**source.dump(), "type": "view"}
 
 
