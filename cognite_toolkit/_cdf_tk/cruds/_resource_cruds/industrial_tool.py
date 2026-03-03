@@ -18,12 +18,12 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest, StreamlitResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.resource_classes import StreamlitYAML
 from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     safe_read,
 )
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash
+from cognite_toolkit._cdf_tk.yaml_classes import StreamlitYAML
 
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD

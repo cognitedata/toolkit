@@ -21,13 +21,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import (
+from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
+from cognite_toolkit._cdf_tk.yaml_classes import (
     InFieldCDMLocationConfigYAML,
     InfieldLocationConfigYAML,
     InfieldV1YAML,
 )
-from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
-from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 
 from .auth import GroupAllScopedCRUD
 from .classic import AssetCRUD

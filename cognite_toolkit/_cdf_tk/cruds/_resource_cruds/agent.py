@@ -7,9 +7,9 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.function import FunctionCRUD
-from cognite_toolkit._cdf_tk.resource_classes import AgentYAML
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
+from cognite_toolkit._cdf_tk.yaml_classes import AgentYAML
 
 
 class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):

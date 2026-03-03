@@ -23,11 +23,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import Sequen
 from cognite_toolkit._cdf_tk.constants import TABLE_FORMATS, YAML_SUFFIX
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.resource_classes import AssetYAML, EventYAML, SequenceRowYAML, SequenceYAML
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.utils.file import read_csv
+from cognite_toolkit._cdf_tk.yaml_classes import AssetYAML, EventYAML, SequenceRowYAML, SequenceYAML
 
 from .data_organization import DataSetsCRUD, LabelCRUD
 

@@ -9,9 +9,9 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReferenceNoVersion
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigRequest, SearchConfigResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import SearchConfigYAML
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.yaml_classes import SearchConfigYAML
 
 from .datamodel import ViewCRUD
 

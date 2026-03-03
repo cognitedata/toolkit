@@ -45,7 +45,6 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.resource_classes import ExtractionPipelineConfigYAML, ExtractionPipelineYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
 )
@@ -57,6 +56,7 @@ from cognite_toolkit._cdf_tk.utils import (
     stringify_value_by_key_in_yaml,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
+from cognite_toolkit._cdf_tk.yaml_classes import ExtractionPipelineConfigYAML, ExtractionPipelineYAML
 
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD

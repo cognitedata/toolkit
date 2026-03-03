@@ -19,14 +19,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotMapResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import (
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
+from cognite_toolkit._cdf_tk.yaml_classes import (
     RobotCapabilityYAML,
     RobotDataPostProcessingYAML,
     RobotFrameYAML,
     RobotLocationYAML,
     RobotMapYAML,
 )
-from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 
 class RoboticFrameCRUD(ResourceCRUD[ExternalId, RobotFrameRequest, RobotFrameResponse]):

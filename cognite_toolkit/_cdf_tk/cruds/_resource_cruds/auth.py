@@ -50,7 +50,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
-from cognite_toolkit._cdf_tk.resource_classes import GroupYAML, SecurityCategoriesYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     MediumSeverityWarning,
@@ -58,6 +57,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
+from cognite_toolkit._cdf_tk.yaml_classes import GroupYAML, SecurityCategoriesYAML
 
 
 @dataclass

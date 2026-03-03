@@ -80,15 +80,6 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import (
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.resource_classes import (
-    ContainerYAML,
-    DataModelYAML,
-    EdgeYAML,
-    GraphQLDataModelYAML,
-    NodeYAML,
-    SpaceYAML,
-    ViewYAML,
-)
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
@@ -101,6 +92,15 @@ from cognite_toolkit._cdf_tk.utils import (
     to_diff,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.yaml_classes import (
+    ContainerYAML,
+    DataModelYAML,
+    EdgeYAML,
+    GraphQLDataModelYAML,
+    NodeYAML,
+    SpaceYAML,
+    ViewYAML,
+)
 
 from .auth import GroupAllScopedCRUD
 
