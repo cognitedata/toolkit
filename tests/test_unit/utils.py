@@ -186,7 +186,7 @@ class FakeCogniteResourceGenerator:
         seed: int | None = None,
         cognite_client: CogniteClientMock | CogniteClient | None = None,
         max_list_dict_items: int = 3,
-        sample_from_string: str = string.ascii_uppercase + string.digits + string.ascii_lowercase + string.punctuation,
+        sample_from_string: str | None = None,
         min_string_length: int = 1,
         max_string_length: int = 100,
     ) -> None:
@@ -517,8 +517,13 @@ class FakeCogniteResourceGenerator:
         sample_from: str | None = None,
     ) -> str:
         k = size or self._random.randint(self._min_string_length, self._max_string_length)
-        sample_from = sample_from if sample_from is not None else self._sample_from_string
-        return "".join(self._random.choices(sample_from, k=k))
+        if self._sample_from_string is not None:
+            sample = self._sample_from_string
+        elif sample_from is not None:
+            sample = sample_from
+        else:
+            sample = string.ascii_uppercase + string.digits + string.ascii_lowercase + string.punctuation
+        return "".join(self._random.choices(sample, k=k))
 
     @staticmethod
     def _extract_str_constraints(metadata: list[Any]) -> dict[str, Any]:

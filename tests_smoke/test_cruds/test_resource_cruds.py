@@ -1,3 +1,4 @@
+import string
 from typing import get_args
 
 import pytest
@@ -21,14 +22,9 @@ class TestResourceCRUD:
         assert len(classes) == 3, f"{resource_io_cls} should have 3 generic parameters, but has {len(classes)}"
         identifier_cls: type[Identifier] = classes[0]
 
-        non_existing_id = FakeCogniteResourceGenerator(seed=37).create_instance(identifier_cls)
-        dumped = non_existing_id.dump()
-        if "space" in dumped:
-            # Space and externalId has very strict regex requirements, so we set it to a valid but non-existing value
-            dumped["space"] = "non_existing_space"
-            if "externalId" in dumped:
-                dumped["externalId"] = "non_existing_external_id"
-        non_existing_id = identifier_cls.model_validate(dumped)
+        non_existing_id = FakeCogniteResourceGenerator(
+            seed=37, sample_from_string=string.ascii_letters, min_string_length=3, max_string_length=20
+        ).create_instance(identifier_cls)
 
         resource_io = resource_io_cls.create_loader(toolkit_client)
 
