@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelRequest,
     InstanceSource,
     NodeRequest,
-    ViewReference,
+    ViewId,
     ViewRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import DatapointSubscriptionRequest
@@ -646,10 +646,7 @@ class TestDataModelLoader:
         my_model = DataModelRequest(
             name="My model",
             description="Original description",
-            views=[
-                ViewReference(space=view.space, external_id=view.external_id, version=view.version)
-                for view in two_views
-            ],
+            views=[ViewId(space=view.space, external_id=view.external_id, version=view.version) for view in two_views],
             space=toolkit_space.space,
             external_id=f"tmp_test_create_update_delete_data_model_{RUN_UNIQUE_ID}",
             version="1",
@@ -1064,7 +1061,7 @@ ignoreNullFields: true
 class TestNodeLoader:
     def test_update_existing_node(self, toolkit_client: ToolkitClient, toolkit_space: dm.Space) -> None:
         loader = NodeCRUD(toolkit_client, None)
-        view_id = ViewReference(space="cdf_cdm", external_id="CogniteDescribable", version="v1")
+        view_id = ViewId(space="cdf_cdm", external_id="CogniteDescribable", version="v1")
         existing_node = NodeRequest(
             space=toolkit_space.space,
             external_id=f"toolkit_test_update_existing_node_{RUN_UNIQUE_ID}",
@@ -1100,7 +1097,7 @@ class TestNodeLoader:
 
             retrieved = toolkit_client.tool.instances.retrieve(
                 [existing_node.as_id()],
-                source=ViewReference(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
+                source=ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
             )
             assert len(retrieved) == 1
             node = retrieved[0]

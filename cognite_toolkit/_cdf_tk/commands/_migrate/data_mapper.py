@@ -4,10 +4,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Generic, Literal, cast
 from uuid import uuid4
 
-from cognite.client.data_classes.data_modeling import (
-    NodeId,
-    ViewId,
-)
+from cognite.client import data_modeling as dm
 from cognite.client.exceptions import CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -23,10 +20,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceRequest,
     InstanceResponse,
     InstanceSource,
-    NodeReference,
+    NodeId,
     NodeRequest,
     NodeResponse,
-    ViewReference,
+    ViewId,
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
@@ -41,7 +38,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
-    AssetMappingDMRequest,
+    AssetMappingDMRequestId,
     RevisionStatus,
     ThreeDModelClassicResponse,
 )
@@ -119,13 +116,13 @@ class AssetCentricMapper(
 ):
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
-        self._ingestion_view_by_id: dict[ViewReference, ViewResponse] = {}
+        self._ingestion_view_by_id: dict[ViewId, ViewResponse] = {}
         self._view_mapping_by_id: dict[str, ResourceViewMappingRequest] = {}
         self._direct_relation_cache = DirectRelationCache(client)
 
     def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
         ingestion_view_ids = source_selector.get_ingestion_mappings()
-        node_ids = NodeReference.from_str_ids(ingestion_view_ids, space=RESOURCE_VIEW_MAPPING_SPACE)
+        node_ids = NodeId.from_str_ids(ingestion_view_ids, space=RESOURCE_VIEW_MAPPING_SPACE)
         ingestion_views = self.client.migration.resource_view_mapping.retrieve(node_ids)
         defaults = {mapping.external_id: mapping for mapping in create_default_mappings()}
         # Custom mappings from CDF override the default mappings
@@ -138,7 +135,7 @@ class AssetCentricMapper(
 
         view_ids = list(
             {
-                ViewReference(
+                ViewId(
                     space=mapping.view_id.space,
                     external_id=mapping.view_id.external_id,
                     version=mapping.view_id.version,
@@ -196,7 +193,7 @@ class AssetCentricMapper(
         ingestion_view = mapping.get_ingestion_view()
         try:
             view_source = self._view_mapping_by_id[ingestion_view]
-            view_ref = ViewReference(
+            view_ref = ViewId(
                 space=view_source.view_id.space,
                 external_id=view_source.view_id.external_id,
                 version=view_source.view_id.version,
@@ -301,12 +298,12 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         return timeseries_core_collection
 
     def _create_new_timeseries_core(
-        self, ts_item: ChartTimeseries, node_id: NodeReference, consumer_view_id: ViewReference | None
+        self, ts_item: ChartTimeseries, node_id: NodeId, consumer_view_id: ViewId | None
     ) -> ChartCoreTimeseries:
         dumped = ts_item.model_dump(mode="json", by_alias=True, exclude_unset=True)
-        dumped["nodeReference"] = NodeId(space=node_id.space, external_id=node_id.external_id)
+        dumped["nodeReference"] = dm.NodeId(space=node_id.space, external_id=node_id.external_id)
         dumped["viewReference"] = (
-            ViewId(
+            dm.ViewId(
                 space=consumer_view_id.space, external_id=consumer_view_id.external_id, version=consumer_view_id.version
             )
             if consumer_view_id
@@ -319,9 +316,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         core_timeseries = ChartCoreTimeseries.model_validate(dumped, extra="ignore")
         return core_timeseries
 
-    def _get_node_id_consumer_view_id(
-        self, ts_item: ChartTimeseries
-    ) -> tuple[NodeReference | None, ViewReference | None]:
+    def _get_node_id_consumer_view_id(self, ts_item: ChartTimeseries) -> tuple[NodeId | None, ViewId | None]:
         """Look up the node ID and consumer view ID for a given timeseries item.
 
         Prioritizes lookup by internal ID, then by external ID.
@@ -332,8 +327,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         Returns:
             A tuple containing the consumer view ID and node ID, or None if not found.
         """
-        node_id: NodeReference | None = None
-        consumer_view_id: ViewReference | None = None
+        node_id: NodeId | None = None
+        consumer_view_id: ViewId | None = None
         for id_name, id_value in [("id", ts_item.ts_id), ("external_id", ts_item.ts_external_id)]:
             if id_value is None:
                 continue
@@ -362,10 +357,10 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
 class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvasApply]):
     # Note sequences are not supported in Canvas, so we do not include them here.
     asset_centric_resource_types = tuple(("asset", "event", "timeseries", "file"))
-    DEFAULT_ASSET_VIEW = ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1")
-    DEFAULT_EVENT_VIEW = ViewReference(space="cdf_cdm", external_id="CogniteActivity", version="v1")
-    DEFAULT_FILE_VIEW = ViewReference(space="cdf_cdm", external_id="CogniteFile", version="v1")
-    DEFAULT_TIMESERIES_VIEW = ViewReference(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1")
+    DEFAULT_ASSET_VIEW = ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")
+    DEFAULT_EVENT_VIEW = ViewId(space="cdf_cdm", external_id="CogniteActivity", version="v1")
+    DEFAULT_FILE_VIEW = ViewId(space="cdf_cdm", external_id="CogniteFile", version="v1")
+    DEFAULT_TIMESERIES_VIEW = ViewId(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1")
 
     def __init__(self, client: ToolkitClient, dry_run: bool, skip_on_missing_ref: bool = False) -> None:
         super().__init__(client)
@@ -419,14 +414,14 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
             if ids:
                 lookup_method(list(ids))
 
-    def _get_node_id(self, resource_id: int, resource_type: str) -> NodeReference | None:
+    def _get_node_id(self, resource_id: int, resource_type: str) -> NodeId | None:
         """Look up the node ID for a given resource ID and type."""
         try:
             return self.lookup_methods[resource_type](resource_id)
         except KeyError:
             raise ToolkitValueError(f"Unsupported resource type '{resource_type}' for container reference migration.")
 
-    def _get_consumer_view_id(self, resource_id: int, resource_type: str) -> ViewReference:
+    def _get_consumer_view_id(self, resource_id: int, resource_type: str) -> ViewId:
         """Look up the consumer view ID for a given resource ID and type."""
         lookup_map = {
             "asset": (self.client.migration.lookup.assets.consumer_view, self.DEFAULT_ASSET_VIEW),
@@ -486,8 +481,8 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
         cls,
         reference: ContainerReferenceApply,
         canvas_external_id: str,
-        instance_id: NodeReference,
-        consumer_view: ViewReference,
+        instance_id: NodeId,
+        consumer_view: ViewId,
         uuid_generator: dict[str, str],
     ) -> FdmInstanceContainerReferenceApply:
         """Migrate a single container reference by replacing the asset-centric ID with the data model instance ID."""
@@ -581,7 +576,7 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeD
                 type=model_type,
                 revision_id=last_revision_id,
                 model=Model(
-                    instance_id=NodeReference(
+                    instance_id=NodeId(
                         space=instance_space,
                         external_id=f"cog_3d_model_{item.id!s}",
                     )
@@ -601,9 +596,9 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeD
             return None
 
 
-class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequest]):
-    def map(self, source: Sequence[AssetMappingClassicResponse]) -> Sequence[AssetMappingDMRequest | None]:
-        output: list[AssetMappingDMRequest | None] = []
+class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, AssetMappingDMRequestId]):
+    def map(self, source: Sequence[AssetMappingClassicResponse]) -> Sequence[AssetMappingDMRequestId | None]:
+        output: list[AssetMappingDMRequestId | None] = []
         issues: list[ThreeDModelMigrationIssue] = []
         self._populate_cache(source)
         for item in source:
@@ -634,7 +629,7 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, 
 
     def _map_single_item(
         self, item: AssetMappingClassicResponse
-    ) -> tuple[AssetMappingDMRequest | None, ThreeDModelMigrationIssue]:
+    ) -> tuple[AssetMappingDMRequestId | None, ThreeDModelMigrationIssue]:
         issue = ThreeDModelMigrationIssue(
             model_name=f"AssetMapping_{item.model_id}", model_id=item.model_id, id=f"AssetMapping_{item.model_id}"
         )
@@ -644,12 +639,12 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, 
             if asset_node_id is None:
                 issue.error_message.append(f"Missing asset instance for asset ID {item.asset_id!r}")
                 return None, issue
-            asset_instance_id = NodeReference(space=asset_node_id.space, external_id=asset_node_id.external_id)
+            asset_instance_id = NodeId(space=asset_node_id.space, external_id=asset_node_id.external_id)
 
         if asset_instance_id is None:
             issue.error_message.append("Neither assetInstanceId nor assetId provided for mapping.")
             return None, issue
-        mapped_request = AssetMappingDMRequest(
+        mapped_request = AssetMappingDMRequestId(
             model_id=item.model_id,
             revision_id=item.revision_id,
             node_id=item.node_id,
@@ -676,11 +671,11 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         super().__init__(client)
         self.space_mapping = space_mapping
         self._direct_relation_cache = TimeSeriesFilesReferenceCache(client)
-        self._source_by_view_id: dict[ViewReference, ConversionSourceView] = {}
-        self._mappings_by_view_id: dict[ViewReference, ViewToViewMapping] = {
+        self._source_by_view_id: dict[ViewId, ConversionSourceView] = {}
+        self._mappings_by_view_id: dict[ViewId, ViewToViewMapping] = {
             mapping.source_view: mapping for mapping in mappings
         }
-        self._destination_by_view_id: dict[ViewReference, ViewResponse] = {}
+        self._destination_by_view_id: dict[ViewId, ViewResponse] = {}
 
     def prepare(self, source_selector: InstanceViewSelector) -> None:
         view_ids = set(mapping.source_view for mapping in self._mappings_by_view_id.values()) | set(
@@ -722,11 +717,11 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         self, source: Sequence[NodeResponse | EdgeResponse]
     ) -> tuple[
         list[NodeResponse],
-        dict[NodeReference, dict[tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]]],
+        dict[NodeId, dict[tuple[NodeId, Literal["outwards", "inwards"]], list[NodeId]]],
     ]:
         nodes: list[NodeResponse] = []
         other_side_by_edge_type_and_direction_by_source: dict[
-            NodeReference, dict[tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]]
+            NodeId, dict[tuple[NodeId, Literal["outwards", "inwards"]], list[NodeId]]
         ] = defaultdict(lambda: defaultdict(list))
         for item in source:
             if isinstance(item, NodeResponse):
@@ -734,20 +729,17 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
             elif isinstance(item, EdgeResponse):
                 if end_space := self.space_mapping.get(item.end_node.space):
                     other_side_by_edge_type_and_direction_by_source[item.start_node][(item.type, "outwards")].append(
-                        NodeReference(space=end_space, external_id=item.end_node.external_id)
+                        NodeId(space=end_space, external_id=item.end_node.external_id)
                     )
                 if start_space := self.space_mapping.get(item.start_node.space):
                     other_side_by_edge_type_and_direction_by_source[item.end_node][(item.type, "inwards")].append(
-                        NodeReference(space=start_space, external_id=item.start_node.external_id)
+                        NodeId(space=start_space, external_id=item.start_node.external_id)
                     )
         return nodes, other_side_by_edge_type_and_direction_by_source
 
     def _populate_cache(self, source: Sequence[InstanceResponse]) -> None:
         unique_views = {
-            view_id
-            for node in source
-            for view_id in (node.properties or {}).keys()
-            if isinstance(view_id, ViewReference)
+            view_id for node in source for view_id in (node.properties or {}).keys() if isinstance(view_id, ViewId)
         }
         missing_views = unique_views - set(self._source_by_view_id.keys())
         if missing_views:
@@ -766,7 +758,7 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         file_ref_ids: list[str] = []
         for node in source:
             for view_id, properties in (node.properties or {}).items():
-                if not isinstance(view_id, ViewReference):
+                if not isinstance(view_id, ViewId):
                     continue
                 source_view = self._source_by_view_id.get(view_id)
                 if source_view is None:
@@ -787,12 +779,10 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
     def _map_single_node(
         self,
         node: NodeResponse,
-        other_side_by_edge_type_and_direction: dict[
-            tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]
-        ],
+        other_side_by_edge_type_and_direction: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[NodeId]],
         target_space: str,
     ) -> tuple[NodeRequest, list[EdgeRequest], InstanceConversionIssue]:
-        new_id = NodeReference(space=target_space, external_id=node.external_id)
+        new_id = NodeId(space=target_space, external_id=node.external_id)
         sources, new_edges, issue = self._create_instance_data(new_id, node, other_side_by_edge_type_and_direction)
 
         return (
@@ -803,17 +793,15 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
 
     def _create_instance_data(
         self,
-        new_id: NodeReference,
+        new_id: NodeId,
         node: NodeResponse,
-        other_side_by_edge_type_and_direction: dict[
-            tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]
-        ],
+        other_side_by_edge_type_and_direction: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[NodeId]],
     ) -> tuple[list[InstanceSource], list[EdgeRequest], InstanceConversionIssue]:
         new_edges: list[EdgeRequest] = []
         sources: list[InstanceSource] = []
         issue = InstanceConversionIssue(id=str(new_id))
         for view_id, source_properties in (node.properties or {}).items():
-            if not isinstance(view_id, ViewReference):
+            if not isinstance(view_id, ViewId):
                 issue.errors.append(
                     f"Migration of ContainerReferenced properties is not supported. Found property with non-view ID '{view_id}' on node '{node.as_id()}'."
                 )

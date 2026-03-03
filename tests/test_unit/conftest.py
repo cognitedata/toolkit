@@ -16,7 +16,7 @@ from cognite.client.data_classes.data_modeling import NodeList
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewReference, ViewResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewId, ViewResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource
@@ -418,7 +418,7 @@ def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[InstanceSource]]:
                 created_time=1,
                 resource_type="asset",
                 id_=3840956528416998,
-                preferred_consumer_view_id=ViewReference(space="my_space", external_id="DoctrinoAsset", version="v1"),
+                preferred_consumer_view_id=ViewId(space="my_space", external_id="DoctrinoAsset", version="v1"),
             ),
             InstanceSource(
                 space="MyNewInstanceSpace",
@@ -428,9 +428,7 @@ def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[InstanceSource]]:
                 created_time=1,
                 resource_type="timeseries",
                 id_=11978459264156,
-                preferred_consumer_view_id=ViewReference(
-                    space="my_space", external_id="DoctrinoTimeSeries", version="v1"
-                ),
+                preferred_consumer_view_id=ViewId(space="my_space", external_id="DoctrinoTimeSeries", version="v1"),
             ),
             InstanceSource(
                 space="MyNewInstanceSpace",

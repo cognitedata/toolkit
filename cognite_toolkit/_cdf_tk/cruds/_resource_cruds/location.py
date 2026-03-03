@@ -7,9 +7,9 @@ from cognite.client.data_classes.capabilities import Capability, LocationFilters
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    DataModelReference,
-    SpaceReference,
-    ViewReference,
+    DataModelId,
+    SpaceId,
+    ViewId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
@@ -18,9 +18,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError, ToolkitCycleError
-from cognite_toolkit._cdf_tk.resource_classes import LocationYAML
 from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.yaml_classes import LocationYAML
 
 from .classic import AssetCRUD, SequenceCRUD
 from .data_organization import DataSetsCRUD
@@ -250,15 +250,15 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
             if in_dict(["space", "externalId", "version"], view):
                 yield (
                     ViewCRUD,
-                    ViewReference(space=view["space"], external_id=view["externalId"], version=view["version"]),
+                    ViewId(space=view["space"], external_id=view["externalId"], version=view["version"]),
                 )
         for space in item.get("instanceSpaces", []):
-            yield SpaceCRUD, SpaceReference(space=space)
+            yield SpaceCRUD, SpaceId(space=space)
         for data_model in item.get("dataModels", []):
             if in_dict(["space", "externalId", "version"], data_model):
                 yield (
                     DataModelCRUD,
-                    DataModelReference(
+                    DataModelId(
                         space=data_model["space"], external_id=data_model["externalId"], version=data_model["version"]
                     ),
                 )

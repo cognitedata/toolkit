@@ -9,7 +9,7 @@ from cognite.client import data_modeling as dm
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import NameId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerReference, ContainerRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId, ContainerRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicRequest,
     ThreeDModelClassicResponse,
@@ -99,7 +99,7 @@ class TestContainerLoader:
             external_id=f"test_create_populate_count_drop_data{RUN_UNIQUE_ID}",
             sources=[dm.NodeOrEdgeData(source=node_container.as_id(), properties={"name": "Anders"})],
         )
-        container_id = [ContainerReference(space=node_container.space, external_id=node_container.external_id)]
+        container_id = [ContainerId(space=node_container.space, external_id=node_container.external_id)]
 
         loader = ContainerCRUD(toolkit_client, None)
 
@@ -154,7 +154,7 @@ class TestContainerLoader:
             end_node=(nodes[1].space, nodes[1].external_id),
             sources=[dm.NodeOrEdgeData(source=edge_container.as_id(), properties={"name": "Anders"})],
         )
-        container_id = [ContainerReference(space=edge_container.space, external_id=edge_container.external_id)]
+        container_id = [ContainerId(space=edge_container.space, external_id=edge_container.external_id)]
 
         loader = ContainerCRUD(toolkit_client, None)
 

@@ -1,7 +1,7 @@
 import pytest
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataModelReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataModelId
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     AssetCentricFilter,
     AssetCentricSubFilter,
@@ -45,7 +45,7 @@ class TestLocationFilterLoader:
         assert exhaustive_filter.external_id == "unique-external-id-123"
 
     def test_load_filter_write_data_models(self, exhaustive_filter: LocationFilterRequest) -> None:
-        assert isinstance(exhaustive_filter.data_models[0], DataModelReference)
+        assert isinstance(exhaustive_filter.data_models[0], DataModelId)
         assert exhaustive_filter.data_models[0].external_id == "data-model-id-456"
 
     def test_load_filter_write_instance_spaces(self, exhaustive_filter: LocationFilterRequest) -> None:

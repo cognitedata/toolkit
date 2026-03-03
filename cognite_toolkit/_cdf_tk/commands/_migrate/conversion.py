@@ -11,16 +11,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.annotation import Annotatio
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DirectNodeRelation,
+    EdgeId,
     EdgeProperty,
-    EdgeReference,
     EdgeRequest,
     FileCDFExternalIdReference,
     InstanceSource,
-    NodeReference,
+    NodeId,
     NodeRequest,
     TimeseriesCDFExternalIdReference,
     ViewCorePropertyResponse,
-    ViewReference,
+    ViewId,
     ViewResponseProperty,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
@@ -77,7 +77,7 @@ class DirectRelationCache:
 
     def __init__(self, client: ToolkitClient) -> None:
         self._client = client
-        self._cache_map: dict[tuple[str, str] | str, dict[str, NodeReference] | dict[int, NodeReference]] = {}
+        self._cache_map: dict[tuple[str, str] | str, dict[str, NodeId] | dict[int, NodeId]] = {}
         # Constructing the cache map to be accessed by both table name and property id
         for table_name, properties in [
             (self.TableName.ASSET_ID, self.ASSET_ID_PROPERTIES),
@@ -86,7 +86,7 @@ class DirectRelationCache:
             (self.TableName.ASSET_EXTERNAL_ID, self.ASSET_EXTERNAL_ID_PROPERTIES),
             (self.TableName.FILE_EXTERNAL_ID, self.FILE_EXTERNAL_ID_PROPERTIES),
         ]:
-            cache: dict[str, NodeReference] | dict[int, NodeReference] = {}
+            cache: dict[str, NodeId] | dict[int, NodeId] = {}
             self._cache_map[table_name] = cache
             for key in properties:
                 self._cache_map[key] = cache
@@ -128,7 +128,7 @@ class DirectRelationCache:
             self._update_cache(self._client.migration.lookup.assets(id=list(asset_ids)), self.TableName.ASSET_ID)
         if source_ids:
             # SourceSystems are not cached in the client, so we have to handle the caching ourselves.
-            cache = cast(dict[str, NodeReference], self._cache_map[self.TableName.SOURCE_NAME])
+            cache = cast(dict[str, NodeId], self._cache_map[self.TableName.SOURCE_NAME])
             missing: dict[str, str] = {}
             for source_id in source_ids:
                 if source_id.casefold() not in cache:
@@ -174,27 +174,23 @@ class DirectRelationCache:
             elif isinstance(data.file_ref, ExternalId):
                 file_external_ids.add(data.file_ref.external_id)
 
-    def _update_cache(
-        self, instance_id_by_id: dict[int, NodeReference] | dict[str, NodeReference], table_name: str
-    ) -> None:
+    def _update_cache(self, instance_id_by_id: dict[int, NodeId] | dict[str, NodeId], table_name: str) -> None:
         cache = self._cache_map[table_name]
         for identifier, instance_id in instance_id_by_id.items():
-            cache[identifier] = NodeReference(space=instance_id.space, external_id=instance_id.external_id)  # type: ignore[index]
+            cache[identifier] = NodeId(space=instance_id.space, external_id=instance_id.external_id)  # type: ignore[index]
 
-    def get_cache(
-        self, resource_type: AssetCentricTypeExtended, property_id: str
-    ) -> Mapping[str | int, NodeReference] | None:
+    def get_cache(self, resource_type: AssetCentricTypeExtended, property_id: str) -> Mapping[str | int, NodeId] | None:
         """Get the cache for the given resource type and property ID."""
         return self._cache_map.get((resource_type, property_id))  # type: ignore[return-value]
 
 
 def asset_centric_to_dm(
     resource: AssetCentricResourceExtended,
-    instance_id: NodeReference | EdgeReference,
+    instance_id: NodeId | EdgeId,
     view_source: ResourceViewMappingRequest,
     view_properties: dict[str, ViewResponseProperty],
     direct_relation_cache: DirectRelationCache,
-    preferred_consumer_view: ViewReference | None = None,
+    preferred_consumer_view: ViewId | None = None,
 ) -> tuple[NodeRequest | EdgeRequest | None, ConversionIssue]:
     """Convert an asset-centric resource to a data model instance.
 
@@ -223,7 +219,7 @@ def asset_centric_to_dm(
     issue = ConversionIssue(
         id=str(AssetCentricId(resource_type, id_=id_)),
         asset_centric_id=AssetCentricId(resource_type, id_=id_),
-        instance_id=NodeReference(space=instance_id.space, external_id=instance_id.external_id),
+        instance_id=NodeId(space=instance_id.space, external_id=instance_id.external_id),
     )
 
     properties = create_properties(
@@ -238,7 +234,7 @@ def asset_centric_to_dm(
     if properties:
         sources.append(
             InstanceSource(
-                source=ViewReference(
+                source=ViewId(
                     space=view_source.view_id.space,
                     external_id=view_source.view_id.external_id,
                     version=view_source.view_id.version,
@@ -262,7 +258,7 @@ def asset_centric_to_dm(
             }
         sources.append(
             InstanceSource(
-                source=ViewReference(
+                source=ViewId(
                     space=INSTANCE_SOURCE_VIEW_ID.space,
                     external_id=INSTANCE_SOURCE_VIEW_ID.external_id,
                     version=view_source.view_id.version,
@@ -272,7 +268,7 @@ def asset_centric_to_dm(
         )
 
     instance: NodeRequest | EdgeRequest
-    if isinstance(instance_id, EdgeReference):
+    if isinstance(instance_id, EdgeId):
         edge_properties = create_edge_properties(
             dumped, view_source.property_mapping, resource_type, issue, direct_relation_cache, instance_id.space
         )
@@ -285,7 +281,7 @@ def asset_centric_to_dm(
             sources=sources,
             **edge_properties,  # type: ignore[arg-type]
         )
-    elif isinstance(instance_id, NodeReference):
+    elif isinstance(instance_id, NodeId):
         instance = NodeRequest(space=instance_id.space, external_id=instance_id.external_id, sources=sources)
     else:
         raise RuntimeError(f"Unexpected instance_id type {type(instance_id)}")
@@ -397,9 +393,9 @@ def create_edge_properties(
     issue: ConversionIssue,
     direct_relation_cache: DirectRelationCache,
     default_instance_space: str,
-) -> dict[str, NodeReference]:
+) -> dict[str, NodeId]:
     flatten_dump = flatten_dict_json_path(dumped)
-    edge_properties: dict[str, NodeReference] = {}
+    edge_properties: dict[str, NodeId] = {}
     for prop_json_path, prop_id in property_mapping.items():
         if not prop_id.startswith("edge."):
             continue
@@ -407,7 +403,7 @@ def create_edge_properties(
             continue
         edge_prop_id = prop_id.removeprefix("edge.")
         if edge_prop_id in ("startNode", "endNode", "type"):
-            value: NodeReference | Any
+            value: NodeId | Any
             # DirectRelation lookup.
             try:
                 value = convert_to_primary_property(
@@ -424,7 +420,7 @@ def create_edge_properties(
         elif edge_prop_id.endswith(".externalId"):
             # Just an external ID string.
             edge_prop_id = edge_prop_id.removesuffix(".externalId")
-            value = NodeReference(space=default_instance_space, external_id=str(flatten_dump[prop_json_path]))
+            value = NodeId(space=default_instance_space, external_id=str(flatten_dump[prop_json_path]))
         else:
             issue.invalid_instance_property_types.append(
                 InvalidPropertyDataType(property_id=prop_id, expected_type="EdgeProperty")
@@ -440,7 +436,7 @@ class TimeSeriesFilesReferenceCache:
 
     def __init__(self, client: ToolkitClient) -> None:
         self._client = client
-        self._cache: dict[Literal["timeseries", "file"], dict[str, NodeReference]] = {
+        self._cache: dict[Literal["timeseries", "file"], dict[str, NodeId]] = {
             "timeseries": {},
             "file": {},
         }
@@ -464,7 +460,7 @@ class TimeSeriesFilesReferenceCache:
                 self._cache[resource_type][external_id] = resource.instance_id
         return missing_instance_ids
 
-    def get_cache(self, resource_type: Literal["timeseries", "file"]) -> dict[str, NodeReference]:
+    def get_cache(self, resource_type: Literal["timeseries", "file"]) -> dict[str, NodeId]:
         return self._cache.get(resource_type, {})
 
 
@@ -538,7 +534,7 @@ def create_container_properties(
             # them here.
             continue
 
-        cache: dict[str, NodeReference] | None = None
+        cache: dict[str, NodeId] | None = None
         if (
             view
             and source_prop_id in view.timeseries_reference_property_ids
@@ -568,11 +564,11 @@ def create_container_properties(
 
 
 def create_connection_properties(
-    edge_targets_by_type_and_direction: dict[tuple[NodeReference, Literal["outwards", "inwards"]], list[NodeReference]],
+    edge_targets_by_type_and_direction: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[NodeId]],
     mapping: ViewToViewMapping,
     destination_properties: dict[str, ViewResponseProperty],
     source_edges: dict[str, EdgeProperty],
-    source_id: NodeReference,
+    source_id: NodeId,
 ) -> tuple[dict[str, JsonValue], list[EdgeRequest], list[str]]:
     created_direct_relations: dict[str, JsonValue] = {}
     created_edges: list[EdgeRequest] = []

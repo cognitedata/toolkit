@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 
 from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, GroupRequest
-from cognite_toolkit._cdf_tk.resource_classes.capabilities import Capability
+from cognite_toolkit._cdf_tk.yaml_classes.capabilities import Capability
 from tests.test_unit.test_cdf_tk.test_tk_warnings.test_warnings_metatest import get_all_subclasses
 
 
@@ -90,13 +90,13 @@ def all_acls() -> Iterable[tuple]:
         {
             "rawAcl": {
                 "actions": ["READ", "WRITE", "LIST"],
-                "scope": {"tableScope": {"dbsToTables": {"no table in this": []}}},
+                "scope": {"tableScope": {"dbsToTables": {"no_tables_db": {"tables": []}}}},
             }
         },
         {
             "rawAcl": {
                 "actions": ["READ", "WRITE", "LIST"],
-                "scope": {"tableScope": {"dbsToTables": {"test db 1": ["empty tbl", "test tbl 1"]}}},
+                "scope": {"tableScope": {"dbsToTables": {"test db 1": {"tables": ["empty tbl", "test tbl 1"]}}}},
             }
         },
         {"relationshipsAcl": {"actions": ["READ"], "scope": {"all": {}}}},

@@ -11,11 +11,11 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     T_RequestResource,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import (
-    ContainerReference,
-    EdgeReference,
-    NodeReference,
-    NodeReferenceUntyped,
-    ViewReference,
+    ContainerId,
+    EdgeId,
+    NodeId,
+    NodeUntypedId,
+    ViewId,
 )
 
 
@@ -28,11 +28,11 @@ class InstanceDefinition(BaseModelObject, ABC):
 
 
 class InstanceSource(BaseModelObject):
-    source: ViewReference | ContainerReference
+    source: ViewId | ContainerId
     properties: dict[str, JsonValue] | None = None
 
     @field_serializer("source", mode="plain")
-    def serialize_source(self, value: ViewReference | ContainerReference) -> Any:
+    def serialize_source(self, value: ViewId | ContainerId) -> Any:
         return {**value.dump(), "type": value.type}
 
 
@@ -46,15 +46,15 @@ class InstanceResponseDefinition(InstanceDefinition, ResponseResource, Generic[T
     created_time: int
     last_updated_time: int
     deleted_time: int | None = None
-    properties: dict[ViewReference | ContainerReference, dict[str, JsonValue]] | None = None
+    properties: dict[ViewId | ContainerId, dict[str, JsonValue]] | None = None
 
     @field_validator("properties", mode="before")
     def parse_reference(cls, value: Any) -> Any:
         if not isinstance(value, dict):
             return value
-        parsed: dict[ViewReference | ContainerReference, dict[str, Any]] = {}
+        parsed: dict[ViewId | ContainerId, dict[str, Any]] = {}
         for space, inner_dict in value.items():
-            if isinstance(space, ViewReference | ContainerReference):
+            if isinstance(space, ViewId | ContainerId):
                 parsed[space] = inner_dict
                 continue
             if not isinstance(inner_dict, dict) or not isinstance(space, str):
@@ -68,17 +68,17 @@ class InstanceResponseDefinition(InstanceDefinition, ResponseResource, Generic[T
                         f"got: dict[{type(space).__name__}, "
                         f"dict[{type(view_or_container_identifier).__name__}, ...]]"
                     )
-                source_ref: ViewReference | ContainerReference
+                source_ref: ViewId | ContainerId
                 if "/" in view_or_container_identifier:
                     external_id, version = view_or_container_identifier.split("/", 1)
-                    source_ref = ViewReference(space=space, external_id=external_id, version=version)
+                    source_ref = ViewId(space=space, external_id=external_id, version=version)
                 else:
-                    source_ref = ContainerReference(space=space, external_id=view_or_container_identifier)
+                    source_ref = ContainerId(space=space, external_id=view_or_container_identifier)
                 parsed[source_ref] = prop
         return parsed
 
     @field_serializer("properties", mode="plain")
-    def serialize_properties(self, value: dict[ViewReference | ContainerReference, dict[str, Any]] | None) -> Any:
+    def serialize_properties(self, value: dict[ViewId | ContainerId, dict[str, Any]] | None) -> Any:
         if value is None:
             return None
         serialized: dict[str, dict[str, Any]] = {}
@@ -86,7 +86,7 @@ class InstanceResponseDefinition(InstanceDefinition, ResponseResource, Generic[T
             space = source_ref.space
             if space not in serialized:
                 serialized[space] = {}
-            if isinstance(source_ref, ViewReference):
+            if isinstance(source_ref, ViewId):
                 identifier = f"{source_ref.external_id}/{source_ref.version}"
             else:
                 identifier = source_ref.external_id
@@ -98,32 +98,32 @@ class NodeRequest(InstanceRequestDefinition):
     """A node request resource."""
 
     instance_type: Literal["node"] = "node"
-    type: NodeReferenceUntyped | None = None
+    type: NodeUntypedId | None = None
 
-    def as_id(self) -> NodeReference:
-        return NodeReference(space=self.space, external_id=self.external_id)
+    def as_id(self) -> NodeId:
+        return NodeId(space=self.space, external_id=self.external_id)
 
 
 class EdgeRequest(InstanceRequestDefinition):
     """An edge request resource."""
 
     instance_type: Literal["edge"] = "edge"
-    type: NodeReferenceUntyped
-    start_node: NodeReferenceUntyped
-    end_node: NodeReferenceUntyped
+    type: NodeUntypedId
+    start_node: NodeUntypedId
+    end_node: NodeUntypedId
 
-    def as_id(self) -> EdgeReference:
-        return EdgeReference(space=self.space, external_id=self.external_id)
+    def as_id(self) -> EdgeId:
+        return EdgeId(space=self.space, external_id=self.external_id)
 
 
 class NodeResponse(InstanceResponseDefinition[NodeRequest]):
     """A node response from the API."""
 
     instance_type: Literal["node"] = "node"
-    type: NodeReferenceUntyped | None = None
+    type: NodeUntypedId | None = None
 
-    def as_id(self) -> NodeReference:
-        return NodeReference(space=self.space, external_id=self.external_id)
+    def as_id(self) -> NodeId:
+        return NodeId(space=self.space, external_id=self.external_id)
 
     @classmethod
     def request_cls(cls) -> builtins.type[NodeRequest]:
@@ -143,12 +143,12 @@ class EdgeResponse(InstanceResponseDefinition[EdgeRequest]):
     """An edge response from the API."""
 
     instance_type: Literal["edge"] = "edge"
-    type: NodeReferenceUntyped
-    start_node: NodeReferenceUntyped
-    end_node: NodeReferenceUntyped
+    type: NodeUntypedId
+    start_node: NodeUntypedId
+    end_node: NodeUntypedId
 
-    def as_id(self) -> EdgeReference:
-        return EdgeReference(space=self.space, external_id=self.external_id)
+    def as_id(self) -> EdgeId:
+        return EdgeId(space=self.space, external_id=self.external_id)
 
     @classmethod
     def request_cls(cls) -> builtins.type[EdgeRequest]:
@@ -175,11 +175,11 @@ class InstanceSlimDefinition(BaseModelObject):
     created_time: int
     last_updated_time: int
 
-    def as_id(self) -> NodeReference | EdgeReference:
+    def as_id(self) -> NodeId | EdgeId:
         if self.instance_type == "node":
-            return NodeReference(space=self.space, external_id=self.external_id)
+            return NodeId(space=self.space, external_id=self.external_id)
         else:
-            return EdgeReference(space=self.space, external_id=self.external_id)
+            return EdgeId(space=self.space, external_id=self.external_id)
 
 
 InstanceRequest: TypeAlias = Annotated[

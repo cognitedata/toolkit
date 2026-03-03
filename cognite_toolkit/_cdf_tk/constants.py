@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal, TypeAlias
 
-from cognite.client.data_classes.data_modeling import ContainerId
+from cognite.client import data_modeling as dm
 
 try:
     from pyodide.ffi import IN_BROWSER
@@ -158,8 +158,8 @@ MAX_RUN_QUERY_FREQUENCY_MIN = 10
 
 COGNITE_MIGRATION_SPACE = "cognite_migration"
 
-COGNITE_TIME_SERIES_CONTAINER = ContainerId("cdf_cdm", "CogniteTimeSeries")
-COGNITE_FILE_CONTAINER = ContainerId("cdf_cdm", "CogniteFile")
+COGNITE_TIME_SERIES_CONTAINER = dm.ContainerId("cdf_cdm", "CogniteTimeSeries")
+COGNITE_FILE_CONTAINER = dm.ContainerId("cdf_cdm", "CogniteFile")
 CDF_UNIT_SPACE = "cdf_cdm_units"
 
 

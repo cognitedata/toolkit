@@ -1,7 +1,7 @@
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.client.identifiers._data_modeling import ViewIdNoVersionUntyped
+from cognite_toolkit._cdf_tk.client.identifiers._data_modeling import ViewNoVersionUntypedId
 
-from .data_modeling import ViewReferenceNoVersion
+from .data_modeling import ViewNoVersionId
 
 
 class SearchConfigViewProperty(BaseModelObject):
@@ -16,14 +16,14 @@ class SearchConfigViewProperty(BaseModelObject):
 class SearchConfigBase(BaseModelObject):
     """Base class for search configuration with common fields."""
 
-    view: ViewIdNoVersionUntyped
+    view: ViewNoVersionUntypedId
     use_as_name: str | None = None
     use_as_description: str | None = None
     columns_layout: list[SearchConfigViewProperty] | None = None
     filter_layout: list[SearchConfigViewProperty] | None = None
     properties_layout: list[SearchConfigViewProperty] | None = None
 
-    def as_id(self) -> ViewReferenceNoVersion:
+    def as_id(self) -> ViewNoVersionId:
         return self.view
 
 

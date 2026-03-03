@@ -6,10 +6,10 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.client.identifiers import WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    DataModelReference,
-    DataModelReferenceNoVersion,
-    ViewReference,
-    ViewReferenceNoVersion,
+    DataModelId,
+    DataModelNoVersionId,
+    ViewId,
+    ViewNoVersionId,
 )
 from cognite_toolkit._cdf_tk.commands import DumpResourceCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
@@ -143,16 +143,16 @@ class DumpConfigApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
-        selected_data_model: DataModelReferenceNoVersion | None = None
+        selected_data_model: DataModelNoVersionId | None = None
         if data_model_id is not None:
             if len(data_model_id) < 2:
                 raise ToolkitRequiredValueError(
                     "Data model ID must have at least 2 parts: space, external_id, and, optionally, version."
                 )
             elif len(data_model_id) == 2:
-                selected_data_model = DataModelReferenceNoVersion(space=data_model_id[0], external_id=data_model_id[1])
+                selected_data_model = DataModelNoVersionId(space=data_model_id[0], external_id=data_model_id[1])
             else:
-                selected_data_model = DataModelReference(
+                selected_data_model = DataModelId(
                     space=data_model_id[0], external_id=data_model_id[1], version=data_model_id[2]
                 )
         client = EnvironmentVariables.create_from_environment().get_client()
@@ -411,16 +411,16 @@ class DumpConfigApp(typer.Typer):
         large amounts of data.
         """
         client = EnvironmentVariables.create_from_environment().get_client()
-        selected_view_id: ViewReferenceNoVersion | None = None
+        selected_view_id: ViewNoVersionId | None = None
         if view_id is not None:
             if len(view_id) < 2:
                 raise ToolkitRequiredValueError(
                     "View ID must have at least 2 parts: space, external_id and, optionally, version."
                 )
             elif len(view_id) == 2:
-                selected_view_id = ViewReferenceNoVersion(space=view_id[0], external_id=view_id[1])
+                selected_view_id = ViewNoVersionId(space=view_id[0], external_id=view_id[1])
             else:
-                selected_view_id = ViewReference(space=view_id[0], external_id=view_id[1], version=view_id[2])
+                selected_view_id = ViewId(space=view_id[0], external_id=view_id[1], version=view_id[2])
 
         cmd = DumpResourceCommand(client=client)
         cmd.run(
@@ -758,13 +758,13 @@ class DumpConfigApp(typer.Typer):
     ) -> None:
         """This command will dump the selected view's search configuration as yaml to the folder specified, defaults to /tmp."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        selected_view_id: ViewReferenceNoVersion | None = None
+        selected_view_id: ViewNoVersionId | None = None
         if view_id is not None:
             if len(view_id) != 2:
                 raise ToolkitRequiredValueError(
                     "View ID must be provided as exactly two arguments: externalId and space."
                 )
-            selected_view_id = ViewReferenceNoVersion(space=view_id[0], external_id=view_id[1])
+            selected_view_id = ViewNoVersionId(space=view_id[0], external_id=view_id[1])
         cmd = DumpResourceCommand(client=client)
         cmd.run(
             lambda: cmd.dump_to_yamls(

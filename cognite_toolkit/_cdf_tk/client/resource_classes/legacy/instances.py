@@ -2,8 +2,8 @@ from collections.abc import Iterable
 from typing import Any
 
 from cognite.client import CogniteClient
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes._base import CogniteResourceList, WriteableCogniteResourceList
-from cognite.client.data_classes.data_modeling import EdgeId, NodeId
 from cognite.client.data_classes.data_modeling.instances import (
     EdgeApplyResult,
     Instance,
@@ -38,12 +38,12 @@ class InstancesApplyResultList(CogniteResourceList[InstanceApplyResult]):
 
     _RESOURCE = InstanceApplyResultAdapter
 
-    def as_ids(self) -> list[NodeId | EdgeId]:
+    def as_ids(self) -> list[dm.NodeId | dm.EdgeId]:
         """Return a list of IDs for the instances in the list."""
         return [
-            NodeId(item.space, item.external_id)
+            dm.NodeId(item.space, item.external_id)
             if item.instance_type == "node"
-            else EdgeId(item.space, item.external_id)
+            else dm.EdgeId(item.space, item.external_id)
             for item in self
         ]
 

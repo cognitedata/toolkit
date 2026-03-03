@@ -23,12 +23,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
-    ContainerReference,
+    ContainerId,
     DataModelResponse,
     SpaceResponse,
     TextProperty,
     ViewCorePropertyResponse,
-    ViewReference,
+    ViewId,
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
@@ -685,7 +685,7 @@ class TestDataModelingInteractiveSelect:
 
     def test_select_view_mapped_container(self, monkeypatch: pytest.MonkeyPatch) -> None:
         space = SpaceResponse(space="space1", **self.DEFAULT_SPACE_ARGS)
-        mapped_container = ContainerReference(space="space1", external_id="container1")
+        mapped_container = ContainerId(space="space1", external_id="container1")
         default_view_args = dict(self.DEFAULT_VIEW_ARGS)
         default_view_args["properties"] = {
             "name": ViewCorePropertyResponse(
@@ -794,7 +794,7 @@ class TestDataModelingInteractiveSelect:
 
             selector = DataModelingSelect(client, "test_operation")
             selected_spaces = selector.select_instance_space(
-                True, ViewReference(space="space1", external_id="view1", version="1"), "node"
+                True, ViewId(space="space1", external_id="view1", version="1"), "node"
             )
 
         assert selected_spaces == ["space1"]
@@ -822,7 +822,7 @@ class TestDataModelingInteractiveSelect:
 
             selector = DataModelingSelect(client, "test_operation")
             selected_spaces = selector.select_instance_space(
-                True, ViewReference(space="space1", external_id="view1", version="1"), "node"
+                True, ViewId(space="space1", external_id="view1", version="1"), "node"
             )
 
         assert selected_spaces == ["space1", "space3"]
@@ -838,9 +838,7 @@ class TestDataModelingInteractiveSelect:
 
             selector = DataModelingSelect(client, "test_operation")
             with pytest.raises(ToolkitMissingResourceError) as exc_info:
-                selector.select_instance_space(
-                    True, ViewReference(space="space1", external_id="view1", version="1"), "node"
-                )
+                selector.select_instance_space(True, ViewId(space="space1", external_id="view1", version="1"), "node")
 
             assert "No instances found in any space for the view" in str(exc_info.value)
             assert "with instance type 'node'" in str(exc_info.value)
@@ -1084,7 +1082,7 @@ class TestResourceViewMappingInteractiveSelect:
                 ResourceViewMappingResponse(
                     external_id="mapping1",
                     resource_type="asset",
-                    view_id=ViewReference(space="space1", external_id="view1", version="1"),
+                    view_id=ViewId(space="space1", external_id="view1", version="1"),
                     property_mapping={},
                     last_updated_time=1,
                     created_time=0,
@@ -1093,7 +1091,7 @@ class TestResourceViewMappingInteractiveSelect:
                 ResourceViewMappingResponse(
                     external_id="mapping2",
                     resource_type="asset",
-                    view_id=ViewReference(space="space2", external_id="view2", version="1"),
+                    view_id=ViewId(space="space2", external_id="view2", version="1"),
                     property_mapping={},
                     last_updated_time=1,
                     created_time=0,

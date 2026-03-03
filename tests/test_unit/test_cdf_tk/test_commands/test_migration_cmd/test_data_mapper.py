@@ -4,14 +4,13 @@ from typing import Any, ClassVar
 from unittest.mock import MagicMock
 
 import pytest
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes.data_modeling import (
     InstanceApply,
-    NodeId,
     NodeList,
-    ViewId,
 )
 
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerReference, ViewDirectReference
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeId, ViewDirectId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
@@ -26,14 +25,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     Int64Property,
     MultiEdgeProperty,
     MultiReverseDirectRelationPropertyResponse,
-    NodeReference,
     NodeRequest,
     NodeResponse,
     TextProperty,
     TimeseriesCDFExternalIdReference,
     TimestampProperty,
     ViewCorePropertyResponse,
-    ViewReference,
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
@@ -42,7 +39,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import Cre
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
-    AssetMappingDMRequest,
+    AssetMappingDMRequestId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
@@ -77,7 +74,7 @@ class TestAssetCentricMapper:
                 AssetCentricMapping(
                     mapping=MigrationMapping(
                         resource_type="asset",
-                        instance_id=NodeReference(space="my_space", external_id=f"asset_{i}"),
+                        instance_id=NodeId(space="my_space", external_id=f"asset_{i}"),
                         id=1000 + i,
                         ingestion_view="cdf_asset_mapping",
                     ),
@@ -107,7 +104,7 @@ class TestAssetCentricMapper:
                 ResourceViewMappingResponse(
                     external_id="cdf_asset_mapping",
                     resource_type="asset",
-                    view_id=ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
+                    view_id=ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
                     property_mapping={
                         "name": "name",
                         "description": "description",
@@ -150,7 +147,7 @@ class TestAssetCentricMapper:
             # Check lookup calls
             assert client.migration.resource_view_mapping.retrieve.call_count == 1
             client.migration.resource_view_mapping.retrieve.assert_called_with(
-                [NodeReference(space="cognite_migration", external_id="cdf_asset_mapping")]
+                [NodeId(space="cognite_migration", external_id="cdf_asset_mapping")]
             )
             assert client.migration.created_source_system.retrieve.call_count == 1
             assert client.tool.views.retrieve.call_count == 1
@@ -163,7 +160,7 @@ class TestAssetCentricMapper:
         source = AssetCentricMapping(
             mapping=MigrationMapping(
                 resource_type="asset",
-                instance_id=NodeReference(space="my_space", external_id="asset_1"),
+                instance_id=NodeId(space="my_space", external_id="asset_1"),
                 id=1001,
                 ingestion_view="cdf_asset_mapping",
             ),
@@ -218,7 +215,7 @@ class TestAssetCentricMapper:
                 ResourceViewMappingResponse(
                     external_id="cdf_asset_mapping",
                     resource_type="asset",
-                    view_id=ViewReference(space="my_space", external_id="MyAsset", version="v1"),
+                    view_id=ViewId(space="my_space", external_id="MyAsset", version="v1"),
                     property_mapping={
                         "name": "name",
                         "description": "description",
@@ -253,13 +250,13 @@ class TestThreeDAssetMapper:
             pytest.param(
                 AssetMappingClassicResponse(
                     nodeId=1234,
-                    assetInstanceId=NodeReference(space="my_space", externalId="asset_1"),
+                    assetInstanceId=NodeId(space="my_space", externalId="asset_1"),
                     **DEFAULTS,
                 ),
                 None,
-                AssetMappingDMRequest(
+                AssetMappingDMRequestId(
                     nodeId=1234,
-                    assetInstanceId=NodeReference(space="my_space", externalId="asset_1"),
+                    assetInstanceId=NodeId(space="my_space", externalId="asset_1"),
                     **DEFAULTS,
                 ),
                 id="Return existing assetInstanceId",
@@ -270,10 +267,10 @@ class TestThreeDAssetMapper:
                     assetId=37,
                     **DEFAULTS,
                 ),
-                NodeId(space="my_space", external_id="asset_2"),
-                AssetMappingDMRequest(
+                dm.NodeId(space="my_space", external_id="asset_2"),
+                AssetMappingDMRequestId(
                     nodeId=5678,
-                    assetInstanceId=NodeReference(space="my_space", externalId="asset_2"),
+                    assetInstanceId=NodeId(space="my_space", externalId="asset_2"),
                     **DEFAULTS,
                 ),
                 id="Lookup and return found assetInstanceId",
@@ -302,8 +299,8 @@ class TestThreeDAssetMapper:
     def test_map_chunk(
         self,
         response: AssetMappingClassicResponse,
-        lookup_asset: NodeId | None,
-        expected: AssetMappingDMRequest | str,
+        lookup_asset: dm.NodeId | None,
+        expected: AssetMappingDMRequestId | str,
     ) -> None:
         with monkeypatch_toolkit_client() as client:
             client.migration.lookup.assets.return_value = lookup_asset
@@ -320,7 +317,7 @@ class TestThreeDAssetMapper:
                 last_call = client.migration.lookup.assets.call_args_list[-1]
                 assert last_call.args == (response.asset_id,)
 
-            if isinstance(expected, AssetMappingDMRequest):
+            if isinstance(expected, AssetMappingDMRequestId):
                 logger.log.assert_not_called()
                 logger.tracker.add_issue.assert_not_called()
                 assert mapped is not None
@@ -336,20 +333,20 @@ class TestCanvasMapper:
         input_canvas_path = MIGRATION_DIR / "canvas" / "annotated_canvas.yaml"
         input_canvas = IndustrialCanvas.load(input_canvas_path.read_text(encoding="utf-8"))
         with monkeypatch_toolkit_client() as client:
-            client.migration.lookup.assets.return_value = NodeId(space="my_space", external_id="asset_1")
-            client.migration.lookup.events.return_value = NodeId(space="my_space", external_id="event_1")
-            client.migration.lookup.files.return_value = NodeId(space="my_space", external_id="file_1")
-            client.migration.lookup.time_series.return_value = NodeId(space="my_space", external_id="timeseries_1")
-            client.migration.lookup.assets.consumer_view.return_value = ViewId(
+            client.migration.lookup.assets.return_value = dm.NodeId(space="my_space", external_id="asset_1")
+            client.migration.lookup.events.return_value = dm.NodeId(space="my_space", external_id="event_1")
+            client.migration.lookup.files.return_value = dm.NodeId(space="my_space", external_id="file_1")
+            client.migration.lookup.time_series.return_value = dm.NodeId(space="my_space", external_id="timeseries_1")
+            client.migration.lookup.assets.consumer_view.return_value = dm.ViewId(
                 space="cdm_cdm", external_id="CogniteAsset", version="v1"
             )
-            client.migration.lookup.events.consumer_view.return_value = ViewId(
+            client.migration.lookup.events.consumer_view.return_value = dm.ViewId(
                 space="cdf_cdm", external_id="CogniteActivity", version="v1"
             )
-            client.migration.lookup.files.consumer_view.return_value = ViewId(
+            client.migration.lookup.files.consumer_view.return_value = dm.ViewId(
                 space="cdf_cdm", external_id="CogniteFile", version="v1"
             )
-            client.migration.lookup.time_series.consumer_view.return_value = ViewId(
+            client.migration.lookup.time_series.consumer_view.return_value = dm.ViewId(
                 space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
             )
 
@@ -381,8 +378,8 @@ class TestFDMtoCDMMapper:
         mapped_containers=[],
     )
     # Used for non-important references in the test dat.
-    SOME_VIEW_ID = ViewReference(space="schema_space1", external_id="SomeOtherView", version="v1")
-    SOME_CONTAINER_ID = ContainerReference(space="schema_space1", external_id="SomeContainer")
+    SOME_VIEW_ID = ViewId(space="schema_space1", external_id="SomeOtherView", version="v1")
+    SOME_CONTAINER_ID = ContainerId(space="schema_space1", external_id="SomeContainer")
     SOURCE_VIEW = ViewResponse(
         space="schema_space1",
         external_id="SourceView",
@@ -390,13 +387,13 @@ class TestFDMtoCDMMapper:
         **DEFAULT_ARGS,
         properties={
             "sourceEdge1": MultiEdgeProperty(
-                type=NodeReference(space="schema_space1", external_id="sourceEdge1"), source=SOME_VIEW_ID
+                type=NodeId(space="schema_space1", external_id="sourceEdge1"), source=SOME_VIEW_ID
             ),
             "sourceEdge2": MultiEdgeProperty(
-                type=NodeReference(space="schema_space1", external_id="sourceEdge2"), source=SOME_VIEW_ID
+                type=NodeId(space="schema_space1", external_id="sourceEdge2"), source=SOME_VIEW_ID
             ),
             "sourceEdge3": MultiEdgeProperty(
-                type=NodeReference(space="schema_space1", external_id="sourceEdge3"), source=SOME_VIEW_ID
+                type=NodeId(space="schema_space1", external_id="sourceEdge3"), source=SOME_VIEW_ID
             ),
             "timeseriesRef": ViewCorePropertyResponse(
                 constraint_state=ConstraintOrIndexState(),
@@ -425,7 +422,7 @@ class TestFDMtoCDMMapper:
         **DEFAULT_ARGS,
         properties={
             "targetEdge1": MultiEdgeProperty(
-                type=NodeReference(space="schema_space2", external_id="targetEdge1"), source=SOME_VIEW_ID
+                type=NodeId(space="schema_space2", external_id="targetEdge1"), source=SOME_VIEW_ID
             ),
             "targetDirect1": ViewCorePropertyResponse(
                 constraint_state=ConstraintOrIndexState(),
@@ -435,7 +432,7 @@ class TestFDMtoCDMMapper:
             ),
             "targetReverse1": MultiReverseDirectRelationPropertyResponse(
                 source=SOME_VIEW_ID,
-                through=ViewDirectReference(source=SOME_VIEW_ID, identifier="someProp"),
+                through=ViewDirectId(source=SOME_VIEW_ID, identifier="someProp"),
                 targets_list=True,
             ),
             "targetDirectTimeseries": ViewCorePropertyResponse(
@@ -480,7 +477,7 @@ class TestFDMtoCDMMapper:
     FILE_RESPONSE = FileMetadataResponse(
         external_id="file1",
         name="file1",
-        instance_id=NodeReference(space=TARGET_SPACE, external_id="fileNode"),
+        instance_id=NodeId(space=TARGET_SPACE, external_id="fileNode"),
         created_time=0,
         last_updated_time=0,
         uploaded=True,
@@ -488,7 +485,7 @@ class TestFDMtoCDMMapper:
     )
     TIMESERIES_RESPONSE = TimeSeriesResponse(
         external_id="timeseries1",
-        instance_id=NodeReference(space=TARGET_SPACE, external_id="timeseriesNode"),
+        instance_id=NodeId(space=TARGET_SPACE, external_id="timeseriesNode"),
         type="numeric",
         created_time=0,
         last_updated_time=0,
@@ -590,9 +587,9 @@ class TestFDMtoCDMMapper:
                         last_updated_time=1,
                         created_time=0,
                         version=1,
-                        type=NodeReference(space=SOURCE_SPACE, external_id="sourceEdge1"),
-                        start_node=NodeReference(space=SOURCE_SPACE, external_id="node1"),
-                        end_node=NodeReference(space=SOURCE_SPACE, external_id="node2"),
+                        type=NodeId(space=SOURCE_SPACE, external_id="sourceEdge1"),
+                        start_node=NodeId(space=SOURCE_SPACE, external_id="node1"),
+                        end_node=NodeId(space=SOURCE_SPACE, external_id="node2"),
                     ),
                     EdgeResponse(
                         space=SOURCE_SPACE,
@@ -600,9 +597,9 @@ class TestFDMtoCDMMapper:
                         last_updated_time=2,
                         created_time=0,
                         version=1,
-                        type=NodeReference(space=SOURCE_SPACE, external_id="sourceEdge2"),
-                        start_node=NodeReference(space=SOURCE_SPACE, external_id="node1"),
-                        end_node=NodeReference(space=SOURCE_SPACE, external_id="node3"),
+                        type=NodeId(space=SOURCE_SPACE, external_id="sourceEdge2"),
+                        start_node=NodeId(space=SOURCE_SPACE, external_id="node1"),
+                        end_node=NodeId(space=SOURCE_SPACE, external_id="node3"),
                     ),
                     EdgeResponse(
                         space=SOURCE_SPACE,
@@ -610,9 +607,9 @@ class TestFDMtoCDMMapper:
                         last_updated_time=3,
                         created_time=0,
                         version=1,
-                        type=NodeReference(space=SOURCE_SPACE, external_id="sourceEdge3"),
-                        start_node=NodeReference(space=SOURCE_SPACE, external_id="node1"),
-                        end_node=NodeReference(space=SOURCE_SPACE, external_id="node4"),
+                        type=NodeId(space=SOURCE_SPACE, external_id="sourceEdge3"),
+                        start_node=NodeId(space=SOURCE_SPACE, external_id="node1"),
+                        end_node=NodeId(space=SOURCE_SPACE, external_id="node4"),
                     ),
                 ],
                 {
@@ -641,9 +638,9 @@ class TestFDMtoCDMMapper:
                     EdgeRequest(
                         space=TARGET_SPACE,
                         external_id="edge1",
-                        type=NodeReference(space="schema_space2", external_id="targetEdge1"),
-                        start_node=NodeReference(space=TARGET_SPACE, external_id="node1"),
-                        end_node=NodeReference(space=TARGET_SPACE, external_id="node2"),
+                        type=NodeId(space="schema_space2", external_id="targetEdge1"),
+                        start_node=NodeId(space=TARGET_SPACE, external_id="node1"),
+                        end_node=NodeId(space=TARGET_SPACE, external_id="node2"),
                     ),
                 ],
                 id="Edges converted to edge, direct relations, and reverse direct relations (ignored).",

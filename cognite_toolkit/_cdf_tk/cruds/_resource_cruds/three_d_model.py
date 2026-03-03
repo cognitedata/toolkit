@@ -15,8 +15,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import ThreeDModelYAML
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
+from cognite_toolkit._cdf_tk.yaml_classes import ThreeDModelYAML
 
 from .data_organization import DataSetsCRUD
 
