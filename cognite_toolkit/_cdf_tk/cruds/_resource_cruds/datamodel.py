@@ -72,6 +72,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import (
+    EdgeProperty,
     ReverseDirectRelationProperty,
     ViewCorePropertyRequest,
 )
@@ -744,9 +745,16 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
             dependencies_by_id[view_id].update([parent for parent in view.implements or [] if parent in views_by_id])
             for view_property in (view.properties or {}).values():
                 if isinstance(view_property, ReverseDirectRelationProperty):
+                    if view_property.source in views_by_id:
+                        dependencies_by_id[view_id].add(view_property.source)
                     through_source = view_property.through.source
                     if isinstance(through_source, ViewReference) and through_source in views_by_id:
                         dependencies_by_id[view_id].add(through_source)
+                elif isinstance(view_property, EdgeProperty):
+                    if view_property.source in views_by_id:
+                        dependencies_by_id[view_id].add(view_property.source)
+                    if view_property.edge_source is not None and view_property.edge_source in views_by_id:
+                        dependencies_by_id[view_id].add(view_property.edge_source)
                 elif isinstance(view_property, ViewCorePropertyRequest) and view_property.source is not None:
                     if view_property.source in views_by_id:
                         dependencies_by_id[view_id].add(view_property.source)
