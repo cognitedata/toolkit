@@ -60,9 +60,9 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     TransformationNotificationFilter,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    DataModelReference,
-    SpaceReference,
-    ViewReference,
+    DataModelId,
+    SpaceId,
+    ViewId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     NonceCredentials,
@@ -206,17 +206,17 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
                 yield RawTableCRUD, RawTableId(db_name=destination["database"], name=destination["table"])
             elif destination.get("type") in ("nodes", "edges") and (view := destination.get("view", {})):
                 if space := destination.get("instanceSpace"):
-                    yield SpaceCRUD, SpaceReference(space=space)
+                    yield SpaceCRUD, SpaceId(space=space)
                 if in_dict(("space", "externalId", "version"), view):
                     view["version"] = str(view["version"])
-                    yield ViewCRUD, ViewReference.model_validate(view)
+                    yield ViewCRUD, ViewId.model_validate(view)
             elif destination.get("type") == "instances":
                 if space := destination.get("instanceSpace"):
-                    yield SpaceCRUD, SpaceReference(space=space)
+                    yield SpaceCRUD, SpaceId(space=space)
                 if data_model := destination.get("dataModel"):
                     if in_dict(("space", "externalId", "version"), data_model):
                         data_model["version"] = str(data_model["version"])
-                        yield DataModelCRUD, DataModelReference.model_validate(data_model)
+                        yield DataModelCRUD, DataModelId.model_validate(data_model)
 
     def safe_read(self, filepath: Path | str) -> str:
         # If the destination is a DataModel or a View we need to ensure that the version is a string

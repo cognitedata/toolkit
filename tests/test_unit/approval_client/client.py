@@ -64,7 +64,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceDefinition,
     InstanceRequest,
-    NodeReference,
+    NodeId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
@@ -687,7 +687,7 @@ class ApprovalToolkitClient:
         def upload_file_content_bytes_files_api(
             content: str | bytes,
             external_id: str | None = None,
-            instance_id: NodeReference | None = None,
+            instance_id: NodeId | None = None,
         ) -> FileMetadata:
             if isinstance(content, bytes):
                 try:
@@ -713,7 +713,7 @@ class ApprovalToolkitClient:
         def _upload_file_content_files_api(
             filehash: str,
             external_id: str | None = None,
-            instance_id: NodeReference | None = None,
+            instance_id: NodeId | None = None,
         ) -> FileMetadata:
             if sum([bool(external_id), bool(instance_id)]) != 1:
                 raise ValueError("Exactly one of external_id or instance_id must be set")

@@ -14,7 +14,7 @@ from cognite.client.data_classes.data_modeling.instances import (
     TypedNodeApply,
 )
 
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, ViewReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, ViewId
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType, AssetCentricTypeExtended
@@ -102,7 +102,7 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
         id_: int,
         data_set_id: int | None = None,
         classic_external_id: str | None = None,
-        preferred_consumer_view_id: ViewReference | None = None,
+        preferred_consumer_view_id: ViewId | None = None,
         ingestion_view: DirectRelationReference | None = None,
         type: DirectRelationReference | None = None,
         deleted_time: int | None = None,
@@ -128,7 +128,7 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
         if "preferredConsumerViewId" in resource:
             preferred_consumer_view_id = resource.pop("preferredConsumerViewId")
             try:
-                resource["preferredConsumerViewId"] = ViewReference.model_validate(preferred_consumer_view_id)
+                resource["preferredConsumerViewId"] = ViewId.model_validate(preferred_consumer_view_id)
             except ValueError as e:
                 warnings.warn(
                     IgnoredValueWarning(
@@ -146,7 +146,7 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
             id_=self.id_,
         )
 
-    def consumer_view(self) -> ViewReference:
+    def consumer_view(self) -> ViewId:
         if self.preferred_consumer_view_id:
             return self.preferred_consumer_view_id
         if self.resource_type == "sequence":
@@ -158,7 +158,7 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
             "file": "CogniteFile",
             "timeseries": "CogniteTimeSeries",
         }[self.resource_type]
-        return ViewReference(space="cdf_cdm", external_id=external_id, version="v1")
+        return ViewId(space="cdf_cdm", external_id=external_id, version="v1")
 
     def as_direct_relation_reference(self) -> DirectRelationReference:
         return DirectRelationReference(space=self.space, external_id=self.external_id)
@@ -199,7 +199,7 @@ class ResourceViewMappingApply(_ResourceViewMapping, TypedNodeApply):
         external_id: str,
         *,
         resource_type: str,
-        view_id: ViewReference,
+        view_id: ViewId,
         property_mapping: dict[str, str],
         existing_version: int | None = None,
         type: DirectRelationReference | tuple[str, str] | None = None,
@@ -320,7 +320,7 @@ class ResourceViewMapping(_ResourceViewMapping, TypedNode):
         created_time: int,
         *,
         resource_type: str,
-        view_id: ViewReference,
+        view_id: ViewId,
         property_mapping: dict[str, str],
         type: DirectRelationReference | None = None,
         deleted_time: int | None = None,
@@ -347,7 +347,7 @@ class ResourceViewMapping(_ResourceViewMapping, TypedNode):
         if "viewId" in resource:
             view_id = resource.pop("viewId")
             try:
-                resource["viewId"] = ViewReference.model_validate(view_id)
+                resource["viewId"] = ViewId.model_validate(view_id)
             except ValueError as e:
                 raise ValueError(f"Invalid viewId format. Expected 'space', 'externalId', 'version'. Error: {e!s}")
         return super()._load_properties(resource)
@@ -402,8 +402,8 @@ class CreatedSourceSystem(TypedNode):
     def get_source(cls) -> dm.ViewId:
         return dm.ViewId("cognite_migration", "CreatedSourceSystem", "v1")
 
-    def as_direct_relation_reference(self) -> NodeReference:
-        return NodeReference(space=self.space, external_id=self.external_id)
+    def as_direct_relation_reference(self) -> NodeId:
+        return NodeId(space=self.space, external_id=self.external_id)
 
 
 class SpaceSource(TypedNode):

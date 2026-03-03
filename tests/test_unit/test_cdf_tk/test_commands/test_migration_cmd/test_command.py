@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.annotation import Annotatio
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData, ChartSource, ChartTimeseries
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, ViewReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import ContainerReference, IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource as LegacyInstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
@@ -251,7 +251,7 @@ class TestMigrationCommand:
                 external_id=asset.external_id,
                 sources=[
                     InstanceSource(
-                        source=ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
+                        source=ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
                         properties={
                             "name": asset.name,
                             "description": asset.description,
@@ -526,7 +526,7 @@ class TestMigrationCommand:
                             resource_type="timeseries",
                             id_=1,
                             classic_external_id=None,
-                            preferred_consumer_view_id=ViewReference(
+                            preferred_consumer_view_id=ViewId(
                                 space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
                             ),
                         ).dump(),
@@ -539,7 +539,7 @@ class TestMigrationCommand:
                             resource_type="timeseries",
                             id_=2,
                             classic_external_id="ts_1",
-                            preferred_consumer_view_id=ViewReference(
+                            preferred_consumer_view_id=ViewId(
                                 space="my_schema_space", external_id="MyTimeSeries", version="v1"
                             ),
                         ).dump(),

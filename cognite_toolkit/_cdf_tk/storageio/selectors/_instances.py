@@ -7,8 +7,8 @@ from cognite.client import data_modeling as dm
 from cognite.client.utils._identifier import InstanceId
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference, ViewReferenceNoVersion
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
 from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceIdCSVList
 from cognite_toolkit._cdf_tk.storageio.selectors._base import DataSelector, SelectorObject
@@ -34,10 +34,10 @@ class SelectedView(SelectorObject):
         pattern=DM_VERSION_PATTERN,
     )
 
-    def as_id(self) -> ViewReferenceNoVersion:
+    def as_id(self) -> ViewNoVersionId:
         if self.version is None:
-            return ViewReferenceNoVersion(space=self.space, external_id=self.external_id)
-        return ViewReference(space=self.space, external_id=self.external_id, version=self.version)
+            return ViewNoVersionId(space=self.space, external_id=self.external_id)
+        return ViewId(space=self.space, external_id=self.external_id, version=self.version)
 
     def __str__(self) -> str:
         base_str = f"{self.space}:{self.external_id}"
@@ -113,9 +113,9 @@ class InstanceFileSelector(InstanceSelector):
         return InstanceIdCSVList.read_csv_file(self.datafile)
 
     @cached_property
-    def ids(self) -> list[InstanceIdDefinition]:
+    def ids(self) -> list[InstanceDefinitionId]:
         return [
-            InstanceIdDefinition(space=item.space, external_id=item.external_id, instance_type=item.instance_type)
+            InstanceDefinitionId(space=item.space, external_id=item.external_id, instance_type=item.instance_type)
             for item in self.items
         ]
 

@@ -25,13 +25,13 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import (
-    InstanceId as DataModelingInstanceId,
-)
-from cognite_toolkit._cdf_tk.client.identifiers import (
-    InstanceIdDefinition,
+    InstanceDefinitionId,
     InternalId,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, SpaceReference
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    InstanceId as DataModelingInstanceId,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     ContainerCRUD,
@@ -301,7 +301,7 @@ class PurgeCommand(ToolkitCommand):
     def _delete_space(self, client: ToolkitClient, selected_space: str, results: DeployResults) -> None:
         space_loader = SpaceCRUD.create_loader(client)
         try:
-            space_loader.delete([SpaceReference(space=selected_space)])
+            space_loader.delete([SpaceId(space=selected_space)])
             print(f"Space {selected_space} deleted")
         except CogniteAPIError as e:
             self.warn(HighSeverityWarning(f"Failed to delete space {selected_space!r}: {e}"))
@@ -729,7 +729,7 @@ class PurgeCommand(ToolkitCommand):
             ItemsRequest(
                 endpoint_url=delete_client.config.create_api_url("/models/instances/delete"),
                 method="POST",
-                items=[InstanceIdDefinition._load(item) for item in items],
+                items=[InstanceDefinitionId._load(item) for item in items],
             )
         )
         for response in responses:
@@ -746,7 +746,7 @@ class PurgeCommand(ToolkitCommand):
         if node_ids:
             timeseries = client.tool.timeseries.retrieve(
                 [
-                    DataModelingInstanceId(instance_id=NodeReference(space=node.space, external_id=node.external_id))
+                    DataModelingInstanceId(instance_id=NodeId(space=node.space, external_id=node.external_id))
                     for node in node_ids
                 ],
                 ignore_unknown_ids=True,
@@ -770,7 +770,7 @@ class PurgeCommand(ToolkitCommand):
         if file_ids:
             files = client.tool.filemetadata.retrieve(
                 [
-                    DataModelingInstanceId(instance_id=NodeReference(space=node.space, external_id=node.external_id))
+                    DataModelingInstanceId(instance_id=NodeId(space=node.space, external_id=node.external_id))
                     for node in file_ids
                 ],
                 ignore_unknown_ids=True,

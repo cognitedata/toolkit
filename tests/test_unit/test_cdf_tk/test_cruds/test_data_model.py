@@ -8,7 +8,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelRequest,
     DataModelResponse,
-    ViewReference,
+    ViewId,
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
@@ -29,8 +29,8 @@ class TestDataModelLoader:
             external_id="my_model",
             version="1",
             views=[
-                ViewReference(space="sp_space", external_id="first", version="1"),
-                ViewReference(space="sp_space", external_id="second", version="1"),
+                ViewId(space="sp_space", external_id="first", version="1"),
+                ViewId(space="sp_space", external_id="second", version="1"),
             ],
             last_updated_time=1,
             created_time=1,
@@ -46,8 +46,8 @@ class TestDataModelLoader:
             external_id="my_model",
             version="1",
             views=[
-                ViewReference(space="sp_space", external_id="second", version="1"),
-                ViewReference(space="sp_space", external_id="first", version="1"),
+                ViewId(space="sp_space", external_id="second", version="1"),
+                ViewId(space="sp_space", external_id="first", version="1"),
             ],
             description=None,
             name=None,
@@ -83,7 +83,7 @@ views:
             space="sp_space",
             external_id="my_model",
             version="1",
-            views=[ViewReference(space="sp_space", external_id="first", version="1")],
+            views=[ViewId(space="sp_space", external_id="first", version="1")],
             last_updated_time=1,
             created_time=1,
             description=None,
@@ -211,7 +211,7 @@ def parent_grandparent_view() -> list[ViewResponse]:
             version="v1",
             name="Parent",
             description=None,
-            implements=[ViewReference(space="space", external_id="GrandParent", version="v1")],
+            implements=[ViewId(space="space", external_id="GrandParent", version="v1")],
             properties={},
             last_updated_time=1,
             created_time=1,
@@ -246,8 +246,8 @@ class TestViewLoader:
     def test_topological_sorting(self, parent_grandparent_view: list[ViewResponse]) -> None:
         with monkeypatch_toolkit_client() as client:
             client.tool.views.retrieve.return_value = parent_grandparent_view
-            parent = ViewReference(space="space", external_id="Parent", version="v1")
-            grandparent = ViewReference(space="space", external_id="GrandParent", version="v1")
+            parent = ViewId(space="space", external_id="Parent", version="v1")
+            grandparent = ViewId(space="space", external_id="GrandParent", version="v1")
             loader = ViewCRUD(client, Path("build_dir"), None, topological_sort_implements=True)
             actual = loader.topological_sort_implements(
                 [
@@ -262,8 +262,8 @@ class TestViewLoader:
         parent_grandparent_view[1] = parent_grandparent_view[1].model_copy(
             update={"implements": [parent_grandparent_view[0].as_id()]}
         )
-        parent = ViewReference(space="space", external_id="Parent", version="v1")
-        grandparent = ViewReference(space="space", external_id="GrandParent", version="v1")
+        parent = ViewId(space="space", external_id="Parent", version="v1")
+        grandparent = ViewId(space="space", external_id="GrandParent", version="v1")
 
         with monkeypatch_toolkit_client() as client, pytest.raises(ToolkitCycleError) as exc_info:
             client.tool.views.retrieve.return_value = parent_grandparent_view

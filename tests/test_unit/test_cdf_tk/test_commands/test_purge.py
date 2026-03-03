@@ -22,7 +22,7 @@ from cognite.client.data_classes.files import FileMetadata
 from cognite.client.data_classes.time_series import TimeSeries
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.identifiers import NodeReference
+from cognite_toolkit._cdf_tk.client.identifiers import NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerResponse,
     DataModelResponse,
@@ -81,7 +81,7 @@ def timeseries_by_node_id(
     result: dict[dm.NodeId, dict[str, Any]] = {}
     for i, ts in enumerate(cognite_timeseries_2000_list):
         node_id = ts.as_id()
-        ref = NodeReference(space=node_id.space, external_id=node_id.external_id)
+        ref = NodeId(space=node_id.space, external_id=node_id.external_id)
         result[node_id] = TimeSeriesResponse(
             id=i,
             external_id=ts.external_id,
@@ -103,7 +103,7 @@ def files_by_node_id(
     result: dict[dm.NodeId, dict[str, Any]] = {}
     for i, file in enumerate(cognite_files_2000_list):
         node_id = file.as_id()
-        ref = NodeReference(space=node_id.space, external_id=node_id.external_id)
+        ref = NodeId(space=node_id.space, external_id=node_id.external_id)
         result[node_id] = FileMetadataResponse(
             id=i,
             external_id=file.external_id,

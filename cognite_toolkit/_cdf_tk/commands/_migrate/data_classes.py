@@ -13,8 +13,8 @@ from rich.panel import Panel
 from rich.text import Text
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource
-from cognite_toolkit._cdf_tk.client.identifiers import EdgeReferenceUntyped, InternalId, NodeReferenceUntyped
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReference
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeUntypedId, InternalId, NodeUntypedId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
@@ -46,11 +46,11 @@ class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore",
     """
 
     resource_type: str
-    instance_id: NodeReferenceUntyped | EdgeReferenceUntyped
+    instance_id: NodeUntypedId | EdgeUntypedId
     id: int
     data_set_id: int | None = None
     ingestion_view: str | None = None
-    preferred_consumer_view: ViewReference | None = None
+    preferred_consumer_view: ViewId | None = None
 
     def get_ingestion_view(self) -> str:
         """Get the ingestion view for the mapping. If not specified, return the default ingestion view."""
@@ -178,27 +178,27 @@ class MigrationMappingList(ModelList[MigrationMapping]):
 
 class AssetMapping(MigrationMapping):
     resource_type: Literal["asset"] = "asset"
-    instance_id: NodeReferenceUntyped
+    instance_id: NodeUntypedId
 
 
 class EventMapping(MigrationMapping):
     resource_type: Literal["event"] = "event"
-    instance_id: NodeReferenceUntyped
+    instance_id: NodeUntypedId
 
 
 class TimeSeriesMapping(MigrationMapping):
     resource_type: Literal["timeseries"] = "timeseries"
-    instance_id: NodeReferenceUntyped
+    instance_id: NodeUntypedId
 
 
 class FileMapping(MigrationMapping):
     resource_type: Literal["file"] = "file"
-    instance_id: NodeReferenceUntyped
+    instance_id: NodeUntypedId
 
 
 class AnnotationMapping(MigrationMapping):
     resource_type: Literal["annotation"] = "annotation"
-    instance_id: EdgeReferenceUntyped
+    instance_id: EdgeUntypedId
     annotation_type: Literal["diagrams.AssetLink", "diagrams.FileLink"] | None = None
 
     def get_ingestion_view(self) -> str:
@@ -271,11 +271,11 @@ class AssetCentricMappingList(
 
 
 class Model(BaseModelObject):
-    instance_id: NodeReferenceUntyped
+    instance_id: NodeUntypedId
 
 
 class Thumbnail(BaseModelObject):
-    instance_id: NodeReferenceUntyped
+    instance_id: NodeUntypedId
 
 
 class ThreeDRevisionMigrationRequest(RequestResource):

@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerReference
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 
 from ._constraints import Constraint
 from ._data_types import DataType
@@ -31,8 +31,8 @@ class Container(BaseModelObject, ABC):
     constraints: dict[str, Constraint] | None = None
     indexes: dict[str, Index] | None = None
 
-    def as_id(self) -> ContainerReference:
-        return ContainerReference(
+    def as_id(self) -> ContainerId:
+        return ContainerId(
             space=self.space,
             external_id=self.external_id,
         )

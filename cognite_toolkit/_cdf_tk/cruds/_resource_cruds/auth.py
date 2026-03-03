@@ -34,12 +34,12 @@ from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     InternalId,
-    InternalIdUnwrapped,
+    InternalUnwrappedId,
     NameId,
     RawDatabaseId,
     RawTableId,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupRequest,
     GroupResponse,
@@ -164,7 +164,7 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
                     if space_ids := scope.get(cap.SpaceIDScope._scope_name, []):
                         if isinstance(space_ids, dict) and "spaceIds" in space_ids:
                             for space_id in space_ids["spaceIds"]:
-                                yield SpaceCRUD, SpaceReference(space=space_id)
+                                yield SpaceCRUD, SpaceId(space=space_id)
                     if data_set_ids := scope.get(cap.DataSetScope._scope_name, []):
                         if isinstance(data_set_ids, dict) and "ids" in data_set_ids:
                             for data_set_id in data_set_ids["ids"]:
@@ -538,7 +538,7 @@ class SecurityCategoryCRUD(ResourceCRUD[NameId, SecurityCategoryRequest, Securit
     def delete(self, ids: Sequence[NameId]) -> int:
         retrieved = self.retrieve(ids)
         if retrieved:
-            self.client.tool.security_categories.delete([InternalIdUnwrapped(id=cat.id) for cat in retrieved])
+            self.client.tool.security_categories.delete([InternalUnwrappedId(id=cat.id) for cat in retrieved])
         return len(retrieved)
 
     def _iterate(

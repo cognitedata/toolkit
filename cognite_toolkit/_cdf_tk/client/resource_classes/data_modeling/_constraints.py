@@ -5,7 +5,7 @@ from pydantic import Field, TypeAdapter, field_serializer
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerReference
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 
 
 class ConstraintDefinition(BaseModelObject, ABC):
@@ -20,11 +20,11 @@ class UniquenessConstraintDefinition(ConstraintDefinition):
 
 class RequiresConstraintDefinition(ConstraintDefinition):
     constraint_type: Literal["requires"] = "requires"
-    require: ContainerReference
+    require: ContainerId
 
     @field_serializer("require", mode="plain")
     @classmethod
-    def serialize_require(cls, require: ContainerReference, info: FieldSerializationInfo) -> dict[str, Any]:
+    def serialize_require(cls, require: ContainerId, info: FieldSerializationInfo) -> dict[str, Any]:
         return {**require.model_dump(**vars(info)), "type": "container"}
 
 

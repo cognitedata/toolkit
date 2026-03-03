@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     RootLocationConfiguration,
     RootLocationDataFilters,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     DataSetsCRUD,
@@ -55,13 +55,13 @@ class TestInfieldV1Loader:
         assert actual == {
             (AssetCRUD.__name__, ExternalId(external_id="my_root_asset")),
             (DataSetsCRUD.__name__, ExternalId(external_id="my_dataset")),
-            (SpaceCRUD.__name__, SpaceReference(space="my_app_data_space")),
-            (SpaceCRUD.__name__, SpaceReference(space="my_customer_data_space")),
-            (SpaceCRUD.__name__, SpaceReference(space="my_source_data_space")),
+            (SpaceCRUD.__name__, SpaceId(space="my_app_data_space")),
+            (SpaceCRUD.__name__, SpaceId(space="my_customer_data_space")),
+            (SpaceCRUD.__name__, SpaceId(space="my_source_data_space")),
             (GroupResourceScopedCRUD.__name__, NameId(name="my_admin_group1")),
             (GroupResourceScopedCRUD.__name__, NameId(name="my_admin_group2")),
             (GroupResourceScopedCRUD.__name__, NameId(name="my_admin_group3")),
             (DataSetsCRUD.__name__, ExternalId(external_id="my_other_dataset")),
             (AssetCRUD.__name__, ExternalId(external_id="my_asset_subtree")),
-            (SpaceCRUD.__name__, SpaceReference(space="my_source_data_space")),
+            (SpaceCRUD.__name__, SpaceId(space="my_source_data_space")),
         }
