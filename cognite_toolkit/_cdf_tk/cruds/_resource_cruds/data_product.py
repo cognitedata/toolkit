@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataPro
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.auth import GroupAllScopedCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import SpaceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import DataProductYAML
+from cognite_toolkit._cdf_tk.yaml_classes import DataProductYAML
 
 
 @final

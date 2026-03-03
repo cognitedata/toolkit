@@ -37,7 +37,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWTableResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import DatabaseYAML, TableYAML
+from cognite_toolkit._cdf_tk.yaml_classes import DatabaseYAML, TableYAML
 
 from .auth import GroupAllScopedCRUD
 

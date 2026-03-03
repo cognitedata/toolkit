@@ -17,7 +17,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModuleError,
 )
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
-from cognite_toolkit._cdf_tk.resource_classes import BaseModelResource
 from cognite_toolkit._cdf_tk.tk_warnings import (
     DataSetMissingWarning,
     MediumSeverityWarning,
@@ -26,6 +25,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.yaml_classes import BaseModelResource
 
 __all__ = [
     "humanize_validation_error",

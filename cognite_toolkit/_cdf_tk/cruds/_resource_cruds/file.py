@@ -39,11 +39,11 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, Res
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.resource_classes import CogniteFileYAML, FileMetadataYAML
 from cognite_toolkit._cdf_tk.utils import (
     in_dict,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML
 
 from .auth import GroupAllScopedCRUD, SecurityCategoryCRUD
 from .classic import AssetCRUD

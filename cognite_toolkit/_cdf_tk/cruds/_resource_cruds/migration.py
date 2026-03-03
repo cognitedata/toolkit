@@ -14,8 +14,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
 )
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import ResourceViewMappingYAML
 from cognite_toolkit._cdf_tk.utils import in_dict, sanitize_filename
+from cognite_toolkit._cdf_tk.yaml_classes import ResourceViewMappingYAML
 
 from .datamodel import SpaceCRUD, ViewCRUD
 

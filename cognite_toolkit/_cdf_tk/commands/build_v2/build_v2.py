@@ -37,11 +37,11 @@ from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, MODULES
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME, ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
-from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, relative_to_if_possible, safe_read, yaml_safe_dump
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
+from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 
 class BuildV2Command(ToolkitCommand):

@@ -87,11 +87,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.resource_classes import (
-    TransformationNotificationYAML,
-    TransformationScheduleYAML,
-    TransformationYAML,
-)
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
@@ -105,6 +100,11 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
+from cognite_toolkit._cdf_tk.yaml_classes import (
+    TransformationNotificationYAML,
+    TransformationScheduleYAML,
+    TransformationYAML,
+)
 
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
