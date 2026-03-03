@@ -132,9 +132,10 @@ class RecordIO(UploadableStorageIO[RecordContainerSelector, RecordResponse, Reco
         if selector is None:
             raise ToolkitValueError("Selector must be provided for RecordIO upload_items")
         url = self.UPLOAD_ENDPOINT.format(streamId=selector.stream.external_id)
+        config = http_client.config
         return http_client.request_items_retries(
             message=ItemsRequest(
-                endpoint_url=http_client.config.create_api_url(url),
+                endpoint_url=config.create_api_url(url),
                 method="POST",
                 items=data_chunk,
             )
