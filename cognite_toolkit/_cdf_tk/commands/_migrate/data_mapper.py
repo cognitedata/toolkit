@@ -731,8 +731,6 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         return nodes, other_side_by_edge_type_and_direction_by_source
 
     def _populate_cache(self, source: Sequence[InstanceResponse]) -> None:
-        # Todo: Look up all views in the source and convert them to ConversionSourceView.
-        #    Then, look up all timeseries/file references and cache those as well.
         unique_views = {
             view_id
             for node in source
