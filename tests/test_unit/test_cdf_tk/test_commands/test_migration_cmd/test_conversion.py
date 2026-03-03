@@ -1023,7 +1023,7 @@ class TestAssetCentricConversion:
                         FailedConversion(
                             property_id="source",
                             value="not_existing",
-                            error="Cannot convert 'not_existing' to NodeId. Invalid data type or missing in lookup.",
+                            error="Cannot convert 'not_existing' to NodeReference. Invalid data type or missing in lookup.",
                         )
                     ],
                 ),
@@ -1223,7 +1223,7 @@ class TestAssetCentricConversion:
                 FailedConversion(
                     property_id="annotatedResourceId",
                     value=999,
-                    error="Cannot convert 999 to NodeId. Invalid data type or missing in lookup.",
+                    error="Cannot convert 999 to NodeReference. Invalid data type or missing in lookup.",
                 )
             ],
         )
