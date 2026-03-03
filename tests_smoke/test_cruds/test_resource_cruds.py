@@ -3,6 +3,7 @@ from typing import get_args
 import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceCRUD
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
@@ -18,9 +19,16 @@ class TestResourceCRUD:
         assert base_cls is not None, f"{resource_io_cls} does not have __orig_bases__"
         classes = get_args(base_cls)
         assert len(classes) == 3, f"{resource_io_cls} should have 3 generic parameters, but has {len(classes)}"
-        identifier_cls = classes[0]
+        identifier_cls: type[Identifier] = classes[0]
 
         non_existing_id = FakeCogniteResourceGenerator(seed=37).create_instance(identifier_cls)
+        dumped = non_existing_id.dump()
+        if "space" in dumped:
+            # Space and externalId has very strict regex requirements, so we set it to a valid but non-existing value
+            dumped["space"] = "non_existing_space"
+            if "externalId" in dumped:
+                dumped["externalId"] = "non_existing_external_id"
+        non_existing_id = identifier_cls.model_validate(dumped)
 
         resource_io = resource_io_cls.create_loader(toolkit_client)
 
