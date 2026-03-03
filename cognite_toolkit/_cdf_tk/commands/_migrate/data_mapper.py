@@ -4,10 +4,7 @@ from collections.abc import Callable, Sequence
 from typing import Generic, Literal, cast
 from uuid import uuid4
 
-from cognite.client.data_classes.data_modeling import (
-    NodeId,
-    ViewId,
-)
+from cognite.client import data_modeling as dm
 from cognite.client.exceptions import CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -286,9 +283,9 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         self, ts_item: ChartTimeseries, node_id: NodeReference, consumer_view_id: ViewReference | None
     ) -> ChartCoreTimeseries:
         dumped = ts_item.model_dump(mode="json", by_alias=True, exclude_unset=True)
-        dumped["nodeReference"] = NodeId(space=node_id.space, external_id=node_id.external_id)
+        dumped["nodeReference"] = dm.NodeId(space=node_id.space, external_id=node_id.external_id)
         dumped["viewReference"] = (
-            ViewId(
+            dm.ViewId(
                 space=consumer_view_id.space, external_id=consumer_view_id.external_id, version=consumer_view_id.version
             )
             if consumer_view_id

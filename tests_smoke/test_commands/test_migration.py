@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import cast
 
 import pytest
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     Asset,
     AssetWrite,
@@ -12,7 +13,7 @@ from cognite.client.data_classes import (
     ThreeDModelRevisionWrite,
     filters,
 )
-from cognite.client.data_classes.data_modeling import Node, NodeApply, NodeId, NodeOrEdgeData, Space, ViewId
+from cognite.client.data_classes.data_modeling import Node, NodeApply, NodeOrEdgeData, Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -194,7 +195,7 @@ def three_d_model_instance_space(toolkit_client: ToolkitClient, smoke_space: Spa
             external_id=space,
             sources=[
                 NodeOrEdgeData(
-                    source=ViewId(
+                    source=dm.ViewId(
                         space=SPACE_SOURCE_VIEW_ID.space,
                         external_id=SPACE_SOURCE_VIEW_ID.external_id,
                         version=SPACE_SOURCE_VIEW_ID.version,
@@ -250,11 +251,11 @@ class TestMigrate3D:
             )
 
         # Validate that the model and revision exist in data modeling
-        view_id = ViewId("cdf_cdm", "Cognite3DModel", "v1")
+        view_id = dm.ViewId("cdf_cdm", "Cognite3DModel", "v1")
         has_name = filters.Equals(view_id.as_property_ref("name"), model.name)
         nodes = client.data_modeling.instances.list(
             instance_type="node",
-            sources=[ViewId("cdf_cdm", "Cognite3DModel", "v1")],
+            sources=[dm.ViewId("cdf_cdm", "Cognite3DModel", "v1")],
             space=smoke_space.space,
             filter=has_name,
         )
@@ -268,7 +269,7 @@ class TestMigrate3D:
         if not migrated_model.external_id.endswith(str(model.id)):
             raise AssertionError(f"{self.ERROR_HEADING}Migrated 3D model ID does not match expected format.")
 
-        revision_view = ViewId("cdf_cdm", "Cognite3DRevision", "v1")
+        revision_view = dm.ViewId("cdf_cdm", "Cognite3DRevision", "v1")
         has_model_id = filters.Equals(
             revision_view.as_property_ref("model3D"), migrated_model.as_id().dump(include_instance_type=False)
         )
@@ -320,7 +321,7 @@ class TestMigrate3D:
         if cognite_asset.object_3d is None:
             raise AssertionError(f"{self.ERROR_HEADING}CogniteAsset instance has no 3D object mapping after migration.")
         object3D = cognite_asset.object_3d
-        cad_node_view = ViewId("cdf_cdm", "CogniteCADNode", "v1")
+        cad_node_view = dm.ViewId("cdf_cdm", "CogniteCADNode", "v1")
         is_cad_node = filters.Equals(
             cad_node_view.as_property_ref("object3D"),
             {"space": object3D.space, "externalId": object3D.external_id},
@@ -442,7 +443,7 @@ class TestMigrateFile:
         migrated_node = nodes[0]
         if migrated_node.external_id != file.external_id:
             raise AssertionError("Migrated file instance external ID does not match expected value.")
-        content = client.files.download_bytes(instance_id=NodeId(space, external_id=file.external_id))
+        content = client.files.download_bytes(instance_id=dm.NodeId(space, external_id=file.external_id))
         if content != b"Toolkit classic file content for migration smoke test.":
             raise AssertionError("Migrated file content does not match expected content.")
         migrated_file = client.tool.filemetadata.retrieve([file.as_id()])

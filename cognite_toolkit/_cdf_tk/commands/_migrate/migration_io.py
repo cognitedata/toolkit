@@ -1,7 +1,7 @@
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import ClassVar, Literal, cast
 
-from cognite.client.data_classes.data_modeling import NodeId
+from cognite.client import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -230,7 +230,7 @@ class AssetCentricMigrationIO(
             raise ValueError(f"Unexpected ID type: {type(source.properties['id']).__name__!r}")
         id_ = source.properties["id"]
         return PendingInstanceId(
-            pending_instance_id=NodeId(item.space, item.external_id),
+            pending_instance_id=dm.NodeId(item.space, item.external_id),
             id=id_,
         )
 

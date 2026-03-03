@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import httpx
-from cognite.client.data_classes.data_modeling import ViewId
+from cognite.client import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -41,7 +41,7 @@ from .selectors._file_content import (
 )
 from .selectors._file_content import NodeId as SelectorNodeId
 
-COGNITE_FILE_VIEW = ViewId("cdf_cdm", "CogniteFile", "v1")
+COGNITE_FILE_VIEW = dm.ViewId("cdf_cdm", "CogniteFile", "v1")
 
 
 class UploadFileContentItem(UploadItem[FileMetadataRequest]):

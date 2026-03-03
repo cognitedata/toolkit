@@ -23,13 +23,13 @@ from pathlib import Path
 from time import sleep
 from typing import Any, final
 
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import filters
 from cognite.client.data_classes.capabilities import (
     Capability,
     DataModelInstancesAcl,
     DataModelsAcl,
 )
-from cognite.client.data_classes.data_modeling import ContainerId, DataModelId, ViewId
 from rich import print
 from rich.console import Console
 from rich.markup import escape
@@ -427,7 +427,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
             return
         for container_id_chunk in self._chunker(container_ids, HAS_DATA_FILTER_LIMIT):
             is_container = filters.HasData(
-                containers=[ContainerId(space=cid.space, external_id=cid.external_id) for cid in container_id_chunk]
+                containers=[dm.ContainerId(space=cid.space, external_id=cid.external_id) for cid in container_id_chunk]
             )
             for instances in self.client.data_modeling.instances(
                 chunk_size=1000, instance_type="node", filter=is_container, limit=-1
@@ -441,7 +441,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
 
         for container_id_chunk in self._chunker(container_ids, HAS_DATA_FILTER_LIMIT):
             is_container = filters.HasData(
-                containers=[ContainerId(space=cid.space, external_id=cid.external_id) for cid in container_id_chunk]
+                containers=[dm.ContainerId(space=cid.space, external_id=cid.external_id) for cid in container_id_chunk]
             )
             for instances in self.client.data_modeling.instances(
                 chunk_size=1000, instance_type="edge", limit=-1, filter=is_container
@@ -1277,7 +1277,9 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelReference, GraphQLDataModelRequ
             self._graphql_filepath_cache[model_id] = graphql_file
             graphql_content = safe_read(graphql_file, encoding=BUILD_FOLDER_ENCODING)
 
-            sdk_model_id = DataModelId(space=model_id.space, external_id=model_id.external_id, version=model_id.version)
+            sdk_model_id = dm.DataModelId(
+                space=model_id.space, external_id=model_id.external_id, version=model_id.version
+            )
             parser = GraphQLParser(graphql_content, sdk_model_id)
             try:
                 for view in parser.get_views():
@@ -1287,11 +1289,11 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelReference, GraphQLDataModelRequ
                     self._datamodels_by_view_id[view_ref].add(model_id)
                 deps: set[ViewReference | DataModelReference] = set()
                 for dep in parser.get_dependencies():
-                    if isinstance(dep, DataModelId):
+                    if isinstance(dep, dm.DataModelId):
                         deps.add(
                             DataModelReference(space=dep.space, external_id=dep.external_id, version=str(dep.version))
                         )
-                    elif isinstance(dep, ViewId):
+                    elif isinstance(dep, dm.ViewId):
                         deps.add(
                             ViewReference(space=dep.space, external_id=dep.external_id, version=str(dep.version or ""))
                         )

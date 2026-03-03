@@ -2,12 +2,13 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     AssetList,
     AssetWrite,
     AssetWriteList,
 )
-from cognite.client.data_classes.data_modeling import NodeId, Space
+from cognite.client.data_classes.data_modeling import Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 from cognite.client.exceptions import CogniteAPIError
 
@@ -47,13 +48,13 @@ def three_assets(toolkit_client: ToolkitClient, toolkit_space: Space) -> Iterato
         try:
             client.assets.delete(external_id=output.as_external_ids(), ignore_unknown_ids=True)
         except CogniteAPIError:
-            client.data_modeling.instances.delete([NodeId(space, ts.external_id) for ts in output])
+            client.data_modeling.instances.delete([dm.NodeId(space, ts.external_id) for ts in output])
     created = client.assets.create(assets)
 
     yield created
 
     # Cleanup after test
-    _ = client.data_modeling.instances.delete([NodeId(space, ts.external_id) for ts in created])
+    _ = client.data_modeling.instances.delete([dm.NodeId(space, ts.external_id) for ts in created])
     client.assets.delete(external_id=created.as_external_ids(), ignore_unknown_ids=True, recursive=True)
 
 
@@ -87,7 +88,7 @@ class TestMigrateAssetsCommand:
             dry_run=False,
             verbose=False,
         )
-        node_ids = [NodeId(space, a.external_id) for a in three_assets]
+        node_ids = [dm.NodeId(space, a.external_id) for a in three_assets]
         migrated_assets = client.data_modeling.instances.retrieve_nodes(node_ids, CogniteAsset)
         assert len(migrated_assets) == len(three_assets), "Not all assets were migrated successfully."
 

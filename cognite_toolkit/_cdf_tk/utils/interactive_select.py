@@ -7,13 +7,13 @@ from functools import cached_property, lru_cache, partial
 from typing import ClassVar, Literal, TypeVar, get_args, overload
 
 import questionary
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     Asset,
     UserProfileList,
     filters,
 )
 from cognite.client.data_classes.aggregations import Count
-from cognite.client.data_classes.data_modeling import ViewId
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.utils import ms_to_datetime
 from questionary import Choice
@@ -888,7 +888,7 @@ class DataModelingSelect:
         self, space: str, view_id: ViewReference, instance_type: Literal["node", "edge"]
     ) -> tuple[str, float]:
         """Get the count of instances in a specific space for a given view and instance type."""
-        sdk_view_id = ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version)
+        sdk_view_id = dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version)
         return space, self.client.data_modeling.instances.aggregate(
             sdk_view_id, Count("externalId"), instance_type=instance_type, space=space
         ).value or 0.0

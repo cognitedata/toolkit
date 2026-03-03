@@ -9,6 +9,7 @@ import httpx
 import pytest
 import responses
 import respx
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes.data_modeling import (
     DataModel,
     DataModelList,
@@ -16,7 +17,6 @@ from cognite.client.data_classes.data_modeling import (
     NodeList,
     NodeOrEdgeData,
     View,
-    ViewId,
 )
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
@@ -428,7 +428,7 @@ class TestMigrationCommand:
                 type=(space, asset_annotation.annotation_type),
                 sources=[
                     NodeOrEdgeData(
-                        source=ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
+                        source=dm.ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
                         properties={
                             "sourceContext": asset_annotation.creating_app_version,
                             "sourceCreatedUser": asset_annotation.creating_user,
@@ -450,7 +450,7 @@ class TestMigrationCommand:
                 type=(space, file_annotation.annotation_type),
                 sources=[
                     NodeOrEdgeData(
-                        source=ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
+                        source=dm.ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
                         properties={
                             "sourceContext": file_annotation.creating_app_version,
                             "sourceCreatedUser": file_annotation.creating_user,

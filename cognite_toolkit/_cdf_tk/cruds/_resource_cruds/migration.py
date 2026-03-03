@@ -1,9 +1,9 @@
 from collections.abc import Hashable, Iterable, Sequence, Sized
 from typing import Any, final
 
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
-from cognite.client.data_classes.data_modeling import ViewId
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeReference
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference, ViewReference
@@ -68,7 +68,7 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
     def prerequisite_warning(self) -> str | None:
         view_id = RESOURCE_MAPPING_VIEW_ID
         views = self.client.data_modeling.views.retrieve(
-            ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version)
+            dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version)
         )
         if len(views) > 0:
             return None

@@ -5,9 +5,9 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from cognite.client import CogniteClient
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.data_classes.data_modeling import DirectRelationReference
-from cognite.client.data_classes.data_modeling.ids import ViewId
 from cognite.client.data_classes.data_modeling.instances import (
     PropertyOptions,
     TypedNode,
@@ -59,8 +59,8 @@ class _InstanceSourceProperties:
     ingestion_view = PropertyOptions("ingestionView")
 
     @classmethod
-    def get_source(cls) -> ViewId:
-        return ViewId("cognite_migration", "InstanceSource", "v1")
+    def get_source(cls) -> dm.ViewId:
+        return dm.ViewId("cognite_migration", "InstanceSource", "v1")
 
 
 class InstanceSource(_InstanceSourceProperties, TypedNode):
@@ -170,8 +170,8 @@ class _ResourceViewMapping:
     property_mapping = PropertyOptions("propertyMapping")
 
     @classmethod
-    def get_source(cls) -> ViewId:
-        return ViewId("cognite_migration", "ResourceViewMapping", "v1")
+    def get_source(cls) -> dm.ViewId:
+        return dm.ViewId("cognite_migration", "ResourceViewMapping", "v1")
 
 
 class ResourceViewMappingApply(_ResourceViewMapping, TypedNodeApply):
@@ -221,7 +221,7 @@ class ResourceViewMappingApply(_ResourceViewMapping, TypedNodeApply):
             >>> node = ResourceViewMappingApply(
             ...    external_id="myMapping",
             ...    resource_type="asset",
-            ...    view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
+            ...    view_id=dm.ViewId("cdf_cdm", "CogniteAsset", "v1"),
             ...    property_mapping={"name": "name"},
             ... )
             >>> node.dump(camel_case=True, context="api")
@@ -284,7 +284,7 @@ class ResourceViewMappingApply(_ResourceViewMapping, TypedNodeApply):
         base_props = cls._load_base_properties(resource)
         properties = cls._load_properties(resource)
         if "viewId" in resource:
-            properties["view_id"] = ViewId.load(resource["viewId"])
+            properties["view_id"] = dm.ViewId.load(resource["viewId"])
 
         return cls(**base_props, **properties)
 
@@ -399,8 +399,8 @@ class CreatedSourceSystem(TypedNode):
         self.source = source
 
     @classmethod
-    def get_source(cls) -> ViewId:
-        return ViewId("cognite_migration", "CreatedSourceSystem", "v1")
+    def get_source(cls) -> dm.ViewId:
+        return dm.ViewId("cognite_migration", "CreatedSourceSystem", "v1")
 
     def as_direct_relation_reference(self) -> NodeReference:
         return NodeReference(space=self.space, external_id=self.external_id)
@@ -454,5 +454,5 @@ class SpaceSource(TypedNode):
         self.data_set_external_id = data_set_external_id
 
     @classmethod
-    def get_source(cls) -> ViewId:
-        return ViewId("cognite_migration", "SpaceSource", "v1")
+    def get_source(cls) -> dm.ViewId:
+        return dm.ViewId("cognite_migration", "SpaceSource", "v1")
