@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSerie
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import create_infield_data_mappings
 from cognite_toolkit._cdf_tk.cruds import ViewCRUD
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.fileio import NDJsonReader
 
 THIS_DIR = Path(__file__).parent
 TEST_DATA = THIS_DIR / "infield_test_data.yaml"
@@ -47,11 +48,15 @@ def load_toolkit_client(toolkit_client: ToolkitClient) -> None:
 
 @pytest.fixture
 def source_space(smoke_space: SpaceResponse) -> SpaceResponse:
+    """Simulates the space where InField legacy has written data. This data needs to be migrated to the target space."""
     return smoke_space
 
 
 @pytest.fixture()
 def read_space(toolkit_client: ToolkitClient) -> SpaceResponse:
+    """This is where InField legacy is reading data from. This is the where the asset are stored.
+    InField treat this as a read-only space.
+    """
     client = toolkit_client
     target_space = "smoke_infield_migration_read_space"
     if spaces := client.tool.spaces.retrieve([SpaceId(space=target_space)]):
@@ -187,6 +192,7 @@ def infield_legacy(
 
 @pytest.fixture()
 def target_space(toolkit_client: ToolkitClient) -> SpaceResponse:
+    """This is the space where InFieldOnCDM will write data to. This is the space we are migrating to."""
     client = toolkit_client
     target_space = "smoke_infield_migration_target_space"
     if spaces := client.tool.spaces.retrieve([SpaceId(space=target_space)]):
@@ -257,6 +263,13 @@ class TestMigrateInfield:
             target_nodes = toolkit_client.tool.instances.retrieve(node_ids, source=view_id)
             destination_instances.extend([node.dump() for node in target_nodes])
 
+        log_files = [file for file in tmp_path.rglob("*.ndjson") if file.is_file()]
+        if log_files:
+            print(f"Migration log files found in {tmp_path}: {[file.name for file in log_files]}")
+            for log_file in log_files:
+                for chunk in NDJsonReader(log_file).read_chunks():
+                    print(chunk)
+
         if expected_node_count != len(destination_instances):
             raise AssertionError(
                 f"InField migration failed. Expected {expected_node_count} nodes in destination, but found {len(destination_instances)}. Missing mappings: {humanize_collection(missing_mappings)}"
@@ -272,11 +285,7 @@ class TestMigrateInfield:
                 "InField migration failed. Found source space identifier in destination data, indicating that some instances were not migrated correctly."
             )
 
-        data_regression.check(
-            {
-                "instances": destination_instances,
-            }
-        )
+        data_regression.check({"instances": destination_instances})
 
     def _get_destination_nodes(
         self, infield_legacy: list[InstanceRequest], target_space: SpaceResponse
@@ -290,7 +299,8 @@ class TestMigrateInfield:
         for instance in infield_legacy:
             if not isinstance(instance, NodeRequest):
                 continue
-            expected_node_count += 1
+            if instance.sources and instance.sources[0].source.space == "cdf_apm":
+                expected_node_count += 1
             for source in instance.sources or []:
                 if not isinstance(source.source, ViewId):
                     continue
