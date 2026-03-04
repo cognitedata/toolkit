@@ -8,6 +8,7 @@ from cognite.client.data_classes.data_modeling import Space
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse, ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.commands import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
@@ -18,7 +19,7 @@ from tests_smoke.exceptions import EndpointAssertionError
 
 @pytest.fixture()
 def classic_file_with_content(
-    toolkit_client: ToolkitClient, smoke_dataset: DataSet, smoke_space: Space
+    toolkit_client: ToolkitClient, smoke_dataset: DataSet, smoke_space: SpaceResponse
 ) -> Iterator[FileMetadataResponse]:
     client = toolkit_client
     mime_type = "text/plain"
