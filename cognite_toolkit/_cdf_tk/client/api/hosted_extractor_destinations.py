@@ -105,7 +105,7 @@ class HostedExtractorDestinationsAPI(CDFResourceAPI[HostedExtractorDestinationRe
 
     def iterate(
         self,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[list[HostedExtractorDestinationResponse]]:
         """Iterate over hosted extractor destinations in CDF.
 

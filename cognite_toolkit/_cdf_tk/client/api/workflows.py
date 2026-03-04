@@ -111,7 +111,7 @@ class WorkflowsAPI(CDFResourceAPI[WorkflowResponse]):
 
     def iterate(
         self,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[list[WorkflowResponse]]:
         """Iterate over all workflows in CDF.
 

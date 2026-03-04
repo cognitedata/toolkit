@@ -334,7 +334,7 @@ class SequenceCRUD(ResourceCRUD[ExternalId, SequenceRequest, SequenceResponse]):
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[SequenceResponse]:
         filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
-        for sequences in self.client.tool.sequences.iterate(filter=filter_):
+        for sequences in self.client.tool.sequences.iterate(filter=filter_, limit=None):
             yield from sequences
 
     @classmethod
@@ -432,13 +432,13 @@ class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRows
         if parent_ids is None:
             filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
             parent_external_ids: list[str] = []
-            for sequences in self.client.tool.sequences.iterate(filter=filter_):
+            for sequences in self.client.tool.sequences.iterate(filter=filter_, limit=None):
                 parent_external_ids.extend(seq.external_id for seq in sequences if seq.external_id)
         else:
             parent_external_ids = [id.external_id for id in parent_ids if isinstance(id, ExternalId)]
         for ext_id in parent_external_ids:
             row_filter = SequenceRowFilter(external_id=ext_id)
-            responses = self.client.tool.sequences.rows.list(row_filter)
+            responses = self.client.tool.sequences.rows.list(row_filter, limit=None)
             yield from responses
 
     @classmethod
