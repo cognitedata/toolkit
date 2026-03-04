@@ -22,7 +22,7 @@ class TestInfieldConfig:
             }
         )
         try:
-            created_list = toolkit_client.infield.config.create([config])
+            created_list = retry_on_deadlock(lambda: toolkit_client.infield.config.create([config]))
             assert len(created_list) == 1
             created = created_list[0]
             assert created.external_id == config.external_id
