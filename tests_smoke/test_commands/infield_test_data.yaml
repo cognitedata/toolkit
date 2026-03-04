@@ -1,6 +1,21 @@
-# TemplatePart
+# Asset
+asset:
+  externalId: SmokeAsset
+  instanceType: node
+  sources:
+    - properties:
+        description: Smoke test asset InField
+        title: Smoke Asset
+        source: Toolkit
+        sourceId: CogniteToolkit
+      source:
+        externalId: Asset
+        space: cdf_core
+        type: view
+        version: v2
+  space: {{readSpace}}
+# Template Part
 templateReading:
-  existingVersion: 1
   externalId: 8c73bd6c-7386-4ebe-ba56-0ef088f08150
   instanceType: node
   sources:
@@ -18,7 +33,6 @@ templateReading:
       version: v4
   space: {{source_space}}
 schedule:
-  existingVersion: 1
   externalId: 431db206-55d6-4f37-9eff-6e7fd4bb37c7
   instanceType: node
   sources:
@@ -38,7 +52,6 @@ schedule:
       version: v4
   space: {{source_space}}
 template:
-  existingVersion: 1
   externalId: 87f1ce17-c510-4359-9bbe-2ec7477b2cfe
   instanceType: node
   sources:
@@ -48,8 +61,8 @@ template:
         space: cognite_app_data
       isArchived: false
       rootLocation:
-        externalId: LOR_NORWAY
-        space: APM_SourceData_3
+        externalId: SmokeAsset
+        space: {{readSpace}}
       solutionTags: []
       status: Ready
       title: '!!!!AAA Suu Template Reg Test- copy- copy'
@@ -66,7 +79,6 @@ templateEdge:
   endNode:
     externalId: 0083e7c3-946f-4d5d-958b-133963108ad9
     space: {{source_space}}
-  existingVersion: 1
   externalId: 87f1ce17-c510-4359-9bbe-2ec7477b2cfe_0083e7c3-946f-4d5d-958b-133963108ad9_relation
   instanceType: edge
   space: {{source_space}}
@@ -77,7 +89,6 @@ templateEdge:
     externalId: referenceTemplateItems
     space: cdf_apm
 templateItem:
-  existingVersion: 1
   externalId: 0083e7c3-946f-4d5d-958b-133963108ad9
   instanceType: node
   sources:
@@ -110,7 +121,6 @@ templateItemMeasurementEdge:
   endNode:
     externalId: 8c73bd6c-7386-4ebe-ba56-0ef088f08150
     space: {{source_space}}
-  existingVersion: 1
   externalId: 0083e7c3-946f-4d5d-958b-133963108ad9_8c73bd6c-7386-4ebe-ba56-0ef088f08150_relation
   instanceType: edge
   space: {{source_space}}
@@ -124,7 +134,6 @@ templateItemScheduleEdge:
   endNode:
     externalId: 431db206-55d6-4f37-9eff-6e7fd4bb37c7
     space: {{source_space}}
-  existingVersion: 1
   externalId: 0083e7c3-946f-4d5d-958b-133963108ad9_431db206-55d6-4f37-9eff-6e7fd4bb37c7_relation
   instanceType: edge
   space: {{source_space}}
@@ -134,9 +143,8 @@ templateItemScheduleEdge:
   type:
     externalId: referenceSchedules
     space: cdf_apm
-# Checklist
+# Checklist Part
 checklist:
-  existingVersion: 1
   externalId: RhIUePwMQI0WDEQQv-xkig
   instanceType: node
   sources:
@@ -147,8 +155,8 @@ checklist:
       endTime: '2025-06-09T12:30:00+00:00'
       isArchived: false
       rootLocation:
-        externalId: LOR_NORWAY
-        space: APM_SourceData_3
+        externalId: SmokeAsset
+        space: {{readSpace}}
       solutionTags: []
       sourceCreatedTime: '2025-01-30T08:08:17.698+00:00'
       sourceId: 16a3587b-1927-40ed-8da9-4c55c041aeb5
@@ -170,7 +178,6 @@ checklistEdge:
   endNode:
     externalId: -3Z4iakG1YSFRAfVlazYMA
     space: {{source_space}}
-  existingVersion: 1
   externalId: RhIUePwMQI0WDEQQv-xkig:-3Z4iakG1YSFRAfVlazYMA
   instanceType: edge
   space: {{source_space}}
@@ -181,14 +188,13 @@ checklistEdge:
     externalId: referenceChecklistItems
     space: cdf_apm
 checklistItem:
-  existingVersion: 2
   externalId: -3Z4iakG1YSFRAfVlazYMA
   instanceType: node
   sources:
   - properties:
       asset:
-        externalId: LOR_NORWAY_SYSTEM_021_212-VD-9365-H02
-        space: APM_SourceData_3
+        externalId: SmokeAsset
+        space: {{readSpace}}
       createdBy:
         externalId: {{userId}}
         space: cognite_app_data
@@ -214,7 +220,6 @@ checklistItemMeasurementEdge:
   endNode:
     externalId: 2A7QpAmrd9eYbbY_zHH_Ag
     space: {{source_space}}
-  existingVersion: 1
   externalId: -3Z4iakG1YSFRAfVlazYMA:2A7QpAmrd9eYbbY_zHH_Ag
   instanceType: edge
   space: {{source_space}}
@@ -225,7 +230,6 @@ checklistItemMeasurementEdge:
     externalId: referenceMeasurements
     space: cdf_apm
 checkListReading:
-  existingVersion: 1
   externalId: 2A7QpAmrd9eYbbY_zHH_Ag
   instanceType: node
   sources:
