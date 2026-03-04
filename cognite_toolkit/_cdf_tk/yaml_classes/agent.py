@@ -1,6 +1,6 @@
 from typing import Annotated, Any, Literal
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
@@ -217,6 +217,8 @@ Model = Literal[
 class AgentYAML(ToolkitResource):
     """Atlas AI Agent"""
 
+    model_config = ConfigDict(extra="allow")
+
     external_id: str = Field(
         description="An external ID that uniquely identifies the agent.",
         min_length=1,
@@ -244,9 +246,6 @@ class AgentYAML(ToolkitResource):
         "azure/gpt-4o-mini", description="The name of the model to use. Defaults to your CDF project's default model."
     )
     tools: list[AgentTool] | None = Field(None, description="A list of tools available to the agent.", max_length=20)
-    labels: list[str] | None = Field(
-        None, description="Labels for the agent, e.g. 'published'."
-    )  # Undocumented property as of 04.03.2026, retained for backwards compatibility
     runtime_version: str | None = Field(None, description="The runtime version")
 
     def as_id(self) -> ExternalId:
