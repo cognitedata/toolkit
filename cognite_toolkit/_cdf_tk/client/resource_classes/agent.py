@@ -154,6 +154,7 @@ class Agent(BaseModelObject):
     instructions: str | None = None
     model: str | None = None
     tools: list[AgentTool] | None = None
+    labels: list[str] | None = None  # Undocumented property as of 04.03.2026, retained for backwards compatibility
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
