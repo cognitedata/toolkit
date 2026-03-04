@@ -1326,6 +1326,12 @@ class MigrateApp(typer.Typer):
             for config in infield_cdm_configs
             if config.data_storage and config.data_storage.app_instance_space
         }
+        if not source_candidates:
+            raise typer.BadParameter("No APM Configurations with app data space found. Cannot migrate Infield data.")
+        if not target_candidates:
+            raise typer.BadParameter(
+                "No InfieldOnCDM Configurations with app instance space found. Cannot migrate Infield data."
+            )
         if source_space is None and target_space is None:
             source_stats = client.data_modeling.statistics.spaces.retrieve(list(source_candidates))
             source_space = questionary.select(
