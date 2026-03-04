@@ -1351,6 +1351,10 @@ class MigrateApp(typer.Typer):
                 ],
             ).unsafe_ask()
             target_stats = client.data_modeling.statistics.spaces.retrieve(list(target_candidates))
+            if not target_stats:
+                raise typer.BadParameter(
+                    f"Target spaces {humanize_collection(target_candidates)} do not exist or cannot be accessed. Please create the instance space or ensure you can access it."
+                )
             target_space = questionary.select(
                 "Select the instance space to migrate Infield data to:",
                 choices=[
