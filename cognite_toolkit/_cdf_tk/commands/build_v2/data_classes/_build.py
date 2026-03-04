@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
 from ._insights import InsightList
 from ._module import ModuleSource
@@ -55,7 +55,7 @@ class BuiltModule(BaseModel):
     source: ModuleSource
     built_files: list[Path] = Field(default_factory=list)
     built_resources_identifiers: list[Identifier] = Field(default_factory=list)
-    dependencies: dict[AbsoluteFilePath, set[tuple[type[ToolkitResource], Identifier]]] = Field(default_factory=dict)
+    dependencies: dict[AbsoluteFilePath, set[tuple[type[ResourceCRUD], Identifier]]] = Field(default_factory=dict)
     insights: InsightList = Field(default_factory=InsightList)
 
     @property
@@ -108,13 +108,35 @@ class BuildFolder(BaseModel):
 
     @cached_property
     def built_resources_identifiers(self) -> set[Identifier]:
-        """List of all built resources across all modules."""
+        """Set of all built resources across all modules."""
         resources: set[Identifier] = set()
         for built_module in self.built_modules:
             resources.update(built_module.built_resources_identifiers)
         return resources
 
     @cached_property
-    def dependencies(self) -> dict[AbsoluteFilePath, set[tuple[type[ToolkitResource], Identifier]]]:
+    def dependencies(self) -> dict[AbsoluteFilePath, set[tuple[type[ResourceCRUD], Identifier]]]:
         """Get external dependencies for all built modules."""
         return dict(chain.from_iterable(module.dependencies.items() for module in self.built_modules))
+
+    @cached_property
+    def external_dependencies(self) -> dict[AbsoluteFilePath, dict[type[ResourceCRUD], set[Identifier]]]:
+        """Get non-local dependencies for all built modules.
+        Non-local dependencies are dependencies that are not part of the build which require validation against CDF.
+
+        If external dependency is present in multiple modules, it will be returned only to a single module
+        (the first one that it is encountered in) to avoid duplicate validations against CDF.
+        """
+        non_local_dependencies: dict[AbsoluteFilePath, dict[type[ResourceCRUD], set[Identifier]]] = {}
+        seen: set[Identifier] = set()
+
+        for file_path, dependencies in self.dependencies.items():
+            for resource_type, identifier in dependencies:
+                if identifier in self.built_resources_identifiers:
+                    continue
+                if identifier in seen:
+                    continue
+                seen.add(identifier)
+                non_local_dependencies.setdefault(file_path, {}).setdefault(resource_type, set()).add(identifier)
+
+        return non_local_dependencies
