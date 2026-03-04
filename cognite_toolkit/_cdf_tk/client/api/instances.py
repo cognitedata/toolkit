@@ -135,7 +135,9 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             body=self._create_body(filter),
         )
 
-    def iterate(self, filter: InstanceFilter | None = None, limit: int = 100) -> Iterable[list[InstanceResponse]]:
+    def iterate(
+        self, filter: InstanceFilter | None = None, limit: int | None = 100
+    ) -> Iterable[list[InstanceResponse]]:
         """Iterate over all instances in CDF.
 
         Args:
