@@ -1340,6 +1340,10 @@ class MigrateApp(typer.Typer):
             )
         if source_space is None and target_space is None:
             source_stats = client.data_modeling.statistics.spaces.retrieve(list(source_candidates))
+            if not source_stats:
+                raise typer.BadParameter(
+                    f"Source spaces {humanize_collection(source_candidates)} do not exist or cannot be accessed. Please ensure the APM instance space contains data and can be accessed."
+                )
             source_space = questionary.select(
                 "Select the instance space to migrate Infield data from:",
                 choices=[
