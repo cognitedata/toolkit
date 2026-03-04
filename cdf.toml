@@ -19,6 +19,7 @@ extend-upload = true
 simulators = true
 v08 = false
 data-products = true
+dependency-ordered-deploy = true
 
 [plugins]
 run = true
