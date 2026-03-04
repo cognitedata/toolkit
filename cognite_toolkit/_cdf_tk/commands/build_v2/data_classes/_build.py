@@ -1,5 +1,3 @@
-from functools import cached_property
-from itertools import chain
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
@@ -73,6 +71,9 @@ class BuiltModule(BaseModel):
     def is_success(self) -> bool:
         return True if self.built_files else False
 
+    def __hash__(self) -> int:
+        return hash(self.source.path)
+
 
 class BuildLineage(BaseModel): ...
 
@@ -84,7 +85,7 @@ class BuildFolder(BaseModel):
     path: Path
     built_modules: list[BuiltModule] = Field(default_factory=list)
 
-    @cached_property
+    @property
     def insights(self) -> InsightList:
         """Insights from all built modules."""
         insights = InsightList()
@@ -92,12 +93,12 @@ class BuildFolder(BaseModel):
             insights.extend(module.insights)
         return insights
 
-    @cached_property
+    @property
     def lineage(self) -> BuildLineage:
         """Lineage should be generated based on the built modules, but for now it is just a placeholder."""
         return BuildLineage()
 
-    @cached_property
+    @property
     def built_modules_by_success(self) -> dict[bool, list[str]]:
         """Organizes built modules by their success status."""
         modules_by_success: dict[bool, list[str]] = {True: [], False: []}
@@ -106,7 +107,7 @@ class BuildFolder(BaseModel):
 
         return modules_by_success
 
-    @cached_property
+    @property
     def built_resources_identifiers(self) -> set[Identifier]:
         """Set of all built resources across all modules."""
         resources: set[Identifier] = set()
@@ -114,29 +115,36 @@ class BuildFolder(BaseModel):
             resources.update(built_module.built_resources_identifiers)
         return resources
 
-    @cached_property
-    def dependencies(self) -> dict[AbsoluteFilePath, set[tuple[type[ResourceCRUD], Identifier]]]:
-        """Get external dependencies for all built modules."""
-        return dict(chain.from_iterable(module.dependencies.items() for module in self.built_modules))
+    # @property
+    # def dependencies(self) -> dict[AbsoluteFilePath, set[tuple[type[ResourceCRUD], Identifier]]]:
+    #     """Get external dependencies for all built modules."""
+    #     return dict(chain.from_iterable(module.dependencies.items() for module in self.built_modules))
 
-    @cached_property
-    def external_dependencies(self) -> dict[AbsoluteFilePath, dict[type[ResourceCRUD], set[Identifier]]]:
+    @property
+    def dependencies_by_built_module(
+        self,
+    ) -> dict[BuiltModule, dict[AbsoluteFilePath, dict[type[ResourceCRUD], set[Identifier]]]]:
         """Get non-local dependencies for all built modules.
         Non-local dependencies are dependencies that are not part of the build which require validation against CDF.
 
         If external dependency is present in multiple modules, it will be returned only to a single module
-        (the first one that it is encountered in) to avoid duplicate validations against CDF.
+        (the first one that it is encountered in) to avoid duplicate validations insights.
         """
-        non_local_dependencies: dict[AbsoluteFilePath, dict[type[ResourceCRUD], set[Identifier]]] = {}
+        dependencies_by_built_module: dict[
+            BuiltModule, dict[AbsoluteFilePath, dict[type[ResourceCRUD], set[Identifier]]]
+        ] = {}
         seen: set[Identifier] = set()
 
-        for file_path, dependencies in self.dependencies.items():
-            for resource_type, identifier in dependencies:
-                if identifier in self.built_resources_identifiers:
-                    continue
-                if identifier in seen:
-                    continue
-                seen.add(identifier)
-                non_local_dependencies.setdefault(file_path, {}).setdefault(resource_type, set()).add(identifier)
+        for built_module in self.built_modules:
+            for file, dependencies_by_resource_type in built_module.dependencies.items():
+                for resource_type, dependency in dependencies_by_resource_type:
+                    if dependency in self.built_resources_identifiers:
+                        continue
+                    if dependency in seen:
+                        continue
+                    seen.add(dependency)
+                    dependencies_by_built_module.setdefault(built_module, {}).setdefault(file, {}).setdefault(
+                        resource_type, set()
+                    ).add(dependency)
 
-        return non_local_dependencies
+        return dependencies_by_built_module

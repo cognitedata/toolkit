@@ -463,26 +463,27 @@ class BuildV2Command(ToolkitCommand):
     def _dependency_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
         """Dependency validations are validations that check that the dependent resources exist."""
 
-        external_dependencies = build_folder.external_dependencies
+        dependencies_by_built_module = build_folder.dependencies_by_built_module
 
         if client:
-            for file, dependencies in external_dependencies.items():
-                for crud_cls, identifiers in dependencies.items():
-                    crud = crud_cls(client=client, build_dir=build_folder.path)
-                    response = {resource.as_id() for resource in crud.retrieve(list(identifiers))}
+            for built_module, dependencies_by_file in dependencies_by_built_module.items():
+                for file, dependencies_by_crud in dependencies_by_file.items():
+                    for crud_cls, dependencies in dependencies_by_crud.items():
+                        crud = crud_cls(client=client, build_dir=build_folder.path)
+                        response = {resource.as_id() for resource in crud.retrieve(list(dependencies))}
 
-                    if missing := identifiers - response:
-                        for m in missing:
-                            build_folder.insights.append(
-                                ConsistencyError(
-                                    code="MISSING-DEPENDENCY",
-                                    message=(
-                                        f"{crud.kind} '{m}' referenced in file '{file}' "
-                                        "does not exist locally or in CDF."
-                                    ),
-                                    fix="Make sure the resource exists in CDF or remove the reference to it.",
+                        if missing := dependencies - response:
+                            for m in missing:
+                                built_module.insights.append(
+                                    ConsistencyError(
+                                        code="MISSING-DEPENDENCY",
+                                        message=(
+                                            f"{crud.kind} '{m}' referenced in file '{file}' "
+                                            "does not exist locally or in CDF."
+                                        ),
+                                        fix="Make sure the resource exists in CDF or remove the reference to it.",
+                                    )
                                 )
-                            )
 
     def _global_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
         """This validation is performed per resource type and not per individual resource and against CDF
@@ -491,8 +492,8 @@ class BuildV2Command(ToolkitCommand):
 
         # Can be parallelized if needed
         for built_module in build_folder.built_modules:
-            if not built_module.is_success:
-                continue
+            # if not built_module.is_success:
+            #     continue
 
             if files_by_resource_type := built_module.resource_by_type.get(DataModelCRUD.folder_name):
                 if NeatPlugin.installed() and client and DataModelCRUD.kind in files_by_resource_type:
