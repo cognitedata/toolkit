@@ -503,7 +503,7 @@ class NodeFinder(ResourceFinder[ViewNoVersionId]):
                     default=False,
                 ).unsafe_ask():
                     typer.Exit(0)
-        nodes = dm.NodeList[dm.Node](list(loader.iterate()))
+        nodes = list(loader.iterate())
         yield [], nodes, loader, None
 
 
