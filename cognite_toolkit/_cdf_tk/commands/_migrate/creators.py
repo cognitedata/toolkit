@@ -33,6 +33,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     INFIELD_ON_CDM_DATA_MODEL,
+    DataStorage,
     InFieldCDMLocationConfigRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import LocationFilterRequest
@@ -425,13 +426,13 @@ class InfieldV2ConfigCreator(MigrationCreator):
             #    add to Validation in cdf build.
             data_filters[key] = {"instanceSpaces": [config.source_data_instance_space]}
 
-        data_storage: dict[str, JsonValue] = {
-            "rootLocation": root_node.dump(include_instance_type=False),
+        data_storage = DataStorage(
+            root_location=root_node.dump(include_instance_type=False),
             # Todo: This does not work. We need to require a new space. If not the migration will
             #    make legacy broken as it will update lastUpdatedTime of all data which InField depends on
             #    matching the user.
-            "appInstanceSpace": config.app_data_instance_space,
-        }
+            app_instance_space=config.app_data_instance_space,
+        )
         view_mappings: dict[str, JsonValue] = {}
         for key, default_view in [
             ("asset", ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")),
