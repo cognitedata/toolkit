@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, DirectoryPath, Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND, ResourceTypes
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
 from ._insights import ConsistencyError, ModelSyntaxError, Recommendation
@@ -69,9 +70,9 @@ class Module(BaseModel):
         return all(isinstance(resource, SuccessfulReadResource) for resource in self.resources)
 
     @cached_property
-    def dependencies(self) -> dict[AbsoluteFilePath, set[tuple[type[ToolkitResource], Identifier]]]:
+    def dependencies(self) -> dict[AbsoluteFilePath, set[tuple[type[ResourceCRUD], Identifier]]]:
         """Get external dependencies for all resources in the module."""
-        dependencies: dict[AbsoluteFilePath, set[tuple[type[ToolkitResource], Identifier]]] = {}
+        dependencies: dict[AbsoluteFilePath, set[tuple[type[ResourceCRUD], Identifier]]] = {}
 
         for resource in self.resources:
             if not isinstance(resource, SuccessfulReadResource):

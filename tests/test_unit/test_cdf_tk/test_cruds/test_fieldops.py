@@ -1,4 +1,7 @@
+from unittest.mock import MagicMock
+
 import pytest
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
@@ -9,10 +12,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     RootLocationDataFilters,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
+from cognite_toolkit._cdf_tk.client.resource_classes.infield import DataStorage, InFieldCDMLocationConfigRequest
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     DataSetsCRUD,
     GroupResourceScopedCRUD,
+    InFieldCDMLocationConfigCRUD,
     InfieldV1CRUD,
     SpaceCRUD,
 )
@@ -65,3 +71,31 @@ class TestInfieldV1Loader:
             (AssetCRUD.__name__, ExternalId(external_id="my_asset_subtree")),
             (SpaceCRUD.__name__, SpaceId(space="my_source_data_space")),
         }
+
+
+class TestInFieldCDMLocationConfigCRUD:
+    @pytest.mark.skipif(not Flags.INFIELD.is_enabled(), reason="Alpha feature is not enabled")
+    def test_skip_illegal_configuration(self) -> None:
+        legacy_space = "my_infield_legacy_space"
+        item = InFieldCDMLocationConfigRequest(
+            external_id="my_config",
+            space="my_space",
+            data_storage=DataStorage(app_instance_space=legacy_space),
+        )
+        legacy = APMConfigRequest(
+            external_id="my_last_config",
+            feature_configuration=FeatureConfiguration(
+                root_location_configurations=[RootLocationConfiguration(app_data_instance_space=legacy_space)]
+            ),
+        )
+        with monkeypatch_toolkit_client() as client:
+            my_console = MagicMock(spec=Console)
+            client.infield.apm_config.list.return_value = [legacy]
+            io = InFieldCDMLocationConfigCRUD(client, None, my_console)
+
+            created = io.create([item])
+
+            assert len(created) == 0
+            assert my_console.print.called
+            message = my_console.print.call_args[0][1]
+            assert message.startswith(f"Skipping creation of infield CDM location configs {item.as_id()!s}.")
