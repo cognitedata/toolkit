@@ -115,11 +115,6 @@ class BuildFolder(BaseModel):
             resources.update(built_module.built_resources_identifiers)
         return resources
 
-    # @property
-    # def dependencies(self) -> dict[AbsoluteFilePath, set[tuple[type[ResourceCRUD], Identifier]]]:
-    #     """Get external dependencies for all built modules."""
-    #     return dict(chain.from_iterable(module.dependencies.items() for module in self.built_modules))
-
     @property
     def dependencies_by_built_module(
         self,
