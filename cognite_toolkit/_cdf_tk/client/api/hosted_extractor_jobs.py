@@ -98,7 +98,7 @@ class HostedExtractorJobsAPI(CDFResourceAPI[HostedExtractorJobResponse]):
 
     def iterate(
         self,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[list[HostedExtractorJobResponse]]:
         """Iterate over hosted extractor jobs in CDF.
 

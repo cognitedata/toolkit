@@ -126,7 +126,7 @@ class WorkflowVersionsAPI(CDFResourceAPI[WorkflowVersionResponse]):
     def iterate(
         self,
         workflow_external_id: str | None = None,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[list[WorkflowVersionResponse]]:
         """Iterate over all workflow versions in CDF.
 

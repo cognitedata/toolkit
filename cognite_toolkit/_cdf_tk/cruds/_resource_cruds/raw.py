@@ -126,7 +126,7 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabaseId, RAWDatabaseRequest, R
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[RAWDatabaseResponse]:
-        for databases in self.client.tool.raw.databases.iterate():
+        for databases in self.client.tool.raw.databases.iterate(limit=None):
             yield from databases
 
     def count(self, ids: Sequence[RawDatabaseId]) -> int:
@@ -272,7 +272,7 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
         for parent_id in parent_ids:
             if not isinstance(parent_id, NameId):
                 continue
-            for tables in self.client.tool.raw.tables.iterate(db_name=parent_id.name):
+            for tables in self.client.tool.raw.tables.iterate(db_name=parent_id.name, limit=None):
                 yield from tables
 
     def count(self, ids: Sequence[RawTableId]) -> int:

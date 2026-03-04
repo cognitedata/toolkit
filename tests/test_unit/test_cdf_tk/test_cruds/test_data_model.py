@@ -5,11 +5,18 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeId, ViewDirectId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelRequest,
     DataModelResponse,
     ViewId,
+    ViewRequest,
     ViewResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import (
+    SingleEdgeProperty,
+    SingleReverseDirectRelationPropertyRequest,
+    ViewCorePropertyRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
@@ -276,3 +283,88 @@ class TestViewLoader:
             )
 
         assert "cycle in implements" in str(exc_info.value)
+
+
+class TestViewDeployTopologicalSort:
+    @pytest.mark.parametrize(
+        "dependency_property",
+        [
+            pytest.param(
+                SingleReverseDirectRelationPropertyRequest(
+                    source=ViewId(space="sp_space", external_id="Other", version="v1"),
+                    through=ViewDirectId(
+                        source=ViewId(space="sp_space", external_id="Dependency", version="v1"),
+                        identifier="direct_prop",
+                    ),
+                ),
+                id="reverse_direct_relation_through",
+            ),
+            pytest.param(
+                SingleReverseDirectRelationPropertyRequest(
+                    source=ViewId(space="sp_space", external_id="Dependency", version="v1"),
+                    through=ViewDirectId(
+                        source=ViewId(space="sp_space", external_id="Other", version="v1"),
+                        identifier="direct_prop",
+                    ),
+                ),
+                id="reverse_direct_relation_source",
+            ),
+            pytest.param(
+                ViewCorePropertyRequest(
+                    container=ContainerId(space="sp_space", external_id="some_container"),
+                    container_property_identifier="ref",
+                    source=ViewId(space="sp_space", external_id="Dependency", version="v1"),
+                ),
+                id="direct_relation_source",
+            ),
+            pytest.param(
+                SingleEdgeProperty(
+                    source=ViewId(space="sp_space", external_id="Dependency", version="v1"),
+                    type=NodeId(space="sp_space", external_id="edge_type"),
+                ),
+                id="edge_connection_source",
+            ),
+            pytest.param(
+                SingleEdgeProperty(
+                    source=ViewId(space="sp_space", external_id="Other", version="v1"),
+                    type=NodeId(space="sp_space", external_id="edge_type"),
+                    edge_source=ViewId(space="sp_space", external_id="Dependency", version="v1"),
+                ),
+                id="edge_connection_edge_source",
+            ),
+        ],
+    )
+    def test_property_dependency_ordering(self, dependency_property: ViewCorePropertyRequest) -> None:
+        dependent_view = ViewRequest(
+            space="sp_space",
+            external_id="Dependent",
+            version="v1",
+            properties={"prop": dependency_property},
+        )
+        dependency_view = ViewRequest(space="sp_space", external_id="Dependency", version="v1")
+
+        with monkeypatch_toolkit_client() as client:
+            loader = ViewCRUD(client, Path("build_dir"), None)
+            batches = loader._compute_deploy_batches([dependent_view, dependency_view])
+
+        flat_ids = [view.external_id for batch in batches for view in batch]
+        assert flat_ids.index("Dependency") < flat_ids.index("Dependent")
+
+    def test_cycle_in_implements_raises(self) -> None:
+        view_a = ViewRequest(
+            space="sp_space",
+            external_id="A",
+            version="v1",
+            implements=[ViewId(space="sp_space", external_id="B", version="v1")],
+        )
+        view_b = ViewRequest(
+            space="sp_space",
+            external_id="B",
+            version="v1",
+            implements=[ViewId(space="sp_space", external_id="A", version="v1")],
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            loader = ViewCRUD(client, Path("build_dir"), None)
+            with pytest.raises(ToolkitCycleError):
+                loader._compute_deploy_batches([view_a, view_b])
