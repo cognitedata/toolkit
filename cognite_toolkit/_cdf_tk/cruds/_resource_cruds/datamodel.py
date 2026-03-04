@@ -731,24 +731,46 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
             raise
 
     def _create_dependency_ordered(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
-        creation_order = self._compute_deploy_batches(items)
+        dependency_groups = self._compute_dependency_groups(items)
         created: list[ViewResponse] = []
-        for batch in creation_order:
-            try:
-                created.extend(self.client.tool.views.create(batch))
-            except ToolkitAPIError as e:
-                if e.is_auto_retryable:
-                    created.extend(self._fallback_create_one_by_one(batch, e))
-                else:
-                    raise
+        current_batch: list[ViewRequest] = []
+        current_batch_groups: list[list[ViewRequest]] = []
+        for group in dependency_groups:
+            if len(current_batch) + len(group) > VIEW_UPSERT_BATCH_LIMIT and len(current_batch) > 0:
+                created.extend(self._submit_view_batch(current_batch, current_batch_groups))
+                current_batch = []
+                current_batch_groups = []
+            current_batch.extend(group)
+            current_batch_groups.append(group)
+        if len(current_batch) > 0:
+            created.extend(self._submit_view_batch(current_batch, current_batch_groups))
         return created
 
-    def _compute_deploy_batches(self, items: Sequence[ViewRequest]) -> list[list[ViewRequest]]:
-        """Sorts views into batches based on their dependency graph (implements, reverse direct relations,
-        and direct relation sources).
+    def _submit_view_batch(self, batch: list[ViewRequest], groups: list[list[ViewRequest]]) -> list[ViewResponse]:
+        try:
+            return self.client.tool.views.create(batch)
+        except ToolkitAPIError as batch_error:
+            if not batch_error.is_auto_retryable:
+                raise
+            MediumSeverityWarning(
+                f"Failed to create {len(batch)} views error:\n{escape(str(batch_error))}\n\n"
+                "----------------------------\nRetrying per dependency group..."
+            ).print_warning(include_timestamp=True, console=self.console)
+            created: list[ViewResponse] = []
+            for group in groups:
+                try:
+                    created.extend(self.client.tool.views.create(group))
+                except ToolkitAPIError as group_error:
+                    raise group_error from batch_error
+            return created
 
-        Computes the strongly connected components in topological order, then packs
-        consecutive SCCs into batches up to VIEW_UPSERT_BATCH_LIMIT.
+    def _compute_dependency_groups(self, items: Sequence[ViewRequest]) -> list[list[ViewRequest]]:
+        """Sorts views into dependency groups based on their dependency graph (implements,
+        reverse direct relations, direct relation sources, and edge connections).
+
+        Each group is a strongly connected component (SCC) — views that are mutually
+        dependent and must be deployed together. The groups are returned in topological
+        order so that dependencies are deployed before dependents.
         """
         views_by_id = {self.get_id(item): item for item in items}
 
@@ -773,22 +795,16 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
                     if view_property.source in views_by_id:
                         dependencies_by_id[view_id].add(view_property.source)
 
-        batches: list[list[ViewRequest]] = []
-        current_batch: list[ViewRequest] = []
+        dependency_groups: list[list[ViewRequest]] = []
         for strongly_connected in tarjan(dependencies_by_id):
             scc_views = [views_by_id[view_id] for view_id in strongly_connected]
-            if len(current_batch) + len(scc_views) > VIEW_UPSERT_BATCH_LIMIT and len(current_batch) > 0:
-                batches.append(current_batch)
-                current_batch = []
-            current_batch.extend(scc_views)
+            dependency_groups.append(scc_views)
             if len(scc_views) > VIEW_UPSERT_BATCH_LIMIT:
                 MediumSeverityWarning(
                     f"Found a strongly interdependent set of {len(scc_views)} views: {humanize_collection(self.get_ids(scc_views))}. "
                     "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
                 ).print_warning(console=self.console)
-        if len(current_batch) > 0:
-            batches.append(current_batch)
-        return batches
+        return dependency_groups
 
     def _fallback_create_one_by_one(
         self, items: Sequence[ViewRequest], e1: ToolkitAPIError, warn: bool = True

@@ -345,9 +345,9 @@ class TestViewDeployTopologicalSort:
 
         with monkeypatch_toolkit_client() as client:
             loader = ViewCRUD(client, Path("build_dir"), None)
-            batches = loader._compute_deploy_batches([dependent_view, dependency_view])
+            groups = loader._compute_dependency_groups([dependent_view, dependency_view])
 
-        flat_ids = [view.external_id for batch in batches for view in batch]
+        flat_ids = [view.external_id for group in groups for view in group]
         assert flat_ids.index("Dependency") < flat_ids.index("Dependent")
 
     def test_cycle_in_implements_raises(self) -> None:
@@ -367,4 +367,4 @@ class TestViewDeployTopologicalSort:
         with monkeypatch_toolkit_client() as client:
             loader = ViewCRUD(client, Path("build_dir"), None)
             with pytest.raises(ToolkitCycleError):
-                loader._compute_deploy_batches([view_a, view_b])
+                loader._compute_dependency_groups([view_a, view_b])
