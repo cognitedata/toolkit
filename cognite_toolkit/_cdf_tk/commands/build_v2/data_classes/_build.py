@@ -116,13 +116,13 @@ class BuildFolder(BaseModel):
         return resources
 
     @property
-    def dependencies_by_built_module(
+    def cdf_dependencies_by_built_module(
         self,
     ) -> dict[BuiltModule, dict[AbsoluteFilePath, dict[type[ResourceCRUD], set[Identifier]]]]:
-        """Get non-local dependencies for all built modules.
-        Non-local dependencies are dependencies that are not part of the build which require validation against CDF.
+        """Get CDF dependencies for all built modules.
+        CDF dependencies are dependencies that are not part of the build which require validation against CDF.
 
-        If external dependency is present in multiple modules, it will be returned only to a single module
+        If CDF dependency is present in multiple modules, it will be returned only to a single module
         (the first one that it is encountered in) to avoid duplicate validations insights.
         """
         dependencies_by_built_module: dict[

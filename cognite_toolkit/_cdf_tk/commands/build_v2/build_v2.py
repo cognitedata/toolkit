@@ -61,7 +61,7 @@ class BuildV2Command(ToolkitCommand):
 
         build_folder = self._build_modules(module_sources, parameters.build_dir)
 
-        self._dependency_validation(build_folder, client)
+        self._cdf_dependency_validation(build_folder, client)
 
         # Todo: Some mixpanel tracking.
         # Can be parallelized with number of plugins.
@@ -460,10 +460,10 @@ class BuildV2Command(ToolkitCommand):
         """Local validations are post-syntax validations executed"""
         RulesOrchestrator().run(module)
 
-    def _dependency_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
-        """Dependency validations are validations that check that the dependent resources exist."""
+    def _cdf_dependency_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
+        """CDF dependency validations are validations that require checking the existence of resources in CDF."""
 
-        dependencies_by_built_module = build_folder.dependencies_by_built_module
+        dependencies_by_built_module = build_folder.cdf_dependencies_by_built_module
 
         if client:
             for built_module, dependencies_by_file in dependencies_by_built_module.items():
@@ -479,7 +479,7 @@ class BuildV2Command(ToolkitCommand):
                                         code="MISSING-DEPENDENCY",
                                         message=(
                                             f"{crud.kind} '{m}' referenced in file '{file}' "
-                                            "does not exist locally or in CDF."
+                                            "does not exist locally neither in CDF."
                                         ),
                                         fix="Make sure the resource exists in CDF or remove the reference to it.",
                                     )
