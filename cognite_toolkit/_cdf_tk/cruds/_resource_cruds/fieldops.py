@@ -1,5 +1,6 @@
 import collections.abc
 from collections.abc import Hashable, Iterable, Sequence, Sized
+from functools import cached_property
 from pathlib import Path
 from typing import Any, final
 
@@ -21,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 from cognite_toolkit._cdf_tk.yaml_classes import (
@@ -370,6 +372,17 @@ class InFieldCDMLocationConfigCRUD(
 
         return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
 
+    @cached_property
+    def _legacy_instance_spaces(self) -> set[str]:
+        apm_configs = self.client.infield.apm_config.list(limit=None)
+        return {
+            location.app_data_instance_space
+            for config in apm_configs
+            if config.feature_configuration
+            for location in config.feature_configuration.root_location_configurations or []
+            if location.app_data_instance_space
+        }
+
     def dump_resource(
         self, resource: InFieldCDMLocationConfigResponse, local: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -383,7 +396,20 @@ class InFieldCDMLocationConfigCRUD(
         return dumped
 
     def create(self, items: Sequence[InFieldCDMLocationConfigRequest]) -> list[InstanceSlimDefinition]:
-        return self.client.infield.cdm_config.create(items)
+        legacy_instance_spaces = self._legacy_instance_spaces
+        to_create: list[InFieldCDMLocationConfigRequest] = []
+        for item in items:
+            if item.data_storage and item.data_storage.app_instance_space in legacy_instance_spaces:
+                HighSeverityWarning(
+                    f"Skipping creation of {self.display_name} {item.as_id()}. It is set to write InField data to"
+                    f" an instance space {item.data_storage.app_instance_space!r} that is already used by the "
+                    "legacy InField APM_Config."
+                    "This is not allowed as it will cause the data to be corrupted in the legacy InField."
+                ).print_warning(console=self.console)
+            else:
+                to_create.append(item)
+
+        return self.client.infield.cdm_config.create(to_create)
 
     def retrieve(self, ids: Sequence[NodeId]) -> list[InFieldCDMLocationConfigResponse]:
         return self.client.infield.cdm_config.retrieve(list(ids))

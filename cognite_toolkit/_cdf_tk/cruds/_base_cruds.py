@@ -57,7 +57,7 @@ class Loader(ABC):
             raise ValueError(f"Build directory cannot be the same as the resource folder name: {self.folder_name}")
         elif build_dir is not None:
             self.resource_build_path = build_dir / self.folder_name
-        self.console = console
+        self.console = console or client.console
 
     @classmethod
     def create_loader(
