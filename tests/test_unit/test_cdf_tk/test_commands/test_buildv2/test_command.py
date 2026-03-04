@@ -165,7 +165,7 @@ class TestBuildCommand:
         assert len(built_view) == 1
         assert built_view[0].read_text() == view_file.read_text()
 
-        assert len(folder.insights) == 10
+        assert len(folder.insights) == 11
         assert {Recommendation, ConsistencyError} == set(folder.insights.by_type().keys())
         assert set(folder.insights.by_code().keys()) == {
             "TOOLKIT-WORKFLOW-001",
@@ -178,6 +178,7 @@ class TestBuildCommand:
             "NEAT-DMS-AI-READINESS-006",
             "NEAT-DMS-CONTAINER-001",
             "NEAT-DMS-VIEW-001",
+            "MISSING-DEPENDENCY",
         }
 
     def test_end_to_end_failed_build(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:

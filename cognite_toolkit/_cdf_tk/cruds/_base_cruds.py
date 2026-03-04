@@ -228,7 +228,7 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
         return None
 
     @classmethod
-    def get_dependencies(cls, resource: Any) -> Iterable[tuple[type[ToolkitResource], Identifier]]:
+    def get_dependencies(cls, resource: Any) -> "Iterable[tuple[type[ResourceCRUD], Identifier]]":
         """Returns dependencies for a given resource.
         This is used to determine the order of deployment and to check for missing dependencies.
 
