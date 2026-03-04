@@ -148,8 +148,6 @@ AgentTool = Annotated[
 
 
 class Agent(BaseModelObject):
-    model_config = ConfigDict(extra="allow")
-
     external_id: str
     name: str
     description: str | None = None
