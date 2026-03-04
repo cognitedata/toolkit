@@ -405,7 +405,7 @@ class InFieldCDMLocationConfigCRUD(
                     f" an instance space {item.data_storage.app_instance_space!r} that is already used by the "
                     "legacy InField APM_Config."
                     "This is not allowed as it will cause the data to be corrupted in the legacy InField."
-                )
+                ).print_warning(console=self.console)
             else:
                 to_create.append(item)
 
