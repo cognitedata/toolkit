@@ -17,19 +17,19 @@ import re
 import sys
 import time
 from collections import defaultdict
-from collections.abc import Hashable, Iterable, Sequence
+from collections.abc import Hashable, Iterable, Mapping, Sequence
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from time import sleep
 from typing import Any, final
 
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import filters
 from cognite.client.data_classes.capabilities import (
     Capability,
     DataModelInstancesAcl,
     DataModelsAcl,
 )
-from cognite.client.data_classes.data_modeling import ContainerId, DataModelId, ViewId
 from rich import print
 from rich.console import Console
 from rich.markup import escape
@@ -37,14 +37,15 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
-    ContainerReference,
-    DataModelReference,
-    EdgeReference,
-    NodeReference,
-    SpaceReference,
-    ViewReference,
+    ContainerId,
+    DataModelId,
+    EdgeId,
+    NodeId,
+    SpaceId,
+    ViewId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     ContainerFilter,
@@ -65,34 +66,37 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     RequiresConstraintDefinition,
     SpaceRequest,
     SpaceResponse,
+    View,
     ViewCorePropertyResponse,
     ViewRequest,
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import (
+    EdgeProperty,
+    ReverseDirectRelationProperty,
+    ViewCorePropertyRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
     GraphQLDataModelRequest,
     GraphQLDataModelResponse,
 )
-from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HAS_DATA_FILTER_LIMIT
+from cognite_toolkit._cdf_tk.constants import (
+    BUILD_FOLDER_ENCODING,
+    HAS_DATA_FILTER_LIMIT,
+    VIEW_UPSERT_BATCH_LIMIT,
+)
 from cognite_toolkit._cdf_tk.cruds._base_cruds import (
     ResourceContainerCRUD,
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.resource_classes import (
-    ContainerYAML,
-    DataModelYAML,
-    EdgeYAML,
-    GraphQLDataModelYAML,
-    NodeYAML,
-    SpaceYAML,
-    ViewYAML,
-)
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
     calculate_hash,
+    humanize_collection,
     in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
@@ -101,12 +105,23 @@ from cognite_toolkit._cdf_tk.utils import (
     to_diff,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.utils.tarjan import tarjan
+from cognite_toolkit._cdf_tk.yaml_classes import (
+    ContainerYAML,
+    DataModelYAML,
+    EdgeYAML,
+    GraphQLDataModelYAML,
+    NodeYAML,
+    SpaceYAML,
+    ViewYAML,
+)
+from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ContainerViewProperty
 
 from .auth import GroupAllScopedCRUD
 
 
 @final
-class SpaceCRUD(ResourceContainerCRUD[SpaceReference, SpaceRequest, SpaceResponse]):
+class SpaceCRUD(ResourceContainerCRUD[SpaceId, SpaceRequest, SpaceResponse]):
     item_name = "nodes and edges"
     folder_name = "data_modeling"
     resource_cls = SpaceResponse
@@ -119,7 +134,7 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceReference, SpaceRequest, SpaceRespons
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None) -> None:
         super().__init__(client, build_dir, console)
-        self._deleted_time_by_id: dict[SpaceReference, float] = {}
+        self._deleted_time_by_id: dict[SpaceId, float] = {}
 
     @property
     def display_name(self) -> str:
@@ -137,17 +152,17 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceReference, SpaceRequest, SpaceRespons
         return [DataModelsAcl(actions, DataModelsAcl.Scope.All())]
 
     @classmethod
-    def get_id(cls, item: SpaceRequest | SpaceResponse | dict) -> SpaceReference:
+    def get_id(cls, item: SpaceRequest | SpaceResponse | dict) -> SpaceId:
         if isinstance(item, dict):
-            return SpaceReference(space=item["space"])
+            return SpaceId(space=item["space"])
         return item.as_id()
 
     @classmethod
-    def dump_id(cls, id: SpaceReference) -> dict[str, Any]:
+    def dump_id(cls, id: SpaceId) -> dict[str, Any]:
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: SpaceReference) -> str:
+    def as_str(cls, id: SpaceId) -> str:
         return sanitize_filename(id.space)
 
     def dump_resource(self, resource: SpaceResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -169,13 +184,13 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceReference, SpaceRequest, SpaceRespons
                     time.sleep(self.delete_recreate_limit_seconds - elapsed_since_delete)
         return self.client.tool.spaces.create(items)
 
-    def retrieve(self, ids: Sequence[SpaceReference]) -> list[SpaceResponse]:
+    def retrieve(self, ids: Sequence[SpaceId]) -> list[SpaceResponse]:
         return self.client.tool.spaces.retrieve(list(ids))
 
     def update(self, items: Sequence[SpaceRequest]) -> list[SpaceResponse]:
         return self.create(items)
 
-    def delete(self, ids: Sequence[SpaceReference]) -> int:
+    def delete(self, ids: Sequence[SpaceId]) -> int:
         existing = self.client.tool.spaces.retrieve(list(ids))
         is_global = {space.space for space in existing if space.is_global}
         if is_global:
@@ -195,12 +210,12 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceReference, SpaceRequest, SpaceRespons
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[SpaceResponse]:
         if space:
-            yield from self.client.tool.spaces.retrieve([SpaceReference(space=space)])
+            yield from self.client.tool.spaces.retrieve([SpaceId(space=space)])
         else:
-            for batch in self.client.tool.spaces.iterate():
+            for batch in self.client.tool.spaces.iterate(limit=None):
                 yield from batch
 
-    def count(self, ids: Sequence[SpaceReference]) -> int:
+    def count(self, ids: Sequence[SpaceId]) -> int:
         # Bug in spec of aggregate requiring view_id to be passed in, so we cannot use it.
         # When this bug is fixed, it will be much faster to use aggregate.
         spaces = [space_ref.space for space_ref in ids]
@@ -209,7 +224,7 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceReference, SpaceRequest, SpaceRespons
             len(batch) for batch in self._iterate_over_edges(spaces)
         )
 
-    def drop_data(self, ids: Sequence[SpaceReference]) -> int:
+    def drop_data(self, ids: Sequence[SpaceId]) -> int:
         spaces = [space_ref.space for space_ref in ids]
         if not spaces:
             return 0
@@ -223,22 +238,22 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceReference, SpaceRequest, SpaceRespons
             nr_of_deleted += len(node_ids)
         return nr_of_deleted
 
-    def _iterate_over_nodes(self, spaces: list[str]) -> Iterable[list[NodeReference]]:
+    def _iterate_over_nodes(self, spaces: list[str]) -> Iterable[list[NodeId]]:
         if not spaces:
             return
         filter_ = InstanceFilter(instance_type="node", space=spaces)
-        for instances in self.client.tool.instances.iterate(filter=filter_):
+        for instances in self.client.tool.instances.iterate(filter=filter_, limit=None):
             yield [inst.as_id() for inst in instances]  # type: ignore[misc]
 
-    def _iterate_over_edges(self, spaces: list[str]) -> Iterable[list[EdgeReference]]:
+    def _iterate_over_edges(self, spaces: list[str]) -> Iterable[list[EdgeId]]:
         if not spaces:
             return
         filter_ = InstanceFilter(instance_type="edge", space=spaces)
-        for instances in self.client.tool.instances.iterate(filter=filter_):
+        for instances in self.client.tool.instances.iterate(filter=filter_, limit=None):
             yield [inst.as_id() for inst in instances]  # type: ignore[misc]
 
 
-class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, ContainerResponse]):
+class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerRequest, ContainerResponse]):
     item_name = "nodes and edges"
     folder_name = "data_modeling"
     resource_cls = ContainerResponse
@@ -257,7 +272,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
         topological_sort_implements: bool = False,
     ) -> None:
         super().__init__(client, build_dir, console)
-        self._container_by_id: dict[ContainerReference, ContainerResponse] = {}
+        self._container_by_id: dict[ContainerId, ContainerResponse] = {}
 
     @property
     def display_name(self) -> str:
@@ -281,22 +296,22 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
         return DataModelsAcl(actions, scope)
 
     @classmethod
-    def get_id(cls, item: ContainerRequest | ContainerResponse | dict) -> ContainerReference:
+    def get_id(cls, item: ContainerRequest | ContainerResponse | dict) -> ContainerId:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"space", "externalId"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return ContainerReference(space=item["space"], external_id=item["externalId"])
+            return ContainerId(space=item["space"], external_id=item["externalId"])
         return item.as_id()
 
     @classmethod
-    def dump_id(cls, id: ContainerReference) -> dict[str, Any]:
+    def dump_id(cls, id: ContainerId) -> dict[str, Any]:
         return id.dump()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
-            yield SpaceCRUD, SpaceReference(space=item["space"])
+            yield SpaceCRUD, SpaceId(space=item["space"])
         # Note that we are very careful in the code below to not raise an exception if the
         # item is not properly formed. If that is the case, an appropriate warning will be given elsewhere.
         for prop in item.get("properties", {}).values():
@@ -309,7 +324,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
                     if "space" in container and "externalId" in container and container.get("type") == "container":
                         yield (
                             ContainerCRUD,
-                            ContainerReference(space=container["space"], external_id=container["externalId"]),
+                            ContainerId(space=container["space"], external_id=container["externalId"]),
                         )
 
     def dump_resource(self, resource: ContainerResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -357,7 +372,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
     def create(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
         return self.client.tool.containers.create(items)
 
-    def retrieve(self, ids: Sequence[ContainerReference]) -> list[ContainerResponse]:
+    def retrieve(self, ids: Sequence[ContainerId]) -> list[ContainerResponse]:
         return self.client.tool.containers.retrieve(list(ids))
 
     def update(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
@@ -389,7 +404,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
                 ).print_warning()
         return updated
 
-    def delete(self, ids: Sequence[ContainerReference]) -> int:
+    def delete(self, ids: Sequence[ContainerId]) -> int:
         self.client.tool.containers.delete(list(ids))
         return len(ids)
 
@@ -399,10 +414,12 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ContainerResponse]:
-        for batch in self.client.tool.containers.iterate(filter=ContainerFilter(space=space) if space else None):
+        for batch in self.client.tool.containers.iterate(
+            filter=ContainerFilter(space=space) if space else None, limit=None
+        ):
             yield from batch
 
-    def count(self, ids: Sequence[ContainerReference]) -> int:
+    def count(self, ids: Sequence[ContainerId]) -> int:
         # Bug in spec of aggregate requiring view_id to be passed in, so we cannot use it.
         # When this bug is fixed, it will be much faster to use aggregate.
         existing_containers = self.client.tool.containers.retrieve(list(ids))
@@ -410,7 +427,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
             len(batch) for batch in self._iterate_over_edges(existing_containers)
         )
 
-    def drop_data(self, ids: Sequence[ContainerReference]) -> int:
+    def drop_data(self, ids: Sequence[ContainerId]) -> int:
         nr_of_deleted = 0
         existing_containers = self.client.tool.containers.retrieve(list(ids))
         for node_ids in self._iterate_over_nodes(existing_containers):
@@ -421,36 +438,34 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
             nr_of_deleted += len(edge_ids)
         return nr_of_deleted
 
-    def _iterate_over_nodes(self, containers: list[ContainerResponse]) -> Iterable[list[NodeReference]]:
+    def _iterate_over_nodes(self, containers: list[ContainerResponse]) -> Iterable[list[NodeId]]:
         container_ids = [container.as_id() for container in containers if container.used_for in ["node", "all"]]
         if not container_ids:
             return
         for container_id_chunk in self._chunker(container_ids, HAS_DATA_FILTER_LIMIT):
             is_container = filters.HasData(
-                containers=[ContainerId(space=cid.space, external_id=cid.external_id) for cid in container_id_chunk]
+                containers=[dm.ContainerId(space=cid.space, external_id=cid.external_id) for cid in container_id_chunk]
             )
             for instances in self.client.data_modeling.instances(
                 chunk_size=1000, instance_type="node", filter=is_container, limit=-1
             ):
-                yield [NodeReference(space=nid.space, external_id=nid.external_id) for nid in instances.as_ids()]
+                yield [NodeId(space=nid.space, external_id=nid.external_id) for nid in instances.as_ids()]
 
-    def _iterate_over_edges(self, containers: list[ContainerResponse]) -> Iterable[list[EdgeReference]]:
+    def _iterate_over_edges(self, containers: list[ContainerResponse]) -> Iterable[list[EdgeId]]:
         container_ids = [container.as_id() for container in containers if container.used_for in ["edge", "all"]]
         if not container_ids:
             return
 
         for container_id_chunk in self._chunker(container_ids, HAS_DATA_FILTER_LIMIT):
             is_container = filters.HasData(
-                containers=[ContainerId(space=cid.space, external_id=cid.external_id) for cid in container_id_chunk]
+                containers=[dm.ContainerId(space=cid.space, external_id=cid.external_id) for cid in container_id_chunk]
             )
             for instances in self.client.data_modeling.instances(
                 chunk_size=1000, instance_type="edge", limit=-1, filter=is_container
             ):
-                yield [EdgeReference(space=eid.space, external_id=eid.external_id) for eid in instances.as_ids()]
+                yield [EdgeId(space=eid.space, external_id=eid.external_id) for eid in instances.as_ids()]
 
-    def _lookup_containers(
-        self, container_ids: Sequence[ContainerReference]
-    ) -> dict[ContainerReference, ContainerResponse]:
+    def _lookup_containers(self, container_ids: Sequence[ContainerId]) -> dict[ContainerId, ContainerResponse]:
         ids_to_lookup = [container_id for container_id in container_ids if container_id not in self._container_by_id]
         if ids_to_lookup:
             retrieved_containers = self.client.tool.containers.retrieve(ids_to_lookup)
@@ -467,10 +482,10 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
         }
 
     def _find_direct_container_dependencies(
-        self, container_ids: Sequence[ContainerReference]
-    ) -> dict[ContainerReference, set[ContainerReference]]:
+        self, container_ids: Sequence[ContainerId]
+    ) -> dict[ContainerId, set[ContainerId]]:
         containers_by_id = self._lookup_containers(container_ids)
-        container_dependencies: dict[ContainerReference, set[ContainerReference]] = defaultdict(set)
+        container_dependencies: dict[ContainerId, set[ContainerId]] = defaultdict(set)
         for container_id, container in containers_by_id.items():
             for constraint in (container.constraints or {}).values():
                 if not isinstance(constraint, RequiresConstraintDefinition):
@@ -484,9 +499,9 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
 
     def _propagate_indirect_container_dependencies(
         self,
-        container_dependencies_by_id: dict[ContainerReference, set[ContainerReference]],
-        dependants: Sequence[ContainerReference],
-    ) -> dict[ContainerReference, set[ContainerReference]]:
+        container_dependencies_by_id: dict[ContainerId, set[ContainerId]],
+        dependants: Sequence[ContainerId],
+    ) -> dict[ContainerId, set[ContainerId]]:
         """Propagate indirect container dependencies using a recursive approach.
 
         Args:
@@ -497,7 +512,7 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
             Updated dictionary mapping each container ID to all its direct and indirect dependencies
         """
         current_container_id = dependants[0]
-        dependencies_to_propagate: set[ContainerReference] = set()
+        dependencies_to_propagate: set[ContainerId] = set()
         for container_dependency in container_dependencies_by_id[current_container_id]:
             if container_dependency in container_dependencies_by_id:
                 # If already processed, propagate its dependencies to current container instead of revisiting it
@@ -510,8 +525,8 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
         return container_dependencies_by_id
 
     def _find_direct_and_indirect_container_dependencies(
-        self, container_ids: Sequence[ContainerReference]
-    ) -> dict[ContainerReference, set[ContainerReference]]:
+        self, container_ids: Sequence[ContainerId]
+    ) -> dict[ContainerId, set[ContainerId]]:
         container_dependencies_by_id = self._find_direct_container_dependencies(container_ids)
         for container_id in list(container_dependencies_by_id.keys()):
             self._propagate_indirect_container_dependencies(container_dependencies_by_id, [container_id])
@@ -522,11 +537,11 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerReference, ContainerRequest, 
         return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
     @classmethod
-    def as_str(cls, id: ContainerReference) -> str:
+    def as_str(cls, id: ContainerId) -> str:
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
-class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
+class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
     folder_name = "data_modeling"
     resource_cls = ViewResponse
     resource_write_cls = ViewRequest
@@ -545,7 +560,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
     ) -> None:
         super().__init__(client, build_dir, console)
         self._topological_sort_implements = topological_sort_implements
-        self._view_by_id: dict[ViewReference, ViewResponse] = {}
+        self._view_by_id: dict[ViewId, ViewResponse] = {}
 
     @property
     def display_name(self) -> str:
@@ -569,23 +584,35 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
         return DataModelsAcl(actions, scope)
 
     @classmethod
-    def get_id(cls, item: ViewRequest | ViewResponse | dict) -> ViewReference:
+    def get_id(cls, item: ViewRequest | ViewResponse | dict) -> ViewId:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return ViewReference(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
+            return ViewId(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
 
         return item.as_id()
 
     @classmethod
-    def dump_id(cls, id: ViewReference) -> dict[str, Any]:
+    def dump_id(cls, id: ViewId) -> dict[str, Any]:
         return id.dump()
+
+    @classmethod
+    def get_dependencies(cls, resource: ViewYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+
+        yield SpaceCRUD, SpaceId(space=resource.space)
+
+        for implement in resource.implements or []:
+            yield ViewCRUD, implement.as_id()
+        if resource.properties:
+            for prop in resource.properties.values():
+                if isinstance(prop, ContainerViewProperty):
+                    yield ContainerCRUD, prop.container.as_id()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
-            yield SpaceCRUD, SpaceReference(space=item["space"])
+            yield SpaceCRUD, SpaceId(space=item["space"])
         if isinstance(implements := item.get("implements", []), list):
             for parent in implements:
                 if not isinstance(parent, dict):
@@ -593,7 +620,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                 if parent.get("type") == "view" and in_dict(["space", "externalId", "version"], parent):
                     yield (
                         ViewCRUD,
-                        ViewReference(
+                        ViewId(
                             space=parent["space"],
                             external_id=parent["externalId"],
                             version=str(v) if (v := parent.get("version")) else "",
@@ -604,21 +631,21 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                 if in_dict(("space", "externalId"), container):
                     yield (
                         ContainerCRUD,
-                        ContainerReference(space=container["space"], external_id=container["externalId"]),
+                        ContainerId(space=container["space"], external_id=container["externalId"]),
                     )
             for key, dct_ in [("source", prop), ("edgeSource", prop), ("source", prop.get("through", {}))]:
                 if source := dct_.get(key, {}):
                     if source.get("type") == "view" and in_dict(("space", "externalId", "version"), source):
                         yield (
                             ViewCRUD,
-                            ViewReference(
+                            ViewId(
                                 space=source["space"],
                                 external_id=source["externalId"],
                                 version=str(v) if (v := source.get("version")) else "",
                             ),
                         )
                     elif source.get("type") == "container" and in_dict(("space", "externalId"), source):
-                        yield ContainerCRUD, ContainerReference(space=source["space"], external_id=source["externalId"])
+                        yield ContainerCRUD, ContainerId(space=source["space"], external_id=source["externalId"])
 
     def safe_read(self, filepath: Path | str) -> str:
         # The version is a string, but the user often writes it as an int.
@@ -693,6 +720,8 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
+        if Flags.DEPENDENCY_ORDERED_DEPLOY.is_enabled():
+            return self._create_dependency_ordered(items)
         try:
             return self.client.tool.views.create(items)
         except ToolkitAPIError as e1:
@@ -700,6 +729,66 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                 # Fallback to creating one by one if the error is auto-retryable.
                 return self._fallback_create_one_by_one(items, e1)
             raise
+
+    def _create_dependency_ordered(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
+        creation_order = self._compute_deploy_batches(items)
+        created: list[ViewResponse] = []
+        for batch in creation_order:
+            try:
+                created.extend(self.client.tool.views.create(batch))
+            except ToolkitAPIError as e:
+                if e.is_auto_retryable:
+                    created.extend(self._fallback_create_one_by_one(batch, e))
+                else:
+                    raise
+        return created
+
+    def _compute_deploy_batches(self, items: Sequence[ViewRequest]) -> list[list[ViewRequest]]:
+        """Sorts views into batches based on their dependency graph (implements, reverse direct relations,
+        and direct relation sources).
+
+        Computes the strongly connected components in topological order, then packs
+        consecutive SCCs into batches up to VIEW_UPSERT_BATCH_LIMIT.
+        """
+        views_by_id = {self.get_id(item): item for item in items}
+
+        self._sort_implements_or_raise_cycle(views_by_id)
+
+        dependencies_by_id: dict[ViewId, set[ViewId]] = defaultdict(set)
+        for view_id, view in views_by_id.items():
+            dependencies_by_id[view_id].update([parent for parent in view.implements or [] if parent in views_by_id])
+            for view_property in (view.properties or {}).values():
+                if isinstance(view_property, ReverseDirectRelationProperty):
+                    if view_property.source in views_by_id:
+                        dependencies_by_id[view_id].add(view_property.source)
+                    through_source = view_property.through.source
+                    if isinstance(through_source, ViewId) and through_source in views_by_id:
+                        dependencies_by_id[view_id].add(through_source)
+                elif isinstance(view_property, EdgeProperty):
+                    if view_property.source in views_by_id:
+                        dependencies_by_id[view_id].add(view_property.source)
+                    if view_property.edge_source is not None and view_property.edge_source in views_by_id:
+                        dependencies_by_id[view_id].add(view_property.edge_source)
+                elif isinstance(view_property, ViewCorePropertyRequest) and view_property.source is not None:
+                    if view_property.source in views_by_id:
+                        dependencies_by_id[view_id].add(view_property.source)
+
+        batches: list[list[ViewRequest]] = []
+        current_batch: list[ViewRequest] = []
+        for strongly_connected in tarjan(dependencies_by_id):
+            scc_views = [views_by_id[view_id] for view_id in strongly_connected]
+            if len(current_batch) + len(scc_views) > VIEW_UPSERT_BATCH_LIMIT and len(current_batch) > 0:
+                batches.append(current_batch)
+                current_batch = []
+            current_batch.extend(scc_views)
+            if len(scc_views) > VIEW_UPSERT_BATCH_LIMIT:
+                MediumSeverityWarning(
+                    f"Found a strongly interdependent set of {len(scc_views)} views: {humanize_collection(self.get_ids(scc_views))}. "
+                    "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
+                ).print_warning(console=self.console)
+        if len(current_batch) > 0:
+            batches.append(current_batch)
+        return batches
 
     def _fallback_create_one_by_one(
         self, items: Sequence[ViewRequest], e1: ToolkitAPIError, warn: bool = True
@@ -718,13 +807,13 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                 created_list.extend(created)
         return created_list
 
-    def retrieve(self, ids: Sequence[ViewReference]) -> list[ViewResponse]:
+    def retrieve(self, ids: Sequence[ViewId]) -> list[ViewResponse]:
         return self.client.tool.views.retrieve(list(ids), include_inherited_properties=False)
 
     def update(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
         return self.create(items)
 
-    def delete(self, ids: Sequence[ViewReference]) -> int:
+    def delete(self, ids: Sequence[ViewId]) -> int:
         to_delete = list(ids)
         nr_of_deleted = 0
         attempt_count = 5
@@ -750,14 +839,14 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ViewResponse]:
-        for batch in self.client.tool.views.iterate(filter=ViewFilter(space=space) if space else None):
+        for batch in self.client.tool.views.iterate(filter=ViewFilter(space=space, all_versions=True), limit=None):
             yield from batch
 
     @classmethod
-    def as_str(cls, id: ViewReference) -> str:
+    def as_str(cls, id: ViewId) -> str:
         return sanitize_filename(id.external_id)
 
-    def _lookup_views(self, view_ids: list[ViewReference]) -> dict[ViewReference, ViewResponse]:
+    def _lookup_views(self, view_ids: list[ViewId]) -> dict[ViewId, ViewResponse]:
         """Looks up views by their IDs and caches them."""
         missing_ids = [view_id for view_id in view_ids if view_id not in self._view_by_id]
         if missing_ids:
@@ -766,7 +855,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                 self._view_by_id[view.as_id()] = view
         return {view_id: self._view_by_id[view_id] for view_id in view_ids if view_id in self._view_by_id}
 
-    def get_readonly_properties(self, view_id: ViewReference) -> set[str]:
+    def get_readonly_properties(self, view_id: ViewId) -> set[str]:
         """Retrieve the set of read-only properties for a given view."""
 
         readonly_properties: set[str] = set()
@@ -786,9 +875,10 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                 readonly_properties.add(property_identifier)
         return readonly_properties
 
+    @staticmethod
     def _build_view_implements_dependencies(
-        self, view_by_ids: dict[ViewReference, ViewResponse], include: set[ViewReference] | None = None
-    ) -> dict[ViewReference, set[ViewReference]]:
+        view_by_ids: Mapping[ViewId, View], include: set[ViewId] | None = None
+    ) -> dict[ViewId, set[ViewId]]:
         """Build a dependency graph based on view implements relationships.
 
         Args:
@@ -798,7 +888,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
         Returns:
             Dictionary mapping each view ID to the set of view IDs it depends on (implements)
         """
-        dependencies: dict[ViewReference, set[ViewReference]] = {}
+        dependencies: dict[ViewId, set[ViewId]] = {}
         for view_id, view in view_by_ids.items():
             dependencies[view_id] = set()
             for implemented_view_id in view.implements or []:
@@ -806,23 +896,29 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                     dependencies[view_id].add(implemented_view_id)
         return dependencies
 
-    def topological_sort_implements(self, view_ids: list[ViewReference]) -> list[ViewReference]:
-        """Sorts the views in topological order based on their implements and through properties."""
-        view_by_ids = self._lookup_views(view_ids)
-        parents_by_child = self._build_view_implements_dependencies(view_by_ids)
+    @staticmethod
+    def _sort_implements_or_raise_cycle(
+        view_by_ids: Mapping[ViewId, View],
+    ) -> list[ViewId]:
+        """Builds the implements dependency graph and returns views in topological order.
 
+        Raises ToolkitCycleError if there is a cycle in implements.
+        """
+        parents_by_child = ViewCRUD._build_view_implements_dependencies(view_by_ids)
         try:
-            sorted_views = list(TopologicalSorter(parents_by_child).static_order())
+            # static_order() returns a lazy generator in Python 3.11+; must be consumed to trigger CycleError
+            return list(TopologicalSorter(parents_by_child).static_order())
         except CycleError as e:
             raise ToolkitCycleError(
-                f"Failed to sort views topologically. This likely due to a cycle in implements. {e.args[1]}"
+                f"Failed to sort views topologically. This is likely due to a cycle in implements. {e.args[1]}"
             )
 
-        return sorted_views
+    def topological_sort_implements(self, view_ids: list[ViewId]) -> list[ViewId]:
+        """Sorts the views in topological order based on their implements and through properties."""
+        view_by_ids = self._lookup_views(view_ids)
+        return self._sort_implements_or_raise_cycle(view_by_ids)
 
-    def topological_sort_container_constraints(
-        self, view_ids: list[ViewReference]
-    ) -> tuple[list[ViewReference], list[ViewReference]]:
+    def topological_sort_container_constraints(self, view_ids: list[ViewId]) -> tuple[list[ViewId], list[ViewId]]:
         """Sorts the views in topological order based on their container constraints.
 
         Returns:
@@ -836,8 +932,8 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
             ).print_warning(console=self.console)
             return view_ids, []
 
-        view_to_containers: dict[ViewReference, set[ContainerReference]] = {}
-        container_to_views: defaultdict[ContainerReference, set[ViewReference]] = defaultdict(set)
+        view_to_containers: dict[ViewId, set[ContainerId]] = {}
+        container_to_views: defaultdict[ContainerId, set[ViewId]] = defaultdict(set)
         for view_id, view in view_by_ids.items():
             view_to_containers[view_id] = set(view.mapped_containers)
             for container_id in view_to_containers[view_id]:
@@ -867,7 +963,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
                     # This view doesn't implement the required container, so depend on all views that do
                     view_dependencies[view_id].update(container_to_views[required_container])
 
-        cyclic_views: list[ViewReference] = []
+        cyclic_views: list[ViewId] = []
         for _ in range(
             len(view_dependencies)
         ):  # Ensure an upper bound on the number of iterations we do when removing cycles.
@@ -885,7 +981,7 @@ class ViewCRUD(ResourceCRUD[ViewReference, ViewRequest, ViewResponse]):
 
 
 @final
-class DataModelCRUD(ResourceCRUD[DataModelReference, DataModelRequest, DataModelResponse]):
+class DataModelCRUD(ResourceCRUD[DataModelId, DataModelRequest, DataModelResponse]):
     folder_name = "data_modeling"
     resource_cls = DataModelResponse
     resource_write_cls = DataModelRequest
@@ -916,27 +1012,27 @@ class DataModelCRUD(ResourceCRUD[DataModelReference, DataModelRequest, DataModel
         return DataModelsAcl(actions, scope)
 
     @classmethod
-    def get_id(cls, item: DataModelRequest | DataModelResponse | dict) -> DataModelReference:
+    def get_id(cls, item: DataModelRequest | DataModelResponse | dict) -> DataModelId:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return DataModelReference(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
+            return DataModelId(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
         return item.as_id()
 
     @classmethod
-    def dump_id(cls, id: DataModelReference) -> dict[str, Any]:
+    def dump_id(cls, id: DataModelId) -> dict[str, Any]:
         return id.dump()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
-            yield SpaceCRUD, SpaceReference(space=item["space"])
+            yield SpaceCRUD, SpaceId(space=item["space"])
         for view in item.get("views", []):
             if in_dict(("space", "externalId"), view):
                 yield (
                     ViewCRUD,
-                    ViewReference(
+                    ViewId(
                         space=view["space"],
                         external_id=view["externalId"],
                         version=str(v) if (v := view.get("version")) else "",
@@ -961,11 +1057,9 @@ class DataModelCRUD(ResourceCRUD[DataModelReference, DataModelRequest, DataModel
                 # Set to null by server.
                 dumped.pop(key, None)
         # Sorting in the same order as the local file.
-        view_order_by_id = {ViewReference._load(v): no for no, v in enumerate(local.get("views", []))}
+        view_order_by_id = {ViewId._load(v): no for no, v in enumerate(local.get("views", []))}
         end_of_list = len(view_order_by_id)
-        dumped["views"] = sorted(
-            dumped["views"], key=lambda v: view_order_by_id.get(ViewReference._load(v), end_of_list)
-        )
+        dumped["views"] = sorted(dumped["views"], key=lambda v: view_order_by_id.get(ViewId._load(v), end_of_list))
         return dumped
 
     def diff_list(
@@ -978,7 +1072,7 @@ class DataModelCRUD(ResourceCRUD[DataModelReference, DataModelRequest, DataModel
     def create(self, items: Sequence[DataModelRequest]) -> list[DataModelResponse]:
         return self.client.tool.data_models.create(items)
 
-    def retrieve(self, ids: Sequence[DataModelReference]) -> list[DataModelResponse]:
+    def retrieve(self, ids: Sequence[DataModelId]) -> list[DataModelResponse]:
         return self.client.tool.data_models.retrieve(list(ids))
 
     def update(self, items: Sequence[DataModelRequest]) -> list[DataModelResponse]:
@@ -1008,7 +1102,7 @@ class DataModelCRUD(ResourceCRUD[DataModelReference, DataModelRequest, DataModel
 
         return updated
 
-    def delete(self, ids: Sequence[DataModelReference]) -> int:
+    def delete(self, ids: Sequence[DataModelId]) -> int:
         self.client.tool.data_models.delete(list(ids))
         return len(ids)
 
@@ -1018,16 +1112,18 @@ class DataModelCRUD(ResourceCRUD[DataModelReference, DataModelRequest, DataModel
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DataModelResponse]:
-        for batch in self.client.tool.data_models.iterate(filter=DataModelFilter(space=space, include_global=False)):
+        for batch in self.client.tool.data_models.iterate(
+            filter=DataModelFilter(space=space, include_global=False, all_versions=True), limit=None
+        ):
             yield from batch
 
     @classmethod
-    def as_str(cls, id: DataModelReference) -> str:
+    def as_str(cls, id: DataModelId) -> str:
         return sanitize_filename(id.external_id)
 
 
 @final
-class NodeCRUD(ResourceContainerCRUD[NodeReference, NodeRequest, NodeResponse]):
+class NodeCRUD(ResourceContainerCRUD[NodeId, NodeRequest, NodeResponse]):
     item_name = "nodes"
     folder_name = "data_modeling"
     resource_cls = NodeResponse
@@ -1043,7 +1139,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeReference, NodeRequest, NodeResponse]):
         client: ToolkitClient,
         build_dir: Path | None,
         console: Console | None = None,
-        view_id: ViewReference | None = None,
+        view_id: ViewId | None = None,
     ) -> None:
         super().__init__(client, build_dir, console)
         # View ID is used to retrieve nodes with properties.
@@ -1074,28 +1170,28 @@ class NodeCRUD(ResourceContainerCRUD[NodeReference, NodeRequest, NodeResponse]):
         )
 
     @classmethod
-    def get_id(cls, item: NodeRequest | NodeResponse | dict) -> NodeReference:
+    def get_id(cls, item: NodeRequest | NodeResponse | dict) -> NodeId:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"space", "externalId"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return NodeReference(space=item["space"], external_id=item["externalId"])
+            return NodeId(space=item["space"], external_id=item["externalId"])
         return item.as_id()
 
     @classmethod
-    def dump_id(cls, id: NodeReference) -> dict[str, Any]:
+    def dump_id(cls, id: NodeId) -> dict[str, Any]:
         return id.dump()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
-            yield SpaceCRUD, SpaceReference(space=item["space"])
+            yield SpaceCRUD, SpaceId(space=item["space"])
         for source in item.get("sources", []):
             if (identifier := source.get("source")) and isinstance(identifier, dict):
                 if identifier.get("type") == "view" and in_dict(("space", "externalId", "version"), identifier):
                     yield (
                         ViewCRUD,
-                        ViewReference(
+                        ViewId(
                             space=identifier["space"],
                             external_id=identifier["externalId"],
                             version=str(v) if (v := identifier.get("version")) else "",
@@ -1104,13 +1200,13 @@ class NodeCRUD(ResourceContainerCRUD[NodeReference, NodeRequest, NodeResponse]):
                 elif identifier.get("type") == "container" and in_dict(("space", "externalId"), identifier):
                     yield (
                         ContainerCRUD,
-                        ContainerReference(space=identifier["space"], external_id=identifier["externalId"]),
+                        ContainerId(space=identifier["space"], external_id=identifier["externalId"]),
                     )
 
     def dump_resource(self, resource: NodeResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
         local = local or {}
-        sources = [ViewReference._load(source["source"]) for source in local.get("sources", []) if "source" in source]
+        sources = [ViewId._load(source["source"]) for source in local.get("sources", []) if "source" in source]
 
         # Default dump
         dumped = resource.as_request_resource().dump()
@@ -1140,9 +1236,9 @@ class NodeCRUD(ResourceContainerCRUD[NodeReference, NodeRequest, NodeResponse]):
     def create(self, items: Sequence[NodeRequest]) -> list[InstanceSlimDefinition]:
         return self.client.tool.instances.create(list(items))
 
-    def retrieve(self, ids: Sequence[NodeReference]) -> list[NodeResponse]:
+    def retrieve(self, ids: Sequence[NodeId]) -> list[NodeResponse]:
         source_ref = (
-            ViewReference(space=self.view_id.space, external_id=self.view_id.external_id, version=self.view_id.version)
+            ViewId(space=self.view_id.space, external_id=self.view_id.external_id, version=self.view_id.version)
             if self.view_id
             else None
         )
@@ -1152,7 +1248,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeReference, NodeRequest, NodeResponse]):
     def update(self, items: Sequence[NodeRequest]) -> list[InstanceSlimDefinition]:
         return self.client.tool.instances.create(list(items))
 
-    def delete(self, ids: Sequence[NodeReference]) -> int:
+    def delete(self, ids: Sequence[NodeId]) -> int:
         try:
             deleted = self.client.tool.instances.delete(list(ids))
         except ToolkitAPIError as e:
@@ -1168,7 +1264,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeReference, NodeRequest, NodeResponse]):
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[NodeResponse]:
         source_ref = (
-            ViewReference(space=self.view_id.space, external_id=self.view_id.external_id, version=self.view_id.version)
+            ViewId(space=self.view_id.space, external_id=self.view_id.external_id, version=self.view_id.version)
             if self.view_id
             else None
         )
@@ -1177,24 +1273,24 @@ class NodeCRUD(ResourceContainerCRUD[NodeReference, NodeRequest, NodeResponse]):
             space=[space] if space else None,
             source=source_ref,
         )
-        for batch in self.client.tool.instances.iterate(filter=filter_):
+        for batch in self.client.tool.instances.iterate(filter=filter_, limit=None):
             for inst in batch:
                 if isinstance(inst, NodeResponse):
                     yield inst
 
-    def count(self, ids: Sequence[NodeReference]) -> int:
+    def count(self, ids: Sequence[NodeId]) -> int:
         return len(ids)
 
-    def drop_data(self, ids: Sequence[NodeReference]) -> int:
+    def drop_data(self, ids: Sequence[NodeId]) -> int:
         # Nodes will be deleted in .delete call.
         return 0
 
     @classmethod
-    def as_str(cls, id: NodeReference) -> str:
+    def as_str(cls, id: NodeId) -> str:
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
 
-class GraphQLCRUD(ResourceContainerCRUD[DataModelReference, GraphQLDataModelRequest, GraphQLDataModelResponse]):
+class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, GraphQLDataModelResponse]):
     folder_name = "data_modeling"
     resource_cls = GraphQLDataModelResponse
     resource_write_cls = GraphQLDataModelRequest
@@ -1207,25 +1303,25 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelReference, GraphQLDataModelRequ
 
     def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None) -> None:
         super().__init__(client, build_dir, console)
-        self._graphql_filepath_cache: dict[DataModelReference, Path] = {}
-        self._datamodels_by_view_id: dict[ViewReference, set[DataModelReference]] = defaultdict(set)
-        self._dependencies_by_datamodel_id: dict[DataModelReference, set[ViewReference | DataModelReference]] = {}
+        self._graphql_filepath_cache: dict[DataModelId, Path] = {}
+        self._datamodels_by_view_id: dict[ViewId, set[DataModelId]] = defaultdict(set)
+        self._dependencies_by_datamodel_id: dict[DataModelId, set[ViewId | DataModelId]] = {}
 
     @property
     def display_name(self) -> str:
         return "graph QL schemas"
 
     @classmethod
-    def get_id(cls, item: GraphQLDataModelRequest | GraphQLDataModelResponse | dict) -> DataModelReference:
+    def get_id(cls, item: GraphQLDataModelRequest | GraphQLDataModelResponse | dict) -> DataModelId:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return DataModelReference(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
+            return DataModelId(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
         return item.as_id()
 
     @classmethod
-    def dump_id(cls, id: DataModelReference) -> dict[str, Any]:
+    def dump_id(cls, id: DataModelId) -> dict[str, Any]:
         return id.dump()
 
     @classmethod
@@ -1245,7 +1341,7 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelReference, GraphQLDataModelRequ
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
-            yield SpaceCRUD, SpaceReference(space=item["space"])
+            yield SpaceCRUD, SpaceId(space=item["space"])
 
     def safe_read(self, filepath: Path | str) -> str:
         # The version is a string, but the user often writes it as an int.
@@ -1277,24 +1373,20 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelReference, GraphQLDataModelRequ
             self._graphql_filepath_cache[model_id] = graphql_file
             graphql_content = safe_read(graphql_file, encoding=BUILD_FOLDER_ENCODING)
 
-            sdk_model_id = DataModelId(space=model_id.space, external_id=model_id.external_id, version=model_id.version)
+            sdk_model_id = dm.DataModelId(
+                space=model_id.space, external_id=model_id.external_id, version=model_id.version
+            )
             parser = GraphQLParser(graphql_content, sdk_model_id)
             try:
                 for view in parser.get_views():
-                    view_ref = ViewReference(
-                        space=view.space, external_id=view.external_id, version=str(view.version or "")
-                    )
+                    view_ref = ViewId(space=view.space, external_id=view.external_id, version=str(view.version or ""))
                     self._datamodels_by_view_id[view_ref].add(model_id)
-                deps: set[ViewReference | DataModelReference] = set()
+                deps: set[ViewId | DataModelId] = set()
                 for dep in parser.get_dependencies():
-                    if isinstance(dep, DataModelId):
-                        deps.add(
-                            DataModelReference(space=dep.space, external_id=dep.external_id, version=str(dep.version))
-                        )
-                    elif isinstance(dep, ViewId):
-                        deps.add(
-                            ViewReference(space=dep.space, external_id=dep.external_id, version=str(dep.version or ""))
-                        )
+                    if isinstance(dep, dm.DataModelId):
+                        deps.add(DataModelId(space=dep.space, external_id=dep.external_id, version=str(dep.version)))
+                    elif isinstance(dep, dm.ViewId):
+                        deps.add(ViewId(space=dep.space, external_id=dep.external_id, version=str(dep.version or "")))
                 self._dependencies_by_datamodel_id[model_id] = deps
             except Exception as e:
                 # We catch a broad exception here to give a more user-friendly error message.
@@ -1340,19 +1432,19 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelReference, GraphQLDataModelRequ
             created_list.extend(created)
         return created_list
 
-    def _get_graphql_content(self, data_model_id: DataModelReference) -> str:
+    def _get_graphql_content(self, data_model_id: DataModelId) -> str:
         filepath = self._graphql_filepath_cache.get(data_model_id)
         if filepath is None:
             raise ToolkitFileNotFoundError(f"Could not find the GraphQL file for {data_model_id}")
         return safe_read(filepath)
 
-    def retrieve(self, ids: Sequence[DataModelReference]) -> list[GraphQLDataModelResponse]:
+    def retrieve(self, ids: Sequence[DataModelId]) -> list[GraphQLDataModelResponse]:
         return self.client.tool.graphql_data_models.retrieve(list(ids), inline_views=False)
 
     def update(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelResponse]:
         return self.create(items)
 
-    def delete(self, ids: Sequence[DataModelReference]) -> int:
+    def delete(self, ids: Sequence[DataModelId]) -> int:
         retrieved = self.retrieve(ids)
         views = {view for dml in retrieved for view in dml.views or []}
         self.client.tool.graphql_data_models.delete(list(ids))
@@ -1369,26 +1461,26 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelReference, GraphQLDataModelRequ
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[GraphQLDataModelResponse]:
         filter_ = DataModelFilter(space=space) if space else None
-        for batch in self.client.tool.graphql_data_models.iterate(filter=filter_):
+        for batch in self.client.tool.graphql_data_models.iterate(filter=filter_, limit=None):
             yield from batch
 
-    def count(self, ids: Sequence[DataModelReference]) -> int:
+    def count(self, ids: Sequence[DataModelId]) -> int:
         retrieved = self.retrieve(ids)
         return sum(len(d.views or []) for d in retrieved)
 
-    def drop_data(self, ids: Sequence[DataModelReference]) -> int:
+    def drop_data(self, ids: Sequence[DataModelId]) -> int:
         return self.delete(ids)
 
     def _topological_sort(self, items: Sequence[GraphQLDataModelRequest]) -> list[GraphQLDataModelRequest]:
         to_sort = {item.as_id(): item for item in items}
-        dependencies: dict[DataModelReference, set[DataModelReference]] = {}
+        dependencies: dict[DataModelId, set[DataModelId]] = {}
         for item in items:
             item_id = item.as_id()
             dependencies[item_id] = set()
             for dependency in self._dependencies_by_datamodel_id.get(item_id, []):
-                if isinstance(dependency, DataModelReference) and dependency in to_sort:
+                if isinstance(dependency, DataModelId) and dependency in to_sort:
                     dependencies[item_id].add(dependency)
-                elif isinstance(dependency, ViewReference):
+                elif isinstance(dependency, ViewId):
                     for model_id in self._datamodels_by_view_id.get(dependency, set()):
                         if model_id in to_sort:
                             dependencies[item_id].add(model_id)
@@ -1402,7 +1494,7 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelReference, GraphQLDataModelRequ
 
 
 @final
-class EdgeCRUD(ResourceContainerCRUD[EdgeReference, EdgeRequest, EdgeResponse]):
+class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeRequest, EdgeResponse]):
     item_name = "edges"
     folder_name = "data_modeling"
     resource_cls = EdgeResponse
@@ -1437,32 +1529,32 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeReference, EdgeRequest, EdgeResponse]):
         )
 
     @classmethod
-    def get_id(cls, item: EdgeRequest | EdgeResponse | dict) -> EdgeReference:
+    def get_id(cls, item: EdgeRequest | EdgeResponse | dict) -> EdgeId:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"space", "externalId"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return EdgeReference(space=item["space"], external_id=item["externalId"])
+            return EdgeId(space=item["space"], external_id=item["externalId"])
         return item.as_id()
 
     @classmethod
-    def dump_id(cls, id: EdgeReference) -> dict[str, Any]:
+    def dump_id(cls, id: EdgeId) -> dict[str, Any]:
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: EdgeReference) -> str:
+    def as_str(cls, id: EdgeId) -> str:
         return sanitize_filename(f"{id.space}_{id.external_id}")
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
-            yield SpaceCRUD, SpaceReference(space=item["space"])
+            yield SpaceCRUD, SpaceId(space=item["space"])
         for source in item.get("sources", []):
             if (identifier := source.get("source")) and isinstance(identifier, dict):
                 if identifier.get("type") == "view" and in_dict(("space", "externalId", "version"), identifier):
                     yield (
                         ViewCRUD,
-                        ViewReference(
+                        ViewId(
                             space=identifier["space"],
                             external_id=identifier["externalId"],
                             version=str(v) if (v := identifier.get("version")) else "",
@@ -1471,18 +1563,18 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeReference, EdgeRequest, EdgeResponse]):
                 elif identifier.get("type") == "container" and in_dict(("space", "externalId"), identifier):
                     yield (
                         ContainerCRUD,
-                        ContainerReference(space=identifier["space"], external_id=identifier["externalId"]),
+                        ContainerId(space=identifier["space"], external_id=identifier["externalId"]),
                     )
 
         for key in ["startNode", "endNode", "type"]:
             if node_ref := item.get(key):
                 if isinstance(node_ref, dict) and in_dict(("space", "externalId"), node_ref):
-                    yield NodeCRUD, NodeReference(space=node_ref["space"], external_id=node_ref["externalId"])
+                    yield NodeCRUD, NodeId(space=node_ref["space"], external_id=node_ref["externalId"])
 
     def dump_resource(self, resource: EdgeResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
         local = local or {}
-        sources = [ViewReference._load(source["source"]) for source in local.get("sources", []) if "source" in source]
+        sources = [ViewId._load(source["source"]) for source in local.get("sources", []) if "source" in source]
 
         # Default dump
         dumped = resource.as_request_resource().dump()
@@ -1511,14 +1603,14 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeReference, EdgeRequest, EdgeResponse]):
     def create(self, items: Sequence[EdgeRequest]) -> list[InstanceSlimDefinition]:
         return self.client.tool.instances.create(list(items))
 
-    def retrieve(self, ids: Sequence[EdgeReference]) -> list[EdgeResponse]:
+    def retrieve(self, ids: Sequence[EdgeId]) -> list[EdgeResponse]:
         results = self.client.tool.instances.retrieve(list(ids))
         return [r for r in results if isinstance(r, EdgeResponse)]
 
     def update(self, items: Sequence[EdgeRequest]) -> list[InstanceSlimDefinition]:
         return self.client.tool.instances.create(list(items))
 
-    def delete(self, ids: Sequence[EdgeReference]) -> int:
+    def delete(self, ids: Sequence[EdgeId]) -> int:
         try:
             deleted = self.client.tool.instances.delete(list(ids))
         except ToolkitAPIError as e:
@@ -1537,15 +1629,15 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeReference, EdgeRequest, EdgeResponse]):
             instance_type="edge",
             space=[space] if space else None,
         )
-        for batch in self.client.tool.instances.iterate(filter=filter_):
+        for batch in self.client.tool.instances.iterate(filter=filter_, limit=None):
             for inst in batch:
                 if isinstance(inst, EdgeResponse):
                     yield inst
 
-    def count(self, ids: Sequence[EdgeReference]) -> int:
+    def count(self, ids: Sequence[EdgeId]) -> int:
         return len(ids)
 
-    def drop_data(self, ids: Sequence[EdgeReference]) -> int:
+    def drop_data(self, ids: Sequence[EdgeId]) -> int:
         # Edges will be deleted in .delete call.
         return 0
 

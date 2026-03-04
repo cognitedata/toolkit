@@ -35,13 +35,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
-from cognite_toolkit._cdf_tk.resource_classes import (
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.yaml_classes import (
     HostedExtractorDestinationYAML,
     HostedExtractorJobYAML,
     HostedExtractorMappingYAML,
     HostedExtractorSourceYAML,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 
 from .data_organization import DataSetsCRUD
 
@@ -111,7 +111,7 @@ class HostedExtractorSourceCRUD(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorSourceResponseUnion]:
-        for sources in self.client.tool.hosted_extractors.sources.iterate():
+        for sources in self.client.tool.hosted_extractors.sources.iterate(limit=None):
             yield from sources
 
     def dump_resource(
@@ -229,7 +229,7 @@ class HostedExtractorDestinationCRUD(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorDestinationResponse]:
-        for destinations in self.client.tool.hosted_extractors.destinations.iterate():
+        for destinations in self.client.tool.hosted_extractors.destinations.iterate(limit=None):
             yield from destinations
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> HostedExtractorDestinationRequest:
@@ -338,7 +338,7 @@ class HostedExtractorJobCRUD(ResourceCRUD[ExternalId, HostedExtractorJobRequest,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorJobResponse]:
-        for jobs in self.client.tool.hosted_extractors.jobs.iterate():
+        for jobs in self.client.tool.hosted_extractors.jobs.iterate(limit=None):
             yield from jobs
 
     @classmethod
@@ -415,5 +415,5 @@ class HostedExtractorMappingCRUD(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorMappingResponse]:
-        for mappings in self.client.tool.hosted_extractors.mappings.iterate():
+        for mappings in self.client.tool.hosted_extractors.mappings.iterate(limit=None):
             yield from mappings

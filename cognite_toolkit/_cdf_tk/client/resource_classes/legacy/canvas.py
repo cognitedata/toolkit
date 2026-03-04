@@ -7,18 +7,14 @@ from typing import Any, TypeVar
 from uuid import uuid4
 
 from cognite.client import CogniteClient
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes._base import (
     CogniteResource,
     CogniteResourceList,
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
-from cognite.client.data_classes.data_modeling import (
-    DirectRelationReference,
-    EdgeId,
-    NodeId,
-)
-from cognite.client.data_classes.data_modeling.ids import ViewId
+from cognite.client.data_classes.data_modeling import DirectRelationReference
 from cognite.client.data_classes.data_modeling.instances import (
     EdgeApply,
     InstanceApply,
@@ -83,8 +79,8 @@ class _CanvasProperties:
     solution_tags = PropertyOptions("solutionTags")
 
     @classmethod
-    def get_source(cls) -> ViewId:
-        return ViewId("cdf_industrial_canvas", "Canvas", "v7")
+    def get_source(cls) -> dm.ViewId:
+        return dm.ViewId("cdf_industrial_canvas", "Canvas", "v7")
 
 
 class CanvasApply(_CanvasProperties, ExtendedTypedNodeApply):
@@ -240,8 +236,8 @@ class _CanvasAnnotationProperties:
     properties_ = PropertyOptions("properties")
 
     @classmethod
-    def get_source(cls) -> ViewId:
-        return ViewId("cdf_industrial_canvas", "CanvasAnnotation", "v1")
+    def get_source(cls) -> dm.ViewId:
+        return dm.ViewId("cdf_industrial_canvas", "CanvasAnnotation", "v1")
 
 
 class CanvasAnnotationApply(_CanvasAnnotationProperties, ExtendedTypedNodeApply):
@@ -360,8 +356,8 @@ class CanvasAnnotation(_CanvasAnnotationProperties, TypedNode):
 
 class _CogniteSolutionTagProperties:
     @classmethod
-    def get_source(cls) -> ViewId:
-        return ViewId("cdf_apps_shared", "CogniteSolutionTag", "v1")
+    def get_source(cls) -> dm.ViewId:
+        return dm.ViewId("cdf_apps_shared", "CogniteSolutionTag", "v1")
 
 
 class CogniteSolutionTagApply(_CogniteSolutionTagProperties, ExtendedTypedNodeApply):
@@ -461,8 +457,8 @@ class _ContainerReferenceProperties:
     max_height = PropertyOptions("maxHeight")
 
     @classmethod
-    def get_source(cls) -> ViewId:
-        return ViewId("cdf_industrial_canvas", "ContainerReference", "v2")
+    def get_source(cls) -> dm.ViewId:
+        return dm.ViewId("cdf_industrial_canvas", "ContainerReference", "v2")
 
 
 class ContainerReferenceApply(_ContainerReferenceProperties, ExtendedTypedNodeApply):
@@ -658,8 +654,8 @@ class _FdmInstanceContainerReferenceProperties:
     max_height = PropertyOptions("maxHeight")
 
     @classmethod
-    def get_source(cls) -> ViewId:
-        return ViewId("cdf_industrial_canvas", "FdmInstanceContainerReference", "v1")
+    def get_source(cls) -> dm.ViewId:
+        return dm.ViewId("cdf_industrial_canvas", "FdmInstanceContainerReference", "v1")
 
 
 class FdmInstanceContainerReferenceApply(_FdmInstanceContainerReferenceProperties, ExtendedTypedNodeApply):
@@ -892,16 +888,16 @@ class IndustrialCanvasApply(CogniteResource):
     def as_id(self) -> str:
         return self.canvas.external_id
 
-    def as_instance_ids(self, include_solution_tags: bool = False) -> list[NodeId | EdgeId]:
+    def as_instance_ids(self, include_solution_tags: bool = False) -> list[dm.NodeId | dm.EdgeId]:
         """Return a list of IDs for the instances in the IndustrialCanvasApply."""
         instances = self.as_instances()
-        ids: list[NodeId | EdgeId] = []
+        ids: list[dm.NodeId | dm.EdgeId] = []
         for instance in instances:
             if isinstance(instance, NodeApply):
                 if include_solution_tags or not isinstance(instance, CogniteSolutionTagApply):
-                    ids.append(NodeId(instance.space, instance.external_id))
+                    ids.append(dm.NodeId(instance.space, instance.external_id))
             elif isinstance(instance, EdgeApply):
-                ids.append(EdgeId(instance.space, instance.external_id))
+                ids.append(dm.EdgeId(instance.space, instance.external_id))
             else:
                 raise TypeError(f"Unexpected instance type: {type(instance)}")
         return ids

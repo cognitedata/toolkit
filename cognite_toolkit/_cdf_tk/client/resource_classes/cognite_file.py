@@ -3,13 +3,13 @@ from datetime import datetime
 from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.identifiers import NodeReference, NodeReferenceUntyped, ViewReference
+from cognite_toolkit._cdf_tk.client.identifiers import NodeId, NodeUntypedId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     WrappedInstanceRequest,
     WrappedInstanceResponse,
 )
 
-COGNITE_FILE_VIEW_ID = ViewReference(space="cdf_cdm", external_id="CogniteFile", version="v1")
+COGNITE_FILE_VIEW_ID = ViewId(space="cdf_cdm", external_id="CogniteFile", version="v1")
 
 
 class CogniteFile(BaseModelObject):
@@ -21,34 +21,34 @@ class CogniteFile(BaseModelObject):
     aliases: list[str] | None = None
     source_id: str | None = None
     source_context: str | None = None
-    source: NodeReferenceUntyped | None = None
+    source: NodeUntypedId | None = None
     source_created_time: datetime | None = None
     source_updated_time: datetime | None = None
     source_created_user: str | None = None
     source_updated_user: str | None = None
-    assets: list[NodeReferenceUntyped] | None = None
+    assets: list[NodeUntypedId] | None = None
     mime_type: str | None = None
     directory: str | None = None
-    category: NodeReferenceUntyped | None = None
-    type: NodeReferenceUntyped | None = None
+    category: NodeUntypedId | None = None
+    type: NodeUntypedId | None = None
 
 
 class CogniteFileRequest(WrappedInstanceRequest, CogniteFile):
     """CogniteFile request resource for creating/updating nodes."""
 
-    VIEW_ID: ClassVar[ViewReference] = COGNITE_FILE_VIEW_ID
+    VIEW_ID: ClassVar[ViewId] = COGNITE_FILE_VIEW_ID
     instance_type: Literal["node"] = "node"
     space: str
     external_id: str
 
-    def as_id(self) -> NodeReference:
-        return NodeReference(space=self.space, external_id=self.external_id)
+    def as_id(self) -> NodeId:
+        return NodeId(space=self.space, external_id=self.external_id)
 
 
 class CogniteFileResponse(WrappedInstanceResponse[CogniteFileRequest], CogniteFile):
     """CogniteFile response resource returned from API."""
 
-    VIEW_ID: ClassVar[ViewReference] = COGNITE_FILE_VIEW_ID
+    VIEW_ID: ClassVar[ViewId] = COGNITE_FILE_VIEW_ID
     instance_type: Literal["node"] = "node"
     space: str
     external_id: str

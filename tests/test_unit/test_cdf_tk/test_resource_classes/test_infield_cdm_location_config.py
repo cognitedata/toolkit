@@ -4,9 +4,9 @@ from typing import Any
 
 import pytest
 
-from cognite_toolkit._cdf_tk.resource_classes.infield_cdm_location_config import InFieldCDMLocationConfigYAML
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
+from cognite_toolkit._cdf_tk.yaml_classes.infield_cdm_location_config import InFieldCDMLocationConfigYAML
 from tests.data import COMPLETE_ORG_ALPHA_FLAGS
 from tests.test_unit.utils import find_resources
 

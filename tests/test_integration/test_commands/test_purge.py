@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     Asset,
     AssetWrite,
@@ -32,13 +33,13 @@ from cognite.client.data_classes import (
     Workflow,
     WorkflowUpsert,
 )
-from cognite.client.data_classes.data_modeling import NodeId, Space
+from cognite.client.data_classes.data_modeling import Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply, CogniteTimeSeriesApply
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils import datetime_to_ms
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeReference
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceFileSelector
@@ -48,7 +49,7 @@ from tests.test_integration.constants import RUN_UNIQUE_ID
 @pytest.fixture()
 def file_ts_nodes(
     toolkit_client: ToolkitClient, toolkit_space: Space
-) -> Iterable[tuple[tuple[NodeId, int], tuple[NodeId, int]]]:
+) -> Iterable[tuple[tuple[dm.NodeId, int], tuple[dm.NodeId, int]]]:
     client = toolkit_client
     file = CogniteFileApply(
         space=toolkit_space.space,
@@ -96,7 +97,7 @@ def file_ts_nodes(
         client.tool.filemetadata.set_pending_ids(
             [
                 PendingInstanceId(
-                    pending_instance_id=NodeReference(space=file.space, external_id=file.external_id),
+                    pending_instance_id=NodeId(space=file.space, external_id=file.external_id),
                     id=file_id,
                 )
             ]
@@ -104,7 +105,7 @@ def file_ts_nodes(
         client.tool.timeseries.set_pending_ids(
             [
                 PendingInstanceId(
-                    pending_instance_id=NodeReference(space=ts.space, external_id=ts.external_id),
+                    pending_instance_id=NodeId(space=ts.space, external_id=ts.external_id),
                     id=ts_id,
                 )
             ]
@@ -290,7 +291,7 @@ def cleanup_populated_dataset(client: ToolkitClient, populated: PopulatedDataSet
 class TestPurge:
     def test_purge_instances_with_unlink(
         self,
-        file_ts_nodes: tuple[tuple[NodeId, int], tuple[NodeId, int]],
+        file_ts_nodes: tuple[tuple[dm.NodeId, int], tuple[dm.NodeId, int]],
         toolkit_client: ToolkitClient,
         tmp_path: Path,
     ) -> None:

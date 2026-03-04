@@ -5,7 +5,7 @@ from pydantic import Field
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 
-from .data_modeling import DataModelReference
+from .data_modeling import DataModelId
 
 
 class LocationFilterScene(BaseModelObject):
@@ -52,7 +52,7 @@ class LocationFilter(BaseModelObject):
     name: str
     description: str | None = None
     parent_id: int | None = None
-    data_models: list[DataModelReference] | None = None
+    data_models: list[DataModelId] | None = None
     instance_spaces: list[str] | None = None
     scene: LocationFilterScene | None = None
     asset_centric: AssetCentricFilter | None = None

@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from cognite_toolkit._cdf_tk.resource_classes.capabilities import Capability
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
+from cognite_toolkit._cdf_tk.yaml_classes.capabilities import Capability
 
 
 def all_acls() -> Iterable:
@@ -17,6 +17,7 @@ def all_acls() -> Iterable:
         {"assetsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"assetsAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": ["myDataSet"]}}}},
         {"auditlogAcl": {"actions": ["READ"], "scope": {"all": {}}}},
+        {"chartsAdminAcl": {"actions": ["READ", "UPDATE", "DELETE"], "scope": {"all": {}}}},
         {"dataModelInstancesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"dataModelInstancesAcl": {"actions": ["READ"], "scope": {"spaceIdScope": {"spaceIds": ["maintain"]}}}},
         {

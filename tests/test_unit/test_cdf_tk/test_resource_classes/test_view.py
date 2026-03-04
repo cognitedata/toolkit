@@ -2,7 +2,7 @@ from collections.abc import Iterable
 
 import pytest
 
-from cognite_toolkit._cdf_tk.resource_classes.views import ViewYAML
+from cognite_toolkit._cdf_tk.yaml_classes.views import ViewYAML
 from tests.test_unit.utils import find_resources
 
 

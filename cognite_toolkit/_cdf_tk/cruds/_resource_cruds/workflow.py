@@ -46,7 +46,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCycleError,
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.resource_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
     MissingReferencedWarning,
     ToolkitWarning,
@@ -59,6 +58,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
+from cognite_toolkit._cdf_tk.yaml_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
 
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
@@ -156,7 +156,7 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[WorkflowResponse]:
         if data_set_external_id is None:
-            for workflows in self.client.tool.workflows.iterate(limit=100):
+            for workflows in self.client.tool.workflows.iterate(limit=None):
                 yield from workflows
             return
         data_sets = self.client.tool.datasets.retrieve(
@@ -165,7 +165,7 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
         if not data_sets:
             raise ToolkitRequiredValueError(f"DataSet {data_set_external_id!r} does not exist")
         data_set = data_sets[0]
-        for workflows in self.client.tool.workflows.iterate(limit=100):
+        for workflows in self.client.tool.workflows.iterate(limit=None):
             for workflow in workflows:
                 if workflow.data_set_id == data_set.id:
                     yield workflow
@@ -413,7 +413,7 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[WorkflowVersionResponse]:
         # Note: The new API doesn't support filtering by workflow_ids in list, so we iterate over all
-        for versions in self.client.tool.workflows.versions.iterate(limit=100):
+        for versions in self.client.tool.workflows.versions.iterate(limit=None):
             if parent_ids is not None:
                 workflow_ids = {
                     parent_id.external_id if isinstance(parent_id, ExternalId) else parent_id

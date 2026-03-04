@@ -74,7 +74,7 @@ class RawDatabasesAPI(CDFResourceAPI[RAWDatabaseResponse]):
 
     def iterate(
         self,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[list[RAWDatabaseResponse]]:
         """Iterate over all databases in CDF.
 

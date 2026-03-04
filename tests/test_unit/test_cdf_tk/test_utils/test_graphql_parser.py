@@ -1,5 +1,5 @@
 import pytest
-from cognite.client.data_classes.data_modeling import DataModelId, ViewId
+from cognite.client import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.graphql_parser import _Directive, _DirectiveTokens, _ViewDirective
 
 SPACE = "sp_my_space"
-DATA_MODEL = DataModelId(SPACE, "MyDataModel", "v1")
+DATA_MODEL = dm.DataModelId(SPACE, "MyDataModel", "v1")
 GraphQLTestCases = [
     pytest.param(
         '''"Log File"
@@ -121,7 +121,7 @@ type LogFile_DryRun
 }
 ''',
         DATA_MODEL,
-        {ViewId(SPACE, "LogFile", "1"), ViewId(SPACE, "LogFile_DryRun", "1")},
+        {dm.ViewId(SPACE, "LogFile", "1"), dm.ViewId(SPACE, "LogFile_DryRun", "1")},
         set(),
         id="Simple type with view and raw filter",
     ),
@@ -134,7 +134,7 @@ type LogFile_DryRun
 }""",
         DATA_MODEL,
         set(),
-        {ViewId("cdf_apps_shared", "Creatable", "v1")},
+        {dm.ViewId("cdf_apps_shared", "Creatable", "v1")},
         id="Imported interface",
     ),
     pytest.param(
@@ -144,7 +144,7 @@ type WorkOrderObjectListItem @import(dataModel: {externalId: "MaintenanceDOM", v
 }""",
         DATA_MODEL,
         set(),
-        {DataModelId(space="EDG-COR-ALL-DMD", external_id="MaintenanceDOM", version="2_2_0")},
+        {dm.DataModelId(space="EDG-COR-ALL-DMD", external_id="MaintenanceDOM", version="2_2_0")},
         id="Imported data model",
     ),
     pytest.param(
@@ -160,7 +160,7 @@ type Notification @container(indexes: [{identifier: "refCostCenterIndex", indexT
 ''',
         DATA_MODEL,
         set(),
-        {DataModelId(space="EDG-COR-ALL-DMD", external_id="MaintenanceDOM", version="2_2_0")},
+        {dm.DataModelId(space="EDG-COR-ALL-DMD", external_id="MaintenanceDOM", version="2_2_0")},
         id="Imported data model with unused container directive",
     ),
     pytest.param(
@@ -184,7 +184,7 @@ type WorkCenterCategory {
     code: String
 }''',
         DATA_MODEL,
-        {ViewId(SPACE, "WorkCenterCategory", None)},
+        {dm.ViewId(SPACE, "WorkCenterCategory", None)},
         set(),
         id="Simple type",
     ),
@@ -207,7 +207,7 @@ type WorkCenterCategory {
 }""",
         DATA_MODEL,
         set(),
-        {ViewId("cdf_3d_schema", "Cdf3dConnectionProperties", "1")},
+        {dm.ViewId("cdf_3d_schema", "Cdf3dConnectionProperties", "1")},
         id="Edge type",
     ),
     pytest.param(
@@ -218,7 +218,7 @@ type WorkCenterCategory {
   preferences: JSONObject
 }""",
         DATA_MODEL,
-        {ViewId(SPACE, "APM_User", "7")},
+        {dm.ViewId(SPACE, "APM_User", "7")},
         set(),
         id="Simple type with version",
     ),
@@ -235,7 +235,7 @@ type WorkCenterCategory {
 }""",
         DATA_MODEL,
         set(),
-        {DataModelId(space="EDG-COR-ALL-DMD", external_id="CoreDOM", version="1_0_18")},
+        {dm.DataModelId(space="EDG-COR-ALL-DMD", external_id="CoreDOM", version="1_0_18")},
         id="No comma, only newline",
     ),
     pytest.param(
@@ -254,7 +254,7 @@ type UnitOfMeasurement
 }''',
         DATA_MODEL,
         set(),
-        {DataModelId(space="EDG-COR-ALL-DMD", external_id="CoreDOM", version="1_0_18")},
+        {dm.DataModelId(space="EDG-COR-ALL-DMD", external_id="CoreDOM", version="1_0_18")},
         id="Ignore comments",
     ),
     pytest.param(
@@ -269,7 +269,7 @@ type UnitOfMeasurement
   rootLocationsConfiguration: JSONObject
 }""",
         DATA_MODEL,
-        {ViewId(SPACE, "APM_Config", None)},
+        {dm.ViewId(SPACE, "APM_Config", None)},
         set(),
         id="No version",
     ),
@@ -318,7 +318,7 @@ type CogniteCADModel implements CogniteDescribable & Cognite3DModel
 }""",
         DATA_MODEL,
         set(),
-        {ViewId("cdf_cdm", "CogniteCADModel", "v1")},
+        {dm.ViewId("cdf_cdm", "CogniteCADModel", "v1")},
         id="Setting custom filter on view",
     ),
     pytest.param(
@@ -342,7 +342,7 @@ type TagBeta @view (version: "7#") {
   reportingUnits: [ReportingUnit]
 }''',
         DATA_MODEL,
-        {ViewId(SPACE, "TagBeta", "7#")},
+        {dm.ViewId(SPACE, "TagBeta", "7#")},
         set(),
         id="Type with comments",
     ),
@@ -367,7 +367,7 @@ type TagBeta @view (version: "7#") {
   alarmEnableStatus:String @mapping(container: "AlarmEventMessage")
 }""",
         DATA_MODEL,
-        {ViewId(SPACE, "Alarm", None)},
+        {dm.ViewId(SPACE, "Alarm", None)},
         set(),
         id="Type with raw filter",
     ),
@@ -428,7 +428,11 @@ DirectiveTestCases = [
 class TestGraphQLParser:
     @pytest.mark.parametrize("raw, data_model_id, expected_views, dependencies", GraphQLTestCases)
     def test_parse(
-        self, raw: str, data_model_id: DataModelId, expected_views: set[ViewId], dependencies: set[ViewId | DataModelId]
+        self,
+        raw: str,
+        data_model_id: dm.DataModelId,
+        expected_views: set[dm.ViewId],
+        dependencies: set[dm.ViewId | dm.DataModelId],
     ) -> None:
         parser = GraphQLParser(raw, data_model_id)
 

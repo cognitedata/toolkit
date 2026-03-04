@@ -10,11 +10,12 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, 
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    ViewReference,
-    ViewReferenceNoVersion,
+    ViewId,
+    ViewNoVersionId,
     ViewRequest,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.constants import VIEW_UPSERT_BATCH_LIMIT
 
 
 class ViewsAPI(CDFResourceAPI[ViewResponse]):
@@ -27,9 +28,7 @@ class ViewsAPI(CDFResourceAPI[ViewResponse]):
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                # The actual API limit is 100, but depending on the number of properties DMS struggles with large
-                # batches, thus, we set it to 50 to be safe.
-                "upsert": Endpoint(method="POST", path="/models/views", item_limit=50),
+                "upsert": Endpoint(method="POST", path="/models/views", item_limit=VIEW_UPSERT_BATCH_LIMIT),
                 "retrieve": Endpoint(method="POST", path="/models/views/byids", item_limit=100),
                 "delete": Endpoint(method="POST", path="/models/views/delete", item_limit=100),
                 "list": Endpoint(method="GET", path="/models/views", item_limit=1000),
@@ -61,7 +60,7 @@ class ViewsAPI(CDFResourceAPI[ViewResponse]):
         return self._request_item_response(items, "upsert")
 
     def retrieve(
-        self, items: Sequence[ViewReferenceNoVersion], include_inherited_properties: bool = True
+        self, items: Sequence[ViewNoVersionId], include_inherited_properties: bool = True
     ) -> list[ViewResponse]:
         """Retrieve views from CDF.
 
@@ -76,7 +75,7 @@ class ViewsAPI(CDFResourceAPI[ViewResponse]):
             items, method="retrieve", params={"includeInheritedProperties": include_inherited_properties}
         )
 
-    def delete(self, items: Sequence[ViewReference]) -> None:
+    def delete(self, items: Sequence[ViewId]) -> None:
         """Delete views from CDF.
 
         Args:

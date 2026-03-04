@@ -60,9 +60,9 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     TransformationNotificationFilter,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    DataModelReference,
-    SpaceReference,
-    ViewReference,
+    DataModelId,
+    SpaceId,
+    ViewId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     NonceCredentials,
@@ -87,11 +87,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.resource_classes import (
-    TransformationNotificationYAML,
-    TransformationScheduleYAML,
-    TransformationYAML,
-)
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
@@ -105,6 +100,11 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
+from cognite_toolkit._cdf_tk.yaml_classes import (
+    TransformationNotificationYAML,
+    TransformationScheduleYAML,
+    TransformationYAML,
+)
 
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
@@ -206,17 +206,17 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
                 yield RawTableCRUD, RawTableId(db_name=destination["database"], name=destination["table"])
             elif destination.get("type") in ("nodes", "edges") and (view := destination.get("view", {})):
                 if space := destination.get("instanceSpace"):
-                    yield SpaceCRUD, SpaceReference(space=space)
+                    yield SpaceCRUD, SpaceId(space=space)
                 if in_dict(("space", "externalId", "version"), view):
                     view["version"] = str(view["version"])
-                    yield ViewCRUD, ViewReference.model_validate(view)
+                    yield ViewCRUD, ViewId.model_validate(view)
             elif destination.get("type") == "instances":
                 if space := destination.get("instanceSpace"):
-                    yield SpaceCRUD, SpaceReference(space=space)
+                    yield SpaceCRUD, SpaceId(space=space)
                 if data_model := destination.get("dataModel"):
                     if in_dict(("space", "externalId", "version"), data_model):
                         data_model["version"] = str(data_model["version"])
-                        yield DataModelCRUD, DataModelReference.model_validate(data_model)
+                        yield DataModelCRUD, DataModelId.model_validate(data_model)
 
     def safe_read(self, filepath: Path | str) -> str:
         # If the destination is a DataModel or a View we need to ensure that the version is a string
@@ -742,15 +742,20 @@ class TransformationNotificationCRUD(
             for notifications in self.client.tool.transformations.notifications.iterate(limit=None):
                 yield from notifications
         else:
-            for parent_id in parent_ids:
-                if not isinstance(parent_id, ExternalId):
-                    continue
-                filter = TransformationNotificationFilter(transformation_external_id=parent_id.external_id)
-                for notifications in self.client.tool.transformations.notifications.iterate(limit=None, filter=filter):
-                    for notification in notifications:
-                        # This is not set by the API.
-                        notification.transformation_external_id = parent_id.external_id
-                        yield notification
+            parent_external_ids = [parent_id for parent_id in parent_ids if isinstance(parent_id, ExternalId)]
+            if parent_external_ids:
+                existing_parents = self.client.tool.transformations.retrieve(
+                    parent_external_ids, ignore_unknown_ids=True
+                )
+                for parent_id in existing_parents:
+                    filter = TransformationNotificationFilter(transformation_external_id=parent_id.external_id)
+                    for notifications in self.client.tool.transformations.notifications.iterate(
+                        limit=None, filter=filter
+                    ):
+                        for notification in notifications:
+                            # This is not set by the API.
+                            notification.transformation_external_id = parent_id.external_id
+                            yield notification
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:

@@ -15,11 +15,11 @@ SemanticVersion = Annotated[
 ]
 
 
-class InternalOrExternalIdDefinition(Identifier):
+class InternalOrExternalIdDefinitionId(Identifier):
     type: str
 
 
-class InternalIdUnwrapped(Identifier):
+class InternalUnwrappedId(Identifier):
     id: int
 
     def __str__(self) -> str:
@@ -37,7 +37,7 @@ class InternalIdUnwrapped(Identifier):
         return value
 
 
-class InternalId(InternalOrExternalIdDefinition):
+class InternalId(InternalOrExternalIdDefinitionId):
     type: Literal["id"] = Field("id", exclude=True)
     id: int
 
@@ -48,11 +48,11 @@ class InternalId(InternalOrExternalIdDefinition):
     def __str__(self) -> str:
         return f"id={self.id}"
 
-    def as_unwrapped(self) -> InternalIdUnwrapped:
-        return InternalIdUnwrapped(id=self.id)
+    def as_unwrapped(self) -> InternalUnwrappedId:
+        return InternalUnwrappedId(id=self.id)
 
 
-class ExternalId(InternalOrExternalIdDefinition):
+class ExternalId(InternalOrExternalIdDefinitionId):
     type: Literal["externalId"] = Field("externalId", exclude=True)
     external_id: str
 

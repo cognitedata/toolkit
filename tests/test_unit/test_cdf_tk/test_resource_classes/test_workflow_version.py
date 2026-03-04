@@ -4,11 +4,11 @@ from typing import get_args
 
 import pytest
 
-from cognite_toolkit._cdf_tk.resource_classes.workflow_version import Task, TaskDefinition, WorkflowVersionYAML
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
+from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import Task, TaskDefinition, WorkflowVersionYAML
 from tests.test_unit.utils import find_resources
 
 

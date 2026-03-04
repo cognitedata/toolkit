@@ -4,6 +4,7 @@ import inspect
 import typing
 from typing import Any, get_type_hints
 
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import TransformationScheduleWrite
 from cognite.client.data_classes.capabilities import UnknownAcl
 from cognite.client.data_classes.data_modeling.instances import (
@@ -81,7 +82,6 @@ class _TypeHints:
         import numpy as np
         import numpy.typing as npt
         from cognite.client import CogniteClient
-        from cognite.client.data_classes.data_modeling import ContainerId, ViewId
 
         return {
             "CogniteClient": CogniteClient,
@@ -92,8 +92,8 @@ class _TypeHints:
             "NumpyObjArray": npt.NDArray[np.object_],
             # These are imported locally in the HasData filter classes
             # and are thus not in the module or class namespace
-            "ViewId": ViewId,
-            "ContainerId": ContainerId,
+            "ViewId": dm.ViewId,
+            "ContainerId": dm.ContainerId,
         }
 
     @classmethod

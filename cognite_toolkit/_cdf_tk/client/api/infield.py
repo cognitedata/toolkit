@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse,
     SuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition, NodeReference
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APM_CONFIG_SPACE,
     APMConfigRequest,
@@ -33,7 +33,7 @@ class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, In
         # 500 is chosen as 1000 is the maximum for nodes, and each location config consists of 1 or 2 nodes
         super().__init__(http_client, query_chunk=500)
 
-    def _retrieve_query(self, items: Sequence[InstanceIdDefinition]) -> dict[str, Any]:
+    def _retrieve_query(self, items: Sequence[InstanceDefinitionId]) -> dict[str, Any]:
         return {
             "with": {
                 self._LOCATION_REF: {
@@ -84,25 +84,35 @@ class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, In
         return results
 
 
-class InFieldCDMConfigAPI(WrappedInstancesAPI[NodeReference, InFieldCDMLocationConfigResponse]):
+class InFieldCDMConfigAPI(WrappedInstancesAPI[NodeId, InFieldCDMLocationConfigResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(http_client, InFieldCDMLocationConfigRequest.VIEW_ID)
 
-    def _validate_response(self, response: SuccessResponse) -> ResponseItems[NodeReference]:
-        return ResponseItems[NodeReference].model_validate_json(response.body)
+    def _validate_response(self, response: SuccessResponse) -> ResponseItems[NodeId]:
+        return ResponseItems[NodeId].model_validate_json(response.body)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
     ) -> PagedResponse[InFieldCDMLocationConfigResponse]:
         return PagedResponse[InFieldCDMLocationConfigResponse].model_validate_json(response.body)
 
+    def list(self, limit: int | None = 100) -> list[InFieldCDMLocationConfigResponse]:
+        """List all in-field CDM configs.
 
-class APMConfigAPI(WrappedInstancesAPI[NodeReference, APMConfigResponse]):
+        Args:
+            limit: Maximum number of items to return. If None, all items are returned.
+        Returns:
+            List of InFieldCDMLocationConfigResponse objects.
+        """
+        return super()._list_instances(instance_type="node", limit=limit)
+
+
+class APMConfigAPI(WrappedInstancesAPI[NodeId, APMConfigResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(http_client, APMConfigRequest.VIEW_ID)
 
-    def _validate_response(self, response: SuccessResponse) -> ResponseItems[NodeReference]:
-        return ResponseItems[NodeReference].model_validate_json(response.body)
+    def _validate_response(self, response: SuccessResponse) -> ResponseItems[NodeId]:
+        return ResponseItems[NodeId].model_validate_json(response.body)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse

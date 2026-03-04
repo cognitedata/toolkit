@@ -1,6 +1,6 @@
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReferenceNoVersion
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewNoVersionId
 
 from .base import BaseModelResource, ToolkitResource
 
@@ -25,5 +25,5 @@ class SearchConfigYAML(ToolkitResource):
     filter_layout: list[PropertyConfig] | None = None
     properties_layout: list[PropertyConfig] | None = None
 
-    def as_id(self) -> ViewReferenceNoVersion:
-        return ViewReferenceNoVersion(space=self.view.space, external_id=self.view.external_id)
+    def as_id(self) -> ViewNoVersionId:
+        return ViewNoVersionId(space=self.view.space, external_id=self.view.external_id)

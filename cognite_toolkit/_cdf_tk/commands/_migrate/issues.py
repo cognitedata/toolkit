@@ -3,7 +3,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_serializer
 from pydantic.alias_generators import to_camel
 
-from cognite_toolkit._cdf_tk.client.identifiers import NodeReferenceUntyped
+from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.storageio.logger import LogEntry
 
@@ -155,7 +155,7 @@ class ConversionIssue(MigrationIssue):
 
     type: Literal["conversion"] = "conversion"
     asset_centric_id: AssetCentricId
-    instance_id: NodeReferenceUntyped
+    instance_id: NodeUntypedId
     missing_asset_centric_properties: list[str] = Field(default_factory=list)
     missing_instance_properties: list[str] = Field(default_factory=list)
     invalid_instance_property_types: list[InvalidPropertyDataType] = Field(default_factory=list)
@@ -193,3 +193,15 @@ class WriteIssue(MigrationIssue):
     type: Literal["write"] = "write"
     status_code: int
     message: str | None = None
+
+
+class InstanceConversionIssue(MigrationIssue):
+    """Represents an instance conversion issue encountered during migration."""
+
+    type: Literal["instanceConversion"] = "instanceConversion"
+    errors: list[str] = Field(default_factory=list)
+
+    @property
+    def has_issues(self) -> bool:
+        """Check if there are any issues recorded in this InstanceConversionIssue."""
+        return bool(self.errors)

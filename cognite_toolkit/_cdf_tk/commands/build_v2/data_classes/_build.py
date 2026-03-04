@@ -1,13 +1,14 @@
-from functools import cached_property
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
 from ._insights import InsightList
 from ._module import ModuleSource
-from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath, ValidationType
+from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
 
 class BuildParameters(BaseModel):
@@ -51,6 +52,8 @@ class BuiltModule(BaseModel):
 
     source: ModuleSource
     built_files: list[Path] = Field(default_factory=list)
+    built_resources_identifiers: list[Identifier] = Field(default_factory=list)
+    dependencies: dict[AbsoluteFilePath, set[tuple[type[ResourceCRUD], Identifier]]] = Field(default_factory=dict)
     insights: InsightList = Field(default_factory=InsightList)
 
     @property
@@ -68,6 +71,9 @@ class BuiltModule(BaseModel):
     def is_success(self) -> bool:
         return True if self.built_files else False
 
+    def __hash__(self) -> int:
+        return hash(self.source.path)
+
 
 class BuildLineage(BaseModel): ...
 
@@ -79,7 +85,7 @@ class BuildFolder(BaseModel):
     path: Path
     built_modules: list[BuiltModule] = Field(default_factory=list)
 
-    @cached_property
+    @property
     def insights(self) -> InsightList:
         """Insights from all built modules."""
         insights = InsightList()
@@ -100,3 +106,40 @@ class BuildFolder(BaseModel):
             modules_by_success[built_module.is_success].append(built_module.source.name)
 
         return modules_by_success
+
+    @property
+    def built_resources_identifiers(self) -> set[Identifier]:
+        """Set of all built resources across all modules."""
+        resources: set[Identifier] = set()
+        for built_module in self.built_modules:
+            resources.update(built_module.built_resources_identifiers)
+        return resources
+
+    @property
+    def cdf_dependencies_by_built_module(
+        self,
+    ) -> dict[BuiltModule, dict[AbsoluteFilePath, dict[type[ResourceCRUD], set[Identifier]]]]:
+        """Get CDF dependencies for all built modules.
+        CDF dependencies are dependencies that are not part of the build which require validation against CDF.
+
+        If CDF dependency is present in multiple modules, it will be returned only to a single module
+        (the first one that it is encountered in) to avoid duplicate validations insights.
+        """
+        dependencies_by_built_module: dict[
+            BuiltModule, dict[AbsoluteFilePath, dict[type[ResourceCRUD], set[Identifier]]]
+        ] = {}
+        seen: set[Identifier] = set()
+
+        for built_module in self.built_modules:
+            for file, dependencies_by_resource_type in built_module.dependencies.items():
+                for resource_type, dependency in dependencies_by_resource_type:
+                    if dependency in self.built_resources_identifiers:
+                        continue
+                    if dependency in seen:
+                        continue
+                    seen.add(dependency)
+                    dependencies_by_built_module.setdefault(built_module, {}).setdefault(file, {}).setdefault(
+                        resource_type, set()
+                    ).add(dependency)
+
+        return dependencies_by_built_module

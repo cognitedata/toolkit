@@ -29,8 +29,8 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.resource_classes import DataSetYAML, LabelsYAML
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
+from cognite_toolkit._cdf_tk.yaml_classes import DataSetYAML, LabelsYAML
 
 from .auth import GroupAllScopedCRUD
 
@@ -212,7 +212,7 @@ class LabelCRUD(ResourceCRUD[ExternalId, LabelRequest, LabelResponse]):
         filter: ClassicFilter | None = None
         if data_set_external_id is not None:
             filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
-        for items in self.client.tool.labels.iterate(filter=filter):
+        for items in self.client.tool.labels.iterate(filter=filter, limit=None):
             yield from items
 
     @classmethod

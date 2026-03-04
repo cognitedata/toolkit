@@ -12,8 +12,8 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, 
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    DataModelReference,
-    DataModelReferenceNoVersion,
+    DataModelId,
+    DataModelNoVersionId,
     DataModelRequest,
     DataModelResponse,
 )
@@ -65,16 +65,16 @@ class DataModelsAPI(CDFResourceAPI[DataModelResponse]):
 
     @overload
     def retrieve(
-        self, items: Sequence[DataModelReferenceNoVersion], inline_views: Literal[True]
+        self, items: Sequence[DataModelNoVersionId], inline_views: Literal[True]
     ) -> list[DataModelResponseWithViews]: ...
 
     @overload
     def retrieve(
-        self, items: Sequence[DataModelReferenceNoVersion], inline_views: Literal[False] = False
+        self, items: Sequence[DataModelNoVersionId], inline_views: Literal[False] = False
     ) -> list[DataModelResponse]: ...
 
     def retrieve(
-        self, items: Sequence[DataModelReferenceNoVersion], inline_views: bool = False
+        self, items: Sequence[DataModelNoVersionId], inline_views: bool = False
     ) -> list[DataModelResponse] | list[DataModelResponseWithViews]:
         """Retrieve data models from CDF.
 
@@ -97,7 +97,7 @@ class DataModelsAPI(CDFResourceAPI[DataModelResponse]):
         else:
             return self._request_item_response(items, method="retrieve", params={"inlineViews": False})
 
-    def delete(self, items: Sequence[DataModelReference]) -> None:
+    def delete(self, items: Sequence[DataModelId]) -> None:
         """Delete data models from CDF.
 
         Args:

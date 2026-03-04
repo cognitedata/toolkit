@@ -8,12 +8,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     EdgeRequest,
     InstanceSource,
     MultiEdgeProperty,
-    NodeReference,
+    NodeId,
     NodeRequest,
     Space,
     TextProperty,
     ViewCorePropertyRequest,
-    ViewReference,
+    ViewId,
     ViewRequest,
     ViewResponse,
 )
@@ -51,8 +51,8 @@ def node_view_with_edges(
     node_container: ContainerResponse,
 ) -> ViewResponse:
     """View for nodes with name, outwards, and inwards edge properties."""
-    view_id = ViewReference(space=toolkit_space.space, external_id="test_node_view_with_edges", version="v1")
-    edge_type = NodeReference(space=toolkit_space.space, external_id=f"{view_id.external_id}.edge")
+    view_id = ViewId(space=toolkit_space.space, external_id="test_node_view_with_edges", version="v1")
+    edge_type = NodeId(space=toolkit_space.space, external_id=f"{view_id.external_id}.edge")
     view = ViewRequest(
         space=toolkit_space.space,
         external_id=view_id.external_id,
@@ -116,9 +116,9 @@ def two_nodes_with_edge(
     connecting_edge = EdgeRequest(
         space=toolkit_space.space,
         external_id=f"{prefix}edge_a_to_b",
-        start_node=NodeReference(space=toolkit_space.space, external_id=node_a.external_id),
-        end_node=NodeReference(space=toolkit_space.space, external_id=node_b.external_id),
-        type=NodeReference(space=toolkit_space.space, external_id=f"{node_view_source.external_id}.edge"),
+        start_node=NodeId(space=toolkit_space.space, external_id=node_a.external_id),
+        end_node=NodeId(space=toolkit_space.space, external_id=node_b.external_id),
+        type=NodeId(space=toolkit_space.space, external_id=f"{node_view_source.external_id}.edge"),
     )
     return toolkit_client.tool.instances.create([node_a, node_b, connecting_edge])
 

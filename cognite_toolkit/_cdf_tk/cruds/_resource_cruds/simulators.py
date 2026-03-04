@@ -27,11 +27,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
-from cognite_toolkit._cdf_tk.resource_classes import SimulatorModelYAML
-from cognite_toolkit._cdf_tk.resource_classes.simulator_model_revision import SimulatorModelRevisionYAML
-from cognite_toolkit._cdf_tk.resource_classes.simulator_routine import SimulatorRoutineYAML
-from cognite_toolkit._cdf_tk.resource_classes.simulator_routine_revision import SimulatorRoutineRevisionYAML
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
+from cognite_toolkit._cdf_tk.yaml_classes import SimulatorModelYAML
+from cognite_toolkit._cdf_tk.yaml_classes.simulator_model_revision import SimulatorModelRevisionYAML
+from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine import SimulatorRoutineYAML
+from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine_revision import SimulatorRoutineRevisionYAML
 
 from .data_organization import DataSetsCRUD
 from .file import FileMetadataCRUD
@@ -217,7 +217,7 @@ class SimulatorModelRevisionCRUD(
         if parent_ids:
             model_external_ids = [str(pid) for pid in parent_ids]
         for items in self.client.tool.simulators.model_revisions.iterate(
-            filter=SimulatorModelRevisionFilter(model_external_ids=model_external_ids)
+            filter=SimulatorModelRevisionFilter(model_external_ids=model_external_ids), limit=None
         ):
             yield from items
 
@@ -313,7 +313,7 @@ class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, Sim
         if parent_ids:
             model_external_ids = [str(pid) for pid in parent_ids]
         for items in self.client.tool.simulators.routines.iterate(
-            filter=SimulatorModelRoutineFilter(model_external_ids=model_external_ids),
+            filter=SimulatorModelRoutineFilter(model_external_ids=model_external_ids), limit=None
         ):
             yield from items
 
@@ -401,7 +401,7 @@ class SimulatorRoutineRevisionCRUD(
         if parent_ids:
             routine_external_ids = [str(pid) for pid in parent_ids]
         for items in self.client.tool.simulators.routine_revisions.iterate(
-            filter=SimulatorModelRoutineRevisionFilter(routine_external_ids=routine_external_ids)
+            filter=SimulatorModelRoutineRevisionFilter(routine_external_ids=routine_external_ids), limit=None
         ):
             yield from items
 

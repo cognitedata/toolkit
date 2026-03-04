@@ -3,11 +3,11 @@ from typing import Any, ClassVar, Literal
 from pydantic import JsonValue, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    DataModelReference,
-    NodeReference,
-    ViewReference,
+    DataModelId,
+    NodeId,
+    ViewId,
     WrappedInstanceListRequest,
     WrappedInstanceListResponse,
     WrappedInstanceRequest,
@@ -16,22 +16,22 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 
-INFIELD_LOCATION_CONFIG_VIEW_ID = ViewReference(space="cdf_infield", external_id="InFieldLocationConfig", version="v1")
-INFIELD_ON_CDM_DATA_MODEL = DataModelReference(
+INFIELD_LOCATION_CONFIG_VIEW_ID = ViewId(space="cdf_infield", external_id="InFieldLocationConfig", version="v1")
+INFIELD_ON_CDM_DATA_MODEL = DataModelId(
     space="infield_cdm_source_desc_sche_asset_file_ts",
     external_id="InFieldOnCDM",
     version="v1",
 )
-INFIELD_CDM_LOCATION_CONFIG_VIEW_ID = ViewReference(
+INFIELD_CDM_LOCATION_CONFIG_VIEW_ID = ViewId(
     space="infield_cdm_source_desc_sche_asset_file_ts", external_id="InFieldCDMLocationConfig", version="v1"
 )
-DATA_EXPLORATION_CONFIG_VIEW_ID = ViewReference(space="cdf_infield", external_id="DataExplorationConfig", version="v1")
+DATA_EXPLORATION_CONFIG_VIEW_ID = ViewId(space="cdf_infield", external_id="DataExplorationConfig", version="v1")
 
 
 class DataExplorationConfig(BaseModelObject):
     """Data Exploration Configuration resource class."""
 
-    VIEW_ID: ClassVar[ViewReference] = DATA_EXPLORATION_CONFIG_VIEW_ID
+    VIEW_ID: ClassVar[ViewId] = DATA_EXPLORATION_CONFIG_VIEW_ID
     space: str | None = None
     external_id: str | None = None
 
@@ -53,7 +53,7 @@ class InFieldLocationConfig(BaseModelObject):
     This class is used for both the response and request resource for Infield Location Configuration nodes.
     """
 
-    VIEW_ID: ClassVar[ViewReference] = INFIELD_LOCATION_CONFIG_VIEW_ID
+    VIEW_ID: ClassVar[ViewId] = INFIELD_LOCATION_CONFIG_VIEW_ID
     root_location_external_id: str | None = None
     feature_toggles: dict[str, JsonValue] | None = None
     app_instance_space: str | None = None
@@ -112,15 +112,15 @@ class InFieldLocationConfigRequest(WrappedInstanceListRequest, InFieldLocationCo
             )
         return output
 
-    def as_ids(self) -> list[InstanceIdDefinition]:
-        output: list[InstanceIdDefinition] = [self.as_id()]
+    def as_ids(self) -> list[InstanceDefinitionId]:
+        output: list[InstanceDefinitionId] = [self.as_id()]
         if (
             self.data_exploration_config
             and self.data_exploration_config.space
             and self.data_exploration_config.external_id
         ):
             output.append(
-                NodeReference(
+                NodeId(
                     space=self.data_exploration_config.space,
                     external_id=self.data_exploration_config.external_id,
                 )
@@ -133,20 +133,27 @@ class InFieldLocationConfigResponse(WrappedInstanceListResponse, InFieldLocation
     def request_cls(cls) -> type[InFieldLocationConfigRequest]:
         return InFieldLocationConfigRequest
 
-    def as_ids(self) -> list[InstanceIdDefinition]:
-        output: list[InstanceIdDefinition] = [NodeReference(space=self.space, external_id=self.external_id)]
+    def as_ids(self) -> list[InstanceDefinitionId]:
+        output: list[InstanceDefinitionId] = [NodeId(space=self.space, external_id=self.external_id)]
         if (
             self.data_exploration_config
             and self.data_exploration_config.space
             and self.data_exploration_config.external_id
         ):
             output.append(
-                NodeReference(
+                NodeId(
                     space=self.data_exploration_config.space,
                     external_id=self.data_exploration_config.external_id,
                 )
             )
         return output
+
+
+class DataStorage(BaseModelObject):
+    """Data storage configuration."""
+
+    root_location: dict[str, JsonValue] | None = None
+    app_instance_space: str | None = None
 
 
 class InFieldCDMLocationConfig(BaseModelObject):
@@ -155,24 +162,24 @@ class InFieldCDMLocationConfig(BaseModelObject):
     feature_toggles: dict[str, JsonValue] | None = None
     access_management: dict[str, JsonValue] | None = None
     data_filters: dict[str, JsonValue] | None = None
-    data_storage: dict[str, JsonValue] | None = None
+    data_storage: DataStorage | None = None
     view_mappings: dict[str, JsonValue] | None = None
     disciplines: list[dict[str, JsonValue]] | None = None
     data_exploration_config: dict[str, JsonValue] | None = None
 
 
 class InFieldCDMLocationConfigRequest(WrappedInstanceRequest, InFieldCDMLocationConfig):
-    VIEW_ID: ClassVar[ViewReference] = INFIELD_CDM_LOCATION_CONFIG_VIEW_ID
+    VIEW_ID: ClassVar[ViewId] = INFIELD_CDM_LOCATION_CONFIG_VIEW_ID
     instance_type: Literal["node"] = "node"
 
-    def as_id(self) -> NodeReference:
-        return NodeReference(space=self.space, external_id=self.external_id)
+    def as_id(self) -> NodeId:
+        return NodeId(space=self.space, external_id=self.external_id)
 
 
 class InFieldCDMLocationConfigResponse(
     WrappedInstanceResponse[InFieldCDMLocationConfigRequest], InFieldCDMLocationConfig
 ):
-    VIEW_ID: ClassVar[ViewReference] = INFIELD_CDM_LOCATION_CONFIG_VIEW_ID
+    VIEW_ID: ClassVar[ViewId] = INFIELD_CDM_LOCATION_CONFIG_VIEW_ID
     instance_type: Literal["node"] = "node"
 
     @classmethod

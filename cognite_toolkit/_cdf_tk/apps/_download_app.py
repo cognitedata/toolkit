@@ -838,6 +838,13 @@ class DownloadApp(typer.Typer):
             instance_spaces: tuple[str, ...] | None = None
             if select_instance_space:
                 instance_spaces = tuple(selector.select_instance_space(multiselect=True))
+            include_edges = False
+            if Flags.EXTEND_DOWNLOAD.EXTEND_DOWNLOAD.is_enabled():
+                include_edges = questionary.confirm(
+                    "Do you want to include edges when downloading node instances? If yes, all edges connected to the downloaded nodes will be downloaded as well.",
+                    default=False,
+                ).unsafe_ask()
+
             selectors = []
             download_dir_name = sanitize_filename(data_model.external_id)
             for view in selected_views:
@@ -855,6 +862,7 @@ class DownloadApp(typer.Typer):
                         instance_spaces=instance_spaces,
                         instance_type=view_instance_type,
                         download_dir_name=download_dir_name,
+                        include_edges=include_edges,
                     )
                 )
             output_dir, file_format, compression, limit = cls._interactive_select_shared(  # type: ignore[assignment]

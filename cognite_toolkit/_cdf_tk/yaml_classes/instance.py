@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import Field, JsonValue
 
-from cognite_toolkit._cdf_tk.client.identifiers import EdgeReference, NodeReference
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeId, NodeId
 from cognite_toolkit._cdf_tk.constants import INSTANCE_EXTERNAL_ID_PATTERN, SPACE_FORMAT_PATTERN
 
 from .base import BaseModelResource, ToolkitResource
@@ -63,8 +63,8 @@ class NodeYAML(ToolkitResource):
         ge=0,
     )
 
-    def as_id(self) -> NodeReference:
-        return NodeReference(space=self.space, external_id=self.external_id)
+    def as_id(self) -> NodeId:
+        return NodeId(space=self.space, external_id=self.external_id)
 
 
 class EdgeYAML(ToolkitResource):
@@ -100,5 +100,5 @@ class EdgeYAML(ToolkitResource):
         description="Reference to the node at the end of the edge.",
     )
 
-    def as_id(self) -> EdgeReference:
-        return EdgeReference(space=self.space, external_id=self.external_id)
+    def as_id(self) -> EdgeId:
+        return EdgeId(space=self.space, external_id=self.external_id)

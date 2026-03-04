@@ -5,8 +5,8 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client._resource_base import UpdatableRequestResource, _get_annotation_origin
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.identifiers import NodeReference, PrincipalId
-from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest
+from cognite_toolkit._cdf_tk.client.identifiers import NodeId, PrincipalId
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import KNOWN_TOOLS, AgentRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (
@@ -177,6 +177,27 @@ class TestAgentRequest:
                     "type": "unknown_tool",
                     "name": "Custom Tool",
                     "description": "A tool that is not yet recognized",
+                }
+            ],
+        }
+        agent_request = AgentRequest.model_validate(data)
+        assert agent_request.dump() == data
+
+    @pytest.mark.parametrize(
+        "tool_type",
+        sorted(t for t in KNOWN_TOOLS if t not in {"callFunction", "queryKnowledgeGraph"}),
+    )
+    def test_tool_extra_fields_preserved(self, tool_type: str) -> None:
+        """Tools must preserve unknown fields so the API can add new properties without breaking deployments."""
+        data = {
+            "externalId": "agent_1",
+            "name": "Agent 1",
+            "tools": [
+                {
+                    "type": tool_type,
+                    "name": "my_tool",
+                    "description": "A tool for testing",
+                    "someNewField": {"key": "value"},
                 }
             ],
         }
@@ -405,7 +426,7 @@ class TestNodeRequest:
         }
 
     def test_convert_node_type_to_untyped(self) -> None:
-        my_node_type = NodeReference(space="my_space", external_id="my_node")
+        my_node_type = NodeId(space="my_space", external_id="my_node")
         my_node_request = NodeRequest(
             space="my_space",
             external_id="instance_node",

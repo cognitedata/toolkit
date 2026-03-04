@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal, TypeAlias
 
-from cognite.client.data_classes.data_modeling import ContainerId
+from cognite.client import data_modeling as dm
 
 try:
     from pyodide.ffi import IN_BROWSER
@@ -46,6 +46,11 @@ MODULE_PATH_SEP = "/"
 MIN_TIMESTAMP_MS = -2208988800000  # 1900-01-01 00:00:00.000
 MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
 HAS_DATA_FILTER_LIMIT = 10
+
+# The actual API limit for view and container upsert is 100, but depending on the number
+# of properties DMS struggles with large batches, thus, we set them to 50 to be safe.
+VIEW_UPSERT_BATCH_LIMIT = 50
+CONTAINER_UPSERT_BATCH_LIMIT = 50
 
 DEV_ONLY_MODULES = frozenset(["cdf_auth_readwrite_all"])
 
@@ -158,8 +163,8 @@ MAX_RUN_QUERY_FREQUENCY_MIN = 10
 
 COGNITE_MIGRATION_SPACE = "cognite_migration"
 
-COGNITE_TIME_SERIES_CONTAINER = ContainerId("cdf_cdm", "CogniteTimeSeries")
-COGNITE_FILE_CONTAINER = ContainerId("cdf_cdm", "CogniteFile")
+COGNITE_TIME_SERIES_CONTAINER = dm.ContainerId("cdf_cdm", "CogniteTimeSeries")
+COGNITE_FILE_CONTAINER = dm.ContainerId("cdf_cdm", "CogniteFile")
 CDF_UNIT_SPACE = "cdf_cdm_units"
 
 

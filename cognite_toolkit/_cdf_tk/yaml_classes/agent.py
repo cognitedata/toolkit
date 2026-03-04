@@ -141,6 +141,10 @@ class QueryTimeSeriesDatapoints(AgentToolDefinition):
 
 class RunPythonCode(AgentToolDefinition):
     type: Literal["runPythonCode"] = "runPythonCode"
+    configuration: dict[str, Any] | None = Field(
+        default=None,
+        description="Configuration for the Run Python Code tool.",
+    )
 
 
 class SummarizeDocument(AgentToolDefinition):

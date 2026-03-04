@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import Field, field_validator, model_serializer
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId
 from cognite_toolkit._cdf_tk.constants import (
     CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN,
     DM_EXTERNAL_ID_PATTERN,
@@ -60,8 +60,8 @@ class ContainerYAML(ToolkitResource):
         max_length=10,
     )
 
-    def as_id(self) -> ContainerReference:
-        return ContainerReference(space=self.space, external_id=self.external_id)
+    def as_id(self) -> ContainerId:
+        return ContainerId(space=self.space, external_id=self.external_id)
 
     @field_validator("external_id")
     @classmethod

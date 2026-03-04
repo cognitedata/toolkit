@@ -1,6 +1,6 @@
 from typing import Literal
 
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
     AssetCentricId,
 )
@@ -49,7 +49,7 @@ class TestMigrationIssues:
 
     def test_conversion_issue_minimal(self) -> None:
         asset_centric_id = AssetCentricId(resource_type="asset", id_=456)
-        instance_id = NodeReference(space="test_space", external_id="test_instance")
+        instance_id = NodeId(space="test_space", external_id="test_instance")
 
         conversion_issue = ConversionIssue(id="issue-4", asset_centric_id=asset_centric_id, instance_id=instance_id)
 
@@ -68,7 +68,7 @@ class TestMigrationIssues:
 
     def test_conversion_issue_with_all_fields(self) -> None:
         asset_centric_id = AssetCentricId(resource_type="timeseries", id_=789)
-        instance_id = NodeReference(space="demo_space", external_id="demo_instance")
+        instance_id = NodeId(space="demo_space", external_id="demo_instance")
 
         failed_conversion = FailedConversion(property_id="value", value="not_a_number", error="Cannot convert to float")
         invalid_property = InvalidPropertyDataType(property_id="status", expected_type="boolean")

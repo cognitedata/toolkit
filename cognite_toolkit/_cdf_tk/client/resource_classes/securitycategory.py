@@ -5,7 +5,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import InternalIdUnwrapped
+from cognite_toolkit._cdf_tk.client.identifiers import InternalUnwrappedId
 
 
 class SecurityCategory(BaseModelObject):
@@ -16,10 +16,10 @@ class SecurityCategoryRequest(SecurityCategory, RequestResource):
     # This is not part of the request payload.
     id: int | None = Field(None, exclude=True)
 
-    def as_id(self) -> InternalIdUnwrapped:
+    def as_id(self) -> InternalUnwrappedId:
         if self.id is None:
             raise ValueError("Cannot create identifier from SecurityCategoryRequest without id set")
-        return InternalIdUnwrapped(id=self.id)
+        return InternalUnwrappedId(id=self.id)
 
 
 class SecurityCategoryResponse(SecurityCategory, ResponseResource[SecurityCategoryRequest]):
@@ -29,5 +29,5 @@ class SecurityCategoryResponse(SecurityCategory, ResponseResource[SecurityCatego
     def request_cls(cls) -> type[SecurityCategoryRequest]:
         return SecurityCategoryRequest
 
-    def as_id(self) -> InternalIdUnwrapped:
-        return InternalIdUnwrapped(id=self.id)
+    def as_id(self) -> InternalUnwrappedId:
+        return InternalUnwrappedId(id=self.id)

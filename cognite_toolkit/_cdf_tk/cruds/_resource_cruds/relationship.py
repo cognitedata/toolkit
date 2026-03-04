@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import RelationshipYAML
+from cognite_toolkit._cdf_tk.yaml_classes import RelationshipYAML
 
 from .classic import AssetCRUD, EventCRUD, SequenceCRUD
 from .data_organization import DataSetsCRUD, LabelCRUD
@@ -100,7 +100,7 @@ class RelationshipCRUD(ResourceCRUD[ExternalId, RelationshipRequest, Relationshi
         filter: ClassicFilter | None = None
         if data_set_external_id:
             filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
-        for items in self.client.tool.relationships.iterate(filter=filter):
+        for items in self.client.tool.relationships.iterate(filter=filter, limit=None):
             yield from items
 
     @classmethod
