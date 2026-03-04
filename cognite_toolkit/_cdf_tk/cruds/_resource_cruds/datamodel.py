@@ -838,7 +838,10 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ViewResponse]:
-        for batch in self.client.tool.views.iterate(filter=ViewFilter(space=space) if space else None):
+        filter = ViewFilter(all_versions=True)
+        if space:
+            filter.space = space
+        for batch in self.client.tool.views.iterate(filter=filter):
             yield from batch
 
     @classmethod
@@ -1111,7 +1114,9 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelRequest, DataModelRespons
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DataModelResponse]:
-        for batch in self.client.tool.data_models.iterate(filter=DataModelFilter(space=space, include_global=False)):
+        for batch in self.client.tool.data_models.iterate(
+            filter=DataModelFilter(space=space, include_global=False, all_versions=True)
+        ):
             yield from batch
 
     @classmethod
