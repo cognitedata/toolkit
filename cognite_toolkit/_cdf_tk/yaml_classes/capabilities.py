@@ -198,6 +198,12 @@ class AssetsAcl(Capability):
     scope: AllScope | DataSetScope
 
 
+class ChartsAdminAcl(Capability):
+    _capability_name = "chartsAdminAcl"
+    actions: list[Literal["READ", "UPDATE", "DELETE"]]
+    scope: AllScope
+
+
 class DataSetsAcl(Capability):
     _capability_name = "datasetsAcl"
     actions: list[Literal["READ", "WRITE", "OWNER"]]

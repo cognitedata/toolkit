@@ -122,6 +122,14 @@ class AuditlogAcl(Acl):
     scope: AllScope
 
 
+class ChartsAdminAcl(Acl):
+    """ACL for Charts Admin resources."""
+
+    acl_name: Literal["chartsAdminAcl"] = Field("chartsAdminAcl", exclude=True)
+    actions: Sequence[Literal["READ", "UPDATE", "DELETE"]]
+    scope: AllScope
+
+
 class DataModelInstancesAcl(Acl):
     """ACL for Data Model Instances resources."""
 
