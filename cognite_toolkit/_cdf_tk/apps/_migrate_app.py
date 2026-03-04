@@ -1319,7 +1319,13 @@ class MigrateApp(typer.Typer):
 
         cmd = MigrationCommand(client=client)
         apm_configs = client.infield.apm_config.list(limit=None)
-        source_candidates = {config.app_data_space_id for config in apm_configs if config.app_data_space_id}
+        source_candidates = {
+            location.app_data_instance_space
+            for config in apm_configs
+            if config.feature_configuration
+            for location in config.feature_configuration.root_location_configurations or []
+            if location.app_data_instance_space
+        }
         infield_cdm_configs = client.infield.cdm_config.list(limit=None)
         target_candidates = {
             config.data_storage.app_instance_space
