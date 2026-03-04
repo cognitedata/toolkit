@@ -1339,14 +1339,14 @@ class MigrateApp(typer.Typer):
                 instance_spaces=selected_instance_space,
                 include_edges=True,
             )
-            for mapping in infield_mappings.values()
+            for mapping in infield_mappings
         ]
 
         cmd.run(
             lambda: cmd.migrate(  # type: ignore[misc]
                 selectors=selectors,
                 data=InstanceIO(client),
-                mapper=FDMtoCDMMapper(client, space_mapping, list(infield_mappings.values())),
+                mapper=FDMtoCDMMapper(client, space_mapping, infield_mappings),
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
