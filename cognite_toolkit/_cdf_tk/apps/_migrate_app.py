@@ -44,6 +44,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     SelectedView,
     ThreeDModelIdSelector,
 )
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
@@ -1272,12 +1273,22 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def infield_data(
         ctx: typer.Context,
-        instance_space: str | None = typer.Option(
-            None,
-            "--instance-space",
-            "-i",
-            help="The instance space to migrate Infield data from. If not provided, an interactive selection will be performed to select the instance space.",
-        ),
+        source_space: Annotated[
+            str | None,
+            typer.Option(
+                "--source-space",
+                "-s",
+                help="The instance space to select Infield data from. If not provided, an interactive selection will be performed to select the instance space.",
+            ),
+        ] = None,
+        target_space: Annotated[
+            str | None,
+            typer.Option(
+                "--target-space",
+                "-t",
+                help="The instance space to migrate Infield data to. If not provided, an interactive selection will be performed to select the target instance space.",
+            ),
+        ] = None,
         log_dir: Annotated[
             Path,
             typer.Option(
@@ -1307,27 +1318,58 @@ class MigrateApp(typer.Typer):
         client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = MigrationCommand(client=client)
-        if instance_space is None:
-            space_selector = DataModelingSelect(client, "migrate")
-            # Todo select instance space from APM Configuration.
-            selected_instance_space = (
-                space_selector.select_instance_space(
-                    multiselect=False,
-                    message="Select the instance space to migrate Infield data from:",
-                    include_empty=False,
-                ),
-            )
+        apm_configs = client.infield.apm_config.list(limit=None)
+        source_candidates = {config.app_data_space_id for config in apm_configs if config.app_data_space_id}
+        infield_cdm_configs = client.infield.cdm_config.list(limit=None)
+        target_candidates = {
+            config.data_storage.app_instance_space
+            for config in infield_cdm_configs
+            if config.data_storage and config.data_storage.app_instance_space
+        }
+        if source_space is None and target_space is None:
+            source_stats = client.data_modeling.statistics.spaces.retrieve(list(source_candidates))
+            source_space = questionary.select(
+                "Select the instance space to migrate Infield data from:",
+                choices=[
+                    questionary.Choice(
+                        title=f"{item.space} (contains {item.nodes:,} nodes and {item.edges:,} edges)",
+                        value=item.space,
+                    )
+                    for item in source_stats
+                ],
+            ).unsafe_ask()
+            target_stats = client.data_modeling.statistics.spaces.retrieve(list(target_candidates))
+            target_space = questionary.select(
+                "Select the instance space to migrate Infield data to:",
+                choices=[
+                    questionary.Choice(
+                        title=f"{item.space} (contains {item.nodes:,} nodes and {item.edges:,} edges)",
+                        value=item.space,
+                    )
+                    for item in target_stats
+                ],
+            ).unsafe_ask()
             log_dir = Path(
                 questionary.path("Specify log directory for migration logs:", default=str(log_dir)).unsafe_ask()
             )
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
+        elif source_space is not None and target_space is not None:
+            errors: list[str] = []
+            if source_space not in source_candidates:
+                errors.append(
+                    f"Source space '{source_space}' is not a valid source for Infield data migration. Available source spaces are: {humanize_collection(source_candidates)}."
+                )
+            if target_space not in target_candidates:
+                errors.append(
+                    f"Target space '{target_space}' is not a valid target for Infield data migration. Available target spaces are: {humanize_collection(target_candidates)}."
+                )
+            if errors:
+                raise typer.BadParameter("\n".join(errors))
         else:
-            selected_instance_space = (instance_space,)
-        # Lookup in the new config.
-        target_space = "<todo>"
+            raise typer.BadParameter("Either both --source-space and --target-space must be provided, or neither.")
 
-        space_mapping = {selected_instance_space[0]: target_space}
+        space_mapping = {source_space: target_space}
         infield_mappings = create_infield_data_mappings()
         selectors = [
             InstanceViewSelector(
@@ -1336,7 +1378,7 @@ class MigrateApp(typer.Typer):
                     external_id=mapping.source_view.external_id,
                     version=mapping.source_view.version,
                 ),
-                instance_spaces=selected_instance_space,
+                instance_spaces=(source_space,),
                 include_edges=True,
             )
             for mapping in infield_mappings
