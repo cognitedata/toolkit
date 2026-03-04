@@ -223,8 +223,9 @@ class FunctionAppRef(BaseModelResource):
         max_length=255,
         description="The HTTP path to invoke on the Function App.",
     )
-    method: Literal["GET", "POST", "PUT", "DELETE", "PATCH"] | str = Field(
-        description="The HTTP method to use when invoking the Function App."
+    method: Literal["GET", "POST", "PUT", "DELETE", "PATCH"] | str | None = Field(
+        None,
+        description="The HTTP method to use when invoking the Function App.",
     )
     parameters: dict[str, str] | None = Field(
         None,

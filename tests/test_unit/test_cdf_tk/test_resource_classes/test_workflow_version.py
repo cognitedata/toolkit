@@ -88,6 +88,32 @@ def invalid_workflow_version_test_cases() -> Iterable:
         },
         id="Invalid task type",
     )
+    yield pytest.param(
+        {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "t1",
+                        "type": "functionApp",
+                        "parameters": {
+                            "functionApp": {
+                                "externalId": "my-app",
+                                "path": "/invoke",
+                                "parameters": {f"k{i}": "v" for i in range(11)},
+                            }
+                        },
+                    }
+                ]
+            },
+        },
+        {
+            "In workflowDefinition.tasks[1].functionApp.parameters.functionApp.parameters "
+            "dictionary should have at most 10 items after validation, not 11"
+        },
+        id="functionApp parameters exceeds max 10 entries",
+    )
 
 
 def valid_subworkflow_test_cases() -> Iterable:

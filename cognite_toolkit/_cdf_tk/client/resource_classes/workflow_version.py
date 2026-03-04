@@ -105,7 +105,7 @@ class SimulationTaskParameters(TaskParameterDefinition):
 class FunctionAppRef(BaseModelObject):
     external_id: str
     path: str
-    method: str
+    method: Literal["GET", "POST", "PUT", "DELETE", "PATCH"] | str | None = None
     parameters: dict[str, str] | None = None
     body: JsonValue | None = None
 
