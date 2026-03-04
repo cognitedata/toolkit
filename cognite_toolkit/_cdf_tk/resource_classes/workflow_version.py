@@ -229,6 +229,7 @@ class FunctionAppRef(BaseModelResource):
     parameters: dict[str, str] | None = Field(
         None,
         description="Optional query parameters to pass to the Function App. Maximum 10 entries.",
+        max_length=10,
     )
     body: JsonValue | None = Field(
         None,
