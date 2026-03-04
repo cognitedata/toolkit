@@ -492,8 +492,8 @@ class BuildV2Command(ToolkitCommand):
 
         # Can be parallelized if needed
         for built_module in build_folder.built_modules:
-            # if not built_module.is_success:
-            #     continue
+            if not built_module.is_success:
+                continue
 
             if files_by_resource_type := built_module.resource_by_type.get(DataModelCRUD.folder_name):
                 if NeatPlugin.installed() and client and DataModelCRUD.kind in files_by_resource_type:
