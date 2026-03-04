@@ -100,7 +100,7 @@ class RelationshipCRUD(ResourceCRUD[ExternalId, RelationshipRequest, Relationshi
         filter: ClassicFilter | None = None
         if data_set_external_id:
             filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
-        for items in self.client.tool.relationships.iterate(filter=filter):
+        for items in self.client.tool.relationships.iterate(filter=filter, limit=None):
             yield from items
 
     @classmethod

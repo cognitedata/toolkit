@@ -10,6 +10,7 @@ from cognite.client.data_classes.capabilities import Capability
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter, SequenceRowFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import (
@@ -333,7 +334,7 @@ class SequenceCRUD(ResourceCRUD[ExternalId, SequenceRequest, SequenceResponse]):
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[SequenceResponse]:
         filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
-        for sequences in self.client.tool.sequences.iterate(filter=filter_):
+        for sequences in self.client.tool.sequences.iterate(filter=filter_, limit=None):
             yield from sequences
 
     @classmethod
@@ -401,7 +402,12 @@ class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRows
         results: list[SequenceRowsResponse] = []
         for id_ in ids:
             row_filter = SequenceRowFilter(external_id=id_.external_id)
-            responses = self.client.tool.sequences.rows.list(row_filter)
+            try:
+                responses = self.client.tool.sequences.rows.list(row_filter)
+            except ToolkitAPIError as e:
+                if e.missing == [id_.dump()]:
+                    continue
+                raise e
             results.extend(responses)
         return results
 
@@ -426,13 +432,13 @@ class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRows
         if parent_ids is None:
             filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
             parent_external_ids: list[str] = []
-            for sequences in self.client.tool.sequences.iterate(filter=filter_):
+            for sequences in self.client.tool.sequences.iterate(filter=filter_, limit=None):
                 parent_external_ids.extend(seq.external_id for seq in sequences if seq.external_id)
         else:
             parent_external_ids = [id.external_id for id in parent_ids if isinstance(id, ExternalId)]
         for ext_id in parent_external_ids:
             row_filter = SequenceRowFilter(external_id=ext_id)
-            responses = self.client.tool.sequences.rows.list(row_filter)
+            responses = self.client.tool.sequences.rows.list(row_filter, limit=None)
             yield from responses
 
     @classmethod

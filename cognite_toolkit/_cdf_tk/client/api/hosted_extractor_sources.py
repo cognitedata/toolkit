@@ -110,7 +110,7 @@ class HostedExtractorSourcesAPI(CDFResourceAPI[HostedExtractorSourceResponseUnio
 
     def iterate(
         self,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[list[HostedExtractorSourceResponseUnion]]:
         """Iterate over hosted extractor sources in CDF.
 

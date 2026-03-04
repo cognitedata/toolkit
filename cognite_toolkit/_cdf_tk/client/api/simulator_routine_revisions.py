@@ -85,7 +85,7 @@ class SimulatorRoutineRevisionsAPI(CDFResourceAPI[SimulatorRoutineRevisionRespon
     def iterate(
         self,
         filter: SimulatorModelRoutineRevisionFilter | None = None,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[list[SimulatorRoutineRevisionResponse]]:
         """Iterate over simulator routine revisions in CDF.
 

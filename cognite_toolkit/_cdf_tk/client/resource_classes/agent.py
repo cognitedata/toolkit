@@ -1,12 +1,14 @@
 from typing import Annotated, Any, Literal
 
-from pydantic import BeforeValidator, Field
+from pydantic import BeforeValidator, ConfigDict, Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 
 class AgentToolDefinition(BaseModelObject):
+    model_config = ConfigDict(extra="allow")
+
     type: str
     name: str
     description: str
