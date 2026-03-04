@@ -1,6 +1,6 @@
 from typing import Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
@@ -216,8 +216,6 @@ Model = Literal[
 
 class AgentYAML(ToolkitResource):
     """Atlas AI Agent"""
-
-    model_config = ConfigDict(extra="allow")
 
     external_id: str = Field(
         description="An external ID that uniquely identifies the agent.",
