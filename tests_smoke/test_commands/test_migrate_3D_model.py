@@ -13,7 +13,7 @@ from cognite.client.data_classes import (
     ThreeDModelRevisionWrite,
     filters,
 )
-from cognite.client.data_classes.data_modeling import Node, NodeApply, NodeOrEdgeData, Space
+from cognite.client.data_classes.data_modeling import Node, NodeApply, NodeOrEdgeData
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -22,8 +22,10 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     FailedResponse,
     HTTPClient,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
+
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
     AssetMappingClassicRequestId,
     ThreeDModelClassicRequest,
     ThreeDModelClassicResponse,
@@ -63,7 +65,7 @@ def tmp_classic_asset(toolkit_client: ToolkitClient, smoke_dataset: DataSet) -> 
 
 @pytest.fixture
 def migrated_asset(
-    toolkit_client: ToolkitClient, tmp_classic_asset: Asset, smoke_space: Space, tmp_path: Path
+    toolkit_client: ToolkitClient, tmp_classic_asset: Asset, smoke_space: SpaceResponse, tmp_path: Path
 ) -> Iterator[tuple[Asset, Node]]:
     if not tmp_classic_asset.id or not tmp_classic_asset.external_id or not tmp_classic_asset.data_set_id:
         raise AssertionError("Temporary classic asset is missing required fields for migration test.")
@@ -100,7 +102,7 @@ def tmp_3D_model_with_asset_mapping(
     toolkit_client: ToolkitClient,
     three_d_file: FileMetadataResponse,
     smoke_dataset: DataSet,
-    smoke_space: Space,
+    smoke_space: SpaceResponse,
     migrated_asset: tuple[Asset, Node],
 ) -> Iterator[tuple[ThreeDModelClassicResponse, Node]]:
     classic_asset, asset_node = migrated_asset
@@ -182,7 +184,9 @@ def tmp_3D_model_with_asset_mapping(
 
 
 @pytest.fixture(scope="session")
-def three_d_model_instance_space(toolkit_client: ToolkitClient, smoke_space: Space, smoke_dataset: DataSet) -> None:
+def three_d_model_instance_space(
+    toolkit_client: ToolkitClient, smoke_space: SpaceResponse, smoke_dataset: DataSet
+) -> None:
     """This sets up the instance space mapping from the classic dataset."""
     client = toolkit_client
     space = smoke_space.space
@@ -217,7 +221,7 @@ class TestMigrate3D:
         tmp_3D_model_with_asset_mapping: tuple[ThreeDModelClassicResponse, Node],
         toolkit_client: ToolkitClient,
         tmp_path: Path,
-        smoke_space: Space,
+        smoke_space: SpaceResponse,
     ) -> None:
         client = toolkit_client
         model, asset_node = tmp_3D_model_with_asset_mapping
