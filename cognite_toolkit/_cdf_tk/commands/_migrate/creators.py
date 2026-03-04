@@ -428,10 +428,7 @@ class InfieldV2ConfigCreator(MigrationCreator):
 
         data_storage = DataStorage(
             root_location=root_node.dump(include_instance_type=False),
-            # Todo: This does not work. We need to require a new space. If not the migration will
-            #    make legacy broken as it will update lastUpdatedTime of all data which InField depends on
-            #    matching the user.
-            app_instance_space=config.app_data_instance_space,
+            app_instance_space=f"{config.app_data_instance_space}_cdm",
         )
         view_mappings: dict[str, JsonValue] = {}
         for key, default_view in [
