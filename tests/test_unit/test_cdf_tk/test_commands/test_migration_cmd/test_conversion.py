@@ -33,6 +33,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     TimestampProperty,
     ViewCorePropertyResponse,
     ViewId,
+    ViewResponse,
     ViewResponseProperty,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
@@ -43,9 +44,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSerie
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
-    ConversionSourceView,
+    ConnectionCreator,
     DirectRelationCache,
-    TimeSeriesFilesReferenceCache,
+    EdgeOtherSide,
     asset_centric_to_dm,
     convert_container_properties,
     convert_edges,
@@ -1365,7 +1366,6 @@ class TestInstanceToInstanceConversion:
     }
     COGNITE_TIMESERIES = NodeId(space="ts_space", external_id="ts_node_1")
     COGNITE_FILE = NodeId(space="file_space", external_id="file_node_1")
-    SOURCE_VIEW = ConversionSourceView(SOURCE_PROPERTIES)
     MAPPING = ViewToViewMapping(
         external_id="mapping_1",
         source_view=SOURCE_VIEW_ID,
@@ -1419,20 +1419,42 @@ class TestInstanceToInstanceConversion:
         expected_properties: dict[str, Any],
         expected_errors: list[str],
     ) -> None:
-        cache = TimeSeriesFilesReferenceCache(MagicMock(spec=ToolkitClient))
-        cache._cache["timeseries"]["ts_ext_1"] = self.COGNITE_TIMESERIES
-        cache._cache["file"]["file_ext_1"] = self.COGNITE_FILE
+        connection_creator = self._create_connection_creator()
 
         results = convert_container_properties(
             source_properties,
             self.MAPPING,
             self.DESTINATION_PROPERTIES,
-            view=self.SOURCE_VIEW,
-            direct_relation_cache=cache,
+            connection_creator,
+            self.SOURCE_VIEW_ID,
+            self.SOURCE_ID,
         )
 
         assert results.container_properties == expected_properties
         assert results.errors == expected_errors
+
+    def _create_connection_creator(self) -> ConnectionCreator:
+        creator = ConnectionCreator(
+            client=MagicMock(spec=ToolkitClient),
+            space_mapping={"src_space": "dst_space", "dst_space": "dst_space"},
+        )
+        source_view = ViewResponse(
+            space=self.SOURCE_VIEW_ID.space,
+            external_id=self.SOURCE_VIEW_ID.external_id,
+            version=self.SOURCE_VIEW_ID.version,
+            properties=self.SOURCE_PROPERTIES,
+            created_time=0,
+            last_updated_time=0,
+            writable=True,
+            queryable=True,
+            used_for="all",
+            is_global=False,
+            mapped_containers=[],
+        )
+        creator.view_by_id[self.SOURCE_VIEW_ID] = source_view
+        creator._timeseries_reference_cache["ts_ext_1"] = self.COGNITE_TIMESERIES
+        creator._file_reference_cache["file_ext_1"] = self.COGNITE_FILE
+        return creator
 
     IGNORED_EDGE_ID = EdgeId(space="src_space", external_id="ignored_edge")
 
@@ -1442,10 +1464,16 @@ class TestInstanceToInstanceConversion:
             pytest.param(
                 {
                     (NodeId(space="src_space", external_id="relatesTo"), "outwards"): [
-                        (NodeId(space="dst_space", external_id="asset_123"), IGNORED_EDGE_ID)
+                        EdgeOtherSide(
+                            edge_id=IGNORED_EDGE_ID,
+                            other_side=NodeId(space="dst_space", external_id="asset_123"),
+                        )
                     ],
                     (NodeId(space="src_space", external_id="hasChild"), "inwards"): [
-                        (NodeId(space="dst_space", external_id="asset_456"), IGNORED_EDGE_ID)
+                        EdgeOtherSide(
+                            edge_id=IGNORED_EDGE_ID,
+                            other_side=NodeId(space="dst_space", external_id="asset_456"),
+                        )
                     ],
                 },
                 {
@@ -1458,28 +1486,46 @@ class TestInstanceToInstanceConversion:
             pytest.param(
                 {
                     (NodeId(space="src_space", external_id="relatesTo"), "outwards"): [
-                        (NodeId(space="dst_space", external_id="asset_C"), IGNORED_EDGE_ID),
-                        (NodeId(space="dst_space", external_id="asset_D"), IGNORED_EDGE_ID),
+                        EdgeOtherSide(
+                            edge_id=IGNORED_EDGE_ID,
+                            other_side=NodeId(space="dst_space", external_id="asset_C"),
+                        ),
+                        EdgeOtherSide(
+                            edge_id=IGNORED_EDGE_ID,
+                            other_side=NodeId(space="dst_space", external_id="asset_D"),
+                        ),
                     ],
                     (NodeId(space="src_space", external_id="listRel"), "outwards"): [
-                        (NodeId(space="dst_space", external_id="asset_A"), IGNORED_EDGE_ID),
-                        (NodeId(space="dst_space", external_id="asset_B"), IGNORED_EDGE_ID),
+                        EdgeOtherSide(
+                            edge_id=IGNORED_EDGE_ID,
+                            other_side=NodeId(space="dst_space", external_id="asset_A"),
+                        ),
+                        EdgeOtherSide(
+                            edge_id=IGNORED_EDGE_ID,
+                            other_side=NodeId(space="dst_space", external_id="asset_B"),
+                        ),
                     ],
                     (NodeId(space="src_space", external_id="textEdge"), "outwards"): [
-                        (NodeId(space="dst_space", external_id="asset_E"), IGNORED_EDGE_ID),
+                        EdgeOtherSide(
+                            edge_id=IGNORED_EDGE_ID,
+                            other_side=NodeId(space="dst_space", external_id="asset_E"),
+                        ),
                     ],
                     (NodeId(space="src_space", external_id="edgeRel"), "inwards"): [
-                        (
-                            NodeId(space="dst_space", external_id="asset_F"),
-                            EdgeId(space="dst_space", external_id="dst_edge"),
+                        EdgeOtherSide(
+                            edge_id=EdgeId(space="dst_space", external_id="dst_edge"),
+                            other_side=NodeId(space="dst_space", external_id="asset_F"),
                         ),
                     ],
                     (NodeId(space="src_space", external_id="dupRel"), "outwards"): [
-                        (NodeId(space="dst_space", external_id="asset_G"), IGNORED_EDGE_ID),
+                        EdgeOtherSide(
+                            edge_id=IGNORED_EDGE_ID,
+                            other_side=NodeId(space="dst_space", external_id="asset_G"),
+                        ),
                     ],
                 },
                 {
-                    "relatedAsset": {"space": "dst_space", "externalId": "asset_C"},
+                    "relatedAsset": {"space": "dst_space", "externalId": "asset_G"},
                     "listAssets": [
                         {"space": "dst_space", "externalId": "asset_A"},
                         {"space": "dst_space", "externalId": "asset_B"},
@@ -1493,13 +1539,19 @@ class TestInstanceToInstanceConversion:
                         start_node=NodeId(space="dst_space", external_id="asset_F"),
                         end_node=NEW_ID,
                     ),
+                    EdgeRequest(
+                        space="dst_space",
+                        external_id="dst_edge",
+                        type=NodeId(space="dst_space", external_id="destEdgeType"),
+                        start_node=NodeId(space="dst_space", external_id="asset_F"),
+                        end_node=NEW_ID,
+                    ),
                 ],
                 [
-                    "Multiple edges mapped to single-valued direct relation property 'relatedAsset'."
-                    " Keeping the first one and ignoring the rest.",
+                    "Too many targets for direct relation property {source_prop_id!r} in view"
+                    " {source_view_id.dump(include_type=True)!r}: expected exactly 1, got {len(targets)}."
+                    " Returning the first target.",
                     "Cannot map edge property 'textEdge' to non-connection property text.",
-                    "Multiple edges mapped to single-valued direct relation property 'relatedAsset'."
-                    " Keeping the first one and ignoring the rest.",
                 ],
                 id="List relation, multi-target single, edge creation (inwards), non-connection error, and duplicate mapping",
             ),
@@ -1507,17 +1559,20 @@ class TestInstanceToInstanceConversion:
     )
     def test_convert_edges(
         self,
-        edge_targets: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[tuple[NodeId, EdgeId]]],
+        edge_targets: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]],
         expected_relations: dict[str, JsonValue],
         expected_edges: list[EdgeRequest],
         expected_errors: list[str],
     ) -> None:
+        connection_creator = self._create_connection_creator()
+
         results = convert_edges(
             edge_targets,
             self.MAPPING,
             self.DESTINATION_PROPERTIES,
-            source_edges=self.SOURCE_VIEW.edges,
-            source_id=self.NEW_ID,
+            self.NEW_ID,
+            connection_creator,
+            self.SOURCE_VIEW_ID,
         )
 
         assert results.container_properties == expected_relations
