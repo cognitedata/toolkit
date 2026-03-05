@@ -83,6 +83,8 @@ class MigrationCommand(ToolkitCommand):
             data.logger = logger
             mapper.logger = logger
             for selected in selectors:
+                logger.tracker.reset()
+
                 mapper.prepare(selected)
 
                 iteration_count: int | None = None
