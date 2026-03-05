@@ -47,8 +47,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     DirectRelationCache,
     TimeSeriesFilesReferenceCache,
     asset_centric_to_dm,
-    create_connection_properties,
-    create_container_properties,
+    convert_container_properties,
+    convert_edges,
     create_properties,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
@@ -1232,7 +1232,7 @@ class TestAssetCentricConversion:
         assert edge is None
 
 
-class TestCreateContainerConnectionProperties:
+class TestInstanceToInstanceConversion:
     SOURCE_VIEW_ID = ViewId(space="src_space", external_id="SrcView", version="v1")
     DEST_VIEW_ID = ViewId(space="dst_space", external_id="DstView", version="v1")
     CONTAINER_ID = ContainerId(space="dst_space", external_id="DstContainer")
@@ -1413,7 +1413,7 @@ class TestCreateContainerConnectionProperties:
             ),
         ],
     )
-    def test_create_container_properties(
+    def test_convert_container_properties(
         self,
         source_properties: dict[str, Any],
         expected_properties: dict[str, Any],
@@ -1423,7 +1423,7 @@ class TestCreateContainerConnectionProperties:
         cache._cache["timeseries"]["ts_ext_1"] = self.COGNITE_TIMESERIES
         cache._cache["file"]["file_ext_1"] = self.COGNITE_FILE
 
-        actual_properties, errors = create_container_properties(
+        results = convert_container_properties(
             source_properties,
             self.MAPPING,
             self.DESTINATION_PROPERTIES,
@@ -1431,8 +1431,8 @@ class TestCreateContainerConnectionProperties:
             direct_relation_cache=cache,
         )
 
-        assert actual_properties == expected_properties
-        assert errors == expected_errors
+        assert results.container_properties == expected_properties
+        assert results.errors == expected_errors
 
     IGNORED_EDGE_ID = EdgeId(space="src_space", external_id="ignored_edge")
 
@@ -1505,14 +1505,14 @@ class TestCreateContainerConnectionProperties:
             ),
         ],
     )
-    def test_create_connection_properties(
+    def test_convert_edges(
         self,
         edge_targets: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[tuple[NodeId, EdgeId]]],
         expected_relations: dict[str, JsonValue],
         expected_edges: list[EdgeRequest],
         expected_errors: list[str],
     ) -> None:
-        relations, edges, errors = create_connection_properties(
+        results = convert_edges(
             edge_targets,
             self.MAPPING,
             self.DESTINATION_PROPERTIES,
@@ -1520,6 +1520,6 @@ class TestCreateContainerConnectionProperties:
             source_id=self.NEW_ID,
         )
 
-        assert relations == expected_relations
-        assert [edge.model_dump() for edge in edges] == [edge.model_dump() for edge in expected_edges]
-        assert errors == expected_errors
+        assert results.container_properties == expected_relations
+        assert [edge.model_dump() for edge in results.edges] == [edge.model_dump() for edge in expected_edges]
+        assert results.errors == expected_errors

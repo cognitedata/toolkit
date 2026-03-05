@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Mapping, Set
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from functools import cached_property
 from typing import Any, ClassVar, Literal, cast
@@ -492,13 +493,20 @@ class ConversionSourceView:
         return {prop_id: prop for prop_id, prop in self._view_properties.items() if isinstance(prop, EdgeProperty)}
 
 
-def create_container_properties(
+@dataclass
+class ConversionResult:
+    container_properties: dict[str, JsonValue]
+    errors: list[str] = field(default_factory=list)
+    edges: list[EdgeRequest] = field(default_factory=list)
+
+
+def convert_container_properties(
     source_properties: dict[str, JsonValue],
     mapping: ViewToViewMapping,
     destination_properties: dict[str, ViewResponseProperty],
     view: ConversionSourceView | None = None,
     direct_relation_cache: TimeSeriesFilesReferenceCache | None = None,
-) -> tuple[dict[str, JsonValue], list[str]]:
+) -> ConversionResult:
     """
     Create properties for a data model instance from another instance's properties.
 
@@ -561,10 +569,10 @@ def create_container_properties(
         except (ValueError, TypeError, NotImplementedError) as e:
             errors.append(f"Failed to convert property {source_prop_id!r} with value {value!r}: {e!s}")
 
-    return created_properties, errors
+    return ConversionResult(container_properties=created_properties, errors=errors)
 
 
-def create_connection_properties(
+def convert_edges(
     edge_targets_by_type_and_direction: dict[
         tuple[NodeId, Literal["outwards", "inwards"]], list[tuple[NodeId, EdgeId]]
     ],
@@ -572,7 +580,7 @@ def create_connection_properties(
     destination_properties: dict[str, ViewResponseProperty],
     source_edges: dict[str, EdgeProperty],
     source_id: NodeId,
-) -> tuple[dict[str, JsonValue], list[EdgeRequest], list[str]]:
+) -> ConversionResult:
     created_direct_relations: dict[str, JsonValue] = {}
     created_edges: list[EdgeRequest] = []
     errors: list[str] = []
@@ -621,4 +629,4 @@ def create_connection_properties(
                 )
         # else reverse direct relation, which we assume is handled in the other direction and thus ignore here.
 
-    return created_direct_relations, created_edges, errors
+    return ConversionResult(container_properties=created_direct_relations, edges=created_edges, errors=errors)

@@ -49,8 +49,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     DirectRelationCache,
     TimeSeriesFilesReferenceCache,
     asset_centric_to_dm,
-    create_connection_properties,
-    create_container_properties,
+    convert_container_properties,
+    convert_edges,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     Model,
@@ -840,20 +840,27 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
                     "node.version": node.version,
                 }
             )
-            destination_properties, container_errors = create_container_properties(
+            container_results = convert_container_properties(
                 source_properties, mapping, destination_view.properties, conversion_source, self._direct_relation_cache
             )
-            issue.errors.extend(container_errors)
-            container_connections, created_edges, connection_errors = create_connection_properties(
+            issue.errors.extend(container_results.errors)
+            edge_results = convert_edges(
                 other_side_by_edge_type_and_direction,
                 mapping,
                 destination_view.properties,
                 conversion_source.edges,
                 new_id,
             )
-            issue.errors.extend(connection_errors)
-            destination_properties.update(container_connections)
-            if destination_properties:
-                sources.append(InstanceSource(source=destination_view.as_id(), properties=destination_properties))
-            new_edges.extend(created_edges)
+            issue.errors.extend(edge_results.errors)
+
+            # Todo: Merge conflicting?
+            created_container_properties = {
+                **container_results.container_properties,
+                **edge_results.container_properties,
+            }
+            if created_container_properties:
+                sources.append(InstanceSource(source=destination_view.as_id(), properties=created_container_properties))
+            new_edges.extend(container_results.edges)
+            new_edges.extend(edge_results.edges)
+
         return sources, new_edges, issue
