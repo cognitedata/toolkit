@@ -81,7 +81,7 @@ class MigrateApp(typer.Typer):
         self.command("3d-mappings")(self.three_d_asset_mapping)
         if Flags.INFIELD_MIGRATE.is_enabled():
             self.command("infield-configs")(self.infield_configs)
-            self.command("infield-data")(self.infield_data)
+            # self.command("infield-data")(self.infield_data)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
