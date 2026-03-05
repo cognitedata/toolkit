@@ -375,6 +375,7 @@ def load_infield_source_data(
     asset_instance = instances["asset"]
     asset_request = AssetRequest(
         external_id=asset_instance.external_id,
+        # MyPy this is validated by the AssetRequest pydantic model.
         name=asset_instance.sources[0].properties["title"],  # type: ignore[index, arg-type]
     )
 
