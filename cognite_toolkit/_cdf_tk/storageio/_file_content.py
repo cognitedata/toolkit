@@ -1,13 +1,14 @@
 import functools
 import json
 import mimetypes
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
 import httpx
 from cognite.client import data_modeling as dm
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -48,7 +49,9 @@ COGNITE_FILE_VIEW = dm.ViewId("cdf_cdm", "CogniteFile", "v1")
 class UploadFileContentItem(UploadItem[FileMetadataRequest]):
     file_path: Path
     mime_type: str
-    node_properties: dict[str, Any] = {}
+
+    # Only applies for data modeling uploads, used to set properties like name, description, mime type, etc.
+    file_view_properties: Mapping[str, JsonValue] | None = None
 
     def dump(self, camel_case: bool = True, exclude_extra: bool = True) -> dict[str, Any]:
         return self.item.dump(camel_case=camel_case, exclude_extra=exclude_extra)
@@ -243,7 +246,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         result: list[UploadFileContentItem] = []
         non_property_keys = {FILEPATH, "instanceId", "instance_id"}
         for source_id, item_json in data_chunk:
-            node_properties = {k: v for k, v in item_json.items() if k not in non_property_keys and v is not None}
+            file_view_properties = {k: v for k, v in item_json.items() if k not in non_property_keys and v is not None}
             item = self.json_to_resource(item_json)
             filepath = Path(cast(str | Path, item_json[FILEPATH]))
             mime_type, _ = mimetypes.guess_type(filepath)
@@ -254,7 +257,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                     item=item,
                     file_path=filepath,
                     mime_type=mime_type or "application/octet-stream",
-                    node_properties=node_properties,
+                    file_view_properties=file_view_properties,
                 )
             )
         return result
@@ -350,7 +353,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         )
         if isinstance(response, FailedResponse) and response.error.missing and not created_node:
             if self._create_cognite_file_node(
-                instance_id, http_client, item.source_id, results, view_id=view_id, properties=item.node_properties
+                instance_id, http_client, item.source_id, results, view_id=view_id, properties=item.file_view_properties
             ):
                 return self._upload_url_data_modeling(item, http_client, results, view_id=view_id, created_node=True)
             else:
@@ -366,7 +369,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         upload_id: str,
         results: ItemsResultList,
         view_id: dm.ViewId = COGNITE_FILE_VIEW,
-        properties: dict[str, Any] | None = None,
+        properties: Mapping[str, JsonValue] | None = None,
     ) -> bool:
         node_creation = http_client.request_single_retries(
             message=RequestMessage(
