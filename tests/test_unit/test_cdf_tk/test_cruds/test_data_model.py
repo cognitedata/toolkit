@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeId, ViewDirectId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeId, SpaceId, ViewDirectId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelRequest,
     DataModelResponse,
@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_propert
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.cruds import DataModelCRUD, ResourceWorker
+from cognite_toolkit._cdf_tk.cruds import DataModelCRUD, EdgeCRUD, NodeCRUD, ResourceWorker, SpaceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds import GraphQLCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -368,3 +368,189 @@ class TestViewDeployTopologicalSort:
             loader = ViewCRUD(client, Path("build_dir"), None)
             with pytest.raises(ToolkitCycleError):
                 loader._compute_deploy_batches([view_a, view_b])
+
+
+class TestDataModelCRUDGetDependencies:
+    """Test get_dependencies method for DataModelCRUD."""
+
+    def test_datamodel_with_space_only(self) -> None:
+        """Test DataModel with no view dependencies."""
+        from cognite_toolkit._cdf_tk.yaml_classes.data_model import DataModelYAML
+
+        data_model = DataModelYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "my_model",
+                "version": "1",
+                "description": "A simple data model",
+            }
+        )
+
+        deps = list(DataModelCRUD.get_dependencies(data_model))
+        assert len(deps) == 1
+        assert deps[0] == (SpaceCRUD, SpaceId(space="my_space"))
+
+    def test_datamodel_with_views(self) -> None:
+        """Test DataModel with view dependencies."""
+        from cognite_toolkit._cdf_tk.yaml_classes.data_model import DataModelYAML
+
+        data_model = DataModelYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "my_model",
+                "version": "1",
+                "views": [
+                    {"type": "view", "space": "my_space", "externalId": "view1", "version": "1"},
+                    {"type": "view", "space": "other_space", "externalId": "view2", "version": "1"},
+                ],
+            }
+        )
+
+        deps = list(DataModelCRUD.get_dependencies(data_model))
+        assert len(deps) == 3
+        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (ViewCRUD, ViewId(space="my_space", external_id="view1", version="1")) in deps
+        assert (ViewCRUD, ViewId(space="other_space", external_id="view2", version="1")) in deps
+
+
+class TestNodeCRUDGetDependencies:
+    """Test get_dependencies method for NodeCRUD."""
+
+    def test_node_with_space_only(self) -> None:
+        """Test Node with no view source dependencies."""
+        from cognite_toolkit._cdf_tk.yaml_classes.instance import NodeYAML
+
+        node = NodeYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "my_node",
+            }
+        )
+
+        deps = list(NodeCRUD.get_dependencies(node))
+        assert len(deps) == 1
+        assert deps[0] == (SpaceCRUD, SpaceId(space="my_space"))
+
+    def test_node_with_view_sources(self) -> None:
+        """Test Node with view source dependencies."""
+        from cognite_toolkit._cdf_tk.yaml_classes.instance import NodeYAML
+
+        node = NodeYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "my_node",
+                "sources": [
+                    {
+                        "source": {
+                            "type": "view",
+                            "space": "source_space",
+                            "externalId": "source_view",
+                            "version": "1",
+                        },
+                        "properties": {},
+                    },
+                ],
+            }
+        )
+
+        deps = list(NodeCRUD.get_dependencies(node))
+        assert len(deps) == 2
+        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (ViewCRUD, ViewId(space="source_space", external_id="source_view", version="1")) in deps
+
+
+class TestEdgeCRUDGetDependencies:
+    """Test get_dependencies method for EdgeCRUD."""
+
+    def test_edge_with_space_only(self) -> None:
+        """Test Edge with no view source dependencies."""
+        from cognite_toolkit._cdf_tk.yaml_classes.instance import EdgeYAML
+
+        edge = EdgeYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "my_edge",
+                "type": {"space": "type_space", "externalId": "edge_type"},
+                "startNode": {"space": "node_space", "externalId": "start_node"},
+                "endNode": {"space": "node_space", "externalId": "end_node"},
+            }
+        )
+
+        deps = list(EdgeCRUD.get_dependencies(edge))
+        assert len(deps) == 3
+        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (NodeCRUD, NodeId(space="node_space", external_id="start_node")) in deps
+        assert (NodeCRUD, NodeId(space="node_space", external_id="end_node")) in deps
+
+    def test_edge_with_view_sources(self) -> None:
+        """Test Edge with view source dependencies."""
+        from cognite_toolkit._cdf_tk.yaml_classes.instance import EdgeYAML
+
+        edge = EdgeYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "my_edge",
+                "type": {"space": "type_space", "externalId": "edge_type"},
+                "startNode": {"space": "node_space", "externalId": "start_node"},
+                "endNode": {"space": "node_space", "externalId": "end_node"},
+                "sources": [
+                    {
+                        "source": {
+                            "type": "view",
+                            "space": "source_space",
+                            "externalId": "source_view",
+                            "version": "1",
+                        },
+                        "properties": {},
+                    },
+                ],
+            }
+        )
+
+        deps = list(EdgeCRUD.get_dependencies(edge))
+        assert len(deps) == 4
+        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (ViewCRUD, ViewId(space="source_space", external_id="source_view", version="1")) in deps
+        assert (NodeCRUD, NodeId(space="node_space", external_id="start_node")) in deps
+        assert (NodeCRUD, NodeId(space="node_space", external_id="end_node")) in deps
+
+    def test_edge_with_node_references(self) -> None:
+        """Test Edge with node start/end references."""
+        from cognite_toolkit._cdf_tk.yaml_classes.instance import EdgeYAML
+
+        edge = EdgeYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "my_edge",
+                "type": {"space": "type_space", "externalId": "edge_type"},
+                "startNode": {"space": "node_space", "externalId": "start_node"},
+                "endNode": {"space": "node_space", "externalId": "end_node"},
+            }
+        )
+
+        deps = list(EdgeCRUD.get_dependencies(edge))
+        assert len(deps) == 3
+        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (NodeCRUD, NodeId(space="node_space", external_id="start_node")) in deps
+        assert (NodeCRUD, NodeId(space="node_space", external_id="end_node")) in deps
+
+
+class TestGraphQLCRUDGetDependencies:
+    """Test get_dependencies method for GraphQLCRUD."""
+
+    def test_graphql_with_space_only(self) -> None:
+        """Test GraphQL data model with only space dependency."""
+        from cognite_toolkit._cdf_tk.yaml_classes.graphql_model import GraphQLDataModelYAML
+
+        graphql_model = GraphQLDataModelYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "my_graphql_model",
+                "version": "1",
+                "description": "A GraphQL data model",
+            }
+        )
+
+        deps = list(GraphQLCRUD.get_dependencies(graphql_model))
+        assert len(deps) == 1
+        assert deps[0] == (SpaceCRUD, SpaceId(space="my_space"))
