@@ -24,6 +24,7 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.utils._time import convert_data_modelling_timestamp
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     InternalOrExternalId,
@@ -115,6 +116,18 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
                 elif isinstance(label, str):
                     yield LabelCRUD, ExternalId(external_id=label)
         for asset_external_id in item.get("assetExternalIds", []):
+            yield AssetCRUD, ExternalId(external_id=asset_external_id)
+
+    @classmethod
+    def get_dependencies(cls, resource: FileMetadataYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+        for security_category in resource.security_categories or []:
+            yield SecurityCategoryCRUD, NameId(name=security_category)
+        for label in resource.labels or []:
+            if isinstance(label, dict):
+                yield LabelCRUD, ExternalId(external_id=label["externalId"])
+        for asset_external_id in resource.asset_external_ids or []:
             yield AssetCRUD, ExternalId(external_id=asset_external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FileMetadataRequest:
@@ -310,3 +323,12 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
             for asset in item["assets"]:
                 if isinstance(asset, dict) and in_dict(("space", "externalId"), asset):
                     yield NodeCRUD, NodeId(space=asset["space"], external_id=asset["externalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: CogniteFileYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield SpaceCRUD, SpaceId(space=resource.space)
+        for ref in [resource.source, resource.category, resource.type]:
+            if ref:
+                yield NodeCRUD, NodeId(space=ref.space, external_id=ref.external_id)
+        for asset in resource.assets or []:
+            yield NodeCRUD, NodeId(space=asset.space, external_id=asset.external_id)

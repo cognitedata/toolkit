@@ -5,6 +5,7 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
@@ -120,6 +121,13 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
                         version=view_id_dict["version"],
                     ),
                 )
+
+    @classmethod
+    def get_dependencies(cls, resource: ResourceViewMappingYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield SpaceCRUD, SpaceId(space=COGNITE_MIGRATION_SPACE)
+        yield ViewCRUD, RESOURCE_MAPPING_VIEW_ID
+        if resource.view_id:
+            yield ViewCRUD, resource.view_id.as_id()
 
     def dump_resource(
         self, resource: ResourceViewMappingResponse, local: dict[str, Any] | None = None

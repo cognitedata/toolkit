@@ -28,6 +28,7 @@ from rich import print
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import NameId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
@@ -217,6 +218,10 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dbName" in item:
             yield RawDatabaseCRUD, RawDatabaseId(name=item["dbName"])
+
+    @classmethod
+    def get_dependencies(cls, resource: TableYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield RawDatabaseCRUD, RawDatabaseId(name=resource.db_name)
 
     def dump_resource(self, resource: RAWTableResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         return {"dbName": resource.db_name, "tableName": resource.name}

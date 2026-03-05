@@ -236,6 +236,8 @@ def test_resource_types_is_up_to_date() -> None:
         extra.discard("simulators")
     if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
         extra.discard("data_products")
+    if not FeatureFlag.is_enabled(Flags.SIGNALS):
+        extra.discard("signals")
     assert not missing, f"Missing {missing=}"
     assert not extra, f"Extra {extra=}"
 

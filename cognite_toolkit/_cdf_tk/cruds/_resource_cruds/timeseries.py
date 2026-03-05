@@ -10,6 +10,7 @@ from cognite.client.data_classes.capabilities import (
     TimeSeriesSubscriptionsAcl,
 )
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import (
     DatapointSubscriptionTimeSeriesId,
     ExternalId,
@@ -41,6 +42,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import DatapointSubscriptionYAML, Time
 from .auth import GroupAllScopedCRUD, SecurityCategoryCRUD
 from .classic import AssetCRUD
 from .data_organization import DataSetsCRUD
+from .datamodel import NodeCRUD
 
 
 @final
@@ -101,6 +103,15 @@ class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSe
                 yield SecurityCategoryCRUD, NameId(name=security_category)
         if "assetExternalId" in item:
             yield AssetCRUD, ExternalId(external_id=item["assetExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: TimeSeriesYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+        for security_category in resource.security_categories or []:
+            yield SecurityCategoryCRUD, NameId(name=security_category)
+        if resource.asset_external_id:
+            yield AssetCRUD, ExternalId(external_id=resource.asset_external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> TimeSeriesRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
@@ -222,6 +233,15 @@ class DatapointSubscriptionCRUD(
             yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
         for timeseries_id in item.get("timeSeriesIds", []):
             yield TimeSeriesCRUD, ExternalId(external_id=timeseries_id)
+
+    @classmethod
+    def get_dependencies(cls, resource: DatapointSubscriptionYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+        for timeseries_id in resource.time_series_ids or []:
+            yield TimeSeriesCRUD, ExternalId(external_id=timeseries_id)
+        for instance_id in resource.instance_ids or []:
+            yield NodeCRUD, NodeId(space=instance_id.space, external_id=instance_id.external_id)
 
     @classmethod
     def get_required_capability(

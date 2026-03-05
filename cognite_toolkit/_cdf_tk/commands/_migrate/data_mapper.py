@@ -8,7 +8,6 @@ from cognite.client import data_modeling as dm
 from cognite.client.exceptions import CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import EdgeId
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartCoreTimeseries,
@@ -45,12 +44,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
-    ConversionSourceView,
+    ConnectionCreator,
     DirectRelationCache,
-    TimeSeriesFilesReferenceCache,
+    EdgeOtherSide,
     asset_centric_to_dm,
-    create_connection_properties,
-    create_container_properties,
+    convert_container_properties,
+    convert_edges,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     Model,
@@ -670,46 +669,40 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         self, client: ToolkitClient, space_mapping: Mapping[str, str], mappings: Sequence[ViewToViewMapping]
     ) -> None:
         super().__init__(client)
-        self.space_mapping = space_mapping
-        self._direct_relation_cache = TimeSeriesFilesReferenceCache(client)
-        self._source_by_view_id: dict[ViewId, ConversionSourceView] = {}
-        self._mappings_by_view_id: dict[ViewId, ViewToViewMapping] = {
+        self._connection_creator = ConnectionCreator(client, space_mapping)
+        self._mappings_by_source_view: dict[ViewId, ViewToViewMapping] = {
             mapping.source_view: mapping for mapping in mappings
         }
-        self._destination_by_view_id: dict[ViewId, ViewResponse] = {}
 
     def prepare(self, source_selector: InstanceViewSelector) -> None:
-        view_ids = set(mapping.source_view for mapping in self._mappings_by_view_id.values()) | set(
-            mapping.destination_view for mapping in self._mappings_by_view_id.values()
+        view_ids = set(mapping.source_view for mapping in self._mappings_by_source_view.values()) | set(
+            mapping.destination_view for mapping in self._mappings_by_source_view.values()
         )
         views = self.client.tool.views.retrieve(list(view_ids))
-        for view in views:
-            self._destination_by_view_id[view.as_id()] = view
-            self._source_by_view_id[view.as_id()] = ConversionSourceView(view.properties or {})
+        self._connection_creator.update_view_cache(views)
 
     def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
-        self._populate_cache(source)
+        self._connection_creator.update_cache(source)
         nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)
         mapped_instances: list[InstanceRequest | None] = []
         issue_list: list[InstanceConversionIssue] = []
         for node in nodes:
             node_id = node.as_id()
-            if node.space not in self.space_mapping:
+            if node.space not in self._connection_creator.space_mapping:
                 issue_list.append(
                     InstanceConversionIssue(
                         id=str(node_id), errors=[f"No target space mapping for source space '{node.space}'"]
                     )
                 )
                 self.logger.tracker.finalize_item(str(node.as_id()), "failure")
-            else:
-                target_space = self.space_mapping[node.space]
-                mapped_node, edges, issue = self._map_single_node(
-                    node, other_side_by_edge_type_and_direction_by_source[node.as_id()], target_space
-                )
-                if issue.has_issues:
-                    issue_list.append(issue)
-                mapped_instances.append(mapped_node)
-                mapped_instances.extend(edges)
+                continue
+            mapped_node, edges, issue = self._map_single_node(
+                node, other_side_by_edge_type_and_direction_by_source[node.as_id()]
+            )
+            if issue.has_issues:
+                issue_list.append(issue)
+            mapped_instances.append(mapped_node)
+            mapped_instances.extend(edges)
         if issue_list:
             self.logger.log(issue_list)
         return mapped_instances
@@ -718,82 +711,32 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         self, source: Sequence[NodeResponse | EdgeResponse]
     ) -> tuple[
         list[NodeResponse],
-        dict[NodeId, dict[tuple[NodeId, Literal["outwards", "inwards"]], list[tuple[NodeId, EdgeId]]]],
+        dict[NodeId, dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]]],
     ]:
         nodes: list[NodeResponse] = []
         other_side_by_edge_type_and_direction_by_source: dict[
-            NodeId, dict[tuple[NodeId, Literal["outwards", "inwards"]], list[tuple[NodeId, EdgeId]]]
+            NodeId, dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]]
         ] = defaultdict(lambda: defaultdict(list))
         for item in source:
             if isinstance(item, NodeResponse):
                 nodes.append(item)
             elif isinstance(item, EdgeResponse):
                 edge_id = item.as_id()
-                if item.space not in self.space_mapping:
-                    self.logger.tracker.add_issue(
-                        str(edge_id), f"No target space mapping for source space '{item.space}' on edge '{edge_id}'"
-                    )
-                    continue
-                edge_space = self.space_mapping[item.space]
-                new_edge_id = EdgeId(space=edge_space, external_id=edge_id.external_id)
-                if end_space := self.space_mapping.get(item.end_node.space):
-                    other_side_by_edge_type_and_direction_by_source[item.start_node][(item.type, "outwards")].append(
-                        (NodeId(space=end_space, external_id=item.end_node.external_id), new_edge_id)
-                    )
-                if start_space := self.space_mapping.get(item.start_node.space):
-                    other_side_by_edge_type_and_direction_by_source[item.end_node][(item.type, "inwards")].append(
-                        (NodeId(space=start_space, external_id=item.start_node.external_id), new_edge_id)
-                    )
+                other_side_by_edge_type_and_direction_by_source[item.start_node][(item.type, "outwards")].append(
+                    EdgeOtherSide(edge_id, item.end_node)
+                )
+
+                other_side_by_edge_type_and_direction_by_source[item.end_node][(item.type, "inwards")].append(
+                    EdgeOtherSide(edge_id, item.start_node)
+                )
         return nodes, other_side_by_edge_type_and_direction_by_source
-
-    def _populate_cache(self, source: Sequence[InstanceResponse]) -> None:
-        unique_views = {
-            view_id for node in source for view_id in (node.properties or {}).keys() if isinstance(view_id, ViewId)
-        }
-        missing_views = unique_views - set(self._source_by_view_id.keys())
-        if missing_views:
-            views = self.client.tool.views.retrieve(list(missing_views))
-            for view in views:
-                self._source_by_view_id[view.as_id()] = ConversionSourceView(view.properties or {})
-
-        timeseries_ref_ids, file_ref_ids = self._get_timeseries_files_references(source)
-        if timeseries_ref_ids:
-            self._direct_relation_cache.update("timeseries", timeseries_ref_ids)
-        if file_ref_ids:
-            self._direct_relation_cache.update("file", file_ref_ids)
-
-    def _get_timeseries_files_references(self, source: Sequence[InstanceResponse]) -> tuple[list[str], list[str]]:
-        timeseries_ref_ids: list[str] = []
-        file_ref_ids: list[str] = []
-        for node in source:
-            for view_id, properties in (node.properties or {}).items():
-                if not isinstance(view_id, ViewId):
-                    continue
-                source_view = self._source_by_view_id.get(view_id)
-                if source_view is None:
-                    continue
-                for prop_id, value in properties.items():
-                    if prop_id in source_view.timeseries_reference_property_ids:
-                        if isinstance(value, str):
-                            timeseries_ref_ids.append(value)
-                        elif isinstance(value, list) and all(isinstance(v, str) for v in value):
-                            timeseries_ref_ids.extend(value)  # type: ignore[arg-type]
-                    elif prop_id in source_view.file_reference_property_ids:
-                        if isinstance(value, str):
-                            file_ref_ids.append(value)
-                        elif isinstance(value, list) and all(isinstance(v, str) for v in value):
-                            file_ref_ids.extend(value)  # type: ignore[arg-type]
-        return timeseries_ref_ids, file_ref_ids
 
     def _map_single_node(
         self,
         node: NodeResponse,
-        other_side_by_edge_type_and_direction: dict[
-            tuple[NodeId, Literal["outwards", "inwards"]], list[tuple[NodeId, EdgeId]]
-        ],
-        target_space: str,
+        other_side_by_edge_type_and_direction: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]],
     ) -> tuple[NodeRequest, list[EdgeRequest], InstanceConversionIssue]:
-        new_id = NodeId(space=target_space, external_id=node.external_id)
+        new_id = self._connection_creator.map_instance(node)
         sources, new_edges, issue = self._create_instance_data(new_id, node, other_side_by_edge_type_and_direction)
 
         return (
@@ -806,12 +749,10 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         self,
         new_id: NodeId,
         node: NodeResponse,
-        other_side_by_edge_type_and_direction: dict[
-            tuple[NodeId, Literal["outwards", "inwards"]], list[tuple[NodeId, EdgeId]]
-        ],
+        other_side_by_edge_type_and_direction: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]],
     ) -> tuple[list[InstanceSource], list[EdgeRequest], InstanceConversionIssue]:
-        new_edges: list[EdgeRequest] = []
         sources: list[InstanceSource] = []
+        new_edges: list[EdgeRequest] = []
         issue = InstanceConversionIssue(id=str(new_id))
         for view_id, source_properties in (node.properties or {}).items():
             if not isinstance(view_id, ViewId):
@@ -819,18 +760,17 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
                     f"Migration of ContainerReferenced properties is not supported. Found property with non-view ID '{view_id}' on node '{node.as_id()}'."
                 )
                 continue
-            mapping = self._mappings_by_view_id.get(view_id)
+            mapping = self._mappings_by_source_view.get(view_id)
             if mapping is None:
                 issue.errors.append(f"No mapping found for view '{view_id}'")
                 continue
-            destination_view = self._destination_by_view_id.get(mapping.destination_view)
+            destination_view = self._connection_creator.view_by_id.get(mapping.destination_view)
             if destination_view is None:
                 issue.errors.append(
                     f"Invalid mapping {mapping.external_id}': destination view {mapping.destination_view} not found."
                 )
                 continue
-            conversion_source = self._source_by_view_id.get(view_id)
-            if conversion_source is None:
+            if view_id not in self._connection_creator.view_by_id:
                 issue.errors.append(f"Invalid mapping {mapping.external_id}': source view {view_id} not found.")
                 continue
             source_properties.update(
@@ -840,20 +780,28 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
                     "node.version": node.version,
                 }
             )
-            destination_properties, container_errors = create_container_properties(
-                source_properties, mapping, destination_view.properties, conversion_source, self._direct_relation_cache
+            container_results = convert_container_properties(
+                source_properties, mapping, destination_view.properties, self._connection_creator, view_id, new_id
             )
-            issue.errors.extend(container_errors)
-            container_connections, created_edges, connection_errors = create_connection_properties(
+            issue.errors.extend(container_results.errors)
+            edge_results = convert_edges(
                 other_side_by_edge_type_and_direction,
                 mapping,
                 destination_view.properties,
-                conversion_source.edges,
                 new_id,
+                self._connection_creator,
+                view_id,
             )
-            issue.errors.extend(connection_errors)
-            destination_properties.update(container_connections)
-            if destination_properties:
-                sources.append(InstanceSource(source=destination_view.as_id(), properties=destination_properties))
-            new_edges.extend(created_edges)
+            issue.errors.extend(edge_results.errors)
+
+            # Todo: Merge conflicting?
+            created_container_properties = {
+                **container_results.container_properties,
+                **edge_results.container_properties,
+            }
+            if created_container_properties:
+                sources.append(InstanceSource(source=destination_view.as_id(), properties=created_container_properties))
+            new_edges.extend(container_results.edges)
+            new_edges.extend(edge_results.edges)
+
         return sources, new_edges, issue

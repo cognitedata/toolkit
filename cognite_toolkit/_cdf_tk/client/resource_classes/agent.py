@@ -148,12 +148,15 @@ AgentTool = Annotated[
 
 
 class Agent(BaseModelObject):
+    model_config = ConfigDict(extra="allow")
+
     external_id: str
     name: str
     description: str | None = None
     instructions: str | None = None
     model: str | None = None
     tools: list[AgentTool] | None = None
+    labels: list[str] | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)

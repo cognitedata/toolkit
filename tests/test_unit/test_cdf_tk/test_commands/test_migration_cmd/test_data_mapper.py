@@ -519,7 +519,7 @@ class TestFDMtoCDMMapper:
                         sources=[
                             InstanceSource(
                                 source=DESTINATION_VIEW_ID,
-                                properties={"targetTimestamp": "2026-03-03T07:25:15+00:00", "targetInt": 37},
+                                properties={"targetTimestamp": "2026-03-03T07:25:15Z", "targetInt": 37},
                             )
                         ],
                     )

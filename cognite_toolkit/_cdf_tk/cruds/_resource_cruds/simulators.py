@@ -3,6 +3,7 @@ from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     SimulatorModelRevisionFilter,
@@ -31,7 +32,9 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, di
 from cognite_toolkit._cdf_tk.yaml_classes import SimulatorModelYAML
 from cognite_toolkit._cdf_tk.yaml_classes.simulator_model_revision import SimulatorModelRevisionYAML
 from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine import SimulatorRoutineYAML
-from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine_revision import SimulatorRoutineRevisionYAML
+from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine_revision import (
+    SimulatorRoutineRevisionYAML,
+)
 
 from .data_organization import DataSetsCRUD
 from .file import FileMetadataCRUD
@@ -133,6 +136,11 @@ class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, Simulat
         if "dataSetExternalId" in item:
             yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
 
+    @classmethod
+    def get_dependencies(cls, resource: SimulatorModelYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SimulatorModelRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
@@ -228,6 +236,12 @@ class SimulatorModelRevisionCRUD(
         if "fileExternalId" in item:
             yield FileMetadataCRUD, ExternalId(external_id=item["fileExternalId"])
 
+    @classmethod
+    def get_dependencies(cls, resource: SimulatorModelRevisionYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield SimulatorModelCRUD, ExternalId(external_id=resource.model_external_id)
+        if resource.file_external_id:
+            yield FileMetadataCRUD, ExternalId(external_id=resource.file_external_id)
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SimulatorModelRevisionRequest:
         if file_external_id := resource.pop("fileExternalId", None):
             resource["fileId"] = self.client.lookup.files.id(file_external_id, is_dry_run)
@@ -321,6 +335,10 @@ class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, Sim
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "modelExternalId" in item:
             yield SimulatorModelCRUD, ExternalId(external_id=item["modelExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: SimulatorRoutineYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield SimulatorModelCRUD, ExternalId(external_id=resource.model_external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SimulatorRoutineRequest:
         return SimulatorRoutineRequest.model_validate(resource)
@@ -426,6 +444,27 @@ class SimulatorRoutineRevisionCRUD(
                         yield TimeSeriesCRUD, ExternalId(external_id=external_id)
                     if isinstance(external_id := io_item.get("sourceExternalId"), str):
                         yield TimeSeriesCRUD, ExternalId(external_id=external_id)
+
+    @classmethod
+    def get_dependencies(
+        cls, resource: SimulatorRoutineRevisionYAML
+    ) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield SimulatorRoutineCRUD, ExternalId(external_id=resource.routine_external_id)
+        if not resource.configuration:
+            return
+        config = resource.configuration
+        for check in config.logical_check or []:
+            if check.timeseries_external_id:
+                yield TimeSeriesCRUD, ExternalId(external_id=check.timeseries_external_id)
+        for detection in config.steady_state_detection or []:
+            if detection.timeseries_external_id:
+                yield TimeSeriesCRUD, ExternalId(external_id=detection.timeseries_external_id)
+        for intput_ in config.inputs or []:
+            if intput_.save_timeseries_external_id:
+                yield TimeSeriesCRUD, ExternalId(external_id=intput_.save_timeseries_external_id)
+        for output in config.outputs or []:
+            if output.save_timeseries_external_id:
+                yield TimeSeriesCRUD, ExternalId(external_id=output.save_timeseries_external_id)
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]

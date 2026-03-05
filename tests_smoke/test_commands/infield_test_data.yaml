@@ -202,6 +202,9 @@ checklistItem:
       endTime: '2025-06-09T12:30:00+00:00'
       isArchived: false
       order: 6
+      files:
+      - infield_data_smoke_test_file1
+      - infield_data_smoke_test_file2
       sourceCreatedTime: '2025-01-30T08:08:19.548+00:00'
       sourceId: 202b7a05-1ba3-4058-9a16-3f9cc306067c
       sourceUpdatedTime: '2025-02-01T14:44:07.052+00:00'
@@ -252,3 +255,62 @@ checkListReading:
       version: v4
   space: {{source_space}}
 # Action
+action:
+  instanceType: node
+  space: {{source_space}}
+  externalId: -iExvo-uJ5JqMTPL2OYN-g
+  sources:
+  - source:
+      space: cdf_apm
+      externalId: Action
+      version: v1
+      type: view
+    properties:
+      actionType: Message
+      parameters:
+        message: 'item is not okay '
+      conditionalActions:
+        space: {{source_space}}
+        externalId: 1DC026YVbKG3QYAOMzJoXw
+      createdBy:
+        space: cognite_app_data
+        externalId: {{userId}}
+      updatedBy:
+        space: cognite_app_data
+        externalId: {{userId}}
+conditionalAction:
+  instanceType: node
+  space: {{source_space}}
+  externalId: 1DC026YVbKG3QYAOMzJoXw
+  sources:
+    - source:
+        space: cdf_apm
+        externalId: ConditionalAction
+        version: v1
+        type: view
+      properties:
+        logic: or
+        parentObject:
+          space: {{source_space}}
+          externalId: ekd_-m3p-14oOnCYJE3mftSUa7GMjzAGDn3hfwn552Q_nVLicHT3yHf1C5U4qkZfZm_-lmBxuklh9wUw7qIClZI
+condition:
+  instanceType: node
+  space: {{source_space}}
+  externalId: dSq9c2wTh6geOGOIdh11yHhHXKEPWPfX1A8I317N9Sc_IrDfZSISoOzW9PPS3OpYnTAGShkwDS3bB4A49NONUyA_5_J63kPbDgRGDH0bCu8X2s5uLi8iQUm3uXdb6LArzAM_CzTrvN_VceSKRS45WPcooFlsmSgfL5l2aoWsLZmHdKo
+  sources:
+  - source:
+      space: cdf_apm
+      externalId: Condition
+      version: v1
+      type: view
+    properties:
+      field: status
+      value: Not applicable
+      source:
+        space: {{source_space}}
+        externalId: dSq9c2wTh6geOGOIdh11yHhHXKEPWPfX1A8I317N9Sc_IrDfZSISoOzW9PPS3OpYnTAGShkwDS3bB4A49NONUyA
+      operator: equals
+      sourceView: cdf_apm/ChecklistItem/v7
+      conditionalAction:
+        space: {{source_space}}
+        externalId: 1DC026YVbKG3QYAOMzJoXw
