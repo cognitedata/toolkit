@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     EdgeId,
     EdgeProperty,
     EdgeRequest,
+    EdgeResponse,
     FileCDFExternalIdReference,
     InstanceSource,
     NodeId,
@@ -464,6 +465,27 @@ class TimeSeriesFilesReferenceCache:
         return self._cache.get(resource_type, {})
 
 
+class ConnectionCreator:
+    def __init__(self, client: ToolkitClient) -> None:
+        self._client = client
+
+    def create_edges(
+        self, value: Any, dm_prop: EdgeProperty, source_prop_id: str, source_view_id: ViewId
+    ) -> list[EdgeRequest]:
+        raise NotImplementedError("Edge creation logic is not implemented yet.")
+
+    def create_direct_relation(
+        self, value: Any, dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
+    ) -> NodeId | list[NodeId]:
+        raise NotImplementedError("Direct relation creation logic is not implemented yet.")
+
+    def create_direct_relation_from_edges(self, edges: list[EdgeRequest]) -> NodeId | list[NodeId]:
+        raise NotImplementedError("Direct relation creation from edges logic is not implemented yet.")
+
+    def create_edges_from_edges(self, edges: list[EdgeRequest]) -> list[EdgeRequest]:
+        raise NotImplementedError("Edge creation from edges logic is not implemented yet.")
+
+
 class ConversionSourceView:
     """Represents a source view for node-to-node conversion."""
 
@@ -504,8 +526,8 @@ def convert_container_properties(
     source_properties: dict[str, JsonValue],
     mapping: ViewToViewMapping,
     destination_properties: dict[str, ViewResponseProperty],
-    view: ConversionSourceView | None = None,
-    direct_relation_cache: TimeSeriesFilesReferenceCache | None = None,
+    connection_creator: ConnectionCreator,
+    source_view_id: ViewId,
 ) -> ConversionResult:
     """
     Create properties for a data model instance from another instance's properties.
@@ -516,10 +538,11 @@ def convert_container_properties(
         source_properties: Dict of source property IDs to values.
         mapping: The ViewToViewMapping defining how to map properties from the source view to the destination view.
         destination_properties: Dict of defined properties in the destination view.
-        view: The source view for the node-to-node conversion, used to determine if any properties are timeseries/file reference properties that require special handling.
-        direct_relation_cache: Cache for looking up timeseries/files reference in classic to find the matching instance ID, used for direct relation lookups.
+        connection_creator: Helper object to create connections (edges and direct relations) based on property values.
+        source_view_id: The ID of the source view, used for error messages.
     """
     created_properties: dict[str, JsonValue] = {}
+    edges: list[EdgeRequest] = []
     errors: list[str] = []
     for source_prop_id, value in source_properties.items():
         dest_prop_id = mapping.get_destination_property(source_prop_id)
@@ -535,53 +558,67 @@ def convert_container_properties(
             continue
 
         dm_prop = destination_properties[dest_prop_id]
-        if not isinstance(dm_prop, ViewCorePropertyResponse):
-            # Reverse direct relations are assumed to be populated in the other direction, so we ignore them.
-            # Edges are assumed to be handled in the 'create_connection_properties' function, so we can also ignore
-            # them here.
-            continue
-
-        cache: dict[str, NodeId] | None = None
-        if (
-            view
-            and source_prop_id in view.timeseries_reference_property_ids
-            and isinstance(dm_prop.type, DirectNodeRelation)
-        ):
-            cache = direct_relation_cache.get_cache("timeseries") if direct_relation_cache else None
-        elif (
-            view and source_prop_id in view.file_reference_property_ids and isinstance(dm_prop.type, DirectNodeRelation)
-        ):
-            cache = direct_relation_cache.get_cache("file") if direct_relation_cache else None
-
-        try:
-            created_value = convert_to_primary_property(
-                value,
-                dm_prop.type,
-                dm_prop.nullable if dm_prop.nullable is not None else True,
-                direct_relation_lookup=cache,  # type: ignore[arg-type]
-            )
-            if isinstance(created_value, date):
-                created_properties[dest_prop_id] = created_value.isoformat()
-            elif isinstance(created_value, datetime):
-                created_properties[dest_prop_id] = created_value.isoformat(timespec="milliseconds")
+        if isinstance(dm_prop, EdgeProperty):
+            try:
+                created_edges = connection_creator.create_edges(
+                    value,
+                    dm_prop,
+                    source_prop_id,
+                    source_view_id,
+                )
+            except ValueError as e:
+                errors.append(f"Failed to create edges for property {source_prop_id!r} with value {value!r}: {e!s}")
+                continue
+            edges.extend(created_edges)
+        elif isinstance(dm_prop, ViewCorePropertyResponse) and isinstance(dm_prop.type, DirectNodeRelation):
+            try:
+                created_connection = connection_creator.create_direct_relation(
+                    value,
+                    dm_prop.type,
+                    source_prop_id,
+                    source_view_id,
+                )
+            except ValueError as e:
+                errors.append(
+                    f"Failed to create direct relation for property {source_prop_id!r} with value {value!r}: {e!s}"
+                )
+                continue
+            if isinstance(created_connection, list):
+                created_properties[dest_prop_id] = [
+                    conn.dump(include_instance_type=False) for conn in created_connection
+                ]
             else:
-                created_properties[dest_prop_id] = created_value
-        except (ValueError, TypeError, NotImplementedError) as e:
-            errors.append(f"Failed to convert property {source_prop_id!r} with value {value!r}: {e!s}")
+                created_properties[dest_prop_id] = created_connection.dump(include_instance_type=False)
+        elif isinstance(dm_prop, ViewCorePropertyResponse):
+            try:
+                created_value = convert_to_primary_property(
+                    value,
+                    dm_prop.type,
+                    dm_prop.nullable if dm_prop.nullable is not None else True,
+                )
+                if isinstance(created_value, date):
+                    created_properties[dest_prop_id] = created_value.isoformat()
+                elif isinstance(created_value, datetime):
+                    created_properties[dest_prop_id] = created_value.isoformat(timespec="milliseconds")
+                else:
+                    created_properties[dest_prop_id] = created_value
+            except (ValueError, TypeError, NotImplementedError) as e:
+                errors.append(f"Failed to convert property {source_prop_id!r} with value {value!r}: {e!s}")
+        # Else reverse direct relation, which we assume is handled in the other direction and thus ignore here.
 
-    return ConversionResult(container_properties=created_properties, errors=errors)
+    return ConversionResult(container_properties=created_properties, edges=edges, errors=errors)
 
 
 def convert_edges(
-    edge_targets_by_type_and_direction: dict[
-        tuple[NodeId, Literal["outwards", "inwards"]], list[tuple[NodeId, EdgeId]]
-    ],
+    edge_targets_by_type_and_direction: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeResponse]],
     mapping: ViewToViewMapping,
     destination_properties: dict[str, ViewResponseProperty],
     source_edges: dict[str, EdgeProperty],
     source_id: NodeId,
+    connection_creator: Any,
+    source_view_id: ViewId,
 ) -> ConversionResult:
-    created_direct_relations: dict[str, JsonValue] = {}
+    created_container_properties: dict[str, JsonValue] = {}
     created_edges: list[EdgeRequest] = []
     errors: list[str] = []
     for prop_id, source_edge_def in source_edges.items():
@@ -591,42 +628,48 @@ def convert_edges(
 
         dest_prop_id = mapping.get_destination_property(prop_id)
         if not dest_prop_id or dest_prop_id not in destination_properties:
-            # Already captured as missing instance property in 'create_properties', so we can just ignore it here.
+            # Already captured as missing instance property in 'conver_container_properties', so we can just ignore it here.
             continue
 
         dm_prop = destination_properties[dest_prop_id]
+
         if isinstance(dm_prop, ViewCorePropertyResponse) and isinstance(dm_prop.type, DirectNodeRelation):
-            if dm_prop.type.list is True:
-                # MyPy complains, but we know that dm_prop_id will always be a list as dm_prop.type.list is True.
-                created_direct_relations.setdefault(dest_prop_id, []).extend(  # type: ignore[union-attr]
-                    target.dump(include_instance_type=False) for target, _ in edge_targets
+            try:
+                created_connection = connection_creator.create_direct_relation_from_edges(
+                    edge_targets,
+                    dm_prop.type,
+                    prop_id,
+                    source_view_id,
                 )
-            elif dest_prop_id in created_direct_relations:
+            except ValueError as e:
                 errors.append(
-                    f"Multiple edges mapped to single-valued direct relation property {dest_prop_id!r}. Keeping the first one and ignoring the rest."
+                    f"Failed to create direct relation for edge property {prop_id!r} with targets {[target.dump() for target in edge_targets]!r}: {e!s}"
                 )
+                continue
+            if isinstance(created_connection, list):
+                created_container_properties[dest_prop_id] = [
+                    conn.dump(include_instance_type=False) for conn in created_connection
+                ]
             else:
-                if len(edge_targets) > 1:
-                    errors.append(
-                        f"Multiple edges mapped to single-valued direct relation property {dest_prop_id!r}. Keeping the first one and ignoring the rest."
-                    )
-                created_direct_relations[dest_prop_id] = edge_targets[0][0].dump(include_instance_type=False)
+                created_container_properties[dest_prop_id] = created_connection.dump(include_instance_type=False)
         elif isinstance(dm_prop, ViewCorePropertyResponse):
+            # Todo: If json or text we can potentially convert to a string representation of the edge targets, but for now we just log an error.
             errors.append(f"Cannot map edge property {prop_id!r} to non-connection property {dm_prop.type.type!s}.")
         elif isinstance(dm_prop, EdgeProperty):
-            for target, new_edge_id in edge_targets:
-                start_node, end_node = source_id, target
-                if dm_prop.direction == "inwards":
-                    start_node, end_node = end_node, start_node
-                created_edges.append(
-                    EdgeRequest(
-                        space=new_edge_id.space,
-                        external_id=new_edge_id.external_id,
-                        type=dm_prop.type,
-                        start_node=start_node,
-                        end_node=end_node,
-                    )
+            try:
+                created_edges = connection_creator.create_edges_from_edges(
+                    edge_targets,
+                    dm_prop,
+                    prop_id,
+                    source_id,
+                    source_view_id,
                 )
+            except ValueError as e:
+                errors.append(
+                    f"Failed to create edges for edge property {prop_id!r} with targets {[target.dump() for target in edge_targets]!r}: {e!s}"
+                )
+                continue
+            created_edges.extend(created_edges)
         # else reverse direct relation, which we assume is handled in the other direction and thus ignore here.
 
-    return ConversionResult(container_properties=created_direct_relations, edges=created_edges, errors=errors)
+    return ConversionResult(container_properties=created_container_properties, edges=created_edges, errors=errors)
