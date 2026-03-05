@@ -5,6 +5,7 @@ from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, LocationFiltersAcl
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelId,
@@ -21,6 +22,7 @@ from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError, ToolkitCy
 from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.yaml_classes import LocationYAML
+from cognite_toolkit._cdf_tk.yaml_classes.location import AssetCentricFields
 
 from .classic import AssetCRUD, SequenceCRUD
 from .data_organization import DataSetsCRUD
@@ -262,3 +264,34 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
                         space=data_model["space"], external_id=data_model["externalId"], version=data_model["version"]
                     ),
                 )
+
+    @classmethod
+    def _asset_centric_deps(cls, fields: AssetCentricFields) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        for data_set_external_id in fields.data_set_external_ids or []:
+            yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
+        for asset in fields.asset_subtree_external_ids or []:
+            if ext_id := asset.get("externalId"):
+                yield AssetCRUD, ExternalId(external_id=ext_id)
+
+    @classmethod
+    def get_dependencies(cls, resource: LocationYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.asset_centric:
+            yield from cls._asset_centric_deps(resource.asset_centric)
+            for subfilter in [
+                resource.asset_centric.assets,
+                resource.asset_centric.events,
+                resource.asset_centric.timeseries,
+                resource.asset_centric.files,
+                resource.asset_centric.sequences,
+            ]:
+                if subfilter is not None:
+                    yield from cls._asset_centric_deps(subfilter)
+        for view in resource.views or []:
+            yield ViewCRUD, ViewId(space=view.space, external_id=view.external_id, version=view.version)
+        for space in resource.instance_spaces or []:
+            yield SpaceCRUD, SpaceId(space=space)
+        for data_model in resource.data_models or []:
+            yield (
+                DataModelCRUD,
+                DataModelId(space=data_model.space, external_id=data_model.external_id, version=data_model.version),
+            )

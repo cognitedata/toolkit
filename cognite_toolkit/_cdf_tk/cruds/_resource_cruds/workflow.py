@@ -27,6 +27,7 @@ from cognite.client.data_classes.capabilities import (
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
@@ -59,6 +60,7 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
+from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import SubworkflowTask
 
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
@@ -179,6 +181,11 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
         """
         if "dataSetExternalId" in item:
             yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: WorkflowYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
 
 
 @final
@@ -356,6 +363,20 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "workflowExternalId" in item:
             yield WorkflowCRUD, ExternalId(external_id=item["workflowExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: WorkflowVersionYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield WorkflowCRUD, ExternalId(external_id=resource.workflow_external_id)
+        for task in resource.workflow_definition.tasks:
+            if isinstance(task, SubworkflowTask):
+                subworkflow = task.parameters.subworkflow
+                if isinstance(subworkflow, WorkflowVersionId):
+                    yield (
+                        cls,
+                        WorkflowVersionId(
+                            workflow_external_id=subworkflow.workflow_external_id, version=subworkflow.version
+                        ),
+                    )
 
     @classmethod
     def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
@@ -583,6 +604,14 @@ class WorkflowTriggerCRUD(ResourceCRUD[ExternalId, WorkflowTriggerRequest, Workf
                     WorkflowVersionCRUD,
                     WorkflowVersionId(workflow_external_id=item["workflowExternalId"], version=item["workflowVersion"]),
                 )
+
+    @classmethod
+    def get_dependencies(cls, resource: WorkflowTriggerYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield WorkflowCRUD, ExternalId(external_id=resource.workflow_external_id)
+        yield (
+            WorkflowVersionCRUD,
+            WorkflowVersionId(workflow_external_id=resource.workflow_external_id, version=resource.workflow_version),
+        )
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None

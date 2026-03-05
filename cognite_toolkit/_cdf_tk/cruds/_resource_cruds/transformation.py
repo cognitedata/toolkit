@@ -47,6 +47,7 @@ from rich import print
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
@@ -104,6 +105,11 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
     TransformationNotificationYAML,
     TransformationScheduleYAML,
     TransformationYAML,
+)
+from cognite_toolkit._cdf_tk.yaml_classes.transformation_destination import (
+    DataModelSource,
+    RawDataSource,
+    ViewDataSource,
 )
 
 from .auth import GroupAllScopedCRUD
@@ -217,6 +223,38 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
                     if in_dict(("space", "externalId", "version"), data_model):
                         data_model["version"] = str(data_model["version"])
                         yield DataModelCRUD, DataModelId.model_validate(data_model)
+
+    @classmethod
+    def get_dependencies(cls, resource: TransformationYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+        if destination := resource.destination:
+            if isinstance(destination, RawDataSource):
+                yield RawDatabaseCRUD, RawDatabaseId(name=destination.database)
+                yield RawTableCRUD, RawTableId(db_name=destination.database, name=destination.table)
+            elif isinstance(destination, ViewDataSource):
+                if destination.instance_space:
+                    yield SpaceCRUD, SpaceId(space=destination.instance_space)
+                if destination.view:
+                    yield (
+                        ViewCRUD,
+                        ViewId(
+                            space=destination.view.space,
+                            external_id=destination.view.external_id,
+                            version=destination.view.version,
+                        ),
+                    )
+            elif isinstance(destination, DataModelSource):
+                if destination.instance_space:
+                    yield SpaceCRUD, SpaceId(space=destination.instance_space)
+                yield (
+                    DataModelCRUD,
+                    DataModelId(
+                        space=destination.data_model.space,
+                        external_id=destination.data_model.external_id,
+                        version=destination.data_model.version,
+                    ),
+                )
 
     def safe_read(self, filepath: Path | str) -> str:
         # If the destination is a DataModel or a View we need to ensure that the version is a string
@@ -604,6 +642,10 @@ class TransformationScheduleCRUD(
         if "externalId" in item:
             yield TransformationCRUD, ExternalId(external_id=item["externalId"])
 
+    @classmethod
+    def get_dependencies(cls, resource: TransformationScheduleYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield TransformationCRUD, ExternalId(external_id=resource.external_id)
+
     def create(self, items: Sequence[TransformationScheduleRequest]) -> list[TransformationScheduleResponse]:
         try:
             return self.client.tool.transformations.schedules.create(list(items))
@@ -766,3 +808,9 @@ class TransformationNotificationCRUD(
         """
         if "transformationExternalId" in item:
             yield TransformationCRUD, ExternalId(external_id=item["transformationExternalId"])
+
+    @classmethod
+    def get_dependencies(
+        cls, resource: TransformationNotificationYAML
+    ) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield TransformationCRUD, ExternalId(external_id=resource.transformation_external_id)

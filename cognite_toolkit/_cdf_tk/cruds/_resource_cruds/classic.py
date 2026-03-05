@@ -10,6 +10,7 @@ from cognite.client.data_classes.capabilities import Capability
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter, SequenceRowFilter
@@ -152,6 +153,18 @@ class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
                 yield LabelCRUD, ExternalId(external_id=label)
         if "parentExternalId" in item:
             yield cls, item["parentExternalId"]
+
+    @classmethod
+    def get_dependencies(cls, resource: AssetYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+        for label in resource.labels or []:
+            if isinstance(label, dict):
+                yield LabelCRUD, ExternalId(external_id=label["externalId"])
+            elif isinstance(label, str):
+                yield LabelCRUD, ExternalId(external_id=label)
+        if resource.parent_external_id:
+            yield cls, ExternalId(external_id=resource.parent_external_id)
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
@@ -344,6 +357,13 @@ class SequenceCRUD(ResourceCRUD[ExternalId, SequenceRequest, SequenceResponse]):
         if "assetExternalId" in item:
             yield AssetCRUD, ExternalId(external_id=item["assetExternalId"])
 
+    @classmethod
+    def get_dependencies(cls, resource: SequenceYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+        if resource.asset_external_id:
+            yield AssetCRUD, ExternalId(external_id=resource.asset_external_id)
+
 
 @final
 class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRowsResponse]):
@@ -449,6 +469,10 @@ class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRows
         DatasetLoader and identifier of that dataset.
         """
         yield SequenceCRUD, ExternalId(external_id=item["externalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: SequenceRowYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield SequenceCRUD, ExternalId(external_id=resource.external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SequenceRowsRequest:
         return SequenceRowsRequest.model_validate(resource)
@@ -574,6 +598,13 @@ class EventCRUD(ResourceCRUD[ExternalId, EventRequest, EventResponse]):
         for asset_id in item.get("assetExternalIds", []):
             if isinstance(asset_id, str):
                 yield AssetCRUD, ExternalId(external_id=asset_id)
+
+    @classmethod
+    def get_dependencies(cls, resource: EventYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+        for asset_id in resource.asset_external_ids or []:
+            yield AssetCRUD, ExternalId(external_id=asset_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> EventRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
