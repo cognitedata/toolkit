@@ -736,7 +736,7 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         node: NodeResponse,
         other_side_by_edge_type_and_direction: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]],
     ) -> tuple[NodeRequest, list[EdgeRequest], InstanceConversionIssue]:
-        new_id = self._connection_creator.map_node(node)
+        new_id = self._connection_creator.map_instance(node)
         sources, new_edges, issue = self._create_instance_data(new_id, node, other_side_by_edge_type_and_direction)
 
         return (
@@ -781,7 +781,7 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
                 }
             )
             container_results = convert_container_properties(
-                source_properties, mapping, destination_view.properties, self._connection_creator, view_id
+                source_properties, mapping, destination_view.properties, self._connection_creator, view_id, new_id
             )
             issue.errors.extend(container_results.errors)
             edge_results = convert_edges(

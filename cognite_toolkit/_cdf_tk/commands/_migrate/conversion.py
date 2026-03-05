@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     EdgeId,
     EdgeProperty,
     EdgeRequest,
+    EdgeResponse,
     FileCDFExternalIdReference,
     InstanceResponse,
     InstanceSource,
@@ -39,6 +40,7 @@ from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     asset_centric_convert_to_primary_property,
     convert_to_primary_property,
 )
+from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricTypeExtended
 from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResourceExtended
 
@@ -551,14 +553,23 @@ class ConnectionCreator:
         view = self.view_by_id[source_view_id]
         return view.properties.get(source_prop_id)
 
-    def _create_targets(self, value: Any, source_prop_id: str, source_view_id: ViewId) -> list[NodeId]:
+    def _create_targets(
+        self, value: Any, source_prop_id: str, source_view_id: ViewId
+    ) -> tuple[list[NodeId], list[str]]:
         if isinstance(value, list):
-            targets = []
+            targets: list[NodeId] = []
+            issues: list[str] = []
             for item in value:
-                targets.append(self._create_target(item, source_prop_id, source_view_id))
-            return targets
+                try:
+                    targets.append(self._create_target(item, source_prop_id, source_view_id))
+                except ValueError:
+                    issues.append(f"Failed to create target for value {item!s}")
+            return targets, issues
         else:
-            return [self._create_target(value, source_prop_id, source_view_id)]
+            try:
+                return [self._create_target(value, source_prop_id, source_view_id)], []
+            except ValueError:
+                return [], [f"Failed to create target for value {value!s}"]
 
     def _create_target(self, value: Any, source_prop_id: str, source_view_id: ViewId) -> NodeId:
         if cache := self._special_cases.get((source_view_id, source_prop_id)):
@@ -569,7 +580,7 @@ class ConnectionCreator:
         elif self._is_file_reference(source_view_id, source_prop_id) and isinstance(value, str):
             return self._file_reference_cache[value]
         elif self._is_direct_relation(source_view_id, source_prop_id) and (node_id := self._as_node_id(value)):
-            return self.map_node(node_id)
+            return self.map_instance(node_id)
         else:
             raise ValueError(
                 f"Cannot create connection. Unsupported {source_prop_id!r} property with value {value!r} in view {source_view_id.dump(include_type=True)!r}"
@@ -581,7 +592,7 @@ class ConnectionCreator:
         except ValueError:
             return None
 
-    def map_node(self, node_id: NodeId | NodeResponse) -> NodeId:
+    def map_instance(self, node_id: NodeId | EdgeId | NodeResponse | EdgeResponse) -> NodeId:
         """Maps a node ID form the source view's space to the corresponding node ID in the destination view's space using the space mapping."""
         return NodeId(space=self.space_mapping[node_id.space], external_id=node_id.external_id)
 
@@ -607,20 +618,38 @@ class ConnectionCreator:
         return isinstance(prop, ViewCorePropertyResponse) and isinstance(prop.type, DirectNodeRelation)
 
     def create_edges(
-        self, value: Any, dm_prop: EdgeProperty, source_prop_id: str, source_view_id: ViewId
+        self, value: Any, dm_prop: EdgeProperty, source_prop_id: str, source_view_id: ViewId, source_id: NodeId
     ) -> tuple[list[EdgeRequest], list[str]]:
-        targets = self._create_targets(value, source_prop_id, source_view_id)
+        targets, issues = self._create_targets(value, source_prop_id, source_view_id)
         if isinstance(dm_prop, SingleEdgeProperty) and len(targets) > 1:
-            raise ValueError(
-                f"Too many targets for single edge property {source_prop_id!r} in view {source_view_id.dump(include_type=True)!r}: expected at most 1, got {len(targets)}"
+            issues.append(
+                f"Too many targets for edge property {source_prop_id!r} in view {source_view_id.dump(include_type=True)!r}: expected at most 1, got {len(targets)}. Only the first target will be used."
             )
-        raise NotImplementedError()
+            targets = targets[:1]
+        edges: list[EdgeRequest] = []
+        for target in targets:
+            start_node, end_node = source_id, target
+            if dm_prop.direction == "inwards":
+                start_node, end_node = end_node, start_node
+
+            edge = EdgeRequest(
+                space=source_id.space,
+                external_id=sanitize_instance_external_id(
+                    f"{source_id.external_id}_{dm_prop.type.external_id}_{target.external_id}"
+                ),
+                type=dm_prop.type,
+                start_node=start_node,
+                end_node=end_node,
+            )
+            edges.append(edge)
+        return edges, issues
 
     def create_direct_relation(
         self, value: Any, dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
     ) -> tuple[NodeId | list[NodeId], list[str]]:
-        targets = self._create_targets(value, source_prop_id, source_view_id)
-        return self._targets_to_direct_relation(targets, dm_prop, source_prop_id, source_view_id)
+        targets, target_issues = self._create_targets(value, source_prop_id, source_view_id)
+        relations, relation_issues = self._targets_to_direct_relation(targets, dm_prop, source_prop_id, source_view_id)
+        return relations, target_issues + relation_issues
 
     def _targets_to_direct_relation(
         self, targets: list[NodeId], dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
@@ -648,7 +677,7 @@ class ConnectionCreator:
     def create_direct_relation_from_edges(
         self, edges: list[EdgeOtherSide], dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
     ) -> tuple[NodeId | list[NodeId], list[str]]:
-        targets = [self.map_node(edge.other_side) for edge in edges]
+        targets = [self.map_instance(edge.other_side) for edge in edges]
         return self._targets_to_direct_relation(targets, dm_prop, source_prop_id, source_view_id)
 
     def create_edges_from_edges(
@@ -659,7 +688,35 @@ class ConnectionCreator:
         source_view_id: ViewId,
         source_id: NodeId,
     ) -> tuple[list[EdgeRequest], list[str]]:
-        raise NotImplementedError("Edge creation from edges logic is not implemented yet.")
+        issues: list[str] = []
+        new_edges: list[EdgeRequest] = []
+        for edge in edges:
+            try:
+                new_edge_id = self.map_instance(edge.edge_id)
+            except KeyError as e:
+                issues.append(f"Failed to map edge ID {edge.edge_id!s} to destination space: {e!s}")
+                continue
+            try:
+                other_side = self.map_instance(edge.other_side)
+            except KeyError as e:
+                issues.append(
+                    f"Failed to map other side of {source_id!s} node ID {edge.other_side!s} to destination space: {e!s}"
+                )
+                continue
+
+            start_node, end_node = source_id, other_side
+            if dm_prop.direction == "inwards":
+                start_node, end_node = end_node, start_node
+            new_edges.append(
+                EdgeRequest(
+                    space=new_edge_id.space,
+                    external_id=new_edge_id.external_id,
+                    type=dm_prop.type,
+                    start_node=start_node,
+                    end_node=end_node,
+                )
+            )
+        return new_edges, issues
 
 
 @dataclass
@@ -675,6 +732,7 @@ def convert_container_properties(
     destination_properties: dict[str, ViewResponseProperty],
     connection_creator: ConnectionCreator,
     source_view_id: ViewId,
+    source_id: NodeId,
 ) -> ConversionResult:
     """
     Create properties for a data model instance from another instance's properties.
@@ -712,6 +770,7 @@ def convert_container_properties(
                     dm_prop,
                     source_prop_id,
                     source_view_id,
+                    source_id,
                 )
             except ValueError as e:
                 errors.append(f"Failed to create edges for property {source_prop_id!r} with value {value!r}: {e!s}")
