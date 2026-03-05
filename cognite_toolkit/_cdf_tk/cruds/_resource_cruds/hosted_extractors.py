@@ -7,6 +7,7 @@ from cognite.client.data_classes.capabilities import Capability, HostedExtractor
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationRequest,
@@ -254,6 +255,13 @@ class HostedExtractorDestinationCRUD(
         return self.dump_id(self.get_id(resource))
 
     @classmethod
+    def get_dependencies(
+        cls, resource: HostedExtractorDestinationYAML
+    ) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.target_data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.target_data_set_external_id)
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "targetDataSetId" in item:
             yield DataSetsCRUD, ExternalId(external_id=item["targetDataSetId"])
@@ -340,6 +348,13 @@ class HostedExtractorJobCRUD(ResourceCRUD[ExternalId, HostedExtractorJobRequest,
     ) -> Iterable[HostedExtractorJobResponse]:
         for jobs in self.client.tool.hosted_extractors.jobs.iterate(limit=None):
             yield from jobs
+
+    @classmethod
+    def get_dependencies(cls, resource: HostedExtractorJobYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.source_id:
+            yield HostedExtractorSourceCRUD, ExternalId(external_id=resource.source_id)
+        if resource.destination_id:
+            yield HostedExtractorDestinationCRUD, ExternalId(external_id=resource.destination_id)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:

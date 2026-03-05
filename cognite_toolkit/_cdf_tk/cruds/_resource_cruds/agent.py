@@ -3,6 +3,7 @@ from typing import Any
 
 from cognite.client.data_classes.capabilities import AgentsAcl, Capability
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
@@ -10,6 +11,7 @@ from cognite_toolkit._cdf_tk.cruds._resource_cruds.function import FunctionCRUD
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import AgentYAML
+from cognite_toolkit._cdf_tk.yaml_classes.agent import CallFunction
 
 
 class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):
@@ -42,6 +44,12 @@ class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):
             if tool.get("type") == "callFunction":
                 if ext_id := tool.get("configuration", {}).get("externalId"):
                     yield FunctionCRUD, ExternalId(external_id=ext_id)
+
+    @classmethod
+    def get_dependencies(cls, resource: AgentYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        for tool in resource.tools or []:
+            if isinstance(tool, CallFunction):
+                yield FunctionCRUD, ExternalId(external_id=tool.configuration.external_id)
 
     @classmethod
     def get_required_capability(

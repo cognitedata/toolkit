@@ -20,6 +20,7 @@ from typing import Any, final
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes.capabilities import Capability, DataSetsAcl
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
@@ -224,6 +225,11 @@ class LabelCRUD(ResourceCRUD[ExternalId, LabelRequest, LabelResponse]):
         """
         if "dataSetExternalId" in item:
             yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: LabelsYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LabelRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):

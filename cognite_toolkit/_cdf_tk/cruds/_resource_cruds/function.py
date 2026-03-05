@@ -23,6 +23,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
@@ -130,6 +131,11 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dataSetExternalId" in item:
             yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: FunctionsYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
@@ -518,6 +524,10 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "functionExternalId" in item:
             yield FunctionCRUD, ExternalId(external_id=item["functionExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: FunctionScheduleYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield FunctionCRUD, ExternalId(external_id=resource.function_external_id)
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
