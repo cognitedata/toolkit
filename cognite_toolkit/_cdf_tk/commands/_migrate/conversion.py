@@ -36,6 +36,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
+from cognite_toolkit._cdf_tk.utils.dms import serialize_dms
 from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     asset_centric_convert_to_primary_property,
     convert_to_primary_property,
@@ -820,12 +821,7 @@ def convert_container_properties(
                     dm_prop.type,
                     dm_prop.nullable if dm_prop.nullable is not None else True,
                 )
-                if isinstance(created_value, date):
-                    created_properties[dest_prop_id] = created_value.isoformat()
-                elif isinstance(created_value, datetime):
-                    created_properties[dest_prop_id] = created_value.isoformat(timespec="milliseconds")
-                else:
-                    created_properties[dest_prop_id] = created_value
+                created_properties[dest_prop_id] = serialize_dms(created_value)
             except (ValueError, TypeError, NotImplementedError) as e:
                 errors.append(f"Failed to convert property {source_prop_id!r} with value {value!r}: {e!s}")
         # Else reverse direct relation, which we assume is handled in the other direction and thus ignore here.

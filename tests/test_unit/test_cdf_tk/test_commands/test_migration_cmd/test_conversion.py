@@ -1429,7 +1429,7 @@ class TestInstanceToInstanceConversion:
                     "epoch": 1700000000000,
                 },
                 {
-                    "timestamp": "2023-11-14T22:13:20.000",
+                    "timestamp": "2023-11-14T22:13:20Z",
                 },
                 [],
                 id="Epoch to timestamp conversion",
