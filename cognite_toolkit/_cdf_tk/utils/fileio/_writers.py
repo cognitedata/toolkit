@@ -37,11 +37,17 @@ if TYPE_CHECKING:
 
 class FileWriter(FileIO, ABC, Generic[T_IO]):
     def __init__(
-        self, output_dir: Path, kind: str, compression: type[Compression], max_file_size_bytes: int = 128 * 1024 * 1024
+        self,
+        output_dir: Path,
+        kind: str,
+        compression: type[Compression],
+        default_filestem: str | None = None,
+        max_file_size_bytes: int = 128 * 1024 * 1024,
     ) -> None:
         self.output_dir = output_dir
         self.kind = kind
         self.compression_cls = compression
+        self.default_filestem = default_filestem
         self.max_file_size_bytes = max_file_size_bytes
         self._file_count_by_filename: dict[str, int] = Counter()
         self._writer_by_filepath: dict[Path, T_IO] = {}
@@ -55,14 +61,15 @@ class FileWriter(FileIO, ABC, Generic[T_IO]):
 
     def write_chunks(self, chunks: Iterable[Chunk], filestem: str = "") -> None:
         with self._lock:
-            filepath = self._get_filepath(filestem)
-            writer = self._get_writer(filepath, filestem)
+            selected_filestem = filestem or self.default_filestem or ""
+            filepath = self._get_filepath(selected_filestem)
+            writer = self._get_writer(filepath, selected_filestem)
             self._write(writer, chunks)
 
-    def _get_filepath(self, filename: str) -> Path:
+    def _get_filepath(self, filestem: str) -> Path:
         # This method is now called within the lock context from write_chunks
-        sanitized_name = f"{sanitize_filename(filename)}-" if filename else ""
-        file_count = self._file_count_by_filename[filename]
+        sanitized_name = f"{sanitize_filename(filestem)}-" if filestem else ""
+        file_count = self._file_count_by_filename[filestem]
         file_path = (
             self.output_dir
             / f"{sanitized_name}part-{file_count:04}.{self.kind}{self.format}{self.compression_cls.file_suffix}"
@@ -147,9 +154,10 @@ class TableWriter(FileWriter[T_IO], ABC):
         kind: str,
         compression: type[Compression],
         columns: Sequence[SchemaColumn],
+        default_filestem: str | None = None,
         max_file_size_bytes: int = 128 * 1024 * 1024,
     ) -> None:
-        super().__init__(output_dir, kind, compression, max_file_size_bytes)
+        super().__init__(output_dir, kind, compression, default_filestem, max_file_size_bytes)
         self.columns = columns
 
 
@@ -197,9 +205,10 @@ class CSVWriter(TableWriter[TextIOWrapper]):
         kind: str,
         compression: type[Compression],
         columns: Sequence[SchemaColumn],
+        default_filestem: str | None = None,
         max_file_size_bytes: int = 128 * 1024 * 1024,
     ) -> None:
-        super().__init__(output_dir, kind, compression, columns, max_file_size_bytes)
+        super().__init__(output_dir, kind, compression, columns, default_filestem, max_file_size_bytes)
         self._csvwriter_by_file: dict[TextIOWrapper, csv.DictWriter] = {}
 
     def _create_writer(self, filepath: Path) -> TextIOWrapper:
