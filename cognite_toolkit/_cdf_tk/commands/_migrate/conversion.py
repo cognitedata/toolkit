@@ -576,13 +576,13 @@ class ConnectionCreator:
             for item in value:
                 try:
                     targets.append(self._create_target(item, source_prop_id, source_view_id))
-                except ValueError:
+                except KeyError:
                     issues.append(f"Failed to create target for value {item!s}")
             return targets, issues
         else:
             try:
                 return [self._create_target(value, source_prop_id, source_view_id)], []
-            except ValueError:
+            except KeyError:
                 return [], [f"Failed to create target for value {value!s}"]
 
     def _create_target(self, value: Any, source_prop_id: str, source_view_id: ViewId) -> NodeId:
@@ -611,6 +611,7 @@ class ConnectionCreator:
         return NodeId(space=self.space_mapping[node_id.space], external_id=node_id.external_id)
 
     def edges(self, view_id: ViewId) -> dict[str, EdgeProperty]:
+        """Get the edge properties for a given view ID."""
         if view_id not in self.view_by_id:
             raise ValueError(f"View {view_id.dump(include_type=True)!r} not found in cache.")
         view = self.view_by_id[view_id]
@@ -684,7 +685,7 @@ class ConnectionCreator:
             )
         else:
             errors.append(
-                "Too many targets for direct relation property {source_prop_id!r} in view {source_view_id.dump(include_type=True)!r}: expected exactly 1, got {len(targets)}. Returning the first target."
+                f"Too many targets for direct relation property {source_prop_id!r} in view {source_view_id.dump(include_type=True)!r}: expected exactly 1, got {len(targets)}. Returning the first target."
             )
             return targets[0], errors
 
@@ -759,6 +760,7 @@ def convert_container_properties(
         destination_properties: Dict of defined properties in the destination view.
         connection_creator: Helper object to create connections (edges and direct relations) based on property values.
         source_view_id: The ID of the source view, used for error messages.
+        source_id: The ID of the source instance used for edge creation and error messages.
     """
     created_properties: dict[str, JsonValue] = {}
     edges: list[EdgeRequest] = []
