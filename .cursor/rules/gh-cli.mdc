@@ -1,0 +1,19 @@
+---
+description: Always scope gh CLI commands to the cognitedata/toolkit repo
+alwaysApply: true
+---
+
+# GitHub CLI (`gh`) Usage
+
+Always pass `--repo cognitedata/toolkit` (or `-R cognitedata/toolkit`) on every `gh` command to ensure you never accidentally target a fork or different repository.
+
+```bash
+# Good
+gh pr list --repo cognitedata/toolkit
+gh api repos/cognitedata/toolkit/pulls/123/comments
+
+# Bad — relies on auto-detection from git remote
+gh pr list
+```
+
+For `gh api` calls, always use the full `repos/cognitedata/toolkit/...` path explicitly.
