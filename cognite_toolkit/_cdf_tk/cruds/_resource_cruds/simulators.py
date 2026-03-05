@@ -32,7 +32,11 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, di
 from cognite_toolkit._cdf_tk.yaml_classes import SimulatorModelYAML
 from cognite_toolkit._cdf_tk.yaml_classes.simulator_model_revision import SimulatorModelRevisionYAML
 from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine import SimulatorRoutineYAML
-from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine_revision import SimulatorRoutineRevisionYAML
+from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine_revision import (
+    RoutineInputConstantConfig,
+    RoutineOutputConfig,
+    SimulatorRoutineRevisionYAML,
+)
 
 from .data_organization import DataSetsCRUD
 from .file import FileMetadataCRUD
@@ -450,16 +454,17 @@ class SimulatorRoutineRevisionCRUD(
         yield SimulatorRoutineCRUD, ExternalId(external_id=resource.routine_external_id)
         if not resource.configuration:
             return
-        for key in ["logical_check", "steady_state_detection"]:
-            for value in getattr(resource.configuration, key, None) or []:
-                if hasattr(value, "timeseries_external_id") and value.timeseries_external_id:
-                    yield TimeSeriesCRUD, ExternalId(external_id=value.timeseries_external_id)
-        for key in ["inputs", "outputs"]:
-            for io_item in getattr(resource.configuration, key, None) or []:
-                if hasattr(io_item, "save_timeseries_external_id") and io_item.save_timeseries_external_id:
-                    yield TimeSeriesCRUD, ExternalId(external_id=io_item.save_timeseries_external_id)
-                if hasattr(io_item, "source_external_id") and io_item.source_external_id:
-                    yield TimeSeriesCRUD, ExternalId(external_id=io_item.source_external_id)
+        config = resource.configuration
+        for check in config.logical_check or []:
+            if check.timeseries_external_id:
+                yield TimeSeriesCRUD, ExternalId(external_id=check.timeseries_external_id)
+        for detection in config.steady_state_detection or []:
+            if detection.timeseries_external_id:
+                yield TimeSeriesCRUD, ExternalId(external_id=detection.timeseries_external_id)
+        io_item: RoutineInputConstantConfig | RoutineOutputConfig
+        for io_item in [*(config.inputs or []), *(config.outputs or [])]:  # type: ignore[assignment]
+            if io_item.save_timeseries_external_id:
+                yield TimeSeriesCRUD, ExternalId(external_id=io_item.save_timeseries_external_id)  #
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]

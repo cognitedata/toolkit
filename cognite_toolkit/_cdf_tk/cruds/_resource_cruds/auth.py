@@ -59,6 +59,7 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import GroupYAML, SecurityCategoriesYAML
+from cognite_toolkit._cdf_tk.yaml_classes import capabilities as yaml_cap
 
 
 @dataclass
@@ -211,7 +212,51 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
 
     @classmethod
     def get_dependencies(cls, resource: GroupYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
-        yield from cls.get_dependent_items(resource.model_dump(mode="json", by_alias=True, exclude_unset=True))
+        from .classic import AssetCRUD
+        from .data_organization import DataSetsCRUD
+        from .datamodel import SpaceCRUD
+        from .extraction_pipeline import ExtractionPipelineCRUD
+        from .location import LocationFilterCRUD
+        from .raw import RawDatabaseCRUD, RawTableCRUD
+        from .timeseries import TimeSeriesCRUD
+
+        for capability in resource.capabilities or []:
+            scope = capability.scope
+            if isinstance(scope, yaml_cap.SpaceIDScope):
+                for space_id in scope.space_ids:
+                    yield SpaceCRUD, SpaceId(space=space_id)
+            elif isinstance(scope, yaml_cap.DataSetScope):
+                for data_set_id in scope.ids:
+                    yield DataSetsCRUD, ExternalId(external_id=data_set_id)
+            elif isinstance(scope, yaml_cap.TableScope):
+                for db_name, tables in scope.dbs_to_tables.items():
+                    yield RawDatabaseCRUD, RawDatabaseId(name=db_name)
+                    for table in tables:
+                        yield RawTableCRUD, RawTableId(db_name=db_name, name=table)
+            elif isinstance(scope, yaml_cap.ExtractionPipelineScope):
+                for extraction_pipeline_id in scope.ids:
+                    yield ExtractionPipelineCRUD, ExternalId(external_id=extraction_pipeline_id)
+            elif isinstance(scope, yaml_cap.AssetRootIDScope):
+                for asset_root_id in scope.root_ids:
+                    yield AssetCRUD, ExternalId(external_id=asset_root_id)
+            elif isinstance(scope, (yaml_cap.IDScope, yaml_cap.IDScopeLowerCase)):
+                loader: type[ResourceCRUD] | None = None
+                if isinstance(capability, yaml_cap.DataSetsAcl):
+                    loader = DataSetsCRUD
+                elif isinstance(capability, yaml_cap.ExtractionPipelinesAcl):
+                    loader = ExtractionPipelineCRUD
+                elif isinstance(capability, yaml_cap.TimeSeriesAcl):
+                    loader = TimeSeriesCRUD
+                elif isinstance(capability, yaml_cap.SecurityCategoriesAcl):
+                    loader = SecurityCategoryCRUD
+                elif isinstance(capability, yaml_cap.LocationFiltersAcl):
+                    loader = LocationFilterCRUD
+                if loader is not None:
+                    for id_ in scope.ids:
+                        if loader in {TimeSeriesCRUD, LocationFilterCRUD, DataSetsCRUD, ExtractionPipelineCRUD}:
+                            yield loader, ExternalId(external_id=id_)
+                        elif loader is SecurityCategoryCRUD:
+                            yield loader, NameId(name=id_)
 
     def _substitute_scope_ids(self, group: dict[str, Any], is_dry_run: bool, reverse: bool = False) -> dict[str, Any]:
         replace_method_by_acl = self._create_replace_method_by_acl_and_scope()

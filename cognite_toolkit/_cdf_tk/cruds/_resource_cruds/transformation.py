@@ -106,6 +106,11 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
     TransformationScheduleYAML,
     TransformationYAML,
 )
+from cognite_toolkit._cdf_tk.yaml_classes.transformation_destination import (
+    DataModelSource,
+    RawDataSource,
+    ViewDataSource,
+)
 
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
@@ -224,19 +229,32 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
         if resource.data_set_external_id:
             yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
         if destination := resource.destination:
-            if hasattr(destination, "database") and hasattr(destination, "table"):
+            if isinstance(destination, RawDataSource):
                 yield RawDatabaseCRUD, RawDatabaseId(name=destination.database)
                 yield RawTableCRUD, RawTableId(db_name=destination.database, name=destination.table)
-            elif hasattr(destination, "view") and destination.view:
-                if hasattr(destination, "instance_space") and destination.instance_space:
+            elif isinstance(destination, ViewDataSource):
+                if destination.instance_space:
                     yield SpaceCRUD, SpaceId(space=destination.instance_space)
-                view = destination.view
-                yield ViewCRUD, ViewId(space=view.space, external_id=view.external_id, version=view.version)
-            elif hasattr(destination, "data_model") and destination.data_model:
-                if hasattr(destination, "instance_space") and destination.instance_space:
+                if destination.view:
+                    yield (
+                        ViewCRUD,
+                        ViewId(
+                            space=destination.view.space,
+                            external_id=destination.view.external_id,
+                            version=destination.view.version,
+                        ),
+                    )
+            elif isinstance(destination, DataModelSource):
+                if destination.instance_space:
                     yield SpaceCRUD, SpaceId(space=destination.instance_space)
-                dm = destination.data_model
-                yield DataModelCRUD, DataModelId(space=dm.space, external_id=dm.external_id, version=dm.version)
+                yield (
+                    DataModelCRUD,
+                    DataModelId(
+                        space=destination.data_model.space,
+                        external_id=destination.data_model.external_id,
+                        version=destination.data_model.version,
+                    ),
+                )
 
     def safe_read(self, filepath: Path | str) -> str:
         # If the destination is a DataModel or a View we need to ensure that the version is a string

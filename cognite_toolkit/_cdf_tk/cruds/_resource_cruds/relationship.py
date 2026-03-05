@@ -142,14 +142,7 @@ class RelationshipCRUD(ResourceCRUD[ExternalId, RelationshipRequest, Relationshi
         if resource.data_set_external_id:
             yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
         for label in resource.labels or []:
-            if isinstance(label, dict):
-                yield LabelCRUD, ExternalId(external_id=label["externalId"])
-            elif isinstance(label, str):
-                yield LabelCRUD, ExternalId(external_id=label)
-            else:
-                ext_id = getattr(label, "external_id", None) or getattr(label, "externalId", None)
-                if ext_id:
-                    yield LabelCRUD, ExternalId(external_id=ext_id)
+            yield LabelCRUD, ExternalId(external_id=label.externalId)
         type_to_crud: dict[str, type[ResourceCRUD]] = {
             "asset": AssetCRUD,
             "sequence": SequenceCRUD,
@@ -157,13 +150,13 @@ class RelationshipCRUD(ResourceCRUD[ExternalId, RelationshipRequest, Relationshi
             "file": FileMetadataCRUD,
             "event": EventCRUD,
         }
-        for connection in ["source", "target"]:
-            type_value = getattr(resource, f"{connection}_type", None)
-            id_value = getattr(resource, f"{connection}_external_id", None)
-            if type_value and id_value:
-                crud = type_to_crud.get(type_value.strip().casefold())
-                if crud:
-                    yield crud, ExternalId(external_id=id_value)
+        for type_value, id_value in [
+            (resource.source_type, resource.source_external_id),
+            (resource.target_type, resource.target_external_id),
+        ]:
+            crud = type_to_crud.get(type_value.strip().casefold())
+            if crud:
+                yield crud, ExternalId(external_id=id_value)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> RelationshipRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):

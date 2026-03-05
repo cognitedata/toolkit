@@ -151,7 +151,39 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
 
     @classmethod
     def get_dependencies(cls, resource: InfieldV1YAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
-        yield from cls.get_dependent_items(resource.model_dump(mode="json", by_alias=True, exclude_unset=True))
+        if resource.app_data_space_id:
+            yield SpaceCRUD, SpaceId(space=resource.app_data_space_id)
+        if resource.customer_data_space_id:
+            yield SpaceCRUD, SpaceId(space=resource.customer_data_space_id)
+        if not resource.feature_configuration:
+            return
+        for config in resource.feature_configuration.root_location_configurations or []:
+            if config.asset_external_id:
+                yield AssetCRUD, ExternalId(external_id=config.asset_external_id)
+            if config.data_set_external_id:
+                yield DataSetsCRUD, ExternalId(external_id=config.data_set_external_id)
+            if config.app_data_instance_space:
+                yield SpaceCRUD, SpaceId(space=config.app_data_instance_space)
+            if config.source_data_instance_space:
+                yield SpaceCRUD, SpaceId(space=config.source_data_instance_space)
+            for group in config.template_admins or []:
+                yield GroupResourceScopedCRUD, NameId(name=group)
+            for group in config.checklist_admins or []:
+                yield GroupResourceScopedCRUD, NameId(name=group)
+            if not config.data_filters:
+                continue
+            for filter_ in [
+                config.data_filters.general,
+                config.data_filters.assets,
+                config.data_filters.files,
+                config.data_filters.timeseries,
+            ]:
+                if filter_ is None:
+                    continue
+                for data_set_external_id in filter_.data_set_external_ids or []:
+                    yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
+                for asset_external_id in filter_.asset_subtree_external_ids or []:
+                    yield AssetCRUD, ExternalId(external_id=asset_external_id)
 
     def safe_read(self, filepath: Path | str) -> str:
         # The customerDataSpaceVersion is a string, but the user often writes it as an int.

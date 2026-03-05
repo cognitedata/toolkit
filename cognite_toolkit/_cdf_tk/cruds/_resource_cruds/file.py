@@ -329,10 +329,8 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
     @classmethod
     def get_dependencies(cls, resource: CogniteFileYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
         yield SpaceCRUD, SpaceId(space=resource.space)
-        for key in ["source", "category", "type"]:
-            ref = getattr(resource, key, None)
-            if ref and hasattr(ref, "space") and hasattr(ref, "external_id"):
+        for ref in [resource.source, resource.category, resource.type]:
+            if ref:
                 yield NodeCRUD, NodeId(space=ref.space, external_id=ref.external_id)
         for asset in resource.assets or []:
-            if hasattr(asset, "space") and hasattr(asset, "external_id"):
-                yield NodeCRUD, NodeId(space=asset.space, external_id=asset.external_id)
+            yield NodeCRUD, NodeId(space=asset.space, external_id=asset.external_id)
