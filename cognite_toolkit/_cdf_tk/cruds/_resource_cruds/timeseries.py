@@ -42,6 +42,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import DatapointSubscriptionYAML, Time
 from .auth import GroupAllScopedCRUD, SecurityCategoryCRUD
 from .classic import AssetCRUD
 from .data_organization import DataSetsCRUD
+from .datamodel import NodeCRUD
 
 
 @final
@@ -239,6 +240,8 @@ class DatapointSubscriptionCRUD(
             yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
         for timeseries_id in resource.time_series_ids or []:
             yield TimeSeriesCRUD, ExternalId(external_id=timeseries_id)
+        for instance_id in resource.instance_ids or []:
+            yield NodeCRUD, NodeId(space=instance_id.space, external_id=instance_id.external_id)
 
     @classmethod
     def get_required_capability(

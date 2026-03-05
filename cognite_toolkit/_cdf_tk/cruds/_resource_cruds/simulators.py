@@ -33,8 +33,6 @@ from cognite_toolkit._cdf_tk.yaml_classes import SimulatorModelYAML
 from cognite_toolkit._cdf_tk.yaml_classes.simulator_model_revision import SimulatorModelRevisionYAML
 from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine import SimulatorRoutineYAML
 from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine_revision import (
-    RoutineInputConstantConfig,
-    RoutineOutputConfig,
     SimulatorRoutineRevisionYAML,
 )
 
@@ -461,10 +459,12 @@ class SimulatorRoutineRevisionCRUD(
         for detection in config.steady_state_detection or []:
             if detection.timeseries_external_id:
                 yield TimeSeriesCRUD, ExternalId(external_id=detection.timeseries_external_id)
-        io_item: RoutineInputConstantConfig | RoutineOutputConfig
-        for io_item in [*(config.inputs or []), *(config.outputs or [])]:  # type: ignore[assignment]
-            if io_item.save_timeseries_external_id:
-                yield TimeSeriesCRUD, ExternalId(external_id=io_item.save_timeseries_external_id)  #
+        for intput_ in config.inputs or []:
+            if intput_.save_timeseries_external_id:
+                yield TimeSeriesCRUD, ExternalId(external_id=intput_.save_timeseries_external_id)
+        for output in config.outputs or []:
+            if output.save_timeseries_external_id:
+                yield TimeSeriesCRUD, ExternalId(external_id=output.save_timeseries_external_id)
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]

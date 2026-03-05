@@ -127,8 +127,6 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         for label in resource.labels or []:
             if isinstance(label, dict):
                 yield LabelCRUD, ExternalId(external_id=label["externalId"])
-            elif isinstance(label, str):
-                yield LabelCRUD, ExternalId(external_id=label)
         for asset_external_id in resource.asset_external_ids or []:
             yield AssetCRUD, ExternalId(external_id=asset_external_id)
 

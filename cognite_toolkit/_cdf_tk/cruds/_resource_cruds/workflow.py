@@ -60,6 +60,7 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
+from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import SubworkflowTask
 
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
@@ -366,6 +367,16 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest
     @classmethod
     def get_dependencies(cls, resource: WorkflowVersionYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
         yield WorkflowCRUD, ExternalId(external_id=resource.workflow_external_id)
+        for task in resource.workflow_definition.tasks:
+            if isinstance(task, SubworkflowTask):
+                subworkflow = task.parameters.subworkflow
+                if isinstance(subworkflow, WorkflowVersionId):
+                    yield (
+                        cls,
+                        WorkflowVersionId(
+                            workflow_external_id=subworkflow.workflow_external_id, version=subworkflow.version
+                        ),
+                    )
 
     @classmethod
     def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
