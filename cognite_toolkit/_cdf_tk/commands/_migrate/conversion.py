@@ -826,7 +826,7 @@ def convert_edges(
     source_view_id: ViewId,
 ) -> ConversionResult:
     created_properties: dict[str, JsonValue] = {}
-    created_edges: list[EdgeRequest] = []
+    new_edges: list[EdgeRequest] = []
     errors: list[str] = []
     for prop_id, source_edge_def in connection_creator.edges(source_view_id).items():
         edge_targets = edge_targets_by_type_and_direction.get((source_edge_def.type, source_edge_def.direction), [])
@@ -878,7 +878,7 @@ def convert_edges(
                 )
                 continue
             errors.extend(issues)
-            created_edges.extend(created_edges)
+            new_edges.extend(created_edges)
         # else reverse direct relation, which we assume is handled in the other direction and thus ignore here.
 
-    return ConversionResult(container_properties=created_properties, edges=created_edges, errors=errors)
+    return ConversionResult(container_properties=created_properties, edges=new_edges, errors=errors)
