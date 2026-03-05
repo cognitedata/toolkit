@@ -477,10 +477,11 @@ class TestEdgeCRUDGetDependencies:
         )
 
         deps = list(EdgeCRUD.get_dependencies(edge))
-        assert len(deps) == 3
+        assert len(deps) == 4
         assert (SpaceCRUD, SpaceId(space="my_space")) in deps
         assert (NodeCRUD, NodeId(space="node_space", external_id="start_node")) in deps
         assert (NodeCRUD, NodeId(space="node_space", external_id="end_node")) in deps
+        assert (NodeCRUD, NodeId(space="type_space", external_id="edge_type")) in deps
 
     def test_edge_with_view_sources(self) -> None:
         """Test Edge with view source dependencies."""
@@ -508,11 +509,12 @@ class TestEdgeCRUDGetDependencies:
         )
 
         deps = list(EdgeCRUD.get_dependencies(edge))
-        assert len(deps) == 4
+        assert len(deps) == 5
         assert (SpaceCRUD, SpaceId(space="my_space")) in deps
         assert (ViewCRUD, ViewId(space="source_space", external_id="source_view", version="1")) in deps
         assert (NodeCRUD, NodeId(space="node_space", external_id="start_node")) in deps
         assert (NodeCRUD, NodeId(space="node_space", external_id="end_node")) in deps
+        assert (NodeCRUD, NodeId(space="type_space", external_id="edge_type")) in deps
 
     def test_edge_with_node_references(self) -> None:
         """Test Edge with node start/end references."""
@@ -529,10 +531,11 @@ class TestEdgeCRUDGetDependencies:
         )
 
         deps = list(EdgeCRUD.get_dependencies(edge))
-        assert len(deps) == 3
+        assert len(deps) == 4
         assert (SpaceCRUD, SpaceId(space="my_space")) in deps
         assert (NodeCRUD, NodeId(space="node_space", external_id="start_node")) in deps
         assert (NodeCRUD, NodeId(space="node_space", external_id="end_node")) in deps
+        assert (NodeCRUD, NodeId(space="type_space", external_id="edge_type")) in deps
 
 
 class TestGraphQLCRUDGetDependencies:
