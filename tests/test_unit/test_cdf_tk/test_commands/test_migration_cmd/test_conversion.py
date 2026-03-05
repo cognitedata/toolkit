@@ -1539,13 +1539,6 @@ class TestInstanceToInstanceConversion:
                         start_node=NodeId(space="dst_space", external_id="asset_F"),
                         end_node=NEW_ID,
                     ),
-                    EdgeRequest(
-                        space="dst_space",
-                        external_id="dst_edge",
-                        type=NodeId(space="dst_space", external_id="destEdgeType"),
-                        start_node=NodeId(space="dst_space", external_id="asset_F"),
-                        end_node=NEW_ID,
-                    ),
                 ],
                 [
                     "Too many targets for direct relation property {source_prop_id!r} in view"
