@@ -373,6 +373,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="assets",
             )
         )
 
@@ -545,6 +546,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="events",
             )
         )
 
@@ -661,6 +663,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="timeseries",
             )
         )
 
@@ -778,6 +781,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="files",
             )
         )
 
@@ -919,6 +923,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="annotations",
             )
         )
 
@@ -993,6 +998,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="canvas",
             )
         )
 
@@ -1055,6 +1061,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="charts",
             )
         )
 
@@ -1117,6 +1124,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="three_d_models",
             )
         )
 
@@ -1213,6 +1221,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="three_d_asset_mapping",
             )
         )
 
@@ -1412,5 +1421,6 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="InField_data",
             )
         )
