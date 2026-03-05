@@ -69,6 +69,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewRequest,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    DirectNodeRelation as ClientDirectNodeRelation,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    RequiresConstraintDefinition as ClientRequiresConstraintDefinition,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import (
     EdgeProperty,
@@ -518,11 +524,11 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerRequest, Contain
         container_dependencies: dict[ContainerId, set[ContainerId]] = defaultdict(set)
         for container_id, container in containers_by_id.items():
             for constraint in (container.constraints or {}).values():
-                if not isinstance(constraint, RequiresConstraintDefinition):
+                if not isinstance(constraint, ClientRequiresConstraintDefinition):
                     continue
                 container_dependencies[container_id].add(constraint.require)
             for property in container.properties.values():
-                if not isinstance(property.type, DirectNodeRelation) or property.type.container is None:
+                if not isinstance(property.type, ClientDirectNodeRelation) or property.type.container is None:
                     continue
                 container_dependencies[container_id].add(property.type.container)
         return container_dependencies
