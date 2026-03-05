@@ -161,7 +161,6 @@ class MigrationCommand(ToolkitCommand):
                 max_run = max(max_run, int(match.group(1)))
 
         # If max_run is 0, it means files with base_logstem exist, but none have 'runX'.
-        # The original logic starts with run2 in this case.
         next_run = max(2, max_run + 1)
 
         return f"{base_logstem}run{next_run}-"
