@@ -96,6 +96,16 @@ class InFieldCDMConfigAPI(WrappedInstancesAPI[NodeId, InFieldCDMLocationConfigRe
     ) -> PagedResponse[InFieldCDMLocationConfigResponse]:
         return PagedResponse[InFieldCDMLocationConfigResponse].model_validate_json(response.body)
 
+    def list(self, limit: int | None = 100) -> list[InFieldCDMLocationConfigResponse]:
+        """List all in-field CDM configs.
+
+        Args:
+            limit: Maximum number of items to return. If None, all items are returned.
+        Returns:
+            List of InFieldCDMLocationConfigResponse objects.
+        """
+        return super()._list_instances(instance_type="node", limit=limit)
+
 
 class APMConfigAPI(WrappedInstancesAPI[NodeId, APMConfigResponse]):
     def __init__(self, http_client: HTTPClient) -> None:

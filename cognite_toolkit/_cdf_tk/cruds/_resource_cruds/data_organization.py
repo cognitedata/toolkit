@@ -212,7 +212,7 @@ class LabelCRUD(ResourceCRUD[ExternalId, LabelRequest, LabelResponse]):
         filter: ClassicFilter | None = None
         if data_set_external_id is not None:
             filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
-        for items in self.client.tool.labels.iterate(filter=filter):
+        for items in self.client.tool.labels.iterate(filter=filter, limit=None):
             yield from items
 
     @classmethod

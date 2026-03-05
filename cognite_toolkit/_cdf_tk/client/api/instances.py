@@ -135,7 +135,9 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             body=self._create_body(filter),
         )
 
-    def iterate(self, filter: InstanceFilter | None = None, limit: int = 100) -> Iterable[list[InstanceResponse]]:
+    def iterate(
+        self, filter: InstanceFilter | None = None, limit: int | None = 100
+    ) -> Iterable[list[InstanceResponse]]:
         """Iterate over all instances in CDF.
 
         Args:
@@ -258,11 +260,7 @@ class WrappedInstancesAPI(
         filter_ = InstanceFilter(
             instance_type=instance_type,
             space=spaces,
-            source=ViewId(
-                space=self._view_id.space,
-                external_id=self._view_id.external_id,
-                version=self._view_id.version,
-            ),
+            source=self._view_id,
             filter=filter,
         )
         body = {

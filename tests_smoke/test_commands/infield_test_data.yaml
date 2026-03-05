@@ -1,0 +1,254 @@
+# Asset
+asset:
+  externalId: SmokeAsset
+  instanceType: node
+  sources:
+    - properties:
+        description: Smoke test asset InField
+        title: Smoke Asset
+        source: Toolkit
+        sourceId: CogniteToolkit
+      source:
+        externalId: Asset
+        space: cdf_core
+        type: view
+        version: v2
+  space: {{readSpace}}
+# Template Part
+templateReading:
+  externalId: 8c73bd6c-7386-4ebe-ba56-0ef088f08150
+  instanceType: node
+  sources:
+  - properties:
+      createdBy:
+        externalId: {{userId}}
+        space: cognite_app_data
+      order: 2
+      title: any comments ?
+      type: message
+    source:
+      externalId: MeasurementReading
+      space: cdf_apm
+      type: view
+      version: v4
+  space: {{source_space}}
+schedule:
+  externalId: 431db206-55d6-4f37-9eff-6e7fd4bb37c7
+  instanceType: node
+  sources:
+  - properties:
+      createdBy:
+        externalId: {{userId}}
+        space: cognite_app_data
+      endTime: '2025-02-20T12:30:00+00:00'
+      freq: DAILY
+      interval: '1'
+      startTime: '2025-02-20T08:30:00+00:00'
+      timezone: Asia/Colombo
+    source:
+      externalId: Schedule
+      space: cdf_apm
+      type: view
+      version: v4
+  space: {{source_space}}
+template:
+  externalId: 87f1ce17-c510-4359-9bbe-2ec7477b2cfe
+  instanceType: node
+  sources:
+  - properties:
+      createdBy:
+        externalId: {{userId}}
+        space: cognite_app_data
+      isArchived: false
+      rootLocation:
+        externalId: SmokeAsset
+        space: {{readSpace}}
+      solutionTags: []
+      status: Ready
+      title: '!!!!AAA Suu Template Reg Test- copy- copy'
+      updatedBy:
+        externalId: {{userId}}
+        space: cognite_app_data
+    source:
+      externalId: Template
+      space: cdf_apm
+      type: view
+      version: v8
+  space: {{source_space}}
+templateEdge:
+  endNode:
+    externalId: 0083e7c3-946f-4d5d-958b-133963108ad9
+    space: {{source_space}}
+  externalId: 87f1ce17-c510-4359-9bbe-2ec7477b2cfe_0083e7c3-946f-4d5d-958b-133963108ad9_relation
+  instanceType: edge
+  space: {{source_space}}
+  startNode:
+    externalId: 87f1ce17-c510-4359-9bbe-2ec7477b2cfe
+    space: {{source_space}}
+  type:
+    externalId: referenceTemplateItems
+    space: cdf_apm
+templateItem:
+  externalId: 0083e7c3-946f-4d5d-958b-133963108ad9
+  instanceType: node
+  sources:
+  - properties:
+      description: description character limitation test description character limitation
+        test description character limitation test description character limitation
+        test description character limitation test description character limitation
+        test description character limitation test description character limitation
+        test description character limitation test description character limitation
+        test description character limitation test description character limitation
+        test description character limitation test description character limitation
+        test description character limitation test description character limitation
+        test description character limitation test description character limitation
+        test description character limitation test description character limitation
+        test 111111111111111111111111111111111111
+      labels:
+      - group:one Task group
+      order: 141
+      title: Task 01
+      updatedBy:
+        externalId: {{userId}}
+        space: cognite_app_data
+    source:
+      externalId: TemplateItem
+      space: cdf_apm
+      type: view
+      version: v7
+  space: {{source_space}}
+templateItemMeasurementEdge:
+  endNode:
+    externalId: 8c73bd6c-7386-4ebe-ba56-0ef088f08150
+    space: {{source_space}}
+  externalId: 0083e7c3-946f-4d5d-958b-133963108ad9_8c73bd6c-7386-4ebe-ba56-0ef088f08150_relation
+  instanceType: edge
+  space: {{source_space}}
+  startNode:
+    externalId: 0083e7c3-946f-4d5d-958b-133963108ad9
+    space: {{source_space}}
+  type:
+    externalId: referenceMeasurements
+    space: cdf_apm
+templateItemScheduleEdge:
+  endNode:
+    externalId: 431db206-55d6-4f37-9eff-6e7fd4bb37c7
+    space: {{source_space}}
+  externalId: 0083e7c3-946f-4d5d-958b-133963108ad9_431db206-55d6-4f37-9eff-6e7fd4bb37c7_relation
+  instanceType: edge
+  space: {{source_space}}
+  startNode:
+    externalId: 0083e7c3-946f-4d5d-958b-133963108ad9
+    space: {{source_space}}
+  type:
+    externalId: referenceSchedules
+    space: cdf_apm
+# Checklist Part
+checklist:
+  externalId: RhIUePwMQI0WDEQQv-xkig
+  instanceType: node
+  sources:
+  - properties:
+      createdBy:
+        externalId: {{userId}}
+        space: cognite_app_data
+      endTime: '2025-06-09T12:30:00+00:00'
+      isArchived: false
+      rootLocation:
+        externalId: SmokeAsset
+        space: {{readSpace}}
+      solutionTags: []
+      sourceCreatedTime: '2025-01-30T08:08:17.698+00:00'
+      sourceId: 16a3587b-1927-40ed-8da9-4c55c041aeb5
+      sourceUpdatedTime: '2025-02-10T13:30:07.144+00:00'
+      startTime: '2025-06-09T08:30:00+00:00'
+      status: Ready
+      title: ADSuu Template/Checklist
+      type: Round
+      updatedBy:
+        externalId: {{userId}}
+        space: cognite_app_data
+    source:
+      externalId: Checklist
+      space: cdf_apm
+      type: view
+      version: v7
+  space: {{source_space}}
+checklistEdge:
+  endNode:
+    externalId: -3Z4iakG1YSFRAfVlazYMA
+    space: {{source_space}}
+  externalId: RhIUePwMQI0WDEQQv-xkig:-3Z4iakG1YSFRAfVlazYMA
+  instanceType: edge
+  space: {{source_space}}
+  startNode:
+    externalId: RhIUePwMQI0WDEQQv-xkig
+    space: {{source_space}}
+  type:
+    externalId: referenceChecklistItems
+    space: cdf_apm
+checklistItem:
+  externalId: -3Z4iakG1YSFRAfVlazYMA
+  instanceType: node
+  sources:
+  - properties:
+      asset:
+        externalId: SmokeAsset
+        space: {{readSpace}}
+      createdBy:
+        externalId: {{userId}}
+        space: cognite_app_data
+      description: 'with description '
+      endTime: '2025-06-09T12:30:00+00:00'
+      isArchived: false
+      order: 6
+      sourceCreatedTime: '2025-01-30T08:08:19.548+00:00'
+      sourceId: 202b7a05-1ba3-4058-9a16-3f9cc306067c
+      sourceUpdatedTime: '2025-02-01T14:44:07.052+00:00'
+      startTime: '2025-06-09T08:30:00+00:00'
+      title: 'task '
+      updatedBy:
+        externalId: {{userId}}
+        space: cognite_app_data
+    source:
+      externalId: ChecklistItem
+      space: cdf_apm
+      type: view
+      version: v7
+  space: {{source_space}}
+checklistItemMeasurementEdge:
+  endNode:
+    externalId: 2A7QpAmrd9eYbbY_zHH_Ag
+    space: {{source_space}}
+  externalId: -3Z4iakG1YSFRAfVlazYMA:2A7QpAmrd9eYbbY_zHH_Ag
+  instanceType: edge
+  space: {{source_space}}
+  startNode:
+    externalId: -3Z4iakG1YSFRAfVlazYMA
+    space: {{source_space}}
+  type:
+    externalId: referenceMeasurements
+    space: cdf_apm
+checkListReading:
+  externalId: 2A7QpAmrd9eYbbY_zHH_Ag
+  instanceType: node
+  sources:
+  - properties:
+      createdBy:
+        externalId: {{userId}}
+        space: cognite_app_data
+      max: 90
+      min: 10
+      order: 0
+      timeseries: Measurements Readings - Suu
+      type: numerical
+      updatedBy:
+        externalId: {{userId}}
+        space: cognite_app_data
+    source:
+      externalId: MeasurementReading
+      space: cdf_apm
+      type: view
+      version: v4
+  space: {{source_space}}
+# Action

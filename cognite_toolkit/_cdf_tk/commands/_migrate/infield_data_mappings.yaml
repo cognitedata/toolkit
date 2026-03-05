@@ -1,64 +1,6 @@
-Action:
-  sourceView:
-    space: cdf_apm
-    externalId: Action
-    version: v1
-    type: view
-  destinationView:
-    space: infield_cdm_source_desc_sche_asset_file_ts
-    externalId: Action
-    version: v1
-    type: view
-  mapIdenticalIdProperties: true
-  propertyMapping:
-    node.createdTime: sourceCreatedTime
-    node.lastUpdatedTime: sourceUpdatedTime
-Checklist:
-  sourceView:
-    space: cdf_apm
-    externalId: Checklist
-    version: v7
-    type: view
-  destinationView:
-    space: infield_cdm_source_desc_sche_asset_file_ts
-    externalId: Checklist
-    version: v1
-    type: view
-  mapIdenticalIdProperties: true
-  propertyMapping:
-    node.createdTime: sourceCreatedTime
-    node.lastUpdatedTime: sourceUpdatedTime
-ChecklistItem:
-  sourceView:
-    space: cdf_apm
-    externalId: ChecklistItem
-    version: v7
-    type: view
-  destinationView:
-    space: infield_cdm_source_desc_sche_asset_file_ts
-    externalId: ChecklistItem
-    version: v1
-    type: view
-  mapIdenticalIdProperties: true
-  propertyMapping:
-    node.createdTime: sourceCreatedTime
-    node.lastUpdatedTime: sourceUpdatedTime
-Condition:
-  sourceView:
-    space: cdf_apm
-    externalId: Condition
-    version: v1
-    type: view
-  destinationView:
-    space: infield_cdm_source_desc_sche_asset_file_ts
-    externalId: Condition
-    version: v1
-    type: view
-  mapIdenticalIdProperties: true
-  propertyMapping:
-    node.createdTime: sourceCreatedTime
-    node.lastUpdatedTime: sourceUpdatedTime
-ConditionalAction:
+# The mapping definitions are topological ordered based on the container constraints of the
+# destination views. This is to ensure that data can be uploaded without violating any constraints.
+- externalId: InFieldConditionalActionMapping
   sourceView:
     space: cdf_apm
     externalId: ConditionalAction
@@ -73,7 +15,22 @@ ConditionalAction:
   propertyMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
-MeasurementReading:
+- externalId: InFieldChecklistMapping
+  sourceView:
+    space: cdf_apm
+    externalId: Checklist
+    version: v7
+    type: view
+  destinationView:
+    space: infield_cdm_source_desc_sche_asset_file_ts
+    externalId: Checklist
+    version: v1
+    type: view
+  mapIdenticalIdProperties: true
+  propertyMapping:
+    node.createdTime: sourceCreatedTime
+    node.lastUpdatedTime: sourceUpdatedTime
+- externalId: InFieldMeasurementReadingMapping
   sourceView:
     space: cdf_apm
     externalId: MeasurementReading
@@ -88,7 +45,7 @@ MeasurementReading:
   propertyMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
-Schedule:
+- externalId: InFieldScheduleMapping
   sourceView:
     space: cdf_apm
     externalId: Schedule
@@ -103,7 +60,7 @@ Schedule:
   propertyMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
-Template:
+- externalId: InFieldTemplateMapping
   sourceView:
     space: cdf_apm
     externalId: Template
@@ -118,7 +75,52 @@ Template:
   propertyMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
-TemplateItem:
+- externalId: InFieldActionMapping
+  sourceView:
+    space: cdf_apm
+    externalId: Action
+    version: v1
+    type: view
+  destinationView:
+    space: infield_cdm_source_desc_sche_asset_file_ts
+    externalId: Action
+    version: v1
+    type: view
+  mapIdenticalIdProperties: true
+  propertyMapping:
+    node.createdTime: sourceCreatedTime
+    node.lastUpdatedTime: sourceUpdatedTime
+- externalId: InFieldConditionMapping
+  sourceView:
+    space: cdf_apm
+    externalId: Condition
+    version: v1
+    type: view
+  destinationView:
+    space: infield_cdm_source_desc_sche_asset_file_ts
+    externalId: Condition
+    version: v1
+    type: view
+  mapIdenticalIdProperties: true
+  propertyMapping:
+    node.createdTime: sourceCreatedTime
+    node.lastUpdatedTime: sourceUpdatedTime
+- externalId: InFieldChecklistItemMapping
+  sourceView:
+    space: cdf_apm
+    externalId: ChecklistItem
+    version: v7
+    type: view
+  destinationView:
+    space: infield_cdm_source_desc_sche_asset_file_ts
+    externalId: ChecklistItem
+    version: v1
+    type: view
+  mapIdenticalIdProperties: true
+  propertyMapping:
+    node.createdTime: sourceCreatedTime
+    node.lastUpdatedTime: sourceUpdatedTime
+- externalId: InFieldTemplateItemMapping
   sourceView:
     space: cdf_apm
     externalId: TemplateItem

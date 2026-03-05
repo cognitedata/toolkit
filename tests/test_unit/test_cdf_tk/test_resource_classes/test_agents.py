@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes.agent import (
+    KNOWN_TOOLS,
     AgentInstanceSpaces,
     AgentInstanceSpacesDefinition,
     AgentTool,
@@ -212,6 +213,27 @@ class TestAgentYAML:
             f"The following AgentTools subclasses are "
             f"missing from the AgentTool union: {humanize_collection([cls.__name__ for cls in missing])}"
         )
+
+    @pytest.mark.parametrize(
+        "tool_type",
+        sorted(t for t in KNOWN_TOOLS if t not in {"callFunction", "queryKnowledgeGraph"}),
+    )
+    def test_tool_extra_fields_roundtrip(self, tool_type: str) -> None:
+        """Tools must preserve unknown fields so the API can add new properties without breaking deployments."""
+        data = {
+            "externalId": "my_agent",
+            "name": "My Agent",
+            "tools": [
+                {
+                    "type": tool_type,
+                    "name": "my_tool",
+                    "description": "A valid tool description for testing",
+                    "someNewField": {"key": "value"},
+                },
+            ],
+        }
+        loaded = AgentYAML.model_validate(data)
+        assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 
     def test_instance_spaces_are_in_union(self) -> None:
         all_instance_spaces = get_concrete_subclasses(AgentInstanceSpacesDefinition)

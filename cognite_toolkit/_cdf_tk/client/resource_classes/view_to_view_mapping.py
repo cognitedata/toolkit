@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ViewId
 
 
 class ViewToViewMapping(BaseModelObject):
+    external_id: str
     source_view: ViewId
     destination_view: ViewId
     map_identical_id_properties: bool = Field(

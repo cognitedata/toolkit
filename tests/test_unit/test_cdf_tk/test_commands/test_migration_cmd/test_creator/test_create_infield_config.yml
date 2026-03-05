@@ -25,7 +25,7 @@ InField CDM Location Configs:
       instanceSpaces:
       - sp_asset_oid_source
   dataStorage:
-    appInstanceSpace: sp_infield_oid_app_data
+    appInstanceSpace: sp_infield_oid_app_data_cdm
     rootLocation:
       externalId: WMT:VAL
       space: migrated

@@ -17,7 +17,7 @@ import re
 import sys
 import time
 from collections import defaultdict
-from collections.abc import Hashable, Iterable, Sequence
+from collections.abc import Hashable, Iterable, Mapping, Sequence
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from time import sleep
@@ -66,25 +66,37 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     RequiresConstraintDefinition,
     SpaceRequest,
     SpaceResponse,
+    View,
     ViewCorePropertyResponse,
     ViewRequest,
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import (
+    EdgeProperty,
+    ReverseDirectRelationProperty,
+    ViewCorePropertyRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
     GraphQLDataModelRequest,
     GraphQLDataModelResponse,
 )
-from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HAS_DATA_FILTER_LIMIT
+from cognite_toolkit._cdf_tk.constants import (
+    BUILD_FOLDER_ENCODING,
+    HAS_DATA_FILTER_LIMIT,
+    VIEW_UPSERT_BATCH_LIMIT,
+)
 from cognite_toolkit._cdf_tk.cruds._base_cruds import (
     ResourceContainerCRUD,
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
     calculate_hash,
+    humanize_collection,
     in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
@@ -93,6 +105,7 @@ from cognite_toolkit._cdf_tk.utils import (
     to_diff,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.utils.tarjan import tarjan
 from cognite_toolkit._cdf_tk.yaml_classes import (
     ContainerYAML,
     DataModelYAML,
@@ -100,7 +113,6 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
     GraphQLDataModelYAML,
     NodeYAML,
     SpaceYAML,
-    ToolkitResource,
     ViewYAML,
 )
 from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ContainerViewProperty
@@ -200,7 +212,7 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceId, SpaceRequest, SpaceResponse]):
         if space:
             yield from self.client.tool.spaces.retrieve([SpaceId(space=space)])
         else:
-            for batch in self.client.tool.spaces.iterate():
+            for batch in self.client.tool.spaces.iterate(limit=None):
                 yield from batch
 
     def count(self, ids: Sequence[SpaceId]) -> int:
@@ -230,14 +242,14 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceId, SpaceRequest, SpaceResponse]):
         if not spaces:
             return
         filter_ = InstanceFilter(instance_type="node", space=spaces)
-        for instances in self.client.tool.instances.iterate(filter=filter_):
+        for instances in self.client.tool.instances.iterate(filter=filter_, limit=None):
             yield [inst.as_id() for inst in instances]  # type: ignore[misc]
 
     def _iterate_over_edges(self, spaces: list[str]) -> Iterable[list[EdgeId]]:
         if not spaces:
             return
         filter_ = InstanceFilter(instance_type="edge", space=spaces)
-        for instances in self.client.tool.instances.iterate(filter=filter_):
+        for instances in self.client.tool.instances.iterate(filter=filter_, limit=None):
             yield [inst.as_id() for inst in instances]  # type: ignore[misc]
 
 
@@ -402,7 +414,9 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerRequest, Contain
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ContainerResponse]:
-        for batch in self.client.tool.containers.iterate(filter=ContainerFilter(space=space) if space else None):
+        for batch in self.client.tool.containers.iterate(
+            filter=ContainerFilter(space=space) if space else None, limit=None
+        ):
             yield from batch
 
     def count(self, ids: Sequence[ContainerId]) -> int:
@@ -584,16 +598,16 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
         return id.dump()
 
     @classmethod
-    def get_dependencies(cls, resource: ViewYAML) -> Iterable[tuple[type[ToolkitResource], Identifier]]:
+    def get_dependencies(cls, resource: ViewYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
 
-        yield SpaceYAML, SpaceId(space=resource.space)
+        yield SpaceCRUD, SpaceId(space=resource.space)
 
         for implement in resource.implements or []:
-            yield ViewYAML, implement.as_id()
+            yield ViewCRUD, implement.as_id()
         if resource.properties:
             for prop in resource.properties.values():
                 if isinstance(prop, ContainerViewProperty):
-                    yield ContainerYAML, prop.container.as_id()
+                    yield ContainerCRUD, prop.container.as_id()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -706,6 +720,8 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
+        if Flags.DEPENDENCY_ORDERED_DEPLOY.is_enabled():
+            return self._create_dependency_ordered(items)
         try:
             return self.client.tool.views.create(items)
         except ToolkitAPIError as e1:
@@ -713,6 +729,66 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
                 # Fallback to creating one by one if the error is auto-retryable.
                 return self._fallback_create_one_by_one(items, e1)
             raise
+
+    def _create_dependency_ordered(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
+        creation_order = self._compute_deploy_batches(items)
+        created: list[ViewResponse] = []
+        for batch in creation_order:
+            try:
+                created.extend(self.client.tool.views.create(batch))
+            except ToolkitAPIError as e:
+                if e.is_auto_retryable:
+                    created.extend(self._fallback_create_one_by_one(batch, e))
+                else:
+                    raise
+        return created
+
+    def _compute_deploy_batches(self, items: Sequence[ViewRequest]) -> list[list[ViewRequest]]:
+        """Sorts views into batches based on their dependency graph (implements, reverse direct relations,
+        and direct relation sources).
+
+        Computes the strongly connected components in topological order, then packs
+        consecutive SCCs into batches up to VIEW_UPSERT_BATCH_LIMIT.
+        """
+        views_by_id = {self.get_id(item): item for item in items}
+
+        self._sort_implements_or_raise_cycle(views_by_id)
+
+        dependencies_by_id: dict[ViewId, set[ViewId]] = defaultdict(set)
+        for view_id, view in views_by_id.items():
+            dependencies_by_id[view_id].update([parent for parent in view.implements or [] if parent in views_by_id])
+            for view_property in (view.properties or {}).values():
+                if isinstance(view_property, ReverseDirectRelationProperty):
+                    if view_property.source in views_by_id:
+                        dependencies_by_id[view_id].add(view_property.source)
+                    through_source = view_property.through.source
+                    if isinstance(through_source, ViewId) and through_source in views_by_id:
+                        dependencies_by_id[view_id].add(through_source)
+                elif isinstance(view_property, EdgeProperty):
+                    if view_property.source in views_by_id:
+                        dependencies_by_id[view_id].add(view_property.source)
+                    if view_property.edge_source is not None and view_property.edge_source in views_by_id:
+                        dependencies_by_id[view_id].add(view_property.edge_source)
+                elif isinstance(view_property, ViewCorePropertyRequest) and view_property.source is not None:
+                    if view_property.source in views_by_id:
+                        dependencies_by_id[view_id].add(view_property.source)
+
+        batches: list[list[ViewRequest]] = []
+        current_batch: list[ViewRequest] = []
+        for strongly_connected in tarjan(dependencies_by_id):
+            scc_views = [views_by_id[view_id] for view_id in strongly_connected]
+            if len(current_batch) + len(scc_views) > VIEW_UPSERT_BATCH_LIMIT and len(current_batch) > 0:
+                batches.append(current_batch)
+                current_batch = []
+            current_batch.extend(scc_views)
+            if len(scc_views) > VIEW_UPSERT_BATCH_LIMIT:
+                MediumSeverityWarning(
+                    f"Found a strongly interdependent set of {len(scc_views)} views: {humanize_collection(self.get_ids(scc_views))}. "
+                    "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
+                ).print_warning(console=self.console)
+        if len(current_batch) > 0:
+            batches.append(current_batch)
+        return batches
 
     def _fallback_create_one_by_one(
         self, items: Sequence[ViewRequest], e1: ToolkitAPIError, warn: bool = True
@@ -763,7 +839,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ViewResponse]:
-        for batch in self.client.tool.views.iterate(filter=ViewFilter(space=space) if space else None):
+        for batch in self.client.tool.views.iterate(filter=ViewFilter(space=space, all_versions=True), limit=None):
             yield from batch
 
     @classmethod
@@ -799,8 +875,9 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
                 readonly_properties.add(property_identifier)
         return readonly_properties
 
+    @staticmethod
     def _build_view_implements_dependencies(
-        self, view_by_ids: dict[ViewId, ViewResponse], include: set[ViewId] | None = None
+        view_by_ids: Mapping[ViewId, View], include: set[ViewId] | None = None
     ) -> dict[ViewId, set[ViewId]]:
         """Build a dependency graph based on view implements relationships.
 
@@ -819,19 +896,27 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
                     dependencies[view_id].add(implemented_view_id)
         return dependencies
 
+    @staticmethod
+    def _sort_implements_or_raise_cycle(
+        view_by_ids: Mapping[ViewId, View],
+    ) -> list[ViewId]:
+        """Builds the implements dependency graph and returns views in topological order.
+
+        Raises ToolkitCycleError if there is a cycle in implements.
+        """
+        parents_by_child = ViewCRUD._build_view_implements_dependencies(view_by_ids)
+        try:
+            # static_order() returns a lazy generator in Python 3.11+; must be consumed to trigger CycleError
+            return list(TopologicalSorter(parents_by_child).static_order())
+        except CycleError as e:
+            raise ToolkitCycleError(
+                f"Failed to sort views topologically. This is likely due to a cycle in implements. {e.args[1]}"
+            )
+
     def topological_sort_implements(self, view_ids: list[ViewId]) -> list[ViewId]:
         """Sorts the views in topological order based on their implements and through properties."""
         view_by_ids = self._lookup_views(view_ids)
-        parents_by_child = self._build_view_implements_dependencies(view_by_ids)
-
-        try:
-            sorted_views = list(TopologicalSorter(parents_by_child).static_order())
-        except CycleError as e:
-            raise ToolkitCycleError(
-                f"Failed to sort views topologically. This likely due to a cycle in implements. {e.args[1]}"
-            )
-
-        return sorted_views
+        return self._sort_implements_or_raise_cycle(view_by_ids)
 
     def topological_sort_container_constraints(self, view_ids: list[ViewId]) -> tuple[list[ViewId], list[ViewId]]:
         """Sorts the views in topological order based on their container constraints.
@@ -1027,7 +1112,9 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelRequest, DataModelRespons
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DataModelResponse]:
-        for batch in self.client.tool.data_models.iterate(filter=DataModelFilter(space=space, include_global=False)):
+        for batch in self.client.tool.data_models.iterate(
+            filter=DataModelFilter(space=space, include_global=False, all_versions=True), limit=None
+        ):
             yield from batch
 
     @classmethod
@@ -1186,7 +1273,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeRequest, NodeResponse]):
             space=[space] if space else None,
             source=source_ref,
         )
-        for batch in self.client.tool.instances.iterate(filter=filter_):
+        for batch in self.client.tool.instances.iterate(filter=filter_, limit=None):
             for inst in batch:
                 if isinstance(inst, NodeResponse):
                     yield inst
@@ -1374,7 +1461,7 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, Gr
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[GraphQLDataModelResponse]:
         filter_ = DataModelFilter(space=space) if space else None
-        for batch in self.client.tool.graphql_data_models.iterate(filter=filter_):
+        for batch in self.client.tool.graphql_data_models.iterate(filter=filter_, limit=None):
             yield from batch
 
     def count(self, ids: Sequence[DataModelId]) -> int:
@@ -1542,7 +1629,7 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeRequest, EdgeResponse]):
             instance_type="edge",
             space=[space] if space else None,
         )
-        for batch in self.client.tool.instances.iterate(filter=filter_):
+        for batch in self.client.tool.instances.iterate(filter=filter_, limit=None):
             for inst in batch:
                 if isinstance(inst, EdgeResponse):
                     yield inst

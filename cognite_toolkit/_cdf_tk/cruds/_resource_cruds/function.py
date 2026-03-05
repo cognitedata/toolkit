@@ -450,7 +450,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[FunctionResponse]:
-        for functions in self.client.tool.functions.iterate():
+        for functions in self.client.tool.functions.iterate(limit=None):
             yield from functions
 
 
@@ -656,7 +656,7 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[FunctionScheduleResponse]:
         if parent_ids is None:
-            for schedules in self.client.tool.functions.schedules.iterate():
+            for schedules in self.client.tool.functions.schedules.iterate(limit=None):
                 yield from schedules
         else:
             external_ids = [parent_id.external_id for parent_id in parent_ids if isinstance(parent_id, ExternalId)]
@@ -664,7 +664,7 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
                 return
             internal_ids = self.client.lookup.functions.id(external_ids)
             for function_id in internal_ids:
-                for schedules in self.client.tool.functions.schedules.iterate(function_id=function_id):
+                for schedules in self.client.tool.functions.schedules.iterate(function_id=function_id, limit=None):
                     yield from schedules
 
     def sensitive_strings(self, item: FunctionScheduleRequest) -> Iterable[str]:

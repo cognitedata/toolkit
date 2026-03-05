@@ -1,12 +1,14 @@
 from typing import Annotated, Any, Literal
 
-from pydantic import BeforeValidator, Field
+from pydantic import BeforeValidator, ConfigDict, Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 
 class AgentToolDefinition(BaseModelObject):
+    model_config = ConfigDict(extra="allow")
+
     type: str
     name: str
     description: str
@@ -146,12 +148,15 @@ AgentTool = Annotated[
 
 
 class Agent(BaseModelObject):
+    model_config = ConfigDict(extra="allow")
+
     external_id: str
     name: str
     description: str | None = None
     instructions: str | None = None
     model: str | None = None
     tools: list[AgentTool] | None = None
+    labels: list[str] | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)

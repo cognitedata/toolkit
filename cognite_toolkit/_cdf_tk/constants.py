@@ -47,6 +47,11 @@ MIN_TIMESTAMP_MS = -2208988800000  # 1900-01-01 00:00:00.000
 MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
 HAS_DATA_FILTER_LIMIT = 10
 
+# The actual API limit for view and container upsert is 100, but depending on the number
+# of properties DMS struggles with large batches, thus, we set them to 50 to be safe.
+VIEW_UPSERT_BATCH_LIMIT = 50
+CONTAINER_UPSERT_BATCH_LIMIT = 50
+
 DEV_ONLY_MODULES = frozenset(["cdf_auth_readwrite_all"])
 
 DEFAULT_ENV = "dev"

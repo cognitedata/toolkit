@@ -339,7 +339,8 @@ class ExtractionPipelineConfigCRUD(
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ExtractionPipelineConfigResponse]:
         return self.client.tool.extraction_pipelines.configs.retrieve(
-            [ExtractionPipelineConfigId(external_id=pipeline_id.external_id) for pipeline_id in ids]
+            [ExtractionPipelineConfigId(external_id=pipeline_id.external_id) for pipeline_id in ids],
+            ignore_unknown_ids=True,
         )
 
     def delete(self, ids: Sequence[ExternalId]) -> int:

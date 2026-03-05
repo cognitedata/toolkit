@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Generic, Literal, cast
 from uuid import uuid4
 
@@ -16,9 +16,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     EdgeRequest,
+    EdgeResponse,
     InstanceRequest,
+    InstanceResponse,
+    InstanceSource,
     NodeId,
     NodeRequest,
+    NodeResponse,
     ViewId,
     ViewResponse,
 )
@@ -38,7 +42,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     RevisionStatus,
     ThreeDModelClassicResponse,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.conversion import DirectRelationCache, asset_centric_to_dm
+from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
+from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
+    ConnectionCreator,
+    DirectRelationCache,
+    EdgeOtherSide,
+    asset_centric_to_dm,
+    convert_container_properties,
+    convert_edges,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     Model,
     ThreeDMigrationRequest,
@@ -49,6 +61,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     CanvasMigrationIssue,
     ChartMigrationIssue,
     ConversionIssue,
+    InstanceConversionIssue,
     ThreeDModelMigrationIssue,
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
@@ -56,7 +69,12 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitVal
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio._base import T_Selector
 from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, NoOpLogger
-from cognite_toolkit._cdf_tk.storageio.selectors import CanvasSelector, ChartSelector, ThreeDSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import (
+    CanvasSelector,
+    ChartSelector,
+    InstanceViewSelector,
+    ThreeDSelector,
+)
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
 
@@ -633,3 +651,157 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, 
             asset_instance_id=asset_instance_id,
         )
         return mapped_request, issue
+
+
+class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, InstanceRequest]):
+    """This mapper maps instances to instances accounting for the difference between older data models
+    (back when they were called Flexible Data Models) and newer data models (backed by Cognite Core Data Model).
+
+    This means in particular the following:
+
+    - Supports converting edges to direct/reverse direct relations.
+    - Supports converting timeseries/files references to direct relation pointing to the CogniteTimeSeries/CogniteFile
+        views.
+
+    """
+
+    def __init__(
+        self, client: ToolkitClient, space_mapping: Mapping[str, str], mappings: Sequence[ViewToViewMapping]
+    ) -> None:
+        super().__init__(client)
+        self._connection_creator = ConnectionCreator(client, space_mapping)
+        self._mappings_by_source_view: dict[ViewId, ViewToViewMapping] = {
+            mapping.source_view: mapping for mapping in mappings
+        }
+
+    def prepare(self, source_selector: InstanceViewSelector) -> None:
+        view_ids = set(mapping.source_view for mapping in self._mappings_by_source_view.values()) | set(
+            mapping.destination_view for mapping in self._mappings_by_source_view.values()
+        )
+        views = self.client.tool.views.retrieve(list(view_ids))
+        self._connection_creator.update_view_cache(views)
+
+    def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
+        self._connection_creator.update_cache(source)
+        nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)
+        mapped_instances: list[InstanceRequest | None] = []
+        issue_list: list[InstanceConversionIssue] = []
+        for node in nodes:
+            node_id = node.as_id()
+            if node.space not in self._connection_creator.space_mapping:
+                issue_list.append(
+                    InstanceConversionIssue(
+                        id=str(node_id), errors=[f"No target space mapping for source space '{node.space}'"]
+                    )
+                )
+                self.logger.tracker.finalize_item(str(node.as_id()), "failure")
+                continue
+            mapped_node, edges, issue = self._map_single_node(
+                node, other_side_by_edge_type_and_direction_by_source[node.as_id()]
+            )
+            if issue.has_issues:
+                issue_list.append(issue)
+            mapped_instances.append(mapped_node)
+            mapped_instances.extend(edges)
+        if issue_list:
+            self.logger.log(issue_list)
+        return mapped_instances
+
+    def _as_nodes_and_edges(
+        self, source: Sequence[NodeResponse | EdgeResponse]
+    ) -> tuple[
+        list[NodeResponse],
+        dict[NodeId, dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]]],
+    ]:
+        nodes: list[NodeResponse] = []
+        other_side_by_edge_type_and_direction_by_source: dict[
+            NodeId, dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]]
+        ] = defaultdict(lambda: defaultdict(list))
+        for item in source:
+            if isinstance(item, NodeResponse):
+                nodes.append(item)
+            elif isinstance(item, EdgeResponse):
+                edge_id = item.as_id()
+                other_side_by_edge_type_and_direction_by_source[item.start_node][(item.type, "outwards")].append(
+                    EdgeOtherSide(edge_id, item.end_node)
+                )
+
+                other_side_by_edge_type_and_direction_by_source[item.end_node][(item.type, "inwards")].append(
+                    EdgeOtherSide(edge_id, item.start_node)
+                )
+        return nodes, other_side_by_edge_type_and_direction_by_source
+
+    def _map_single_node(
+        self,
+        node: NodeResponse,
+        other_side_by_edge_type_and_direction: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]],
+    ) -> tuple[NodeRequest, list[EdgeRequest], InstanceConversionIssue]:
+        new_id = self._connection_creator.map_instance(node)
+        sources, new_edges, issue = self._create_instance_data(new_id, node, other_side_by_edge_type_and_direction)
+
+        return (
+            NodeRequest(space=new_id.space, external_id=new_id.external_id, sources=sources or None),
+            new_edges,
+            issue,
+        )
+
+    def _create_instance_data(
+        self,
+        new_id: NodeId,
+        node: NodeResponse,
+        other_side_by_edge_type_and_direction: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]],
+    ) -> tuple[list[InstanceSource], list[EdgeRequest], InstanceConversionIssue]:
+        sources: list[InstanceSource] = []
+        new_edges: list[EdgeRequest] = []
+        issue = InstanceConversionIssue(id=str(new_id))
+        for view_id, source_properties in (node.properties or {}).items():
+            if not isinstance(view_id, ViewId):
+                issue.errors.append(
+                    f"Migration of ContainerReferenced properties is not supported. Found property with non-view ID '{view_id}' on node '{node.as_id()}'."
+                )
+                continue
+            mapping = self._mappings_by_source_view.get(view_id)
+            if mapping is None:
+                issue.errors.append(f"No mapping found for view '{view_id}'")
+                continue
+            destination_view = self._connection_creator.view_by_id.get(mapping.destination_view)
+            if destination_view is None:
+                issue.errors.append(
+                    f"Invalid mapping {mapping.external_id}': destination view {mapping.destination_view} not found."
+                )
+                continue
+            if view_id not in self._connection_creator.view_by_id:
+                issue.errors.append(f"Invalid mapping {mapping.external_id}': source view {view_id} not found.")
+                continue
+            source_properties.update(
+                {
+                    "node.createdTime": node.created_time,
+                    "node.lastUpdatedTime": node.last_updated_time,
+                    "node.version": node.version,
+                }
+            )
+            container_results = convert_container_properties(
+                source_properties, mapping, destination_view.properties, self._connection_creator, view_id, new_id
+            )
+            issue.errors.extend(container_results.errors)
+            edge_results = convert_edges(
+                other_side_by_edge_type_and_direction,
+                mapping,
+                destination_view.properties,
+                new_id,
+                self._connection_creator,
+                view_id,
+            )
+            issue.errors.extend(edge_results.errors)
+
+            # Todo: Merge conflicting?
+            created_container_properties = {
+                **container_results.container_properties,
+                **edge_results.container_properties,
+            }
+            if created_container_properties:
+                sources.append(InstanceSource(source=destination_view.as_id(), properties=created_container_properties))
+            new_edges.extend(container_results.edges)
+            new_edges.extend(edge_results.edges)
+
+        return sources, new_edges, issue

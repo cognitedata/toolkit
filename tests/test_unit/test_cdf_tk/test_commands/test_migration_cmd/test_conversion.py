@@ -33,6 +33,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     TimestampProperty,
     ViewCorePropertyResponse,
     ViewId,
+    ViewResponse,
     ViewResponseProperty,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
@@ -43,12 +44,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSerie
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
-    ConversionSourceView,
+    ConnectionCreator,
     DirectRelationCache,
-    TimeSeriesFilesReferenceCache,
+    EdgeOtherSide,
     asset_centric_to_dm,
-    create_connection_properties,
-    create_container_properties,
+    convert_container_properties,
+    convert_edges,
     create_properties,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
@@ -1232,7 +1233,7 @@ class TestAssetCentricConversion:
         assert edge is None
 
 
-class TestCreateContainerConnectionProperties:
+class TestInstanceToInstanceConversion:
     SOURCE_VIEW_ID = ViewId(space="src_space", external_id="SrcView", version="v1")
     DEST_VIEW_ID = ViewId(space="dst_space", external_id="DstView", version="v1")
     CONTAINER_ID = ContainerId(space="dst_space", external_id="DstContainer")
@@ -1264,6 +1265,12 @@ class TestCreateContainerConnectionProperties:
             container=CONTAINER_ID,
             container_property_identifier="fileRef",
             type=FileCDFExternalIdReference(),
+            **DEFAULT_ARGS,
+        ),
+        "epoch": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="epoch",
+            type=Int64Property(),
             **DEFAULT_ARGS,
         ),
         "dateVal": ViewCorePropertyResponse(
@@ -1325,6 +1332,12 @@ class TestCreateContainerConnectionProperties:
             type=DirectNodeRelation(),
             **DEFAULT_ARGS,
         ),
+        "timestamp": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="timestamp",
+            type=TimestampProperty(),
+            **DEFAULT_ARGS,
+        ),
         "dateVal": ViewCorePropertyResponse(
             container=CONTAINER_ID,
             container_property_identifier="dateVal",
@@ -1365,8 +1378,8 @@ class TestCreateContainerConnectionProperties:
     }
     COGNITE_TIMESERIES = NodeId(space="ts_space", external_id="ts_node_1")
     COGNITE_FILE = NodeId(space="file_space", external_id="file_node_1")
-    SOURCE_VIEW = ConversionSourceView(SOURCE_PROPERTIES)
     MAPPING = ViewToViewMapping(
+        external_id="mapping_1",
         source_view=SOURCE_VIEW_ID,
         destination_view=DEST_VIEW_ID,
         map_identical_id_properties=True,
@@ -1377,6 +1390,7 @@ class TestCreateContainerConnectionProperties:
             "textEdge": "textProp",
             "edgeRel": "destEdge",
             "dupRel": "relatedAsset",
+            "epoch": "timestamp",
         },
     )
 
@@ -1410,28 +1424,62 @@ class TestCreateContainerConnectionProperties:
                 ],
                 id="File reference, date formatting, conversion error, and reverse relation skip",
             ),
+            pytest.param(
+                {
+                    "epoch": 1700000000000,
+                },
+                {
+                    "timestamp": "2023-11-14T22:13:20Z",
+                },
+                [],
+                id="Epoch to timestamp conversion",
+            ),
         ],
     )
-    def test_create_container_properties(
+    def test_convert_container_properties(
         self,
         source_properties: dict[str, Any],
         expected_properties: dict[str, Any],
         expected_errors: list[str],
     ) -> None:
-        cache = TimeSeriesFilesReferenceCache(MagicMock(spec=ToolkitClient))
-        cache._cache["timeseries"]["ts_ext_1"] = self.COGNITE_TIMESERIES
-        cache._cache["file"]["file_ext_1"] = self.COGNITE_FILE
+        connection_creator = self._create_connection_creator()
 
-        actual_properties, errors = create_container_properties(
+        results = convert_container_properties(
             source_properties,
             self.MAPPING,
             self.DESTINATION_PROPERTIES,
-            view=self.SOURCE_VIEW,
-            direct_relation_cache=cache,
+            connection_creator,
+            self.SOURCE_VIEW_ID,
+            self.SOURCE_ID,
         )
 
-        assert actual_properties == expected_properties
-        assert errors == expected_errors
+        assert results.container_properties == expected_properties
+        assert results.errors == expected_errors
+
+    def _create_connection_creator(self) -> ConnectionCreator:
+        creator = ConnectionCreator(
+            client=MagicMock(spec=ToolkitClient),
+            space_mapping={"src_space": "dst_space", "dst_space": "dst_space"},
+        )
+        source_view = ViewResponse(
+            space=self.SOURCE_VIEW_ID.space,
+            external_id=self.SOURCE_VIEW_ID.external_id,
+            version=self.SOURCE_VIEW_ID.version,
+            properties=self.SOURCE_PROPERTIES,
+            created_time=0,
+            last_updated_time=0,
+            writable=True,
+            queryable=True,
+            used_for="all",
+            is_global=False,
+            mapped_containers=[],
+        )
+        creator.view_by_id[self.SOURCE_VIEW_ID] = source_view
+        creator._timeseries_reference_cache["ts_ext_1"] = self.COGNITE_TIMESERIES
+        creator._file_reference_cache["file_ext_1"] = self.COGNITE_FILE
+        return creator
+
+    IGNORED_EDGE_ID = EdgeId(space="src_space", external_id="ignored_edge")
 
     @pytest.mark.parametrize(
         "edge_targets,expected_relations,expected_edges,expected_errors",
@@ -1439,10 +1487,16 @@ class TestCreateContainerConnectionProperties:
             pytest.param(
                 {
                     (NodeId(space="src_space", external_id="relatesTo"), "outwards"): [
-                        NodeId(space="dst_space", external_id="asset_123")
+                        EdgeOtherSide(
+                            edge_id=IGNORED_EDGE_ID,
+                            other_side=NodeId(space="dst_space", external_id="asset_123"),
+                        )
                     ],
                     (NodeId(space="src_space", external_id="hasChild"), "inwards"): [
-                        NodeId(space="dst_space", external_id="asset_456")
+                        EdgeOtherSide(
+                            edge_id=IGNORED_EDGE_ID,
+                            other_side=NodeId(space="dst_space", external_id="asset_456"),
+                        )
                     ],
                 },
                 {
@@ -1455,25 +1509,46 @@ class TestCreateContainerConnectionProperties:
             pytest.param(
                 {
                     (NodeId(space="src_space", external_id="relatesTo"), "outwards"): [
-                        NodeId(space="dst_space", external_id="asset_C"),
-                        NodeId(space="dst_space", external_id="asset_D"),
+                        EdgeOtherSide(
+                            edge_id=IGNORED_EDGE_ID,
+                            other_side=NodeId(space="dst_space", external_id="asset_C"),
+                        ),
+                        EdgeOtherSide(
+                            edge_id=IGNORED_EDGE_ID,
+                            other_side=NodeId(space="dst_space", external_id="asset_D"),
+                        ),
                     ],
                     (NodeId(space="src_space", external_id="listRel"), "outwards"): [
-                        NodeId(space="dst_space", external_id="asset_A"),
-                        NodeId(space="dst_space", external_id="asset_B"),
+                        EdgeOtherSide(
+                            edge_id=IGNORED_EDGE_ID,
+                            other_side=NodeId(space="dst_space", external_id="asset_A"),
+                        ),
+                        EdgeOtherSide(
+                            edge_id=IGNORED_EDGE_ID,
+                            other_side=NodeId(space="dst_space", external_id="asset_B"),
+                        ),
                     ],
                     (NodeId(space="src_space", external_id="textEdge"), "outwards"): [
-                        NodeId(space="dst_space", external_id="asset_E"),
+                        EdgeOtherSide(
+                            edge_id=IGNORED_EDGE_ID,
+                            other_side=NodeId(space="dst_space", external_id="asset_E"),
+                        ),
                     ],
                     (NodeId(space="src_space", external_id="edgeRel"), "inwards"): [
-                        NodeId(space="dst_space", external_id="asset_F"),
+                        EdgeOtherSide(
+                            edge_id=EdgeId(space="dst_space", external_id="dst_edge"),
+                            other_side=NodeId(space="dst_space", external_id="asset_F"),
+                        ),
                     ],
                     (NodeId(space="src_space", external_id="dupRel"), "outwards"): [
-                        NodeId(space="dst_space", external_id="asset_G"),
+                        EdgeOtherSide(
+                            edge_id=IGNORED_EDGE_ID,
+                            other_side=NodeId(space="dst_space", external_id="asset_G"),
+                        ),
                     ],
                 },
                 {
-                    "relatedAsset": {"space": "dst_space", "externalId": "asset_C"},
+                    "relatedAsset": {"space": "dst_space", "externalId": "asset_G"},
                     "listAssets": [
                         {"space": "dst_space", "externalId": "asset_A"},
                         {"space": "dst_space", "externalId": "asset_B"},
@@ -1482,38 +1557,40 @@ class TestCreateContainerConnectionProperties:
                 [
                     EdgeRequest(
                         space="dst_space",
-                        external_id="new_nodeA_edgeRel__asset_F",
+                        external_id="dst_edge",
                         type=NodeId(space="dst_space", external_id="destEdgeType"),
                         start_node=NodeId(space="dst_space", external_id="asset_F"),
                         end_node=NEW_ID,
                     ),
                 ],
                 [
-                    "Multiple edges mapped to single-valued direct relation property 'relatedAsset'."
-                    " Keeping the first one and ignoring the rest.",
+                    "Too many targets for direct relation property 'relatesTo' in view {'type': "
+                    "'view', 'space': 'src_space', 'externalId': 'SrcView', 'version': 'v1'}: "
+                    "expected exactly 1, got 2. Returning the first target.",
                     "Cannot map edge property 'textEdge' to non-connection property text.",
-                    "Multiple edges mapped to single-valued direct relation property 'relatedAsset'."
-                    " Keeping the first one and ignoring the rest.",
                 ],
                 id="List relation, multi-target single, edge creation (inwards), non-connection error, and duplicate mapping",
             ),
         ],
     )
-    def test_create_connection_properties(
+    def test_convert_edges(
         self,
-        edge_targets: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[NodeId]],
+        edge_targets: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]],
         expected_relations: dict[str, JsonValue],
         expected_edges: list[EdgeRequest],
         expected_errors: list[str],
     ) -> None:
-        relations, edges, errors = create_connection_properties(
+        connection_creator = self._create_connection_creator()
+
+        results = convert_edges(
             edge_targets,
             self.MAPPING,
             self.DESTINATION_PROPERTIES,
-            source_edges=self.SOURCE_VIEW.edges,
-            source_id=self.NEW_ID,
+            self.NEW_ID,
+            connection_creator,
+            self.SOURCE_VIEW_ID,
         )
 
-        assert relations == expected_relations
-        assert [edge.model_dump() for edge in edges] == [edge.model_dump() for edge in expected_edges]
-        assert errors == expected_errors
+        assert results.container_properties == expected_relations
+        assert [edge.model_dump() for edge in results.edges] == [edge.model_dump() for edge in expected_edges]
+        assert results.errors == expected_errors

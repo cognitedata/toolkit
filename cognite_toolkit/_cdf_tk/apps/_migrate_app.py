@@ -19,9 +19,11 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     AssetCentricMapper,
     CanvasMapper,
     ChartMapper,
+    FDMtoCDMMapper,
     ThreeDAssetMapper,
     ThreeDMapper,
 )
+from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import create_infield_data_mappings
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
@@ -34,12 +36,15 @@ from cognite_toolkit._cdf_tk.commands._migrate.selectors import (
     MigrationCSVFileSelector,
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
+from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO, InstanceIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
+    InstanceViewSelector,
+    SelectedView,
     ThreeDModelIdSelector,
 )
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
@@ -76,6 +81,8 @@ class MigrateApp(typer.Typer):
         self.command("3d-mappings")(self.three_d_asset_mapping)
         if Flags.INFIELD_MIGRATE.is_enabled():
             self.command("infield-configs")(self.infield_configs)
+            # Uncomment when the infield data migration is ready.
+            # self.command("infield-data")(self.infield_data)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
@@ -367,6 +374,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="assets",
             )
         )
 
@@ -539,6 +547,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="events",
             )
         )
 
@@ -655,6 +664,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="timeseries",
             )
         )
 
@@ -772,6 +782,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="files",
             )
         )
 
@@ -913,6 +924,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="annotations",
             )
         )
 
@@ -987,6 +999,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="canvas",
             )
         )
 
@@ -1049,6 +1062,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="charts",
             )
         )
 
@@ -1111,6 +1125,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="three_d_models",
             )
         )
 
@@ -1207,6 +1222,7 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="three_d_asset_mapping",
             )
         )
 
@@ -1261,5 +1277,151 @@ class MigrateApp(typer.Typer):
                 dry_run=False,
                 deploy=False,
                 verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def infield_data(
+        ctx: typer.Context,
+        source_space: Annotated[
+            str | None,
+            typer.Option(
+                "--source-space",
+                "-s",
+                help="The instance space to select Infield data from. If not provided, an interactive selection will be performed to select the instance space.",
+            ),
+        ] = None,
+        target_space: Annotated[
+            str | None,
+            typer.Option(
+                "--target-space",
+                "-t",
+                help="The instance space to migrate Infield data to. If not provided, an interactive selection will be performed to select the target instance space.",
+            ),
+        ] = None,
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where migration logs will be stored.",
+            ),
+        ] = Path(f"migration_logs_{TODAY}"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrates Infield data from existing APM instance spaces in CDF to the new InfieldOnCDM data model."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+
+        cmd = MigrationCommand(client=client)
+        apm_configs = client.infield.apm_config.list(limit=None)
+        source_candidates = {
+            location.app_data_instance_space
+            for config in apm_configs
+            if config.feature_configuration
+            for location in config.feature_configuration.root_location_configurations or []
+            if location.app_data_instance_space
+        }
+        infield_cdm_configs = client.infield.cdm_config.list(limit=None)
+        target_candidates = {
+            config.data_storage.app_instance_space
+            for config in infield_cdm_configs
+            if config.data_storage and config.data_storage.app_instance_space
+        }
+        if not source_candidates:
+            raise typer.BadParameter("No APM Configurations with app data space found. Cannot migrate Infield data.")
+        if not target_candidates:
+            raise typer.BadParameter(
+                "No InfieldOnCDM Configurations with app instance space found. Cannot migrate Infield data."
+            )
+        if source_space is None and target_space is None:
+            source_stats = client.data_modeling.statistics.spaces.retrieve(list(source_candidates))
+            if not source_stats:
+                raise typer.BadParameter(
+                    f"Source spaces {humanize_collection(source_candidates)} do not exist or cannot be accessed. Please ensure the APM instance space contains data and can be accessed."
+                )
+            source_space = questionary.select(
+                "Select the instance space to migrate Infield data from:",
+                choices=[
+                    questionary.Choice(
+                        title=f"{item.space} (contains {item.nodes:,} nodes and {item.edges:,} edges)",
+                        value=item.space,
+                    )
+                    for item in source_stats
+                ],
+            ).unsafe_ask()
+            target_stats = client.data_modeling.statistics.spaces.retrieve(list(target_candidates))
+            if not target_stats:
+                raise typer.BadParameter(
+                    f"Target spaces {humanize_collection(target_candidates)} do not exist or cannot be accessed. Please create the instance space or ensure you can access it."
+                )
+            target_space = questionary.select(
+                "Select the instance space to migrate Infield data to:",
+                choices=[
+                    questionary.Choice(
+                        title=f"{item.space} (contains {item.nodes:,} nodes and {item.edges:,} edges)",
+                        value=item.space,
+                    )
+                    for item in target_stats
+                ],
+            ).unsafe_ask()
+            log_dir = Path(
+                questionary.path("Specify log directory for migration logs:", default=str(log_dir)).unsafe_ask()
+            )
+            dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
+            verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
+        elif source_space is not None and target_space is not None:
+            errors: list[str] = []
+            if source_space not in source_candidates:
+                errors.append(
+                    f"Source space '{source_space}' is not a valid source for Infield data migration. Available source spaces are: {humanize_collection(source_candidates)}."
+                )
+            if target_space not in target_candidates:
+                errors.append(
+                    f"Target space '{target_space}' is not a valid target for Infield data migration. Available target spaces are: {humanize_collection(target_candidates)}."
+                )
+            if errors:
+                raise typer.BadParameter("\n".join(errors))
+        else:
+            raise typer.BadParameter("Either both --source-space and --target-space must be provided, or neither.")
+
+        space_mapping = {source_space: target_space}
+        infield_mappings = create_infield_data_mappings()
+        selectors = [
+            InstanceViewSelector(
+                view=SelectedView(
+                    space=mapping.source_view.space,
+                    external_id=mapping.source_view.external_id,
+                    version=mapping.source_view.version,
+                ),
+                instance_spaces=(source_space,),
+                include_edges=True,
+            )
+            for mapping in infield_mappings
+        ]
+
+        cmd.run(
+            lambda: cmd.migrate(  # type: ignore[misc]
+                selectors=selectors,
+                data=InstanceIO(client),
+                mapper=FDMtoCDMMapper(client, space_mapping, infield_mappings),
+                log_dir=log_dir,
+                dry_run=dry_run,
+                verbose=verbose,
+                user_log_filestem="infield_data",
             )
         )
