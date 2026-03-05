@@ -58,18 +58,22 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerResponse,
     DataModelRequest,
     DataModelResponse,
-    DirectNodeRelation,
     EdgeRequest,
     EdgeResponse,
     NodeRequest,
     NodeResponse,
-    RequiresConstraintDefinition,
     SpaceRequest,
     SpaceResponse,
     View,
     ViewCorePropertyResponse,
     ViewRequest,
     ViewResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    DirectNodeRelation as ClientDirectNodeRelation,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    RequiresConstraintDefinition as ClientRequiresConstraintDefinition,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import (
@@ -115,7 +119,16 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
     SpaceYAML,
     ViewYAML,
 )
-from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ContainerViewProperty
+from cognite_toolkit._cdf_tk.yaml_classes.container_field_definitions import (
+    DirectNodeRelation,
+    RequiresConstraintDefinition,
+)
+from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import (
+    ContainerViewProperty,
+    EdgeConnectionDefinition,
+    ReverseDirectRelationConnectionDefinition,
+    ViewReference,
+)
 
 from .auth import GroupAllScopedCRUD
 
@@ -327,6 +340,29 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerRequest, Contain
                             ContainerId(space=container["space"], external_id=container["externalId"]),
                         )
 
+    @classmethod
+    def get_dependencies(cls, resource: ContainerYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        """Get all external dependencies for a Container resource.
+
+        This includes:
+        - Space dependency
+        - Container dependencies from DirectNodeRelation properties
+        - Container dependencies from RequiresConstraintDefinition constraints
+        """
+        yield SpaceCRUD, SpaceId(space=resource.space)
+
+        # Property-level dependencies
+        if resource.properties:
+            for prop in resource.properties.values():
+                if isinstance(prop.type, DirectNodeRelation) and prop.type.container:
+                    yield ContainerCRUD, prop.type.container.as_id()
+
+        # Constraint-level dependencies
+        if resource.constraints:
+            for constraint in resource.constraints.values():
+                if isinstance(constraint, RequiresConstraintDefinition):
+                    yield ContainerCRUD, constraint.require.as_id()
+
     def dump_resource(self, resource: ContainerResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
         has_local = local is not None
@@ -488,11 +524,11 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerRequest, Contain
         container_dependencies: dict[ContainerId, set[ContainerId]] = defaultdict(set)
         for container_id, container in containers_by_id.items():
             for constraint in (container.constraints or {}).values():
-                if not isinstance(constraint, RequiresConstraintDefinition):
+                if not isinstance(constraint, ClientRequiresConstraintDefinition):
                     continue
                 container_dependencies[container_id].add(constraint.require)
             for property in container.properties.values():
-                if not isinstance(property.type, DirectNodeRelation) or property.type.container is None:
+                if not isinstance(property.type, ClientDirectNodeRelation) or property.type.container is None:
                     continue
                 container_dependencies[container_id].add(property.type.container)
         return container_dependencies
@@ -604,10 +640,26 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
 
         for implement in resource.implements or []:
             yield ViewCRUD, implement.as_id()
+
         if resource.properties:
             for prop in resource.properties.values():
                 if isinstance(prop, ContainerViewProperty):
                     yield ContainerCRUD, prop.container.as_id()
+                    if prop.source:
+                        yield ViewCRUD, prop.source.as_id()
+
+                elif isinstance(prop, EdgeConnectionDefinition):
+                    yield ViewCRUD, prop.source.as_id()
+                    if prop.edge_source:
+                        yield ViewCRUD, prop.edge_source.as_id()
+
+                elif isinstance(prop, ReverseDirectRelationConnectionDefinition):
+                    yield ViewCRUD, prop.source.as_id()
+                    if prop.through.source:
+                        yield (
+                            (ViewCRUD if isinstance(prop.through.source, ViewReference) else ContainerCRUD),
+                            prop.through.source.as_id(),
+                        )
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -1025,6 +1077,19 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelRequest, DataModelRespons
         return id.dump()
 
     @classmethod
+    def get_dependencies(cls, resource: DataModelYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        """Get all external dependencies for a DataModel resource.
+
+        This includes:
+        - Space dependency
+        - View dependencies
+        """
+        yield SpaceCRUD, SpaceId(space=resource.space)
+
+        for view in resource.views or []:
+            yield ViewCRUD, view.as_id()
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
             yield SpaceCRUD, SpaceId(space=item["space"])
@@ -1183,6 +1248,23 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeRequest, NodeResponse]):
         return id.dump()
 
     @classmethod
+    def get_dependencies(cls, resource: NodeYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        """Get all external dependencies for a Node resource.
+
+        This includes:
+        - Space dependency
+        - View or Container dependencies from sources
+        """
+        yield SpaceCRUD, SpaceId(space=resource.space)
+
+        for source in resource.sources or []:
+            if source.source:
+                yield (ViewCRUD if isinstance(source.source, ViewReference) else ContainerCRUD), source.source.as_id()
+
+        if resource.type:
+            yield NodeCRUD, resource.type.as_id()
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
             yield SpaceCRUD, SpaceId(space=item["space"])
@@ -1337,6 +1419,15 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, Gr
             if items is not None
             else DataModelsAcl.Scope.All(),
         )
+
+    @classmethod
+    def get_dependencies(cls, resource: GraphQLDataModelYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        """Get all external dependencies for a GraphQL DataModel resource.
+
+        This includes:
+        - Space dependency
+        """
+        yield SpaceCRUD, SpaceId(space=resource.space)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -1544,6 +1635,25 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeRequest, EdgeResponse]):
     @classmethod
     def as_str(cls, id: EdgeId) -> str:
         return sanitize_filename(f"{id.space}_{id.external_id}")
+
+    @classmethod
+    def get_dependencies(cls, resource: EdgeYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        """Get all external dependencies for an Edge resource.
+
+        This includes:
+        - Space dependency
+        - View or Container dependencies from sources
+        - Start, end, and type Node dependencies
+        """
+        yield SpaceCRUD, SpaceId(space=resource.space)
+
+        for source in resource.sources or []:
+            if source.source:
+                yield (ViewCRUD if isinstance(source.source, ViewReference) else ContainerCRUD), source.source.as_id()
+
+        yield NodeCRUD, resource.start_node.as_id()
+        yield NodeCRUD, resource.end_node.as_id()
+        yield NodeCRUD, resource.type.as_id()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
