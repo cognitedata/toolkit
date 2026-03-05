@@ -390,6 +390,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
             )
         )
         if isinstance(node_creation, SuccessResponse):
+            # Node created successfully
             return True
         results.append(node_creation.as_item_response(upload_id))
         return False

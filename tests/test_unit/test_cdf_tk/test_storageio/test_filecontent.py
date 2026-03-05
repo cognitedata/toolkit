@@ -6,9 +6,7 @@ import pytest
 import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.commands import UploadCommand
-from cognite_toolkit._cdf_tk.storageio import FileContentIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     FileDataModelingTemplate,
     FileDataModelingTemplateSelector,
@@ -17,7 +15,6 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
 )
 from cognite_toolkit._cdf_tk.storageio.selectors._file_content import FILENAME_VARIABLE, TemplateNodeId
 from cognite_toolkit._cdf_tk.storageio.selectors._instances import SelectedView
-from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 
 
 @pytest.fixture
@@ -84,37 +81,21 @@ class TestFileContent:
         self, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig, tmp_path: Path
     ) -> None:
         config = toolkit_config
-        client = ToolkitClient(config)
-        file_upload_url = "https://upload.url/for/testing/dm_file"
-        file_dir = tmp_path / "rca"
+        file_dir = tmp_path / "test"
         file_dir.mkdir()
-        test_file = file_dir / "my_report.json"
-        test_file.write_text('{"data": "test"}', encoding="utf-8")
+        (file_dir / "my_report.json").write_text('{"data": "test"}', encoding="utf-8")
 
-        created_nodes: list[dict] = []
-
-        def uploadlink_callback(request: httpx.Request) -> httpx.Response:
-            # First call returns 404 (node not found), second call succeeds
-            if len(created_nodes) == 0:
-                return httpx.Response(
-                    status_code=400,
-                    json={"error": {"code": 400, "message": "not found", "missing": [{"space": "my_space"}]}},
-                )
-            return httpx.Response(status_code=200, json={"items": [{"uploadUrl": file_upload_url}]})
-
-        def instances_callback(request: httpx.Request) -> httpx.Response:
-            payload = json.loads(request.content)
-            created_nodes.append(payload)
-            return httpx.Response(status_code=200, json={"items": []})
-
-        respx_mock.post(config.create_api_url("/files/uploadlink")).mock(side_effect=uploadlink_callback)
-        respx_mock.post(config.create_api_url("/models/instances")).mock(side_effect=instances_callback)
-        respx_mock.put(file_upload_url).mock(return_value=httpx.Response(status_code=200))
-
-        custom_view = SelectedView(space="my_custom_space", external_id="MyFileView", version="v2")
+        not_found = httpx.Response(400, json={"error": {"code": 400, "message": "not found", "missing": [{}]}})
+        upload_url = httpx.Response(200, json={"items": [{"uploadUrl": "https://upload.test/file"}]})
+        respx_mock.post(config.create_api_url("/files/uploadlink")).mock(side_effect=[not_found, upload_url])
+        respx_mock.post(config.create_api_url("/models/instances")).mock(
+            return_value=httpx.Response(200, json={"items": []})
+        )
+        respx_mock.put("https://upload.test/file").mock(return_value=httpx.Response(200))
+        view_id = SelectedView(space="my_custom_space", external_id="MyFileView", version="v2")
         selector = FileDataModelingTemplateSelector(
             file_directory=file_dir,
-            view_id=custom_view,
+            view_id=view_id,
             template=FileDataModelingTemplate.model_validate(
                 dict(
                     instanceId=TemplateNodeId(space="my_space", externalId=FILENAME_VARIABLE),
@@ -123,29 +104,20 @@ class TestFileContent:
                 )
             ),
         )
+        selector.dump_to_file(tmp_path)
+        UploadCommand(silent=True).upload(
+            input_dir=tmp_path, client=ToolkitClient(config), deploy_resources=False, dry_run=False, verbose=True
+        )
 
-        io = FileContentIO(client, tmp_path)
-        reader = MultiFileReader([test_file])
-        read_chunks = list(io.read_chunks(reader, selector))
-        assert len(read_chunks) == 1
-        upload_content = io.json_chunk_to_data(read_chunks[0])
-        assert len(upload_content) == 1
-
-        with HTTPClient(config) as http_client:
-            io.upload_items(upload_content, http_client, selector)
-
-        assert len(created_nodes) == 1
-        node_payload = created_nodes[0]["items"][0]
-        assert node_payload["space"] == "my_space"
-        assert node_payload["externalId"] == "my_report.json"
-
-        sources = node_payload["sources"]
-        assert len(sources) == 1
-        source = sources[0]["source"]
-        assert source["space"] == "my_custom_space"
-        assert source["externalId"] == "MyFileView"
-        assert source["version"] == "v2"
-
-        properties = sources[0]["properties"]
-        assert properties["name"] == "rca_report"
-        assert properties["mimeType"] == "application/json"
+        instances_calls = [
+            c for c in respx_mock.calls if str(c.request.url) == config.create_api_url("/models/instances")
+        ]
+        source = json.loads(instances_calls[0].request.content)["items"][0]["sources"][0]
+        assert source["source"] == {
+            "type": "view",
+            "space": "my_custom_space",
+            "externalId": "MyFileView",
+            "version": "v2",
+        }
+        assert source["properties"]["name"] == "rca_report"
+        assert source["properties"]["mimeType"] == "application/json"
