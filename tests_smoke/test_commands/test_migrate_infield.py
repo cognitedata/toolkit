@@ -75,8 +75,26 @@ def read_space(toolkit_client: ToolkitClient) -> SpaceResponse:
 
 
 @pytest.fixture()
+def target_space(toolkit_client: ToolkitClient) -> SpaceResponse:
+    """This is the space where InFieldOnCDM will write data to. This is the space we are migrating to."""
+    client = toolkit_client
+    target_space = "smoke_infield_migration_target_space"
+    if spaces := client.tool.spaces.retrieve([SpaceId(space=target_space)]):
+        return spaces[0]
+    return client.tool.spaces.create(
+        [
+            SpaceRequest(
+                name="Smoke Infield Migration Target Space",
+                space=target_space,
+                description="Target space for infield migration smoke test",
+            )
+        ]
+    )[0]
+
+
+@pytest.fixture()
 def infield_legacy(
-    toolkit_client: ToolkitClient, source_space: SpaceResponse, read_space: SpaceResponse
+    toolkit_client: ToolkitClient, source_space: SpaceResponse, read_space: SpaceResponse, target_space: SpaceResponse
 ) -> Iterator[list[InstanceRequest]]:
     client = toolkit_client
 
@@ -136,7 +154,7 @@ def infield_legacy(
 
     asset_external_id = cast(str, asset.external_id)
     migrated_asset = NodeRequest(
-        space=source_space.space,
+        space=target_space.space,
         external_id=asset_external_id,
         sources=[
             InstanceSource(
@@ -218,24 +236,6 @@ def infield_legacy(
 
     # Cleanup
     client.tool.instances.delete([item.as_id() for item in instances])
-
-
-@pytest.fixture()
-def target_space(toolkit_client: ToolkitClient) -> SpaceResponse:
-    """This is the space where InFieldOnCDM will write data to. This is the space we are migrating to."""
-    client = toolkit_client
-    target_space = "smoke_infield_migration_target_space"
-    if spaces := client.tool.spaces.retrieve([SpaceId(space=target_space)]):
-        return spaces[0]
-    return client.tool.spaces.create(
-        [
-            SpaceRequest(
-                name="Smoke Infield Migration Target Space",
-                space=target_space,
-                description="Target space for infield migration smoke test",
-            )
-        ]
-    )[0]
 
 
 class TestMigrateInfield:
