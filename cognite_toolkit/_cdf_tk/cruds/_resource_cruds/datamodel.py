@@ -1261,6 +1261,9 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeRequest, NodeResponse]):
             if source.source:
                 yield (ViewCRUD if isinstance(source.source, ViewReference) else ContainerCRUD), source.source.as_id()
 
+        if resource.type:
+            yield NodeCRUD, resource.type.as_id()
+
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
@@ -1640,7 +1643,7 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeRequest, EdgeResponse]):
         This includes:
         - Space dependency
         - View or Container dependencies from sources
-        - Start and end Node dependencies
+        - Start, end, and type Node dependencies
         """
         yield SpaceCRUD, SpaceId(space=resource.space)
 
@@ -1648,10 +1651,9 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeRequest, EdgeResponse]):
             if source.source:
                 yield (ViewCRUD if isinstance(source.source, ViewReference) else ContainerCRUD), source.source.as_id()
 
-        if resource.start_node:
-            yield NodeCRUD, resource.start_node.as_id()
-        if resource.end_node:
-            yield NodeCRUD, resource.end_node.as_id()
+        yield NodeCRUD, resource.start_node.as_id()
+        yield NodeCRUD, resource.end_node.as_id()
+        yield NodeCRUD, resource.type.as_id()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
