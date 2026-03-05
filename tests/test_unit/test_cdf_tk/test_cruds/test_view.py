@@ -18,7 +18,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
-from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, ResourceCRUD, ResourceWorker, SpaceCRUD, ViewCRUD
+from cognite_toolkit._cdf_tk.cruds import (
+    ContainerCRUD,
+    ResourceCRUD,
+    ResourceWorker,
+    SpaceCRUD,
+    ViewCRUD,
+)
+from cognite_toolkit._cdf_tk.yaml_classes.containers import ContainerYAML
+from cognite_toolkit._cdf_tk.yaml_classes.views import ViewYAML
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -357,3 +365,187 @@ class TestViewLoader:
 
         readonly_props = loader.get_readonly_properties(view_id)
         assert readonly_props == expected_readonly_props
+
+
+class TestContainerCRUDGetDependencies:
+    """Test get_dependencies method for ContainerCRUD."""
+
+    def test_container_with_space_only(self) -> None:
+        """Test Container with no property dependencies."""
+        container = ContainerYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "my_container",
+                "description": "A simple container",
+                "properties": {
+                    "name": {"type": {"type": "text"}},
+                },
+            }
+        )
+
+        deps = list(ContainerCRUD.get_dependencies(container))
+        assert len(deps) == 1
+        assert deps[0] == (SpaceCRUD, SpaceId(space="my_space"))
+
+    def test_container_with_direct_node_relation(self) -> None:
+        """Test Container with DirectNodeRelation dependency."""
+        container = ContainerYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "my_container",
+                "properties": {
+                    "relatedNode": {
+                        "type": {
+                            "type": "direct",
+                            "container": {"type": "container", "space": "other_space", "externalId": "other_container"},
+                        }
+                    }
+                },
+            }
+        )
+
+        deps = list(ContainerCRUD.get_dependencies(container))
+        assert len(deps) == 2
+        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (ContainerCRUD, ContainerId(space="other_space", external_id="other_container")) in deps
+
+    def test_container_with_requires_constraint(self) -> None:
+        """Test Container with RequiresConstraintDefinition dependency."""
+        container = ContainerYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "my_container",
+                "properties": {"name": {"type": {"type": "text"}}},
+                "constraints": {
+                    "requires_constraint": {
+                        "constraintType": "requires",
+                        "require": {"type": "container", "space": "other_space", "externalId": "required_container"},
+                    }
+                },
+            }
+        )
+
+        deps = list(ContainerCRUD.get_dependencies(container))
+        assert len(deps) == 2
+        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (ContainerCRUD, ContainerId(space="other_space", external_id="required_container")) in deps
+
+
+class TestViewCRUDGetDependencies:
+    """Test get_dependencies method for ViewCRUD."""
+
+    def test_view_with_space_only(self) -> None:
+        """Test View with no dependencies."""
+        view = ViewYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "my_view",
+                "version": "1",
+                "description": "A simple view",
+            }
+        )
+
+        deps = list(ViewCRUD.get_dependencies(view))
+        assert len(deps) == 1
+        assert deps[0] == (SpaceCRUD, SpaceId(space="my_space"))
+
+    def test_view_with_container_property(self) -> None:
+        """Test View with ContainerViewProperty dependency."""
+        view = ViewYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "my_view",
+                "version": "1",
+                "properties": {
+                    "name": {
+                        "container": {"type": "container", "space": "container_space", "externalId": "my_container"},
+                        "containerPropertyIdentifier": "name",
+                    }
+                },
+            }
+        )
+
+        deps = list(ViewCRUD.get_dependencies(view))
+        assert len(deps) == 2
+        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (ContainerCRUD, ContainerId(space="container_space", external_id="my_container")) in deps
+
+    def test_view_with_implements(self) -> None:
+        """Test View with implements dependency."""
+        view = ViewYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "derived_view",
+                "version": "1",
+                "implements": [{"type": "view", "space": "my_space", "externalId": "base_view", "version": "1"}],
+            }
+        )
+
+        deps = list(ViewCRUD.get_dependencies(view))
+        assert len(deps) == 2
+        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (ViewCRUD, ViewId(space="my_space", external_id="base_view", version="1")) in deps
+
+    def test_view_with_edge_connection(self) -> None:
+        """Test View with EdgeConnectionDefinition dependency."""
+        view = ViewYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "edge_view",
+                "version": "1",
+                "properties": {
+                    "connectedTo": {
+                        "connectionType": "single_edge_connection",
+                        "source": {
+                            "type": "view",
+                            "space": "source_space",
+                            "externalId": "source_view",
+                            "version": "1",
+                        },
+                        "type": {"space": "edge_space", "externalId": "edge_type"},
+                        "direction": "outwards",
+                    }
+                },
+            }
+        )
+
+        deps = list(ViewCRUD.get_dependencies(view))
+        assert len(deps) == 2
+        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (ViewCRUD, ViewId(space="source_space", external_id="source_view", version="1")) in deps
+
+    def test_view_with_reverse_direct_relation_view_through(self) -> None:
+        """Test View with ReverseDirectRelationConnectionDefinition with View through reference."""
+        view = ViewYAML.model_validate(
+            {
+                "space": "my_space",
+                "externalId": "reverse_view",
+                "version": "1",
+                "properties": {
+                    "reverseConnection": {
+                        "connectionType": "single_reverse_direct_relation",
+                        "source": {
+                            "type": "view",
+                            "space": "source_space",
+                            "externalId": "source_view",
+                            "version": "1",
+                        },
+                        "through": {
+                            "source": {
+                                "type": "view",
+                                "space": "through_space",
+                                "externalId": "through_view",
+                                "version": "1",
+                            },
+                            "identifier": "connectedTo",
+                        },
+                    }
+                },
+            }
+        )
+
+        deps = list(ViewCRUD.get_dependencies(view))
+        assert len(deps) == 3
+        assert (SpaceCRUD, SpaceId(space="my_space")) in deps
+        assert (ViewCRUD, ViewId(space="source_space", external_id="source_view", version="1")) in deps
+        assert (ViewCRUD, ViewId(space="through_space", external_id="through_view", version="1")) in deps
