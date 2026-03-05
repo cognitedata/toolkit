@@ -103,7 +103,7 @@ class ToolkitClient(CogniteClient):
         super().__init__(config=config)
         http_client = HTTPClient(self.config, console=console)
         self.http_client = http_client
-        self.console = console or Console(markup=True)
+        self.console: Console = console or Console(markup=True)
         self.tool = ToolAPI(http_client, self.console)
 
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)

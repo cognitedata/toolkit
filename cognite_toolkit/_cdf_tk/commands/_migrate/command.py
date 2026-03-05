@@ -1,3 +1,4 @@
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -59,43 +60,38 @@ class MigrationCommand(ToolkitCommand):
         log_dir: Path,
         dry_run: bool = False,
         verbose: bool = False,
+        user_log_filestem: str | None = None,
     ) -> dict[str, list[MigrationStatusResult]]:
         self.validate_migration_model_available(data.client)
+
         log_dir.mkdir(parents=True, exist_ok=True)
+        log_filestem = self._create_logfile_stem(log_dir, user_log_filestem, data.KIND)
 
         console = data.client.console
-        counts_by_selector: dict[T_Selector, int | None] = {}
-        total_all_items = 0
-        table = Table(title="Planned Migrations")
-        table.add_column("Data Type", style="cyan")
-        table.add_column("Item Count", justify="right", style="green")
-        for selected in selectors:
-            total_items = data.count(selected)
-            total_all_items += total_items if total_items is not None else 0
-            counts_by_selector[selected] = total_items
-            item_count = str(total_items) if total_items is not None else "Unknown"
-            table.add_row(str(selected), item_count)
-        console.print(table)
+        counts_by_selector, total_all_items = self._print_overview(data, selectors, console)
 
         if total_all_items:
             self.validate_available_capacity(data.client, total_all_items)
 
         results_by_selector: dict[str, list[MigrationStatusResult]] = {}
-        for selected in selectors:
-            mapper.prepare(selected)
+        with (
+            NDJsonWriter(
+                log_dir, kind="MigrationIssues", default_filestem=log_filestem, compression=Uncompressed
+            ) as log_file,
+            HTTPClient(config=data.client.config) as write_client,
+        ):
+            logger = FileDataLogger(log_file)
+            data.logger = logger
+            mapper.logger = logger
+            for selected in selectors:
+                logger.tracker.reset()
 
-            iteration_count: int | None = None
-            total_items = counts_by_selector[selected]
-            if total_items is not None:
-                iteration_count = (total_items // data.CHUNK_SIZE) + (1 if total_items % data.CHUNK_SIZE > 0 else 0)
+                mapper.prepare(selected)
 
-            with (
-                NDJsonWriter(log_dir, kind=f"{selected.kind}MigrationIssues", compression=Uncompressed) as log_file,
-                HTTPClient(config=data.client.config) as write_client,
-            ):
-                logger = FileDataLogger(log_file)
-                data.logger = logger
-                mapper.logger = logger
+                iteration_count: int | None = None
+                total_items = counts_by_selector[selected]
+                if total_items is not None:
+                    iteration_count = (total_items // data.CHUNK_SIZE) + (1 if total_items % data.CHUNK_SIZE > 0 else 0)
 
                 executor = ProducerWorkerExecutor[
                     Sequence[T_ResourceResponse], Sequence[UploadItem[T_ResourceRequest]]
@@ -115,16 +111,59 @@ class MigrationCommand(ToolkitCommand):
                 executor.run()
                 total = executor.total_items
 
-            results = self._create_status_summary(logger)
-            results_by_selector[str(selected)] = results
+                results = self._create_status_summary(logger)
+                results_by_selector[str(selected)] = results
 
-            self._print_rich_tables(results, console)
-            self._print_txt(results, log_dir, f"{selected.kind}Items", console)
-            executor.raise_on_error()
-            action = "Would migrate" if dry_run else "Migrating"
-            console.print(f"{action} {total:,} {selected.display_name} to instances.")
+                self._print_rich_tables(results, console)
+                self._print_txt(results, log_dir, f"{selected!s}Items", console)
+                executor.raise_on_error()
+                action = "Would migrate" if dry_run else "Migrating"
+                console.print(f"{action} {total:,} {selected.display_name} to instances.")
 
         return results_by_selector
+
+    def _print_overview(
+        self,
+        data: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
+        selectors: Sequence[T_Selector],
+        console: Console,
+    ) -> tuple[dict[T_Selector, int | None], int]:
+        counts_by_selector: dict[T_Selector, int | None] = {}
+        total_all_items = 0
+        table = Table(title="Planned Migrations")
+        table.add_column("Data Type", style="cyan")
+        table.add_column("Item Count", justify="right", style="green")
+        for selected in selectors:
+            total_items = data.count(selected)
+            total_all_items += total_items if total_items is not None else 0
+            counts_by_selector[selected] = total_items
+            item_count = str(total_items) if total_items is not None else "Unknown"
+            table.add_row(str(selected), item_count)
+        console.print(table)
+        return counts_by_selector, total_all_items
+
+    @staticmethod
+    def _create_logfile_stem(log_dir: Path, user_log_filestem: str | None, data_kind: str) -> str:
+        """Create a filestem for the log file that does not conflict with existing files in the log directory."""
+        base_logstem = user_log_filestem or data_kind
+        if not base_logstem.endswith("-"):
+            base_logstem += "-"
+
+        existing_files = list(log_dir.glob(f"{base_logstem}*"))
+        if not existing_files:
+            return base_logstem
+
+        run_pattern = re.compile(re.escape(base_logstem) + r"run(\d+)-")
+        max_run = 0
+        for f in existing_files:
+            match = run_pattern.match(f.name)
+            if match:
+                max_run = max(max_run, int(match.group(1)))
+
+        # If max_run is 0, it means files with base_logstem exist, but none have 'runX'.
+        next_run = max(2, max_run + 1)
+
+        return f"{base_logstem}run{next_run}-"
 
     # Todo: Move to the logger module
     @classmethod
@@ -152,8 +191,8 @@ class MigrationCommand(ToolkitCommand):
             table.add_row(result.status, str(result.count), issues_str)
         console.print(table)
 
-    def _print_txt(self, results: list[MigrationStatusResult], log_dir: Path, kind: str, console: Console) -> None:
-        summary_file = log_dir / f"{kind}_migration_summary.txt"
+    def _print_txt(self, results: list[MigrationStatusResult], log_dir: Path, filestem: str, console: Console) -> None:
+        summary_file = log_dir / f"{filestem}_migration_summary.txt"
         with summary_file.open("w", encoding="utf-8") as f:
             f.write("Migration Summary\n")
             f.write("=================\n\n")
