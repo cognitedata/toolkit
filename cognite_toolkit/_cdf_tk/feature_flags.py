@@ -94,10 +94,6 @@ class Flags(Enum):
         visible=False,
         description="Enables support for data product resources",
     )
-    SIGNALS = FlagMetadata(
-        visible=True,
-        description="Enables support for signal resources",
-    )
     MODULES_LIST_JSON = FlagMetadata(
         visible=True,
         description="Enables JSON output format for the modules list command",
