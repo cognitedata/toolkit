@@ -2,7 +2,7 @@ from collections.abc import Hashable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from functools import cache
-from typing import Any, ClassVar, Literal, cast
+from typing import Any, ClassVar, Literal, Protocol, cast
 
 from pydantic import JsonValue
 
@@ -477,6 +477,34 @@ class EdgeOtherSide:
     other_side: NodeId
 
 
+class SpecialMapping(Protocol):
+    def __getitem__(self, item: Hashable) -> NodeId: ...
+
+    def update(self, instances: Iterable[InstanceResponse]) -> None: ...
+
+
+class InFieldDataMapping:
+    def __init__(self, client: ToolkitClient) -> None:
+        self.client = client
+        self._node_id_by_external_id: dict[str, NodeId] = {}
+
+    def __getitem__(self, item: NodeId) -> NodeId:
+        # We ignore the space and assume external ID matches
+        # the external ID classic.
+        return self._node_id_by_external_id[item.external_id]
+
+    def update(self, instances: Iterable[InstanceResponse]) -> None:
+        # Look for Checklist, ChecklistItem, Template, TemplateItem
+        # Get hte external ID in the properties and use that to do ao lookup.
+        external_ids: set[str] = set()
+        for instance in instances:
+            ...
+
+        missing = external_ids - set(self._node_id_by_external_id.keys())
+        if missing:
+            self.client.migration.instance_source.retrieve()
+
+
 class ConnectionCreator:
     """Used to create connections (edges and direct relations) between migrated instances.
 
@@ -496,7 +524,7 @@ class ConnectionCreator:
         self,
         client: ToolkitClient,
         space_mapping: Mapping[str, str],
-        special_cases: Mapping[tuple[ViewId, str], Mapping[Hashable, NodeId]] | None = None,
+        special_cases: Mapping[frozenset[tuple[ViewId, str]], SpecialMapping] | None = None,
     ) -> None:
         self._client = client
         self._special_cases = special_cases or {}
@@ -512,6 +540,8 @@ class ConnectionCreator:
     def update_cache(self, instances: Sequence[InstanceResponse]) -> None:
         self._update_views(instances)
         self._update_property_caches(instances)
+        for mapping in self._special_cases.values():
+            mapping.update(instances)
 
     def _update_views(self, instances: Sequence[InstanceResponse]) -> None:
         unique_views = {
