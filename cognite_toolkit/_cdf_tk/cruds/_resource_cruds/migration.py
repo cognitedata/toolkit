@@ -125,8 +125,7 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
     @classmethod
     def get_dependencies(cls, resource: ResourceViewMappingYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
         yield SpaceCRUD, SpaceId(space=COGNITE_MIGRATION_SPACE)
-        view_id = RESOURCE_MAPPING_VIEW_ID
-        yield ViewCRUD, ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version)
+        yield ViewCRUD, RESOURCE_MAPPING_VIEW_ID
         if resource.view_id:
             yield ViewCRUD, resource.view_id.as_id()
 

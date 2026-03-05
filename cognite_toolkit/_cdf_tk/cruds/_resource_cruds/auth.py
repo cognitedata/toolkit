@@ -239,7 +239,7 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
             elif isinstance(scope, yaml_cap.AssetRootIDScope):
                 for asset_root_id in scope.root_ids:
                     yield AssetCRUD, ExternalId(external_id=asset_root_id)
-            elif isinstance(scope, (yaml_cap.IDScope, yaml_cap.IDScopeLowerCase)):
+            elif isinstance(scope, yaml_cap.IDScope | yaml_cap.IDScopeLowerCase):
                 loader: type[ResourceCRUD] | None = None
                 if isinstance(capability, yaml_cap.DataSetsAcl):
                     loader = DataSetsCRUD
