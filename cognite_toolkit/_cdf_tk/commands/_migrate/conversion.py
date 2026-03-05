@@ -15,11 +15,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     EdgeId,
     EdgeProperty,
     EdgeRequest,
-    EdgeResponse,
     FileCDFExternalIdReference,
     InstanceSource,
     NodeId,
     NodeRequest,
+    NodeResponse,
     SingleEdgeProperty,
     TimeseriesCDFExternalIdReference,
     ViewCorePropertyResponse,
@@ -467,24 +467,38 @@ class TimeSeriesFilesReferenceCache:
         return self._cache.get(resource_type, {})
 
 
+@dataclass
+class EdgeOtherSide:
+    edge_id: EdgeId
+    other_side: NodeId
+
+
 class ConnectionCreator:
     def __init__(
         self,
         client: ToolkitClient,
-        space_mapping: dict[str, str],
+        space_mapping: Mapping[str, str],
         special_cases: Mapping[tuple[ViewId, str], Mapping[Hashable, NodeId]] | None = None,
     ) -> None:
         self._client = client
-        self.special_cases = special_cases
-        self._space_mapping: dict[str, str] = space_mapping or {}
+        self._special_cases = special_cases
+        self.space_mapping: dict[str, str] = space_mapping
         self._timeseries_reference_cache: dict[str, NodeId] = {}
         self._file_reference_cache: dict[str, NodeId] = {}
-        self._view_by_id: dict[ViewId, ViewResponse] = {}
+        self.view_by_id: dict[ViewId, ViewResponse] = {}
+
+    def update_view_cache(self, views: Iterable[ViewResponse]) -> None:
+        for view in views:
+            self.view_by_id[view.as_id()] = view
+
+    def update_instance_cache(
+        self,
+    ): ...
 
     def _get_view_property(self, source_prop_id: str, source_view_id: ViewId) -> ViewResponseProperty | None:
-        if source_view_id not in self._view_by_id:
+        if source_view_id not in self.view_by_id:
             return None
-        view = self._view_by_id[source_view_id]
+        view = self.view_by_id[source_view_id]
         return view.properties.get(source_prop_id)
 
     def _create_targets(self, value: Any, source_prop_id: str, source_view_id: ViewId) -> list[NodeId]:
@@ -497,7 +511,7 @@ class ConnectionCreator:
             return [self._create_target(value, source_prop_id, source_view_id)]
 
     def _create_target(self, value: Any, source_prop_id: str, source_view_id: ViewId) -> NodeId:
-        if cache := self.special_cases.get((source_view_id, source_prop_id)):
+        if cache := self._special_cases.get((source_view_id, source_prop_id)):
             node_id = self._as_node_id(value)
             return cache[node_id] if node_id else cache[value]
         elif self._is_timeseries_reference(source_view_id, source_prop_id) and isinstance(value, str):
@@ -505,7 +519,7 @@ class ConnectionCreator:
         elif self._is_file_reference(source_view_id, source_prop_id) and isinstance(value, str):
             return self._file_reference_cache[value]
         elif self._is_direct_relation(source_view_id, source_prop_id) and (node_id := self._as_node_id(value)):
-            return self._map_node(node_id)
+            return self.map_node(node_id)
         else:
             raise ValueError(
                 f"Cannot create connection. Unsupported {source_prop_id!r} property with value {value!r} in view {source_view_id.dump(include_type=True)!r}"
@@ -517,13 +531,14 @@ class ConnectionCreator:
         except ValueError:
             return None
 
-    def _map_node(self, node_id: NodeId) -> NodeId:
-        return NodeId(space=self._space_mapping[node_id.space], external_id=node_id.external_id)
+    def map_node(self, node_id: NodeId | NodeResponse) -> NodeId:
+        """Maps a node ID form the source view's space to the corresponding node ID in the destination view's space using the space mapping."""
+        return NodeId(space=self.space_mapping[node_id.space], external_id=node_id.external_id)
 
     def edges(self, view_id: ViewId) -> dict[str, EdgeProperty]:
-        if view_id not in self._view_by_id:
+        if view_id not in self.view_by_id:
             raise ValueError(f"View {view_id.dump(include_type=True)!r} not found in cache.")
-        view = self._view_by_id[view_id]
+        view = self.view_by_id[view_id]
         return {prop_id: prop for prop_id, prop in view.properties.items() if isinstance(prop, EdgeProperty)}
 
     @cache
@@ -574,12 +589,12 @@ class ConnectionCreator:
             )
 
     def create_direct_relation_from_edges(
-        self, edges: list[EdgeResponse], dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
+        self, edges: list[EdgeOtherSide], dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
     ) -> NodeId | list[NodeId]:
-        targets = [self._map_node(edge.other_side) for edge in edges]
+        targets = [self.map_node(edge.other_side) for edge in edges]
         return self._targets_to_direct_relation(targets, dm_prop, source_prop_id, source_view_id)
 
-    def create_edges_from_edges(self, edges: list[EdgeResponse]) -> list[EdgeRequest]:
+    def create_edges_from_edges(self, edges: list[EdgeOtherSide]) -> list[EdgeRequest]:
         raise NotImplementedError("Edge creation from edges logic is not implemented yet.")
 
 
@@ -678,18 +693,17 @@ def convert_container_properties(
 
 
 def convert_edges(
-    edge_targets_by_type_and_direction: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeResponse]],
+    edge_targets_by_type_and_direction: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]],
     mapping: ViewToViewMapping,
     destination_properties: dict[str, ViewResponseProperty],
-    source_edges: dict[str, EdgeProperty],
     source_id: NodeId,
-    connection_creator: Any,
+    connection_creator: ConnectionCreator,
     source_view_id: ViewId,
 ) -> ConversionResult:
-    created_container_properties: dict[str, JsonValue] = {}
+    created_properties: dict[str, JsonValue] = {}
     created_edges: list[EdgeRequest] = []
     errors: list[str] = []
-    for prop_id, source_edge_def in source_edges.items():
+    for prop_id, source_edge_def in connection_creator.edges(source_view_id).items():
         edge_targets = edge_targets_by_type_and_direction.get((source_edge_def.type, source_edge_def.direction), [])
         if not edge_targets:
             continue
@@ -715,11 +729,11 @@ def convert_edges(
                 )
                 continue
             if isinstance(created_connection, list):
-                created_container_properties[dest_prop_id] = [
+                created_properties[dest_prop_id] = [
                     conn.dump(include_instance_type=False) for conn in created_connection
                 ]
             else:
-                created_container_properties[dest_prop_id] = created_connection.dump(include_instance_type=False)
+                created_properties[dest_prop_id] = created_connection.dump(include_instance_type=False)
         elif isinstance(dm_prop, ViewCorePropertyResponse):
             # Todo: If json or text we can potentially convert to a string representation of the edge targets, but for now we just log an error.
             errors.append(f"Cannot map edge property {prop_id!r} to non-connection property {dm_prop.type.type!s}.")
@@ -740,4 +754,4 @@ def convert_edges(
             created_edges.extend(created_edges)
         # else reverse direct relation, which we assume is handled in the other direction and thus ignore here.
 
-    return ConversionResult(container_properties=created_container_properties, edges=created_edges, errors=errors)
+    return ConversionResult(container_properties=created_properties, edges=created_edges, errors=errors)
