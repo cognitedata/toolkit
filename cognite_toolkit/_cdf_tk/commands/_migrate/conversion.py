@@ -482,8 +482,8 @@ class ConnectionCreator:
         special_cases: Mapping[tuple[ViewId, str], Mapping[Hashable, NodeId]] | None = None,
     ) -> None:
         self._client = client
-        self._special_cases = special_cases
-        self.space_mapping: dict[str, str] = space_mapping
+        self._special_cases = special_cases or {}
+        self.space_mapping = space_mapping
         self._timeseries_reference_cache: dict[str, NodeId] = {}
         self._file_reference_cache: dict[str, NodeId] = {}
         self.view_by_id: dict[ViewId, ViewResponse] = {}
@@ -644,7 +644,14 @@ class ConnectionCreator:
         targets = [self.map_node(edge.other_side) for edge in edges]
         return self._targets_to_direct_relation(targets, dm_prop, source_prop_id, source_view_id)
 
-    def create_edges_from_edges(self, edges: list[EdgeOtherSide]) -> list[EdgeRequest]:
+    def create_edges_from_edges(
+        self,
+        edges: list[EdgeOtherSide],
+        dm_prop: EdgeProperty,
+        source_prop_id: str,
+        source_view_id: ViewId,
+        source_id: NodeId,
+    ) -> list[EdgeRequest]:
         raise NotImplementedError("Edge creation from edges logic is not implemented yet.")
 
 
@@ -775,7 +782,7 @@ def convert_edges(
                 )
             except ValueError as e:
                 errors.append(
-                    f"Failed to create direct relation for edge property {prop_id!r} with targets {[target.dump() for target in edge_targets]!r}: {e!s}"
+                    f"Failed to create direct relation for edge property {prop_id!r} with targets {[target.other_side.dump() for target in edge_targets]!r}: {e!s}"
                 )
                 continue
             if isinstance(created_connection, list):
@@ -793,12 +800,12 @@ def convert_edges(
                     edge_targets,
                     dm_prop,
                     prop_id,
-                    source_id,
                     source_view_id,
+                    source_id,
                 )
             except ValueError as e:
                 errors.append(
-                    f"Failed to create edges for edge property {prop_id!r} with targets {[target.dump() for target in edge_targets]!r}: {e!s}"
+                    f"Failed to create edges for edge property {prop_id!r} with targets {[target.other_side.dump() for target in edge_targets]!r}: {e!s}"
                 )
                 continue
             created_edges.extend(created_edges)
