@@ -1,3 +1,4 @@
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -147,12 +148,23 @@ class MigrationCommand(ToolkitCommand):
         base_logstem = user_log_filestem or data_kind
         if not base_logstem.endswith("-"):
             base_logstem += "-"
-        if not any(log_dir.glob(f"{base_logstem}*")):
+
+        existing_files = list(log_dir.glob(f"{base_logstem}*"))
+        if not existing_files:
             return base_logstem
-        count = 2
-        while any(log_dir.glob(f"{base_logstem}run{count}-*")):
-            count += 1
-        return f"{base_logstem}run{count}-"
+
+        run_pattern = re.compile(re.escape(base_logstem) + r"run(\d+)-")
+        max_run = 0
+        for f in existing_files:
+            match = run_pattern.match(f.name)
+            if match:
+                max_run = max(max_run, int(match.group(1)))
+
+        # If max_run is 0, it means files with base_logstem exist, but none have 'runX'.
+        # The original logic starts with run2 in this case.
+        next_run = max(2, max_run + 1)
+
+        return f"{base_logstem}run{next_run}-"
 
     # Todo: Move to the logger module
     @classmethod
