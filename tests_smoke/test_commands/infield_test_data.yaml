@@ -282,7 +282,6 @@ conditionalAction:
   instanceType: node
   space: {{source_space}}
   externalId: 1DC026YVbKG3QYAOMzJoXw
-  existingVersion: 1
   sources:
     - source:
         space: cdf_apm
@@ -298,7 +297,6 @@ condition:
   instanceType: node
   space: {{source_space}}
   externalId: dSq9c2wTh6geOGOIdh11yHhHXKEPWPfX1A8I317N9Sc_IrDfZSISoOzW9PPS3OpYnTAGShkwDS3bB4A49NONUyA_5_J63kPbDgRGDH0bCu8X2s5uLi8iQUm3uXdb6LArzAM_CzTrvN_VceSKRS45WPcooFlsmSgfL5l2aoWsLZmHdKo
-  existingVersion: 1
   sources:
   - source:
       space: cdf_apm
