@@ -321,7 +321,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         item: UploadFileContentItem,
         http_client: HTTPClient,
         results: ItemsResultList,
-        view_id: dm.ViewId = COGNITE_FILE_VIEW,
+        view_id: dm.ViewId,
         created_node: bool = False,
     ) -> str | None:
         """Get upload URL for data modeling file upload.
@@ -368,7 +368,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         http_client: HTTPClient,
         upload_id: str,
         results: ItemsResultList,
-        view_id: dm.ViewId = COGNITE_FILE_VIEW,
+        view_id: dm.ViewId,
         properties: Mapping[str, JsonValue] | None = None,
     ) -> bool:
         node_creation = http_client.request_single_retries(
