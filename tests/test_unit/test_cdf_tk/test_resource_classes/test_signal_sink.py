@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, create_autospec
 
 import pytest
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.user_profile import UserProfile
@@ -88,7 +89,7 @@ class TestSignalSinkCRUDEmailWarning:
 
     @pytest.fixture
     def crud(self, mock_client: ToolkitClient) -> SignalSinkCRUD:
-        return SignalSinkCRUD(mock_client, build_dir=None)
+        return SignalSinkCRUD(mock_client, build_dir=None, console=Console())
 
     def test_known_email_no_warning(self, crud: SignalSinkCRUD, capsys: pytest.CaptureFixture[str]) -> None:
         crud.load_resource(
