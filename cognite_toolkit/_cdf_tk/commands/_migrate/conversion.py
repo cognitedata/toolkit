@@ -608,7 +608,7 @@ class ConnectionCreator:
 
     def create_edges(
         self, value: Any, dm_prop: EdgeProperty, source_prop_id: str, source_view_id: ViewId
-    ) -> list[EdgeRequest]:
+    ) -> tuple[list[EdgeRequest], list[str]]:
         targets = self._create_targets(value, source_prop_id, source_view_id)
         if isinstance(dm_prop, SingleEdgeProperty) and len(targets) > 1:
             raise ValueError(
@@ -618,29 +618,36 @@ class ConnectionCreator:
 
     def create_direct_relation(
         self, value: Any, dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
-    ) -> NodeId | list[NodeId]:
+    ) -> tuple[NodeId | list[NodeId], list[str]]:
         targets = self._create_targets(value, source_prop_id, source_view_id)
         return self._targets_to_direct_relation(targets, dm_prop, source_prop_id, source_view_id)
 
     def _targets_to_direct_relation(
         self, targets: list[NodeId], dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
-    ) -> NodeId | list[NodeId]:
+    ) -> tuple[NodeId | list[NodeId], list[str]]:
+        errors: list[str] = []
         if dm_prop.list:
             if dm_prop.max_list_size and len(targets) > dm_prop.max_list_size:
-                raise ValueError(
-                    f"Too many targets for direct relation property {source_prop_id!r} in view {source_view_id.dump(include_type=True)!r}: expected at most {dm_prop.max_list_size}, got {len(targets)}"
+                targets = targets[: dm_prop.max_list_size]
+                errors.append(
+                    f"Too many targets for direct relation property {source_prop_id!r} in view {source_view_id.dump(include_type=True)!r}: expected at most {dm_prop.max_list_size}, got {len(targets)}. Truncated to the first {dm_prop.max_list_size} targets."
                 )
-            return targets
+            return targets, errors
         elif len(targets) == 1:
-            return targets[0]
-        else:
+            return targets[0], errors
+        elif len(targets) == 0:
             raise ValueError(
-                f"Invalid value for direct relation property {source_prop_id!r} in view {source_view_id.dump(include_type=True)!r}: expected single NodeId, got list of NodeId with length {len(targets)}"
+                f"No targets for direct relation property {source_prop_id!r} in view {source_view_id.dump(include_type=True)!r}: expected exactly 1, got 0"
             )
+        else:
+            errors.append(
+                "Too many targets for direct relation property {source_prop_id!r} in view {source_view_id.dump(include_type=True)!r}: expected exactly 1, got {len(targets)}. Returning the first target."
+            )
+            return targets[0], errors
 
     def create_direct_relation_from_edges(
         self, edges: list[EdgeOtherSide], dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
-    ) -> NodeId | list[NodeId]:
+    ) -> tuple[NodeId | list[NodeId], list[str]]:
         targets = [self.map_node(edge.other_side) for edge in edges]
         return self._targets_to_direct_relation(targets, dm_prop, source_prop_id, source_view_id)
 
@@ -651,7 +658,7 @@ class ConnectionCreator:
         source_prop_id: str,
         source_view_id: ViewId,
         source_id: NodeId,
-    ) -> list[EdgeRequest]:
+    ) -> tuple[list[EdgeRequest], list[str]]:
         raise NotImplementedError("Edge creation from edges logic is not implemented yet.")
 
 
@@ -700,7 +707,7 @@ def convert_container_properties(
         dm_prop = destination_properties[dest_prop_id]
         if isinstance(dm_prop, EdgeProperty):
             try:
-                created_edges = connection_creator.create_edges(
+                created_edges, issues = connection_creator.create_edges(
                     value,
                     dm_prop,
                     source_prop_id,
@@ -710,9 +717,10 @@ def convert_container_properties(
                 errors.append(f"Failed to create edges for property {source_prop_id!r} with value {value!r}: {e!s}")
                 continue
             edges.extend(created_edges)
+            errors.extend(issues)
         elif isinstance(dm_prop, ViewCorePropertyResponse) and isinstance(dm_prop.type, DirectNodeRelation):
             try:
-                created_connection = connection_creator.create_direct_relation(
+                created_connection, issues = connection_creator.create_direct_relation(
                     value,
                     dm_prop.type,
                     source_prop_id,
@@ -723,6 +731,7 @@ def convert_container_properties(
                     f"Failed to create direct relation for property {source_prop_id!r} with value {value!r}: {e!s}"
                 )
                 continue
+            errors.extend(issues)
             if isinstance(created_connection, list):
                 created_properties[dest_prop_id] = [
                     conn.dump(include_instance_type=False) for conn in created_connection
@@ -774,7 +783,7 @@ def convert_edges(
 
         if isinstance(dm_prop, ViewCorePropertyResponse) and isinstance(dm_prop.type, DirectNodeRelation):
             try:
-                created_connection = connection_creator.create_direct_relation_from_edges(
+                created_connection, issues = connection_creator.create_direct_relation_from_edges(
                     edge_targets,
                     dm_prop.type,
                     prop_id,
@@ -785,6 +794,7 @@ def convert_edges(
                     f"Failed to create direct relation for edge property {prop_id!r} with targets {[target.other_side.dump() for target in edge_targets]!r}: {e!s}"
                 )
                 continue
+            errors.extend(issues)
             if isinstance(created_connection, list):
                 created_properties[dest_prop_id] = [
                     conn.dump(include_instance_type=False) for conn in created_connection
@@ -796,7 +806,7 @@ def convert_edges(
             errors.append(f"Cannot map edge property {prop_id!r} to non-connection property {dm_prop.type.type!s}.")
         elif isinstance(dm_prop, EdgeProperty):
             try:
-                created_edges = connection_creator.create_edges_from_edges(
+                created_edges, issues = connection_creator.create_edges_from_edges(
                     edge_targets,
                     dm_prop,
                     prop_id,
@@ -808,6 +818,7 @@ def convert_edges(
                     f"Failed to create edges for edge property {prop_id!r} with targets {[target.other_side.dump() for target in edge_targets]!r}: {e!s}"
                 )
                 continue
+            errors.extend(issues)
             created_edges.extend(created_edges)
         # else reverse direct relation, which we assume is handled in the other direction and thus ignore here.
 
