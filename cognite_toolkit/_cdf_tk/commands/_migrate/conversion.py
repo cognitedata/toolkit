@@ -477,6 +477,20 @@ class EdgeOtherSide:
 
 
 class ConnectionCreator:
+    """Used to create connections (edges and direct relations) between migrated instances.
+
+    It is used both in the convert_container_properties and convert edges functions.
+
+    It keeps track of how all connections needs to be converted from a source to target spaces. As
+    well as deal with timeseries and files reference conversion.
+
+    Args:
+        client: ToolkitClient to use for lookups when creating connections.
+        space_mapping: Mapping from source space IDs to destination space IDs, used to map instance IDs from source to destination space when creating connections.
+        special_cases: Optional mapping for any special cases where the mapping from source to destination instance ID cannot be handled by the space mapping or timeseries/files reference cache. The keys are tuples of (source_view_id, source_prop_id) and the values are mappings from source instance IDs (either external ID or NodeId) to destination NodeIds.
+
+    """
+
     def __init__(
         self,
         client: ToolkitClient,
