@@ -1,7 +1,7 @@
-from collections.abc import Iterable, Mapping, Set
+from collections.abc import Hashable, Iterable, Mapping, Set
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from functools import cached_property
+from functools import cache
 from typing import Any, ClassVar, Literal, cast
 
 from pydantic import JsonValue
@@ -20,9 +20,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceSource,
     NodeId,
     NodeRequest,
+    SingleEdgeProperty,
     TimeseriesCDFExternalIdReference,
     ViewCorePropertyResponse,
     ViewId,
+    ViewResponse,
     ViewResponseProperty,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
@@ -466,53 +468,119 @@ class TimeSeriesFilesReferenceCache:
 
 
 class ConnectionCreator:
-    def __init__(self, client: ToolkitClient) -> None:
+    def __init__(
+        self,
+        client: ToolkitClient,
+        space_mapping: dict[str, str],
+        special_cases: Mapping[tuple[ViewId, str], Mapping[Hashable, NodeId]] | None = None,
+    ) -> None:
         self._client = client
+        self.special_cases = special_cases
+        self._space_mapping: dict[str, str] = space_mapping or {}
+        self._timeseries_reference_cache: dict[str, NodeId] = {}
+        self._file_reference_cache: dict[str, NodeId] = {}
+        self._view_by_id: dict[ViewId, ViewResponse] = {}
+
+    def _get_view_property(self, source_prop_id: str, source_view_id: ViewId) -> ViewResponseProperty | None:
+        if source_view_id not in self._view_by_id:
+            return None
+        view = self._view_by_id[source_view_id]
+        return view.properties.get(source_prop_id)
+
+    def _create_targets(self, value: Any, source_prop_id: str, source_view_id: ViewId) -> list[NodeId]:
+        if isinstance(value, list):
+            targets = []
+            for item in value:
+                targets.append(self._create_target(item, source_prop_id, source_view_id))
+            return targets
+        else:
+            return [self._create_target(value, source_prop_id, source_view_id)]
+
+    def _create_target(self, value: Any, source_prop_id: str, source_view_id: ViewId) -> NodeId:
+        if cache := self.special_cases.get((source_view_id, source_prop_id)):
+            node_id = self._as_node_id(value)
+            return cache[node_id] if node_id else cache[value]
+        elif self._is_timeseries_reference(source_view_id, source_prop_id) and isinstance(value, str):
+            return self._timeseries_reference_cache[value]
+        elif self._is_file_reference(source_view_id, source_prop_id) and isinstance(value, str):
+            return self._file_reference_cache[value]
+        elif self._is_direct_relation(source_view_id, source_prop_id) and (node_id := self._as_node_id(value)):
+            return self._map_node(node_id)
+        else:
+            raise ValueError(
+                f"Cannot create connection. Unsupported {source_prop_id!r} property with value {value!r} in view {source_view_id.dump(include_type=True)!r}"
+            )
+
+    def _as_node_id(self, value: Any) -> NodeId | None:
+        try:
+            return NodeId.model_validate(value)
+        except ValueError:
+            return None
+
+    def _map_node(self, node_id: NodeId) -> NodeId:
+        return NodeId(space=self._space_mapping[node_id.space], external_id=node_id.external_id)
+
+    def edges(self, view_id: ViewId) -> dict[str, EdgeProperty]:
+        if view_id not in self._view_by_id:
+            raise ValueError(f"View {view_id.dump(include_type=True)!r} not found in cache.")
+        view = self._view_by_id[view_id]
+        return {prop_id: prop for prop_id, prop in view.properties.items() if isinstance(prop, EdgeProperty)}
+
+    @cache
+    def _is_timeseries_reference(self, source_view_id: ViewId, source_prop_id: str) -> bool:
+        prop = self._get_view_property(source_prop_id, source_view_id)
+        return isinstance(prop, ViewCorePropertyResponse) and isinstance(prop.type, TimeseriesCDFExternalIdReference)
+
+    @cache
+    def _is_file_reference(self, source_view_id: ViewId, source_prop_id: str) -> bool:
+        prop = self._get_view_property(source_prop_id, source_view_id)
+        return isinstance(prop, ViewCorePropertyResponse) and isinstance(prop.type, FileCDFExternalIdReference)
+
+    @cache
+    def _is_direct_relation(self, source_view_id: ViewId, source_prop_id: str) -> bool:
+        prop = self._get_view_property(source_prop_id, source_view_id)
+        return isinstance(prop, ViewCorePropertyResponse) and isinstance(prop.type, DirectNodeRelation)
 
     def create_edges(
         self, value: Any, dm_prop: EdgeProperty, source_prop_id: str, source_view_id: ViewId
     ) -> list[EdgeRequest]:
-        raise NotImplementedError("Edge creation logic is not implemented yet.")
+        targets = self._create_targets(value, source_prop_id, source_view_id)
+        if isinstance(dm_prop, SingleEdgeProperty) and len(targets) > 1:
+            raise ValueError(
+                f"Too many targets for single edge property {source_prop_id!r} in view {source_view_id.dump(include_type=True)!r}: expected at most 1, got {len(targets)}"
+            )
+        raise NotImplementedError()
 
     def create_direct_relation(
         self, value: Any, dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
     ) -> NodeId | list[NodeId]:
-        raise NotImplementedError("Direct relation creation logic is not implemented yet.")
+        targets = self._create_targets(value, source_prop_id, source_view_id)
+        return self._targets_to_direct_relation(targets, dm_prop, source_prop_id, source_view_id)
 
-    def create_direct_relation_from_edges(self, edges: list[EdgeRequest]) -> NodeId | list[NodeId]:
-        raise NotImplementedError("Direct relation creation from edges logic is not implemented yet.")
+    def _targets_to_direct_relation(
+        self, targets: list[NodeId], dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
+    ) -> NodeId | list[NodeId]:
+        if dm_prop.list:
+            if dm_prop.max_list_size and len(targets) > dm_prop.max_list_size:
+                raise ValueError(
+                    f"Too many targets for direct relation property {source_prop_id!r} in view {source_view_id.dump(include_type=True)!r}: expected at most {dm_prop.max_list_size}, got {len(targets)}"
+                )
+            return targets
+        elif len(targets) == 1:
+            return targets[0]
+        else:
+            raise ValueError(
+                f"Invalid value for direct relation property {source_prop_id!r} in view {source_view_id.dump(include_type=True)!r}: expected single NodeId, got list of NodeId with length {len(targets)}"
+            )
 
-    def create_edges_from_edges(self, edges: list[EdgeRequest]) -> list[EdgeRequest]:
+    def create_direct_relation_from_edges(
+        self, edges: list[EdgeResponse], dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
+    ) -> NodeId | list[NodeId]:
+        targets = [self._map_node(edge.other_side) for edge in edges]
+        return self._targets_to_direct_relation(targets, dm_prop, source_prop_id, source_view_id)
+
+    def create_edges_from_edges(self, edges: list[EdgeResponse]) -> list[EdgeRequest]:
         raise NotImplementedError("Edge creation from edges logic is not implemented yet.")
-
-
-class ConversionSourceView:
-    """Represents a source view for node-to-node conversion."""
-
-    def __init__(self, view_properties: dict[str, ViewResponseProperty]) -> None:
-        self._view_properties = view_properties
-
-    @cached_property
-    def timeseries_reference_property_ids(self) -> Set[str]:
-        return {
-            prop_id
-            for prop_id, prop in self._view_properties.items()
-            if isinstance(prop, ViewCorePropertyResponse) and isinstance(prop.type, TimeseriesCDFExternalIdReference)
-        }
-
-    @cached_property
-    def file_reference_property_ids(self) -> Set[str]:
-        """All property IDs in the source view that are file reference properties."""
-        return {
-            prop_id
-            for prop_id, prop in self._view_properties.items()
-            if isinstance(prop, ViewCorePropertyResponse) and isinstance(prop.type, FileCDFExternalIdReference)
-        }
-
-    @cached_property
-    def edges(self) -> dict[str, EdgeProperty]:
-        """All edge properties in the source view."""
-        return {prop_id: prop for prop_id, prop in self._view_properties.items() if isinstance(prop, EdgeProperty)}
 
 
 @dataclass
