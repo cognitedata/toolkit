@@ -6,6 +6,7 @@ from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, DataModelInstancesAcl
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APM_CONFIG_SPACE,
@@ -147,6 +148,10 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
                 if app_data_instance_space := filter_.get("appDataInstanceSpace"):
                     if isinstance(app_data_instance_space, str):
                         yield SpaceCRUD, SpaceId(space=app_data_instance_space)
+
+    @classmethod
+    def get_dependencies(cls, resource: InfieldV1YAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield from cls.get_dependent_items(resource.model_dump(mode="json", by_alias=True, exclude_unset=True))
 
     def safe_read(self, filepath: Path | str) -> str:
         # The customerDataSpaceVersion is a string, but the user often writes it as an int.

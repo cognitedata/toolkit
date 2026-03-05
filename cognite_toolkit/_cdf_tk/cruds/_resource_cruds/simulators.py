@@ -3,6 +3,7 @@ from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     SimulatorModelRevisionFilter,
@@ -133,6 +134,11 @@ class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, Simulat
         if "dataSetExternalId" in item:
             yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
 
+    @classmethod
+    def get_dependencies(cls, resource: SimulatorModelYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SimulatorModelRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
@@ -228,6 +234,12 @@ class SimulatorModelRevisionCRUD(
         if "fileExternalId" in item:
             yield FileMetadataCRUD, ExternalId(external_id=item["fileExternalId"])
 
+    @classmethod
+    def get_dependencies(cls, resource: SimulatorModelRevisionYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield SimulatorModelCRUD, ExternalId(external_id=resource.model_external_id)
+        if resource.file_external_id:
+            yield FileMetadataCRUD, ExternalId(external_id=resource.file_external_id)
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SimulatorModelRevisionRequest:
         if file_external_id := resource.pop("fileExternalId", None):
             resource["fileId"] = self.client.lookup.files.id(file_external_id, is_dry_run)
@@ -321,6 +333,10 @@ class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, Sim
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "modelExternalId" in item:
             yield SimulatorModelCRUD, ExternalId(external_id=item["modelExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: SimulatorRoutineYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield SimulatorModelCRUD, ExternalId(external_id=resource.model_external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SimulatorRoutineRequest:
         return SimulatorRoutineRequest.model_validate(resource)
@@ -426,6 +442,24 @@ class SimulatorRoutineRevisionCRUD(
                         yield TimeSeriesCRUD, ExternalId(external_id=external_id)
                     if isinstance(external_id := io_item.get("sourceExternalId"), str):
                         yield TimeSeriesCRUD, ExternalId(external_id=external_id)
+
+    @classmethod
+    def get_dependencies(
+        cls, resource: SimulatorRoutineRevisionYAML
+    ) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield SimulatorRoutineCRUD, ExternalId(external_id=resource.routine_external_id)
+        if not resource.configuration:
+            return
+        for key in ["logical_check", "steady_state_detection"]:
+            for value in getattr(resource.configuration, key, None) or []:
+                if hasattr(value, "timeseries_external_id") and value.timeseries_external_id:
+                    yield TimeSeriesCRUD, ExternalId(external_id=value.timeseries_external_id)
+        for key in ["inputs", "outputs"]:
+            for io_item in getattr(resource.configuration, key, None) or []:
+                if hasattr(io_item, "save_timeseries_external_id") and io_item.save_timeseries_external_id:
+                    yield TimeSeriesCRUD, ExternalId(external_id=io_item.save_timeseries_external_id)
+                if hasattr(io_item, "source_external_id") and io_item.source_external_id:
+                    yield TimeSeriesCRUD, ExternalId(external_id=io_item.source_external_id)
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]

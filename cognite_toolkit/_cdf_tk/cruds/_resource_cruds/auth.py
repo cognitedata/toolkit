@@ -30,6 +30,7 @@ from rich.console import Console
 from rich.markup import escape
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
@@ -207,6 +208,10 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
                                     yield loader, NameId(name=id_)
                                 else:
                                     yield loader, id_
+
+    @classmethod
+    def get_dependencies(cls, resource: GroupYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield from cls.get_dependent_items(resource.model_dump(mode="json", by_alias=True, exclude_unset=True))
 
     def _substitute_scope_ids(self, group: dict[str, Any], is_dry_run: bool, reverse: bool = False) -> dict[str, Any]:
         replace_method_by_acl = self._create_replace_method_by_acl_and_scope()

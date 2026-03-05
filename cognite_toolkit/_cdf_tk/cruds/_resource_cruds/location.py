@@ -5,6 +5,7 @@ from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, LocationFiltersAcl
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelId,
@@ -262,3 +263,31 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
                         space=data_model["space"], external_id=data_model["externalId"], version=data_model["version"]
                     ),
                 )
+
+    @classmethod
+    def get_dependencies(cls, resource: LocationYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.asset_centric:
+            asset_centric = resource.asset_centric
+            for data_set_external_id in asset_centric.data_set_external_ids or []:
+                yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
+            for asset in asset_centric.asset_subtree_external_ids or []:
+                if ext_id := asset.get("externalId") or asset.get("external_id"):
+                    yield AssetCRUD, ExternalId(external_id=ext_id)
+            for subfilter_name in cls.subfilter_names:
+                subfilter = getattr(asset_centric, subfilter_name, None)
+                if subfilter is None:
+                    continue
+                for data_set_external_id in subfilter.data_set_external_ids or []:
+                    yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
+                for asset in subfilter.asset_subtree_external_ids or []:
+                    if ext_id := asset.get("externalId") or asset.get("external_id"):
+                        yield AssetCRUD, ExternalId(external_id=ext_id)
+        for view in resource.views or []:
+            yield ViewCRUD, ViewId(space=view.space, external_id=view.external_id, version=view.version)
+        for space in resource.instance_spaces or []:
+            yield SpaceCRUD, SpaceId(space=space)
+        for data_model in resource.data_models or []:
+            yield (
+                DataModelCRUD,
+                DataModelId(space=data_model.space, external_id=data_model.external_id, version=data_model.version),
+            )
