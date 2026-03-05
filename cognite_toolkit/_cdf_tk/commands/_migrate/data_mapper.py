@@ -682,7 +682,7 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         self._connection_creator.update_view_cache(views)
 
     def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
-        self._populate_cache(source)
+        self._connection_creator.update_cache(source)
         nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)
         mapped_instances: list[InstanceRequest | None] = []
         issue_list: list[InstanceConversionIssue] = []
@@ -730,45 +730,6 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
                     EdgeOtherSide(edge_id, item.start_node)
                 )
         return nodes, other_side_by_edge_type_and_direction_by_source
-
-    def _populate_cache(self, source: Sequence[InstanceResponse]) -> None:
-        unique_views = {
-            view_id for node in source for view_id in (node.properties or {}).keys() if isinstance(view_id, ViewId)
-        }
-        missing_views = unique_views - set(self._source_by_view_id.keys())
-        if missing_views:
-            views = self.client.tool.views.retrieve(list(missing_views))
-            for view in views:
-                self._source_by_view_id[view.as_id()] = ConversionSourceView(view.properties or {})
-
-        timeseries_ref_ids, file_ref_ids = self._get_timeseries_files_references(source)
-        if timeseries_ref_ids:
-            self._direct_relation_cache.update("timeseries", timeseries_ref_ids)
-        if file_ref_ids:
-            self._direct_relation_cache.update("file", file_ref_ids)
-
-    def _get_timeseries_files_references(self, source: Sequence[InstanceResponse]) -> tuple[list[str], list[str]]:
-        timeseries_ref_ids: list[str] = []
-        file_ref_ids: list[str] = []
-        for node in source:
-            for view_id, properties in (node.properties or {}).items():
-                if not isinstance(view_id, ViewId):
-                    continue
-                source_view = self._source_by_view_id.get(view_id)
-                if source_view is None:
-                    continue
-                for prop_id, value in properties.items():
-                    if prop_id in source_view.timeseries_reference_property_ids:
-                        if isinstance(value, str):
-                            timeseries_ref_ids.append(value)
-                        elif isinstance(value, list) and all(isinstance(v, str) for v in value):
-                            timeseries_ref_ids.extend(value)  # type: ignore[arg-type]
-                    elif prop_id in source_view.file_reference_property_ids:
-                        if isinstance(value, str):
-                            file_ref_ids.append(value)
-                        elif isinstance(value, list) and all(isinstance(v, str) for v in value):
-                            file_ref_ids.extend(value)  # type: ignore[arg-type]
-        return timeseries_ref_ids, file_ref_ids
 
     def _map_single_node(
         self,

@@ -1,4 +1,4 @@
-from collections.abc import Hashable, Iterable, Mapping, Set
+from collections.abc import Hashable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from functools import cache
@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     EdgeProperty,
     EdgeRequest,
     FileCDFExternalIdReference,
+    InstanceResponse,
     InstanceSource,
     NodeId,
     NodeRequest,
@@ -491,9 +492,58 @@ class ConnectionCreator:
         for view in views:
             self.view_by_id[view.as_id()] = view
 
-    def update_instance_cache(
-        self,
-    ): ...
+    def update_cache(self, instances: Sequence[InstanceResponse]) -> None:
+        self._update_views(instances)
+        self._update_property_caches(instances)
+
+    def _update_views(self, instances: Sequence[InstanceResponse]) -> None:
+        unique_views = {
+            view_id for item in instances for view_id in (item.properties or {}).keys() if isinstance(view_id, ViewId)
+        }
+        missing_views = unique_views - set(self.view_by_id.keys())
+        if missing_views:
+            views = self._client.tool.views.retrieve(list(missing_views))
+            for view in views:
+                self.view_by_id[view.as_id()] = view
+
+    def _update_property_caches(self, instances: Sequence[InstanceResponse]) -> None:
+        timeseries_refs: set[str] = set()
+        file_refs: set[str] = set()
+        for item in instances:
+            for view_id, properties in (item.properties or {}).items():
+                if not isinstance(view_id, ViewId):
+                    continue
+                for prp_id, value in properties.items():
+                    if self._is_timeseries_reference(view_id, prp_id):
+                        timeseries_refs.update(self._as_str_iterable(value))
+                    elif self._is_file_reference(view_id, prp_id):
+                        file_refs.update(self._as_str_iterable(value))
+        if timeseries_refs:
+            missing_timeseries_refs = timeseries_refs - set(self._timeseries_reference_cache.keys())
+            if missing_timeseries_refs:
+                missing_ts = self._client.tool.timeseries.retrieve(
+                    ExternalId.from_external_ids(missing_timeseries_refs), ignore_unknown_ids=True
+                )
+                for ts in missing_ts:
+                    if ts.external_id and ts.instance_id:
+                        self._timeseries_reference_cache[ts.external_id] = ts.instance_id
+        if file_refs:
+            missing_file_refs = file_refs - set(self._file_reference_cache.keys())
+            if missing_file_refs:
+                missing_refs = self._client.tool.filemetadata.retrieve(
+                    ExternalId.from_external_ids(missing_file_refs), ignore_unknown_ids=True
+                )
+                for file in missing_refs:
+                    if file.external_id and file.instance_id:
+                        self._file_reference_cache[file.external_id] = file.instance_id
+
+    def _as_str_iterable(self, value: Any) -> Iterable[str]:
+        if isinstance(value, str):
+            yield value
+        elif isinstance(value, Iterable):
+            for item in value:
+                if isinstance(item, str):
+                    yield item
 
     def _get_view_property(self, source_prop_id: str, source_view_id: ViewId) -> ViewResponseProperty | None:
         if source_view_id not in self.view_by_id:
