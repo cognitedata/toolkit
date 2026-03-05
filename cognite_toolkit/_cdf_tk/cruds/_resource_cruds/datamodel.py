@@ -121,6 +121,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import (
     ContainerViewProperty,
     EdgeConnectionDefinition,
     ReverseDirectRelationConnectionDefinition,
+    ViewReference,
 )
 
 from .auth import GroupAllScopedCRUD
@@ -648,10 +649,11 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
 
                 elif isinstance(prop, ReverseDirectRelationConnectionDefinition):
                     yield ViewCRUD, prop.source.as_id()
-                    if prop.through.source.type == "view":
-                        yield ViewCRUD, prop.through.source.as_id()
-                    else:
-                        yield ContainerCRUD, prop.through.source.as_id()
+                    if prop.through.source:
+                        yield (
+                            (ViewCRUD if isinstance(prop.through.source, ViewReference) else ContainerCRUD),
+                            prop.through.source.as_id(),
+                        )
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -1251,7 +1253,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeRequest, NodeResponse]):
 
         for source in resource.sources or []:
             if source.source:
-                yield ViewCRUD, source.source.as_id()
+                yield (ViewCRUD if isinstance(source.source, ViewReference) else ContainerCRUD), source.source.as_id()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -1638,7 +1640,7 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeRequest, EdgeResponse]):
 
         for source in resource.sources or []:
             if source.source:
-                yield ViewCRUD, source.source.as_id()
+                yield (ViewCRUD if isinstance(source.source, ViewReference) else ContainerCRUD), source.source.as_id()
 
         if resource.start_node:
             yield NodeCRUD, resource.start_node.as_id()
