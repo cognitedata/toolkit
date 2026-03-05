@@ -1,3 +1,4 @@
+import functools
 import json
 import mimetypes
 from collections.abc import Iterable, Sequence
@@ -47,6 +48,7 @@ COGNITE_FILE_VIEW = dm.ViewId("cdf_cdm", "CogniteFile", "v1")
 class UploadFileContentItem(UploadItem[FileMetadataRequest]):
     file_path: Path
     mime_type: str
+    node_properties: dict[str, Any] = {}
 
     def dump(self, camel_case: bool = True, exclude_extra: bool = True) -> dict[str, Any]:
         return self.item.dump(camel_case=camel_case, exclude_extra=exclude_extra)
@@ -239,7 +241,9 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
             A writable Cognite resource list representing the data.
         """
         result: list[UploadFileContentItem] = []
+        non_property_keys = {FILEPATH, "instanceId", "instance_id"}
         for source_id, item_json in data_chunk:
+            node_properties = {k: v for k, v in item_json.items() if k not in non_property_keys and v is not None}
             item = self.json_to_resource(item_json)
             filepath = Path(cast(str | Path, item_json[FILEPATH]))
             mime_type, _ = mimetypes.guess_type(filepath)
@@ -250,6 +254,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                     item=item,
                     file_path=filepath,
                     mime_type=mime_type or "application/octet-stream",
+                    node_properties=node_properties,
                 )
             )
         return result
@@ -267,7 +272,12 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         if isinstance(selector, FileMetadataTemplateSelector | FileIdentifierSelector):
             upload_url_getter = self._upload_url_asset_centric
         elif isinstance(selector, FileDataModelingTemplateSelector):
-            upload_url_getter = self._upload_url_data_modeling
+            view_id = dm.ViewId(
+                space=selector.view_id.space,
+                external_id=selector.view_id.external_id,
+                version=selector.view_id.version,
+            )
+            upload_url_getter = functools.partial(self._upload_url_data_modeling, view_id=view_id)
         elif selector is None:
             raise ToolkitNotImplementedError("Selector must be provided for FileContentIO upload")
         else:
@@ -308,6 +318,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         item: UploadFileContentItem,
         http_client: HTTPClient,
         results: ItemsResultList,
+        view_id: dm.ViewId = COGNITE_FILE_VIEW,
         created_node: bool = False,
     ) -> str | None:
         """Get upload URL for data modeling file upload.
@@ -319,6 +330,8 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
             item: The upload item containing file metadata.
             http_client: The HTTP client to use for requests.
             results: A mutable sequence to collect HTTP messages and errors.
+            view_id: The view to write the node and properties through.
+                Must be CogniteFile or a view mapping to the CogniteFile container.
             created_node: A flag indicating whether the CogniteFile node has already been created.
                 This prevents infinite recursion.
 
@@ -336,8 +349,10 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
             )
         )
         if isinstance(response, FailedResponse) and response.error.missing and not created_node:
-            if self._create_cognite_file_node(instance_id, http_client, item.source_id, results):
-                return self._upload_url_data_modeling(item, http_client, results, created_node=True)
+            if self._create_cognite_file_node(
+                instance_id, http_client, item.source_id, results, view_id=view_id, properties=item.node_properties
+            ):
+                return self._upload_url_data_modeling(item, http_client, results, view_id=view_id, created_node=True)
             else:
                 return None
 
@@ -345,7 +360,13 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
 
     @classmethod
     def _create_cognite_file_node(
-        cls, instance_id: NodeId, http_client: HTTPClient, upload_id: str, results: ItemsResultList
+        cls,
+        instance_id: NodeId,
+        http_client: HTTPClient,
+        upload_id: str,
+        results: ItemsResultList,
+        view_id: dm.ViewId = COGNITE_FILE_VIEW,
+        properties: dict[str, Any] | None = None,
     ) -> bool:
         node_creation = http_client.request_single_retries(
             message=RequestMessage(
@@ -362,14 +383,13 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                             # possible because CogniteFile view has all properties as optional). This includes properties
                             # in the CogniteFile container, which will trigger the file syncer to create a FileMetadata
                             # and link it to the CogniteFile node.
-                            "sources": [{"source": COGNITE_FILE_VIEW.dump(include_type=True), "properties": {}}],  # type: ignore[dict-item]
+                            "sources": [{"source": view_id.dump(include_type=True), "properties": properties or {}}],  # type: ignore[dict-item]
                         }
                     ]
                 },
             )
         )
         if isinstance(node_creation, SuccessResponse):
-            # Node created successfully
             return True
         results.append(node_creation.as_item_response(upload_id))
         return False
