@@ -1267,6 +1267,12 @@ class TestInstanceToInstanceConversion:
             type=FileCDFExternalIdReference(),
             **DEFAULT_ARGS,
         ),
+        "epoch": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="epoch",
+            type=Int64Property(),
+            **DEFAULT_ARGS,
+        ),
         "dateVal": ViewCorePropertyResponse(
             container=CONTAINER_ID,
             container_property_identifier="dateVal",
@@ -1326,6 +1332,12 @@ class TestInstanceToInstanceConversion:
             type=DirectNodeRelation(),
             **DEFAULT_ARGS,
         ),
+        "timestamp": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="timestamp",
+            type=TimestampProperty(),
+            **DEFAULT_ARGS,
+        ),
         "dateVal": ViewCorePropertyResponse(
             container=CONTAINER_ID,
             container_property_identifier="dateVal",
@@ -1378,6 +1390,7 @@ class TestInstanceToInstanceConversion:
             "textEdge": "textProp",
             "edgeRel": "destEdge",
             "dupRel": "relatedAsset",
+            "epoch": "timestamp",
         },
     )
 
@@ -1410,6 +1423,16 @@ class TestInstanceToInstanceConversion:
                     " Cannot convert not-a-number to int64.",
                 ],
                 id="File reference, date formatting, conversion error, and reverse relation skip",
+            ),
+            pytest.param(
+                {
+                    "epoch": 1700000000000,
+                },
+                {
+                    "timestamp": "2023-11-14T22:13:20.000",
+                },
+                [],
+                id="Epoch to timestamp conversion",
             ),
         ],
     )
