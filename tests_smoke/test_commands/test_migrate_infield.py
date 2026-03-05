@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     FeatureConfiguration,
     RootLocationConfiguration,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceRequest,
     InstanceSource,
@@ -31,6 +32,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import DataStorage, InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
+from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import create_infield_data_mappings
 from cognite_toolkit._cdf_tk.cruds import ViewCRUD
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -79,7 +81,7 @@ def infield_legacy(
     client = toolkit_client
 
     myself = client.user_profiles.me()
-    instances, timeseries, files = load_infield_source_data(
+    instances, timeseries, files, asset = load_infield_source_data(
         user_id=myself.user_identifier, source_space=source_space.space, read_space=read_space.space
     )
     instances.append(
@@ -131,6 +133,29 @@ def infield_legacy(
                 ],
             )
         )
+
+    asset_external_id = cast(str, asset.external_id)
+    migrated_asset = NodeRequest(
+        space=source_space.space,
+        external_id=asset_external_id,
+        sources=[
+            InstanceSource(
+                source=ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
+                properties={"name": asset.name},
+            ),
+            # Lineage of migration, used in InField migration.
+            InstanceSource(
+                source=INSTANCE_SOURCE_VIEW_ID,
+                properties={
+                    "resourceType": "asset",
+                    "id": -1,  # Ignored by InField
+                    "classicExternalId": asset_external_id,
+                },
+            ),
+        ],
+    )
+    instances.append(migrated_asset)
+
     to_create_by_view_id: dict[ViewId, list[InstanceRequest]] = defaultdict(list)
     edges: list[InstanceRequest] = []
     for instance in instances:
@@ -151,6 +176,7 @@ def infield_legacy(
     if deleted:
         time.sleep(5)
 
+    #### Deploy instances to legacy InField model #####
     for view_id in sorted_views:
         instance_batch = to_create_by_view_id[view_id]
         try:
@@ -166,7 +192,11 @@ def infield_legacy(
             raise AssertionError(
                 f"Failed to create instance batch for edges with no view. Error: {e}. Batch: {[item.as_id() for item in edges]}"
             ) from e
+    #######
 
+    #### Create 'migrated' timeseries and files #####
+    # These are technically not migrated, but it is the simplest way is to create CogniteTimeSeries/CogniteFile
+    # and update the classic with the externalId.from
     timeseries_updates: list[TimeSeriesUpdate] = []
     for ts in timeseries:
         external_id = cast(str, ts.external_id)
@@ -317,7 +347,7 @@ class TestMigrateInfield:
 
 def load_infield_source_data(
     user_id: str, source_space: str, read_space: str
-) -> tuple[list[InstanceRequest], list[TimeSeriesRequest], list[FileMetadataRequest]]:
+) -> tuple[list[InstanceRequest], list[TimeSeriesRequest], list[FileMetadataRequest], AssetRequest]:
     raw_data = (
         TEST_DATA.read_text()
         .replace("{{userId}}", user_id)
@@ -342,6 +372,12 @@ def load_infield_source_data(
     ):
         file_external_ids.update(checklist_item.sources[0].properties["files"])  # type: ignore[arg-type]
 
+    asset_instance = instances["asset"]
+    asset_request = AssetRequest(
+        external_id=asset_instance.external_id,
+        name=asset_instance.sources[0].properties["title"],  # type: ignore[index, arg-type]
+    )
+
     return (
         list(instances.values()),
         [
@@ -357,4 +393,5 @@ def load_infield_source_data(
             )
             for external_id in file_external_ids
         ],
+        asset_request,
     )
