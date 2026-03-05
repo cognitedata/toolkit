@@ -202,6 +202,9 @@ checklistItem:
       endTime: '2025-06-09T12:30:00+00:00'
       isArchived: false
       order: 6
+      files:
+      - infield_data_smoke_test_file1
+      - infield_data_smoke_test_file2
       sourceCreatedTime: '2025-01-30T08:08:19.548+00:00'
       sourceId: 202b7a05-1ba3-4058-9a16-3f9cc306067c
       sourceUpdatedTime: '2025-02-01T14:44:07.052+00:00'
