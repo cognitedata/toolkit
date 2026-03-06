@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
 )
 
 from .data_modeling import (
+    EdgeRequest,
     WrappedInstanceListRequest,
     WrappedInstanceListResponse,
 )
@@ -28,13 +29,11 @@ CONTAINER_REFERENCE_VIEW_ID = ViewId(space=CANVAS_SCHEMA_SPACE, external_id="Con
 FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID = ViewId(
     space=CANVAS_SCHEMA_SPACE, external_id="FdmInstanceContainerReference", version="v1"
 )
-
-ANNOTATION_EDGE_TYPE_REF = {"space": CANVAS_SCHEMA_SPACE, "externalId": "referencesCanvasAnnotation"}
-CONTAINER_REFERENCE_EDGE_TYPE_REF = {"space": CANVAS_SCHEMA_SPACE, "externalId": "referencesContainerReference"}
-FDM_CONTAINER_REFERENCE_EDGE_TYPE_REF = {
-    "space": CANVAS_SCHEMA_SPACE,
-    "externalId": "referencesFdmInstanceContainerReference",
-}
+ANNOTATION_EDGE_TYPE_REF = NodeId(space=CANVAS_SCHEMA_SPACE, external_id="referencesCanvasAnnotation")
+CONTAINER_REFERENCE_EDGE_TYPE_REF = NodeId(space=CANVAS_SCHEMA_SPACE, external_id="referencesContainerReference")
+FDM_CONTAINER_REFERENCE_EDGE_TYPE_REF = NodeId(
+    space=CANVAS_SCHEMA_SPACE, external_id="referencesFdmInstanceContainerReference"
+)
 
 
 class CanvasAnnotationItem(BaseModelObject):
@@ -151,25 +150,6 @@ def _dump_node(
     }
 
 
-def _dump_edge(
-    space: str,
-    external_id: str,
-    edge_type: dict[str, str],
-    start_space: str,
-    start_external_id: str,
-    end_space: str,
-    end_external_id: str,
-) -> dict[str, Any]:
-    return {
-        "instanceType": "edge",
-        "space": space,
-        "externalId": external_id,
-        "type": edge_type,
-        "startNode": {"space": start_space, "externalId": start_external_id},
-        "endNode": {"space": end_space, "externalId": end_external_id},
-    }
-
-
 class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
     """Pydantic request model for an IndustrialCanvas."""
 
@@ -193,7 +173,7 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
             tuple[
                 list[CanvasAnnotationItem] | list[ContainerReferenceItem] | list[FdmInstanceContainerReferenceItem],
                 ViewId,
-                dict[str, str],
+                NodeId,
             ]
         ] = [
             (self.annotations or [], CANVAS_ANNOTATION_VIEW_ID, ANNOTATION_EDGE_TYPE_REF),
@@ -209,15 +189,13 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
                 props = item.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude=set(_SUB_ITEM_EXCLUDE))
                 instances.append(_dump_node(item.space, item.external_id, view_id, props))
                 instances.append(
-                    _dump_edge(
+                    EdgeRequest(
                         space=CANVAS_INSTANCE_SPACE,
                         external_id=f"{self.external_id}_{item.external_id}",
-                        edge_type=edge_type,
-                        start_space=self.space,
-                        start_external_id=self.external_id,
-                        end_space=item.space,
-                        end_external_id=item.external_id,
-                    )
+                        type=edge_type,
+                        start_node=NodeId(space=CANVAS_INSTANCE_SPACE, external_id=self.external_id),
+                        end_node=NodeId(space=CANVAS_INSTANCE_SPACE, external_id=item.external_id),
+                    ).dump()
                 )
 
         for tag in self.solution_tag_items or []:
@@ -231,11 +209,7 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
 
         edge_groups: list[
             list[CanvasAnnotationItem] | list[ContainerReferenceItem] | list[FdmInstanceContainerReferenceItem]
-        ] = [
-            self.annotations or [],
-            self.container_references or [],
-            self.fdm_instance_container_references or [],
-        ]
+        ] = [self.annotations or [], self.container_references or [], self.fdm_instance_container_references or []]
         for items in edge_groups:
             for item in items:
                 ids.append(NodeId(space=item.space, external_id=item.external_id))
@@ -270,11 +244,7 @@ class IndustrialCanvasResponse(WrappedInstanceListResponse, CanvasProperties):
         ids: list[InstanceDefinitionId] = [self.as_id()]
         edge_groups: list[
             list[CanvasAnnotationItem] | list[ContainerReferenceItem] | list[FdmInstanceContainerReferenceItem]
-        ] = [
-            self.annotations or [],
-            self.container_references or [],
-            self.fdm_instance_container_references or [],
-        ]
+        ] = [self.annotations or [], self.container_references or [], self.fdm_instance_container_references or []]
         for items in edge_groups:
             for item in items:
                 ids.append(NodeId(space=item.space, external_id=item.external_id))
