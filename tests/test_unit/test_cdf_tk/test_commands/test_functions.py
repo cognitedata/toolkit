@@ -4,9 +4,11 @@ import pytest
 import typer
 from _pytest.monkeypatch import MonkeyPatch
 
-from cognite_toolkit._cdf_tk.commands.functions import FunctionsCommand
+from cognite_toolkit._cdf_tk.commands.functions import FunctionsCommand, Route
 from cognite_toolkit._cdf_tk.constants import MODULES
 from tests.test_unit.utils import MockQuestionary
+
+_DEFAULT_ROUTES = [Route("/process", "Example POST route", True)]
 
 
 def _make_module(base: Path, module_name: str = "my_module") -> Path:
@@ -22,6 +24,7 @@ def _run_init(
     module_name: str = "my_module",
     external_id: str = "my-func",
     name: str = "My Function",
+    routes: list[Route] | None = None,
     verbose: bool = False,
 ) -> Path:
     """Helper: run FunctionsCommand.init() with all args provided (no prompts needed)."""
@@ -31,9 +34,10 @@ def _run_init(
     cmd.init(
         organization_dir=organization_dir,
         module_name=module_name,
+        verbose=verbose,
         external_id=external_id,
         name=name,
-        verbose=verbose,
+        routes=routes if routes is not None else _DEFAULT_ROUTES,
     )
     return organization_dir / MODULES / module_name
 
@@ -59,36 +63,55 @@ class TestFunctionsInitCommand:
         assert "test_fn_tracing_api_key" in yaml_text
 
     def test_handler_py_content(self, tmp_path: Path) -> None:
-        module_path = _run_init(tmp_path, name="My Service")
+        routes = [
+            Route("/process", "Process an asset", True),
+            Route("/status", "Health check", False),
+        ]
+        module_path = _run_init(tmp_path, name="My Service", routes=routes)
         handler_text = (module_path / "functions" / "my-func" / "handler.py").read_text()
         assert 'FunctionApp(title="My Service"' in handler_text
-        assert "@app.get" in handler_text
-        assert "@app.post" in handler_text
+        assert '@app.post("/process")' in handler_text
+        assert '@app.post("/status")' in handler_text
+        assert "class ProcessRequest(BaseModel):" in handler_text
+        # /status has no body, so no StatusRequest model
+        assert "StatusRequest" not in handler_text
         assert "handle = create_function_service" in handler_text
         assert '__all__ = ["handle"]' in handler_text
+
+    def test_handler_py_route_docstrings(self, tmp_path: Path) -> None:
+        routes = [Route("/do-work", "Does the work", False)]
+        module_path = _run_init(tmp_path, routes=routes)
+        handler_text = (module_path / "functions" / "my-func" / "handler.py").read_text()
+        assert "Does the work" in handler_text
+        assert "def do_work(" in handler_text
+
+    def test_handler_py_path_to_func_name(self, tmp_path: Path) -> None:
+        routes = [Route("/some-route/action", "Multi-segment route", False)]
+        module_path = _run_init(tmp_path, routes=routes)
+        handler_text = (module_path / "functions" / "my-func" / "handler.py").read_text()
+        assert "def some_route_action(" in handler_text
 
     def test_requirements_txt_content(self, tmp_path: Path) -> None:
         module_path = _run_init(tmp_path)
         req_text = (module_path / "functions" / "my-func" / "requirements.txt").read_text()
         assert "cognite-function-apps[tracing]>=0.4.0" in req_text
 
-    # ── Prompts for external_id / name ────────────────────────────────────────
+    # ── Prompts for external_id / name / routes ───────────────────────────────
 
     def test_prompts_for_external_id_and_name(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         organization_dir = tmp_path / "org"
         _make_module(organization_dir)
         cmd = FunctionsCommand(print_warning=False, skip_tracking=True, silent=True)
 
+        # Answers: external_id, name, route path, route desc, has_body=True, add_another=False
         with MockQuestionary(
             "cognite_toolkit._cdf_tk.commands.functions",
             monkeypatch,
-            ["prompted-func", "Prompted Function"],
+            ["prompted-func", "Prompted Function", "/process", "My route", True, False],
         ):
             cmd.init(
                 organization_dir=organization_dir,
                 module_name="my_module",
-                external_id=None,
-                name=None,
                 verbose=False,
             )
 
@@ -109,8 +132,6 @@ class TestFunctionsInitCommand:
             cmd.init(
                 organization_dir=organization_dir,
                 module_name="my_module",
-                external_id=None,
-                name=None,
                 verbose=False,
             )
 
@@ -132,9 +153,10 @@ class TestFunctionsInitCommand:
             cmd.init(
                 organization_dir=organization_dir,
                 module_name="my_module",
+                verbose=False,
                 external_id="my-func",
                 name="New Name",
-                verbose=False,
+                routes=_DEFAULT_ROUTES,
             )
 
         # YAML was not overwritten
@@ -154,9 +176,10 @@ class TestFunctionsInitCommand:
             cmd.init(
                 organization_dir=organization_dir,
                 module_name="my_module",
+                verbose=False,
                 external_id="my-func",
                 name="Updated Name",
-                verbose=False,
+                routes=_DEFAULT_ROUTES,
             )
 
         assert "name: Updated Name" in yaml_path.read_text()
@@ -180,9 +203,10 @@ class TestFunctionsInitCommand:
             cmd.init(
                 organization_dir=organization_dir,
                 module_name="brand_new_module",
+                verbose=False,
                 external_id="my-func",
                 name="My Function",
-                verbose=False,
+                routes=_DEFAULT_ROUTES,
             )
 
         new_module = organization_dir / MODULES / "brand_new_module"
@@ -201,7 +225,8 @@ class TestFunctionsInitCommand:
             cmd.init(
                 organization_dir=organization_dir,
                 module_name="nonexistent",
+                verbose=False,
                 external_id="my-func",
                 name="My Function",
-                verbose=False,
+                routes=_DEFAULT_ROUTES,
             )

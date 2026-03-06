@@ -1,5 +1,4 @@
 from ._auth_app import AuthApp
-from ._functions_app import FunctionsApp
 from ._core_app import CoreApp
 from ._data_app import DataApp
 from ._dev_app import DevApp
@@ -18,7 +17,6 @@ from ._upload_app import UploadApp
 
 __all__ = [
     "AuthApp",
-    "FunctionsApp",
     "CoreApp",
     "DataApp",
     "DevApp",

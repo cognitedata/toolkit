@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from pathlib import Path
 
 import questionary
@@ -6,6 +7,24 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.resources import ResourcesCommand
+
+
+@dataclass
+class Route:
+    path: str
+    description: str
+    has_body: bool
+
+
+def _path_to_func_name(path: str) -> str:
+    """Convert /some-route/action → some_route_action."""
+    return path.lstrip("/").replace("-", "_").replace("/", "_")
+
+
+def _path_to_model_name(path: str) -> str:
+    """Convert /some-route/action → SomeRouteActionRequest."""
+    parts = _path_to_func_name(path).split("_")
+    return "".join(p.capitalize() for p in parts if p) + "Request"
 
 
 _FUNCTION_YAML_TEMPLATE = """\
@@ -20,85 +39,85 @@ secrets:
   tracing-api-key: '{{{{ {secret_var} }}}}'
 """
 
-_HANDLER_PY_TEMPLATE = '''\
-"""{name} — Cognite Function App.
-
-Routes:
-  GET  /hello          Simple health probe
-  POST /process        Example POST with a typed request body
-
-Tracing is enabled when the \'tracing-api-key\' CDF secret is present.
-If the secret is absent, tracing is silently disabled and all routes
-continue to work normally.
-
-Local dev server:
-  pip install "cognite-function-apps[cli,tracing]"
-  fun serve handler.py
-"""
-
-import logging
-from pydantic import BaseModel
-from cognite.client import CogniteClient
-from cognite_function_apps import (
-    FunctionApp,
-    create_function_service,
-    create_introspection_app,
-    create_tracing_app,
-)
-
-app = FunctionApp(title="{name}", version="1.0.0")
-tracing = create_tracing_app(backend="honeycomb")   # no-op if tracing-api-key is absent
-introspection = create_introspection_app()
-
-
-# ── Models ────────────────────────────────────────────────────────────────────
-
-class ProcessRequest(BaseModel):
-    asset_external_id: str
-    limit: int = 100
-
-
-class ProcessResponse(BaseModel):
-    asset_external_id: str
-    count: int
-
-
-# ── Routes ────────────────────────────────────────────────────────────────────
-
-@app.get("/hello")
-def hello(client: CogniteClient, logger: logging.Logger) -> dict:
-    """Health probe — returns \'ok\' when the function is reachable."""
-    logger.info("Health probe called")
-    return {{"status": "ok"}}
-
-
-@app.post("/process")
-@tracing.trace()
-def process(
-    client: CogniteClient,
-    logger: logging.Logger,
-    request: ProcessRequest,
-) -> ProcessResponse:
-    """Example POST: count events linked to an asset."""
-    logger.info(f"Processing asset {{request.asset_external_id!r}}")
-    events = client.events.list(
-        asset_external_ids=[request.asset_external_id],
-        limit=request.limit,
-    )
-    return ProcessResponse(
-        asset_external_id=request.asset_external_id,
-        count=len(events),
-    )
-
-
-# ── Entry point ───────────────────────────────────────────────────────────────
-
-handle = create_function_service(tracing, introspection, app)
-
-__all__ = ["handle"]
-'''
-
 _REQUIREMENTS_TXT = "cognite-function-apps[tracing]>=0.4.0\n"
+
+
+def _generate_handler_py(name: str, routes: list[Route]) -> str:
+    route_docs = "\n".join(f"  POST  {r.path:<20} {r.description}" for r in routes)
+
+    lines: list[str] = [
+        f'"""{name} — Cognite Function App.',
+        "",
+        "Routes:",
+        route_docs,
+        "",
+        "Tracing is enabled when the 'tracing-api-key' CDF secret is present.",
+        "If the secret is absent, tracing is silently disabled and all routes",
+        "continue to work normally.",
+        "",
+        "Local dev server:",
+        '  pip install "cognite-function-apps[cli,tracing]"',
+        "  fun serve handler.py",
+        '"""',
+        "",
+        "import logging",
+        "from pydantic import BaseModel",
+        "from cognite.client import CogniteClient",
+        "from cognite_function_apps import (",
+        "    FunctionApp,",
+        "    create_function_service,",
+        "    create_introspection_app,",
+        "    create_tracing_app,",
+        ")",
+        "",
+        f'app = FunctionApp(title="{name}", version="1.0.0")',
+        'tracing = create_tracing_app(backend="honeycomb")   # no-op if tracing-api-key is absent',
+        "introspection = create_introspection_app()",
+        "",
+        "",
+    ]
+
+    body_routes = [r for r in routes if r.has_body]
+    if body_routes:
+        lines.append("# ── Models ────────────────────────────────────────────────────────────────────")
+        lines.append("")
+        for r in body_routes:
+            model_name = _path_to_model_name(r.path)
+            lines.append(f"class {model_name}(BaseModel):")
+            lines.append("    # TODO: define your request fields")
+            lines.append("    pass")
+            lines.append("")
+        lines.append("")
+
+    lines.append("# ── Routes ────────────────────────────────────────────────────────────────────")
+    lines.append("")
+    for r in routes:
+        func_name = _path_to_func_name(r.path)
+        lines.append(f'@app.post("{r.path}")')
+        lines.append("@tracing.trace()")
+        if r.has_body:
+            model_name = _path_to_model_name(r.path)
+            lines.append(
+                f"def {func_name}(client: CogniteClient, logger: logging.Logger, request: {model_name}) -> dict:"
+            )
+        else:
+            lines.append(f"def {func_name}(client: CogniteClient, logger: logging.Logger) -> dict:")
+        if r.description:
+            lines.append(f'    """{r.description}"""')
+        lines.append("    raise NotImplementedError")
+        lines.append("")
+        lines.append("")
+
+    lines += [
+        "# ── Entry point ───────────────────────────────────────────────────────────────",
+        "",
+        "handle = create_function_service(tracing, introspection, app)",
+        "",
+        '__all__ = ["handle"]',
+        "",
+    ]
+
+    return "\n".join(lines)
 
 
 class FunctionsCommand(ToolkitCommand):
@@ -106,12 +125,12 @@ class FunctionsCommand(ToolkitCommand):
         self,
         organization_dir: Path,
         module_name: str | None,
-        external_id: str | None,
-        name: str | None,
         verbose: bool,
+        external_id: str | None = None,
+        name: str | None = None,
+        routes: list[Route] | None = None,
     ) -> None:
         """Scaffold a cognite-function-apps Function App into an existing module."""
-        # Reuse module resolution from ResourcesCommand
         resources_cmd = ResourcesCommand(
             print_warning=self._print_warning,
             skip_tracking=True,
@@ -134,7 +153,9 @@ class FunctionsCommand(ToolkitCommand):
                 default=external_id,
             ).unsafe_ask()
 
-        # Derive the secret variable name from external_id (replace hyphens/spaces with underscores)
+        if routes is None:
+            routes = self._collect_routes()
+
         secret_var = external_id.replace("-", "_").replace(" ", "_") + "_tracing_api_key"
 
         functions_dir = module_path / "functions"
@@ -144,13 +165,14 @@ class FunctionsCommand(ToolkitCommand):
         handler_path = handler_dir / "handler.py"
         requirements_path = handler_dir / "requirements.txt"
 
-        # Create directories
         functions_dir.mkdir(parents=True, exist_ok=True)
         handler_dir.mkdir(parents=True, exist_ok=True)
 
-        # Write each file, prompting on overwrite
-        self._write_file(yaml_path, _FUNCTION_YAML_TEMPLATE.format(external_id=external_id, name=name, secret_var=secret_var))
-        self._write_file(handler_path, _HANDLER_PY_TEMPLATE.format(name=name))
+        self._write_file(
+            yaml_path,
+            _FUNCTION_YAML_TEMPLATE.format(external_id=external_id, name=name, secret_var=secret_var),
+        )
+        self._write_file(handler_path, _generate_handler_py(name, routes))
         self._write_file(requirements_path, _REQUIREMENTS_TXT)
 
         print(
@@ -159,9 +181,25 @@ class FunctionsCommand(ToolkitCommand):
             f"  {handler_path.as_posix()}\n"
             f"  {requirements_path.as_posix()}\n\n"
             f"Next steps:\n"
-            f"  pip install \"cognite-function-apps[cli,tracing]\"\n"
+            f'  pip install "cognite-function-apps[cli,tracing]"\n'
             f"  fun serve {handler_path.as_posix()}"
         )
+
+    def _collect_routes(self) -> list[Route]:
+        routes: list[Route] = []
+        while True:
+            path = questionary.text(
+                "Route path (e.g. /process):",
+                validate=lambda v: bool(v.strip()) or "Path cannot be empty",
+            ).unsafe_ask()
+            desc = questionary.text("Brief description (becomes docstring):").unsafe_ask()
+            has_body = questionary.confirm(
+                "Does this route accept a structured request body?", default=True
+            ).unsafe_ask()
+            routes.append(Route(path=path, description=desc, has_body=has_body))
+            if not questionary.confirm("Add another route?", default=False).unsafe_ask():
+                break
+        return routes
 
     def _write_file(self, path: Path, content: str) -> None:
         if path.exists() and not questionary.confirm(
