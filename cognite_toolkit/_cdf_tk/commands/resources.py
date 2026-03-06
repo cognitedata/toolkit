@@ -1,4 +1,5 @@
 import difflib
+import inspect
 from pathlib import Path
 from typing import cast
 
@@ -112,7 +113,10 @@ class ResourcesCommand(ToolkitCommand):
             if field.is_required():
                 required_fields.append((name, f"<{name}>", f"# (Required) {description}"))
             elif field.default_factory is not None:
-                optional_with_value.append((name, field.default_factory(), f"# {description}"))
+                factory = field.default_factory
+                sig = inspect.signature(factory)
+                value = factory(field) if sig.parameters else factory()
+                optional_with_value.append((name, value, f"# {description}"))
             elif field.default is not None:
                 optional_with_value.append((name, field.default, f"# {description}"))
             else:
