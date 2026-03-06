@@ -291,7 +291,17 @@ class TestMigrateInfield:
         destination_instances: list[dict[str, Any]] = []
         for view_id, node_ids in destination_by_view_id.items():
             target_nodes = toolkit_client.tool.instances.retrieve(node_ids, source=view_id)
-            destination_instances.extend([node.dump() for node in target_nodes])
+            for node in target_nodes:
+                # Excluding "last_updated_time" and "version" as they will change for each run of the test.
+                dumped = node.model_dump(
+                    mode="json", by_alias=True, exclude_unset=True, exclude={"last_updated_time", "version"}
+                )
+                for view_properties in dumped.get("properties", {}).values():
+                    for properties in view_properties.values():
+                        # These also change for each run.
+                        properties.pop("sourceCreatedTime", None)
+                        properties.pop("sourceUpdatedTime", None)
+                destination_instances.append(dumped)
 
         log_files = [file for file in tmp_path.rglob("*.ndjson") if file.is_file()]
         if log_files:
