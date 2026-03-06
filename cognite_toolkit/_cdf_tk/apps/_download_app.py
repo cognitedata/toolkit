@@ -839,7 +839,7 @@ class DownloadApp(typer.Typer):
             instance_spaces: tuple[str, ...] | None = None
             if select_instance_space:
                 instance_spaces = tuple(selector.select_instance_space(multiselect=True))
-            node_type_ids_by_view_id: dict[ViewId, set[EdgeTypeId]] = {}
+            edge_type_ids_by_view_id: dict[ViewId, set[EdgeTypeId]] = {}
             if Flags.EXTEND_DOWNLOAD.EXTEND_DOWNLOAD.is_enabled():
                 include_edges = questionary.confirm(
                     "Do you want to include edges when downloading node instances? If yes, all edges connected to the downloaded nodes will be downloaded as well.",
@@ -850,7 +850,7 @@ class DownloadApp(typer.Typer):
                         view_id = view.as_id()
                         for prop in view.properties.values():
                             if isinstance(prop, EdgeProperty):
-                                node_type_ids_by_view_id.setdefault(view_id, set()).add(prop.as_edge_type_id())
+                                edge_type_ids_by_view_id.setdefault(view_id, set()).add(prop.as_edge_type_id())
 
             selectors = []
             download_dir_name = sanitize_filename(data_model.external_id)
@@ -859,7 +859,7 @@ class DownloadApp(typer.Typer):
                     view.used_for,
                     message=f"Select instance type to download for view {view.space}:{view.external_id}(version={view.version})",
                 )
-                edge_types = node_type_ids_by_view_id.get(view.as_id())
+                edge_types = edge_type_ids_by_view_id.get(view.as_id())
 
                 selectors.append(
                     InstanceViewSelector(
