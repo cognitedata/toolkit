@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._wrapped impo
 _QUERY_LIMIT = QUERY_ENDPOINT.item_limit
 
 
-class IndustrialCanvasConfigAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, IndustrialCanvasResponse]):
+class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, IndustrialCanvasResponse]):
     _CANVAS_REF = "canvas"
     _SOLUTION_TAGS_REF = "solutionTags"
     _ANNOTATION_EDGES_REF = "annotationEdges"

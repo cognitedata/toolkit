@@ -4,13 +4,13 @@ from cognite.client import CogniteClient
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.api.charts import ChartsAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 
 from .api.agents import AgentsAPI
 from .api.annotations import AnnotationsAPI
 from .api.assets import AssetsAPI
+from .api.canvas import IndustrialCanvasAPI
 from .api.cognite_files import CogniteFilesAPI
 from .api.containers import ContainersAPI
 from .api.data_models import DataModelsAPI
@@ -109,7 +109,7 @@ class ToolkitClient(CogniteClient):
 
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self, self.console)
-        self.canvas = CanvasAPI(self.data_modeling.instances)
+        self.canvas = IndustrialCanvasAPI(http_client)
         self.migration = MigrationAPI(self.data_modeling.instances, http_client)
         self.token = TokenAPI(self)
         self.charts = ChartsAPI(http_client)
