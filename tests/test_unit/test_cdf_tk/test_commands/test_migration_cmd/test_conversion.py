@@ -1594,9 +1594,9 @@ class TestInstanceToInstanceConversion:
                     ),
                 ],
                 [
-                    "Too many targets for direct relation property 'relatesTo' in view {'type': "
-                    "'view', 'space': 'src_space', 'externalId': 'SrcView', 'version': 'v1'}: "
-                    "expected exactly 1, got 2. Returning the first target.",
+                    "Too many targets for items relation property 'relatesTo' in view "
+                    "src_space:SrcView(version=v1): expected exactly 1, got 2. Returning the "
+                    "first item.",
                     "Cannot map edge property 'textEdge' to non-connection property text.",
                 ],
                 id="List relation, multi-target single, edge creation (inwards), non-connection error, and duplicate mapping",
