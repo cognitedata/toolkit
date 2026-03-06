@@ -2,10 +2,10 @@ import sys
 from collections import defaultdict
 from collections.abc import Set
 from datetime import datetime, timezone
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 from uuid import uuid4
 
-from pydantic import Field, JsonValue
+from pydantic import Field, JsonValue, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.identifiers import (
@@ -20,6 +20,7 @@ from .data_modeling import (
     EdgeRequest,
     WrappedInstanceListRequest,
     WrappedInstanceListResponse,
+    move_properties,
 )
 
 if sys.version_info >= (3, 11):
@@ -45,13 +46,23 @@ FDM_CONTAINER_REFERENCE_EDGE_TYPE_REF = NodeId(
 )
 
 
-class CanvasAnnotationItem(BaseModelObject):
+class CanvasObject(BaseModelObject):
+    VIEW_ID: ClassVar[ViewId]
+    space: Literal["IndustrialCanvasInstanceSpace"] = CANVAS_INSTANCE_SPACE  # type: ignore[assignment]
+    external_id: str
+    id_: str = Field(alias="id")
+
+    @model_validator(mode="before")
+    @classmethod
+    def move_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Move properties from sources to the top level."""
+        return move_properties(values, cls.VIEW_ID)
+
+
+class CanvasAnnotationItem(CanvasObject):
     """A canvas annotation node that is part of an IndustrialCanvas."""
 
     VIEW_ID: ClassVar[ViewId] = CANVAS_ANNOTATION_VIEW_ID
-    space: str = CANVAS_INSTANCE_SPACE
-    external_id: str
-    id_: str = Field(alias="id")
     annotation_type: str
     container_id: str | None = None
     is_selectable: bool | None = None
@@ -60,15 +71,12 @@ class CanvasAnnotationItem(BaseModelObject):
     properties_: dict[str, JsonValue] | None = Field(default=None, alias="properties")
 
 
-class ContainerReferenceItem(BaseModelObject):
+class ContainerReferenceItem(CanvasObject):
     """A container reference node that is part of an IndustrialCanvas."""
 
     VIEW_ID: ClassVar[ViewId] = CONTAINER_REFERENCE_VIEW_ID
-    space: str = CANVAS_INSTANCE_SPACE
-    external_id: str
     container_reference_type: str
     resource_id: int
-    id_: str = Field(alias="id")
     resource_sub_id: int | None = None
     charts_id: str | None = None
     label: str | None = None
@@ -92,18 +100,15 @@ class ContainerReferenceItem(BaseModelObject):
         )
 
 
-class FdmInstanceContainerReferenceItem(BaseModelObject):
+class FdmInstanceContainerReferenceItem(CanvasObject):
     """An FDM instance container reference node that is part of an IndustrialCanvas."""
 
     VIEW_ID: ClassVar[ViewId] = FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID
-    space: str = CANVAS_INSTANCE_SPACE
-    external_id: str
     container_reference_type: str
     instance_external_id: str
     instance_space: str
     view_external_id: str
     view_space: str
-    id_: str = Field(alias="id")
     view_version: str | None = None
     label: str | None = None
     properties_: dict[str, JsonValue] | None = Field(default=None, alias="properties")
@@ -125,6 +130,12 @@ class CogniteSolutionTagItem(BaseModelObject):
     description: str | None = None
     color: str | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def move_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Move properties from sources to the top level."""
+        return move_properties(values, cls.VIEW_ID)
+
 
 class CanvasProperties(BaseModelObject):
     """Properties of the Canvas node itself."""
@@ -139,6 +150,11 @@ class CanvasProperties(BaseModelObject):
     is_archived: bool | None = None
     context: list[dict[str, JsonValue]] | None = None
     solution_tags: list[NodeId] | None = None
+
+    annotations: list[CanvasAnnotationItem] | None = None
+    container_references: list[ContainerReferenceItem] | None = None
+    fdm_instance_container_references: list[FdmInstanceContainerReferenceItem] | None = None
+    solution_tag_items: list[CogniteSolutionTagItem] | None = None
 
 
 _CANVAS_EXCLUDE_FROM_PROPERTIES: Set[str] = frozenset(
@@ -174,11 +190,6 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
     """Pydantic request model for an IndustrialCanvas."""
 
     VIEW_ID: ClassVar[ViewId] = CANVAS_VIEW_ID
-
-    annotations: list[CanvasAnnotationItem] | None = None
-    container_references: list[ContainerReferenceItem] | None = None
-    fdm_instance_container_references: list[FdmInstanceContainerReferenceItem] | None = None
-    solution_tag_items: list[CogniteSolutionTagItem] | None = None
 
     def dump(
         self, camel_case: bool = True, exclude_extra: bool = False, keep_existing_version: bool = True
@@ -321,11 +332,6 @@ class IndustrialCanvasResponse(WrappedInstanceListResponse, CanvasProperties):
     created_time: int = 0
     last_updated_time: int = 0
     deleted_time: int | None = None
-
-    annotations: list[CanvasAnnotationItem] | None = None
-    container_references: list[ContainerReferenceItem] | None = None
-    fdm_instance_container_references: list[FdmInstanceContainerReferenceItem] | None = None
-    solution_tag_items: list[CogniteSolutionTagItem] | None = None
 
     @classmethod
     def request_cls(cls) -> type[IndustrialCanvasRequest]:

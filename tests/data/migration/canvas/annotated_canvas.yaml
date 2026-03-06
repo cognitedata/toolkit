@@ -1,26 +1,25 @@
-canvas:
-- space: IndustrialCanvasInstanceSpace
-  externalId: 4b2c06fe-85c1-4146-bbd1-50f8b52647de
-  version: 19
-  lastUpdatedTime: 1769082756068
-  createdTime: 1769082583119
-  instanceType: node
-  properties:
-    cdf_industrial_canvas:
-      Canvas/v7:
-        name: Classic Canvas
-        createdBy: aGQ-cBXUBY6bmmxqIdkFoA
-        updatedAt: '2026-01-22T11:52:35.559+00:00'
-        updatedBy: aGQ-cBXUBY6bmmxqIdkFoA
-        isLocked: null
-        visibility: public
-        sourceCanvasId: null
-        isArchived: null
-        context:
-        - type: FILTERS
-          payload:
-            filters: []
-        solutionTags: null
+space: IndustrialCanvasInstanceSpace
+externalId: 4b2c06fe-85c1-4146-bbd1-50f8b52647de
+version: 19
+lastUpdatedTime: 1769082756068
+createdTime: 1769082583119
+instanceType: node
+properties:
+  cdf_industrial_canvas:
+    Canvas/v7:
+      name: Classic Canvas
+      createdBy: aGQ-cBXUBY6bmmxqIdkFoA
+      updatedAt: '2026-01-22T11:52:35.559+00:00'
+      updatedBy: aGQ-cBXUBY6bmmxqIdkFoA
+      isLocked: null
+      visibility: public
+      sourceCanvasId: null
+      isArchived: null
+      context:
+      - type: FILTERS
+        payload:
+          filters: []
+      solutionTags: null
 annotations:
 - space: IndustrialCanvasInstanceSpace
   externalId: 4b2c06fe-85c1-4146-bbd1-50f8b52647de_7b91e92f-a837-4e42-a9ba-0aca37fca2f2
@@ -221,4 +220,4 @@ containerReferences:
         maxWidth: null
         maxHeight: null
 fdmInstanceContainerReferences: []
-solutionTags: []
+solutionTagItems: []

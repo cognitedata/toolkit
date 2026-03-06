@@ -4,6 +4,7 @@ from typing import Any, ClassVar
 from unittest.mock import MagicMock
 
 import pytest
+import yaml
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes.data_modeling import (
     InstanceApply,
@@ -333,7 +334,7 @@ class TestThreeDAssetMapper:
 class TestCanvasMapper:
     def test_map_canvas_with_annotations(self):
         input_canvas_path = MIGRATION_DIR / "canvas" / "annotated_canvas.yaml"
-        input_canvas = IndustrialCanvasResponse._load(input_canvas_path.read_text(encoding="utf-8"))
+        input_canvas = IndustrialCanvasResponse._load(yaml.safe_load(input_canvas_path.read_text(encoding="utf-8")))
         with monkeypatch_toolkit_client() as client:
             client.migration.lookup.assets.return_value = dm.NodeId(space="my_space", external_id="asset_1")
             client.migration.lookup.events.return_value = dm.NodeId(space="my_space", external_id="event_1")
