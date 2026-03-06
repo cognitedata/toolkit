@@ -46,11 +46,7 @@ class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, In
                 self._LOCATION_REF: QueryNodeExpression(
                     limit=len(items),
                     nodes=QueryNodeTableExpression(
-                        filter={
-                            "instanceReferences": [
-                                {"space": item.space, "externalId": item.external_id} for item in items
-                            ]
-                        },
+                        filter={"instanceReferences": [item.dump(include_instance_type=False) for item in items]},
                     ),
                 ),
                 self._EXPLORATION_REF: QueryNodeExpression(
