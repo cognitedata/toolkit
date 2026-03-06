@@ -183,7 +183,7 @@ def _dump_node(
         "instanceType": "node",
         "space": space,
         "externalId": external_id,
-        "sources": [{"source": view_id.dump(), "properties": properties}],
+        "sources": [{"source": view_id.dump(include_type=True), "properties": properties}],
     }
 
 

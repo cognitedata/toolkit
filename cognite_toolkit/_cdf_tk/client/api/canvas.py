@@ -63,6 +63,7 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
                     nodes=QueryNodeTableExpression(
                         from_=self._CANVAS_REF,
                         through=QueryThrough(source=CANVAS_VIEW_ID, identifier="solutionTags"),
+                        direction="outwards",
                     ),
                 ),
                 self._ANNOTATION_EDGES_REF: QueryEdgeExpression(
@@ -76,7 +77,7 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
                                 "value": ANNOTATION_EDGE_TYPE_REF.dump(include_instance_type=False),
                             }
                         },
-                        node_filter={"hasData": [CANVAS_ANNOTATION_VIEW_ID.dump()]},
+                        node_filter={"hasData": [CANVAS_ANNOTATION_VIEW_ID.dump(include_type=True)]},
                     ),
                 ),
                 self._CONTAINER_REF_EDGES_REF: QueryEdgeExpression(
@@ -90,7 +91,7 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
                                 "value": CONTAINER_REFERENCE_EDGE_TYPE_REF.dump(include_instance_type=False),
                             }
                         },
-                        node_filter={"hasData": [CONTAINER_REFERENCE_VIEW_ID.dump()]},
+                        node_filter={"hasData": [CONTAINER_REFERENCE_VIEW_ID.dump(include_type=True)]},
                     ),
                 ),
                 self._FDM_REF_EDGES_REF: QueryEdgeExpression(
@@ -104,7 +105,7 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
                                 "value": FDM_CONTAINER_REFERENCE_EDGE_TYPE_REF.dump(include_instance_type=False),
                             }
                         },
-                        node_filter={"hasData": [FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID.dump()]},
+                        node_filter={"hasData": [FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID.dump(include_type=True)]},
                     ),
                 ),
                 self._ANNOTATIONS_REF: QueryNodeExpression(
