@@ -1,5 +1,4 @@
 from collections.abc import Sequence
-from typing import Any
 
 from cognite_toolkit._cdf_tk.client.api.instances import MultiWrappedInstancesAPI, WrappedInstancesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse, ResponseItems
@@ -14,7 +13,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
     APMConfigResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import QueryResponseUntyped
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import (
+    QueryNodeExpression,
+    QueryNodeTableExpression,
+    QueryRequest,
+    QueryResponseUntyped,
+    QuerySelect,
+    QuerySelectSource,
+    QueryThrough,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     DataExplorationConfig,
     InFieldCDMLocationConfigRequest,
@@ -33,39 +40,35 @@ class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, In
         # 500 is chosen as 1000 is the maximum for nodes, and each location config consists of 1 or 2 nodes
         super().__init__(http_client, query_chunk=500)
 
-    def _retrieve_query(self, items: Sequence[InstanceDefinitionId]) -> dict[str, Any]:
-        return {
-            "with": {
-                self._LOCATION_REF: {
-                    "limit": len(items),
-                    "nodes": {
-                        "filter": {
-                            "instanceReferences": [
-                                {"space": item.space, "externalId": item.external_id} for item in items
-                            ]
-                        },
-                    },
-                },
-                self._EXPLORATION_REF: {
-                    "nodes": {
-                        "from": "locationConfig",
-                        "direction": "outwards",
-                        "through": {
-                            "source": InFieldLocationConfig.VIEW_ID.dump(include_type=True),
-                            "identifier": "dataExplorationConfig",
-                        },
-                    }
-                },
+    def _retrieve_query(self, items: Sequence[InstanceDefinitionId]) -> QueryRequest:
+        return QueryRequest(
+            with_={
+                self._LOCATION_REF: QueryNodeExpression(
+                    limit=len(items),
+                    nodes=QueryNodeTableExpression(
+                        filter={"instanceReferences": [item.dump(include_instance_type=False) for item in items]},
+                    ),
+                ),
+                self._EXPLORATION_REF: QueryNodeExpression(
+                    nodes=QueryNodeTableExpression(
+                        from_="locationConfig",
+                        direction="outwards",
+                        through=QueryThrough(
+                            source=InFieldLocationConfig.VIEW_ID,
+                            identifier="dataExplorationConfig",
+                        ),
+                    ),
+                ),
             },
-            "select": {
-                self._LOCATION_REF: {
-                    "sources": [{"source": InFieldLocationConfig.VIEW_ID.dump(include_type=True), "properties": ["*"]}],
-                },
-                self._EXPLORATION_REF: {
-                    "sources": [{"source": DataExplorationConfig.VIEW_ID.dump(include_type=True), "properties": ["*"]}],
-                },
+            select={
+                self._LOCATION_REF: QuerySelect(
+                    sources=[QuerySelectSource(source=InFieldLocationConfig.VIEW_ID, properties=["*"])],
+                ),
+                self._EXPLORATION_REF: QuerySelect(
+                    sources=[QuerySelectSource(source=DataExplorationConfig.VIEW_ID, properties=["*"])],
+                ),
             },
-        }
+        )
 
     def _validate_query_response(self, query_response: QueryResponseUntyped) -> list[InFieldLocationConfigResponse]:
         exploration_config_results = (
