@@ -1,6 +1,9 @@
+import sys
+from collections import defaultdict
 from collections.abc import Set
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, ClassVar
+from uuid import uuid4
 
 from pydantic import JsonValue
 
@@ -17,6 +20,11 @@ from .data_modeling import (
     WrappedInstanceListRequest,
     WrappedInstanceListResponse,
 )
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 CANVAS_INSTANCE_SPACE = "IndustrialCanvasInstanceSpace"
 SOLUTION_TAG_SPACE = "SolutionTagsInstanceSpace"
@@ -83,7 +91,7 @@ class FdmInstanceContainerReferenceItem(BaseModelObject):
     instance_space: str
     view_external_id: str
     view_space: str
-    id_: str | None = None
+    id_: str
     view_version: str | None = None
     label: str | None = None
     properties_: dict[str, JsonValue] | None = None
@@ -220,6 +228,60 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
                     )
                 )
         return ids
+
+    def create_backup(self) -> Self:
+        """Create a backup copy of the IndustrialCanvasRequest instance with new IDs."""
+        new_canvas_id = str(uuid4())
+
+        new_canvas = self.model_copy(deep=True)
+        new_canvas.external_id = new_canvas_id
+        new_canvas.source_canvas_id = self.external_id
+        new_canvas.updated_at = datetime.now(tz=timezone.utc)
+        # Solution tags are not duplicated, they are reused
+        generator: dict[str, str] = defaultdict(lambda: str(uuid4()))
+        to_update: list[
+            list[CanvasAnnotationItem] | list[ContainerReferenceItem] | list[FdmInstanceContainerReferenceItem]
+        ] = []
+        if self.annotations:
+            to_update.append(self.annotations)
+        if self.container_references:
+            to_update.append(self.container_references)
+        if self.fdm_instance_container_references:
+            to_update.append(self.fdm_instance_container_references)
+        for items in to_update:
+            for item in items:
+                item.id_ = generator[item.id_]
+                item.external_id = f"{new_canvas_id}_{item.id_}"
+
+        return new_canvas._replace_ids(generator)
+
+    def _replace_ids(self, id_mapping_old_by_new: dict[str, str]) -> Self:
+        """Replace IDs in the IndustrialCanvasRequest instance based on the provided ID mapping.
+
+        Args:
+            id_mapping_old_by_new: A dictionary mapping old IDs to new IDs.
+        Returns:
+            A new IndustrialCanvasRequest instance with IDs replaced according to the provided mapping.
+        """
+
+        # There can be references to the old IDs in properties, for example, in annotations
+        # the properties field there can be fromId and toId set.
+        # We don't know all the places the Canvas application will have undocumented references,
+        # so we do a recursive search and replace based on the id mapping we have created.
+        dumped_data = self.dump(camel_case=True)
+
+        def _replace_ids_recursively(data: Any, id_map: dict[str, str]) -> Any:
+            if isinstance(data, dict):
+                return {key: _replace_ids_recursively(value, id_map) for key, value in data.items()}
+            if isinstance(data, list):
+                return [_replace_ids_recursively(item, id_map) for item in data]
+            if isinstance(data, str) and data in id_map:
+                return id_map[data]
+            return data
+
+        updated_data = _replace_ids_recursively(dumped_data, id_mapping_old_by_new)
+
+        return type(self)._load(updated_data)
 
 
 class IndustrialCanvasResponse(WrappedInstanceListResponse, CanvasProperties):
