@@ -4,7 +4,9 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes.capabilities import _CAPABILITY_CLASS_BY_NAME, AllScope, Capability
 from cognite.client.data_classes.iam import TokenInspection
 
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
 from cognite_toolkit._cdf_tk.client.resource_classes.capabilities import scope_intersection, scope_union
+from cognite_toolkit._cdf_tk.client.resource_classes.token import InspectResponse
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 _ACL_CLASS_BY_CLASS_NAME = {cap.__name__: cap for cap in _CAPABILITY_CLASS_BY_NAME.values()}
@@ -109,3 +111,21 @@ class TokenAPI:
                     scope_cls = type(capability.scope)
                     scopes_by_cls[scope_cls] = scope_union(capability.scope, scopes_by_cls.get(scope_cls))
         return scopes_by_action
+
+
+# Todo: merge these two classes into one.
+class ToolkitTokenAPI:
+    def __init__(self, http_client: HTTPClient):
+        self._http_client = http_client
+
+    def inspect(self) -> InspectResponse:
+        """Inspect the current token and return its capabilities and scopes."""
+        config = self._http_client.config
+        url = f"{config.base_url}/api/v1/token/inspect"
+        response = self._http_client.request_single_retries(
+            RequestMessage(
+                endpoint_url=url,
+                method="GET",
+            )
+        ).get_success_or_raise()
+        return InspectResponse.model_validate_json(response.body)
