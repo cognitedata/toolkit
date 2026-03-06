@@ -14,7 +14,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from cognite_toolkit._cdf_tk.client.api.instances import WrappedInstancesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
-from cognite_toolkit._cdf_tk.client.identifiers import NodeId
+from cognite_toolkit._cdf_tk.client.identifiers import AssetCentricExternalId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
     AssetCentricId,
@@ -37,18 +37,34 @@ class InstanceSourceAPI:
         self._RETRIEVE_LIMIT = 1000
         self._view_id = InstanceSource.get_source()
 
-    def retrieve(self, ids: Sequence[AssetCentricId]) -> NodeList[InstanceSource]:
+    def retrieve(
+        self,
+        ids: Sequence[AssetCentricId] | None = None,
+        *,
+        external_ids: Sequence[AssetCentricExternalId] | None = None,
+    ) -> NodeList[InstanceSource]:
         """Retrieve a list of instance sources by their IDs.
 
         Args:
             ids (Sequence[AssetCentricId]): A sequence of AssetCentricId objects representing the IDs of the instance sources to retrieve.
+
         """
+        if ids is not None and external_ids is None:
+            id_property = "id"
+            selected_ids: Sequence[AssetCentricId] | Sequence[AssetCentricExternalId] = ids
+        elif external_ids is not None and ids is None:
+            id_property = "classicExternalId"
+            selected_ids = external_ids
+        else:
+            raise ValueError("Exactly one of 'ids' or 'external_ids' must be provided.")
         results: NodeList[InstanceSource] = NodeList[InstanceSource]([])
-        for chunk in chunker_sequence(ids, self._RETRIEVE_LIMIT):
+        for chunk in chunker_sequence(selected_ids, self._RETRIEVE_LIMIT):
             retrieve_query = query.Query(
                 with_={
                     "instanceSource": query.NodeResultSetExpression(
-                        filter=filters.And(filters.HasData(views=[self._view_id]), self._create_dms_filter(ids)),
+                        filter=filters.And(
+                            filters.HasData(views=[self._view_id]), self._create_dms_filter(chunk, id_property)
+                        ),
                         limit=len(chunk),
                     ),
                 },
@@ -59,10 +75,8 @@ class InstanceSourceAPI:
         return results
 
     @staticmethod
-    def _create_dms_filter(ids: Sequence[AssetCentricId]) -> filters.Filter:
+    def _create_dms_filter(ids: Sequence[AssetCentricId | AssetCentricExternalId], id_property: str) -> filters.Filter:
         """Create a filter that matches all the AssetCentricIds in the list."""
-        if not ids:
-            raise ValueError("Cannot create a filter from an empty AssetCentricIdList.")
         to_or_filters: list[filters.Filter] = []
         instance_source_view = InstanceSource.get_source()
         for resource_type, resource_ids in groupby(
@@ -70,7 +84,8 @@ class InstanceSourceAPI:
         ):
             is_resource = filters.Equals(instance_source_view.as_property_ref("resourceType"), resource_type)
             is_id = filters.In(
-                instance_source_view.as_property_ref("id"), [resource_id.id_ for resource_id in resource_ids]
+                instance_source_view.as_property_ref(id_property),
+                [resource_id.id_value for resource_id in resource_ids],
             )
             to_or_filters.append(filters.And(is_resource, is_id))
         return filters.Or(*to_or_filters)

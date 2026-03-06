@@ -43,8 +43,10 @@ from ._identifiers import (
     UserProfileId,
     WorkflowVersionId,
 )
+from ._migration import AssetCentricExternalId
 
 __all__ = [
+    "AssetCentricExternalId",
     "ContainerConstraintId",
     "ContainerDirectId",
     "ContainerId",

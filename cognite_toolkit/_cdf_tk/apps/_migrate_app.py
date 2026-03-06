@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.annotation import Annotatio
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
+from cognite_toolkit._cdf_tk.commands._migrate.conversion import InFieldAssetMapping
 from cognite_toolkit._cdf_tk.commands._migrate.creators import (
     InfieldV2ConfigCreator,
     InstanceSpaceCreator,
@@ -1399,7 +1400,12 @@ class MigrateApp(typer.Typer):
         else:
             raise typer.BadParameter("Either both --source-space and --target-space must be provided, or neither.")
 
-        space_mapping = {source_space: target_space}
+        space_mapping = {
+            source_space: target_space,
+            # The users are stored in this space are unchanged. This ensures that all direct relations
+            # to users are preserved.
+            "cognite_app_data": "cognite_app_data",
+        }
         infield_mappings = create_infield_data_mappings()
         selectors = [
             InstanceViewSelector(
@@ -1418,7 +1424,9 @@ class MigrateApp(typer.Typer):
             lambda: cmd.migrate(  # type: ignore[misc]
                 selectors=selectors,
                 data=InstanceIO(client),
-                mapper=FDMtoCDMMapper(client, space_mapping, infield_mappings),
+                mapper=FDMtoCDMMapper(
+                    client, space_mapping, infield_mappings, special_cases=[InFieldAssetMapping(client)]
+                ),
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
