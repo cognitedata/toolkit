@@ -292,7 +292,7 @@ conditionalAction:
         logic: or
         parentObject:
           space: {{source_space}}
-          externalId: ekd_-m3p-14oOnCYJE3mftSUa7GMjzAGDn3hfwn552Q_nVLicHT3yHf1C5U4qkZfZm_-lmBxuklh9wUw7qIClZI
+          externalId: RhIUePwMQI0WDEQQv-xkig
 condition:
   instanceType: node
   space: {{source_space}}
@@ -308,7 +308,7 @@ condition:
       value: Not applicable
       source:
         space: {{source_space}}
-        externalId: dSq9c2wTh6geOGOIdh11yHhHXKEPWPfX1A8I317N9Sc_IrDfZSISoOzW9PPS3OpYnTAGShkwDS3bB4A49NONUyA
+        externalId: -3Z4iakG1YSFRAfVlazYMA
       operator: equals
       sourceView: cdf_apm/ChecklistItem/v7
       conditionalAction:

@@ -1273,6 +1273,12 @@ class TestInstanceToInstanceConversion:
             type=Int64Property(),
             **DEFAULT_ARGS,
         ),
+        "jsonVal": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="jsonVal",
+            type=JSONProperty(list=True),
+            **DEFAULT_ARGS,
+        ),
         "dateVal": ViewCorePropertyResponse(
             container=CONTAINER_ID,
             container_property_identifier="dateVal",
@@ -1344,6 +1350,12 @@ class TestInstanceToInstanceConversion:
             type=DateProperty(),
             **DEFAULT_ARGS,
         ),
+        "jsonDestination": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="jsonDestination",
+            type=DirectNodeRelation(list=True, max_list_size=2),
+            **DEFAULT_ARGS,
+        ),
         "relatedAsset": ViewCorePropertyResponse(
             container=CONTAINER_ID,
             container_property_identifier="relatedAsset",
@@ -1391,6 +1403,7 @@ class TestInstanceToInstanceConversion:
             "edgeRel": "destEdge",
             "dupRel": "relatedAsset",
             "epoch": "timestamp",
+            "jsonVal": "jsonDestination",
         },
     )
 
@@ -1425,14 +1438,31 @@ class TestInstanceToInstanceConversion:
                 id="File reference, date formatting, conversion error, and reverse relation skip",
             ),
             pytest.param(
-                {
-                    "epoch": 1700000000000,
-                },
-                {
-                    "timestamp": "2023-11-14T22:13:20Z",
-                },
+                {"epoch": 1700000000000},
+                {"timestamp": "2023-11-14T22:13:20Z"},
                 [],
                 id="Epoch to timestamp conversion",
+            ),
+            pytest.param(
+                {
+                    "jsonVal": [
+                        {"space": "src_space", "externalId": "value1"},
+                        {"space": "src_space", "externalId": "value2"},
+                        {"space": "src_space", "externalId": "value3"},
+                    ]
+                },
+                {
+                    "jsonDestination": [
+                        {"space": "dst_space", "externalId": "value1"},
+                        {"space": "dst_space", "externalId": "value2"},
+                    ],
+                },
+                [
+                    "Too many items for direct relation property jsonVal in view "
+                    "src_space:SrcView(version=v1): expected at most 2, got 3. Truncated to the "
+                    "first 2 items."
+                ],
+                id="Implicit json connection with list truncated due to max list size.",
             ),
         ],
     )
@@ -1564,9 +1594,9 @@ class TestInstanceToInstanceConversion:
                     ),
                 ],
                 [
-                    "Too many targets for direct relation property 'relatesTo' in view {'type': "
-                    "'view', 'space': 'src_space', 'externalId': 'SrcView', 'version': 'v1'}: "
-                    "expected exactly 1, got 2. Returning the first target.",
+                    "Too many targets for items relation property 'relatesTo' in view "
+                    "src_space:SrcView(version=v1): expected exactly 1, got 2. Returning the "
+                    "first item.",
                     "Cannot map edge property 'textEdge' to non-connection property text.",
                 ],
                 id="List relation, multi-target single, edge creation (inwards), non-connection error, and duplicate mapping",

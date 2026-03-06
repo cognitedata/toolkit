@@ -121,7 +121,7 @@ def infield_legacy(
     for ts in timeseries:
         instances.append(
             NodeRequest(
-                space=source_space.space,
+                space=target_space.space,
                 external_id=cast(str, ts.external_id),
                 sources=[
                     InstanceSource(
@@ -138,7 +138,7 @@ def infield_legacy(
     for file in files:
         instances.append(
             NodeRequest(
-                space=source_space.space,
+                space=target_space.space,
                 external_id=cast(str, file.external_id),
                 sources=[
                     InstanceSource(
@@ -219,14 +219,14 @@ def infield_legacy(
     for ts in timeseries:
         external_id = cast(str, ts.external_id)
         ts_update = TimeSeriesUpdate(
-            instance_id=dm.NodeId(space=source_space.space, external_id=external_id),
+            instance_id=dm.NodeId(space=target_space.space, external_id=external_id),
         ).external_id.set(external_id)
         timeseries_updates.append(ts_update)
     file_updates: list[FileMetadataUpdate] = []
     for file in files:
         external_id = cast(str, file.external_id)
         file_update = FileMetadataUpdate(
-            instance_id=dm.NodeId(space=source_space.space, external_id=external_id),
+            instance_id=dm.NodeId(space=target_space.space, external_id=external_id),
         ).external_id.set(external_id)
         file_updates.append(file_update)
     _ = client.time_series.update(timeseries_updates)
@@ -299,7 +299,8 @@ class TestMigrateInfield:
             for log_file in log_files:
                 for chunk in NDJsonReader(log_file).read_chunks():
                     print(chunk)
-
+        else:
+            print("No migration log files found. This means there were no issues.")
         if expected_node_count != len(destination_instances):
             raise AssertionError(
                 f"InField migration failed. Expected {expected_node_count} nodes in destination, but found {len(destination_instances)}. Missing mappings: {humanize_collection(missing_mappings)}"
@@ -362,7 +363,11 @@ def load_infield_source_data(
             continue
         source = reading.sources[0]
         if source.properties and "timeseries" in source.properties:
-            timeseries_external_ids.update(source.properties["timeseries"])  # type: ignore[arg-type]
+            timeseries_values = source.properties["timeseries"]
+            if isinstance(timeseries_values, str):
+                timeseries_external_ids.add(timeseries_values)
+            elif isinstance(timeseries_values, list):
+                timeseries_external_ids.update(timeseries_values)  # type: ignore[arg-type]
     checklist_item = instances["checklistItem"]
     file_external_ids: set[str] = set()
     if (
