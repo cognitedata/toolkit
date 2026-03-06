@@ -44,7 +44,7 @@ from .api.streamlit_ import StreamlitAPI
 from .api.streams import StreamsAPI
 from .api.three_d import ThreeDAPI
 from .api.timeseries import TimeSeriesAPI
-from .api.token import TokenAPI
+from .api.token import TokenAPI, ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
 from .api.user_profiles import UserProfilesAPI
 from .api.verify import VerifyAPI
@@ -86,6 +86,7 @@ class ToolAPI:
         self.search_configurations = SearchConfigurationsAPI(http_client)
         self.simulators = SimulatorsAPI(http_client)
         self.three_d = ThreeDAPI(http_client)
+        self.token = ToolkitTokenAPI(http_client)
         self.timeseries = TimeSeriesAPI(http_client)
         self.transformations = TransformationsAPI(http_client)
         self.workflows = WorkflowsAPI(http_client)
