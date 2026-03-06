@@ -287,7 +287,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
         self._query_chunk = query_chunk
 
     @abstractmethod
-    def _retrieve_query(self, item: Sequence[InstanceDefinitionId]) -> dict[str, Any]:
+    def _retrieve_query(self, item: Sequence[InstanceDefinitionId]) -> QueryRequest:
         raise NotImplementedError()
 
     @abstractmethod
@@ -399,11 +399,11 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
         """
         retrieved: list[T_InstancesListResponse] = []
         for chunk in chunker_sequence(items, self._query_chunk):
-            query_body = self._retrieve_query(chunk)
+            query = self._retrieve_query(chunk)
             request = RequestMessage(
                 endpoint_url=self._http_client.config.create_api_url(QUERY_ENDPOINT.path),
                 method=QUERY_ENDPOINT.method,
-                body_content=query_body,
+                body_content=query.dump(),
             )
             response = self._http_client.request_single_retries(request)
             success = response.get_success_or_raise()
