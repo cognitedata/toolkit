@@ -182,6 +182,12 @@ class WrappedInstanceListResponse(ResponseResource[T_InstancesListRequest], ABC)
         """Move properties from sources to the top level."""
         return move_properties(values, cls.VIEW_ID)
 
+    def as_id(self) -> NodeId:
+        return NodeId(
+            space=self.space,
+            external_id=self.external_id,
+        )
+
     @abstractmethod
     def as_ids(self) -> list[InstanceDefinitionId]:
         """Convert the response to a list of typed instance identifiers."""

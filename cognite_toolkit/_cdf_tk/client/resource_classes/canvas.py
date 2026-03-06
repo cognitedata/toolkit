@@ -5,13 +5,14 @@ from typing import Any, ClassVar
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    EdgeId,
+    InstanceDefinitionId,
+    NodeId,
+    ViewId,
+)
 
-from .instance_api import (
-    NodeReference,
-    TypedEdgeIdentifier,
-    TypedInstanceIdentifier,
-    TypedNodeIdentifier,
-    TypedViewReference,
+from .data_modeling import (
     WrappedInstanceListRequest,
     WrappedInstanceListResponse,
 )
@@ -20,13 +21,11 @@ CANVAS_INSTANCE_SPACE = "IndustrialCanvasInstanceSpace"
 SOLUTION_TAG_SPACE = "SolutionTagsInstanceSpace"
 CANVAS_SCHEMA_SPACE = "cdf_industrial_canvas"
 
-CANVAS_VIEW_ID = TypedViewReference(space=CANVAS_SCHEMA_SPACE, external_id="Canvas", version="v7")
-CANVAS_ANNOTATION_VIEW_ID = TypedViewReference(space=CANVAS_SCHEMA_SPACE, external_id="CanvasAnnotation", version="v1")
-SOLUTION_TAG_VIEW_ID = TypedViewReference(space="cdf_apps_shared", external_id="CogniteSolutionTag", version="v1")
-CONTAINER_REFERENCE_VIEW_ID = TypedViewReference(
-    space=CANVAS_SCHEMA_SPACE, external_id="ContainerReference", version="v2"
-)
-FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID = TypedViewReference(
+CANVAS_VIEW_ID = ViewId(space=CANVAS_SCHEMA_SPACE, external_id="Canvas", version="v7")
+CANVAS_ANNOTATION_VIEW_ID = ViewId(space=CANVAS_SCHEMA_SPACE, external_id="CanvasAnnotation", version="v1")
+SOLUTION_TAG_VIEW_ID = ViewId(space="cdf_apps_shared", external_id="CogniteSolutionTag", version="v1")
+CONTAINER_REFERENCE_VIEW_ID = ViewId(space=CANVAS_SCHEMA_SPACE, external_id="ContainerReference", version="v2")
+FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID = ViewId(
     space=CANVAS_SCHEMA_SPACE, external_id="FdmInstanceContainerReference", version="v1"
 )
 
@@ -41,7 +40,7 @@ FDM_CONTAINER_REFERENCE_EDGE_TYPE_REF = {
 class CanvasAnnotationItem(BaseModelObject):
     """A canvas annotation node that is part of an IndustrialCanvas."""
 
-    VIEW_ID: ClassVar[TypedViewReference] = CANVAS_ANNOTATION_VIEW_ID
+    VIEW_ID: ClassVar[ViewId] = CANVAS_ANNOTATION_VIEW_ID
     space: str = CANVAS_INSTANCE_SPACE
     external_id: str
     id_: str
@@ -56,7 +55,7 @@ class CanvasAnnotationItem(BaseModelObject):
 class ContainerReferenceItem(BaseModelObject):
     """A container reference node that is part of an IndustrialCanvas."""
 
-    VIEW_ID: ClassVar[TypedViewReference] = CONTAINER_REFERENCE_VIEW_ID
+    VIEW_ID: ClassVar[ViewId] = CONTAINER_REFERENCE_VIEW_ID
     space: str = CANVAS_INSTANCE_SPACE
     external_id: str
     container_reference_type: str
@@ -77,7 +76,7 @@ class ContainerReferenceItem(BaseModelObject):
 class FdmInstanceContainerReferenceItem(BaseModelObject):
     """An FDM instance container reference node that is part of an IndustrialCanvas."""
 
-    VIEW_ID: ClassVar[TypedViewReference] = FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID
+    VIEW_ID: ClassVar[ViewId] = FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID
     space: str = CANVAS_INSTANCE_SPACE
     external_id: str
     container_reference_type: str
@@ -100,7 +99,7 @@ class FdmInstanceContainerReferenceItem(BaseModelObject):
 class CogniteSolutionTagItem(BaseModelObject):
     """A Cognite solution tag node that is part of an IndustrialCanvas."""
 
-    VIEW_ID: ClassVar[TypedViewReference] = SOLUTION_TAG_VIEW_ID
+    VIEW_ID: ClassVar[ViewId] = SOLUTION_TAG_VIEW_ID
     space: str = SOLUTION_TAG_SPACE
     external_id: str
     name: str
@@ -120,7 +119,7 @@ class CanvasProperties(BaseModelObject):
     source_canvas_id: str | None = None
     is_archived: bool | None = None
     context: list[dict[str, JsonValue]] | None = None
-    solution_tags: list[NodeReference] | None = None
+    solution_tags: list[NodeId] | None = None
 
 
 _CANVAS_EXCLUDE_FROM_PROPERTIES: Set[str] = frozenset(
@@ -141,7 +140,7 @@ _SUB_ITEM_EXCLUDE: Set[str] = frozenset({"space", "external_id"})
 def _dump_node(
     space: str,
     external_id: str,
-    view_id: TypedViewReference,
+    view_id: ViewId,
     properties: dict[str, Any],
 ) -> dict[str, Any]:
     return {
@@ -174,7 +173,7 @@ def _dump_edge(
 class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
     """Pydantic request model for an IndustrialCanvas."""
 
-    VIEW_ID: ClassVar[TypedViewReference] = CANVAS_VIEW_ID
+    VIEW_ID: ClassVar[ViewId] = CANVAS_VIEW_ID
 
     annotations: list[CanvasAnnotationItem] | None = None
     container_references: list[ContainerReferenceItem] | None = None
@@ -193,7 +192,7 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
         edge_groups: list[
             tuple[
                 list[CanvasAnnotationItem] | list[ContainerReferenceItem] | list[FdmInstanceContainerReferenceItem],
-                TypedViewReference,
+                ViewId,
                 dict[str, str],
             ]
         ] = [
@@ -227,8 +226,8 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
 
         return instances
 
-    def as_ids(self) -> list[TypedInstanceIdentifier]:
-        ids: list[TypedInstanceIdentifier] = [self.as_id()]
+    def as_ids(self) -> list[InstanceDefinitionId]:
+        ids: list[InstanceDefinitionId] = [self.as_id()]
 
         edge_groups: list[
             list[CanvasAnnotationItem] | list[ContainerReferenceItem] | list[FdmInstanceContainerReferenceItem]
@@ -239,9 +238,9 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
         ]
         for items in edge_groups:
             for item in items:
-                ids.append(TypedNodeIdentifier(space=item.space, external_id=item.external_id))
+                ids.append(NodeId(space=item.space, external_id=item.external_id))
                 ids.append(
-                    TypedEdgeIdentifier(
+                    EdgeId(
                         space=CANVAS_INSTANCE_SPACE,
                         external_id=f"{self.external_id}_{item.external_id}",
                     )
@@ -252,7 +251,7 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
 class IndustrialCanvasResponse(WrappedInstanceListResponse, CanvasProperties):
     """Pydantic response model for an IndustrialCanvas."""
 
-    VIEW_ID: ClassVar[TypedViewReference] = CANVAS_VIEW_ID
+    VIEW_ID: ClassVar[ViewId] = CANVAS_VIEW_ID
     version: int = 0
     created_time: int = 0
     last_updated_time: int = 0
@@ -267,8 +266,8 @@ class IndustrialCanvasResponse(WrappedInstanceListResponse, CanvasProperties):
     def request_cls(cls) -> type[IndustrialCanvasRequest]:
         return IndustrialCanvasRequest
 
-    def as_ids(self) -> list[TypedInstanceIdentifier]:
-        ids: list[TypedInstanceIdentifier] = [TypedNodeIdentifier(space=self.space, external_id=self.external_id)]
+    def as_ids(self) -> list[InstanceDefinitionId]:
+        ids: list[InstanceDefinitionId] = [self.as_id()]
         edge_groups: list[
             list[CanvasAnnotationItem] | list[ContainerReferenceItem] | list[FdmInstanceContainerReferenceItem]
         ] = [
@@ -278,9 +277,9 @@ class IndustrialCanvasResponse(WrappedInstanceListResponse, CanvasProperties):
         ]
         for items in edge_groups:
             for item in items:
-                ids.append(TypedNodeIdentifier(space=item.space, external_id=item.external_id))
+                ids.append(NodeId(space=item.space, external_id=item.external_id))
                 ids.append(
-                    TypedEdgeIdentifier(
+                    EdgeId(
                         space=CANVAS_INSTANCE_SPACE,
                         external_id=f"{self.external_id}_{item.external_id}",
                     )
