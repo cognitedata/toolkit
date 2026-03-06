@@ -1,8 +1,9 @@
 from collections.abc import Sequence
+from typing import Any, Literal
 
-from cognite_toolkit._cdf_tk.client.api.instances import MultiWrappedInstancesAPI
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
-from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId, ViewId
+from cognite_toolkit._cdf_tk.client.api.instances import QUERY_ENDPOINT, MultiWrappedInstancesAPI
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     ANNOTATION_EDGE_TYPE_REF,
     CANVAS_ANNOTATION_VIEW_ID,
@@ -32,7 +33,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._wrapped import move_properties
 
-_QUERY_LIMIT = 1000
+_QUERY_LIMIT = QUERY_ENDPOINT.item_limit
 
 
 class IndustrialCanvasConfigAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, IndustrialCanvasResponse]):
@@ -49,30 +50,6 @@ class IndustrialCanvasConfigAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest
         super().__init__(http_client, query_chunk=1)
 
     def _retrieve_query(self, items: Sequence[InstanceDefinitionId]) -> QueryRequest:
-        canvas_vid = ViewId(
-            space=CANVAS_VIEW_ID.space, external_id=CANVAS_VIEW_ID.external_id, version=CANVAS_VIEW_ID.version
-        )
-        annotation_vid = ViewId(
-            space=CANVAS_ANNOTATION_VIEW_ID.space,
-            external_id=CANVAS_ANNOTATION_VIEW_ID.external_id,
-            version=CANVAS_ANNOTATION_VIEW_ID.version,
-        )
-        solution_tag_vid = ViewId(
-            space=SOLUTION_TAG_VIEW_ID.space,
-            external_id=SOLUTION_TAG_VIEW_ID.external_id,
-            version=SOLUTION_TAG_VIEW_ID.version,
-        )
-        container_ref_vid = ViewId(
-            space=CONTAINER_REFERENCE_VIEW_ID.space,
-            external_id=CONTAINER_REFERENCE_VIEW_ID.external_id,
-            version=CONTAINER_REFERENCE_VIEW_ID.version,
-        )
-        fdm_ref_vid = ViewId(
-            space=FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID.space,
-            external_id=FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID.external_id,
-            version=FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID.version,
-        )
-
         return QueryRequest(
             with_={
                 self._CANVAS_REF: QueryNodeExpression(
@@ -85,7 +62,7 @@ class IndustrialCanvasConfigAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest
                     limit=_QUERY_LIMIT,
                     nodes=QueryNodeTableExpression(
                         from_=self._CANVAS_REF,
-                        through=QueryThrough(source=canvas_vid, identifier="solutionTags"),
+                        through=QueryThrough(source=CANVAS_VIEW_ID, identifier="solutionTags"),
                     ),
                 ),
                 self._ANNOTATION_EDGES_REF: QueryEdgeExpression(
@@ -96,10 +73,10 @@ class IndustrialCanvasConfigAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest
                         filter={
                             "equals": {
                                 "property": ["edge", "type"],
-                                "value": ANNOTATION_EDGE_TYPE_REF,  # type: ignore[dict-item]
+                                "value": ANNOTATION_EDGE_TYPE_REF.dump(include_instance_type=False),
                             }
                         },
-                        node_filter={"hasData": [annotation_vid.dump()]},
+                        node_filter={"hasData": [CANVAS_ANNOTATION_VIEW_ID.dump()]},
                     ),
                 ),
                 self._CONTAINER_REF_EDGES_REF: QueryEdgeExpression(
@@ -110,10 +87,10 @@ class IndustrialCanvasConfigAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest
                         filter={
                             "equals": {
                                 "property": ["edge", "type"],
-                                "value": CONTAINER_REFERENCE_EDGE_TYPE_REF,  # type: ignore[dict-item]
+                                "value": CONTAINER_REFERENCE_EDGE_TYPE_REF.dump(include_instance_type=False),
                             }
                         },
-                        node_filter={"hasData": [container_ref_vid.dump()]},
+                        node_filter={"hasData": [CONTAINER_REFERENCE_VIEW_ID.dump()]},
                     ),
                 ),
                 self._FDM_REF_EDGES_REF: QueryEdgeExpression(
@@ -124,10 +101,10 @@ class IndustrialCanvasConfigAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest
                         filter={
                             "equals": {
                                 "property": ["edge", "type"],
-                                "value": FDM_CONTAINER_REFERENCE_EDGE_TYPE_REF,  # type: ignore[dict-item]
+                                "value": FDM_CONTAINER_REFERENCE_EDGE_TYPE_REF.dump(include_instance_type=False),
                             }
                         },
-                        node_filter={"hasData": [fdm_ref_vid.dump()]},
+                        node_filter={"hasData": [FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID.dump()]},
                     ),
                 ),
                 self._ANNOTATIONS_REF: QueryNodeExpression(
@@ -145,19 +122,19 @@ class IndustrialCanvasConfigAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest
             },
             select={
                 self._CANVAS_REF: QuerySelect(
-                    sources=[QuerySelectSource(source=canvas_vid, properties=["*"])],
+                    sources=[QuerySelectSource(source=CANVAS_VIEW_ID, properties=["*"])],
                 ),
                 self._SOLUTION_TAGS_REF: QuerySelect(
-                    sources=[QuerySelectSource(source=solution_tag_vid, properties=["*"])],
+                    sources=[QuerySelectSource(source=SOLUTION_TAG_VIEW_ID, properties=["*"])],
                 ),
                 self._ANNOTATIONS_REF: QuerySelect(
-                    sources=[QuerySelectSource(source=annotation_vid, properties=["*"])],
+                    sources=[QuerySelectSource(source=CANVAS_ANNOTATION_VIEW_ID, properties=["*"])],
                 ),
                 self._CONTAINER_REFS_REF: QuerySelect(
-                    sources=[QuerySelectSource(source=container_ref_vid, properties=["*"])],
+                    sources=[QuerySelectSource(source=CONTAINER_REFERENCE_VIEW_ID, properties=["*"])],
                 ),
                 self._FDM_REFS_REF: QuerySelect(
-                    sources=[QuerySelectSource(source=fdm_ref_vid, properties=["*"])],
+                    sources=[QuerySelectSource(source=FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID, properties=["*"])],
                 ),
             },
         )
@@ -191,3 +168,56 @@ class IndustrialCanvasConfigAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest
             canvas.solution_tag_items = solution_tags or None
             results.append(canvas)
         return results
+
+    def list(
+        self, visibility: Literal["public", "private"] | None = None, limit: int | None = 100
+    ) -> list[IndustrialCanvasResponse]:
+        """List canvases with the given visibility.
+
+        Note this do not retrieve the full Canvas objects, i.e., not solutions tags, annotations, container references, or fdm instance container references.
+        To retrieve the full objects, use the `retrieve` method with the canvas external ids.
+        """
+        filter_ = self._create_filter(visibility)
+        result: list[IndustrialCanvasResponse] = []
+        cursor: str | None = None
+        while True:
+            batch_limit = min(limit - len(result), _QUERY_LIMIT) if limit is not None else _QUERY_LIMIT
+            query = QueryRequest(
+                with_={
+                    self._CANVAS_REF: QueryNodeExpression(
+                        limit=batch_limit, nodes=QueryNodeTableExpression(filter=filter_)
+                    )
+                },
+                select={
+                    self._CANVAS_REF: QuerySelect(sources=[QuerySelectSource(source=CANVAS_VIEW_ID, properties=["*"])])
+                },
+            )
+            if cursor is not None:
+                query.cursors = {self._CANVAS_REF: cursor}
+
+            batch_response = self._http_client.request_single_retries(
+                RequestMessage(
+                    endpoint_url=self._http_client.config.create_api_url(QUERY_ENDPOINT.path),
+                    method=QUERY_ENDPOINT.method,
+                    body_content=query.dump(),
+                )
+            ).get_success_or_raise()
+
+            query_response = QueryResponseUntyped.model_validate(batch_response)
+            batch_items = self._validate_query_response(query_response)
+            result.extend(batch_items)
+            cursor = query_response.next_cursor.get(self._CANVAS_REF)
+            if not batch_items or cursor is None or (limit is not None and len(result) >= limit):
+                break
+        return result
+
+    def _create_filter(self, visibility: Literal["public", "private"] | None = None) -> dict[str, Any]:
+        leaf_filters: list[dict[str, Any]] = [
+            {"not": {"equals": {"property": ["isArchived"], "value": True}}},
+            # When sourceCanvasId is not set, we get the newest version of the canvas and not
+            # previous versions of the canvas
+            {"not": {"exists": {"property": ["sourceCanvasId"]}}},
+        ]
+        if visibility is not None:
+            leaf_filters.append({"equals": {"property": ["visibility"], "value": visibility}})
+        return {"and": leaf_filters}
