@@ -3,13 +3,15 @@ from pathlib import Path
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client.identifiers import SignalSubscriptionId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SignalSinkId, SignalSubscriptionId
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import (
     SignalSubscriptionRequest,
     SignalSubscriptionResponse,
 )
 from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.signal_sink import SignalSinkCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.signal_subscription import SignalSubscriptionCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowCRUD
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes.signal_subscription import SignalSubscriptionYAML
@@ -137,3 +139,37 @@ class TestSignalSubscriptionCRUDGetId:
         request = SignalSubscriptionRequest.model_validate(_INTEGRATIONS_SUB)
         id_ = SignalSubscriptionCRUD.get_id(request)
         assert id_ == SignalSubscriptionId(external_id="sub-int")
+
+
+class TestSignalSubscriptionCRUDGetDependencies:
+    def test_email_sink_with_integration_resource(self) -> None:
+        resource = SignalSubscriptionYAML.model_validate(_INTEGRATIONS_SUB)
+        deps = list(SignalSubscriptionCRUD.get_dependencies(resource))
+        assert deps == [(SignalSinkCRUD, SignalSinkId(type="email", external_id="sink-1"))]
+
+    def test_user_sink_no_filter_resource(self) -> None:
+        resource = SignalSubscriptionYAML.model_validate(_WORKFLOWS_SUB)
+        deps = list(SignalSubscriptionCRUD.get_dependencies(resource))
+        assert deps == [(SignalSinkCRUD, SignalSinkId(type="user", external_id="sink-2"))]
+
+    def test_workflow_filter_resource(self) -> None:
+        raw = {
+            "externalId": "sub-wf-res",
+            "sink": {"type": "user", "externalId": "sink-2"},
+            "filter": {"topic": "cognite_workflows", "resource": "my-workflow"},
+        }
+        resource = SignalSubscriptionYAML.model_validate(raw)
+        deps = list(SignalSubscriptionCRUD.get_dependencies(resource))
+        assert (SignalSinkCRUD, SignalSinkId(type="user", external_id="sink-2")) in deps
+        assert (WorkflowCRUD, ExternalId(external_id="my-workflow")) in deps
+        assert len(deps) == 2
+
+    def test_current_user_sink_no_dependency(self) -> None:
+        raw = {
+            "externalId": "sub-cu",
+            "sink": {"type": "current_user", "externalId": "me"},
+            "filter": {"topic": "cognite_workflows"},
+        }
+        resource = SignalSubscriptionYAML.model_validate(raw)
+        deps = list(SignalSubscriptionCRUD.get_dependencies(resource))
+        assert deps == []
