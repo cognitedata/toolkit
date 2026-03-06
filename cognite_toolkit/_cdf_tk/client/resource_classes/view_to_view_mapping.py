@@ -1,9 +1,7 @@
-from typing import Any
-
-from pydantic import Field, field_serializer
+from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.identifiers import ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, ViewId
 
 
 class ViewToViewMapping(BaseModelObject):
@@ -17,10 +15,10 @@ class ViewToViewMapping(BaseModelObject):
         " and destination IDs.",
     )
     property_mapping: dict[str, str]
-
-    @field_serializer("source_view", "destination_view", mode="plain")
-    def serialize_view_id(self, view_id: ViewId) -> dict[str, Any]:
-        return {**view_id.dump(), "type": "view"}
+    edge_types: list[EdgeTypeId] | None = Field(
+        None,
+        description="Edges to retrieve when mapping from the source view to the destination view. If not specified, no edges will be retrieved.",
+    )
 
     def get_destination_property(self, source_property: str) -> str | None:
         dest_prop_id = self.property_mapping.get(source_property)
