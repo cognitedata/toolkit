@@ -47,6 +47,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
     DirectRelationCache,
     EdgeOtherSide,
+    InstanceToInstanceSpecialMapping,
     asset_centric_to_dm,
     convert_container_properties,
     convert_edges,
@@ -666,10 +667,14 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
     """
 
     def __init__(
-        self, client: ToolkitClient, space_mapping: Mapping[str, str], mappings: Sequence[ViewToViewMapping]
+        self,
+        client: ToolkitClient,
+        space_mapping: Mapping[str, str],
+        mappings: Sequence[ViewToViewMapping],
+        special_cases: Sequence[InstanceToInstanceSpecialMapping] | None = None,
     ) -> None:
         super().__init__(client)
-        self._connection_creator = ConnectionCreator(client, space_mapping)
+        self._connection_creator = ConnectionCreator(client, space_mapping, special_cases)
         self._mappings_by_source_view: dict[ViewId, ViewToViewMapping] = {
             mapping.source_view: mapping for mapping in mappings
         }
