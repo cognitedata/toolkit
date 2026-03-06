@@ -1,8 +1,9 @@
-from collections.abc import Hashable, Iterable, Mapping, Sequence, Set
+from abc import ABC, abstractmethod
+from collections.abc import Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from functools import cache
-from typing import Any, ClassVar, Literal, Protocol, cast
+from typing import Any, ClassVar, Generic, Literal, cast
 
 from pydantic import JsonValue
 
@@ -42,7 +43,7 @@ from cognite_toolkit._cdf_tk.utils.dtype_conversion import (
     convert_to_primary_property,
 )
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
-from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricTypeExtended
+from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentricTypeExtended
 from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResourceExtended
 
 from .data_model import COGNITE_MIGRATION_SPACE_ID, INSTANCE_SOURCE_VIEW_ID
@@ -477,32 +478,61 @@ class EdgeOtherSide:
     other_side: NodeId
 
 
-class SpecialMapping(Protocol):
-    def __getitem__(self, item: Hashable) -> NodeId: ...
+class InstanceToInstanceSpecialMapping(ABC, Generic[T_ID]):
+    """
+    This class is used for special mapping cases in the instance to instance conversion.
 
-    def update(self, instances: Iterable[InstanceResponse]) -> None: ...
+    The main motivation for it is the InField Data Mapping.
+    """
+
+    VIEW_PROPERTIES: ClassVar[frozenset[tuple[ViewId, str]]] = frozenset()
+
+    @abstractmethod
+    def __getitem__(self, item: T_ID) -> NodeId:
+        raise NotImplementedError
+
+    @abstractmethod
+    def update(self, items: Iterable[T_ID]) -> None:
+        raise NotImplementedError()
 
 
-class InFieldDataMapping:
+class InFieldDataMapping(InstanceToInstanceSpecialMapping[NodeId]):
+    """Special cases in the InField data migration
+
+    These are reference to classical assets which are mirrored into FDM. We look up these in the CogniteMigration
+    model.
+
+    """
+
+    VIEW_PROPERTIES = frozenset(
+        {
+            (ViewId(space="cdf_apm", external_id="Activity", version="v2"), "asset"),
+            (ViewId(space="cdf_apm", external_id="Checklist", version="v7"), "rootLocation"),
+            (ViewId(space="cdf_apm", external_id="ChecklistItem", version="v7"), "asset"),
+            (ViewId(space="cdf_apm", external_id="Observation", version="v5"), "asset"),
+            (ViewId(space="cdf_apm", external_id="Observation", version="v5"), "rootLocation"),
+            (ViewId(space="cdf_apm", external_id="Template", version="v8"), "rootLocation"),
+            (ViewId(space="cdf_apm", external_id="TemplateItem", version="v7"), "asset"),
+        }
+    )
+
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
-        self._node_id_by_external_id: dict[str, NodeId] = {}
+        # We use None to indicate that we have looked up the reference, but it was not found,
+        # this allows us to distinguish between "not looked up yet" and "looked up but not found",
+        # which is important to avoid repeated lookups for missing references.
+        self._node_id_by_external_id: dict[str, NodeId | None] = {}
 
     def __getitem__(self, item: NodeId) -> NodeId:
         # We ignore the space and assume external ID matches
         # the external ID classic.
-        return self._node_id_by_external_id[item.external_id]
+        result = self._node_id_by_external_id[item.external_id]
+        if result is None:
+            raise KeyError(f"No mapping found for {item!r}")
+        return result
 
-    def update(self, instances: Iterable[InstanceResponse]) -> None:
-        # Look for Checklist, ChecklistItem, Template, TemplateItem
-        # Get hte external ID in the properties and use that to do ao lookup.
-        external_ids: set[str] = set()
-        for instance in instances:
-            ...
-
-        missing = external_ids - set(self._node_id_by_external_id.keys())
-        if missing:
-            self.client.migration.instance_source.retrieve()
+    def update(self, items: Iterable[NodeId]) -> None:
+        raise NotImplementedError()
 
 
 class ConnectionCreator:
@@ -524,10 +554,12 @@ class ConnectionCreator:
         self,
         client: ToolkitClient,
         space_mapping: Mapping[str, str],
-        special_cases: Mapping[frozenset[tuple[ViewId, str]], SpecialMapping] | None = None,
+        special_cases: Mapping[frozenset[tuple[ViewId, str]], InstanceToInstanceSpecialMapping] | None = None,
     ) -> None:
         self._client = client
-        self._special_cases = special_cases or {}
+        self._special_cases: Mapping[frozenset[tuple[ViewId, str]], InstanceToInstanceSpecialMapping] = (
+            special_cases or {}
+        )
         self.space_mapping = space_mapping
         self._timeseries_reference_cache: dict[str, NodeId] = {}
         self._file_reference_cache: dict[str, NodeId] = {}
@@ -540,8 +572,6 @@ class ConnectionCreator:
     def update_cache(self, instances: Sequence[InstanceResponse]) -> None:
         self._update_views(instances)
         self._update_property_caches(instances)
-        for mapping in self._special_cases.values():
-            mapping.update(instances)
 
     def _update_views(self, instances: Sequence[InstanceResponse]) -> None:
         unique_views = {
@@ -617,9 +647,9 @@ class ConnectionCreator:
                 return [], [f"Failed to create target for value {value!s}"]
 
     def _create_target(self, value: Any, source_prop_id: str, source_view_id: ViewId) -> NodeId:
-        if cache := self._special_cases.get((source_view_id, source_prop_id)):
+        if special_case_cache := self._special_cases.get((source_view_id, source_prop_id)):
             node_id = self._as_node_id(value)
-            return cache[node_id] if node_id else cache[value]
+            return special_case_cache[node_id] if node_id else special_case_cache[value]
         elif self._is_timeseries_reference(source_view_id, source_prop_id) and isinstance(value, str):
             return self._timeseries_reference_cache[value]
         elif self._is_file_reference(source_view_id, source_prop_id) and isinstance(value, str):
