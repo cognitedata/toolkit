@@ -168,6 +168,23 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
     fdm_instance_container_references: list[FdmInstanceContainerReferenceItem] | None = None
     solution_tag_items: list[CogniteSolutionTagItem] | None = None
 
+    def dump(
+        self, camel_case: bool = True, exclude_extra: bool = False, keep_existing_version: bool = True
+    ) -> dict[str, Any]:
+        """Dump the resource to a dictionary.
+
+        Args:
+            camel_case (bool): Whether to use camelCase for the keys. Default is True.
+            exclude_extra (bool): Whether to exclude extra fields not defined in the model. Default is False.
+
+        """
+        exclude: set[str] = set()
+        if not keep_existing_version:
+            exclude.add("existing_version")
+        if exclude_extra:
+            exclude |= set(self.__pydantic_extra__) if self.__pydantic_extra__ else set()
+        return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True, exclude=exclude)
+
     def dump_instances(self) -> list[dict[str, Any]]:
         canvas_props = self.model_dump(
             mode="json",
