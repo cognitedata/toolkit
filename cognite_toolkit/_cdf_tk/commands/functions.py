@@ -2,11 +2,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import questionary
-import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.commands.resources import ResourcesCommand
 
 
 @dataclass
@@ -26,18 +24,6 @@ def _path_to_model_name(path: str) -> str:
     parts = _path_to_func_name(path).split("_")
     return "".join(p.capitalize() for p in parts if p) + "Request"
 
-
-_FUNCTION_YAML_TEMPLATE = """\
-# API docs: https://api-docs.cognite.com/20230101/tag/Functions
-# YAML reference: https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library
-
-externalId: {external_id}
-name: {name}
-runtime: py311
-functionPath: ./handler.py
-secrets:
-  tracing-api-key: '{{{{ {secret_var} }}}}'
-"""
 
 _REQUIREMENTS_TXT = "cognite-function-apps[tracing]>=0.4.0\n"
 
@@ -123,61 +109,35 @@ def _generate_handler_py(name: str, routes: list[Route]) -> str:
 class FunctionsCommand(ToolkitCommand):
     def init(
         self,
-        organization_dir: Path,
-        module_name: str | None,
-        verbose: bool,
-        external_id: str | None = None,
+        module_path: Path,
+        external_id: str,
         name: str | None = None,
         routes: list[Route] | None = None,
     ) -> None:
-        """Scaffold a cognite-function-apps Function App into an existing module."""
-        resources_cmd = ResourcesCommand(
-            print_warning=self._print_warning,
-            skip_tracking=True,
-            silent=self.silent,
-        )
-        module_path = resources_cmd._get_or_prompt_module_path(module_name, organization_dir, verbose)
-
-        if not external_id:
-            external_id = questionary.text(
-                "Enter the function externalId:",
-                validate=lambda v: bool(v.strip()) or "externalId cannot be empty",
-            ).unsafe_ask()
-            if not external_id:
-                print("[red]No externalId provided. Aborting...[/red]")
-                raise typer.Exit()
-
+        """Scaffold handler.py and requirements.txt for a cognite-function-apps Function App."""
         if not name:
             name = questionary.text(
                 "Enter a display name for the function:",
                 default=external_id,
             ).unsafe_ask()
+        name = name or external_id
 
         if routes is None:
             routes = self._collect_routes()
 
-        secret_var = external_id.replace("-", "_").replace(" ", "_") + "_tracing_api_key"
-
         functions_dir = module_path / "functions"
         handler_dir = functions_dir / external_id
 
-        yaml_path = functions_dir / f"{external_id}.Function.yaml"
         handler_path = handler_dir / "handler.py"
         requirements_path = handler_dir / "requirements.txt"
 
-        functions_dir.mkdir(parents=True, exist_ok=True)
         handler_dir.mkdir(parents=True, exist_ok=True)
 
-        self._write_file(
-            yaml_path,
-            _FUNCTION_YAML_TEMPLATE.format(external_id=external_id, name=name, secret_var=secret_var),
-        )
         self._write_file(handler_path, _generate_handler_py(name, routes))
         self._write_file(requirements_path, _REQUIREMENTS_TXT)
 
         print(
             f"\n[bold green]Function app scaffolded![/bold green]\n"
-            f"  {yaml_path.as_posix()}\n"
             f"  {handler_path.as_posix()}\n"
             f"  {requirements_path.as_posix()}\n\n"
             f"Next steps:\n"

@@ -10,10 +10,12 @@ from rich import print
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.function import FunctionAppCRUD
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
+from cognite_toolkit._cdf_tk.commands.functions import FunctionsCommand
 
 
 class ResourcesCommand(ToolkitCommand):
@@ -124,9 +126,10 @@ class ResourcesCommand(ToolkitCommand):
         module_path: Path,
         prefix: str | None = None,
         verbose: bool = False,
-    ) -> None:
+    ) -> str:
         """
         Creates a new resource YAML file in the specified module using the resource_crud.yaml_cls.
+        Returns the prefix used (which doubles as the external_id for follow-up scaffold steps).
         """
         resource_dir: Path = module_path / resource_crud.folder_name
         if resource_crud.sub_folder_name:
@@ -136,7 +139,8 @@ class ResourcesCommand(ToolkitCommand):
             resource_dir.mkdir(parents=True, exist_ok=True)
 
         final_prefix = prefix if prefix is not None else f"my_{resource_crud.kind}"
-        file_name = f"{final_prefix}.{resource_crud.kind}.yaml"
+        file_kind = getattr(resource_crud, "yaml_file_kind", resource_crud.kind)
+        file_name = f"{final_prefix}.{file_kind}.yaml"
         file_path: Path = resource_dir / file_name
 
         if (
@@ -144,7 +148,7 @@ class ResourcesCommand(ToolkitCommand):
             and not questionary.confirm(f"{file_path.name} file already exists. Overwrite?").unsafe_ask()
         ):
             print("[red]Skipping...[/red]")
-            return
+            return final_prefix
 
         yaml_content = self._get_resource_yaml_content(resource_crud)
         file_path.write_text(yaml_content)
@@ -154,6 +158,23 @@ class ResourcesCommand(ToolkitCommand):
             )
         else:
             print(f"[green]Created {file_path.as_posix()}[/green]")
+
+        return final_prefix
+
+    def _create_scaffold_files(
+        self,
+        crud: type[ResourceCRUD],
+        module_path: Path,
+        external_id: str,
+    ) -> None:
+        """Generate extra scaffold files for resource types that need them (e.g. FunctionApp)."""
+        if crud is FunctionAppCRUD:
+            func_cmd = FunctionsCommand(
+                print_warning=self._print_warning,
+                skip_tracking=True,
+                silent=self.silent,
+            )
+            func_cmd.init(module_path=module_path, external_id=external_id)
 
     def create(
         self,
@@ -174,6 +195,7 @@ class ResourcesCommand(ToolkitCommand):
             verbose: Whether to print verbose output.
         """
         module_path = self._get_or_prompt_module_path(module_name, organization_dir, verbose)
-        resource_cruds = self._resolve_kinds(kind)
-        for crud in resource_cruds:
-            self._create_resource_yaml_file(crud, module_path, prefix, verbose)
+
+        for crud in self._resolve_kinds(kind):
+            external_id = self._create_resource_yaml_file(crud, module_path, prefix, verbose)
+            self._create_scaffold_files(crud, module_path, external_id)

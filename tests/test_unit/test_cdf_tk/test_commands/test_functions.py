@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import pytest
-import typer
 from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.commands.functions import FunctionsCommand, Route
@@ -25,42 +23,31 @@ def _run_init(
     external_id: str = "my-func",
     name: str = "My Function",
     routes: list[Route] | None = None,
-    verbose: bool = False,
 ) -> Path:
     """Helper: run FunctionsCommand.init() with all args provided (no prompts needed)."""
-    organization_dir = tmp_path / "org"
-    _make_module(organization_dir, module_name)
+    module_path = _make_module(tmp_path / "org", module_name)
     cmd = FunctionsCommand(print_warning=False, skip_tracking=True, silent=True)
     cmd.init(
-        organization_dir=organization_dir,
-        module_name=module_name,
-        verbose=verbose,
+        module_path=module_path,
         external_id=external_id,
         name=name,
         routes=routes if routes is not None else _DEFAULT_ROUTES,
     )
-    return organization_dir / MODULES / module_name
+    return module_path
 
 
 class TestFunctionsInitCommand:
     # ── Happy path ────────────────────────────────────────────────────────────
 
-    def test_creates_three_files(self, tmp_path: Path) -> None:
+    def test_creates_handler_and_requirements(self, tmp_path: Path) -> None:
         module_path = _run_init(tmp_path)
-        assert (module_path / "functions" / "my-func.Function.yaml").exists()
         assert (module_path / "functions" / "my-func" / "handler.py").exists()
         assert (module_path / "functions" / "my-func" / "requirements.txt").exists()
 
-    def test_yaml_content(self, tmp_path: Path) -> None:
-        module_path = _run_init(tmp_path, external_id="test-fn", name="Test Fn")
-        yaml_text = (module_path / "functions" / "test-fn.Function.yaml").read_text()
-        assert "externalId: test-fn" in yaml_text
-        assert "name: Test Fn" in yaml_text
-        assert "runtime: py311" in yaml_text
-        assert "functionPath: ./handler.py" in yaml_text
-        assert "tracing-api-key" in yaml_text
-        # Secret variable must use underscores (hyphens replaced)
-        assert "test_fn_tracing_api_key" in yaml_text
+    def test_does_not_create_yaml(self, tmp_path: Path) -> None:
+        module_path = _run_init(tmp_path)
+        assert not (module_path / "functions" / "my-func.Function.yaml").exists()
+        assert not (module_path / "functions" / "my-func.FunctionApp.yaml").exists()
 
     def test_handler_py_content(self, tmp_path: Path) -> None:
         routes = [
@@ -96,137 +83,60 @@ class TestFunctionsInitCommand:
         req_text = (module_path / "functions" / "my-func" / "requirements.txt").read_text()
         assert "cognite-function-apps[tracing]>=0.4.0" in req_text
 
-    # ── Prompts for external_id / name / routes ───────────────────────────────
+    # ── Prompts for name / routes ─────────────────────────────────────────────
 
-    def test_prompts_for_external_id_and_name(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        organization_dir = tmp_path / "org"
-        _make_module(organization_dir)
+    def test_prompts_for_name_and_routes(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        module_path = _make_module(tmp_path / "org")
         cmd = FunctionsCommand(print_warning=False, skip_tracking=True, silent=True)
 
-        # Answers: external_id, name, route path, route desc, has_body=True, add_another=False
+        # Answers: name, route path, route desc, has_body=True, add_another=False
         with MockQuestionary(
             "cognite_toolkit._cdf_tk.commands.functions",
             monkeypatch,
-            ["prompted-func", "Prompted Function", "/process", "My route", True, False],
+            ["Prompted Function", "/process", "My route", True, False],
         ):
-            cmd.init(
-                organization_dir=organization_dir,
-                module_name="my_module",
-                verbose=False,
-            )
+            cmd.init(module_path=module_path, external_id="prompted-func")
 
-        module_path = organization_dir / MODULES / "my_module"
-        assert (module_path / "functions" / "prompted-func.Function.yaml").exists()
         assert (module_path / "functions" / "prompted-func" / "handler.py").exists()
-
-    def test_abort_when_external_id_empty(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        organization_dir = tmp_path / "org"
-        _make_module(organization_dir)
-        cmd = FunctionsCommand(print_warning=False, skip_tracking=True, silent=True)
-
-        with pytest.raises(typer.Exit), MockQuestionary(
-            "cognite_toolkit._cdf_tk.commands.functions",
-            monkeypatch,
-            [""],  # empty external_id answer
-        ):
-            cmd.init(
-                organization_dir=organization_dir,
-                module_name="my_module",
-                verbose=False,
-            )
 
     # ── Overwrite guard ───────────────────────────────────────────────────────
 
     def test_skips_existing_file_when_user_declines(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         module_path = _run_init(tmp_path)
-        yaml_path = module_path / "functions" / "my-func.Function.yaml"
-        original_content = yaml_path.read_text()
+        handler_path = module_path / "functions" / "my-func" / "handler.py"
+        original_content = handler_path.read_text()
 
-        # Decline overwrite for the yaml, accept for handler.py and requirements.txt
-        organization_dir = tmp_path / "org"
         cmd = FunctionsCommand(print_warning=False, skip_tracking=True, silent=True)
         with MockQuestionary(
             "cognite_toolkit._cdf_tk.commands.functions",
             monkeypatch,
-            [False, True, True],  # yaml: skip; handler.py: overwrite; requirements.txt: overwrite
+            [False, True],  # handler.py: skip; requirements.txt: overwrite
         ):
             cmd.init(
-                organization_dir=organization_dir,
-                module_name="my_module",
-                verbose=False,
+                module_path=module_path,
                 external_id="my-func",
                 name="New Name",
                 routes=_DEFAULT_ROUTES,
             )
 
-        # YAML was not overwritten
-        assert yaml_path.read_text() == original_content
+        # handler.py was not overwritten
+        assert handler_path.read_text() == original_content
 
     def test_overwrites_existing_file_when_user_confirms(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         module_path = _run_init(tmp_path)
-        yaml_path = module_path / "functions" / "my-func.Function.yaml"
+        handler_path = module_path / "functions" / "my-func" / "handler.py"
 
-        organization_dir = tmp_path / "org"
         cmd = FunctionsCommand(print_warning=False, skip_tracking=True, silent=True)
         with MockQuestionary(
             "cognite_toolkit._cdf_tk.commands.functions",
             monkeypatch,
-            [True, True, True],  # overwrite all three
+            [True, True],  # overwrite handler.py and requirements.txt
         ):
             cmd.init(
-                organization_dir=organization_dir,
-                module_name="my_module",
-                verbose=False,
+                module_path=module_path,
                 external_id="my-func",
                 name="Updated Name",
                 routes=_DEFAULT_ROUTES,
             )
 
-        assert "name: Updated Name" in yaml_path.read_text()
-
-    # ── Module resolution ─────────────────────────────────────────────────────
-
-    def test_creates_new_module_when_not_found(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        organization_dir = tmp_path / "org"
-        organization_dir.mkdir(parents=True, exist_ok=True)
-        cmd = FunctionsCommand(print_warning=False, skip_tracking=True, silent=True)
-
-        # MockQuestionary answers: confirm create new module=True, then resources.py questionary done
-        with MockQuestionary(
-            [
-                "cognite_toolkit._cdf_tk.commands.resources",
-                "cognite_toolkit._cdf_tk.commands.functions",
-            ],
-            monkeypatch,
-            [True],  # "module not found — create new?" → yes
-        ):
-            cmd.init(
-                organization_dir=organization_dir,
-                module_name="brand_new_module",
-                verbose=False,
-                external_id="my-func",
-                name="My Function",
-                routes=_DEFAULT_ROUTES,
-            )
-
-        new_module = organization_dir / MODULES / "brand_new_module"
-        assert (new_module / "functions" / "my-func.Function.yaml").exists()
-
-    def test_abort_when_module_not_found_and_user_declines(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        organization_dir = tmp_path / "org"
-        organization_dir.mkdir(parents=True, exist_ok=True)
-        cmd = FunctionsCommand(print_warning=False, skip_tracking=True, silent=True)
-
-        with pytest.raises(typer.Exit), MockQuestionary(
-            "cognite_toolkit._cdf_tk.commands.resources",
-            monkeypatch,
-            [False],  # "module not found — create new?" → no
-        ):
-            cmd.init(
-                organization_dir=organization_dir,
-                module_name="nonexistent",
-                verbose=False,
-                external_id="my-func",
-                name="My Function",
-                routes=_DEFAULT_ROUTES,
-            )
+        assert 'FunctionApp(title="Updated Name"' in handler_path.read_text()

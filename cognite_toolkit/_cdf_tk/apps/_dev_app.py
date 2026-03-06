@@ -8,7 +8,6 @@ from rich import print
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import ResourcesCommand
-from cognite_toolkit._cdf_tk.commands.functions import FunctionsCommand
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
@@ -83,20 +82,6 @@ class DevApp(typer.Typer):
             # Try to load client if possible, but ignore errors.
             # This is only used for logging purposes in the command.
             client = EnvironmentVariables.create_from_environment().get_client()
-
-        if kind and any(k == "function" for k in kind):
-            remaining_kinds = [k for k in kind if k != "function"]
-            func_cmd = FunctionsCommand(client=client)
-            func_cmd.run(
-                lambda: func_cmd.init(
-                    organization_dir=organization_dir,
-                    module_name=module,
-                    verbose=verbose,
-                )
-            )
-            if not remaining_kinds:
-                return
-            kind = remaining_kinds
 
         cmd = ResourcesCommand(client=client)
         cmd.run(
