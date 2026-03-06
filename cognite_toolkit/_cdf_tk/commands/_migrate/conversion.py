@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Mapping, Sequence, Set
+from collections.abc import Hashable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from functools import cache
@@ -8,7 +8,7 @@ from typing import Any, ClassVar, Generic, Literal, cast
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, AssetCentricExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import AssetCentricExternalId, ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse, AssetLinkData, FileLinkData
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -535,7 +535,9 @@ class InFieldDataMapping(InstanceToInstanceSpecialMapping[NodeId]):
         external_ids = {item.external_id for item in items}
         missing_external_ids = external_ids - set(self._node_id_by_external_id.keys())
         if missing_external_ids:
-            results = self.client.migration.instance_source.retrieve(external_ids=AssetCentricExternalId.from_external_ids("asset", missing_external_ids))
+            results = self.client.migration.instance_source.retrieve(
+                external_ids=AssetCentricExternalId.from_external_ids("asset", missing_external_ids)
+            )
             for result in results:
                 if result.classic_external_id:
                     self._node_id_by_external_id[result.classic_external_id] = NodeId(
@@ -546,6 +548,7 @@ class InFieldDataMapping(InstanceToInstanceSpecialMapping[NodeId]):
             failed_lookups = missing_external_ids - set(self._node_id_by_external_id.keys())
             for failed in failed_lookups:
                 self._node_id_by_external_id[failed] = None
+
 
 class ConnectionCreator:
     """Used to create connections (edges and direct relations) between migrated instances.
@@ -566,16 +569,24 @@ class ConnectionCreator:
         self,
         client: ToolkitClient,
         space_mapping: Mapping[str, str],
-        special_cases: Mapping[frozenset[tuple[ViewId, str]], InstanceToInstanceSpecialMapping] | None = None,
+        special_cases: Sequence[InstanceToInstanceSpecialMapping] | None = None,
     ) -> None:
         self._client = client
-        self._special_cases: Mapping[frozenset[tuple[ViewId, str]], InstanceToInstanceSpecialMapping] = (
-            special_cases or {}
-        )
         self.space_mapping = space_mapping
+        self.view_by_id: dict[ViewId, ViewResponse] = {}
+        self._special_cases: Sequence[InstanceToInstanceSpecialMapping] = special_cases or []
+        self._special_case_caches = self._create_special_case_caches(special_cases or [])
         self._timeseries_reference_cache: dict[str, NodeId] = {}
         self._file_reference_cache: dict[str, NodeId] = {}
-        self.view_by_id: dict[ViewId, ViewResponse] = {}
+
+    def _create_special_case_caches(
+        self, special_cases: Sequence[InstanceToInstanceSpecialMapping]
+    ) -> dict[tuple[ViewId, str], InstanceToInstanceSpecialMapping]:
+        mapping: dict[tuple[ViewId, str], InstanceToInstanceSpecialMapping] = {}
+        for case in special_cases:
+            for view_property in case.VIEW_PROPERTIES:
+                mapping[view_property] = case
+        return mapping
 
     def update_view_cache(self, views: Iterable[ViewResponse]) -> None:
         for view in views:
@@ -598,15 +609,24 @@ class ConnectionCreator:
     def _update_property_caches(self, instances: Sequence[InstanceResponse]) -> None:
         timeseries_refs: set[str] = set()
         file_refs: set[str] = set()
+        special_cases_keys: dict[tuple[ViewId, str], tuple[InstanceToInstanceSpecialMapping, set[Hashable]]] = {}
+        for special_caches in self._special_cases:
+            # We create the keys for this special case cache here. This is to ensure all
+            # view properties will write to the same set.
+            keys: set[Hashable] = set()
+            for view_property in special_caches.VIEW_PROPERTIES:
+                special_cases_keys[view_property] = (special_caches, keys)
         for item in instances:
             for view_id, properties in (item.properties or {}).items():
                 if not isinstance(view_id, ViewId):
                     continue
-                for prp_id, value in properties.items():
-                    if self._is_timeseries_reference(view_id, prp_id):
+                for prop_id, value in properties.items():
+                    if self._is_timeseries_reference(view_id, prop_id):
                         timeseries_refs.update(self._as_str_iterable(value))
-                    elif self._is_file_reference(view_id, prp_id):
+                    elif self._is_file_reference(view_id, prop_id):
                         file_refs.update(self._as_str_iterable(value))
+                    if (view_id, prop_id) in special_cases_keys:
+                        special_cases_keys[(view_id, prop_id)][1].update(self._as_hashable_iterable(value))
         if timeseries_refs:
             missing_timeseries_refs = timeseries_refs - set(self._timeseries_reference_cache.keys())
             if missing_timeseries_refs:
@@ -625,6 +645,8 @@ class ConnectionCreator:
                 for file in missing_refs:
                     if file.external_id and file.instance_id:
                         self._file_reference_cache[file.external_id] = file.instance_id
+        for special_cache, keys in special_cases_keys.values():
+            special_cache.update(keys)
 
     def _as_str_iterable(self, value: Any) -> Iterable[str]:
         if isinstance(value, str):
@@ -632,6 +654,22 @@ class ConnectionCreator:
         elif isinstance(value, Iterable):
             for item in value:
                 if isinstance(item, str):
+                    yield item
+
+    def _as_hashable_iterable(self, value: Any) -> Iterable[Hashable]:
+        if isinstance(value, dict):
+            res = self._as_node_id(value)
+            if res:
+                yield res
+        elif isinstance(value, Hashable):
+            yield value
+        elif isinstance(value, Iterable):
+            for item in value:
+                if isinstance(item, dict):
+                    res = self._as_node_id(item)
+                    if res:
+                        yield res
+                elif isinstance(item, Hashable):
                     yield item
 
     def _get_view_property(self, source_prop_id: str, source_view_id: ViewId) -> ViewResponseProperty | None:
@@ -659,7 +697,7 @@ class ConnectionCreator:
                 return [], [f"Failed to create target for value {value!s}"]
 
     def _create_target(self, value: Any, source_prop_id: str, source_view_id: ViewId) -> NodeId:
-        if special_case_cache := self._special_cases.get((source_view_id, source_prop_id)):
+        if special_case_cache := self._special_case_caches.get((source_view_id, source_prop_id)):
             node_id = self._as_node_id(value)
             return special_case_cache[node_id] if node_id else special_case_cache[value]
         elif self._is_timeseries_reference(source_view_id, source_prop_id) and isinstance(value, str):
