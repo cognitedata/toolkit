@@ -71,7 +71,7 @@
   propertyMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
-  edgTypes:
+  edgeTypes:
   - type:
       space: cdf_apm
       externalId: referenceMeasurements
