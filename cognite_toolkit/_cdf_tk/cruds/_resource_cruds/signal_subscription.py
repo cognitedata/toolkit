@@ -79,5 +79,6 @@ class SignalSubscriptionCRUD(ResourceCRUD[SignalSubscriptionId, SignalSubscripti
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[SignalSubscriptionResponse]:
         if data_set_external_id or space or parent_ids:
-            return iter([])
-        return iter(self.client.tool.signal_subscriptions.list())
+            return
+        for page in self.client.tool.signal_subscriptions.iterate():
+            yield from page
