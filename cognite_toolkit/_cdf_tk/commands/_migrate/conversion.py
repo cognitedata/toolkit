@@ -543,8 +543,6 @@ class InFieldAssetMapping(InstanceToInstanceSpecialMapping[NodeId]):
                     self._node_id_by_external_id[result.classic_external_id] = NodeId(
                         space=result.space, external_id=result.external_id
                     )
-                else:
-                    self._node_id_by_external_id[result.external_id] = None
             failed_lookups = missing_external_ids - set(self._node_id_by_external_id.keys())
             for failed in failed_lookups:
                 self._node_id_by_external_id[failed] = None
