@@ -203,7 +203,7 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
                 )
             ).get_success_or_raise()
 
-            query_response = QueryResponseUntyped.model_validate(batch_response)
+            query_response = QueryResponseUntyped.model_validate_json(batch_response.body)
             batch_items = self._validate_query_response(query_response)
             result.extend(batch_items)
             cursor = query_response.next_cursor.get(self._CANVAS_REF)
@@ -213,11 +213,13 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
 
     def _create_filter(self, visibility: Literal["public", "private"] | None = None) -> dict[str, Any]:
         leaf_filters: list[dict[str, Any]] = [
-            {"not": {"equals": {"property": ["isArchived"], "value": True}}},
+            {"not": {"equals": {"property": CANVAS_VIEW_ID.as_property_reference("isArchived"), "value": True}}},
             # When sourceCanvasId is not set, we get the newest version of the canvas and not
             # previous versions of the canvas
-            {"not": {"exists": {"property": ["sourceCanvasId"]}}},
+            {"not": {"exists": {"property": CANVAS_VIEW_ID.as_property_reference("sourceCanvasId")}}},
         ]
         if visibility is not None:
-            leaf_filters.append({"equals": {"property": ["visibility"], "value": visibility}})
+            leaf_filters.append(
+                {"equals": {"property": CANVAS_VIEW_ID.as_property_reference("visibility"), "value": visibility}}
+            )
         return {"and": leaf_filters}

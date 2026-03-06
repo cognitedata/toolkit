@@ -340,7 +340,7 @@ class InteractiveCanvasSelect:
         return user_response
 
     def _select_external_ids(self, select_filter: CanvasFilter) -> list[str]:
-        available_canvases = self.client.canvas.list(visibility=select_filter.visibility, limit=-1)
+        available_canvases = self.client.canvas.list(visibility=select_filter.visibility, limit=None)
         if select_filter.select_all and select_filter.created_by is None:
             return [canvas.external_id for canvas in available_canvases]
         users = self.client.iam.user_profiles.list(limit=-1)
