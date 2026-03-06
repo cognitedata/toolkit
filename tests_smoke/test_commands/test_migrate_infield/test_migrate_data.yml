@@ -2,7 +2,6 @@ instances:
 - createdTime: 1772711569310
   externalId: 8c73bd6c-7386-4ebe-ba56-0ef088f08150
   instanceType: node
-  lastUpdatedTime: 1772786819831
   properties:
     infield_cdm_source_desc_sche_asset_file_ts:
       MeasurementReading/v1:
@@ -10,16 +9,12 @@ instances:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
         order: 2
-        sourceCreatedTime: '2026-03-06T08:46:38.655+00:00'
-        sourceUpdatedTime: '2026-03-06T08:46:38.655+00:00'
         title: any comments ?
         type: message
   space: smoke_infield_migration_target_space
-  version: 14
 - createdTime: 1772711569310
   externalId: 2A7QpAmrd9eYbbY_zHH_Ag
   instanceType: node
-  lastUpdatedTime: 1772786819831
   properties:
     infield_cdm_source_desc_sche_asset_file_ts:
       MeasurementReading/v1:
@@ -29,8 +24,6 @@ instances:
         max: 90
         min: 10
         order: 0
-        sourceCreatedTime: '2026-03-06T08:46:38.655+00:00'
-        sourceUpdatedTime: '2026-03-06T08:46:38.655+00:00'
         timeseries:
           externalId: Measurements Readings - Suu
           space: smoke_infield_migration_target_space
@@ -39,11 +32,9 @@ instances:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
   space: smoke_infield_migration_target_space
-  version: 14
 - createdTime: 1772711570095
   externalId: 431db206-55d6-4f37-9eff-6e7fd4bb37c7
   instanceType: node
-  lastUpdatedTime: 1772786820827
   properties:
     infield_cdm_source_desc_sche_asset_file_ts:
       Schedule/v1:
@@ -53,16 +44,12 @@ instances:
         endTime: '2025-02-20T12:30:00+00:00'
         freq: DAILY
         interval: '1'
-        sourceCreatedTime: '2026-03-06T08:46:39.473+00:00'
-        sourceUpdatedTime: '2026-03-06T08:46:39.473+00:00'
         startTime: '2025-02-20T08:30:00+00:00'
         timezone: Asia/Colombo
   space: smoke_infield_migration_target_space
-  version: 14
 - createdTime: 1772711570808
   externalId: 87f1ce17-c510-4359-9bbe-2ec7477b2cfe
   instanceType: node
-  lastUpdatedTime: 1772786821623
   properties:
     infield_cdm_source_desc_sche_asset_file_ts:
       Template/v1:
@@ -74,19 +61,15 @@ instances:
           externalId: SmokeAsset
           space: smoke_infield_migration_target_space
         solutionTags: []
-        sourceCreatedTime: '2026-03-06T08:46:39.935+00:00'
-        sourceUpdatedTime: '2026-03-06T08:46:39.935+00:00'
         status: Ready
         title: '!!!!AAA Suu Template Reg Test- copy- copy'
         updatedBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
   space: smoke_infield_migration_target_space
-  version: 14
 - createdTime: 1772711573447
   externalId: 0083e7c3-946f-4d5d-958b-133963108ad9
   instanceType: node
-  lastUpdatedTime: 1772786824906
   properties:
     infield_cdm_source_desc_sche_asset_file_ts:
       TemplateItem/v1:
@@ -104,18 +87,14 @@ instances:
         labels:
         - group:one Task group
         order: 141
-        sourceCreatedTime: '2026-03-06T08:46:40.633+00:00'
-        sourceUpdatedTime: '2026-03-06T08:46:40.633+00:00'
         title: Task 01
         updatedBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
   space: smoke_infield_migration_target_space
-  version: 14
 - createdTime: 1772711568422
   externalId: RhIUePwMQI0WDEQQv-xkig
   instanceType: node
-  lastUpdatedTime: 1772786818883
   properties:
     infield_cdm_source_desc_sche_asset_file_ts:
       Checklist/v1:
@@ -128,9 +107,7 @@ instances:
           externalId: SmokeAsset
           space: smoke_infield_migration_target_space
         solutionTags: []
-        sourceCreatedTime: '2026-03-06T08:46:41.147+00:00'
         sourceId: 16a3587b-1927-40ed-8da9-4c55c041aeb5
-        sourceUpdatedTime: '2026-03-06T08:46:41.147+00:00'
         startTime: '2025-06-09T08:30:00+00:00'
         status: Ready
         title: ADSuu Template/Checklist
@@ -139,11 +116,9 @@ instances:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
   space: smoke_infield_migration_target_space
-  version: 14
 - createdTime: 1772711572850
   externalId: -3Z4iakG1YSFRAfVlazYMA
   instanceType: node
-  lastUpdatedTime: 1772786824023
   properties:
     infield_cdm_source_desc_sche_asset_file_ts:
       ChecklistItem/v1:
@@ -162,20 +137,16 @@ instances:
           space: smoke_infield_migration_target_space
         isArchived: false
         order: 6
-        sourceCreatedTime: '2026-03-06T08:46:43.284+00:00'
         sourceId: 202b7a05-1ba3-4058-9a16-3f9cc306067c
-        sourceUpdatedTime: '2026-03-06T08:46:43.284+00:00'
         startTime: '2025-06-09T08:30:00+00:00'
         title: 'task '
         updatedBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
   space: smoke_infield_migration_target_space
-  version: 14
 - createdTime: 1772715784353
   externalId: -iExvo-uJ5JqMTPL2OYN-g
   instanceType: node
-  lastUpdatedTime: 1772786822365
   properties:
     infield_cdm_source_desc_sche_asset_file_ts:
       Action/v1:
@@ -188,17 +159,13 @@ instances:
           space: cognite_app_data
         parameters:
           message: 'item is not okay '
-        sourceCreatedTime: '2026-03-06T08:46:48.504+00:00'
-        sourceUpdatedTime: '2026-03-06T08:46:48.504+00:00'
         updatedBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
   space: smoke_infield_migration_target_space
-  version: 9
 - createdTime: 1772715777591
   externalId: 1DC026YVbKG3QYAOMzJoXw
   instanceType: node
-  lastUpdatedTime: 1772786816994
   properties:
     infield_cdm_source_desc_sche_asset_file_ts:
       ConditionalAction/v1:
@@ -206,14 +173,10 @@ instances:
         parentObject:
           externalId: RhIUePwMQI0WDEQQv-xkig
           space: smoke_infield_migration_target_space
-        sourceCreatedTime: '2026-03-06T08:46:47.622+00:00'
-        sourceUpdatedTime: '2026-03-06T08:46:47.622+00:00'
   space: smoke_infield_migration_target_space
-  version: 9
 - createdTime: 1772715785819
   externalId: dSq9c2wTh6geOGOIdh11yHhHXKEPWPfX1A8I317N9Sc_IrDfZSISoOzW9PPS3OpYnTAGShkwDS3bB4A49NONUyA_5_J63kPbDgRGDH0bCu8X2s5uLi8iQUm3uXdb6LArzAM_CzTrvN_VceSKRS45WPcooFlsmSgfL5l2aoWsLZmHdKo
   instanceType: node
-  lastUpdatedTime: 1772786823282
   properties:
     infield_cdm_source_desc_sche_asset_file_ts:
       Condition/v1:
@@ -225,9 +188,6 @@ instances:
         source:
           externalId: -3Z4iakG1YSFRAfVlazYMA
           space: smoke_infield_migration_target_space
-        sourceCreatedTime: '2026-03-06T08:46:49.361+00:00'
-        sourceUpdatedTime: '2026-03-06T08:46:49.361+00:00'
         sourceView: cdf_apm/ChecklistItem/v7
         value: Not applicable
   space: smoke_infield_migration_target_space
-  version: 9
