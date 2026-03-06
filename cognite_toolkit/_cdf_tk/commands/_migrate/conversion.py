@@ -496,7 +496,7 @@ class InstanceToInstanceSpecialMapping(ABC, Generic[T_ID]):
         raise NotImplementedError()
 
 
-class InFieldDataMapping(InstanceToInstanceSpecialMapping[NodeId]):
+class InFieldAssetMapping(InstanceToInstanceSpecialMapping[NodeId]):
     """Special cases in the InField data migration
 
     These are reference to classical assets which are mirrored into FDM. We look up these in the CogniteMigration
