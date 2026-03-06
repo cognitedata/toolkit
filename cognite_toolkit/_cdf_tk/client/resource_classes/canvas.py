@@ -8,6 +8,7 @@ from uuid import uuid4
 from pydantic import Field, JsonValue, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+from cognite_toolkit._cdf_tk.client._types import DMSTimestamp
 from cognite_toolkit._cdf_tk.client.identifiers import (
     EdgeId,
     InstanceDefinitionId,
@@ -143,7 +144,7 @@ class CanvasProperties(BaseModelObject):
 
     name: str
     created_by: str
-    updated_at: datetime
+    updated_at: DMSTimestamp
     updated_by: str
     is_locked: bool | None = None
     visibility: str | None = None
