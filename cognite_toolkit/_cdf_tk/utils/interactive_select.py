@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawTableId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter, ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.canvas import IndustrialCanvasResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse, Visibility
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerId,
@@ -339,13 +340,13 @@ class InteractiveCanvasSelect:
         return user_response
 
     def _select_external_ids(self, select_filter: CanvasFilter) -> list[str]:
-        available_canvases = self.client.canvas.list(filter=select_filter.visibility, limit=-1)
+        available_canvases = self.client.canvas.list(visibility=select_filter.visibility, limit=-1)
         if select_filter.select_all and select_filter.created_by is None:
             return [canvas.external_id for canvas in available_canvases]
         users = self.client.iam.user_profiles.list(limit=-1)
         display_name_by_user_identifier = {user.user_identifier: user.display_name or "missing" for user in users}
         if select_filter.created_by == "user":
-            canvas_by_user: dict[str, list[Canvas]] = defaultdict(list)
+            canvas_by_user: dict[str, list[IndustrialCanvasResponse]] = defaultdict(list)
             for canvas in available_canvases:
                 canvas_by_user[canvas.created_by].append(canvas)
 
