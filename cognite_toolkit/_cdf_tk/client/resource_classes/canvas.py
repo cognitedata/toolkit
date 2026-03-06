@@ -59,7 +59,7 @@ class ContainerReferenceItem(BaseModelObject):
     external_id: str
     container_reference_type: str
     resource_id: int
-    id_: str | None = None
+    id_: str
     resource_sub_id: int | None = None
     charts_id: str | None = None
     label: str | None = None
