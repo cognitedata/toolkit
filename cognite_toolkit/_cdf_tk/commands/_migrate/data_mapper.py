@@ -462,11 +462,11 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
             return None, issue
 
         update.container_references = remaining_container_references
-        update.fdm_instance_container_references.extend(new_fdm_references)
+        update.fdm_instance_container_references = (update.fdm_instance_container_references or []) + new_fdm_references
         if not self.dry_run:
             backup = canvas.as_request_resource().create_backup()
             try:
-                self.client.canvas.create(backup)
+                self.client.canvas.create([backup])
             except CogniteException as e:
                 raise ToolkitMigrationError(f"Failed to create backup for canvas '{canvas.name}': {e!s}. ") from e
 

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, ClassVar
 from uuid import uuid4
 
-from pydantic import JsonValue
+from pydantic import Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.identifiers import (
@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     NodeId,
     ViewId,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
 
 from .data_modeling import (
     EdgeRequest,
@@ -50,13 +51,13 @@ class CanvasAnnotationItem(BaseModelObject):
     VIEW_ID: ClassVar[ViewId] = CANVAS_ANNOTATION_VIEW_ID
     space: str = CANVAS_INSTANCE_SPACE
     external_id: str
-    id_: str
+    id_: str = Field(alias="id")
     annotation_type: str
     container_id: str | None = None
     is_selectable: bool | None = None
     is_draggable: bool | None = None
     is_resizable: bool | None = None
-    properties_: dict[str, JsonValue] | None = None
+    properties_: dict[str, JsonValue] | None = Field(default=None, alias="properties")
 
 
 class ContainerReferenceItem(BaseModelObject):
@@ -67,17 +68,28 @@ class ContainerReferenceItem(BaseModelObject):
     external_id: str
     container_reference_type: str
     resource_id: int
-    id_: str
+    id_: str = Field(alias="id")
     resource_sub_id: int | None = None
     charts_id: str | None = None
     label: str | None = None
-    properties_: dict[str, JsonValue] | None = None
+    properties_: dict[str, JsonValue] | None = Field(default=None, alias="properties")
     x: float | None = None
     y: float | None = None
     width: float | None = None
     height: float | None = None
     max_width: float | None = None
     max_height: float | None = None
+
+    def as_asset_centric_id(self) -> AssetCentricId:
+        if self.container_reference_type not in {"file", "timeseries", "asset", "event"}:
+            raise ValueError(
+                f"Container reference type '{self.container_reference_type}' is not supported for asset-centric ID."
+            )
+        return AssetCentricId(
+            # Checked above
+            resource_type=self.container_reference_type,  # type: ignore[arg-type]
+            id_=self.resource_id,
+        )
 
 
 class FdmInstanceContainerReferenceItem(BaseModelObject):
@@ -91,10 +103,10 @@ class FdmInstanceContainerReferenceItem(BaseModelObject):
     instance_space: str
     view_external_id: str
     view_space: str
-    id_: str
+    id_: str = Field(alias="id")
     view_version: str | None = None
     label: str | None = None
-    properties_: dict[str, JsonValue] | None = None
+    properties_: dict[str, JsonValue] | None = Field(default=None, alias="properties")
     x: float | None = None
     y: float | None = None
     width: float | None = None
@@ -270,9 +282,9 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
                 item.id_ = generator[item.id_]
                 item.external_id = f"{new_canvas_id}_{item.id_}"
 
-        return new_canvas._replace_ids(generator)
+        return new_canvas.replace_ids(generator)
 
-    def _replace_ids(self, id_mapping_old_by_new: dict[str, str]) -> Self:
+    def replace_ids(self, id_mapping_old_by_new: dict[str, str]) -> Self:
         """Replace IDs in the IndustrialCanvasRequest instance based on the provided ID mapping.
 
         Args:

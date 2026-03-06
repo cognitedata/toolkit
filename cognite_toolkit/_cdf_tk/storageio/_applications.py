@@ -233,10 +233,8 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
             # We delete all edges before nodes to avoid a deadlock.
             delete_chunk: list[InstanceDefinitionId]
             for delete_chunk in chain(  # type: ignore[assignment]
-                (
-                    chunker_sequence(edge_ids, INSTANCE_DELETE_ENDPOINT.item_limit),
-                    chunker_sequence(node_ids, INSTANCE_DELETE_ENDPOINT.item_limit),
-                )
+                chunker_sequence(edge_ids, INSTANCE_DELETE_ENDPOINT.item_limit),
+                chunker_sequence(node_ids, INSTANCE_DELETE_ENDPOINT.item_limit),
             ):
                 result = http_client.request_single_retries(
                     message=RequestMessage(
@@ -291,26 +289,12 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
             if not isinstance(container_ref, dict):
                 new_container_references.append(container_ref)
                 continue
-            sources = container_ref.get("sources", [])
-            if not isinstance(sources, list) or len(sources) == 0:
-                new_container_references.append(container_ref)
-                continue
-            source = sources[0]
-            if not isinstance(source, dict) or "properties" not in source:
-                new_container_references.append(container_ref)
-                continue
-            properties = source["properties"]
+            properties = self._get_properties(container_ref)
             if not isinstance(properties, dict):
                 new_container_references.append(container_ref)
                 continue
             reference_type = properties.get("containerReferenceType")
-            if (
-                reference_type
-                in {
-                    "charts",
-                    "dataGrid",
-                }
-            ):  # These container reference types are special cases with a resourceId statically set to -1, which is why we skip them
+            if reference_type in {"charts", "dataGrid"}:
                 new_container_references.append(container_ref)
                 continue
             resource_id = properties.pop("resourceId", None)
@@ -346,6 +330,20 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
         self._populate_external_id_cache([item_json for _, item_json in data_chunk])
         return super().json_chunk_to_data(data_chunk)
 
+    @staticmethod
+    def _get_properties(container_ref: dict[str, Any]) -> dict[str, Any] | None:
+        """Extract properties from a container reference dict, handling both flat and DMS formats."""
+        sources = container_ref.get("sources", [])
+        if isinstance(sources, list) and len(sources) > 0:
+            source = sources[0]
+            if isinstance(source, dict) and "properties" in source:
+                properties = source["properties"]
+                if isinstance(properties, dict):
+                    return properties
+        if "containerReferenceType" in container_ref:
+            return container_ref
+        return None
+
     def _populate_external_id_cache(self, item_jsons: Sequence[dict[str, JsonVal]]) -> None:
         """Populate the client's lookup cache with all referenced resources in the canvases."""
         asset_external_ids: set[str] = set()
@@ -359,13 +357,7 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
             for container_ref in references:
                 if not isinstance(container_ref, dict):
                     continue
-                sources = container_ref.get("sources", [])
-                if not isinstance(sources, list) or len(sources) == 0:
-                    continue
-                source = sources[0]
-                if not isinstance(source, dict) or "properties" not in source:
-                    continue
-                properties = source["properties"]
+                properties = self._get_properties(container_ref)
                 if not isinstance(properties, dict):
                     continue
 
@@ -405,15 +397,7 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
             if not isinstance(container_ref, dict):
                 new_container_references.append(container_ref)
                 continue
-            sources = container_ref.get("sources", [])
-            if not isinstance(sources, list) or len(sources) == 0:
-                new_container_references.append(container_ref)
-                continue
-            source = sources[0]
-            if not isinstance(source, dict) or "properties" not in source:
-                new_container_references.append(container_ref)
-                continue
-            properties = source["properties"]
+            properties = self._get_properties(container_ref)
             if not isinstance(properties, dict):
                 new_container_references.append(container_ref)
                 continue
@@ -434,7 +418,6 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
                 new_container_references.append(container_ref)
                 continue
             if resource_id is None:
-                # Failed look-up, skip the resourceId setting
                 HighSeverityWarning(
                     f"Failed to look-up {reference_type} ID for external ID {resource_external_id!r}. Skipping resource in Canvas {name}"
                 ).print_warning(console=self.client.console)
@@ -448,6 +431,10 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
 
     @classmethod
     def _get_name(cls, item_json: dict[str, JsonVal]) -> str:
+        if "name" in item_json:
+            name = item_json["name"]
+            if isinstance(name, str):
+                return name
         try:
             return item_json["canvas"]["sources"][0]["properties"]["name"]  # type: ignore[index,return-value, call-overload]
         except (KeyError, IndexError, TypeError):

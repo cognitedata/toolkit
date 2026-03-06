@@ -12,6 +12,9 @@ from cognite.client.data_classes.data_modeling import (
 
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeId, ViewDirectId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
+    IndustrialCanvasResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
     DataModelResponseWithViews,
@@ -34,7 +37,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import CreatedSourceSystem
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -331,7 +333,7 @@ class TestThreeDAssetMapper:
 class TestCanvasMapper:
     def test_map_canvas_with_annotations(self):
         input_canvas_path = MIGRATION_DIR / "canvas" / "annotated_canvas.yaml"
-        input_canvas = IndustrialCanvas.load(input_canvas_path.read_text(encoding="utf-8"))
+        input_canvas = IndustrialCanvasResponse._load(input_canvas_path.read_text(encoding="utf-8"))
         with monkeypatch_toolkit_client() as client:
             client.migration.lookup.assets.return_value = dm.NodeId(space="my_space", external_id="asset_1")
             client.migration.lookup.events.return_value = dm.NodeId(space="my_space", external_id="event_1")

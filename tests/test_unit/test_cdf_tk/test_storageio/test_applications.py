@@ -4,16 +4,16 @@ from datetime import datetime
 import pytest
 import responses
 import respx
-from cognite.client.data_classes.data_modeling import NodeList, NodeListWithCursor
+from cognite.client.data_classes.data_modeling import NodeList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
+    CANVAS_INSTANCE_SPACE,
+    ContainerReferenceItem,
+    IndustrialCanvasResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
-    Canvas,
-    ContainerReference,
-    IndustrialCanvas,
-)
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
@@ -158,9 +158,10 @@ class TestChartIO:
 
 
 class TestCanvasIO:
-    def test_download_iterable(self, asset_centric_canvas: tuple[IndustrialCanvas, NodeList[InstanceSource]]) -> None:
+    def test_download_iterable(
+        self, asset_centric_canvas: tuple[IndustrialCanvasResponse, NodeList[InstanceSource]]
+    ) -> None:
         canvas, _ = asset_centric_canvas
-        # Exclude charts/dataGrid types which have resourceId=-1 by design
         ids = [
             container_ref.resource_id
             for container_ref in canvas.container_references or []
@@ -180,9 +181,9 @@ class TestCanvasIO:
                 return [reverse[eid] for eid in external_id]
             return reverse[external_id]
 
-        selector = CanvasExternalIdSelector(external_ids=(canvas.as_id(),))
+        selector = CanvasExternalIdSelector(external_ids=(canvas.external_id,))
         with monkeypatch_toolkit_client() as client:
-            client.canvas.industrial.retrieve.return_value = canvas
+            client.canvas.retrieve.return_value = [canvas]
 
             client.lookup.assets.id.side_effect = lookup
             client.lookup.events.id.side_effect = lookup
@@ -210,8 +211,7 @@ class TestCanvasIO:
 
             assert len(restored_canvases) == 1
             restored_canvas = restored_canvases[0]
-            # The restored canvas should match the original without existingVersion fields
-            assert restored_canvas.item.dump() == canvas.as_write().dump(keep_existing_version=False)
+            assert restored_canvas.item.dump() == canvas.as_request_resource().dump(keep_existing_version=False)
 
     def test_load_canvas_missing_resource(self) -> None:
         with monkeypatch_toolkit_client() as client:
@@ -263,42 +263,34 @@ class TestCanvasIO:
 
             io = CanvasIO(client)
             loaded = io._load_resource(canvas_json)
-            assert len(loaded.container_references) == 0, "Container reference with missing resource should be skipped."
+            assert not loaded.container_references, "Container reference with missing resource should be skipped."
 
     def test_dump_canvas_missing_resource(self) -> None:
         with monkeypatch_toolkit_client() as client:
             client.lookup.assets.external_id.return_value = None
 
-            canvas = IndustrialCanvas(
-                canvas=Canvas(
-                    "my_space",
-                    "test_canvas",
-                    version=1,
-                    last_updated_time=1,
-                    created_by=1,
-                    name="Test Canvas",
-                    updated_by="doctrino",
-                    updated_at=datetime.now(),
-                    created_time=123,
-                ),
-                container_references=NodeListWithCursor[ContainerReference](
-                    [
-                        ContainerReference(
-                            external_id="asset_ref",
-                            container_reference_type="asset",
-                            resource_id=12345,
-                            space="my_space",
-                            version=1,
-                            last_updated_time=1,
-                            created_time=1,
-                        ),
-                    ],
-                    cursor=None,
-                ),
+            canvas = IndustrialCanvasResponse(
+                space=CANVAS_INSTANCE_SPACE,
+                external_id="test_canvas",
+                name="Test Canvas",
+                created_by="doctrino",
+                updated_by="doctrino",
+                updated_at=datetime.now(),
+                version=1,
+                created_time=123,
+                last_updated_time=1,
+                container_references=[
+                    ContainerReferenceItem(
+                        external_id="asset_ref",
+                        container_reference_type="asset",
+                        resource_id=12345,
+                        id_="some-id",
+                    ),
+                ],
             )
 
             io = CanvasIO(client)
             dumped = io._dump_resource(canvas)
-            assert len(dumped["containerReferences"]) == 0, (
-                "Container reference with missing resource should be skipped."
-            )
+            container_refs = dumped.get("containerReferences", [])
+            assert isinstance(container_refs, list)
+            assert len(container_refs) == 0, "Container reference with missing resource should be skipped."
