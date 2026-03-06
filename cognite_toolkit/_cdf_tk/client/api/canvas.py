@@ -96,7 +96,7 @@ class IndustrialCanvasConfigAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest
                         filter={
                             "equals": {
                                 "property": ["edge", "type"],
-                                "value": ANNOTATION_EDGE_TYPE_REF,
+                                "value": ANNOTATION_EDGE_TYPE_REF,  # type: ignore[dict-item]
                             }
                         },
                         node_filter={"hasData": [annotation_vid.dump()]},
@@ -110,7 +110,7 @@ class IndustrialCanvasConfigAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest
                         filter={
                             "equals": {
                                 "property": ["edge", "type"],
-                                "value": CONTAINER_REFERENCE_EDGE_TYPE_REF,
+                                "value": CONTAINER_REFERENCE_EDGE_TYPE_REF,  # type: ignore[dict-item]
                             }
                         },
                         node_filter={"hasData": [container_ref_vid.dump()]},
@@ -124,7 +124,7 @@ class IndustrialCanvasConfigAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest
                         filter={
                             "equals": {
                                 "property": ["edge", "type"],
-                                "value": FDM_CONTAINER_REFERENCE_EDGE_TYPE_REF,
+                                "value": FDM_CONTAINER_REFERENCE_EDGE_TYPE_REF,  # type: ignore[dict-item]
                             }
                         },
                         node_filter={"hasData": [fdm_ref_vid.dump()]},
