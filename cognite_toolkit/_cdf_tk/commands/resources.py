@@ -13,7 +13,6 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceCRUD
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
-from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 
 class ResourcesCommand(ToolkitCommand):
@@ -98,7 +97,7 @@ class ResourcesCommand(ToolkitCommand):
         """
         lines = [
             f"# API docs: {resource_crud.doc_url()}",
-            f"# YAML reference: https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library",
+            "# YAML reference: https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library",
             "",
         ]
 
