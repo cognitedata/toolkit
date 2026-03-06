@@ -82,7 +82,7 @@ class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
     @model_validator(mode="before")
     def move_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Move properties from sources to the top level."""
-        return move_properties(values, cls.VIEW_ID)
+        return move_response_properties(values, cls.VIEW_ID)
 
     def dump(
         self, camel_case: bool = True, exclude_extra: bool = False, context: Literal["api", "toolkit"] = "api"
@@ -123,7 +123,7 @@ class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
         return output
 
 
-def move_properties(values: dict[str, Any], view_id: ViewId) -> dict[str, Any]:
+def move_response_properties(values: dict[str, Any], view_id: ViewId) -> dict[str, Any]:
     """Help function to move properties from properties.space.externalId/version to the top level.
 
     It is used in WrappedInstanceResponse to move properties from the response to the top level.
@@ -139,6 +139,23 @@ def move_properties(values: dict[str, Any], view_id: ViewId) -> dict[str, Any]:
         return values
     source_properties = view_properties[identifier]
     return {**{key: value for key, value in values.items() if key != "properties"}, **source_properties}
+
+
+def move_request_properties(values: dict[str, Any]) -> dict[str, Any]:
+    """Help function to move properties from the top level to properties.space.externalId/version.
+
+    It is used in WrappedInstanceRequest to move properties from the request to the correct place in the API payload.
+    """
+    if "sources" not in values:
+        return values
+    sources = values["sources"]
+    if not isinstance(sources, list):
+        return values
+    source_properties: dict[str, Any] = {}
+    for source in sources:
+        if isinstance(properties := source.get("properties"), dict):
+            source_properties.update(properties)
+    return {**{key: value for key, value in values.items() if key != "sources"}, **source_properties}
 
 
 T_WrappedInstanceResponse = TypeVar("T_WrappedInstanceResponse", bound=WrappedInstanceResponse)
@@ -180,7 +197,7 @@ class WrappedInstanceListResponse(ResponseResource[T_InstancesListRequest], ABC)
     @classmethod
     def move_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Move properties from sources to the top level."""
-        return move_properties(values, cls.VIEW_ID)
+        return move_response_properties(values, cls.VIEW_ID)
 
     def as_id(self) -> NodeId:
         return NodeId(

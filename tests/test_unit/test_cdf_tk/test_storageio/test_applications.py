@@ -217,27 +217,25 @@ class TestCanvasIO:
         with monkeypatch_toolkit_client() as client:
             client.lookup.assets.id.return_value = None
             canvas_json = {
-                "canvas": {
-                    "externalId": "test_canvas",
-                    "instanceType": "node",
-                    "sources": [
-                        {
-                            "properties": {
-                                "createdBy": "doctrino",
-                                "name": "Test Canvas",
-                                "updatedAt": "2025-12-04T11:40:17.676",
-                                "updatedBy": "doctrino",
-                            },
-                            "source": {
-                                "externalId": "Canvas",
-                                "space": "cdf_industrial_canvas",
-                                "type": "view",
-                                "version": "v7",
-                            },
-                        }
-                    ],
-                    "space": "IndustrialCanvasInstanceSpace",
-                },
+                "externalId": "test_canvas",
+                "instanceType": "node",
+                "sources": [
+                    {
+                        "properties": {
+                            "createdBy": "doctrino",
+                            "name": "Test Canvas",
+                            "updatedAt": "2025-12-04T11:40:17.676",
+                            "updatedBy": "doctrino",
+                        },
+                        "source": {
+                            "externalId": "Canvas",
+                            "space": "cdf_industrial_canvas",
+                            "type": "view",
+                            "version": "v7",
+                        },
+                    }
+                ],
+                "space": "IndustrialCanvasInstanceSpace",
                 "containerReferences": [
                     {
                         "externalId": "asset_ref",

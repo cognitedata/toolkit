@@ -20,8 +20,9 @@ from .data_modeling import (
     EdgeRequest,
     WrappedInstanceListRequest,
     WrappedInstanceListResponse,
-    move_properties,
+    move_response_properties,
 )
+from .data_modeling._wrapped import move_request_properties
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -56,7 +57,7 @@ class CanvasObject(BaseModelObject):
     @classmethod
     def move_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Move properties from sources to the top level."""
-        return move_properties(values, cls.VIEW_ID)
+        return move_response_properties(values, cls.VIEW_ID)
 
 
 class CanvasAnnotationItem(CanvasObject):
@@ -134,7 +135,7 @@ class CogniteSolutionTagItem(BaseModelObject):
     @classmethod
     def move_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Move properties from sources to the top level."""
-        return move_properties(values, cls.VIEW_ID)
+        return move_response_properties(values, cls.VIEW_ID)
 
 
 class CanvasProperties(BaseModelObject):
@@ -322,6 +323,12 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
         updated_data = _replace_ids_recursively(dumped_data, id_mapping_old_by_new)
 
         return type(self)._load(updated_data)
+
+    @model_validator(mode="before")
+    @classmethod
+    def move_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Move properties from sources to the top level."""
+        return move_request_properties(values)
 
 
 class IndustrialCanvasResponse(WrappedInstanceListResponse, CanvasProperties):

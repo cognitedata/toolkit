@@ -31,7 +31,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import
     QuerySelectSource,
     QueryThrough,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._wrapped import move_properties
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._wrapped import move_response_properties
 
 _QUERY_LIMIT = QUERY_ENDPOINT.item_limit
 
@@ -141,21 +141,21 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
 
     def _validate_query_response(self, query_response: QueryResponseUntyped) -> list[IndustrialCanvasResponse]:
         annotations = [
-            CanvasAnnotationItem.model_validate(move_properties(item, CANVAS_ANNOTATION_VIEW_ID))
+            CanvasAnnotationItem.model_validate(move_response_properties(item, CANVAS_ANNOTATION_VIEW_ID))
             for item in query_response.items.get(self._ANNOTATIONS_REF, [])
         ]
         container_references = [
-            ContainerReferenceItem.model_validate(move_properties(item, CONTAINER_REFERENCE_VIEW_ID))
+            ContainerReferenceItem.model_validate(move_response_properties(item, CONTAINER_REFERENCE_VIEW_ID))
             for item in query_response.items.get(self._CONTAINER_REFS_REF, [])
         ]
         fdm_refs = [
             FdmInstanceContainerReferenceItem.model_validate(
-                move_properties(item, FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID)
+                move_response_properties(item, FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID)
             )
             for item in query_response.items.get(self._FDM_REFS_REF, [])
         ]
         solution_tags = [
-            CogniteSolutionTagItem.model_validate(move_properties(item, SOLUTION_TAG_VIEW_ID))
+            CogniteSolutionTagItem.model_validate(move_response_properties(item, SOLUTION_TAG_VIEW_ID))
             for item in query_response.items.get(self._SOLUTION_TAGS_REF, [])
         ]
 
