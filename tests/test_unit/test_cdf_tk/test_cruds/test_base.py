@@ -234,6 +234,8 @@ def test_resource_types_is_up_to_date() -> None:
         extra.discard("streams")
     if not FeatureFlag.is_enabled(Flags.SIMULATORS):
         extra.discard("simulators")
+    if not FeatureFlag.is_enabled(Flags.SIGNALS):
+        extra.discard("signals")
     if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
         extra.discard("data_products")
     if not FeatureFlag.is_enabled(Flags.SIGNALS):

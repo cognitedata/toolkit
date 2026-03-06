@@ -1,0 +1,16 @@
+- externalId: integrations-sub
+  sink:
+    type: email
+    externalId: my-email-sink
+  filter:
+    topic: cognite_integrations
+    resource: my-integration
+    severity: warning
+    extractorExternalId: my-extractor
+- externalId: workflows-sub
+  sink:
+    type: user
+    externalId: my-user-sink
+  filter:
+    topic: cognite_workflows
+    severity: error
