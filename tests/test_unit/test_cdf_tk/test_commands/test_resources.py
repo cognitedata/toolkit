@@ -2,12 +2,34 @@ from pathlib import Path
 
 import pytest
 import typer
+import yaml
 from _pytest.monkeypatch import MonkeyPatch
+from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.commands import ResourcesCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import SpaceCRUD
+from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 from tests.test_unit.utils import MockQuestionary
+
+
+class _StubResource(ToolkitResource):
+    external_id: str = Field(description="The external ID.")
+    name: str = Field(description="The name.")
+    runtime: str = Field(default="py311", description="Runtime version.")
+    description: str | None = Field(default=None, description="Optional description.")
+
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
+
+
+class _StubCRUD:
+    yaml_cls = _StubResource
+
+    @classmethod
+    def doc_url(cls) -> str:
+        return "https://example.com/api"
 
 
 class TestResourcesCreateCommand:
@@ -143,6 +165,33 @@ class TestResourcesCreateCommand:
                 verbose=False,
             )
         assert (modules_dir / "data_modeling" / "my_Space.Space.yaml").exists()
+
+    def test_yaml_content_ordering_and_comments(self) -> None:
+        """Required fields first, then optional with value, then optional null. Each field has an inline comment."""
+        cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
+        content = cmd._get_resource_yaml_content(_StubCRUD)  # type: ignore[arg-type]
+
+        lines = content.splitlines()
+        yaml_lines = [line for line in lines if not line.startswith("#") and line.strip()]
+        parsed = yaml.safe_load("\n".join(line.split("  #")[0] for line in yaml_lines))
+
+        # Required fields use placeholder strings
+        assert parsed["externalId"] == "<externalId>"
+        assert parsed["name"] == "<name>"
+
+        # Optional field with non-null default
+        assert parsed["runtime"] == "py311"
+
+        # Optional null field
+        assert parsed["description"] is None
+
+        # All YAML lines have an inline comment
+        for line in yaml_lines:
+            assert "  #" in line, f"Missing comment on line: {line!r}"
+
+        # Ordering: required → optional with value → optional null
+        field_names = [line.split(":")[0].strip() for line in yaml_lines]
+        assert field_names.index("externalId") < field_names.index("runtime") < field_names.index("description")
 
     def test_create_interactive_kind_selection_abort(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Test interactive kind selection when kind is not provided and user aborts."""
