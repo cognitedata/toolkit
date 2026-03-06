@@ -177,7 +177,7 @@ class EdgeTypeId(Identifier):
     """
 
     type: NodeUntypedId
-    direction: Literal["forward", "backward"]
+    direction: Literal["outwards", "inwards"]
 
 
 class ContainerDirectId(Identifier):
