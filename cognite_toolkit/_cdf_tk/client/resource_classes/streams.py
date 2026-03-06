@@ -1,39 +1,60 @@
 import builtins
 from typing import Literal
 
+from pydantic import ConfigDict
+
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.constants import StreamTemplateName
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 
-class Stream(BaseModelObject):
+class StreamsModelObject(BaseModelObject):
+    model_config = ConfigDict(extra="allow")
+
+
+# The StreamsModelObject is temporary until v0.8 is released.
+# This flag is set here to remind us to remove the StreamsModelObject and use BaseModelObject
+# directly in the Stream and StreamTemplate classes.
+ModelObject: type = BaseModelObject if Flags.v08.is_enabled() else StreamsModelObject
+
+
+class Stream(ModelObject):
     external_id: str
+
+
+class StreamTemplate(ModelObject):
+    name: StreamTemplateName | str
+
+
+class StreamRequestSettings(ModelObject):
+    template: StreamTemplate
 
 
 class StreamRequest(Stream, RequestResource):
     """Stream request resource class."""
 
-    settings: dict[Literal["template"], dict[Literal["name"], StreamTemplateName]]
+    settings: StreamRequestSettings
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
 
-class LifecycleObject(BaseModelObject):
+class LifecycleObject(ModelObject):
     """Lifecycle object."""
 
     data_deleted_after: str | None = None
     retained_after_soft_delete: str
 
 
-class ResourceUsage(BaseModelObject):
+class ResourceUsage(ModelObject):
     """Resource quota with provisioned and consumed values."""
 
     provisioned: int
     consumed: int | None = None
 
 
-class LimitsObject(BaseModelObject):
+class LimitsObject(ModelObject):
     """Limits object."""
 
     max_records_total: ResourceUsage
@@ -41,7 +62,7 @@ class LimitsObject(BaseModelObject):
     max_filtering_interval: str | None = None
 
 
-class StreamSettings(BaseModelObject):
+class StreamSettings(ModelObject):
     """Stream settings object."""
 
     lifecycle: LifecycleObject
