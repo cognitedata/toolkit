@@ -13,13 +13,10 @@ class StreamsModelObject(BaseModelObject):
     model_config = ConfigDict(extra="allow")
 
 
-if Flags.v08.is_enabled():
-    # The StreamsModelObject is temporary until v0.8 is released.
-    # This flag is set here to remind us to remove the StreamsModelObject and use BaseModelObject
-    # directly in the Stream and StreamTemplate classes.
-    ModelObject: type = BaseModelObject
-else:
-    ModelObject = StreamsModelObject
+# The StreamsModelObject is temporary until v0.8 is released.
+# This flag is set here to remind us to remove the StreamsModelObject and use BaseModelObject
+# directly in the Stream and StreamTemplate classes.
+ModelObject: type = BaseModelObject if Flags.v08.is_enabled() else StreamsModelObject
 
 
 class Stream(ModelObject):
