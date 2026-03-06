@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ContainerDirectId,
     ContainerId,
+    EdgeTypeId,
     NodeUntypedId,
     ViewDirectId,
     ViewId,
@@ -76,12 +77,8 @@ class EdgeProperty(ConnectionPropertyDefinition, ABC):
     edge_source: ViewId | None = None
     direction: Literal["outwards", "inwards"] = "outwards"
 
-    @field_serializer("source", "edge_source", mode="plain")
-    @classmethod
-    def serialize_source(cls, source: ViewId | None, info: FieldSerializationInfo) -> dict[str, Any] | None:
-        if source is None:
-            return None
-        return {**source.model_dump(**vars(info)), "type": "view"}
+    def as_edge_type_id(self) -> EdgeTypeId:
+        return EdgeTypeId(type=self.type, direction=self.direction)
 
 
 class SingleEdgeProperty(EdgeProperty):
