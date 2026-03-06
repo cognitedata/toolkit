@@ -1,7 +1,7 @@
 import difflib
 import inspect
 from pathlib import Path
-from typing import cast
+from typing import Any, Callable, cast
 
 import questionary
 import typer
@@ -113,7 +113,7 @@ class ResourcesCommand(ToolkitCommand):
             if field.is_required():
                 required_fields.append((name, f"<{name}>", f"# (Required) {description}"))
             elif field.default_factory is not None:
-                factory = field.default_factory
+                factory = cast(Callable[..., Any], field.default_factory)
                 sig = inspect.signature(factory)
                 value = factory(field) if sig.parameters else factory()
                 optional_with_value.append((name, value, f"# {description}"))
