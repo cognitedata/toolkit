@@ -439,39 +439,6 @@ def create_edge_properties(
     return edge_properties
 
 
-class TimeSeriesFilesReferenceCache:
-    """Cache for looking up timeseries/files reference in classic to find the matching instance ID"""
-
-    def __init__(self, client: ToolkitClient) -> None:
-        self._client = client
-        self._cache: dict[Literal["timeseries", "file"], dict[str, NodeId]] = {
-            "timeseries": {},
-            "file": {},
-        }
-
-    def update(self, resource_type: Literal["timeseries", "file"], resource_ids: list[str]) -> list[str]:
-        resources: list[TimeSeriesResponse] | list[FileMetadataResponse]
-        ids = ExternalId.from_external_ids(resource_ids)
-        if resource_type == "timeseries":
-            resources = self._client.tool.timeseries.retrieve(ids, ignore_unknown_ids=True)
-        elif resource_type == "file":
-            resources = self._client.tool.filemetadata.retrieve(ids, ignore_unknown_ids=True)
-        else:
-            raise ValueError(f"Unsupported resource type: {resource_type}")
-        missing_instance_ids: list[str] = []
-        for resource in resources:
-            # We do the lookup on ExternalID, so we know that it will always be set.
-            external_id = cast(str, resource.external_id)
-            if resource.instance_id is None:
-                missing_instance_ids.append(external_id)
-            else:
-                self._cache[resource_type][external_id] = resource.instance_id
-        return missing_instance_ids
-
-    def get_cache(self, resource_type: Literal["timeseries", "file"]) -> dict[str, NodeId]:
-        return self._cache.get(resource_type, {})
-
-
 @dataclass
 class EdgeOtherSide:
     edge_id: EdgeId
