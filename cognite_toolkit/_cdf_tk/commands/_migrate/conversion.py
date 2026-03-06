@@ -716,6 +716,7 @@ class ConnectionCreator:
 
     @cache
     def _is_json_property(self, source_view_id: ViewId, source_prop_id: str) -> bool:
+        """Checks if a property in a view is a JSON property."""
         prop = self._get_view_property(source_prop_id, source_view_id)
         return isinstance(prop, ViewCorePropertyResponse) and isinstance(prop.type, JSONProperty)
 
