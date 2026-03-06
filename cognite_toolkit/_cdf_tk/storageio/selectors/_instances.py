@@ -65,7 +65,6 @@ class InstanceViewSelector(InstanceSelector):
     view: SelectedView
     instance_type: Literal["node", "edge"] = "node"
     instance_spaces: tuple[str, ...] | None = None
-    include_edges: bool = False
     edge_types: tuple[EdgeTypeId, ...] | None = None
 
     def get_schema_spaces(self) -> list[str] | None:
