@@ -1273,6 +1273,12 @@ class TestInstanceToInstanceConversion:
             type=Int64Property(),
             **DEFAULT_ARGS,
         ),
+        "jsonVal": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="jsonVal",
+            type=JSONProperty(list=True),
+            **DEFAULT_ARGS,
+        ),
         "dateVal": ViewCorePropertyResponse(
             container=CONTAINER_ID,
             container_property_identifier="dateVal",
@@ -1344,6 +1350,12 @@ class TestInstanceToInstanceConversion:
             type=DateProperty(),
             **DEFAULT_ARGS,
         ),
+        "jsonDestination": ViewCorePropertyResponse(
+            container=CONTAINER_ID,
+            container_property_identifier="jsonDestination",
+            type=DirectNodeRelation(list=True, max_list_size=2),
+            **DEFAULT_ARGS,
+        ),
         "relatedAsset": ViewCorePropertyResponse(
             container=CONTAINER_ID,
             container_property_identifier="relatedAsset",
@@ -1391,6 +1403,7 @@ class TestInstanceToInstanceConversion:
             "edgeRel": "destEdge",
             "dupRel": "relatedAsset",
             "epoch": "timestamp",
+            "jsonVal": "jsonDestination",
         },
     )
 
@@ -1425,14 +1438,29 @@ class TestInstanceToInstanceConversion:
                 id="File reference, date formatting, conversion error, and reverse relation skip",
             ),
             pytest.param(
-                {
-                    "epoch": 1700000000000,
-                },
-                {
-                    "timestamp": "2023-11-14T22:13:20Z",
-                },
+                {"epoch": 1700000000000},
+                {"timestamp": "2023-11-14T22:13:20Z"},
                 [],
                 id="Epoch to timestamp conversion",
+            ),
+            pytest.param(
+                {
+                    "jsonVal": [
+                        {"space": "src_space", "externalId": "value1"},
+                        {"space": "src_space", "externalId": "value2"},
+                        {"space": "src_space", "externalId": "value3"},
+                    ]
+                },
+                {
+                    "jsonDestination": [
+                        {"space": "dst_space", "externalId": "value1"},
+                        {"space": "dst_space", "externalId": "value2"},
+                    ],
+                },
+                [
+                    "List property 'jsonVal' has 3 items which exceeds the maximum list size of 2 for destination property 'jsonDestination'. Returning the first 2 items."
+                ],
+                id="Implicit json connection with list truncated due to max list size.",
             ),
         ],
     )
