@@ -71,10 +71,11 @@
   propertyMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
-  type:
-    space: cdf_apm
-    externalId: referenceMeasurements
-  direction: inwards
+  edgTypes:
+  - type:
+      space: cdf_apm
+      externalId: referenceMeasurements
+    direction: inwards
 - externalId: InFieldScheduleMapping
   sourceView:
     space: cdf_apm
@@ -178,7 +179,7 @@
   - type:
       space: cdf_apm
       externalId: referenceTemplateItems
-    direction: outwards
+    direction: inwards
   - type:
       space: cdf_apm
       externalId: referenceSchedules
