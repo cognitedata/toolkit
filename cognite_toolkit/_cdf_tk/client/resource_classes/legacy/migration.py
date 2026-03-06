@@ -30,6 +30,15 @@ class AssetCentricId(CogniteObject):
     resource_type: AssetCentricTypeExtended
     id_: int
 
+    @property
+    def id_value(self) -> int:
+        """Generic name of the identifier.
+
+        The AssetCentricExternalId has the same property. Thus, this means that these two
+        classes can be used interchangeably when only the value of the identifier is needed, and not the type.
+        """
+        return self.id_
+
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         """Load an AssetCentricId from a dictionary."""
