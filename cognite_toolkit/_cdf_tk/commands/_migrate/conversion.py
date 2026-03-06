@@ -8,7 +8,7 @@ from typing import Any, ClassVar, Generic, Literal, cast
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, AssetCentricExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse, AssetLinkData, FileLinkData
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -532,8 +532,20 @@ class InFieldDataMapping(InstanceToInstanceSpecialMapping[NodeId]):
         return result
 
     def update(self, items: Iterable[NodeId]) -> None:
-        raise NotImplementedError()
-
+        external_ids = {item.external_id for item in items}
+        missing_external_ids = external_ids - set(self._node_id_by_external_id.keys())
+        if missing_external_ids:
+            results = self.client.migration.instance_source.retrieve(external_ids=AssetCentricExternalId.from_external_ids("asset", missing_external_ids))
+            for result in results:
+                if result.classic_external_id:
+                    self._node_id_by_external_id[result.classic_external_id] = NodeId(
+                        space=result.space, external_id=result.external_id
+                    )
+                else:
+                    self._node_id_by_external_id[result.external_id] = None
+            failed_lookups = missing_external_ids - set(self._node_id_by_external_id.keys())
+            for failed in failed_lookups:
+                self._node_id_by_external_id[failed] = None
 
 class ConnectionCreator:
     """Used to create connections (edges and direct relations) between migrated instances.
