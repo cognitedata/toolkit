@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     FileCDFExternalIdReference,
     InstanceResponse,
     InstanceSource,
+    JSONProperty,
     NodeId,
     NodeRequest,
     NodeResponse,
@@ -663,13 +664,18 @@ class ConnectionCreator:
 
     def _create_target(self, value: Any, source_prop_id: str, source_view_id: ViewId) -> NodeId:
         if special_case_cache := self._special_case_caches.get((source_view_id, source_prop_id)):
+            # This handles json/direct relations which are represented as dicts in the properties. We convert tem
+            # such that they become hashable.
             node_id = self._as_node_id(value)
             return special_case_cache[node_id] if node_id else special_case_cache[value]
         elif self._is_timeseries_reference(source_view_id, source_prop_id) and isinstance(value, str):
             return self._timeseries_reference_cache[value]
         elif self._is_file_reference(source_view_id, source_prop_id) and isinstance(value, str):
             return self._file_reference_cache[value]
-        elif self._is_direct_relation(source_view_id, source_prop_id) and (node_id := self._as_node_id(value)):
+        elif (
+            self._is_direct_relation(source_view_id, source_prop_id)
+            or self._is_json_property(source_view_id, source_prop_id)
+        ) and (node_id := self._as_node_id(value)):
             return self.map_instance(node_id)
         else:
             raise ValueError(
@@ -707,6 +713,11 @@ class ConnectionCreator:
     def _is_direct_relation(self, source_view_id: ViewId, source_prop_id: str) -> bool:
         prop = self._get_view_property(source_prop_id, source_view_id)
         return isinstance(prop, ViewCorePropertyResponse) and isinstance(prop.type, DirectNodeRelation)
+
+    @cache
+    def _is_json_property(self, source_view_id: ViewId, source_prop_id: str) -> bool:
+        prop = self._get_view_property(source_prop_id, source_view_id)
+        return isinstance(prop, ViewCorePropertyResponse) and isinstance(prop.type, JSONProperty)
 
     def create_edges(
         self, value: Any, dm_prop: EdgeProperty, source_prop_id: str, source_view_id: ViewId, source_id: NodeId
@@ -748,20 +759,20 @@ class ConnectionCreator:
         errors: list[str] = []
         if dm_prop.list:
             if dm_prop.max_list_size and len(targets) > dm_prop.max_list_size:
-                targets = targets[: dm_prop.max_list_size]
                 errors.append(
-                    f"Too many targets for direct relation property {source_prop_id!r} in view {source_view_id.dump(include_type=True)!r}: expected at most {dm_prop.max_list_size}, got {len(targets)}. Truncated to the first {dm_prop.max_list_size} targets."
+                    f"Too many items for direct relation property {source_prop_id!s} in view {source_view_id!s}: expected at most {dm_prop.max_list_size}, got {len(targets)}. Truncated to the first {dm_prop.max_list_size} items."
                 )
+                targets = targets[: dm_prop.max_list_size]
             return targets, errors
         elif len(targets) == 1:
             return targets[0], errors
         elif len(targets) == 0:
             raise ValueError(
-                f"No targets for direct relation property {source_prop_id!r} in view {source_view_id.dump(include_type=True)!r}: expected exactly 1, got 0"
+                f"No targets for items relation property {source_prop_id!r} in view {source_view_id!s}: expected exactly 1, got 0"
             )
         else:
             errors.append(
-                f"Too many targets for direct relation property {source_prop_id!r} in view {source_view_id.dump(include_type=True)!r}: expected exactly 1, got {len(targets)}. Returning the first target."
+                f"Too many targets for items relation property {source_prop_id!r} in view {source_view_id!s}: expected exactly 1, got {len(targets)}. Returning the first item."
             )
             return targets[0], errors
 

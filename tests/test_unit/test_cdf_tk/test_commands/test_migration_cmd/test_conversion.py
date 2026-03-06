@@ -1458,7 +1458,9 @@ class TestInstanceToInstanceConversion:
                     ],
                 },
                 [
-                    "List property 'jsonVal' has 3 items which exceeds the maximum list size of 2 for destination property 'jsonDestination'. Returning the first 2 items."
+                    "Too many items for direct relation property jsonVal in view "
+                    "src_space:SrcView(version=v1): expected at most 2, got 3. Truncated to the "
+                    "first 2 items."
                 ],
                 id="Implicit json connection with list truncated due to max list size.",
             ),
