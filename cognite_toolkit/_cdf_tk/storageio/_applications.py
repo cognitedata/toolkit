@@ -1,12 +1,17 @@
 from collections.abc import Iterable, Sequence
+from itertools import chain
 from typing import Any
 
+from cognite.client.data_classes.data_modeling import EdgeId
+
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.api.instances import INSTANCE_DELETE_ENDPOINT, INSTANCE_UPSERT_ENDPOINT
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
+    RequestMessage,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultList
-from cognite_toolkit._cdf_tk.client.identifiers import NodeId
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
     IndustrialCanvasRequest,
@@ -168,18 +173,21 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
 
         for chunk in chunker_sequence(canvas_ids, self.CHUNK_SIZE):
             items = self.client.canvas.retrieve(NodeId.from_str_ids(chunk, space=CANVAS_INSTANCE_SPACE))
-            found = {item.external_id for item in items}
-            not_found = sorted(set(chunk) - found)
-            if not_found:
-                self.logger.log(
-                    [
-                        LogIssue(id=not_found_item, message=f"Did not find {not_found_item} in CDF")
-                        for not_found_item in not_found
-                    ]
-                )
-                for not_found_item in not_found:
-                    self.logger.tracker.finalize_item(str(not_found_item), "failure")
+            self._log_retrieve_issues(chunk, items)
             yield Page(worker_id="main", items=items)
+
+    def _log_retrieve_issues(self, chunk: tuple[str, ...], items: list[IndustrialCanvasResponse]) -> None:
+        found = {item.external_id for item in items}
+        not_found = sorted(set(chunk) - found)
+        if not_found:
+            self.logger.log(
+                [
+                    LogIssue(id=not_found_item, message=f"Did not find {not_found_item} in CDF")
+                    for not_found_item in not_found
+                ]
+            )
+            for not_found_item in not_found:
+                self.logger.tracker.finalize_item(str(not_found_item), "failure")
 
     def count(self, selector: CanvasSelector) -> int | None:
         if not isinstance(selector, CanvasExternalIdSelector):
@@ -192,7 +200,55 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
         http_client: HTTPClient,
         selector: CanvasSelector | None = None,
     ) -> ItemsResultList:
-        raise NotImplementedError()
+        existing_canvas = self.client.canvas.retrieve([item.item.as_id() for item in data_chunk])
+        existing_by_ids = {item.external_id: item for item in existing_canvas}
+        results = ItemsResultList()
+        for item in data_chunk:
+            item_id = item.item.as_id()
+            instances = item.item.dump_instances()
+            instance_ids = set(item.item.as_ids())
+            edge_ids: list[EdgeId] = []
+            node_ids: list[NodeId] = []
+            if item_id.external_id in existing_by_ids:
+                existing_ids = existing_by_ids[item_id.external_id].as_ids()
+                for instance_id in existing_ids:
+                    if instance_id not in instance_ids:
+                        if isinstance(instance_id, EdgeId):
+                            edge_ids.append(instance_id)
+                        elif isinstance(instance_id, NodeId):
+                            node_ids.append(instance_id)
+
+            for instance_chunk in chunker_sequence(instances, INSTANCE_UPSERT_ENDPOINT.item_limit):
+                result = http_client.request_single_retries(
+                    message=RequestMessage(
+                        endpoint_url=http_client.config.create_api_url(INSTANCE_UPSERT_ENDPOINT.path),
+                        method=INSTANCE_UPSERT_ENDPOINT.method,
+                        body_content={"items": instance_chunk},  # type:ignore[dict-item]
+                    )
+                )
+                results.append(result.as_item_response(item.source_id))
+
+            # It is possible to delete and create in the same request, but we keep this separate
+            # as there is a risk for deadlocks.
+            # We delete all edges before nodes to avoid a deadlock.
+            delete_chunk: list[InstanceDefinitionId]
+            for delete_chunk in chain(  # type: ignore[assignment]
+                (
+                    chunker_sequence(edge_ids, INSTANCE_DELETE_ENDPOINT.item_limit),
+                    chunker_sequence(node_ids, INSTANCE_DELETE_ENDPOINT.item_limit),
+                )
+            ):
+                result = http_client.request_single_retries(
+                    message=RequestMessage(
+                        endpoint_url=http_client.config.create_api_url(INSTANCE_DELETE_ENDPOINT.path),
+                        method=INSTANCE_DELETE_ENDPOINT.method,
+                        body_content={
+                            "items": [instance_id.dump() for instance_id in delete_chunk],
+                        },
+                    )
+                )
+                results.append(result.as_item_response(item.source_id))
+        return results
 
     def data_to_json_chunk(
         self, data_chunk: Sequence[IndustrialCanvasResponse], selector: CanvasSelector | None = None
