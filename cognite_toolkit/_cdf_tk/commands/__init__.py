@@ -8,6 +8,7 @@ from ._purge import PurgeCommand
 from ._respace import RespaceCommand
 from ._upload import UploadCommand
 from .about import AboutCommand
+from .functions import FunctionsCommand
 from .auth import AuthCommand
 from .build_cmd import BuildCommand
 from .build_v2.build_v2 import BuildV2Command
@@ -24,6 +25,7 @@ from .run import RunFunctionCommand, RunTransformationCommand, RunWorkflowComman
 
 __all__ = [
     "AboutCommand",
+    "FunctionsCommand",
     "AuthCommand",
     "BuildCommand",
     "BuildV2Command",

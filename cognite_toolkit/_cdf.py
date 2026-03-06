@@ -115,6 +115,7 @@ if Flags.IMPORT_CMD.is_enabled():
 if Plugins.data.value.is_enabled():
     _app.add_typer(DataApp(**default_typer_kws), name="data")
 
+
 _app.add_typer(ModulesApp(**default_typer_kws), name="modules")
 _app.command("init")(landing_app.main_init)
 
