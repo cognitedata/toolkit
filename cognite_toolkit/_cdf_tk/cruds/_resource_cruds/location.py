@@ -1,7 +1,7 @@
 from collections.abc import Hashable, Iterable, Sequence
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any, final
+from typing import Any, Literal, final
 
 from cognite.client.data_classes import capabilities as cap
 
@@ -12,6 +12,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     SpaceId,
     ViewId,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    LocationFiltersAcl,
+    ScopeDefinition,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
     LocationFilterResponse,
@@ -20,6 +26,7 @@ from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError, ToolkitCycleError
 from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
+from cognite_toolkit._cdf_tk.utils.acl_helper import to_read_write_actions
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.yaml_classes import LocationYAML
 from cognite_toolkit._cdf_tk.yaml_classes.location import AssetCentricFields
@@ -78,6 +85,15 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
             scope=cap.LocationFiltersAcl.Scope.All(),
             allow_unknown=True,
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[LocationFilterRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope):
+            yield LocationFiltersAcl(actions=to_read_write_actions(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: LocationFilterRequest | LocationFilterResponse | dict) -> ExternalId:

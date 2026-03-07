@@ -21,7 +21,7 @@ from collections.abc import Hashable, Iterable, Mapping, Sequence
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from time import sleep
-from typing import Any, final
+from typing import Any, Literal, final
 
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import capabilities as cap
@@ -81,6 +81,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
     GraphQLDataModelRequest,
     GraphQLDataModelResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataModelInstancesAcl,
+    DataModelsAcl,
+    ScopeDefinition,
+    SpaceIDScope,
+)
 from cognite_toolkit._cdf_tk.constants import (
     BUILD_FOLDER_ENCODING,
     HAS_DATA_FILTER_LIMIT,
@@ -104,6 +112,7 @@ from cognite_toolkit._cdf_tk.utils import (
     sanitize_filename,
     to_diff,
 )
+from cognite_toolkit._cdf_tk.utils.acl_helper import space_scoped_resource, to_read_write_actions
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.utils.tarjan import tarjan
 from cognite_toolkit._cdf_tk.yaml_classes import (
@@ -163,6 +172,15 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceId, SpaceRequest, SpaceResponse]):
         )
 
         return [cap.DataModelsAcl(actions, cap.DataModelsAcl.Scope.All())]
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[SpaceRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope):
+            yield DataModelsAcl(actions=to_read_write_actions(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: SpaceRequest | SpaceResponse | dict) -> SpaceId:
@@ -311,6 +329,15 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerRequest, Contain
         )
 
         return cap.DataModelsAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[ContainerRequest]) -> ScopeDefinition:
+        return space_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | SpaceIDScope):
+            yield DataModelsAcl(actions=to_read_write_actions(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: ContainerRequest | ContainerResponse | dict) -> ContainerId:
@@ -626,6 +653,15 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
         )
 
         return cap.DataModelsAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[ViewRequest]) -> ScopeDefinition:
+        return space_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | SpaceIDScope):
+            yield DataModelsAcl(actions=to_read_write_actions(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: ViewRequest | ViewResponse | dict) -> ViewId:
@@ -1076,6 +1112,15 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelRequest, DataModelRespons
         return cap.DataModelsAcl(actions, scope)
 
     @classmethod
+    def get_minimum_scope(cls, items: Sequence[DataModelRequest]) -> ScopeDefinition:
+        return space_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | SpaceIDScope):
+            yield DataModelsAcl(actions=to_read_write_actions(actions), scope=scope)
+
+    @classmethod
     def get_id(cls, item: DataModelRequest | DataModelResponse | dict) -> DataModelId:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
@@ -1245,6 +1290,15 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeRequest, NodeResponse]):
             if items is not None
             else cap.DataModelInstancesAcl.Scope.All(),
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[NodeRequest]) -> ScopeDefinition:
+        return space_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | SpaceIDScope):
+            yield DataModelInstancesAcl(actions=to_read_write_actions(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: NodeRequest | NodeResponse | dict) -> NodeId:
@@ -1435,6 +1489,15 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, Gr
             if items is not None
             else cap.DataModelsAcl.Scope.All(),
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[GraphQLDataModelRequest]) -> ScopeDefinition:
+        return space_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | SpaceIDScope):
+            yield DataModelsAcl(actions=to_read_write_actions(actions), scope=scope)
 
     @classmethod
     def get_dependencies(cls, resource: GraphQLDataModelYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
@@ -1634,6 +1697,15 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeRequest, EdgeResponse]):
             if items is not None
             else cap.DataModelInstancesAcl.Scope.All(),
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[EdgeRequest]) -> ScopeDefinition:
+        return space_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | SpaceIDScope):
+            yield DataModelInstancesAcl(actions=to_read_write_actions(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: EdgeRequest | EdgeResponse | dict) -> EdgeId:

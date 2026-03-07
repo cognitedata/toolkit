@@ -2,7 +2,7 @@ import json
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, final
+from typing import Any, Literal, final
 
 from cognite.client import _version as CogniteSDKVersion
 from cognite.client.data_classes import capabilities as cap
@@ -13,6 +13,13 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetScope,
+    FilesAcl,
+    ScopeDefinition,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest, StreamlitResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitRequiredValueError
@@ -20,6 +27,7 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     safe_read,
 )
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource, to_read_write_actions
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash
 from cognite_toolkit._cdf_tk.yaml_classes import StreamlitYAML
 
@@ -65,6 +73,15 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
                 scope = cap.FilesAcl.Scope.DataSet(list(data_set_ids))
 
         return cap.FilesAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[StreamlitRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield FilesAcl(actions=to_read_write_actions(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: StreamlitRequest | StreamlitResponse | dict) -> ExternalId:

@@ -1,19 +1,27 @@
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Any
+from typing import Any, Literal, final
 
 from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AgentsAcl,
+    AllScope,
+    ScopeDefinition,
+)
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.function import FunctionCRUD
+from cognite_toolkit._cdf_tk.utils.acl_helper import to_read_write_actions
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import AgentYAML
 from cognite_toolkit._cdf_tk.yaml_classes.agent import CallFunction
 
 
+@final
 class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):
     folder_name = "agents"
     resource_cls = AgentResponse
@@ -61,6 +69,15 @@ class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):
         actions = [cap.AgentsAcl.Action.READ] if read_only else [cap.AgentsAcl.Action.READ, cap.AgentsAcl.Action.WRITE]
 
         return cap.AgentsAcl(actions, cap.AgentsAcl.Scope.All())
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[AgentRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope):
+            yield AgentsAcl(actions=to_read_write_actions(actions), scope=scope)
 
     def create(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
         return self.client.tool.agents.create(items)

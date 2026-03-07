@@ -17,7 +17,7 @@ import itertools
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, final
+from typing import Any, Literal, final
 
 from cognite.client.data_classes import capabilities as cap
 from cognite.client.exceptions import CogniteAPIError
@@ -28,6 +28,13 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import NameId, RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    RawAcl,
+    ScopeDefinition,
+    TableScope,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWDatabaseResponse,
@@ -35,6 +42,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWTableResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
+from cognite_toolkit._cdf_tk.utils.acl_helper import to_read_write_actions
 from cognite_toolkit._cdf_tk.yaml_classes import DatabaseYAML, TableYAML
 
 from .auth import GroupAllScopedCRUD
@@ -82,6 +90,15 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabaseId, RAWDatabaseRequest, R
             scope = cap.RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else cap.RawAcl.Scope.All()
 
         return cap.RawAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[RAWDatabaseRequest]) -> ScopeDefinition:
+        return TableScope(dbs_to_tables={item.name: [] for item in items})
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | TableScope):
+            yield RawAcl(actions=to_read_write_actions(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: RAWDatabaseResponse | RAWDatabaseRequest | dict) -> RawDatabaseId:
@@ -197,6 +214,18 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
             scope = cap.RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else cap.RawAcl.Scope.All()
 
         return cap.RawAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[RAWTableRequest]) -> ScopeDefinition:
+        tables_by_database: dict[str, list[str]] = defaultdict(list)
+        for item in items:
+            tables_by_database[item.db_name].append(item.name)
+        return TableScope(dbs_to_tables=dict(tables_by_database))
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | TableScope):
+            yield RawAcl(actions=to_read_write_actions(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: RAWTableResponse | RAWTableRequest | dict) -> RawTableId:

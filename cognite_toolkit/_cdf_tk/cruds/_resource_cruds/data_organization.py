@@ -15,7 +15,7 @@
 
 import json
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Any, final
+from typing import Any, Literal, final
 
 from cognite.client.data_classes import capabilities as cap
 
@@ -24,11 +24,20 @@ from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetsAcl,
+    DataSetScope,
+    LabelsAcl,
+    ScopeDefinition,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.label import LabelRequest, LabelResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource, to_read_write_actions
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import DataSetYAML, LabelsYAML
 
@@ -67,6 +76,15 @@ class DataSetsCRUD(ResourceCRUD[ExternalId, DataSetRequest, DataSetResponse]):
             actions,
             cap.DataSetsAcl.Scope.All(),
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[DataSetRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope):
+            yield DataSetsAcl(actions=to_read_write_actions(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: DataSetRequest | DataSetResponse | dict) -> ExternalId:
@@ -177,6 +195,15 @@ class LabelCRUD(ResourceCRUD[ExternalId, LabelRequest, LabelResponse]):
         actions = [cap.LabelsAcl.Action.Read] if read_only else [cap.LabelsAcl.Action.Read, cap.LabelsAcl.Action.Write]
 
         return cap.LabelsAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[LabelRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield LabelsAcl(actions=to_read_write_actions(actions), scope=scope)
 
     def create(self, items: Sequence[LabelRequest]) -> list[LabelResponse]:
         return self.client.tool.labels.create(list(items))

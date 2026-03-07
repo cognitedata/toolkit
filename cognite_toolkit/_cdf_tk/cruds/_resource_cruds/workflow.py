@@ -17,11 +17,10 @@ import json
 from collections.abc import Hashable, Iterable, Sequence
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any, Literal, cast, final
+from typing import Any, Literal, final
 
 from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes import capabilities as cap
-from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -62,6 +61,7 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     sanitize_filename,
 )
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource, to_read_write_actions
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
@@ -101,9 +101,9 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | DataSetScope):
-            yield WorkflowOrchestrationAcl(actions=sorted(actions), scope=scope)
+            yield WorkflowOrchestrationAcl(actions=to_read_write_actions(actions), scope=scope)
 
     @classmethod
     def get_required_capability(
@@ -559,6 +559,14 @@ class WorkflowTriggerCRUD(ResourceCRUD[ExternalId, WorkflowTriggerRequest, Workf
             capability,
             cap.WorkflowOrchestrationAcl.Scope.All(),
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[WorkflowTriggerRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     def create(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
         return self._upsert(items)
