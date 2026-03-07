@@ -2,7 +2,7 @@ import sys
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Sized
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 
 from cognite.client.data_classes.capabilities import Capability
 from rich.console import Console
@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     T_ResponseResource,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, ScopeDefinition
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
@@ -171,6 +172,22 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
         cls, items: Sequence[T_RequestResource] | None, read_only: bool
     ) -> Capability | list[Capability]:
         raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
+
+    @classmethod
+    def create_minimum_acl(
+        cls, actions: set[Literal["read", "write"]], items: Sequence[T_RequestResource]
+    ) -> Iterable[Acl]:
+        return cls.create_acl(actions, cls.get_minimum_scope(items))
+
+    @classmethod
+    @abstractmethod
+    def get_minimum_scope(cls, items: Sequence[T_RequestResource]) -> ScopeDefinition:
+        raise NotImplementedError(f"get_minimum_scope must be implemented for {cls.__name__}.")
+
+    @classmethod
+    @abstractmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        raise NotImplementedError(f"create_acl must be implemented for {cls.__name__} ")
 
     @abstractmethod
     def create(self, items: Sequence[T_RequestResource]) -> Sized:

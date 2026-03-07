@@ -96,13 +96,6 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
         return "workflows"
 
     @classmethod
-    def create_minimum_acl(
-        cls, actions: set[Literal["read", "write"]], items: Sequence[WorkflowRequest]
-    ) -> Iterable[Acl]:
-        scope = cls.get_minimum_scope(items)
-        return cls.create_acl(actions, scope)
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[WorkflowRequest]) -> ScopeDefinition:
         data_set_ids: set[int] = set()
         for item in items:
