@@ -100,7 +100,16 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
     def _validate_query_response(self, query_response: QueryResponseUntyped) -> list[IndustrialCanvasResponse]:
         canvas_items = query_response.items.get(self._CANVAS_REF, [])
         if len(canvas_items) > 1:
-            raise ValueError(f"Expected at most one canvas item, but got {len(canvas_items)}")
+            if len(query_response.items) > 1:
+                raise RuntimeError(
+                    "Bug in Toolkit. When retrieving multiple canvases, the query response should not "
+                    "contain any other items than the canvases."
+                )
+            results: list[IndustrialCanvasResponse] = []
+            for item in canvas_items:
+                item.pop("solutionTags", None)
+                results.append(IndustrialCanvasResponse.model_validate(item))
+            return results
         if len(canvas_items) == 0:
             return []
         canvas_item = canvas_items[0]
