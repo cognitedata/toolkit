@@ -126,7 +126,7 @@ class CogniteSolutionTagItem(BaseModelObject):
     """A Cognite solution tag node that is part of an IndustrialCanvas."""
 
     VIEW_ID: ClassVar[ViewId] = SOLUTION_TAG_VIEW_ID
-    space: str = SOLUTION_TAG_SPACE
+    space: Literal["SolutionTagsInstanceSpace"] = SOLUTION_TAG_SPACE  # type: ignore[assignment]
     external_id: str
     name: str
     description: str | None = None
@@ -151,12 +151,11 @@ class CanvasProperties(BaseModelObject):
     source_canvas_id: str | None = None
     is_archived: bool | None = None
     context: list[dict[str, JsonValue]] | None = None
-    solution_tags: list[NodeId] | None = None
 
     annotations: list[CanvasAnnotationItem] | None = None
     container_references: list[ContainerReferenceItem] | None = None
     fdm_instance_container_references: list[FdmInstanceContainerReferenceItem] | None = None
-    solution_tag_items: list[CogniteSolutionTagItem] | None = None
+    solution_tags: list[CogniteSolutionTagItem] | None = None
 
 
 _CANVAS_EXCLUDE_FROM_PROPERTIES: Set[str] = frozenset(
@@ -191,6 +190,7 @@ def _dump_node(
 class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
     """Pydantic request model for an IndustrialCanvas."""
 
+    space: Literal["IndustrialCanvasInstanceSpace"] = CANVAS_INSTANCE_SPACE  # type: ignore[assignment]
     VIEW_ID: ClassVar[ViewId] = CANVAS_VIEW_ID
 
     def dump(
@@ -210,7 +210,7 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
             exclude |= set(self.__pydantic_extra__) if self.__pydantic_extra__ else set()
         return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True, exclude=exclude)
 
-    def dump_instances(self) -> list[dict[str, Any]]:
+    def dump_instances(self, include_solution_tags: bool = False) -> list[dict[str, Any]]:
         canvas_props = self.model_dump(
             mode="json",
             by_alias=True,
@@ -248,13 +248,14 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
                     ).dump()
                 )
 
-        for tag in self.solution_tag_items or []:
-            props = tag.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude=set(_SUB_ITEM_EXCLUDE))
-            instances.append(_dump_node(tag.space, tag.external_id, SOLUTION_TAG_VIEW_ID, props))
+        if include_solution_tags:
+            for tag in self.solution_tags or []:
+                props = tag.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude=set(_SUB_ITEM_EXCLUDE))
+                instances.append(_dump_node(tag.space, tag.external_id, SOLUTION_TAG_VIEW_ID, props))
 
         return instances
 
-    def as_ids(self) -> list[InstanceDefinitionId]:
+    def as_ids(self, include_solution_tags: bool = False) -> list[InstanceDefinitionId]:
         ids: list[InstanceDefinitionId] = [self.as_id()]
 
         edge_groups: list[
@@ -269,6 +270,9 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
                         external_id=f"{self.external_id}_{item.external_id}",
                     )
                 )
+        if include_solution_tags:
+            for tag in self.solution_tags or []:
+                ids.append(NodeId(space=tag.space, external_id=tag.external_id))
         return ids
 
     def create_backup(self) -> Self:
@@ -336,6 +340,7 @@ class IndustrialCanvasResponse(WrappedInstanceListResponse, CanvasProperties):
     """Pydantic response model for an IndustrialCanvas."""
 
     VIEW_ID: ClassVar[ViewId] = CANVAS_VIEW_ID
+    space: Literal["IndustrialCanvasInstanceSpace"] = CANVAS_INSTANCE_SPACE  # type: ignore[assignment]
     version: int = 0
     created_time: int = 0
     last_updated_time: int = 0

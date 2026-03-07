@@ -166,7 +166,7 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
             canvas.annotations = annotations or None
             canvas.container_references = container_references or None
             canvas.fdm_instance_container_references = fdm_refs or None
-            canvas.solution_tag_items = solution_tags or None
+            canvas.solution_tags = solution_tags or None
             results.append(canvas)
         return results
 
