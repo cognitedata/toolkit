@@ -280,7 +280,7 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
             self.client.lookup.files.external_id(list(file_ids))
 
     def _dump_resource(self, canvas: IndustrialCanvasResponse) -> dict[str, JsonVal]:
-        dumped = canvas.as_request_resource().dump(keep_existing_version=False)
+        dumped = canvas.as_request_resource().dump()
         references = dumped.get("containerReferences", [])
         if not isinstance(references, list):
             return dumped

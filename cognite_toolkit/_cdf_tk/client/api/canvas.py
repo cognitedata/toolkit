@@ -34,9 +34,6 @@ _QUERY_LIMIT = QUERY_ENDPOINT.item_limit
 class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, IndustrialCanvasResponse]):
     _CANVAS_REF = "canvas"
     _SOLUTION_TAGS_REF = "solutionTags"
-    _ANNOTATION_EDGES_REF = "annotationEdges"
-    _CONTAINER_REF_EDGES_REF = "containerReferenceEdges"
-    _FDM_REF_EDGES_REF = "fdmInstanceContainerReferenceEdges"
     _ANNOTATIONS_REF = "annotations"
     _CONTAINER_REFS_REF = "containerReferences"
     _FDM_REFS_REF = "fdmInstanceContainerReferences"
@@ -45,93 +42,58 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
         super().__init__(http_client, query_chunk=1)
 
     def _retrieve_query(self, items: Sequence[InstanceDefinitionId]) -> QueryRequest:
+        with_: dict[str, QueryNodeExpression | QueryEdgeExpression] = {
+            self._CANVAS_REF: QueryNodeExpression(
+                limit=len(items),
+                nodes=QueryNodeTableExpression(
+                    filter={"instanceReferences": [item.dump(include_instance_type=False) for item in items]},
+                ),
+            ),
+            self._SOLUTION_TAGS_REF: QueryNodeExpression(
+                limit=_QUERY_LIMIT,
+                nodes=QueryNodeTableExpression(
+                    from_=self._CANVAS_REF,
+                    through=QueryThrough(source=CANVAS_VIEW_ID, identifier="solutionTags"),
+                    direction="outwards",
+                ),
+            ),
+        }
+        for ref, view_id, edge_type in [
+            (self._ANNOTATIONS_REF, CANVAS_ANNOTATION_VIEW_ID, ANNOTATION_EDGE_TYPE_REF),
+            (self._CONTAINER_REFS_REF, CONTAINER_REFERENCE_VIEW_ID, CONTAINER_REFERENCE_EDGE_TYPE_REF),
+            (self._FDM_REFS_REF, FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID, FDM_CONTAINER_REFERENCE_EDGE_TYPE_REF),
+        ]:
+            edge_ref = f"{ref}Edges"
+            with_[edge_ref] = QueryEdgeExpression(
+                limit=_QUERY_LIMIT,
+                edges=QueryEdgeTableExpression(
+                    from_=self._CANVAS_REF,
+                    direction="outwards",
+                    filter={
+                        "equals": {
+                            "property": ["edge", "type"],
+                            "value": edge_type.dump(include_instance_type=False),
+                        }
+                    },
+                    node_filter={"hasData": [view_id.dump(include_type=True)]},
+                ),
+            )
+            with_[ref] = QueryNodeExpression(
+                limit=_QUERY_LIMIT,
+                nodes=QueryNodeTableExpression(from_=edge_ref),
+            )
+
         return QueryRequest(
-            with_={
-                self._CANVAS_REF: QueryNodeExpression(
-                    limit=len(items),
-                    nodes=QueryNodeTableExpression(
-                        filter={"instanceReferences": [item.dump(include_instance_type=False) for item in items]},
-                    ),
-                ),
-                self._SOLUTION_TAGS_REF: QueryNodeExpression(
-                    limit=_QUERY_LIMIT,
-                    nodes=QueryNodeTableExpression(
-                        from_=self._CANVAS_REF,
-                        through=QueryThrough(source=CANVAS_VIEW_ID, identifier="solutionTags"),
-                        direction="outwards",
-                    ),
-                ),
-                self._ANNOTATION_EDGES_REF: QueryEdgeExpression(
-                    limit=_QUERY_LIMIT,
-                    edges=QueryEdgeTableExpression(
-                        from_=self._CANVAS_REF,
-                        direction="outwards",
-                        filter={
-                            "equals": {
-                                "property": ["edge", "type"],
-                                "value": ANNOTATION_EDGE_TYPE_REF.dump(include_instance_type=False),
-                            }
-                        },
-                        node_filter={"hasData": [CANVAS_ANNOTATION_VIEW_ID.dump(include_type=True)]},
-                    ),
-                ),
-                self._CONTAINER_REF_EDGES_REF: QueryEdgeExpression(
-                    limit=_QUERY_LIMIT,
-                    edges=QueryEdgeTableExpression(
-                        from_=self._CANVAS_REF,
-                        direction="outwards",
-                        filter={
-                            "equals": {
-                                "property": ["edge", "type"],
-                                "value": CONTAINER_REFERENCE_EDGE_TYPE_REF.dump(include_instance_type=False),
-                            }
-                        },
-                        node_filter={"hasData": [CONTAINER_REFERENCE_VIEW_ID.dump(include_type=True)]},
-                    ),
-                ),
-                self._FDM_REF_EDGES_REF: QueryEdgeExpression(
-                    limit=_QUERY_LIMIT,
-                    edges=QueryEdgeTableExpression(
-                        from_=self._CANVAS_REF,
-                        direction="outwards",
-                        filter={
-                            "equals": {
-                                "property": ["edge", "type"],
-                                "value": FDM_CONTAINER_REFERENCE_EDGE_TYPE_REF.dump(include_instance_type=False),
-                            }
-                        },
-                        node_filter={"hasData": [FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID.dump(include_type=True)]},
-                    ),
-                ),
-                self._ANNOTATIONS_REF: QueryNodeExpression(
-                    limit=_QUERY_LIMIT,
-                    nodes=QueryNodeTableExpression(from_=self._ANNOTATION_EDGES_REF),
-                ),
-                self._CONTAINER_REFS_REF: QueryNodeExpression(
-                    limit=_QUERY_LIMIT,
-                    nodes=QueryNodeTableExpression(from_=self._CONTAINER_REF_EDGES_REF),
-                ),
-                self._FDM_REFS_REF: QueryNodeExpression(
-                    limit=_QUERY_LIMIT,
-                    nodes=QueryNodeTableExpression(from_=self._FDM_REF_EDGES_REF),
-                ),
-            },
+            with_=with_,
             select={
-                self._CANVAS_REF: QuerySelect(
-                    sources=[QuerySelectSource(source=CANVAS_VIEW_ID, properties=["*"])],
-                ),
-                self._SOLUTION_TAGS_REF: QuerySelect(
-                    sources=[QuerySelectSource(source=SOLUTION_TAG_VIEW_ID, properties=["*"])],
-                ),
-                self._ANNOTATIONS_REF: QuerySelect(
-                    sources=[QuerySelectSource(source=CANVAS_ANNOTATION_VIEW_ID, properties=["*"])],
-                ),
-                self._CONTAINER_REFS_REF: QuerySelect(
-                    sources=[QuerySelectSource(source=CONTAINER_REFERENCE_VIEW_ID, properties=["*"])],
-                ),
-                self._FDM_REFS_REF: QuerySelect(
-                    sources=[QuerySelectSource(source=FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID, properties=["*"])],
-                ),
+                ref: QuerySelect(sources=[QuerySelectSource(source=view_id, properties=["*"])])
+                for ref, view_id in [
+                    (self._CANVAS_REF, CANVAS_VIEW_ID),
+                    (self._SOLUTION_TAGS_REF, SOLUTION_TAG_VIEW_ID),
+                    (self._ANNOTATIONS_REF, CANVAS_ANNOTATION_VIEW_ID),
+                    (self._CONTAINER_REFS_REF, CONTAINER_REFERENCE_VIEW_ID),
+                    (self._FDM_REFS_REF, FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID),
+                ]
             },
         )
 

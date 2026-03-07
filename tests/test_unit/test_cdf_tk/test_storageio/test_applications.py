@@ -211,7 +211,7 @@ class TestCanvasIO:
 
             assert len(restored_canvases) == 1
             restored_canvas = restored_canvases[0]
-            assert restored_canvas.item.dump() == canvas.as_request_resource().dump(keep_existing_version=False)
+            assert restored_canvas.item.dump() == canvas.as_request_resource().dump()
 
     def test_load_canvas_missing_resource(self) -> None:
         with monkeypatch_toolkit_client() as client:
