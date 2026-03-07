@@ -22,6 +22,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription impo
     DataPointSubscriptionUpdate,
     DatapointSubscriptionUpdateRequest,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetScope,
+    ScopeDefinition,
+    TimeSeriesAcl,
+    TimeSeriesSubscriptionsAcl,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.constants import MAX_TIMESTAMP_MS, MIN_TIMESTAMP_MS
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
@@ -30,6 +38,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.utils import calculate_hash
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource, to_read_write_actions
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
@@ -75,6 +84,15 @@ class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSe
                 scope = cap.TimeSeriesAcl.Scope.DataSet(list(dataset_ids))
 
         return cap.TimeSeriesAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[TimeSeriesRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield TimeSeriesAcl(actions=to_read_write_actions(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: TimeSeriesRequest | TimeSeriesResponse | dict) -> ExternalId:
@@ -264,6 +282,15 @@ class DatapointSubscriptionCRUD(
                 scope = cap.TimeSeriesSubscriptionsAcl.Scope.DataSet(list(data_set_ids))
 
         return cap.TimeSeriesSubscriptionsAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[DatapointSubscriptionRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield TimeSeriesSubscriptionsAcl(actions=to_read_write_actions(actions), scope=scope)
 
     def create(self, items: Sequence[DatapointSubscriptionRequest]) -> list[DatapointSubscriptionResponse]:
         created_list = []

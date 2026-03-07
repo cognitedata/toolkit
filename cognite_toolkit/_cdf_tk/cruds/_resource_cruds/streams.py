@@ -1,14 +1,21 @@
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Any, final
+from typing import Any, Literal, final
 
 from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    ScopeDefinition,
+    StreamsAcl,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamRequest,
     StreamResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.utils.acl_helper import to_read_write_actions
 from cognite_toolkit._cdf_tk.yaml_classes import StreamYAML
 
 from .datamodel import ContainerCRUD
@@ -52,6 +59,15 @@ class StreamCRUD(ResourceCRUD[ExternalId, StreamRequest, StreamResponse]):
             else [cap.StreamsAcl.Action.Read, cap.StreamsAcl.Action.Create, cap.StreamsAcl.Action.Delete]
         )
         return cap.StreamsAcl(actions, cap.StreamsAcl.Scope.All())
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[StreamRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope):
+            yield StreamsAcl(actions=to_read_write_actions(actions), scope=scope)
 
     def create(self, items: Sequence[StreamRequest]) -> list[StreamResponse]:
         return self.client.streams.create(items)

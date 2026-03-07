@@ -1,15 +1,23 @@
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, final
+from typing import Any, Literal, final
 
 from cognite.client.data_classes import capabilities as cap
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewNoVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    AppConfigAcl,
+    AppConfigScope,
+    ScopeDefinition,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigRequest, SearchConfigResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
+from cognite_toolkit._cdf_tk.utils.acl_helper import to_read_write_actions
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.yaml_classes import SearchConfigYAML
 
@@ -54,6 +62,15 @@ class SearchConfigCRUD(ResourceCRUD[ViewNoVersionId, SearchConfigRequest, Search
             scope=cap.AppConfigAcl.Scope.AppConfig(apps=["SEARCH"]),
             allow_unknown=True,
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[SearchConfigRequest]) -> ScopeDefinition:
+        return AppConfigScope(apps=["SEARCH"])
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | AppConfigScope):
+            yield AppConfigAcl(actions=to_read_write_actions(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: SearchConfigRequest | SearchConfigResponse | dict) -> ViewNoVersionId:

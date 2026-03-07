@@ -24,6 +24,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
     FunctionScheduleResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    FilesAcl,
+    FunctionsAcl,
+    ScopeDefinition,
+)
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
@@ -36,6 +43,7 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
     humanize_collection,
 )
+from cognite_toolkit._cdf_tk.utils.acl_helper import to_read_write_actions
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.file import create_temporary_zip, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
@@ -107,6 +115,16 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
             cap.FunctionsAcl(function_actions, cap.FunctionsAcl.Scope.All()),
             cap.FilesAcl(file_actions, cap.FilesAcl.Scope.All()),  # Needed for uploading function artifacts
         ]
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[FunctionRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope):
+            yield FunctionsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield FilesAcl(actions=to_read_write_actions(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: FunctionResponse | FunctionRequest | dict) -> ExternalId:
@@ -502,6 +520,14 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
         if not read_only:
             required_capabilities.append(cap.SessionsAcl([cap.SessionsAcl.Action.Create], cap.SessionsAcl.Scope.All()))
         return required_capabilities
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[FunctionScheduleRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     @classmethod
     def dump_id(cls, id: FunctionScheduleId) -> dict[str, Any]:

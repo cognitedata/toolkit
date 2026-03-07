@@ -1,5 +1,5 @@
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Any, final
+from typing import Any, Literal, final
 
 from cognite.client.data_classes import capabilities as cap
 
@@ -9,6 +9,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import
     DataProductVersionRequest,
     DataProductVersionResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, ScopeDefinition
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductVersionYAML
 
@@ -53,6 +54,14 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
         # TODO: dataproductsAcl is not yet in the SDK — return empty to skip capability verification.
         # Once available, require: READ + UPDATE (all version mutations use dataproductsAcl:UPDATE).
         return []
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[DataProductVersionRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:

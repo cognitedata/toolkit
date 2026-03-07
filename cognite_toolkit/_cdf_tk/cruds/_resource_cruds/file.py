@@ -15,7 +15,7 @@
 
 from collections.abc import Hashable, Iterable, Sequence
 from datetime import date, datetime
-from typing import Any, final
+from typing import Any, Literal, final
 
 from cognite.client.data_classes import capabilities as cap
 from cognite.client.utils._time import convert_data_modelling_timestamp
@@ -32,12 +32,26 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataModelInstancesAcl,
+    DataSetScope,
+    FilesAcl,
+    ScopeDefinition,
+    SpaceIDScope,
+)
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.utils import (
     in_dict,
+)
+from cognite_toolkit._cdf_tk.utils.acl_helper import (
+    dataset_scoped_resource,
+    space_scoped_resource,
+    to_read_write_actions,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML
@@ -79,6 +93,15 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
                 scope = cap.FilesAcl.Scope.DataSet(list(data_set_ids))
 
         return cap.FilesAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[FileMetadataRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield FilesAcl(actions=to_read_write_actions(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: FileMetadataRequest | FileMetadataResponse | dict) -> ExternalId:
@@ -242,6 +265,16 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
             cap.FilesAcl(file_actions, cap.FilesAcl.Scope.All()),
             cap.DataModelInstancesAcl(instance_actions, scope),
         ]
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[CogniteFileRequest]) -> ScopeDefinition:
+        return space_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield FilesAcl(actions=to_read_write_actions(actions), scope=AllScope())
+        if isinstance(scope, AllScope | SpaceIDScope):
+            yield DataModelInstancesAcl(actions=to_read_write_actions(actions), scope=scope)
 
     def dump_resource(self, resource: CogniteFileResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump(context="toolkit")
