@@ -107,17 +107,11 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
                 )
             results: list[IndustrialCanvasResponse] = []
             for item in canvas_items:
-                item.pop("solutionTags", None)
                 results.append(IndustrialCanvasResponse.model_validate(item))
             return results
         if len(canvas_items) == 0:
             return []
         canvas_item = canvas_items[0]
-
-        # We remove the solution tag references (NodeIds) from the canvas item since they are returned as separate items
-        # in the query response.
-        canvas_item.pop("solutionTags", None)
-
         for key in [self._SOLUTION_TAGS_REF, self._ANNOTATIONS_REF, self._CONTAINER_REFS_REF, self._FDM_REFS_REF]:
             if subitems := query_response.items.get(key):
                 canvas_item[key] = subitems  # type: ignore[assignment]

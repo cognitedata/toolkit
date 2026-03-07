@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, ClassVar, Literal
 from uuid import uuid4
 
-from pydantic import Field, JsonValue, model_validator
+from pydantic import Field, JsonValue, field_validator, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client._types import DMSTimestamp
@@ -156,6 +156,30 @@ class CanvasProperties(BaseModelObject):
     container_references: list[ContainerReferenceItem] | None = None
     fdm_instance_container_references: list[FdmInstanceContainerReferenceItem] | None = None
     solution_tags: list[CogniteSolutionTagItem] | None = None
+
+    @field_validator("solution_tags", mode="before")
+    @classmethod
+    def remove_reference_solution_tags(cls, value: Any) -> Any:
+        """Remove solution tags that are only references (i.e., have no name).
+
+        There are two ways of retrieving Canvases, either with all connections (.retrieve) or without (.list).
+        Solution tags are a direct relation from the Canvas node, so when retrieving with .retrieve, we get the full
+        solution tag objects. However, when retrieving with .list, we only get the NodeIds of the solution tags.
+        To avoid pydantic validation errors due to lack of the name field, we simply remove the solution tags without
+        name.
+        """
+        if not isinstance(value, list):
+            return value
+        solution_tags: list[Any] = []
+        for item in value:
+            if not isinstance(item, dict):
+                # Let pydantic handle the validation error for this item
+                solution_tags.append(item)
+            if "name" not in item:
+                # This is a reference solution tag, we skip it
+                continue
+            solution_tags.append(item)
+        return solution_tags
 
 
 _CANVAS_EXCLUDE_FROM_PROPERTIES: Set[str] = frozenset(
