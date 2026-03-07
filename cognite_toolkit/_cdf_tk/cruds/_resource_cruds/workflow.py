@@ -17,7 +17,7 @@ import json
 from collections.abc import Hashable, Iterable, Sequence
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any, final
+from typing import Any, Literal, cast, final
 
 from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes import capabilities as cap
@@ -27,6 +27,13 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetScope,
+    ScopeDefinition,
+    WorkflowOrchestrationAcl,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     NonceCredentials,
@@ -87,6 +94,30 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
     @property
     def display_name(self) -> str:
         return "workflows"
+
+    @classmethod
+    def create_minimum_acl(
+        cls, actions: set[Literal["read", "write"]], items: Sequence[WorkflowRequest]
+    ) -> Iterable[Acl]:
+        scope = cls.get_minimum_scope(items)
+        return cls.create_acl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[WorkflowRequest]) -> ScopeDefinition:
+        data_set_ids: set[int] = set()
+        for item in items:
+            if item.data_set_id is None:
+                return AllScope()  # A single unscoped item means we need AllScope.
+            data_set_ids.add(item.data_set_id)
+        return DataSetScope(ids=list(data_set_ids))
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            acl_actions = cast(
+                list[Literal["READ", "WRITE"]], [{"read": "READ", "write": "WRITE"}[action] for action in actions]
+            )
+            yield WorkflowOrchestrationAcl(actions=acl_actions, scope=scope)
 
     @classmethod
     def get_required_capability(
