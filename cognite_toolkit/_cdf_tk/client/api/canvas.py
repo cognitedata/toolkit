@@ -173,6 +173,7 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
             # When sourceCanvasId is not set, we get the newest version of the canvas and not
             # previous versions of the canvas
             {"not": {"exists": {"property": CANVAS_VIEW_ID.as_property_reference("sourceCanvasId")}}},
+            {"hasData": [CANVAS_VIEW_ID.dump(include_type=True)]},
         ]
         if visibility is not None:
             leaf_filters.append(
