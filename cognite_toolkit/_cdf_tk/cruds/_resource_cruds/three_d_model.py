@@ -1,8 +1,7 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, final
 
-from cognite.client.data_classes import capabilities
-from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import (
@@ -64,28 +63,28 @@ class ThreeDModelCRUD(ResourceContainerCRUD[NameId, ThreeDModelClassicRequest, T
     @classmethod
     def get_required_capability(
         cls, items: Sequence[ThreeDModelClassicRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
-        scope: capabilities.ThreeDAcl.Scope.All | capabilities.ThreeDAcl.Scope.DataSet = (  # type: ignore[valid-type]
-            capabilities.ThreeDAcl.Scope.All()
+        scope: cap.ThreeDAcl.Scope.All | cap.ThreeDAcl.Scope.DataSet = (  # type: ignore[valid-type]
+            cap.ThreeDAcl.Scope.All()
         )
         if items:
             if data_set_ids := {item.data_set_id for item in items or [] if item.data_set_id}:
-                scope = capabilities.ThreeDAcl.Scope.DataSet(list(data_set_ids))
+                scope = cap.ThreeDAcl.Scope.DataSet(list(data_set_ids))
 
         actions = (
-            [capabilities.ThreeDAcl.Action.Read]
+            [cap.ThreeDAcl.Action.Read]
             if read_only
             else [
-                capabilities.ThreeDAcl.Action.Read,
-                capabilities.ThreeDAcl.Action.Create,
-                capabilities.ThreeDAcl.Action.Update,
-                capabilities.ThreeDAcl.Action.Delete,
+                cap.ThreeDAcl.Action.Read,
+                cap.ThreeDAcl.Action.Create,
+                cap.ThreeDAcl.Action.Update,
+                cap.ThreeDAcl.Action.Delete,
             ]
         )
 
-        return capabilities.ThreeDAcl(actions, scope)
+        return cap.ThreeDAcl(actions, scope)
 
     def create(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelClassicResponse]:
         return self.client.tool.three_d.models_classic.create(items)

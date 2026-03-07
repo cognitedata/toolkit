@@ -24,12 +24,8 @@ from time import sleep
 from typing import Any, final
 
 from cognite.client import data_modeling as dm
+from cognite.client.data_classes import capabilities as cap
 from cognite.client.data_classes import filters
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    DataModelInstancesAcl,
-    DataModelsAcl,
-)
 from rich import print
 from rich.console import Console
 from rich.markup import escape
@@ -156,13 +152,17 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceId, SpaceRequest, SpaceResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[SpaceRequest] | None, read_only: bool
-    ) -> list[Capability] | list[Capability]:
+    ) -> list[cap.Capability] | list[cap.Capability]:
         if not items and items is not None:
             return []
 
-        actions = [DataModelsAcl.Action.Read] if read_only else [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write]
+        actions = (
+            [cap.DataModelsAcl.Action.Read]
+            if read_only
+            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
+        )
 
-        return [DataModelsAcl(actions, DataModelsAcl.Scope.All())]
+        return [cap.DataModelsAcl(actions, cap.DataModelsAcl.Scope.All())]
 
     @classmethod
     def get_id(cls, item: SpaceRequest | SpaceResponse | dict) -> SpaceId:
@@ -294,19 +294,23 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerRequest, Contain
     @classmethod
     def get_required_capability(
         cls, items: Sequence[ContainerRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
-        actions = [DataModelsAcl.Action.Read] if read_only else [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write]
-
-        scope = (
-            DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else DataModelsAcl.Scope.All()
+        actions = (
+            [cap.DataModelsAcl.Action.Read]
+            if read_only
+            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
         )
 
-        return DataModelsAcl(actions, scope)
+        scope = (
+            cap.DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
+            if items is not None
+            else cap.DataModelsAcl.Scope.All()
+        )
+
+        return cap.DataModelsAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: ContainerRequest | ContainerResponse | dict) -> ContainerId:
@@ -605,19 +609,23 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[ViewRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
-        actions = [DataModelsAcl.Action.Read] if read_only else [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write]
-
-        scope = (
-            DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else DataModelsAcl.Scope.All()
+        actions = (
+            [cap.DataModelsAcl.Action.Read]
+            if read_only
+            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
         )
 
-        return DataModelsAcl(actions, scope)
+        scope = (
+            cap.DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
+            if items is not None
+            else cap.DataModelsAcl.Scope.All()
+        )
+
+        return cap.DataModelsAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: ViewRequest | ViewResponse | dict) -> ViewId:
@@ -1049,19 +1057,23 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelRequest, DataModelRespons
     @classmethod
     def get_required_capability(
         cls, items: Sequence[DataModelRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
-        actions = [DataModelsAcl.Action.Read] if read_only else [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write]
-
-        scope = (
-            DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else DataModelsAcl.Scope.All()
+        actions = (
+            [cap.DataModelsAcl.Action.Read]
+            if read_only
+            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
         )
 
-        return DataModelsAcl(actions, scope)
+        scope = (
+            cap.DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
+            if items is not None
+            else cap.DataModelsAcl.Scope.All()
+        )
+
+        return cap.DataModelsAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: DataModelRequest | DataModelResponse | dict) -> DataModelId:
@@ -1217,21 +1229,21 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeRequest, NodeResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[NodeRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [DataModelInstancesAcl.Action.Read]
+            [cap.DataModelInstancesAcl.Action.Read]
             if read_only
-            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
         )
 
-        return DataModelInstancesAcl(
+        return cap.DataModelInstancesAcl(
             actions,
-            DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items}))
+            cap.DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items}))
             if items is not None
-            else DataModelInstancesAcl.Scope.All(),
+            else cap.DataModelInstancesAcl.Scope.All(),
         )
 
     @classmethod
@@ -1409,15 +1421,19 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, Gr
     @classmethod
     def get_required_capability(
         cls, items: Sequence[GraphQLDataModelRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
-        actions = [DataModelsAcl.Action.Read] if read_only else [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write]
-        return DataModelsAcl(
+        actions = (
+            [cap.DataModelsAcl.Action.Read]
+            if read_only
+            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
+        )
+        return cap.DataModelsAcl(
             actions,
-            DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
+            cap.DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
             if items is not None
-            else DataModelsAcl.Scope.All(),
+            else cap.DataModelsAcl.Scope.All(),
         )
 
     @classmethod
@@ -1602,21 +1618,21 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeRequest, EdgeResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[EdgeRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [DataModelInstancesAcl.Action.Read]
+            [cap.DataModelInstancesAcl.Action.Read]
             if read_only
-            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
         )
 
-        return DataModelInstancesAcl(
+        return cap.DataModelInstancesAcl(
             actions,
-            DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items}))
+            cap.DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items}))
             if items is not None
-            else DataModelInstancesAcl.Scope.All(),
+            else cap.DataModelInstancesAcl.Scope.All(),
         )
 
     @classmethod

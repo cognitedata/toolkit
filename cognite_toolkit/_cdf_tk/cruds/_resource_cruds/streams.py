@@ -1,7 +1,7 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, final
 
-from cognite.client.data_classes.capabilities import Capability, StreamsAcl
+from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
@@ -42,16 +42,16 @@ class StreamCRUD(ResourceCRUD[ExternalId, StreamRequest, StreamResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[StreamRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [StreamsAcl.Action.Read]
+            [cap.StreamsAcl.Action.Read]
             if read_only
-            else [StreamsAcl.Action.Read, StreamsAcl.Action.Create, StreamsAcl.Action.Delete]
+            else [cap.StreamsAcl.Action.Read, cap.StreamsAcl.Action.Create, cap.StreamsAcl.Action.Delete]
         )
-        return StreamsAcl(actions, StreamsAcl.Scope.All())
+        return cap.StreamsAcl(actions, cap.StreamsAcl.Scope.All())
 
     def create(self, items: Sequence[StreamRequest]) -> list[StreamResponse]:
         return self.client.streams.create(items)

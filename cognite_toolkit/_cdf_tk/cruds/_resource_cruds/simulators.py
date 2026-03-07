@@ -1,7 +1,7 @@
 from collections.abc import Hashable, Iterable, Sequence, Sized
 from typing import Any, final
 
-from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalOrExternalId
@@ -78,7 +78,7 @@ class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, Simulat
     @classmethod
     def get_required_capability(
         cls, items: Sequence[SimulatorModelRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         # Simulator ACLs is not yet implemented in the PySDK, which means
         # that we cannot check for specific capabilities.
         return []
@@ -192,7 +192,7 @@ class SimulatorModelRevisionCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[SimulatorModelRevisionRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         return []
 
     def create(self, items: Sequence[SimulatorModelRevisionRequest]) -> list[SimulatorModelRevisionResponse]:
@@ -295,7 +295,7 @@ class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, Sim
     @classmethod
     def get_required_capability(
         cls, items: Sequence[SimulatorRoutineRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         return []
 
     def create(self, items: Sequence[SimulatorRoutineRequest]) -> list[SimulatorRoutineResponse]:
@@ -386,7 +386,7 @@ class SimulatorRoutineRevisionCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[SimulatorRoutineRevisionRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         return []
 
     def create(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> list[SimulatorRoutineRevisionResponse]:

@@ -18,10 +18,7 @@ from pathlib import Path
 from typing import Any, final
 
 import yaml
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    ExtractionPipelinesAcl,
-)
+from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -81,24 +78,24 @@ class ExtractionPipelineCRUD(ResourceCRUD[ExternalId, ExtractionPipelineRequest,
     @classmethod
     def get_required_capability(
         cls, items: Sequence[ExtractionPipelineRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [ExtractionPipelinesAcl.Action.Read]
+            [cap.ExtractionPipelinesAcl.Action.Read]
             if read_only
-            else [ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write]
+            else [cap.ExtractionPipelinesAcl.Action.Read, cap.ExtractionPipelinesAcl.Action.Write]
         )
 
-        scope: ExtractionPipelinesAcl.Scope.All | ExtractionPipelinesAcl.Scope.DataSet = (  # type: ignore[valid-type]
-            ExtractionPipelinesAcl.Scope.All()
+        scope: cap.ExtractionPipelinesAcl.Scope.All | cap.ExtractionPipelinesAcl.Scope.DataSet = (  # type: ignore[valid-type]
+            cap.ExtractionPipelinesAcl.Scope.All()
         )
         if items is not None:
             if data_set_id := {item.data_set_id for item in items if item.data_set_id}:
-                scope = ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
+                scope = cap.ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
 
-        return ExtractionPipelinesAcl(actions, scope)
+        return cap.ExtractionPipelinesAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: ExtractionPipelineRequest | ExtractionPipelineResponse | dict) -> ExternalId:
@@ -232,7 +229,7 @@ class ExtractionPipelineConfigCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[ExtractionPipelineConfigRequest] | None, read_only: bool
-    ) -> list[Capability]:
+    ) -> list[cap.Capability]:
         # We check the parent extraction pipeline permissions instead
         return []
 

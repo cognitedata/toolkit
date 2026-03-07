@@ -17,11 +17,7 @@ from collections.abc import Hashable, Iterable, Sequence
 from datetime import date, datetime
 from typing import Any, final
 
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    DataModelInstancesAcl,
-    FilesAcl,
-)
+from cognite.client.data_classes import capabilities as cap
 from cognite.client.utils._time import convert_data_modelling_timestamp
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -71,18 +67,18 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
     @classmethod
     def get_required_capability(
         cls, items: Sequence[FileMetadataRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
-        actions = [FilesAcl.Action.Read] if read_only else [FilesAcl.Action.Read, FilesAcl.Action.Write]
+        actions = [cap.FilesAcl.Action.Read] if read_only else [cap.FilesAcl.Action.Read, cap.FilesAcl.Action.Write]
 
-        scope: FilesAcl.Scope.All | FilesAcl.Scope.DataSet = FilesAcl.Scope.All()  # type: ignore[valid-type]
+        scope: cap.FilesAcl.Scope.All | cap.FilesAcl.Scope.DataSet = cap.FilesAcl.Scope.All()  # type: ignore[valid-type]
         if items:
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = FilesAcl.Scope.DataSet(list(data_set_ids))
+                scope = cap.FilesAcl.Scope.DataSet(list(data_set_ids))
 
-        return FilesAcl(actions, scope)
+        return cap.FilesAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: FileMetadataRequest | FileMetadataResponse | dict) -> ExternalId:
@@ -221,24 +217,30 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
         return id.dump()
 
     @classmethod
-    def get_required_capability(cls, items: Sequence[CogniteFileRequest] | None, read_only: bool) -> list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[CogniteFileRequest] | None, read_only: bool
+    ) -> list[cap.Capability]:
         if not items and items is not None:
             return []
 
-        file_actions = [FilesAcl.Action.Read] if read_only else [FilesAcl.Action.Read, FilesAcl.Action.Write]
+        file_actions = (
+            [cap.FilesAcl.Action.Read] if read_only else [cap.FilesAcl.Action.Read, cap.FilesAcl.Action.Write]
+        )
         instance_actions = (
-            [DataModelInstancesAcl.Action.Read]
+            [cap.DataModelInstancesAcl.Action.Read]
             if read_only
-            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
         )
 
-        scope: DataModelInstancesAcl.Scope.All | DataModelInstancesAcl.Scope.SpaceID = DataModelInstancesAcl.Scope.All()  # type: ignore[valid-type]
+        scope: cap.DataModelInstancesAcl.Scope.All | cap.DataModelInstancesAcl.Scope.SpaceID = (  # type: ignore[valid-type]
+            cap.DataModelInstancesAcl.Scope.All()
+        )
         if items:
             if spaces := {item.space for item in items}:
-                scope = DataModelInstancesAcl.Scope.SpaceID(list(spaces))
+                scope = cap.DataModelInstancesAcl.Scope.SpaceID(list(spaces))
         return [
-            FilesAcl(file_actions, FilesAcl.Scope.All()),
-            DataModelInstancesAcl(instance_actions, scope),
+            cap.FilesAcl(file_actions, cap.FilesAcl.Scope.All()),
+            cap.DataModelInstancesAcl(instance_actions, scope),
         ]
 
     def dump_resource(self, resource: CogniteFileResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
