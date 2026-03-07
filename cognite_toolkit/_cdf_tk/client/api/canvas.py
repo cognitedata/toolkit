@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client.api.instances import QUERY_ENDPOINT, MultiWrappedInstancesAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
@@ -7,12 +7,14 @@ from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     ANNOTATION_EDGE_TYPE_REF,
     CANVAS_ANNOTATION_VIEW_ID,
+    CANVAS_EXCLUDE_FROM_PROPERTIES,
     CANVAS_VIEW_ID,
     CONTAINER_REFERENCE_EDGE_TYPE_REF,
     CONTAINER_REFERENCE_VIEW_ID,
     FDM_CONTAINER_REFERENCE_EDGE_TYPE_REF,
     FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID,
     SOLUTION_TAG_VIEW_ID,
+    CanvasProperties,
     IndustrialCanvasRequest,
     IndustrialCanvasResponse,
 )
@@ -37,6 +39,11 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
     _ANNOTATIONS_REF = "annotations"
     _CONTAINER_REFS_REF = "containerReferences"
     _FDM_REFS_REF = "fdmInstanceContainerReferences"
+    _CANVAS_NODE_PROPERTIES: ClassVar[list[str]] = [
+        field.alias or field_id
+        for field_id, field in CanvasProperties.model_fields.items()
+        if field_id not in CANVAS_EXCLUDE_FROM_PROPERTIES
+    ]
 
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(http_client, query_chunk=1)
@@ -86,13 +93,13 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
         return QueryRequest(
             with_=with_,
             select={
-                ref: QuerySelect(sources=[QuerySelectSource(source=view_id, properties=["*"])])
-                for ref, view_id in [
-                    (self._CANVAS_REF, CANVAS_VIEW_ID),
-                    (self._SOLUTION_TAGS_REF, SOLUTION_TAG_VIEW_ID),
-                    (self._ANNOTATIONS_REF, CANVAS_ANNOTATION_VIEW_ID),
-                    (self._CONTAINER_REFS_REF, CONTAINER_REFERENCE_VIEW_ID),
-                    (self._FDM_REFS_REF, FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID),
+                ref: QuerySelect(sources=[QuerySelectSource(source=view_id, properties=properties)])
+                for ref, view_id, properties in [
+                    (self._CANVAS_REF, CANVAS_VIEW_ID, self._CANVAS_NODE_PROPERTIES),
+                    (self._SOLUTION_TAGS_REF, SOLUTION_TAG_VIEW_ID, ["*"]),
+                    (self._ANNOTATIONS_REF, CANVAS_ANNOTATION_VIEW_ID, ["*"]),
+                    (self._CONTAINER_REFS_REF, CONTAINER_REFERENCE_VIEW_ID, ["*"]),
+                    (self._FDM_REFS_REF, FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID, ["*"]),
                 ]
             },
         )
@@ -139,7 +146,9 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
                     )
                 },
                 select={
-                    self._CANVAS_REF: QuerySelect(sources=[QuerySelectSource(source=CANVAS_VIEW_ID, properties=["*"])])
+                    self._CANVAS_REF: QuerySelect(
+                        sources=[QuerySelectSource(source=CANVAS_VIEW_ID, properties=self._CANVAS_NODE_PROPERTIES)]
+                    )
                 },
             )
             if cursor is not None:
