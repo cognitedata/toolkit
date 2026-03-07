@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     WrappedInstanceListResponse,
     WrappedInstanceRequest,
     WrappedInstanceResponse,
-    move_properties,
+    move_response_properties,
 )
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 
@@ -44,7 +44,7 @@ class DataExplorationConfig(BaseModelObject):
     @model_validator(mode="before")
     @classmethod
     def move_properties(cls, data: dict[str, Any]) -> dict[str, Any]:
-        return move_properties(data, cls.VIEW_ID)
+        return move_response_properties(data, cls.VIEW_ID)
 
 
 class InFieldLocationConfig(BaseModelObject):
