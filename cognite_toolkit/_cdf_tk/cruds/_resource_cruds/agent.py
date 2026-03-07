@@ -1,7 +1,7 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any
 
-from cognite.client.data_classes.capabilities import AgentsAcl, Capability
+from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
@@ -54,13 +54,13 @@ class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[AgentRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
-        actions = [AgentsAcl.Action.READ] if read_only else [AgentsAcl.Action.READ, AgentsAcl.Action.WRITE]
+        actions = [cap.AgentsAcl.Action.READ] if read_only else [cap.AgentsAcl.Action.READ, cap.AgentsAcl.Action.WRITE]
 
-        return AgentsAcl(actions, AgentsAcl.Scope.All())
+        return cap.AgentsAcl(actions, cap.AgentsAcl.Scope.All())
 
     def create(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
         return self.client.tool.agents.create(items)

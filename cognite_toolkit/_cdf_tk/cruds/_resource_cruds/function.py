@@ -7,14 +7,7 @@ from typing import Any, Literal, cast, final
 
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import ClientCredentials
-from cognite.client.data_classes.capabilities import (
-    AllScope,
-    Capability,
-    DataSetScope,
-    FilesAcl,
-    FunctionsAcl,
-    SessionsAcl,
-)
+from cognite.client.data_classes import capabilities as cap
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
 from cognite.client.exceptions import CogniteAPIError
@@ -97,18 +90,22 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[FunctionRequest] | None, read_only: bool
-    ) -> list[Capability] | list[Capability]:
+    ) -> list[cap.Capability] | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         function_actions = (
-            [FunctionsAcl.Action.Read] if read_only else [FunctionsAcl.Action.Read, FunctionsAcl.Action.Write]
+            [cap.FunctionsAcl.Action.Read]
+            if read_only
+            else [cap.FunctionsAcl.Action.Read, cap.FunctionsAcl.Action.Write]
         )
-        file_actions = [FilesAcl.Action.Read] if read_only else [FilesAcl.Action.Read, FilesAcl.Action.Write]
+        file_actions = (
+            [cap.FilesAcl.Action.Read] if read_only else [cap.FilesAcl.Action.Read, cap.FilesAcl.Action.Write]
+        )
 
         return [
-            FunctionsAcl(function_actions, FunctionsAcl.Scope.All()),
-            FilesAcl(file_actions, FilesAcl.Scope.All()),  # Needed for uploading function artifacts
+            cap.FunctionsAcl(function_actions, cap.FunctionsAcl.Scope.All()),
+            cap.FilesAcl(file_actions, cap.FilesAcl.Scope.All()),  # Needed for uploading function artifacts
         ]
 
     @classmethod
@@ -188,7 +185,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
 
     def get_function_required_capabilities(
         self, items: Sequence[FunctionRequest] | None, read_only: bool
-    ) -> list[Capability]:
+    ) -> list[cap.Capability]:
         """
         Get required capabilities for working with CDF Functions and their associated files.
 
@@ -201,11 +198,15 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
             return []
 
         function_actions = (
-            [FunctionsAcl.Action.Read] if read_only else [FunctionsAcl.Action.Read, FunctionsAcl.Action.Write]
+            [cap.FunctionsAcl.Action.Read]
+            if read_only
+            else [cap.FunctionsAcl.Action.Read, cap.FunctionsAcl.Action.Write]
         )
-        file_actions = [FilesAcl.Action.Read] if read_only else [FilesAcl.Action.Read, FilesAcl.Action.Write]
+        file_actions = (
+            [cap.FilesAcl.Action.Read] if read_only else [cap.FilesAcl.Action.Read, cap.FilesAcl.Action.Write]
+        )
 
-        file_scope: AllScope | DataSetScope = FilesAcl.Scope.All()
+        file_scope: cap.AllScope | cap.DataSetScope = cap.FilesAcl.Scope.All()
 
         if items and self.data_set_id_by_external_id:
             dataset_ids = [
@@ -214,11 +215,11 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
                 if item.external_id and item.external_id in self.data_set_id_by_external_id
             ]
             if dataset_ids:
-                file_scope = FilesAcl.Scope.DataSet(dataset_ids)
+                file_scope = cap.FilesAcl.Scope.DataSet(dataset_ids)
 
         return [
-            FunctionsAcl(function_actions, FunctionsAcl.Scope.All()),
-            FilesAcl(file_actions, file_scope),  # Needed for uploading function artifacts
+            cap.FunctionsAcl(function_actions, cap.FunctionsAcl.Scope.All()),
+            cap.FilesAcl(file_actions, file_scope),  # Needed for uploading function artifacts
         ]
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionRequest:
@@ -486,18 +487,20 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
     @classmethod
     def get_required_capability(
         cls, items: Sequence[FunctionScheduleRequest] | None, read_only: bool
-    ) -> list[Capability]:
+    ) -> list[cap.Capability]:
         if not items and items is not None:
             return []
 
         function_actions = (
-            [FunctionsAcl.Action.Read] if read_only else [FunctionsAcl.Action.Read, FunctionsAcl.Action.Write]
+            [cap.FunctionsAcl.Action.Read]
+            if read_only
+            else [cap.FunctionsAcl.Action.Read, cap.FunctionsAcl.Action.Write]
         )
-        required_capabilities: list[Capability] = [
-            FunctionsAcl(function_actions, FunctionsAcl.Scope.All()),
+        required_capabilities: list[cap.Capability] = [
+            cap.FunctionsAcl(function_actions, cap.FunctionsAcl.Scope.All()),
         ]
         if not read_only:
-            required_capabilities.append(SessionsAcl([SessionsAcl.Action.Create], SessionsAcl.Scope.All()))
+            required_capabilities.append(cap.SessionsAcl([cap.SessionsAcl.Action.Create], cap.SessionsAcl.Scope.All()))
         return required_capabilities
 
     @classmethod

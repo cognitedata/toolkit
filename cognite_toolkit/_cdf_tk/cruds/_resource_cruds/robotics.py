@@ -2,8 +2,7 @@ import json
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any
 
-from cognite.client.data_classes import capabilities
-from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
@@ -54,17 +53,17 @@ class RoboticFrameCRUD(ResourceCRUD[ExternalId, RobotFrameRequest, RobotFrameRes
     @classmethod
     def get_required_capability(
         cls, items: Sequence[RobotFrameRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
-        return capabilities.RoboticsAcl(
+        return cap.RoboticsAcl(
             [
-                capabilities.RoboticsAcl.Action.Read,
-                capabilities.RoboticsAcl.Action.Create,
-                capabilities.RoboticsAcl.Action.Delete,
-                capabilities.RoboticsAcl.Action.Update,
+                cap.RoboticsAcl.Action.Read,
+                cap.RoboticsAcl.Action.Create,
+                cap.RoboticsAcl.Action.Delete,
+                cap.RoboticsAcl.Action.Update,
             ],
-            capabilities.RoboticsAcl.Scope.All(),
+            cap.RoboticsAcl.Scope.All(),
         )
 
     def dump_resource(self, resource: RobotFrameResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -125,23 +124,23 @@ class RoboticLocationCRUD(ResourceCRUD[ExternalId, RobotLocationRequest, RobotLo
     @classmethod
     def get_required_capability(
         cls, items: Sequence[RobotLocationRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
         actions = (
             [
-                capabilities.RoboticsAcl.Action.Read,
+                cap.RoboticsAcl.Action.Read,
             ]
             if read_only
             else [
-                capabilities.RoboticsAcl.Action.Read,
-                capabilities.RoboticsAcl.Action.Create,
-                capabilities.RoboticsAcl.Action.Delete,
-                capabilities.RoboticsAcl.Action.Update,
+                cap.RoboticsAcl.Action.Read,
+                cap.RoboticsAcl.Action.Create,
+                cap.RoboticsAcl.Action.Delete,
+                cap.RoboticsAcl.Action.Update,
             ]
         )
 
-        return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
+        return cap.RoboticsAcl(actions, cap.RoboticsAcl.Scope.All())
 
     def create(self, items: Sequence[RobotLocationRequest]) -> list[RobotLocationResponse]:
         return self.client.tool.robotics.locations.create(items)
@@ -201,23 +200,23 @@ class RoboticsDataPostProcessingCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[RobotDataPostProcessingRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
         actions = (
             [
-                capabilities.RoboticsAcl.Action.Read,
+                cap.RoboticsAcl.Action.Read,
             ]
             if read_only
             else [
-                capabilities.RoboticsAcl.Action.Read,
-                capabilities.RoboticsAcl.Action.Create,
-                capabilities.RoboticsAcl.Action.Delete,
-                capabilities.RoboticsAcl.Action.Update,
+                cap.RoboticsAcl.Action.Read,
+                cap.RoboticsAcl.Action.Create,
+                cap.RoboticsAcl.Action.Delete,
+                cap.RoboticsAcl.Action.Update,
             ]
         )
 
-        return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
+        return cap.RoboticsAcl(actions, cap.RoboticsAcl.Scope.All())
 
     def create(self, items: Sequence[RobotDataPostProcessingRequest]) -> list[RobotDataPostProcessingResponse]:
         return self.client.tool.robotics.data_postprocessing.create(items)
@@ -288,23 +287,23 @@ class RobotCapabilityCRUD(ResourceCRUD[ExternalId, RobotCapabilityRequest, Robot
     @classmethod
     def get_required_capability(
         cls, items: Sequence[RobotCapabilityRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
         actions = (
             [
-                capabilities.RoboticsAcl.Action.Read,
+                cap.RoboticsAcl.Action.Read,
             ]
             if read_only
             else [
-                capabilities.RoboticsAcl.Action.Read,
-                capabilities.RoboticsAcl.Action.Create,
-                capabilities.RoboticsAcl.Action.Delete,
-                capabilities.RoboticsAcl.Action.Update,
+                cap.RoboticsAcl.Action.Read,
+                cap.RoboticsAcl.Action.Create,
+                cap.RoboticsAcl.Action.Delete,
+                cap.RoboticsAcl.Action.Update,
             ]
         )
 
-        return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
+        return cap.RoboticsAcl(actions, cap.RoboticsAcl.Scope.All())
 
     def create(self, items: Sequence[RobotCapabilityRequest]) -> list[RobotCapabilityResponse]:
         return self.client.tool.robotics.capabilities.create(items)
@@ -379,24 +378,24 @@ class RoboticMapCRUD(ResourceCRUD[ExternalId, RobotMapRequest, RobotMapResponse]
     @classmethod
     def get_required_capability(
         cls, items: Sequence[RobotMapRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
             [
-                capabilities.RoboticsAcl.Action.Read,
+                cap.RoboticsAcl.Action.Read,
             ]
             if read_only
             else [
-                capabilities.RoboticsAcl.Action.Read,
-                capabilities.RoboticsAcl.Action.Create,
-                capabilities.RoboticsAcl.Action.Delete,
-                capabilities.RoboticsAcl.Action.Update,
+                cap.RoboticsAcl.Action.Read,
+                cap.RoboticsAcl.Action.Create,
+                cap.RoboticsAcl.Action.Delete,
+                cap.RoboticsAcl.Action.Update,
             ]
         )
 
-        return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
+        return cap.RoboticsAcl(actions, cap.RoboticsAcl.Scope.All())
 
     def dump_resource(self, resource: RobotMapResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dump = resource.as_request_resource().dump()

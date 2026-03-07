@@ -4,7 +4,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, final
 
-from cognite.client.data_classes.capabilities import Capability, DataModelInstancesAcl
+from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NameId
@@ -70,17 +70,17 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
     @classmethod
     def get_required_capability(
         cls, items: collections.abc.Sequence[APMConfigRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [DataModelInstancesAcl.Action.Read]
+            [cap.DataModelInstancesAcl.Action.Read]
             if read_only
-            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
         )
 
-        return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID([APM_CONFIG_SPACE]))
+        return cap.DataModelInstancesAcl(actions, cap.DataModelInstancesAcl.Scope.SpaceID([APM_CONFIG_SPACE]))
 
     def prerequisite_warning(self) -> str | None:
         view_id = APMConfigRequest.VIEW_ID
@@ -299,18 +299,18 @@ class InFieldLocationConfigCRUD(ResourceCRUD[NodeId, InFieldLocationConfigReques
     @classmethod
     def get_required_capability(
         cls, items: Sequence[InFieldLocationConfigRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items or items is None:
             return []
 
         actions = (
-            [DataModelInstancesAcl.Action.Read]
+            [cap.DataModelInstancesAcl.Action.Read]
             if read_only
-            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
         )
         instance_spaces = sorted({item.space for item in items})
 
-        return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
+        return cap.DataModelInstancesAcl(actions, cap.DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
 
     def dump_resource(
         self, resource: InFieldLocationConfigResponse, local: dict[str, Any] | None = None
@@ -396,18 +396,18 @@ class InFieldCDMLocationConfigCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[InFieldCDMLocationConfigRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items or items is None:
             return []
 
         actions = (
-            [DataModelInstancesAcl.Action.Read]
+            [cap.DataModelInstancesAcl.Action.Read]
             if read_only
-            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
         )
         instance_spaces = sorted({item.space for item in items})
 
-        return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
+        return cap.DataModelInstancesAcl(actions, cap.DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
 
     @cached_property
     def _legacy_instance_spaces(self) -> set[str]:
