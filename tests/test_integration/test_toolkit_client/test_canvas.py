@@ -37,7 +37,6 @@ def three_events(toolkit_client: ToolkitClient) -> EventList:
 
 def create_canvas(three_events: EventList) -> IndustrialCanvasRequest:
     return IndustrialCanvasRequest(
-        space=CANVAS_INSTANCE_SPACE,
         external_id="efc2de9d-27a5-4a3b-9779-dff11c572610",
         name="ToolkitTestData",
         created_by="ndTFZh9K9-m2W9WBKc30-Q",
@@ -86,9 +85,7 @@ def create_canvas(three_events: EventList) -> IndustrialCanvasRequest:
                 height=500,
             )
         ],
-        solution_tag_items=None,
         solution_tags=[],
-        fdm_instance_container_references=None,
     )
 
 
@@ -116,8 +113,8 @@ class TestIndustrialCanvasAPI:
             assert len(retrieved_list) == 1
             retrieved = retrieved_list[0]
 
-            assert retrieved.as_request_resource().dump(keep_existing_version=False) == canvas.dump(
-                keep_existing_version=False
+            assert retrieved.as_request_resource().dump() == canvas.model_dump(
+                mode="json", by_alias=True, exclude_unset=True, exclude={"annotations"}
             )
 
             retry_on_deadlock(lambda: toolkit_client.canvas.delete([canvas.as_id()]))

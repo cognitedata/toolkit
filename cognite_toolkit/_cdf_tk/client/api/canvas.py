@@ -13,10 +13,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     FDM_CONTAINER_REFERENCE_EDGE_TYPE_REF,
     FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID,
     SOLUTION_TAG_VIEW_ID,
-    CanvasAnnotationItem,
-    CogniteSolutionTagItem,
-    ContainerReferenceItem,
-    FdmInstanceContainerReferenceItem,
     IndustrialCanvasRequest,
     IndustrialCanvasResponse,
 )
@@ -31,7 +27,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import
     QuerySelectSource,
     QueryThrough,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._wrapped import move_response_properties
 
 _QUERY_LIMIT = QUERY_ENDPOINT.item_limit
 
@@ -141,34 +136,23 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
         )
 
     def _validate_query_response(self, query_response: QueryResponseUntyped) -> list[IndustrialCanvasResponse]:
-        annotations = [
-            CanvasAnnotationItem.model_validate(move_response_properties(item, CANVAS_ANNOTATION_VIEW_ID))
-            for item in query_response.items.get(self._ANNOTATIONS_REF, [])
-        ]
-        container_references = [
-            ContainerReferenceItem.model_validate(move_response_properties(item, CONTAINER_REFERENCE_VIEW_ID))
-            for item in query_response.items.get(self._CONTAINER_REFS_REF, [])
-        ]
-        fdm_refs = [
-            FdmInstanceContainerReferenceItem.model_validate(
-                move_response_properties(item, FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID)
-            )
-            for item in query_response.items.get(self._FDM_REFS_REF, [])
-        ]
-        solution_tags = [
-            CogniteSolutionTagItem.model_validate(move_response_properties(item, SOLUTION_TAG_VIEW_ID))
-            for item in query_response.items.get(self._SOLUTION_TAGS_REF, [])
-        ]
+        canvas_items = query_response.items.get(self._CANVAS_REF, [])
+        if len(canvas_items) > 1:
+            raise ValueError(f"Expected at most one canvas item, but got {len(canvas_items)}")
+        if len(canvas_items) == 0:
+            return []
+        canvas_item = canvas_items[0]
 
-        results: list[IndustrialCanvasResponse] = []
-        for canvas_item in query_response.items.get(self._CANVAS_REF, []):
-            canvas = IndustrialCanvasResponse.model_validate(canvas_item)
-            canvas.annotations = annotations or None
-            canvas.container_references = container_references or None
-            canvas.fdm_instance_container_references = fdm_refs or None
-            canvas.solution_tags = solution_tags or None
-            results.append(canvas)
-        return results
+        # We remove the solution tag references (NodeIds) from the canvas item since they are returned as separate items
+        # in the query response.
+        canvas_item.pop("solutionTags", None)
+
+        for key in [self._SOLUTION_TAGS_REF, self._ANNOTATIONS_REF, self._CONTAINER_REFS_REF, self._FDM_REFS_REF]:
+            if subitems := query_response.items.get(key):
+                canvas_item[key] = subitems  # type: ignore[assignment]
+
+        canvas = IndustrialCanvasResponse.model_validate(canvas_item)
+        return [canvas]
 
     def list(
         self, visibility: Literal["public", "private"] | None = None, limit: int | None = 100

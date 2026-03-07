@@ -193,23 +193,6 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
     space: Literal["IndustrialCanvasInstanceSpace"] = CANVAS_INSTANCE_SPACE  # type: ignore[assignment]
     VIEW_ID: ClassVar[ViewId] = CANVAS_VIEW_ID
 
-    def dump(
-        self, camel_case: bool = True, exclude_extra: bool = False, keep_existing_version: bool = True
-    ) -> dict[str, Any]:
-        """Dump the resource to a dictionary.
-
-        Args:
-            camel_case (bool): Whether to use camelCase for the keys. Default is True.
-            exclude_extra (bool): Whether to exclude extra fields not defined in the model. Default is False.
-
-        """
-        exclude: set[str] = set()
-        if not keep_existing_version:
-            exclude.add("existing_version")
-        if exclude_extra:
-            exclude |= set(self.__pydantic_extra__) if self.__pydantic_extra__ else set()
-        return self.model_dump(mode="json", by_alias=camel_case, exclude_unset=True, exclude=exclude)
-
     def dump_instances(self, include_solution_tags: bool = False) -> list[dict[str, Any]]:
         canvas_props = self.model_dump(
             mode="json",
@@ -350,7 +333,7 @@ class IndustrialCanvasResponse(WrappedInstanceListResponse, CanvasProperties):
     def request_cls(cls) -> type[IndustrialCanvasRequest]:
         return IndustrialCanvasRequest
 
-    def as_ids(self) -> list[InstanceDefinitionId]:
+    def as_ids(self, include_solution_tags: bool = False) -> list[InstanceDefinitionId]:
         ids: list[InstanceDefinitionId] = [self.as_id()]
         edge_groups: list[
             list[CanvasAnnotationItem] | list[ContainerReferenceItem] | list[FdmInstanceContainerReferenceItem]
@@ -364,4 +347,7 @@ class IndustrialCanvasResponse(WrappedInstanceListResponse, CanvasProperties):
                         external_id=f"{self.external_id}_{item.external_id}",
                     )
                 )
+        if include_solution_tags:
+            for tag in self.solution_tags or []:
+                ids.append(NodeId(space=tag.space, external_id=tag.external_id))
         return ids
