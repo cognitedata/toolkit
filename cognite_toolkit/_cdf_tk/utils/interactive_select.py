@@ -11,7 +11,6 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     Asset,
     UserProfileList,
-    filters,
 )
 from cognite.client.data_classes.aggregations import Count
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
@@ -35,7 +34,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import Canvas
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
@@ -300,18 +298,6 @@ class CanvasFilter:
     visibility: Literal["public", "private"] | None = None
     created_by: Literal["user"] | None = None
     select_all: bool = False
-
-    def as_dms_filter(self) -> filters.Filter:
-        canvas_id = Canvas.get_source()
-        leaf_filters: list[filters.Filter] = [
-            filters.Not(filters.Equals(canvas_id.as_property_ref("isArchived"), True)),
-            # When sourceCanvasId is not set, we get the newest version of the canvas
-            filters.Not(filters.Exists(canvas_id.as_property_ref("sourceCanvasId"))),
-        ]
-        if self.visibility is not None:
-            leaf_filters.append(filters.Equals(canvas_id.as_property_ref("visibility"), self.visibility))
-
-        return filters.And(*leaf_filters)
 
 
 class InteractiveCanvasSelect:
