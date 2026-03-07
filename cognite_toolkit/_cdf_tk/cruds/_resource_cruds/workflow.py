@@ -21,6 +21,7 @@ from typing import Any, Literal, cast, final
 
 from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes import capabilities as cap
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -97,20 +98,12 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[WorkflowRequest]) -> ScopeDefinition:
-        data_set_ids: set[int] = set()
-        for item in items:
-            if item.data_set_id is None:
-                return AllScope()  # A single unscoped item means we need AllScope.
-            data_set_ids.add(item.data_set_id)
-        return DataSetScope(ids=list(data_set_ids))
+        return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | DataSetScope):
-            acl_actions = cast(
-                list[Literal["READ", "WRITE"]], [{"read": "READ", "write": "WRITE"}[action] for action in actions]
-            )
-            yield WorkflowOrchestrationAcl(actions=acl_actions, scope=scope)
+            yield WorkflowOrchestrationAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_required_capability(
@@ -227,6 +220,14 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest
     @property
     def display_name(self) -> str:
         return "workflow versions"
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[WorkflowVersionRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     @classmethod
     def get_required_capability(
