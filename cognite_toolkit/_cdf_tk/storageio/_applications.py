@@ -157,9 +157,12 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
     CHUNK_SIZE = 10
     BASE_SELECTOR = CanvasSelector
 
-    def __init__(self, client: ToolkitClient, exclude_existing_version: bool = True) -> None:
+    def __init__(
+        self, client: ToolkitClient, exclude_existing_version: bool = True, include_solution_tags: bool = True
+    ) -> None:
         super().__init__(client)
         self.exclude_existing_version = exclude_existing_version
+        self.include_solution_tags = include_solution_tags
 
     def as_id(self, item: IndustrialCanvasResponse) -> str:
         return item.external_id
@@ -205,18 +208,19 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
         results = ItemsResultList()
         for item in data_chunk:
             item_id = item.item.as_id()
-            instances = item.item.dump_instances()
-            instance_ids = set(item.item.as_ids())
-            edge_ids: list[EdgeId] = []
-            node_ids: list[NodeId] = []
+            instances = item.item.dump_instances(include_solution_tags=self.include_solution_tags)
+            instance_ids = set(item.item.as_ids(include_solution_tags=self.include_solution_tags))
+            edges_to_delete: list[EdgeId] = []
+            nodes_to_delete: list[NodeId] = []
             if item_id.external_id in existing_by_ids:
-                existing_ids = existing_by_ids[item_id.external_id].as_ids()
+                # We will never delete solution tags
+                existing_ids = existing_by_ids[item_id.external_id].as_ids(include_solution_tags=False)
                 for instance_id in existing_ids:
                     if instance_id not in instance_ids:
                         if isinstance(instance_id, EdgeId):
-                            edge_ids.append(instance_id)
+                            edges_to_delete.append(instance_id)
                         elif isinstance(instance_id, NodeId):
-                            node_ids.append(instance_id)
+                            nodes_to_delete.append(instance_id)
 
             for instance_chunk in chunker_sequence(instances, INSTANCE_UPSERT_ENDPOINT.item_limit):
                 result = http_client.request_single_retries(
@@ -233,8 +237,8 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
             # We delete all edges before nodes to avoid a deadlock.
             delete_chunk: list[InstanceDefinitionId]
             for delete_chunk in chain(  # type: ignore[assignment]
-                chunker_sequence(edge_ids, INSTANCE_DELETE_ENDPOINT.item_limit),
-                chunker_sequence(node_ids, INSTANCE_DELETE_ENDPOINT.item_limit),
+                chunker_sequence(edges_to_delete, INSTANCE_DELETE_ENDPOINT.item_limit),
+                chunker_sequence(nodes_to_delete, INSTANCE_DELETE_ENDPOINT.item_limit),
             ):
                 result = http_client.request_single_retries(
                     message=RequestMessage(

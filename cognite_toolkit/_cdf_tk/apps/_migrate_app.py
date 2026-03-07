@@ -995,7 +995,9 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate(
                 selectors=[selector],
-                data=CanvasIO(client, exclude_existing_version=True),
+                # Migration should not modify solution tags - there are used across multiple applications
+                # (Canvas, InField)
+                data=CanvasIO(client, exclude_existing_version=True, include_solution_tags=False),
                 mapper=CanvasMapper(client, dry_run=dry_run, skip_on_missing_ref=not allow_missing_ref),
                 log_dir=log_dir,
                 dry_run=dry_run,
