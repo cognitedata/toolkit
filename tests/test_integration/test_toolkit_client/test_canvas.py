@@ -85,7 +85,6 @@ def create_canvas(three_events: EventList) -> IndustrialCanvasRequest:
                 height=500,
             )
         ],
-        solution_tags=[],
     )
 
 
