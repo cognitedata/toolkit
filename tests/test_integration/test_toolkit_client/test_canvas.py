@@ -116,6 +116,9 @@ class TestIndustrialCanvasAPI:
                 mode="json", by_alias=True, exclude_unset=True, exclude={"annotations"}
             )
 
+            listed = toolkit_client.canvas.list(limit=10)
+            assert len(listed) >= 1, "Expected at least one canvas to be listed"
+
             retry_on_deadlock(lambda: toolkit_client.canvas.delete([canvas.as_id()]))
             deleted = True
 

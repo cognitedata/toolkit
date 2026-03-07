@@ -200,6 +200,11 @@ class IndustrialCanvasRequest(WrappedInstanceListRequest, CanvasProperties):
             exclude_unset=True,
             exclude=set(CANVAS_EXCLUDE_FROM_PROPERTIES),
         )
+        solution_refs: list[dict[str, Any]] = []
+        for solution_tag in self.solution_tags or []:
+            solution_refs.append({"space": solution_tag.space, "externalId": solution_tag.external_id})
+        if solution_refs:
+            canvas_props["solutionTags"] = solution_refs
         instances: list[dict[str, Any]] = [_dump_node(self.space, self.external_id, self.VIEW_ID, canvas_props)]
 
         edge_groups: list[

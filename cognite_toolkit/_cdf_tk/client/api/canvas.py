@@ -39,6 +39,8 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
     _ANNOTATIONS_REF = "annotations"
     _CONTAINER_REFS_REF = "containerReferences"
     _FDM_REFS_REF = "fdmInstanceContainerReferences"
+    # This is to remove the solutionTags from properties when retrieving the Canvas node. This is because in
+    # the Toolkit representation of Canvas, we either want to have full solution tag objects or none.
     _CANVAS_NODE_PROPERTIES: ClassVar[list[str]] = [
         field.alias or field_id
         for field_id, field in CanvasProperties.model_fields.items()
