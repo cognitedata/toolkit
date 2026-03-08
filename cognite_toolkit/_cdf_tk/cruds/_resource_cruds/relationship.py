@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource, to_read_write_actions
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.yaml_classes import RelationshipYAML
 
 from .classic import AssetCRUD, EventCRUD, SequenceCRUD
@@ -80,9 +80,9 @@ class RelationshipCRUD(ResourceCRUD[ExternalId, RelationshipRequest, Relationshi
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | DataSetScope):
-            yield RelationshipsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield RelationshipsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[RelationshipRequest]) -> list[RelationshipResponse]:
         return self.client.tool.relationships.create(list(items))

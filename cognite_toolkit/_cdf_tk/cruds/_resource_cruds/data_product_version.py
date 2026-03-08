@@ -60,7 +60,7 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         yield from ()
 
     @classmethod

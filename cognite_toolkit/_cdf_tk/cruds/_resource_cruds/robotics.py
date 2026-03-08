@@ -24,7 +24,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotMapResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.utils.acl_helper import to_read_write_actions
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 from cognite_toolkit._cdf_tk.yaml_classes import (
     RobotCapabilityYAML,
@@ -79,9 +78,9 @@ class RoboticFrameCRUD(ResourceCRUD[ExternalId, RobotFrameRequest, RobotFrameRes
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope):
-            yield RoboticsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield RoboticsAcl(actions=sorted(actions), scope=scope)
 
     def dump_resource(self, resource: RobotFrameResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
@@ -165,9 +164,9 @@ class RoboticLocationCRUD(ResourceCRUD[ExternalId, RobotLocationRequest, RobotLo
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope):
-            yield RoboticsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield RoboticsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[RobotLocationRequest]) -> list[RobotLocationResponse]:
         return self.client.tool.robotics.locations.create(items)
@@ -251,9 +250,9 @@ class RoboticsDataPostProcessingCRUD(
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope):
-            yield RoboticsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield RoboticsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[RobotDataPostProcessingRequest]) -> list[RobotDataPostProcessingResponse]:
         return self.client.tool.robotics.data_postprocessing.create(items)
@@ -348,9 +347,9 @@ class RobotCapabilityCRUD(ResourceCRUD[ExternalId, RobotCapabilityRequest, Robot
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope):
-            yield RoboticsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield RoboticsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[RobotCapabilityRequest]) -> list[RobotCapabilityResponse]:
         return self.client.tool.robotics.capabilities.create(items)
@@ -450,9 +449,9 @@ class RoboticMapCRUD(ResourceCRUD[ExternalId, RobotMapRequest, RobotMapResponse]
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope):
-            yield RoboticsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield RoboticsAcl(actions=sorted(actions), scope=scope)
 
     def dump_resource(self, resource: RobotMapResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dump = resource.as_request_resource().dump()

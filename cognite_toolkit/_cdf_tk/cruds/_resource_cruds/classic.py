@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
-from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource, to_read_write_actions
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 from cognite_toolkit._cdf_tk.yaml_classes import AssetYAML, EventYAML, SequenceRowYAML, SequenceYAML
@@ -122,9 +122,9 @@ class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | DataSetScope):
-            yield AssetsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield AssetsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: collections.abc.Sequence[AssetRequest]) -> list[AssetResponse]:
         return self.client.tool.assets.create(items)
@@ -309,9 +309,9 @@ class SequenceCRUD(ResourceCRUD[ExternalId, SequenceRequest, SequenceResponse]):
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | DataSetScope):
-            yield SequencesAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield SequencesAcl(actions=sorted(actions), scope=scope)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SequenceRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
@@ -442,7 +442,7 @@ class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRows
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         yield from ()
 
     def create(self, items: Sequence[SequenceRowsRequest]) -> Sequence[SequenceRowsRequest]:
@@ -593,9 +593,9 @@ class EventCRUD(ResourceCRUD[ExternalId, EventRequest, EventResponse]):
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | DataSetScope):
-            yield EventsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield EventsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: collections.abc.Sequence[EventRequest]) -> list[EventResponse]:
         return self.client.tool.events.create(items)

@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     safe_read,
 )
-from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource, to_read_write_actions
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash
 from cognite_toolkit._cdf_tk.yaml_classes import StreamlitYAML
 
@@ -79,9 +79,9 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | DataSetScope):
-            yield FilesAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield FilesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: StreamlitRequest | StreamlitResponse | dict) -> ExternalId:

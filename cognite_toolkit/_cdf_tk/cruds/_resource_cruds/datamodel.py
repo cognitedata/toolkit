@@ -112,7 +112,7 @@ from cognite_toolkit._cdf_tk.utils import (
     sanitize_filename,
     to_diff,
 )
-from cognite_toolkit._cdf_tk.utils.acl_helper import space_scoped_resource, to_read_write_actions
+from cognite_toolkit._cdf_tk.utils.acl_helper import space_scoped_resource
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.utils.tarjan import tarjan
 from cognite_toolkit._cdf_tk.yaml_classes import (
@@ -178,9 +178,9 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceId, SpaceRequest, SpaceResponse]):
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope):
-            yield DataModelsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: SpaceRequest | SpaceResponse | dict) -> SpaceId:
@@ -335,9 +335,9 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerRequest, Contain
         return space_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | SpaceIDScope):
-            yield DataModelsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: ContainerRequest | ContainerResponse | dict) -> ContainerId:
@@ -659,9 +659,9 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
         return space_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | SpaceIDScope):
-            yield DataModelsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: ViewRequest | ViewResponse | dict) -> ViewId:
@@ -1116,9 +1116,9 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelRequest, DataModelRespons
         return space_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | SpaceIDScope):
-            yield DataModelsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: DataModelRequest | DataModelResponse | dict) -> DataModelId:
@@ -1296,9 +1296,9 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeRequest, NodeResponse]):
         return space_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | SpaceIDScope):
-            yield DataModelInstancesAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield DataModelInstancesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: NodeRequest | NodeResponse | dict) -> NodeId:
@@ -1495,9 +1495,9 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, Gr
         return space_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | SpaceIDScope):
-            yield DataModelsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_dependencies(cls, resource: GraphQLDataModelYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
@@ -1703,9 +1703,9 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeRequest, EdgeResponse]):
         return space_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | SpaceIDScope):
-            yield DataModelInstancesAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield DataModelInstancesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: EdgeRequest | EdgeResponse | dict) -> EdgeId:

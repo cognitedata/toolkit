@@ -43,7 +43,6 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
     humanize_collection,
 )
-from cognite_toolkit._cdf_tk.utils.acl_helper import to_read_write_actions
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.file import create_temporary_zip, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
@@ -121,10 +120,10 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope):
-            yield FunctionsAcl(actions=to_read_write_actions(actions), scope=scope)
-            yield FilesAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield FunctionsAcl(actions=sorted(actions), scope=scope)
+            yield FilesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: FunctionResponse | FunctionRequest | dict) -> ExternalId:
@@ -526,7 +525,7 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         yield from ()
 
     @classmethod

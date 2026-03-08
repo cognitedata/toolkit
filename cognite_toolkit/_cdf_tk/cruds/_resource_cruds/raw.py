@@ -42,7 +42,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWTableResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
-from cognite_toolkit._cdf_tk.utils.acl_helper import to_read_write_actions
 from cognite_toolkit._cdf_tk.yaml_classes import DatabaseYAML, TableYAML
 
 from .auth import GroupAllScopedCRUD
@@ -96,9 +95,9 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabaseId, RAWDatabaseRequest, R
         return TableScope(dbs_to_tables={item.name: [] for item in items})
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | TableScope):
-            yield RawAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield RawAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: RAWDatabaseResponse | RAWDatabaseRequest | dict) -> RawDatabaseId:
@@ -223,9 +222,9 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
         return TableScope(dbs_to_tables=dict(tables_by_database))
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | TableScope):
-            yield RawAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield RawAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: RAWTableResponse | RAWTableRequest | dict) -> RawTableId:

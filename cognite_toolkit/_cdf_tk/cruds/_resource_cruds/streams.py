@@ -15,7 +15,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.utils.acl_helper import to_read_write_actions
 from cognite_toolkit._cdf_tk.yaml_classes import StreamYAML
 
 from .datamodel import ContainerCRUD
@@ -65,9 +64,9 @@ class StreamCRUD(ResourceCRUD[ExternalId, StreamRequest, StreamResponse]):
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope):
-            yield StreamsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield StreamsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[StreamRequest]) -> list[StreamResponse]:
         return self.client.streams.create(items)

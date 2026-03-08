@@ -104,7 +104,7 @@ from cognite_toolkit._cdf_tk.utils import (
     safe_read,
     sanitize_filename,
 )
-from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource, to_read_write_actions
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
@@ -190,9 +190,9 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | DataSetScope):
-            yield TransformationsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield TransformationsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: TransformationResponse | TransformationRequest | dict) -> ExternalId:
@@ -644,7 +644,7 @@ class TransformationScheduleCRUD(
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         yield from ()
 
     @classmethod
@@ -771,7 +771,7 @@ class TransformationNotificationCRUD(
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         yield from ()
 
     def dump_resource(

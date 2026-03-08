@@ -43,7 +43,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_source imp
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
-from cognite_toolkit._cdf_tk.utils.acl_helper import to_read_write_actions
 from cognite_toolkit._cdf_tk.yaml_classes import (
     HostedExtractorDestinationYAML,
     HostedExtractorJobYAML,
@@ -104,9 +103,9 @@ class HostedExtractorSourceCRUD(
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope):
-            yield HostedExtractorsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:
         return self.client.tool.hosted_extractors.sources.create(list(items))
@@ -232,9 +231,9 @@ class HostedExtractorDestinationCRUD(
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope):
-            yield HostedExtractorsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[HostedExtractorDestinationRequest]) -> list[HostedExtractorDestinationResponse]:
         return self.client.tool.hosted_extractors.destinations.create(list(items))
@@ -349,9 +348,9 @@ class HostedExtractorJobCRUD(ResourceCRUD[ExternalId, HostedExtractorJobRequest,
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope):
-            yield HostedExtractorsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
 
     def dump_resource(
         self, resource: HostedExtractorJobResponse, local: dict[str, Any] | None = None
@@ -452,9 +451,9 @@ class HostedExtractorMappingCRUD(
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope):
-            yield HostedExtractorsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:
         return self.client.tool.hosted_extractors.mappings.create(list(items))

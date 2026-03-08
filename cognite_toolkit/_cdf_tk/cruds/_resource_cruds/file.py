@@ -51,7 +51,6 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.acl_helper import (
     dataset_scoped_resource,
     space_scoped_resource,
-    to_read_write_actions,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML
@@ -99,9 +98,9 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | DataSetScope):
-            yield FilesAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield FilesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: FileMetadataRequest | FileMetadataResponse | dict) -> ExternalId:
@@ -271,10 +270,10 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
         return space_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
-        yield FilesAcl(actions=to_read_write_actions(actions), scope=AllScope())
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield FilesAcl(actions=sorted(actions), scope=AllScope())
         if isinstance(scope, AllScope | SpaceIDScope):
-            yield DataModelInstancesAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield DataModelInstancesAcl(actions=sorted(actions), scope=scope)
 
     def dump_resource(self, resource: CogniteFileResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump(context="toolkit")

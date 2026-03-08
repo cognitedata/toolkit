@@ -37,7 +37,7 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource, to_read_write_actions
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import DataSetYAML, LabelsYAML
 
@@ -82,9 +82,9 @@ class DataSetsCRUD(ResourceCRUD[ExternalId, DataSetRequest, DataSetResponse]):
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope):
-            yield DataSetsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield DataSetsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: DataSetRequest | DataSetResponse | dict) -> ExternalId:
@@ -201,9 +201,9 @@ class LabelCRUD(ResourceCRUD[ExternalId, LabelRequest, LabelResponse]):
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | DataSetScope):
-            yield LabelsAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield LabelsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[LabelRequest]) -> list[LabelResponse]:
         return self.client.tool.labels.create(list(items))

@@ -175,7 +175,7 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
 
     @classmethod
     def create_minimum_acl(
-        cls, actions: set[Literal["read", "write"]], items: Sequence[T_RequestResource]
+        cls, actions: set[Literal["READ", "WRITE"]], items: Sequence[T_RequestResource]
     ) -> Iterable[Acl]:
         if minimum_scope := cls.get_minimum_scope(items):
             yield from cls.create_acl(actions, minimum_scope)
@@ -187,7 +187,7 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
 
     @classmethod
     @abstractmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         raise NotImplementedError(f"create_acl must be implemented for {cls.__name__} ")
 
     @abstractmethod

@@ -141,14 +141,14 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope):
-            acl_actions: list[str] = []
-            if "read" in actions:
+            acl_actions: list[Literal["CREATE", "DELETE", "READ", "LIST", "UPDATE"]] = []
+            if "READ" in actions:
                 acl_actions.extend(["LIST", "READ"])
-            if "write" in actions:
+            if "WRITE" in actions:
                 acl_actions.extend(["CREATE", "UPDATE", "DELETE"])
-            yield GroupsAcl(actions=sorted(set(acl_actions)), scope=scope)  # type: ignore[arg-type]
+            yield GroupsAcl(actions=sorted(acl_actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: GroupRequest | GroupResponse | dict) -> NameId:
@@ -596,14 +596,14 @@ class SecurityCategoryCRUD(ResourceCRUD[NameId, SecurityCategoryRequest, Securit
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope):
-            acl_actions: list[str] = []
-            if "read" in actions:
+            acl_actions: list[Literal["MEMBEROF", "LIST", "CREATE", "UPDATE", "DELETE"]] = []
+            if "READ" in actions:
                 acl_actions.extend(["LIST", "MEMBEROF"])
-            if "write" in actions:
+            if "WRITE" in actions:
                 acl_actions.extend(["CREATE", "UPDATE", "DELETE"])
-            yield SecurityCategoriesAcl(actions=sorted(set(acl_actions)), scope=scope)  # type: ignore[arg-type]
+            yield SecurityCategoriesAcl(actions=sorted(acl_actions), scope=scope)  # type: ignore[arg-type]
 
     def create(self, items: Sequence[SecurityCategoryRequest]) -> list[SecurityCategoryResponse]:
         return self.client.tool.security_categories.create(items)

@@ -32,7 +32,7 @@ from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
-from cognite_toolkit._cdf_tk.utils.acl_helper import space_scoped_resource, to_read_write_actions
+from cognite_toolkit._cdf_tk.utils.acl_helper import space_scoped_resource
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 from cognite_toolkit._cdf_tk.yaml_classes import (
     InFieldCDMLocationConfigYAML,
@@ -95,9 +95,9 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
         return SpaceIDScope(space_ids=[APM_CONFIG_SPACE])
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | SpaceIDScope):
-            yield DataModelInstancesAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield DataModelInstancesAcl(actions=sorted(actions), scope=scope)
 
     def prerequisite_warning(self) -> str | None:
         view_id = APMConfigRequest.VIEW_ID
@@ -334,9 +334,9 @@ class InFieldLocationConfigCRUD(ResourceCRUD[NodeId, InFieldLocationConfigReques
         return space_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | SpaceIDScope):
-            yield DataModelInstancesAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield DataModelInstancesAcl(actions=sorted(actions), scope=scope)
 
     def dump_resource(
         self, resource: InFieldLocationConfigResponse, local: dict[str, Any] | None = None
@@ -440,9 +440,9 @@ class InFieldCDMLocationConfigCRUD(
         return space_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | SpaceIDScope):
-            yield DataModelInstancesAcl(actions=to_read_write_actions(actions), scope=scope)
+            yield DataModelInstancesAcl(actions=sorted(actions), scope=scope)
 
     @cached_property
     def _legacy_instance_spaces(self) -> set[str]:
