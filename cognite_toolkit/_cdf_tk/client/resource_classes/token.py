@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.resource_classes.group import Scope
 from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import ACL_NAME
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import Acl, AclType
+from cognite_toolkit._cdf_tk.client.resource_classes.group.scope_logic import scope_union
 
 
 class InspectProjectInfo(BaseModelObject):
@@ -80,7 +81,18 @@ class ProjectCapabilities(UserDict[tuple[type[Acl], str], Scope]):
         Returns:
             The list of ACLs that are not covered by the capabilities in this project.
         """
-        raise NotImplementedError()
+        missing_acls_by_type: dict[type[Acl], list[Acl]] = defaultdict(list)
+        for acl in acls:
+            for action in acl.actions:
+                key = (type(acl), action)
+                if key not in self.data:
+                    missing_acls_by_type[type(acl)].append(acl)
+                    continue
+        missing_acls: list[Acl] = []
+        for acl_type, acls in missing_acls_by_type.items():
+            # all scopes are the same merge then into one ACL with that scope
+            ...
+        return missing_acls
 
 
 class InspectResponse(BaseModelObject):
@@ -117,8 +129,10 @@ class InspectResponse(BaseModelObject):
                 continue
             for action in capability.acl.actions:
                 scopes_by_acl_action[(type(capability.acl), action)].append(capability.acl.scope)  # type: ignore[arg-type, index]
-        scope_by_acl_action: dict[tuple[type[Acl], str], Scope] = {}
-
+        scope_by_acl_action: dict[tuple[type[Acl], str], Scope] = {
+            key: scope_union(*scopes)  # type: ignore[misc]
+            for key, scopes in scopes_by_acl_action.items()
+        }
         return ProjectCapabilities(
             capabilities=scope_by_acl_action,
             name=project_info.project_url_name,
