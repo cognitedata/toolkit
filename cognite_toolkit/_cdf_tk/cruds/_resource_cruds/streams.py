@@ -66,7 +66,12 @@ class StreamCRUD(ResourceCRUD[ExternalId, StreamRequest, StreamResponse]):
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope):
-            yield StreamsAcl(actions=sorted(actions), scope=scope)
+            acl_actions: list[Literal["READ", "CREATE", "DELETE"]] = []
+            if "READ" in actions:
+                acl_actions.append("READ")
+            if "WRITE" in actions:
+                acl_actions.extend(["CREATE", "DELETE"])
+            yield StreamsAcl(actions=acl_actions, scope=scope)
 
     def create(self, items: Sequence[StreamRequest]) -> list[StreamResponse]:
         return self.client.streams.create(items)

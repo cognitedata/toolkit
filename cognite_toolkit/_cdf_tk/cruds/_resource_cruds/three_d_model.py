@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
-from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
+from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions, dataset_scoped_resource
 from cognite_toolkit._cdf_tk.yaml_classes import ThreeDModelYAML
 
 from .data_organization import DataSetsCRUD
@@ -101,7 +101,7 @@ class ThreeDModelCRUD(ResourceContainerCRUD[NameId, ThreeDModelClassicRequest, T
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | DataSetScope):
-            yield ThreeDAcl(actions=sorted(actions), scope=scope)
+            yield ThreeDAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
 
     def create(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelClassicResponse]:
         return self.client.tool.three_d.models_classic.create(items)

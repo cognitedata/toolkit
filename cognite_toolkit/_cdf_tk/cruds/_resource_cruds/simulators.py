@@ -89,7 +89,7 @@ class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, Simulat
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         yield from ()
 
     def create(self, items: Sequence[SimulatorModelRequest]) -> list[SimulatorModelResponse]:
@@ -209,7 +209,7 @@ class SimulatorModelRevisionCRUD(
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         yield from ()
 
     def create(self, items: Sequence[SimulatorModelRevisionRequest]) -> list[SimulatorModelRevisionResponse]:

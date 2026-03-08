@@ -67,7 +67,7 @@ class DataProductCRUD(ResourceCRUD[ExternalId, DataProductRequest, DataProductRe
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["read", "write"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         yield from ()
 
     def dump_resource(self, resource: DataProductResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
