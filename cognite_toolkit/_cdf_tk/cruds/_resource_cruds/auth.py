@@ -604,7 +604,7 @@ class SecurityCategoryCRUD(ResourceCRUD[NameId, SecurityCategoryRequest, Securit
                 acl_actions.extend(["LIST", "MEMBEROF"])
             if "WRITE" in actions:
                 acl_actions.extend(["CREATE", "UPDATE", "DELETE"])
-            yield SecurityCategoriesAcl(actions=sorted(acl_actions), scope=scope)
+            yield SecurityCategoriesAcl(actions=acl_actions, scope=scope)
 
     def create(self, items: Sequence[SecurityCategoryRequest]) -> list[SecurityCategoryResponse]:
         return self.client.tool.security_categories.create(items)

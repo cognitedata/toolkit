@@ -120,7 +120,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
     @classmethod
     def get_minimum_scope(cls, items: Sequence[FunctionRequest]) -> ScopeDefinition:
         # MyPy complains that FunctionReques is not a DataSetItem, but it is.
-        return dataset_scoped_resource(items)  # type: ignore[arg-type]
+        return dataset_scoped_resource(items)
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:

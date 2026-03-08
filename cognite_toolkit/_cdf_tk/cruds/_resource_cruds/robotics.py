@@ -81,7 +81,7 @@ class RoboticFrameCRUD(ResourceCRUD[ExternalId, RobotFrameRequest, RobotFrameRes
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
-        if isinstance(scope, AllScope):
+        if isinstance(scope, AllScope | DataSetScope):
             yield RoboticsAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
 
     def dump_resource(self, resource: RobotFrameResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -167,7 +167,7 @@ class RoboticLocationCRUD(ResourceCRUD[ExternalId, RobotLocationRequest, RobotLo
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
-        if isinstance(scope, AllScope):
+        if isinstance(scope, AllScope | DataSetScope):
             yield RoboticsAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
 
     def create(self, items: Sequence[RobotLocationRequest]) -> list[RobotLocationResponse]:
@@ -350,7 +350,7 @@ class RobotCapabilityCRUD(ResourceCRUD[ExternalId, RobotCapabilityRequest, Robot
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
-        if isinstance(scope, AllScope):
+        if isinstance(scope, AllScope | DataSetScope):
             yield RoboticsAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
 
     def create(self, items: Sequence[RobotCapabilityRequest]) -> list[RobotCapabilityResponse]:
