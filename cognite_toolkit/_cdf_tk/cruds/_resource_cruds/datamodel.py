@@ -112,7 +112,7 @@ from cognite_toolkit._cdf_tk.utils import (
     sanitize_filename,
     to_diff,
 )
-from cognite_toolkit._cdf_tk.utils.acl_helper import space_scoped_resource
+from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions, space_scoped_resource
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.utils.tarjan import tarjan
 from cognite_toolkit._cdf_tk.yaml_classes import (
@@ -179,7 +179,7 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceId, SpaceRequest, SpaceResponse]):
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
-        if isinstance(scope, AllScope):
+        if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
@@ -1298,7 +1298,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeRequest, NodeResponse]):
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | SpaceIDScope):
-            yield DataModelInstancesAcl(actions=sorted(actions), scope=scope)
+            yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: NodeRequest | NodeResponse | dict) -> NodeId:
@@ -1705,7 +1705,7 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeRequest, EdgeResponse]):
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | SpaceIDScope):
-            yield DataModelInstancesAcl(actions=sorted(actions), scope=scope)
+            yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: EdgeRequest | EdgeResponse | dict) -> EdgeId:

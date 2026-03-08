@@ -49,6 +49,7 @@ from cognite_toolkit._cdf_tk.utils import (
     in_dict,
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import (
+    as_instance_acl_actions,
     dataset_scoped_resource,
     space_scoped_resource,
 )
@@ -273,7 +274,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         yield FilesAcl(actions=sorted(actions), scope=AllScope())
         if isinstance(scope, AllScope | SpaceIDScope):
-            yield DataModelInstancesAcl(actions=sorted(actions), scope=scope)
+            yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
     def dump_resource(self, resource: CogniteFileResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump(context="toolkit")

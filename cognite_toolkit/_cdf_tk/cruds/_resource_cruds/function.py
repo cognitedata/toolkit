@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     Acl,
     AllScope,
+    DataSetScope,
     FilesAcl,
     FunctionsAcl,
     ScopeDefinition,
@@ -123,6 +124,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope):
             yield FunctionsAcl(actions=sorted(actions), scope=scope)
+        if isinstance(scope, AllScope | DataSetScope):
             yield FilesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod

@@ -39,6 +39,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceI
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     Acl,
     AllScope,
+    CurrentUserScope,
     GroupRequest,
     GroupResponse,
     GroupsAcl,
@@ -138,11 +139,11 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[GroupRequest]) -> ScopeDefinition:
-        return AllScope()
+        return CurrentUserScope()
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
-        if isinstance(scope, AllScope):
+        if isinstance(scope, AllScope | CurrentUserScope):
             acl_actions: list[Literal["CREATE", "DELETE", "READ", "LIST", "UPDATE"]] = []
             if "READ" in actions:
                 acl_actions.extend(["LIST", "READ"])
@@ -603,7 +604,7 @@ class SecurityCategoryCRUD(ResourceCRUD[NameId, SecurityCategoryRequest, Securit
                 acl_actions.extend(["LIST", "MEMBEROF"])
             if "WRITE" in actions:
                 acl_actions.extend(["CREATE", "UPDATE", "DELETE"])
-            yield SecurityCategoriesAcl(actions=sorted(acl_actions), scope=scope)  # type: ignore[arg-type]
+            yield SecurityCategoriesAcl(actions=sorted(acl_actions), scope=scope)
 
     def create(self, items: Sequence[SecurityCategoryRequest]) -> list[SecurityCategoryResponse]:
         return self.client.tool.security_categories.create(items)

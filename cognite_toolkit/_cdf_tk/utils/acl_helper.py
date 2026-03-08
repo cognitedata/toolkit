@@ -30,9 +30,31 @@ def space_scoped_resource(items: Sequence[SpaceItem]) -> ScopeDefinition:
 def as_read_create_update_delete_actions(
     actions: set[Literal["READ", "WRITE"]],
 ) -> list[Literal["READ", "CREATE", "UPDATE", "DELETE"]]:
-    robotic_actions: list[Literal["READ", "CREATE", "UPDATE", "DELETE"]] = []
+    acl_actions: list[Literal["READ", "CREATE", "UPDATE", "DELETE"]] = []
     if "READ" in actions:
-        robotic_actions.append("READ")
+        acl_actions.append("READ")
     if "WRITE" in actions:
-        robotic_actions.extend(["CREATE", "UPDATE", "DELETE"])
-    return robotic_actions
+        acl_actions.extend(["CREATE", "UPDATE", "DELETE"])
+    return acl_actions
+
+
+def as_instance_acl_actions(
+    actions: set[Literal["READ", "WRITE"]],
+) -> list[Literal["READ", "WRITE", "WRITE_PROPERTIES"]]:
+    acl_actions: list[Literal["READ", "WRITE", "WRITE_PROPERTIES"]] = []
+    if "READ" in actions:
+        acl_actions.append("READ")
+    if "WRITE" in actions:
+        acl_actions.extend(["WRITE", "WRITE_PROPERTIES"])
+    return acl_actions
+
+
+def as_read_list_write_actions(
+    actions: set[Literal["READ", "WRITE"]],
+) -> list[Literal["READ", "WRITE", "LIST"]]:
+    acl_actions: list[Literal["READ", "WRITE", "LIST"]] = []
+    if "READ" in actions:
+        acl_actions.extend(["READ", "LIST"])
+    if "WRITE" in actions:
+        acl_actions.append("WRITE")
+    return acl_actions

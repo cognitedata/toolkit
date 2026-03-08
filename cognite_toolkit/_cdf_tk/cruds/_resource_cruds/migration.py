@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.utils import in_dict, sanitize_filename
+from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions
 from cognite_toolkit._cdf_tk.yaml_classes import ResourceViewMappingYAML
 
 from .datamodel import SpaceCRUD, ViewCRUD
@@ -79,7 +80,7 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
         if isinstance(scope, AllScope | SpaceIDScope):
-            yield DataModelInstancesAcl(actions=sorted(actions), scope=scope)
+            yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
     def prerequisite_warning(self) -> str | None:
         view_id = RESOURCE_MAPPING_VIEW_ID
