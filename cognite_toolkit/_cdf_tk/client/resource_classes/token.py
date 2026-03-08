@@ -4,13 +4,15 @@ Based on the API specification at:
 https://api-docs.cognite.com/20230101/tag/Token/operation/inspectToken
 """
 
+from collections import UserDict
 from typing import Any
 
 from pydantic import JsonValue, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.resource_classes.group import Scope
 from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import ACL_NAME
-from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
+from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import Acl, AclType
 
 
 class InspectProjectInfo(BaseModelObject):
@@ -61,9 +63,16 @@ class InspectCapability(BaseModelObject):
         return value_copy
 
 
+class ProjectCapabilities(UserDict[tuple[type[Acl], str], Scope]):
+    name: str
+    groups: list[int]
+
+
 class InspectResponse(BaseModelObject):
     """Response from the ``GET /api/v1/token/inspect`` endpoint."""
 
     subject: str
     projects: list[InspectProjectInfo]
     capabilities: list[InspectCapability]
+    # This is not part of the API response, but we manually set it to the current project as it is very useful
+    project: str = ""

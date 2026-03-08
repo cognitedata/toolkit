@@ -128,4 +128,6 @@ class ToolkitTokenAPI:
                 method="GET",
             )
         ).get_success_or_raise()
-        return InspectResponse.model_validate_json(response.body)
+        result = InspectResponse.model_validate_json(response.body)
+        result.project = self._http_client.config.project
+        return result
