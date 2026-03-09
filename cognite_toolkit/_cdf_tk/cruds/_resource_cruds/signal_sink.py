@@ -63,7 +63,7 @@ class SignalSinkCRUD(ResourceCRUD[SignalSinkId, SignalSinkRequest, SignalSinkRes
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
-        if isinstance(scope, (AllScope, CurrentUserScope)):
+        if isinstance(scope, AllScope | CurrentUserScope):
             yield SubscribeSignalsAcl(actions=sorted(actions), scope=scope)
 
     def _get_known_emails(self) -> set[str]:
