@@ -15,13 +15,10 @@
 
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, final
+from typing import Any, Literal, final
 
 import yaml
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    ExtractionPipelinesAcl,
-)
+from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -40,6 +37,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import 
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config import (
     ExtractionPipelineConfigRequest,
     ExtractionPipelineConfigResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetScope,
+    ExtractionPipelinesAcl,
+    ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
@@ -81,24 +85,33 @@ class ExtractionPipelineCRUD(ResourceCRUD[ExternalId, ExtractionPipelineRequest,
     @classmethod
     def get_required_capability(
         cls, items: Sequence[ExtractionPipelineRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [ExtractionPipelinesAcl.Action.Read]
+            [cap.ExtractionPipelinesAcl.Action.Read]
             if read_only
-            else [ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write]
+            else [cap.ExtractionPipelinesAcl.Action.Read, cap.ExtractionPipelinesAcl.Action.Write]
         )
 
-        scope: ExtractionPipelinesAcl.Scope.All | ExtractionPipelinesAcl.Scope.DataSet = (  # type: ignore[valid-type]
-            ExtractionPipelinesAcl.Scope.All()
+        scope: cap.ExtractionPipelinesAcl.Scope.All | cap.ExtractionPipelinesAcl.Scope.DataSet = (  # type: ignore[valid-type]
+            cap.ExtractionPipelinesAcl.Scope.All()
         )
         if items is not None:
             if data_set_id := {item.data_set_id for item in items if item.data_set_id}:
-                scope = ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
+                scope = cap.ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
 
-        return ExtractionPipelinesAcl(actions, scope)
+        return cap.ExtractionPipelinesAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[ExtractionPipelineRequest]) -> ScopeDefinition:
+        return DataSetScope(ids=list({item.data_set_id for item in items}))
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield ExtractionPipelinesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: ExtractionPipelineRequest | ExtractionPipelineResponse | dict) -> ExternalId:
@@ -232,9 +245,17 @@ class ExtractionPipelineConfigCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[ExtractionPipelineConfigRequest] | None, read_only: bool
-    ) -> list[Capability]:
+    ) -> list[cap.Capability]:
         # We check the parent extraction pipeline permissions instead
         return []
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[ExtractionPipelineConfigRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     @classmethod
     def get_id(cls, item: ExtractionPipelineConfigRequest | ExtractionPipelineConfigResponse | dict) -> ExternalId:

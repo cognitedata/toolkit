@@ -11,14 +11,12 @@ from cognite.client.data_classes import (
     UserProfileList,
 )
 from cognite.client.data_classes.aggregations import CountValue
-from cognite.client.data_classes.data_modeling import (
-    NodeList,
-)
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics, SpaceStatisticsList
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.canvas import CANVAS_INSTANCE_SPACE, IndustrialCanvasResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -32,7 +30,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import CANVAS_INSTANCE_SPACE, Canvas
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWDatabaseResponse, RAWTableResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
@@ -450,10 +447,18 @@ class TestInteractiveCanvasSelect:
             updated_at=datetime.now(),
         )
         cdf_canvases = [
-            Canvas(external_id="Public1", name="Canvas 1", visibility="public", created_by="homer", **default_args),
-            Canvas(external_id="Public2", name="Canvas 2", visibility="public", created_by="marge", **default_args),
-            Canvas(external_id="Private1", name="Private 1", visibility="private", created_by="marge", **default_args),
-            Canvas(external_id="Private2", name="Private 2", visibility="private", created_by="homer", **default_args),
+            IndustrialCanvasResponse(
+                external_id="Public1", name="Canvas 1", visibility="public", created_by="homer", **default_args
+            ),
+            IndustrialCanvasResponse(
+                external_id="Public2", name="Canvas 2", visibility="public", created_by="marge", **default_args
+            ),
+            IndustrialCanvasResponse(
+                external_id="Private1", name="Private 1", visibility="private", created_by="marge", **default_args
+            ),
+            IndustrialCanvasResponse(
+                external_id="Private2", name="Private 2", visibility="private", created_by="homer", **default_args
+            ),
         ]
         first_answer_by_choice_title = {c.title: c.value for c in InteractiveCanvasSelect.opening_choices}
         assert len(answers) >= 1, "At least one answer is required to select a canvas"
@@ -486,9 +491,7 @@ class TestInteractiveCanvasSelect:
             monkeypatch_toolkit_client() as client,
             MockQuestionary(InteractiveCanvasSelect.__module__, monkeypatch, answers),
         ):
-            client.canvas.list.return_value = NodeList[Canvas](
-                [canvas for canvas in cdf_canvases if canvas.external_id in selected_cdf]
-            )
+            client.canvas.list.return_value = [canvas for canvas in cdf_canvases if canvas.external_id in selected_cdf]
             client.iam.user_profiles.list.return_value = UserProfileList(
                 [
                     UserProfile(user_identifier="homer", display_name="Homer Simpson", last_updated_time=1),

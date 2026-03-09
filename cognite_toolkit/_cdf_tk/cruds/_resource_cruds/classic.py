@@ -2,11 +2,10 @@ import collections.abc
 import io
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, final
+from typing import Any, Literal, final
 
 import pandas as pd
-from cognite.client.data_classes import capabilities
-from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes import capabilities as cap
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -20,6 +19,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import (
     AssetResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    AssetsAcl,
+    DataSetScope,
+    EventsAcl,
+    ScopeDefinition,
+    SequencesAcl,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
 from cognite_toolkit._cdf_tk.constants import TABLE_FORMATS, YAML_SUFFIX
@@ -27,6 +35,7 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 from cognite_toolkit._cdf_tk.yaml_classes import AssetYAML, EventYAML, SequenceRowYAML, SequenceYAML
@@ -93,24 +102,29 @@ class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
     @classmethod
     def get_required_capability(
         cls, items: collections.abc.Sequence[AssetRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
-        scope: capabilities.AssetsAcl.Scope.All | capabilities.AssetsAcl.Scope.DataSet = (  # type: ignore[valid-type]
-            capabilities.AssetsAcl.Scope.All()
+        scope: cap.AssetsAcl.Scope.All | cap.AssetsAcl.Scope.DataSet = (  # type: ignore[valid-type]
+            cap.AssetsAcl.Scope.All()
         )
 
-        actions = (
-            [capabilities.AssetsAcl.Action.Read]
-            if read_only
-            else [capabilities.AssetsAcl.Action.Read, capabilities.AssetsAcl.Action.Write]
-        )
+        actions = [cap.AssetsAcl.Action.Read] if read_only else [cap.AssetsAcl.Action.Read, cap.AssetsAcl.Action.Write]
 
         if items:
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = capabilities.AssetsAcl.Scope.DataSet(list(data_set_ids))
+                scope = cap.AssetsAcl.Scope.DataSet(list(data_set_ids))
 
-        return capabilities.AssetsAcl(actions, scope)
+        return cap.AssetsAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[AssetRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield AssetsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: collections.abc.Sequence[AssetRequest]) -> list[AssetResponse]:
         return self.client.tool.assets.create(items)
@@ -274,21 +288,30 @@ class SequenceCRUD(ResourceCRUD[ExternalId, SequenceRequest, SequenceResponse]):
     @classmethod
     def get_required_capability(
         cls, items: collections.abc.Sequence[SequenceRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
-        scope: Any = capabilities.SequencesAcl.Scope.All()
+        scope: Any = cap.SequencesAcl.Scope.All()
         if items:
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = capabilities.SequencesAcl.Scope.DataSet(list(data_set_ids))
+                scope = cap.SequencesAcl.Scope.DataSet(list(data_set_ids))
 
         actions = (
-            [capabilities.SequencesAcl.Action.Read]
+            [cap.SequencesAcl.Action.Read]
             if read_only
-            else [capabilities.SequencesAcl.Action.Read, capabilities.SequencesAcl.Action.Write]
+            else [cap.SequencesAcl.Action.Read, cap.SequencesAcl.Action.Write]
         )
 
-        return capabilities.SequencesAcl(actions, scope)
+        return cap.SequencesAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[SequenceRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield SequencesAcl(actions=sorted(actions), scope=scope)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SequenceRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
@@ -410,9 +433,17 @@ class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRows
     @classmethod
     def get_required_capability(
         cls, items: collections.abc.Sequence[SequenceRowsRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         # We don't have any capabilities for SequenceRows, that is already handled by the Sequence
         return []
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[SequenceRowsRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     def create(self, items: Sequence[SequenceRowsRequest]) -> Sequence[SequenceRowsRequest]:
         self.client.tool.sequences.rows.create(list(items))
@@ -542,24 +573,29 @@ class EventCRUD(ResourceCRUD[ExternalId, EventRequest, EventResponse]):
     @classmethod
     def get_required_capability(
         cls, items: collections.abc.Sequence[EventRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
-        scope: capabilities.EventsAcl.Scope.All | capabilities.EventsAcl.Scope.DataSet = (  # type: ignore[valid-type]
-            capabilities.EventsAcl.Scope.All()
+        scope: cap.EventsAcl.Scope.All | cap.EventsAcl.Scope.DataSet = (  # type: ignore[valid-type]
+            cap.EventsAcl.Scope.All()
         )
 
-        actions = (
-            [capabilities.EventsAcl.Action.Read]
-            if read_only
-            else [capabilities.EventsAcl.Action.Read, capabilities.EventsAcl.Action.Write]
-        )
+        actions = [cap.EventsAcl.Action.Read] if read_only else [cap.EventsAcl.Action.Read, cap.EventsAcl.Action.Write]
 
         if items:
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = capabilities.EventsAcl.Scope.DataSet(list(data_set_ids))
+                scope = cap.EventsAcl.Scope.DataSet(list(data_set_ids))
 
-        return capabilities.EventsAcl(actions, scope)
+        return cap.EventsAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[EventRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield EventsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: collections.abc.Sequence[EventRequest]) -> list[EventResponse]:
         return self.client.tool.events.create(items)

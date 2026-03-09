@@ -1,9 +1,9 @@
 from collections.abc import Hashable, Iterable, Sequence
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any, final
+from typing import Any, Literal, final
 
-from cognite.client.data_classes.capabilities import Capability, LocationFiltersAcl
+from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
@@ -11,6 +11,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelId,
     SpaceId,
     ViewId,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    LocationFiltersAcl,
+    ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
@@ -62,22 +68,31 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
     @classmethod
     def get_required_capability(
         cls, items: Sequence[LocationFilterRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
         # Todo: Specify space ID scopes:
 
         actions = (
-            [LocationFiltersAcl.Action.Read]
+            [cap.LocationFiltersAcl.Action.Read]
             if read_only
-            else [LocationFiltersAcl.Action.Read, LocationFiltersAcl.Action.Write]
+            else [cap.LocationFiltersAcl.Action.Read, cap.LocationFiltersAcl.Action.Write]
         )
 
-        return LocationFiltersAcl(
+        return cap.LocationFiltersAcl(
             actions=actions,
-            scope=LocationFiltersAcl.Scope.All(),
+            scope=cap.LocationFiltersAcl.Scope.All(),
             allow_unknown=True,
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[LocationFilterRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope):
+            yield LocationFiltersAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: LocationFilterRequest | LocationFilterResponse | dict) -> ExternalId:
