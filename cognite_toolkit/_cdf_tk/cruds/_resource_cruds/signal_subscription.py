@@ -1,10 +1,17 @@
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Any, final
+from typing import Any, Literal, final
 
 from cognite.client.data_classes.capabilities import Capability
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SignalSinkId, SignalSubscriptionId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    CurrentUserScope,
+    ScopeDefinition,
+    SubscribeSignalsAcl,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import (
     SignalSubscriptionRequest,
     SignalSubscriptionResponse,
@@ -66,6 +73,15 @@ class SignalSubscriptionCRUD(ResourceCRUD[SignalSubscriptionId, SignalSubscripti
         cls, items: Sequence[SignalSubscriptionRequest] | None, read_only: bool
     ) -> Capability | list[Capability]:
         return []
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[SignalSubscriptionRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | CurrentUserScope):
+            yield SubscribeSignalsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[SignalSubscriptionRequest]) -> list[SignalSubscriptionResponse]:
         return self.client.tool.signal_subscriptions.create(list(items))
