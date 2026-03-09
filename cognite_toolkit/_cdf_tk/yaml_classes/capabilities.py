@@ -522,6 +522,12 @@ class SimulatorsAcl(Capability):
     scope: AllScope | DataSetScope
 
 
+class SubscribeSignalsAcl(Capability):
+    _capability_name = "subscribeSignalsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | CurrentUserScope
+
+
 class StreamsAcl(Capability):
     _capability_name = "streamsAcl"
     actions: list[Literal["READ", "CREATE", "DELETE"]]
