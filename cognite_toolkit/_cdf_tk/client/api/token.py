@@ -9,6 +9,8 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessag
 from cognite_toolkit._cdf_tk.client.resource_classes.capabilities import scope_intersection, scope_union
 from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl
 from cognite_toolkit._cdf_tk.client.resource_classes.token import InspectResponse, ProjectCapabilities
+from cognite_toolkit._cdf_tk.constants import URL
+from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 _ACL_CLASS_BY_CLASS_NAME = {cap.__name__: cap for cap in _CAPABILITY_CLASS_BY_NAME.values()}
@@ -141,3 +143,26 @@ class ToolkitTokenAPI:
         if self._project_capabilities is None:
             self._project_capabilities = self.inspect().to_project_capabilities()
         return self._project_capabilities.verify(required_acls)
+
+    def create_error(self, missing_capabilities: Sequence[Acl], action: str | None = None) -> AuthorizationError:
+        """Create an AuthorizationError with a message that lists the missing capabilities
+
+        Args:
+            missing_capabilities (Sequence[Capability]): capabilities that are missing
+            action (str, optional): action that requires the capabilities. Defaults to None.
+
+        """
+        if not missing_capabilities:
+            raise ValueError("Bug in Toolkit. Tried creating an AuthorizationError without any missing capabilities.")
+        missing = "  - \n".join(repr(c) for c in missing_capabilities)
+        first_sentence = "Don't have correct access rights"
+        if action:
+            first_sentence += f" to {action}."
+        else:
+            first_sentence += "."
+
+        return AuthorizationError(
+            f"{first_sentence} Missing:\n{missing}\n"
+            f"Please [blue][link={URL.auth_toolkit}]click here[/link][/blue] to visit the documentation "
+            "and ensure that you have setup authentication for the CDF toolkit correctly."
+        )
