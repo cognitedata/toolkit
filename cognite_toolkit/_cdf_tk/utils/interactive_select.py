@@ -20,12 +20,13 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawTableId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter, ViewFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter, DataModelFilter, ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import IndustrialCanvasResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse, Visibility
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerId,
+    ContainerResponse,
     DataModelId,
     DataModelResponse,
     DataModelResponseWithViews,
@@ -34,6 +35,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
@@ -1039,3 +1041,31 @@ class APMConfigInteractiveSelect:
         if not isinstance(selected_config, APMConfigResponse):
             raise ToolkitValueError(f"Selected APM config is not a valid APMConfigResponse object: {selected_config!r}")
         return selected_config
+
+
+class RecordInteractiveSelect:
+    def __init__(self, client: ToolkitClient) -> None:
+        self.client = client
+
+    def select_stream(self) -> StreamResponse:
+        available_streams = self.client.streams.list()
+        if not available_streams:
+            raise ToolkitValueError("No streams found in the project.")
+        selected_stream = questionary.select(
+            "Select the stream to download records from:",
+            choices=[Choice(title=f"{s.external_id} ({s.type})", value=s) for s in available_streams],
+        ).unsafe_ask()
+        if not isinstance(selected_stream, StreamResponse):
+            raise ToolkitValueError(f"Selected stream is not a valid StreamResponse object: {selected_stream!r}")
+        return selected_stream
+
+    def select_containers(self) -> list[ContainerResponse]:
+        record_containers = self.client.tool.containers.list(filter=ContainerFilter(used_for="record"))
+        if not record_containers:
+            raise ToolkitValueError("No record containers found in the project.")
+        selected_containers = questionary.checkbox(
+            "Select containers to download record properties from:",
+            choices=[Choice(title=f"{c.space}:{c.external_id}", value=c) for c in record_containers],
+            validate=lambda choices: True if choices else "You must select at least one container.",
+        ).unsafe_ask()
+        return selected_containers

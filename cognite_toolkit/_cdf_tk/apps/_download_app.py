@@ -8,7 +8,7 @@ from questionary import Choice
 from rich import print
 
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, RawTableId, ViewId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
+
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeProperty
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
@@ -62,6 +62,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     InteractiveCanvasSelect,
     InteractiveChartSelect,
     RawTableInteractiveSelect,
+    RecordInteractiveSelect,
     TimeSeriesInteractiveSelect,
     ViewSelectFilter,
 )
@@ -1266,28 +1267,21 @@ class DownloadApp(typer.Typer):
                 "If not provided, an interactive selection will be made.",
             ),
         ] = None,
-        schema_space: Annotated[
-            str | None,
-            typer.Option(
-                "--schema-space",
-                "-c",
-                help="The schema space where the containers are located.",
-            ),
-        ] = None,
-        container_external_ids: Annotated[
-            list[str] | None,
-            typer.Option(
-                "--container",
-                "-w",
-                help="List of container external IDs to download record properties from.",
-            ),
-        ] = None,
         instance_space: Annotated[
             str | None,
             typer.Option(
                 "--instance-space",
                 help="Only download records belonging to this space. "
                 "If not provided, records from all spaces will be included.",
+            ),
+        ] = None,
+        containers: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--container",
+                "-c",
+                help="Containers to download record properties from, in 'space:externalId' format. "
+                "Can be specified multiple times to download records from multiple containers.",
             ),
         ] = None,
         initialize_cursor: Annotated[
@@ -1348,35 +1342,16 @@ class DownloadApp(typer.Typer):
         cmd = DownloadCommand(client=client)
 
         selectors: list[RecordContainerSelector]
-        if stream is None:
-            available_streams = client.streams.list()
-            if not available_streams:
-                print("[bold red]No streams found in the project.[/bold red]")
-                raise typer.Exit(1)
+        if stream is None and containers is None:
+            record_select = RecordInteractiveSelect(client)
+            selected_stream = record_select.select_stream()
+            selected_containers = record_select.select_containers()
 
-            selected_stream = questionary.select(
-                "Select the stream to download records from:",
-                choices=[Choice(title=f"{s.external_id} ({s.type})", value=s) for s in available_streams],
-            ).unsafe_ask()
-            stream = selected_stream.external_id
-
-        if schema_space is None and container_external_ids is None:
-            record_containers = client.tool.containers.list(filter=ContainerFilter(used_for="record"))
-            if not record_containers:
-                print("[bold red]No record containers found in the project.[/bold red]")
-                raise typer.Exit(1)
-
-            selected_containers = questionary.checkbox(
-                "Select containers to download record properties from:",
-                choices=[Choice(title=f"{c.space}:{c.external_id}", value=c) for c in record_containers],
-                validate=lambda choices: True if choices else "You must select at least one container.",
-            ).unsafe_ask()
-
-            download_dir_name = sanitize_filename(stream)
+            download_dir_name = sanitize_filename(selected_stream.external_id)
             instance_spaces = (instance_space,) if instance_space else None
             selectors = [
                 RecordContainerSelector(
-                    stream=SelectedStream(external_id=stream),
+                    stream=SelectedStream(external_id=selected_stream.external_id),
                     container=SelectedContainer(space=container.space, external_id=container.external_id),
                     instance_spaces=instance_spaces,
                     initialize_cursor=initialize_cursor,
@@ -1394,22 +1369,31 @@ class DownloadApp(typer.Typer):
                 "container",
                 max_limit=RecordIO.MAX_TOTAL_RECORDS,
             )
-        elif schema_space is not None and container_external_ids is not None:
+        elif stream is not None and containers is not None:
             instance_spaces = (instance_space,) if instance_space else None
+            parsed_containers: list[SelectedContainer] = []
+            for container_str in containers:
+                parts = container_str.split(":", 1)
+                if len(parts) != 2 or not all(parts):
+                    raise typer.BadParameter(
+                        f"Invalid container format: {container_str!r}. Expected 'space:externalId'.",
+                        param_hint="--container",
+                    )
+                parsed_containers.append(SelectedContainer(space=parts[0], external_id=parts[1]))
             selectors = [
                 RecordContainerSelector(
                     stream=SelectedStream(external_id=stream),
-                    container=SelectedContainer(space=schema_space, external_id=container_id),
+                    container=container,
                     instance_spaces=instance_spaces,
                     initialize_cursor=initialize_cursor,
                     download_dir_name=sanitize_filename(stream),
                 )
-                for container_id in container_external_ids
+                for container in parsed_containers
             ]
         else:
             raise typer.BadParameter(
-                "Both '--schema-space' and '--container' must be provided together.",
-                param_hint="--schema-space / --container",
+                "Both '--stream' and '--container' must be provided together.",
+                param_hint="--stream / --container",
             )
 
         cmd.run(

@@ -48,15 +48,14 @@ class RecordIO(
     def count(self, selector: RecordContainerSelector) -> int | None:
         return None
 
-    # TODO: Download container and space (and stream?) definitions alongside record data,
+    # TODO: Download container, space and stream definitions alongside record data,
     # similar to how InstanceIO downloads views, containers, and spaces.
     def configurations(self, selector: RecordContainerSelector) -> Iterable[StorageIOConfig]:
         return ()
 
-    def stream_data(self, selector: RecordContainerSelector, limit: int | None = None) -> Iterable[Page]:
-        effective_limit = min(limit, self.MAX_TOTAL_RECORDS) if limit is not None else self.MAX_TOTAL_RECORDS
-        url = self.SYNC_ENDPOINT.format(streamId=selector.stream.external_id)
-
+    @staticmethod
+    def _build_sync_filter(selector: RecordContainerSelector) -> dict[str, object]:
+        """Build a filter dict for the records sync endpoint."""
         has_data_filter: dict[str, object] = {
             "hasData": [
                 {
@@ -66,17 +65,19 @@ class RecordIO(
                 }
             ]
         }
-        record_filter: dict[str, object]
-        if selector.instance_spaces:
-            space_filter: dict[str, object] = {
-                "in": {
-                    "property": ["space"],
-                    "values": list(selector.instance_spaces),
-                }
+        if not selector.instance_spaces:
+            return has_data_filter
+        space_filter: dict[str, object] = {
+            "in": {
+                "property": ["space"],
+                "values": list(selector.instance_spaces),
             }
-            record_filter = {"and": [has_data_filter, space_filter]}
-        else:
-            record_filter = has_data_filter
+        }
+        return {"and": [has_data_filter, space_filter]}
+
+    def stream_data(self, selector: RecordContainerSelector, limit: int | None = None) -> Iterable[Page]:
+        effective_limit = min(limit, self.MAX_TOTAL_RECORDS) if limit is not None else self.MAX_TOTAL_RECORDS
+        url = self.SYNC_ENDPOINT.format(streamId=selector.stream.external_id)
 
         body: dict[str, object] = {
             "sources": [
@@ -89,7 +90,7 @@ class RecordIO(
                     "properties": ["*"],
                 }
             ],
-            "filter": record_filter,
+            "filter": self._build_sync_filter(selector),
             "initializeCursor": selector.initialize_cursor or "365d-ago",
             "limit": min(self.CHUNK_SIZE, effective_limit),
         }
