@@ -37,8 +37,14 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    CurrentUserScope,
     GroupRequest,
     GroupResponse,
+    GroupsAcl,
+    ScopeDefinition,
+    SecurityCategoriesAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryRequest,
@@ -130,6 +136,20 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
             actions,
             cap.GroupsAcl.Scope.All(),
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[GroupRequest]) -> ScopeDefinition:
+        return CurrentUserScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | CurrentUserScope):
+            acl_actions: list[Literal["CREATE", "DELETE", "READ", "LIST", "UPDATE"]] = []
+            if "READ" in actions:
+                acl_actions.extend(["LIST", "READ"])
+            if "WRITE" in actions:
+                acl_actions.extend(["CREATE", "UPDATE", "DELETE"])
+            yield GroupsAcl(actions=sorted(acl_actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: GroupRequest | GroupResponse | dict) -> NameId:
@@ -571,6 +591,20 @@ class SecurityCategoryCRUD(ResourceCRUD[NameId, SecurityCategoryRequest, Securit
             actions,
             cap.SecurityCategoriesAcl.Scope.All(),
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[SecurityCategoryRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope):
+            acl_actions: list[Literal["MEMBEROF", "LIST", "CREATE", "UPDATE", "DELETE"]] = []
+            if "READ" in actions:
+                acl_actions.extend(["LIST", "MEMBEROF"])
+            if "WRITE" in actions:
+                acl_actions.extend(["CREATE", "UPDATE", "DELETE"])
+            yield SecurityCategoriesAcl(actions=acl_actions, scope=scope)
 
     def create(self, items: Sequence[SecurityCategoryRequest]) -> list[SecurityCategoryResponse]:
         return self.client.tool.security_categories.create(items)

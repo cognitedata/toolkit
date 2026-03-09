@@ -1,6 +1,6 @@
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, final
 
 from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes import capabilities as cap
@@ -9,6 +9,12 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    HostedExtractorsAcl,
+    ScopeDefinition,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationRequest,
     HostedExtractorDestinationResponse,
@@ -47,6 +53,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
 from .data_organization import DataSetsCRUD
 
 
+@final
 class HostedExtractorSourceCRUD(
     ResourceCRUD[ExternalId, HostedExtractorSourceRequestUnion, HostedExtractorSourceResponseUnion]
 ):
@@ -90,6 +97,15 @@ class HostedExtractorSourceCRUD(
             actions,
             cap.HostedExtractorsAcl.Scope.All(),
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[HostedExtractorSourceRequestUnion]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope):
+            yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:
         return self.client.tool.hosted_extractors.sources.create(list(items))
@@ -161,6 +177,7 @@ class HostedExtractorSourceCRUD(
             yield auth.value
 
 
+@final
 class HostedExtractorDestinationCRUD(
     ResourceCRUD[ExternalId, HostedExtractorDestinationRequest, HostedExtractorDestinationResponse]
 ):
@@ -208,6 +225,15 @@ class HostedExtractorDestinationCRUD(
             actions,
             cap.HostedExtractorsAcl.Scope.All(),
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[HostedExtractorDestinationRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope):
+            yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[HostedExtractorDestinationRequest]) -> list[HostedExtractorDestinationResponse]:
         return self.client.tool.hosted_extractors.destinations.create(list(items))
@@ -274,6 +300,7 @@ class HostedExtractorDestinationCRUD(
             yield self._authentication_by_id[id_.external_id].client_secret
 
 
+@final
 class HostedExtractorJobCRUD(ResourceCRUD[ExternalId, HostedExtractorJobRequest, HostedExtractorJobResponse]):
     folder_name = "hosted_extractors"
     resource_cls = HostedExtractorJobResponse
@@ -315,6 +342,15 @@ class HostedExtractorJobCRUD(ResourceCRUD[ExternalId, HostedExtractorJobRequest,
             actions,
             cap.HostedExtractorsAcl.Scope.All(),
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[HostedExtractorJobRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope):
+            yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
 
     def dump_resource(
         self, resource: HostedExtractorJobResponse, local: dict[str, Any] | None = None
@@ -364,6 +400,7 @@ class HostedExtractorJobCRUD(ResourceCRUD[ExternalId, HostedExtractorJobRequest,
             yield HostedExtractorDestinationCRUD, ExternalId(external_id=item["destinationId"])
 
 
+@final
 class HostedExtractorMappingCRUD(
     ResourceCRUD[ExternalId, HostedExtractorMappingRequest, HostedExtractorMappingResponse]
 ):
@@ -408,6 +445,15 @@ class HostedExtractorMappingCRUD(
             actions,
             cap.HostedExtractorsAcl.Scope.All(),
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[HostedExtractorMappingRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope):
+            yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:
         return self.client.tool.hosted_extractors.mappings.create(list(items))

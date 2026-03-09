@@ -1,7 +1,7 @@
 from collections.abc import Hashable, Iterable, Sequence
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any, final
+from typing import Any, Literal, final
 
 from cognite.client.data_classes import capabilities as cap
 
@@ -11,6 +11,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelId,
     SpaceId,
     ViewId,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    LocationFiltersAcl,
+    ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
@@ -78,6 +84,15 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
             scope=cap.LocationFiltersAcl.Scope.All(),
             allow_unknown=True,
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[LocationFilterRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope):
+            yield LocationFiltersAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: LocationFilterRequest | LocationFilterResponse | dict) -> ExternalId:
