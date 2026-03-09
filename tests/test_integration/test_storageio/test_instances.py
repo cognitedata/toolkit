@@ -1,6 +1,7 @@
 import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerPropertyDefinition,
     ContainerRequest,
@@ -49,7 +50,7 @@ def node_view_with_edges(
     toolkit_client: ToolkitClient,
     toolkit_space: Space,
     node_container: ContainerResponse,
-) -> ViewResponse:
+) -> tuple[ViewResponse, NodeId]:
     """View for nodes with name, outwards, and inwards edge properties."""
     view_id = ViewId(space=toolkit_space.space, external_id="test_node_view_with_edges", version="v1")
     edge_type = NodeId(space=toolkit_space.space, external_id=f"{view_id.external_id}.edge")
@@ -78,20 +79,22 @@ def node_view_with_edges(
     )
     retrieved = toolkit_client.tool.views.retrieve([view.as_id()])
     if retrieved:
-        return retrieved[0]
+        return retrieved[0], edge_type
     created = toolkit_client.tool.views.create([view])
     assert created, "Failed to create or retrieve node view"
-    return created[0]
+    return created[0], edge_type
 
 
 @pytest.fixture(scope="module")
 def two_nodes_with_edge(
     toolkit_client: ToolkitClient,
     toolkit_space: Space,
-    node_view_with_edges: ViewResponse,
+    node_view_with_edges: tuple[ViewResponse, NodeId],
 ) -> list[InstanceSlimDefinition]:
     """Create two nodes with an edge connecting them."""
-    node_view_source = node_view_with_edges.as_id()
+    view, _ = node_view_with_edges
+
+    node_view_source = view.as_id()
     prefix = "test_stream_nodes_with_edges_"
     node_a = NodeRequest(
         space=toolkit_space.space,
@@ -128,10 +131,10 @@ class TestInstanceIO:
     def test_stream_nodes_with_edges(
         self,
         toolkit_client: ToolkitClient,
-        node_view_with_edges: ViewResponse,
+        node_view_with_edges: tuple[ViewResponse, NodeId],
     ) -> None:
         """Test that streaming nodes with include_edges=True includes the edge information."""
-        view = node_view_with_edges
+        view, edge_type = node_view_with_edges
 
         selector = InstanceViewSelector(
             view=SelectedView(
@@ -140,7 +143,7 @@ class TestInstanceIO:
                 version=view.version,
             ),
             instance_type="node",
-            include_edges=True,
+            edge_types=(EdgeTypeId(type=edge_type, direction="outwards"),),
         )
 
         io = InstanceIO(toolkit_client)

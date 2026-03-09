@@ -1415,7 +1415,7 @@ class MigrateApp(typer.Typer):
                     version=mapping.source_view.version,
                 ),
                 instance_spaces=(source_space,),
-                include_edges=True,
+                edge_types=tuple(mapping.edge_types) if mapping.edge_types else None,
             )
             for mapping in infield_mappings
         ]

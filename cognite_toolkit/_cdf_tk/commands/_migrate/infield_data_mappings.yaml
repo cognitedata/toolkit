@@ -71,6 +71,11 @@
   propertyMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
+  edgeTypes:
+  - type:
+      space: cdf_apm
+      externalId: referenceMeasurements
+    direction: inwards
 - externalId: InFieldScheduleMapping
   sourceView:
     space: cdf_apm
@@ -146,6 +151,15 @@
   propertyMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
+  edgeTypes:
+    - type:
+        space: cdf_apm
+        externalId: referenceChecklistItems
+      direction: inwards
+    - type:
+        space: cdf_apm
+        externalId: referenceObservations
+      direction: outwards
 - externalId: InFieldTemplateItemMapping
   sourceView:
     space: cdf_apm
@@ -161,3 +175,12 @@
   propertyMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
+  edgeTypes:
+  - type:
+      space: cdf_apm
+      externalId: referenceTemplateItems
+    direction: inwards
+  - type:
+      space: cdf_apm
+      externalId: referenceSchedules
+    direction: outwards

@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsFailedResponse,
     ItemsSuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     NodeResponse,
     ViewResponse,
@@ -341,48 +342,10 @@ class TestInstanceIO:
             view=SelectedView(space="mySpace", external_id="myView", version="v42"),
             instance_type="node",
             instance_spaces=("my_space",),
-            include_edges=True,
+            edge_types=(EdgeTypeId(type=NodeId(space="mySpace", external_id="edge_type"), direction="outwards"),),
         )
 
-        view_url = toolkit_config.create_api_url("/models/views/byids")
         query_url = toolkit_config.create_api_url("/models/instances/query")
-
-        respx_mock.post(view_url).respond(
-            status_code=200,
-            json={
-                "items": [
-                    {
-                        "space": "mySpace",
-                        "externalId": "myView",
-                        "version": "v42",
-                        "createdTime": 0,
-                        "lastUpdatedTime": 0,
-                        "writable": True,
-                        "usedFor": "node",
-                        "isGlobal": False,
-                        "queryable": True,
-                        "mappedContainers": [],
-                        "properties": {
-                            "name": {
-                                "container": {"space": "mySpace", "externalId": "MyContainer"},
-                                "containerPropertyIdentifier": "name",
-                                "type": {"type": "text", "list": False},
-                                "nullable": True,
-                                "immutable": False,
-                                "autoIncrement": False,
-                                "constraintState": {},
-                            },
-                            "children": {
-                                "connectionType": "multi_edge_connection",
-                                "source": {"space": "mySpace", "externalId": "myView", "version": "v42"},
-                                "type": {"space": "mySpace", "externalId": "edge_type"},
-                                "direction": "outwards",
-                            },
-                        },
-                    }
-                ]
-            },
-        )
 
         def _node(ext_id: str) -> dict:
             return {
@@ -414,9 +377,9 @@ class TestInstanceIO:
                 json={
                     "items": {
                         "nodes": [_node("node_0"), _node("node_1")],
-                        "children": [_edge("edge_0", "node_0", "node_1"), _edge("edge_1", "node_1", "node_0")],
+                        "edge_1": [_edge("edge_0", "node_0", "node_1"), _edge("edge_1", "node_1", "node_0")],
                     },
-                    "nextCursor": {"nodes": "node_cursor_1", "children": "edge_cursor_1"},
+                    "nextCursor": {"nodes": "node_cursor_1", "edge_1": "edge_cursor_1"},
                 },
             ),
             # Call 2: second edge batch (no more edge cursor → exhausts edges for first node batch)
@@ -425,7 +388,7 @@ class TestInstanceIO:
                 json={
                     "items": {
                         "nodes": [],
-                        "children": [_edge("edge_2", "node_0", "node_1")],
+                        "edge_1": [_edge("edge_2", "node_0", "node_1")],
                     },
                     "nextCursor": {"nodes": "node_cursor_1"},
                 },
@@ -436,7 +399,7 @@ class TestInstanceIO:
                 json={
                     "items": {
                         "nodes": [_node("node_2"), _node("node_3")],
-                        "children": [],
+                        "edge_1": [],
                     },
                     "nextCursor": {},
                 },
