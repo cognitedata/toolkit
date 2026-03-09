@@ -729,12 +729,12 @@ description: Original description
 """)
         )
         try:
-            created = loader.create([file])
+            created = retry_on_deadlock(lambda: loader.create([file]))
             assert len(created) == 1
 
             update = file.model_copy(update={"description": "Updated description"}, deep=True)
 
-            updated = loader.update([update])
+            updated = retry_on_deadlock(lambda: loader.update([update]))
             assert len(updated) == 1
 
             retrieved = loader.retrieve([file.as_id()])
@@ -742,7 +742,7 @@ description: Original description
             assert retrieved[0].name == "MyExtendedFile"
             assert retrieved[0].description == "Updated description"
         finally:
-            loader.delete([file.as_id()])
+            retry_on_deadlock(lambda: loader.delete([file.as_id()]))
 
 
 class TestGroupLoader:
