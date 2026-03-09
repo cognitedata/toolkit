@@ -8,13 +8,13 @@ from cognite.client import data_modeling as dm
 from cognite.client.exceptions import CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     ContainerReferenceItem,
     FdmInstanceContainerReferenceItem,
     IndustrialCanvasRequest,
     IndustrialCanvasResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartCoreTimeseries,
