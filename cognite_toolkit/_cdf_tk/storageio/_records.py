@@ -115,8 +115,7 @@ class RecordIO(
             total += len(sync_response.items)
             if sync_response.items:
                 yield Page(worker_id="main", items=sync_response.items, next_cursor=sync_response.next_cursor)  # pyright: ignore[reportArgumentType]
-            if not sync_response.has_next or total >= effective_limit or not sync_response.items:
-                # Not sure if has_next=true and items=[] can happen, but handling it just in case
+            if not sync_response.has_next or total >= effective_limit:
                 break
 
             body.pop("initializeCursor", None)
