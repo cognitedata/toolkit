@@ -20,11 +20,6 @@ from pathlib import Path
 from typing import Any, Literal, final
 
 from cognite.client.data_classes import capabilities as cap
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    GroupsAcl,
-    SecurityCategoriesAcl,
-)
 from rich import print
 from rich.console import Console
 from rich.markup import escape
@@ -112,28 +107,28 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[GroupRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
             [
-                GroupsAcl.Action.Read,
-                GroupsAcl.Action.List,
+                cap.GroupsAcl.Action.Read,
+                cap.GroupsAcl.Action.List,
             ]
             if read_only
             else [
-                GroupsAcl.Action.Read,
-                GroupsAcl.Action.List,
-                GroupsAcl.Action.Create,
-                GroupsAcl.Action.Delete,
-                GroupsAcl.Action.Update,
+                cap.GroupsAcl.Action.Read,
+                cap.GroupsAcl.Action.List,
+                cap.GroupsAcl.Action.Create,
+                cap.GroupsAcl.Action.Delete,
+                cap.GroupsAcl.Action.Update,
             ]
         )
 
-        return GroupsAcl(
+        return cap.GroupsAcl(
             actions,
-            GroupsAcl.Scope.All(),
+            cap.GroupsAcl.Scope.All(),
         )
 
     @classmethod
@@ -553,28 +548,28 @@ class SecurityCategoryCRUD(ResourceCRUD[NameId, SecurityCategoryRequest, Securit
     @classmethod
     def get_required_capability(
         cls, items: Sequence[SecurityCategoryRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
             [
-                SecurityCategoriesAcl.Action.List,
-                SecurityCategoriesAcl.Action.MemberOf,
+                cap.SecurityCategoriesAcl.Action.List,
+                cap.SecurityCategoriesAcl.Action.MemberOf,
             ]
             if read_only
             else [
-                SecurityCategoriesAcl.Action.Create,
-                SecurityCategoriesAcl.Action.Update,
-                SecurityCategoriesAcl.Action.MemberOf,
-                SecurityCategoriesAcl.Action.List,
-                SecurityCategoriesAcl.Action.Delete,
+                cap.SecurityCategoriesAcl.Action.Create,
+                cap.SecurityCategoriesAcl.Action.Update,
+                cap.SecurityCategoriesAcl.Action.MemberOf,
+                cap.SecurityCategoriesAcl.Action.List,
+                cap.SecurityCategoriesAcl.Action.Delete,
             ]
         )
 
-        return SecurityCategoriesAcl(
+        return cap.SecurityCategoriesAcl(
             actions,
-            SecurityCategoriesAcl.Scope.All(),
+            cap.SecurityCategoriesAcl.Scope.All(),
         )
 
     def create(self, items: Sequence[SecurityCategoryRequest]) -> list[SecurityCategoryResponse]:

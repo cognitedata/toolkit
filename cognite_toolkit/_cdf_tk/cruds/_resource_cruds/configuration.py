@@ -2,7 +2,7 @@ from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, final
 
-from cognite.client.data_classes.capabilities import AppConfigAcl, Capability
+from cognite.client.data_classes import capabilities as cap
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -39,15 +39,19 @@ class SearchConfigCRUD(ResourceCRUD[ViewNoVersionId, SearchConfigRequest, Search
     @classmethod
     def get_required_capability(
         cls, items: Sequence[SearchConfigRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
-        actions = [AppConfigAcl.Action.Read] if read_only else [AppConfigAcl.Action.Read, AppConfigAcl.Action.Write]
+        actions = (
+            [cap.AppConfigAcl.Action.Read]
+            if read_only
+            else [cap.AppConfigAcl.Action.Read, cap.AppConfigAcl.Action.Write]
+        )
 
-        return AppConfigAcl(
+        return cap.AppConfigAcl(
             actions=actions,
-            scope=AppConfigAcl.Scope.AppConfig(apps=["SEARCH"]),
+            scope=cap.AppConfigAcl.Scope.AppConfig(apps=["SEARCH"]),
             allow_unknown=True,
         )
 
