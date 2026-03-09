@@ -4,6 +4,7 @@ from pydantic import BeforeValidator, ConfigDict, Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 
 class AgentObject(BaseModelObject):
@@ -69,9 +70,30 @@ class ManualInstanceSpaces(AgentInstanceSpacesDefinition):
     spaces: list[str]
 
 
+class UnknownInstanceSpaces(AgentInstanceSpacesDefinition): ...
+
+
+_KNOWN_INSTANCE_SPACES = {
+    cls_.type: cls_
+    for cls_ in get_concrete_subclasses(AgentInstanceSpacesDefinition)
+    if cls_ is not UnknownInstanceSpaces
+}
+
+
+def _handle_unknown_instance_spaces(value: Any) -> Any:
+    if isinstance(value, dict):
+        type_ = value.get("type")
+        if type_ not in _KNOWN_INSTANCE_SPACES:
+            return UnknownInstanceSpaces(**value)
+        else:
+            return _KNOWN_INSTANCE_SPACES[type_].model_validate(value)
+    return value
+
+
 AgentInstanceSpaces = Annotated[
-    AllInstanceSpaces | ManualInstanceSpaces,
+    AllInstanceSpaces | ManualInstanceSpaces | UnknownInstanceSpaces,
     Field(discriminator="type"),
+    BeforeValidator(_handle_unknown_instance_spaces),
 ]
 
 
@@ -147,6 +169,7 @@ AgentTool = Annotated[
     | SummarizeDocument
     | TimeSeriesAnalysis
     | UnknownAgentTool,
+    Field(discriminator="type"),
     BeforeValidator(_handle_unknown_tool),
 ]
 
