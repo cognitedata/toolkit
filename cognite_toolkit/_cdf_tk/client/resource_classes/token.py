@@ -15,7 +15,10 @@ from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.resource_classes.group import Scope, ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import ACL_NAME
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import Acl, AclType
-from cognite_toolkit._cdf_tk.client.resource_classes.group.scope_logic import scope_union
+from cognite_toolkit._cdf_tk.client.resource_classes.group.scope_logic import (
+    scope_difference,
+    scope_union,
+)
 
 
 class InspectProjectInfo(BaseModelObject):
@@ -93,6 +96,10 @@ class ProjectCapabilities(UserDict[tuple[type[Acl], str], Scope]):
                 if key not in self.data:
                     missing_actions_by_type_and_scope[(type(acl), acl.scope)].extend(acl.actions)
                     continue
+                existing_scope = self.data[key]
+                if missing_scope := scope_difference(existing_scope, acl.scope):
+                    missing_actions_by_type_and_scope[(type(acl), missing_scope)].extend(acl.actions)
+
         missing_acls: list[Acl] = []
         for (acl_type, scope), actions in missing_actions_by_type_and_scope.items():
             missing_acls.append(acl_type(actions=actions, scope=scope))  # type: ignore[arg-type]

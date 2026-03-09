@@ -111,3 +111,18 @@ def scope_union(*scopes: ScopeDefinition) -> ScopeDefinition:
         merged[name] = sorted(set.union(*values))
 
     return type(first)(**merged)
+
+
+def scope_difference(scope1: ScopeDefinition, scope2: ScopeDefinition | None) -> ScopeDefinition | None:
+    """Return the difference of two scopes (scope1 - scope2), or None if the result is empty.
+
+    Rules:
+      - If scope1 is None, returns None.
+      - If scope2 is None, returns scope1.
+      - AllScope minus any scope yields None; any scope minus AllScope yields the original scope.
+      - Scopes must be the same concrete type.
+      - Scopes with no data fields (CurrentUserScope) are returned as-is if they are the same, otherwise None.
+      - List fields are set-differenced; an empty result means None.
+      - TableScope differences the db keys and per-db table lists.
+    """
+    raise NotImplementedError()
