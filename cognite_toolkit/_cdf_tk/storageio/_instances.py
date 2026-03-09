@@ -17,7 +17,6 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    EdgeProperty,
     InstanceRequest,
     InstanceResponse,
     QueryEdgeExpression,
@@ -160,7 +159,7 @@ class InstanceIO(
             source.properties = {k: v for k, v in source.properties.items() if k not in readonly_properties}
 
     def stream_data(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[Page]:
-        if isinstance(selector, InstanceViewSelector) and selector.include_edges and selector.instance_type == "node":
+        if isinstance(selector, InstanceViewSelector) and selector.edge_types and selector.instance_type == "node":
             yield from self._instances_with_container_and_edge_properties(selector, limit)
         elif isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
             yield from self._instances_with_container_properties(selector, limit)
@@ -174,10 +173,9 @@ class InstanceIO(
         self, selector: InstanceViewSelector, limit: int | None
     ) -> Iterable[Page]:
         instance_filter = self._build_query_filter(selector, "node")
-        views = self.client.tool.views.retrieve([selector.view.as_id()])
-        if not views:
-            raise ToolkitValueError(f"The view {selector.view.as_id()} does not exist")
-        view = views[0]
+        view_id = selector.view.as_id()
+        if not isinstance(view_id, ViewId):
+            raise ToolkitValueError("ViewId is required for InstanceViewSelector")
         with_: dict[str, QueryNodeExpression | QueryEdgeExpression] = {
             "nodes": QueryNodeExpression(
                 limit=min(self.CHUNK_SIZE, limit) if limit is not None else self.CHUNK_SIZE,
@@ -188,22 +186,27 @@ class InstanceIO(
             )
         }
         select: dict[str, QuerySelect] = {
-            "nodes": QuerySelect(sources=[QuerySelectSource(source=view.as_id(), properties=["*"])])
+            "nodes": QuerySelect(sources=[QuerySelectSource(source=view_id, properties=["*"])])
         }
         edge_ids: list[str] = []
-        for prop_id, prop in view.properties.items():
-            if not isinstance(prop, EdgeProperty):
-                continue
-            with_[prop_id] = QueryEdgeExpression(
+        for no, edge_type in enumerate(selector.edge_types or [], start=1):
+            query_id = f"edge_{no}"
+            with_[query_id] = QueryEdgeExpression(
                 edges=QueryEdgeTableExpression(
                     from_="nodes",
-                    chain_to="source" if prop.direction == "outwards" else "destination",
-                    direction=prop.direction,
+                    chain_to="source" if edge_type.direction == "outwards" else "destination",
+                    direction=edge_type.direction,
+                    filter={
+                        "equals": {
+                            "property": ["edge", "type"],
+                            "value": edge_type.type.dump(include_instance_type=False),
+                        }
+                    },
                 ),
                 sort=[QuerySortSpec(property=["edge", "space"]), QuerySortSpec(property=["edge", "externalId"])],
             )
-            edge_ids.append(prop_id)
-            select[prop_id] = QuerySelect()
+            edge_ids.append(query_id)
+            select[query_id] = QuerySelect()
 
         query = QueryRequest(with_=with_, select=select)
         total = 0

@@ -17,19 +17,23 @@ import json
 from collections.abc import Hashable, Iterable, Sequence
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any, final
+from typing import Any, Literal, final
 
 from cognite.client.data_classes import ClientCredentials
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    WorkflowOrchestrationAcl,
-)
+from cognite.client.data_classes import capabilities as cap
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetScope,
+    ScopeDefinition,
+    WorkflowOrchestrationAcl,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     NonceCredentials,
@@ -57,6 +61,7 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     sanitize_filename,
 )
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
@@ -92,21 +97,30 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
         return "workflows"
 
     @classmethod
+    def get_minimum_scope(cls, items: Sequence[WorkflowRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield WorkflowOrchestrationAcl(actions=sorted(actions), scope=scope)
+
+    @classmethod
     def get_required_capability(
         cls, items: Sequence[WorkflowRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [WorkflowOrchestrationAcl.Action.Read]
+            [cap.WorkflowOrchestrationAcl.Action.Read]
             if read_only
-            else [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write]
+            else [cap.WorkflowOrchestrationAcl.Action.Read, cap.WorkflowOrchestrationAcl.Action.Write]
         )
 
-        return WorkflowOrchestrationAcl(
+        return cap.WorkflowOrchestrationAcl(
             actions,
-            WorkflowOrchestrationAcl.Scope.All(),
+            cap.WorkflowOrchestrationAcl.Scope.All(),
         )
 
     @classmethod
@@ -208,21 +222,29 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest
         return "workflow versions"
 
     @classmethod
+    def get_minimum_scope(cls, items: Sequence[WorkflowVersionRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
+
+    @classmethod
     def get_required_capability(
         cls, items: Sequence[WorkflowVersionRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [WorkflowOrchestrationAcl.Action.Read]
+            [cap.WorkflowOrchestrationAcl.Action.Read]
             if read_only
-            else [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write]
+            else [cap.WorkflowOrchestrationAcl.Action.Read, cap.WorkflowOrchestrationAcl.Action.Write]
         )
 
-        return WorkflowOrchestrationAcl(
+        return cap.WorkflowOrchestrationAcl(
             actions,
-            WorkflowOrchestrationAcl.Scope.All(),
+            cap.WorkflowOrchestrationAcl.Scope.All(),
         )
 
     @classmethod
@@ -523,20 +545,28 @@ class WorkflowTriggerCRUD(ResourceCRUD[ExternalId, WorkflowTriggerRequest, Workf
     @classmethod
     def get_required_capability(
         cls, items: Sequence[WorkflowTriggerRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         capability = (
-            [WorkflowOrchestrationAcl.Action.Read]
+            [cap.WorkflowOrchestrationAcl.Action.Read]
             if read_only
-            else [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write]
+            else [cap.WorkflowOrchestrationAcl.Action.Read, cap.WorkflowOrchestrationAcl.Action.Write]
         )
 
-        return WorkflowOrchestrationAcl(
+        return cap.WorkflowOrchestrationAcl(
             capability,
-            WorkflowOrchestrationAcl.Scope.All(),
+            cap.WorkflowOrchestrationAcl.Scope.All(),
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[WorkflowTriggerRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     def create(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
         return self._upsert(items)

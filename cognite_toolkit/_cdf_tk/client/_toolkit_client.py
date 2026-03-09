@@ -4,13 +4,13 @@ from cognite.client import CogniteClient
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client.api.charts import ChartsAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 
 from .api.agents import AgentsAPI
 from .api.annotations import AnnotationsAPI
 from .api.assets import AssetsAPI
+from .api.canvas import IndustrialCanvasAPI
 from .api.cognite_files import CogniteFilesAPI
 from .api.containers import ContainersAPI
 from .api.data_models import DataModelsAPI
@@ -45,7 +45,7 @@ from .api.streamlit_ import StreamlitAPI
 from .api.streams import StreamsAPI
 from .api.three_d import ThreeDAPI
 from .api.timeseries import TimeSeriesAPI
-from .api.token import TokenAPI
+from .api.token import TokenAPI, ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
 from .api.user_profiles import UserProfilesAPI
 from .api.verify import VerifyAPI
@@ -87,6 +87,7 @@ class ToolAPI:
         self.search_configurations = SearchConfigurationsAPI(http_client)
         self.simulators = SimulatorsAPI(http_client)
         self.three_d = ThreeDAPI(http_client)
+        self.token = ToolkitTokenAPI(http_client)
         self.timeseries = TimeSeriesAPI(http_client)
         self.transformations = TransformationsAPI(http_client)
         self.workflows = WorkflowsAPI(http_client)
@@ -110,7 +111,7 @@ class ToolkitClient(CogniteClient):
 
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self, self.console)
-        self.canvas = CanvasAPI(self.data_modeling.instances)
+        self.canvas = IndustrialCanvasAPI(http_client)
         self.migration = MigrationAPI(self.data_modeling.instances, http_client)
         self.token = TokenAPI(self)
         self.charts = ChartsAPI(http_client)

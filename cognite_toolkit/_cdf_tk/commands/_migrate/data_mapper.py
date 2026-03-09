@@ -8,6 +8,12 @@ from cognite.client import data_modeling as dm
 from cognite.client.exceptions import CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
+    ContainerReferenceItem,
+    FdmInstanceContainerReferenceItem,
+    IndustrialCanvasRequest,
+    IndustrialCanvasResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartCoreTimeseries,
@@ -25,12 +31,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     NodeResponse,
     ViewId,
     ViewResponse,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
-    ContainerReferenceApply,
-    FdmInstanceContainerReferenceApply,
-    IndustrialCanvas,
-    IndustrialCanvasApply,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     RESOURCE_VIEW_MAPPING_SPACE,
@@ -355,7 +355,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         return updated_source_collection
 
 
-class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvasApply]):
+class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, IndustrialCanvasRequest]):
     # Note sequences are not supported in Canvas, so we do not include them here.
     asset_centric_resource_types = tuple(("asset", "event", "timeseries", "file"))
     DEFAULT_ASSET_VIEW = ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1")
@@ -368,13 +368,13 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
         self.dry_run = dry_run
         self.skip_on_missing_ref = skip_on_missing_ref
 
-    def map(self, source: Sequence[IndustrialCanvas]) -> Sequence[IndustrialCanvasApply | None]:
+    def map(self, source: Sequence[IndustrialCanvasResponse]) -> Sequence[IndustrialCanvasRequest | None]:
         self._populate_cache(source)
-        output: list[IndustrialCanvasApply | None] = []
+        output: list[IndustrialCanvasRequest | None] = []
         issues: list[CanvasMigrationIssue] = []
         for item in source:
             mapped_item, issue = self._map_single_item(item)
-            identifier = item.as_id()
+            identifier = item.name
 
             if issue.missing_reference_ids:
                 self.logger.tracker.add_issue(identifier, "Missing reference IDs")
@@ -399,7 +399,7 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
             "file": self.client.migration.lookup.files,
         }
 
-    def _populate_cache(self, source: Sequence[IndustrialCanvas]) -> None:
+    def _populate_cache(self, source: Sequence[IndustrialCanvasResponse]) -> None:
         """Populate the internal cache with references from the source canvases.
 
         Note that the consumption views are also cached as part of the timeseries lookup.
@@ -436,14 +436,14 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
 
         raise ToolkitValueError(f"Unsupported resource type '{resource_type}' for container reference migration.")
 
-    def _map_single_item(self, canvas: IndustrialCanvas) -> tuple[IndustrialCanvasApply | None, CanvasMigrationIssue]:
+    def _map_single_item(
+        self, canvas: IndustrialCanvasResponse
+    ) -> tuple[IndustrialCanvasRequest | None, CanvasMigrationIssue]:
         update = canvas.as_write()
-        issue = CanvasMigrationIssue(
-            canvas_external_id=canvas.canvas.external_id, canvas_name=canvas.canvas.name, id=canvas.canvas.name
-        )
+        issue = CanvasMigrationIssue(canvas_external_id=canvas.external_id, canvas_name=canvas.name, id=canvas.name)
 
-        remaining_container_references: list[ContainerReferenceApply] = []
-        new_fdm_references: list[FdmInstanceContainerReferenceApply] = []
+        remaining_container_references: list[IndustrialCanvasRequest] = []
+        new_fdm_references: list[FdmInstanceContainerReferenceItem] = []
         uuid_generator: dict[str, str] = defaultdict(lambda: str(uuid4()))
         for ref in update.container_references or []:
             if ref.container_reference_type not in self.asset_centric_resource_types:
@@ -455,22 +455,20 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
             else:
                 consumer_view = self._get_consumer_view_id(ref.resource_id, ref.container_reference_type)
                 fdm_ref = self.migrate_container_reference(
-                    ref, canvas.canvas.external_id, node_id, consumer_view, uuid_generator
+                    ref, canvas.external_id, node_id, consumer_view, uuid_generator
                 )
                 new_fdm_references.append(fdm_ref)
         if issue.missing_reference_ids and self.skip_on_missing_ref:
             return None, issue
 
         update.container_references = remaining_container_references
-        update.fdm_instance_container_references.extend(new_fdm_references)
+        update.fdm_instance_container_references = (update.fdm_instance_container_references or []) + new_fdm_references
         if not self.dry_run:
-            backup = canvas.as_write().create_backup()
+            backup = canvas.as_request_resource().create_backup()
             try:
-                self.client.canvas.industrial.create(backup)
+                self.client.canvas.create([backup])
             except CogniteException as e:
-                raise ToolkitMigrationError(
-                    f"Failed to create backup for canvas '{canvas.canvas.name}': {e!s}. "
-                ) from e
+                raise ToolkitMigrationError(f"Failed to create backup for canvas '{canvas.name}': {e!s}. ") from e
 
         # There might annotations or other components that reference the old IDs, so we need to update those as well.
         update = update.replace_ids(uuid_generator)
@@ -480,16 +478,16 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvas, IndustrialCanvas
     @classmethod
     def migrate_container_reference(
         cls,
-        reference: ContainerReferenceApply,
+        reference: ContainerReferenceItem,
         canvas_external_id: str,
         instance_id: NodeId,
         consumer_view: ViewId,
         uuid_generator: dict[str, str],
-    ) -> FdmInstanceContainerReferenceApply:
+    ) -> FdmInstanceContainerReferenceItem:
         """Migrate a single container reference by replacing the asset-centric ID with the data model instance ID."""
         new_id = uuid_generator[reference.id_]
         new_external_id = f"{canvas_external_id}_{new_id}"
-        return FdmInstanceContainerReferenceApply(
+        return FdmInstanceContainerReferenceItem(
             external_id=new_external_id,
             id_=new_id,
             container_reference_type="fdmInstance",
