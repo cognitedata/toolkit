@@ -7,7 +7,8 @@ import typer
 from questionary import Choice
 from rich import print
 
-from cognite_toolkit._cdf_tk.client.identifiers import RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, RawTableId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeProperty
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -818,7 +819,7 @@ class DownloadApp(typer.Typer):
         if instance_space is None:
             selector = DataModelingSelect(client, "download instances")
             data_model = selector.select_data_model(
-                inline_views=False,
+                inline_views=True,
                 message="Select the data model through which to download instances:",
                 include_global=True,
             )
@@ -838,12 +839,18 @@ class DownloadApp(typer.Typer):
             instance_spaces: tuple[str, ...] | None = None
             if select_instance_space:
                 instance_spaces = tuple(selector.select_instance_space(multiselect=True))
-            include_edges = False
+            edge_type_ids_by_view_id: dict[ViewId, set[EdgeTypeId]] = {}
             if Flags.EXTEND_DOWNLOAD.EXTEND_DOWNLOAD.is_enabled():
                 include_edges = questionary.confirm(
                     "Do you want to include edges when downloading node instances? If yes, all edges connected to the downloaded nodes will be downloaded as well.",
                     default=False,
                 ).unsafe_ask()
+                if include_edges:
+                    for view in data_model.views or []:
+                        view_id = view.as_id()
+                        for prop in view.properties.values():
+                            if isinstance(prop, EdgeProperty):
+                                edge_type_ids_by_view_id.setdefault(view_id, set()).add(prop.as_edge_type_id())
 
             selectors = []
             download_dir_name = sanitize_filename(data_model.external_id)
@@ -852,6 +859,8 @@ class DownloadApp(typer.Typer):
                     view.used_for,
                     message=f"Select instance type to download for view {view.space}:{view.external_id}(version={view.version})",
                 )
+                edge_types = edge_type_ids_by_view_id.get(view.as_id())
+
                 selectors.append(
                     InstanceViewSelector(
                         view=SelectedView(
@@ -862,7 +871,7 @@ class DownloadApp(typer.Typer):
                         instance_spaces=instance_spaces,
                         instance_type=view_instance_type,
                         download_dir_name=download_dir_name,
-                        include_edges=include_edges,
+                        edge_types=tuple(edge_types) if edge_types else None,
                     )
                 )
             output_dir, file_format, compression, limit = cls._interactive_select_shared(  # type: ignore[assignment]
