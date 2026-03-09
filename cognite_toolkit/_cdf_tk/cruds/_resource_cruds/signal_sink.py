@@ -8,7 +8,13 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import SignalSinkId
-from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, AllScope, ScopeDefinition, SubscribeSignalsAcl
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    CurrentUserScope,
+    ScopeDefinition,
+    SubscribeSignalsAcl,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_sink import SignalSinkRequest, SignalSinkResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
@@ -57,7 +63,7 @@ class SignalSinkCRUD(ResourceCRUD[SignalSinkId, SignalSinkRequest, SignalSinkRes
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
-        if isinstance(scope, AllScope):
+        if isinstance(scope, (AllScope, CurrentUserScope)):
             yield SubscribeSignalsAcl(actions=sorted(actions), scope=scope)
 
     def _get_known_emails(self) -> set[str]:
