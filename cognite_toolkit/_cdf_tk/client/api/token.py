@@ -8,7 +8,7 @@ from cognite.client.data_classes.iam import TokenInspection
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
 from cognite_toolkit._cdf_tk.client.resource_classes.capabilities import scope_intersection, scope_union
 from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl
-from cognite_toolkit._cdf_tk.client.resource_classes.token import InspectResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.token import InspectResponse, ProjectCapabilities
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 _ACL_CLASS_BY_CLASS_NAME = {cap.__name__: cap for cap in _CAPABILITY_CLASS_BY_NAME.values()}
@@ -119,6 +119,7 @@ class TokenAPI:
 class ToolkitTokenAPI:
     def __init__(self, http_client: HTTPClient):
         self._http_client = http_client
+        self._project_capabilities: ProjectCapabilities | None = None
 
     @cache
     def inspect(self) -> InspectResponse:
@@ -137,5 +138,6 @@ class ToolkitTokenAPI:
 
     def verify_acls(self, required_acls: Sequence[Acl]) -> Sequence[Acl]:
         """Verify that the current token has the required ACLs, for the current project. Returns the list of missing ACLs."""
-        project_capabilities = self.inspect().to_project_capabilities()
-        return project_capabilities.verify(required_acls)
+        if self._project_capabilities is None:
+            self._project_capabilities = self.inspect().to_project_capabilities()
+        return self._project_capabilities.verify(required_acls)

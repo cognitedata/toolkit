@@ -6,7 +6,6 @@ https://api-docs.cognite.com/20230101/tag/Token/operation/inspectToken
 
 from collections import UserDict, defaultdict
 from collections.abc import Sequence
-from functools import cache
 from typing import Any
 
 from pydantic import JsonValue, model_validator
@@ -114,7 +113,6 @@ class InspectResponse(BaseModelObject):
     # This is not part of the API response, but we manually set it to the current project as it is very useful
     project: str = ""
 
-    @cache
     def to_project_capabilities(self, project: str | None = None) -> ProjectCapabilities:
         """Convert the inspect response to a ProjectCapabilities object for easier access to ACLs by project.
 
