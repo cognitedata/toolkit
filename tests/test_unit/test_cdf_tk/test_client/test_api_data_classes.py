@@ -6,7 +6,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client._resource_base import UpdatableRequestResource, _get_annotation_origin
 from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId, PrincipalId
-from cognite_toolkit._cdf_tk.client.resource_classes.agent import KNOWN_TOOLS, AgentRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.agent import KNOWN_TOOLS, AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (
@@ -204,6 +204,34 @@ class TestAgentRequest:
         }
         agent_request = AgentRequest.model_validate(data)
         assert agent_request.dump() == data
+
+
+class TestAgentResponse:
+    def test_dump_query_tool_unknown_instance_space(self) -> None:
+        """The API may return tools with an instanceSpace that the SDK doesn't know about. These should be preserved when dumping."""
+        data = {
+            "externalId": "agent_1",
+            "name": "Agent 1",
+            "createdTime": 1731844296876,
+            "lastUpdatedTime": 1742795130237,
+            "ownerId": "123456789",
+            "runtimeVersion": "1.0.0",
+            "tools": [
+                {
+                    "type": "queryKnowledgeGraph",
+                    "name": "Query Knowledge Graph",
+                    "description": "A tool for querying the knowledge graph",
+                    "configuration": {
+                        "dataModels": [
+                            {"space": "cdf_cdm", "externalId": "CogniteCore", "version": "v1"},
+                        ],
+                        "instanceSpaces": {"type": "providedAtRuntime", "some_extra": "value"},
+                    },
+                }
+            ],
+        }
+        agent_response = AgentResponse.model_validate(data)
+        assert agent_response.dump() == data
 
 
 class TestStreamlit:
