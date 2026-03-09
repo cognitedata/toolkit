@@ -117,12 +117,50 @@ def scope_difference(scope1: ScopeDefinition, scope2: ScopeDefinition | None) ->
     """Return the difference of two scopes (scope1 - scope2), or None if the result is empty.
 
     Rules:
-      - If scope1 is None, returns None.
       - If scope2 is None, returns scope1.
-      - AllScope minus any scope yields None; any scope minus AllScope yields the original scope.
-      - Scopes must be the same concrete type.
-      - Scopes with no data fields (CurrentUserScope) are returned as-is if they are the same, otherwise None.
-      - List fields are set-difference; an empty result means None.
-      - TableScope differences the db keys and per-db table lists.
+      - AllScope minus any scope yields AllScope; any scope minus AllScope yields None.
+      - Non-AllScope scopes must be the same concrete type.
+      - Scopes with no data fields (CurrentUserScope) always yield None (A - A = empty).
+      - List fields are set-differenced; an empty result means None.
+      - TableScope differences per-db table lists and drops empty dbs.
     """
-    raise NotImplementedError()
+    if scope2 is None:
+        return scope1
+
+    if isinstance(scope1, AllScope):
+        return None if isinstance(scope2, AllScope) else AllScope()
+
+    if isinstance(scope2, AllScope):
+        return None
+
+    if type(scope1) is not type(scope2):
+        raise ValueError("Cannot difference scopes of different types")
+    if isinstance(scope1, UnknownScope):
+        raise TypeError("Cannot difference unknown scopes")
+
+    fields = _data_fields(scope1)
+
+    if not fields:
+        return None
+
+    if isinstance(scope1, TableScope) and isinstance(scope2, TableScope):
+        result_dbs: dict[str, list[str]] = {}
+        for db, tables in scope1.dbs_to_tables.items():
+            if db in scope2.dbs_to_tables:
+                remaining = sorted(set(tables) - set(scope2.dbs_to_tables[db]))
+                if remaining:
+                    result_dbs[db] = remaining
+            else:
+                result_dbs[db] = sorted(tables)
+        if not result_dbs:
+            return None
+        return TableScope(dbs_to_tables=result_dbs)
+
+    merged: dict[str, Any] = {}
+    for name in fields:
+        result = sorted(set(getattr(scope1, name)) - set(getattr(scope2, name)))
+        if not result:
+            return None
+        merged[name] = result
+
+    return type(scope1)(**merged)

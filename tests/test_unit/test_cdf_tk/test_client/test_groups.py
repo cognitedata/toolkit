@@ -226,6 +226,42 @@ class TestScopeLogic:
                 None,
                 id="Specific scope difference with AllScope",
             ),
+            pytest.param(
+                AllScope(),
+                AllScope(),
+                None,
+                id="AllScope difference with AllScope yields None",
+            ),
+            pytest.param(
+                DataSetScope(ids=[1, 2, 3]),
+                DataSetScope(ids=[1, 2, 3]),
+                None,
+                id="Identical DataSetScopes yield None",
+            ),
+            pytest.param(
+                DataSetScope(ids=[1, 2]),
+                DataSetScope(ids=[1, 2, 3]),
+                None,
+                id="Subset difference yields None",
+            ),
+            pytest.param(
+                TableScope(dbs_to_tables={"db1": ["t1", "t2"], "db2": ["t3"]}),
+                TableScope(dbs_to_tables={"db1": ["t2"], "db3": ["t4"]}),
+                TableScope(dbs_to_tables={"db1": ["t1"], "db2": ["t3"]}),
+                id="TableScope difference",
+            ),
+            pytest.param(
+                TableScope(dbs_to_tables={"db1": ["t1"]}),
+                TableScope(dbs_to_tables={"db1": ["t1"]}),
+                None,
+                id="Identical TableScope yields None",
+            ),
+            pytest.param(
+                DataSetScope(ids=[1, 2]),
+                None,
+                DataSetScope(ids=[1, 2]),
+                id="Difference with None returns scope1",
+            ),
         ],
     )
     def test_scope_difference(
@@ -246,6 +282,11 @@ class TestScopeLogic:
         with pytest.raises(TypeError, match="Cannot union unknown scopes"):
             scope_union(instance, instance)
 
+    def test_raises_unknown_scope_difference(self) -> None:
+        instance = UnknownScope(scope_name="mystery")
+        with pytest.raises(TypeError, match="Cannot difference unknown scopes"):
+            scope_difference(instance, instance)
+
     def test_raise_different_scope_types_intersection(self) -> None:
         with pytest.raises(ValueError, match="Cannot intersect scopes of different types"):
             scope_intersection(DataSetScope(ids=[1, 2]), IDScope(ids=[3, 4]))
@@ -253,6 +294,13 @@ class TestScopeLogic:
     def test_raise_different_scope_types_union(self) -> None:
         with pytest.raises(ValueError, match="Cannot union scopes of different types"):
             scope_union(DataSetScope(ids=[1, 2]), IDScope(ids=[3, 4]))
+
+    def test_raise_different_scope_types_difference(self) -> None:
+        with pytest.raises(ValueError, match="Cannot difference scopes of different types"):
+            scope_difference(DataSetScope(ids=[1, 2]), IDScope(ids=[3, 4]))
+
+    def test_current_user_scope_difference_yields_none(self) -> None:
+        assert scope_difference(CurrentUserScope(), CurrentUserScope()) is None
 
     @pytest.mark.parametrize(
         "scope1, scope2",
