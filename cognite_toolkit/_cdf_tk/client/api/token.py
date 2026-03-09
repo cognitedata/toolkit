@@ -148,13 +148,13 @@ class ToolkitTokenAPI:
         """Create an AuthorizationError with a message that lists the missing capabilities
 
         Args:
-            missing_capabilities (Sequence[Capability]): capabilities that are missing
+            missing_capabilities (Sequence[Acl]): capabilities that are missing
             action (str, optional): action that requires the capabilities. Defaults to None.
 
         """
         if not missing_capabilities:
             raise ValueError("Bug in Toolkit. Tried creating an AuthorizationError without any missing capabilities.")
-        missing = "  - \n".join(repr(c) for c in missing_capabilities)
+        missing = "\n".join(f"  - {c!r}" for c in missing_capabilities)
         first_sentence = "Don't have correct access rights"
         if action:
             first_sentence += f" to {action}."
