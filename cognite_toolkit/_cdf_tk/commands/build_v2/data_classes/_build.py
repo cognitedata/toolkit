@@ -6,7 +6,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
-from ._insights import InsightList
+from ._insights import ConsistencyError, ConsistencyWarning, InsightList, ModelSyntaxError, Recommendation
 from ._lineage import BuildConfigLineage, BuildLineage
 from ._module import ModuleSource
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
@@ -102,13 +102,13 @@ class BuildFolder(BaseModel):
 
         for built_module in self.built_modules:
             for insight_type, insights in built_module.insights.by_type().items():
-                if insight_type.__name__ == "ModelSyntaxError":
+                if insight_type is ModelSyntaxError:
                     total_syntax_errors += len(insights)
-                elif insight_type.__name__ == "ConsistencyError":
+                elif insight_type is ConsistencyError:
                     total_consistency_errors += len(insights)
-                elif insight_type.__name__ == "ConsistencyWarning":
+                elif insight_type is ConsistencyWarning:
                     total_warnings += len(insights)
-                elif insight_type.__name__ == "Recommendation":
+                elif insight_type is Recommendation:
                     total_recommendations += len(insights)
 
         total_modules = len(self.built_modules)
