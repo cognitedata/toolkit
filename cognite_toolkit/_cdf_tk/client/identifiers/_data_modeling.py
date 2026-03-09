@@ -192,7 +192,7 @@ class EdgeTypeId(Identifier):
             direction = direction_part.rstrip(")")
             space, external_id = main_part.split(":")
             return {"type": {"space": space, "external_id": external_id}, "direction": direction}
-        except Exception as e:
+        except ValueError as e:
             raise ValueError(
                 f"Invalid format for EdgeTypeId: {value}. Expected space:externalId(direction=outwards)"
             ) from e
