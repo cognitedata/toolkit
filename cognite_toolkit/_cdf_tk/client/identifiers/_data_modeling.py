@@ -179,6 +179,9 @@ class EdgeTypeId(Identifier):
     type: NodeUntypedId
     direction: Literal["outwards", "inwards"]
 
+    def __str__(self) -> str:
+        return f"{self.type!s}(direction={self.direction})"
+
 
 class ContainerDirectId(Identifier):
     source: ContainerId
