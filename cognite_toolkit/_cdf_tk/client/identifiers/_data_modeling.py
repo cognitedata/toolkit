@@ -169,6 +169,17 @@ EdgeUntypedId = Annotated[EdgeId, PlainSerializer(_dump_no_type, when_used="alwa
 T_InstanceId = TypeVar("T_InstanceId", bound=InstanceDefinitionId)
 
 
+class EdgeTypeId(Identifier):
+    """This is used to identify edges used in a schema.
+
+    For example, if you have a view with a 'multi_edge_connection' property, then this identifier can be used
+    to find all edges that are connected to the nodes in that view.
+    """
+
+    type: NodeUntypedId
+    direction: Literal["outwards", "inwards"]
+
+
 class ContainerDirectId(Identifier):
     source: ContainerId
     identifier: str

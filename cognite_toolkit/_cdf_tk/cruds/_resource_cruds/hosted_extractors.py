@@ -3,10 +3,11 @@ from pathlib import Path
 from typing import Any
 
 from cognite.client.data_classes import ClientCredentials
-from cognite.client.data_classes.capabilities import Capability, HostedExtractorsAcl
+from cognite.client.data_classes import capabilities as cap
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.hosted_extractor_destination import (
     HostedExtractorDestinationRequest,
@@ -75,19 +76,19 @@ class HostedExtractorSourceCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[HostedExtractorSourceRequestUnion] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [HostedExtractorsAcl.Action.Read]
+            [cap.HostedExtractorsAcl.Action.Read]
             if read_only
-            else [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write]
+            else [cap.HostedExtractorsAcl.Action.Read, cap.HostedExtractorsAcl.Action.Write]
         )
 
-        return HostedExtractorsAcl(
+        return cap.HostedExtractorsAcl(
             actions,
-            HostedExtractorsAcl.Scope.All(),
+            cap.HostedExtractorsAcl.Scope.All(),
         )
 
     def create(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:
@@ -111,7 +112,7 @@ class HostedExtractorSourceCRUD(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorSourceResponseUnion]:
-        for sources in self.client.tool.hosted_extractors.sources.iterate():
+        for sources in self.client.tool.hosted_extractors.sources.iterate(limit=None):
             yield from sources
 
     def dump_resource(
@@ -193,19 +194,19 @@ class HostedExtractorDestinationCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[HostedExtractorDestinationRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [HostedExtractorsAcl.Action.Read]
+            [cap.HostedExtractorsAcl.Action.Read]
             if read_only
-            else [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write]
+            else [cap.HostedExtractorsAcl.Action.Read, cap.HostedExtractorsAcl.Action.Write]
         )
 
-        return HostedExtractorsAcl(
+        return cap.HostedExtractorsAcl(
             actions,
-            HostedExtractorsAcl.Scope.All(),
+            cap.HostedExtractorsAcl.Scope.All(),
         )
 
     def create(self, items: Sequence[HostedExtractorDestinationRequest]) -> list[HostedExtractorDestinationResponse]:
@@ -229,7 +230,7 @@ class HostedExtractorDestinationCRUD(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorDestinationResponse]:
-        for destinations in self.client.tool.hosted_extractors.destinations.iterate():
+        for destinations in self.client.tool.hosted_extractors.destinations.iterate(limit=None):
             yield from destinations
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> HostedExtractorDestinationRequest:
@@ -252,6 +253,13 @@ class HostedExtractorDestinationCRUD(
             "Destinations will always be considered different, and thus will always be redeployed."
         ).print_warning()
         return self.dump_id(self.get_id(resource))
+
+    @classmethod
+    def get_dependencies(
+        cls, resource: HostedExtractorDestinationYAML
+    ) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.target_data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.target_data_set_external_id)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -293,19 +301,19 @@ class HostedExtractorJobCRUD(ResourceCRUD[ExternalId, HostedExtractorJobRequest,
     @classmethod
     def get_required_capability(
         cls, items: Sequence[HostedExtractorJobRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [HostedExtractorsAcl.Action.Read]
+            [cap.HostedExtractorsAcl.Action.Read]
             if read_only
-            else [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write]
+            else [cap.HostedExtractorsAcl.Action.Read, cap.HostedExtractorsAcl.Action.Write]
         )
 
-        return HostedExtractorsAcl(
+        return cap.HostedExtractorsAcl(
             actions,
-            HostedExtractorsAcl.Scope.All(),
+            cap.HostedExtractorsAcl.Scope.All(),
         )
 
     def dump_resource(
@@ -338,8 +346,15 @@ class HostedExtractorJobCRUD(ResourceCRUD[ExternalId, HostedExtractorJobRequest,
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorJobResponse]:
-        for jobs in self.client.tool.hosted_extractors.jobs.iterate():
+        for jobs in self.client.tool.hosted_extractors.jobs.iterate(limit=None):
             yield from jobs
+
+    @classmethod
+    def get_dependencies(cls, resource: HostedExtractorJobYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.source_id:
+            yield HostedExtractorSourceCRUD, ExternalId(external_id=resource.source_id)
+        if resource.destination_id:
+            yield HostedExtractorDestinationCRUD, ExternalId(external_id=resource.destination_id)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -379,19 +394,19 @@ class HostedExtractorMappingCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[HostedExtractorMappingRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [HostedExtractorsAcl.Action.Read]
+            [cap.HostedExtractorsAcl.Action.Read]
             if read_only
-            else [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write]
+            else [cap.HostedExtractorsAcl.Action.Read, cap.HostedExtractorsAcl.Action.Write]
         )
 
-        return HostedExtractorsAcl(
+        return cap.HostedExtractorsAcl(
             actions,
-            HostedExtractorsAcl.Scope.All(),
+            cap.HostedExtractorsAcl.Scope.All(),
         )
 
     def create(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:
@@ -415,5 +430,5 @@ class HostedExtractorMappingCRUD(
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorMappingResponse]:
-        for mappings in self.client.tool.hosted_extractors.mappings.iterate():
+        for mappings in self.client.tool.hosted_extractors.mappings.iterate(limit=None):
             yield from mappings

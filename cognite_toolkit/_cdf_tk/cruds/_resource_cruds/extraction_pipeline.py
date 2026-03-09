@@ -18,11 +18,9 @@ from pathlib import Path
 from typing import Any, final
 
 import yaml
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    ExtractionPipelinesAcl,
-)
+from cognite.client.data_classes import capabilities as cap
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
@@ -80,24 +78,24 @@ class ExtractionPipelineCRUD(ResourceCRUD[ExternalId, ExtractionPipelineRequest,
     @classmethod
     def get_required_capability(
         cls, items: Sequence[ExtractionPipelineRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [ExtractionPipelinesAcl.Action.Read]
+            [cap.ExtractionPipelinesAcl.Action.Read]
             if read_only
-            else [ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write]
+            else [cap.ExtractionPipelinesAcl.Action.Read, cap.ExtractionPipelinesAcl.Action.Write]
         )
 
-        scope: ExtractionPipelinesAcl.Scope.All | ExtractionPipelinesAcl.Scope.DataSet = (  # type: ignore[valid-type]
-            ExtractionPipelinesAcl.Scope.All()
+        scope: cap.ExtractionPipelinesAcl.Scope.All | cap.ExtractionPipelinesAcl.Scope.DataSet = (  # type: ignore[valid-type]
+            cap.ExtractionPipelinesAcl.Scope.All()
         )
         if items is not None:
             if data_set_id := {item.data_set_id for item in items if item.data_set_id}:
-                scope = ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
+                scope = cap.ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
 
-        return ExtractionPipelinesAcl(actions, scope)
+        return cap.ExtractionPipelinesAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: ExtractionPipelineRequest | ExtractionPipelineResponse | dict) -> ExternalId:
@@ -136,6 +134,18 @@ class ExtractionPipelineCRUD(ResourceCRUD[ExternalId, ExtractionPipelineRequest,
                         yield RawDatabaseCRUD, RawDatabaseId(name=db)
                     if "tableName" in entry:
                         yield RawTableCRUD, RawTableId(db_name=db, name=entry["tableName"])
+
+    @classmethod
+    def get_dependencies(cls, resource: ExtractionPipelineYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+        seen_databases: set[str] = set()
+        for entry in resource.raw_tables or []:
+            if entry.db_name and entry.db_name not in seen_databases:
+                seen_databases.add(entry.db_name)
+                yield RawDatabaseCRUD, RawDatabaseId(name=entry.db_name)
+            if entry.db_name and entry.table_name:
+                yield RawTableCRUD, RawTableId(db_name=entry.db_name, name=entry.table_name)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
@@ -219,7 +229,7 @@ class ExtractionPipelineConfigCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[ExtractionPipelineConfigRequest] | None, read_only: bool
-    ) -> list[Capability]:
+    ) -> list[cap.Capability]:
         # We check the parent extraction pipeline permissions instead
         return []
 
@@ -243,6 +253,12 @@ class ExtractionPipelineConfigCRUD(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "externalId" in item:
             yield ExtractionPipelineCRUD, ExternalId(external_id=item["externalId"])
+
+    @classmethod
+    def get_dependencies(
+        cls, resource: ExtractionPipelineConfigYAML
+    ) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield ExtractionPipelineCRUD, ExternalId(external_id=resource.external_id)
 
     def safe_read(self, filepath: Path | str) -> str:
         # The config is expected to be a string that is parsed as a YAML on the server side.

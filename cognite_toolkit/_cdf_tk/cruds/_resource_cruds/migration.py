@@ -2,9 +2,9 @@ from collections.abc import Hashable, Iterable, Sequence, Sized
 from typing import Any, final
 
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import capabilities
-from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes import capabilities as cap
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
@@ -51,18 +51,18 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
     @classmethod
     def get_required_capability(
         cls, items: Sequence[ResourceViewMappingRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [capabilities.DataModelInstancesAcl.Action.Read]
+            [cap.DataModelInstancesAcl.Action.Read]
             if read_only
-            else [capabilities.DataModelInstancesAcl.Action.Read, capabilities.DataModelInstancesAcl.Action.Write]
+            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
         )
 
-        return capabilities.DataModelInstancesAcl(
-            actions=actions, scope=capabilities.DataModelInstancesAcl.Scope.SpaceID([COGNITE_MIGRATION_SPACE])
+        return cap.DataModelInstancesAcl(
+            actions=actions, scope=cap.DataModelInstancesAcl.Scope.SpaceID([COGNITE_MIGRATION_SPACE])
         )
 
     def prerequisite_warning(self) -> str | None:
@@ -120,6 +120,13 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
                         version=view_id_dict["version"],
                     ),
                 )
+
+    @classmethod
+    def get_dependencies(cls, resource: ResourceViewMappingYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield SpaceCRUD, SpaceId(space=COGNITE_MIGRATION_SPACE)
+        yield ViewCRUD, RESOURCE_MAPPING_VIEW_ID
+        if resource.view_id:
+            yield ViewCRUD, resource.view_id.as_id()
 
     def dump_resource(
         self, resource: ResourceViewMappingResponse, local: dict[str, Any] | None = None

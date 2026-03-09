@@ -1,8 +1,9 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, final
 
-from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes import capabilities as cap
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import DataProductVersionId, ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import (
     DataProductVersionRequest,
@@ -48,7 +49,7 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
     @classmethod
     def get_required_capability(
         cls, items: Sequence[DataProductVersionRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         # TODO: dataproductsAcl is not yet in the SDK — return empty to skip capability verification.
         # Once available, require: READ + UPDATE (all version mutations use dataproductsAcl:UPDATE).
         return []
@@ -57,6 +58,10 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dataProductExternalId" in item:
             yield DataProductCRUD, ExternalId(external_id=item["dataProductExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: DataProductVersionYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield DataProductCRUD, ExternalId(external_id=resource.data_product_external_id)
 
     def dump_resource(
         self, resource: DataProductVersionResponse, local: dict[str, Any] | None = None

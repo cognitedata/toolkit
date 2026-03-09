@@ -56,7 +56,7 @@ class Flags(Enum):
     )
     STREAMS = FlagMetadata(
         visible=True,
-        description="Enables the support for the streams resources",
+        description="Enables support for the streams resources",
     )
     v08 = FlagMetadata(
         visible=False,
@@ -64,7 +64,7 @@ class Flags(Enum):
     )
     CREATE = FlagMetadata(
         visible=True,
-        description="Enables the support for the resources create command under dev plugin",
+        description="Enables support for the resources create command under dev plugin",
     )
     EXTEND_DOWNLOAD = FlagMetadata(
         visible=True,
@@ -74,9 +74,13 @@ class Flags(Enum):
         visible=True,
         description="Enables extended upload to support uploading individual files and records",
     )
+    SIGNALS = FlagMetadata(
+        visible=True,
+        description="Enables support for signal resources",
+    )
     SIMULATORS = FlagMetadata(
         visible=True,
-        description="Enables the support for simulator model resources",
+        description="Enables support for simulator model resources",
     )
     FUNCTION_REQUIREMENTS_VALIDATION = FlagMetadata(
         visible=True,
@@ -88,11 +92,15 @@ class Flags(Enum):
     )
     DATA_PRODUCTS = FlagMetadata(
         visible=False,
-        description="Enables the support for data product resources",
+        description="Enables support for data product resources",
     )
     MODULES_LIST_JSON = FlagMetadata(
         visible=True,
         description="Enables JSON output format for the modules list command",
+    )
+    DEPENDENCY_ORDERED_DEPLOY = FlagMetadata(
+        visible=True,
+        description="Enables dependency-ordered deployment of views to avoid dependency errors",
     )
 
     def is_enabled(self) -> bool:

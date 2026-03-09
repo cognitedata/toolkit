@@ -8,6 +8,7 @@ from ._data_modeling import (
     DataModelNoVersionId,
     DatapointSubscriptionTimeSeriesId,
     EdgeId,
+    EdgeTypeId,
     EdgeUntypedId,
     InstanceDefinitionId,
     InstanceId,
@@ -36,13 +37,16 @@ from ._identifiers import (
     RawTableId,
     SemanticVersion,
     SequenceRowId,
+    SignalSinkId,
     ThreeDModelRevisionId,
     TransformationNotificationId,
     UserProfileId,
     WorkflowVersionId,
 )
+from ._migration import AssetCentricExternalId
 
 __all__ = [
+    "AssetCentricExternalId",
     "ContainerConstraintId",
     "ContainerDirectId",
     "ContainerId",
@@ -54,6 +58,7 @@ __all__ = [
     "DataSetId",
     "DatapointSubscriptionTimeSeriesId",
     "EdgeId",
+    "EdgeTypeId",
     "EdgeUntypedId",
     "ExternalId",
     "ExtractionPipelineConfigId",
@@ -71,6 +76,7 @@ __all__ = [
     "RawTableId",
     "SemanticVersion",
     "SequenceRowId",
+    "SignalSinkId",
     "SpaceId",
     "T_InstanceId",
     "ThreeDModelRevisionId",

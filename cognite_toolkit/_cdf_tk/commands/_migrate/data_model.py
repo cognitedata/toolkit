@@ -82,6 +82,7 @@ INSTANCE_SOURCE_CONTAINER = ContainerRequest(
     indexes={
         "id": BtreeIndex(properties=["id"], cursorable=True),
         "resourceType": BtreeIndex(properties=["resourceType", "id"], cursorable=False),
+        "externalId": BtreeIndex(properties=["resourceType", "classicExternalId"], cursorable=False),
     },
 )
 

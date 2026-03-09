@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Annotated, Any, Literal
 
 from pydantic import AliasChoices, Field, model_serializer, model_validator
@@ -57,7 +57,7 @@ class ExternalId(InternalOrExternalIdDefinitionId):
     external_id: str
 
     @classmethod
-    def from_external_ids(cls, external_ids: list[str]) -> list["ExternalId"]:
+    def from_external_ids(cls, external_ids: Iterable[str]) -> list["ExternalId"]:
         return [cls(external_id=ext_id) for ext_id in external_ids]
 
     def __str__(self) -> str:
@@ -175,3 +175,11 @@ class PrincipalLoginId(Identifier):
 
     def __str__(self) -> str:
         return f"principal='{self.principal}', id='{self.id}'"
+
+
+class SignalSinkId(Identifier):
+    type: Literal["email", "user"]
+    external_id: str
+
+    def __str__(self) -> str:
+        return f"type='{self.type}', externalId='{self.external_id}'"

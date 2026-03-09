@@ -103,7 +103,7 @@ class HostedExtractorMappingsAPI(CDFResourceAPI[HostedExtractorMappingResponse])
 
     def iterate(
         self,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> Iterable[list[HostedExtractorMappingResponse]]:
         """Iterate over hosted extractor mappings in CDF.
 

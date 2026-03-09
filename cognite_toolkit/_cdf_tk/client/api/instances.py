@@ -33,6 +33,8 @@ METHOD_MAP: dict[APIMethod, Endpoint] = {
     "list": Endpoint(method="POST", path="/models/instances/list", item_limit=1000),
 }
 QUERY_ENDPOINT = Endpoint(method="POST", path="/models/instances/query", item_limit=1000)
+INSTANCE_UPSERT_ENDPOINT = METHOD_MAP["upsert"]
+INSTANCE_DELETE_ENDPOINT = METHOD_MAP["delete"]
 
 
 class InstancesAPI(CDFResourceAPI[InstanceResponse]):
@@ -135,7 +137,9 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             body=self._create_body(filter),
         )
 
-    def iterate(self, filter: InstanceFilter | None = None, limit: int = 100) -> Iterable[list[InstanceResponse]]:
+    def iterate(
+        self, filter: InstanceFilter | None = None, limit: int | None = 100
+    ) -> Iterable[list[InstanceResponse]]:
         """Iterate over all instances in CDF.
 
         Args:
@@ -258,11 +262,7 @@ class WrappedInstancesAPI(
         filter_ = InstanceFilter(
             instance_type=instance_type,
             space=spaces,
-            source=ViewId(
-                space=self._view_id.space,
-                external_id=self._view_id.external_id,
-                version=self._view_id.version,
-            ),
+            source=self._view_id,
             filter=filter,
         )
         body = {
@@ -289,7 +289,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
         self._query_chunk = query_chunk
 
     @abstractmethod
-    def _retrieve_query(self, item: Sequence[InstanceDefinitionId]) -> dict[str, Any]:
+    def _retrieve_query(self, item: Sequence[InstanceDefinitionId]) -> QueryRequest:
         raise NotImplementedError()
 
     @abstractmethod
@@ -401,11 +401,11 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
         """
         retrieved: list[T_InstancesListResponse] = []
         for chunk in chunker_sequence(items, self._query_chunk):
-            query_body = self._retrieve_query(chunk)
+            query = self._retrieve_query(chunk)
             request = RequestMessage(
                 endpoint_url=self._http_client.config.create_api_url(QUERY_ENDPOINT.path),
                 method=QUERY_ENDPOINT.method,
-                body_content=query_body,
+                body_content=query.dump(),
             )
             response = self._http_client.request_single_retries(request)
             success = response.get_success_or_raise()

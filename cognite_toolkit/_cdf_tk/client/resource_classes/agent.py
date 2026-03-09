@@ -1,12 +1,19 @@
 from typing import Annotated, Any, Literal
 
-from pydantic import BeforeValidator, Field
+from pydantic import BeforeValidator, ConfigDict, Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 
-class AgentToolDefinition(BaseModelObject):
+class AgentObject(BaseModelObject):
+    model_config = ConfigDict(extra="allow")
+
+
+class AgentToolDefinition(AgentObject):
+    model_config = ConfigDict(extra="allow")
+
     type: str
     name: str
     description: str
@@ -24,7 +31,7 @@ class AskDocument(AgentToolDefinition):
     type: Literal["askDocument"] = "askDocument"
 
 
-class CallFunctionConfig(BaseModelObject):
+class CallFunctionConfig(AgentObject):
     external_id: str
     max_polling_time: int = 540
     schema_: dict[str, Any] | None = Field(None, alias="schema")
@@ -43,14 +50,14 @@ class ExamineDataSemantically(AgentToolDefinition):
     type: Literal["examineDataSemantically"] = "examineDataSemantically"
 
 
-class AgentDataModel(BaseModelObject):
+class AgentDataModel(AgentObject):
     space: str
     external_id: str
     version: str
     view_external_ids: list[str] | None = None
 
 
-class AgentInstanceSpacesDefinition(BaseModelObject):
+class AgentInstanceSpacesDefinition(AgentObject):
     type: str
 
 
@@ -63,13 +70,33 @@ class ManualInstanceSpaces(AgentInstanceSpacesDefinition):
     spaces: list[str]
 
 
+class UnknownInstanceSpaces(AgentInstanceSpacesDefinition): ...
+
+
+_KNOWN_INSTANCE_SPACES = {
+    cls_.model_fields["type"].default: cls_
+    for cls_ in get_concrete_subclasses(AgentInstanceSpacesDefinition)
+    if cls_ is not UnknownInstanceSpaces
+}
+
+
+def _handle_unknown_instance_spaces(value: Any) -> Any:
+    if isinstance(value, dict):
+        type_ = value.get("type")
+        if type_ not in _KNOWN_INSTANCE_SPACES:
+            return UnknownInstanceSpaces(**value)
+        else:
+            return _KNOWN_INSTANCE_SPACES[type_].model_validate(value)
+    return value
+
+
 AgentInstanceSpaces = Annotated[
-    AllInstanceSpaces | ManualInstanceSpaces,
-    Field(discriminator="type"),
+    AllInstanceSpaces | ManualInstanceSpaces | UnknownInstanceSpaces,
+    BeforeValidator(_handle_unknown_instance_spaces),
 ]
 
 
-class QueryKnowledgeGraphConfig(BaseModelObject):
+class QueryKnowledgeGraphConfig(AgentObject):
     data_models: list[AgentDataModel]
     instance_spaces: AgentInstanceSpaces | None = None
     # This is deviating from the API documentation, but the Atlas team has confirmed that "v2" is the default
@@ -145,23 +172,26 @@ AgentTool = Annotated[
 ]
 
 
-class Agent(BaseModelObject):
+class Agent(AgentObject):
     external_id: str
     name: str
     description: str | None = None
     instructions: str | None = None
     model: str | None = None
     tools: list[AgentTool] | None = None
+    labels: list[str] | None = None
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
 
 
 class AgentRequest(Agent, RequestResource):
+    model_config = ConfigDict(extra="allow")
     runtime_version: str | None = None
 
 
 class AgentResponse(Agent, ResponseResource[AgentRequest]):
+    model_config = ConfigDict(extra="allow")
     created_time: int
     last_updated_time: int
     owner_id: str

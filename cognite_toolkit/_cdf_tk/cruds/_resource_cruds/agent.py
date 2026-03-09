@@ -1,8 +1,9 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any
 
-from cognite.client.data_classes.capabilities import AgentsAcl, Capability
+from cognite.client.data_classes import capabilities as cap
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
@@ -10,6 +11,7 @@ from cognite_toolkit._cdf_tk.cruds._resource_cruds.function import FunctionCRUD
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import AgentYAML
+from cognite_toolkit._cdf_tk.yaml_classes.agent import CallFunction
 
 
 class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):
@@ -44,15 +46,21 @@ class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):
                     yield FunctionCRUD, ExternalId(external_id=ext_id)
 
     @classmethod
+    def get_dependencies(cls, resource: AgentYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        for tool in resource.tools or []:
+            if isinstance(tool, CallFunction):
+                yield FunctionCRUD, ExternalId(external_id=tool.configuration.external_id)
+
+    @classmethod
     def get_required_capability(
         cls, items: Sequence[AgentRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
-        actions = [AgentsAcl.Action.READ] if read_only else [AgentsAcl.Action.READ, AgentsAcl.Action.WRITE]
+        actions = [cap.AgentsAcl.Action.READ] if read_only else [cap.AgentsAcl.Action.READ, cap.AgentsAcl.Action.WRITE]
 
-        return AgentsAcl(actions, AgentsAcl.Scope.All())
+        return cap.AgentsAcl(actions, cap.AgentsAcl.Scope.All())
 
     def create(self, items: Sequence[AgentRequest]) -> list[AgentResponse]:
         return self.client.tool.agents.create(items)
@@ -73,7 +81,7 @@ class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[AgentResponse]:
-        return self.client.tool.agents.list()
+        return self.client.tool.agents.list(limit=None)
 
     def dump_resource(self, resource: AgentResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()

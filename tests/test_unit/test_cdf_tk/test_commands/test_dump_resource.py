@@ -313,6 +313,7 @@ def three_agents() -> list[AgentResponse]:
                     description=f"This is tool {character}",
                 )
             ],
+            labels=["published"],
             created_time=1,
             last_updated_time=1,
             owner_id="test",

@@ -37,6 +37,7 @@ from .robotics import (
     RoboticMapCRUD,
     RoboticsDataPostProcessingCRUD,
 )
+from .signal_sink import SignalSinkCRUD
 from .simulators import (
     SimulatorModelCRUD,
     SimulatorModelRevisionCRUD,
@@ -93,6 +94,7 @@ __all__ = [
     "SecurityCategoryCRUD",
     "SequenceCRUD",
     "SequenceRowCRUD",
+    "SignalSinkCRUD",
     "SimulatorModelCRUD",
     "SimulatorModelRevisionCRUD",
     "SimulatorRoutineCRUD",

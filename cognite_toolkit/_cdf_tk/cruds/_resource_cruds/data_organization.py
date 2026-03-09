@@ -17,9 +17,9 @@ import json
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, final
 
-from cognite.client.data_classes import capabilities
-from cognite.client.data_classes.capabilities import Capability, DataSetsAcl
+from cognite.client.data_classes import capabilities as cap
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
@@ -53,19 +53,19 @@ class DataSetsCRUD(ResourceCRUD[ExternalId, DataSetRequest, DataSetResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[DataSetRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [DataSetsAcl.Action.Read]
+            [cap.DataSetsAcl.Action.Read]
             if read_only
-            else [DataSetsAcl.Action.Read, DataSetsAcl.Action.Write, DataSetsAcl.Action.Owner]
+            else [cap.DataSetsAcl.Action.Read, cap.DataSetsAcl.Action.Write, cap.DataSetsAcl.Action.Owner]
         )
 
-        return DataSetsAcl(
+        return cap.DataSetsAcl(
             actions,
-            DataSetsAcl.Scope.All(),
+            cap.DataSetsAcl.Scope.All(),
         )
 
     @classmethod
@@ -164,23 +164,19 @@ class LabelCRUD(ResourceCRUD[ExternalId, LabelRequest, LabelResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[LabelRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
-        scope: capabilities.LabelsAcl.Scope.All | capabilities.LabelsAcl.Scope.DataSet = (  # type: ignore[valid-type]
-            capabilities.LabelsAcl.Scope.All()
+        scope: cap.LabelsAcl.Scope.All | cap.LabelsAcl.Scope.DataSet = (  # type: ignore[valid-type]
+            cap.LabelsAcl.Scope.All()
         )
         if items:
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = capabilities.LabelsAcl.Scope.DataSet(list(data_set_ids))
+                scope = cap.LabelsAcl.Scope.DataSet(list(data_set_ids))
 
-        actions = (
-            [capabilities.LabelsAcl.Action.Read]
-            if read_only
-            else [capabilities.LabelsAcl.Action.Read, capabilities.LabelsAcl.Action.Write]
-        )
+        actions = [cap.LabelsAcl.Action.Read] if read_only else [cap.LabelsAcl.Action.Read, cap.LabelsAcl.Action.Write]
 
-        return capabilities.LabelsAcl(actions, scope)
+        return cap.LabelsAcl(actions, scope)
 
     def create(self, items: Sequence[LabelRequest]) -> list[LabelResponse]:
         return self.client.tool.labels.create(list(items))
@@ -212,7 +208,7 @@ class LabelCRUD(ResourceCRUD[ExternalId, LabelRequest, LabelResponse]):
         filter: ClassicFilter | None = None
         if data_set_external_id is not None:
             filter = ClassicFilter(data_set_ids=[ExternalId(external_id=data_set_external_id)])
-        for items in self.client.tool.labels.iterate(filter=filter):
+        for items in self.client.tool.labels.iterate(filter=filter, limit=None):
             yield from items
 
     @classmethod
@@ -224,6 +220,11 @@ class LabelCRUD(ResourceCRUD[ExternalId, LabelRequest, LabelResponse]):
         """
         if "dataSetExternalId" in item:
             yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: LabelsYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LabelRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):

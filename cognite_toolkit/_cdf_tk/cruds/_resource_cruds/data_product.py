@@ -1,8 +1,9 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, final
 
-from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes import capabilities as cap
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
@@ -46,9 +47,14 @@ class DataProductCRUD(ResourceCRUD[ExternalId, DataProductRequest, DataProductRe
             yield SpaceCRUD, SpaceId(space=item["schemaSpace"])
 
     @classmethod
+    def get_dependencies(cls, resource: DataProductYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.schema_space:
+            yield SpaceCRUD, SpaceId(space=resource.schema_space)
+
+    @classmethod
     def get_required_capability(
         cls, items: Sequence[DataProductRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
 
         # TODO: dataproductsAcl is not yet in the SDK — return empty to skip capability verification.
         # Cannot use UnknownACL due to bug in the SDK.

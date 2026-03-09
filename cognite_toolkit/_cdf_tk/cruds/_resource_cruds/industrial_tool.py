@@ -5,14 +5,12 @@ from pathlib import Path
 from typing import Any, final
 
 from cognite.client import _version as CogniteSDKVersion
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    FilesAcl,
-)
+from cognite.client.data_classes import capabilities as cap
 from packaging.requirements import Requirement
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitRequest, StreamlitResponse
@@ -55,18 +53,18 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
     @classmethod
     def get_required_capability(
         cls, items: Sequence[StreamlitRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
-        actions = [FilesAcl.Action.Read] if read_only else [FilesAcl.Action.Read, FilesAcl.Action.Write]
+        actions = [cap.FilesAcl.Action.Read] if read_only else [cap.FilesAcl.Action.Read, cap.FilesAcl.Action.Write]
 
-        scope: FilesAcl.Scope.All | FilesAcl.Scope.DataSet = FilesAcl.Scope.All()  # type: ignore[valid-type]
+        scope: cap.FilesAcl.Scope.All | cap.FilesAcl.Scope.DataSet = cap.FilesAcl.Scope.All()  # type: ignore[valid-type]
         if items:
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = FilesAcl.Scope.DataSet(list(data_set_ids))
+                scope = cap.FilesAcl.Scope.DataSet(list(data_set_ids))
 
-        return FilesAcl(actions, scope)
+        return cap.FilesAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: StreamlitRequest | StreamlitResponse | dict) -> ExternalId:
@@ -88,6 +86,11 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dataSetExternalId" in item:
             yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: StreamlitYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None

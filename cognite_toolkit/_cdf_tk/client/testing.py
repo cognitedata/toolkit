@@ -7,13 +7,13 @@ from cognite.client.testing import CogniteClientMock
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.api.canvas import IndustrialCanvasAPI
 from cognite_toolkit._cdf_tk.client.api.charts import ChartsAPI
 from cognite_toolkit._cdf_tk.client.api.cognite_files import CogniteFilesAPI
 from cognite_toolkit._cdf_tk.client.api.containers import ContainersAPI
 from cognite_toolkit._cdf_tk.client.api.data_models import DataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.graphql_data_models import GraphQLDataModelsAPI
 from cognite_toolkit._cdf_tk.client.api.hosted_extractors import HostedExtractorsAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI, IndustrialCanvasAPI
 from cognite_toolkit._cdf_tk.client.api.raw import RawAPI, RawDatabasesAPI, RawTablesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics import RoboticsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_capabilities import CapabilitiesAPI
@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.client.api.robotics_locations import LocationsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
+from cognite_toolkit._cdf_tk.client.api.signal_sinks import SignalSinksAPI
 from cognite_toolkit._cdf_tk.client.api.spaces import SpacesAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
@@ -116,8 +117,7 @@ class ToolkitClientMock(CogniteClientMock):
         #   - Add spacing above and below
         #   - Use `spec=MyAPI` only for "top level"
         #   - Use `spec_set=MyNestedAPI` for all nested APIs
-        self.canvas = MagicMock(spec=CanvasAPI)
-        self.canvas.industrial = MagicMock(spec_set=IndustrialCanvasAPI)
+        self.canvas = MagicMock(spec_set=IndustrialCanvasAPI)
         self.charts = MagicMock(spec_set=ChartsAPI)
         self.infield = MagicMock(spec=InfieldAPI)
         self.infield.apm_config = MagicMock(spec_set=APMConfigAPI)
@@ -170,6 +170,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.functions.schedules = MagicMock(spec_set=FunctionSchedulesAPI)
         self.tool.groups = MagicMock(spec_set=GroupsAPI)
         self.tool.search_configurations = MagicMock(spec_set=SearchConfigurationsAPI)
+        self.tool.signal_sinks = MagicMock(spec_set=SignalSinksAPI)
         self.tool.simulators = MagicMock(spec=SimulatorsAPI)
         self.tool.simulators.models = MagicMock(spec_set=SimulatorModelsAPI)
         self.tool.simulators.model_revisions = MagicMock(spec_set=SimulatorModelRevisionsAPI)

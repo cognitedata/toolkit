@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     WrappedInstanceListResponse,
     WrappedInstanceRequest,
     WrappedInstanceResponse,
-    move_properties,
+    move_response_properties,
 )
 from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 
@@ -44,7 +44,7 @@ class DataExplorationConfig(BaseModelObject):
     @model_validator(mode="before")
     @classmethod
     def move_properties(cls, data: dict[str, Any]) -> dict[str, Any]:
-        return move_properties(data, cls.VIEW_ID)
+        return move_response_properties(data, cls.VIEW_ID)
 
 
 class InFieldLocationConfig(BaseModelObject):
@@ -149,13 +149,20 @@ class InFieldLocationConfigResponse(WrappedInstanceListResponse, InFieldLocation
         return output
 
 
+class DataStorage(BaseModelObject):
+    """Data storage configuration."""
+
+    root_location: dict[str, JsonValue] | None = None
+    app_instance_space: str | None = None
+
+
 class InFieldCDMLocationConfig(BaseModelObject):
     name: str | None = None
     description: str | None = None
     feature_toggles: dict[str, JsonValue] | None = None
     access_management: dict[str, JsonValue] | None = None
     data_filters: dict[str, JsonValue] | None = None
-    data_storage: dict[str, JsonValue] | None = None
+    data_storage: DataStorage | None = None
     view_mappings: dict[str, JsonValue] | None = None
     disciplines: list[dict[str, JsonValue]] | None = None
     data_exploration_config: dict[str, JsonValue] | None = None

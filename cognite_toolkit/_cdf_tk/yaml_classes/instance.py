@@ -24,6 +24,10 @@ class NodeType(BaseModelResource):
         pattern=INSTANCE_EXTERNAL_ID_PATTERN,
     )
 
+    def as_id(self) -> NodeId:
+        """Convert to a NodeId identifier."""
+        return NodeId(space=self.space, external_id=self.external_id)
+
 
 class InstanceSource(BaseModelResource):
     source: ViewReference | ContainerReference = Field(

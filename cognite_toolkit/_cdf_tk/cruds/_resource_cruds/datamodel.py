@@ -17,19 +17,15 @@ import re
 import sys
 import time
 from collections import defaultdict
-from collections.abc import Hashable, Iterable, Sequence
+from collections.abc import Hashable, Iterable, Mapping, Sequence
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from time import sleep
 from typing import Any, final
 
 from cognite.client import data_modeling as dm
+from cognite.client.data_classes import capabilities as cap
 from cognite.client.data_classes import filters
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    DataModelInstancesAcl,
-    DataModelsAcl,
-)
 from rich import print
 from rich.console import Console
 from rich.markup import escape
@@ -58,33 +54,49 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerResponse,
     DataModelRequest,
     DataModelResponse,
-    DirectNodeRelation,
     EdgeRequest,
     EdgeResponse,
     NodeRequest,
     NodeResponse,
-    RequiresConstraintDefinition,
     SpaceRequest,
     SpaceResponse,
+    View,
     ViewCorePropertyResponse,
     ViewRequest,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    DirectNodeRelation as ClientDirectNodeRelation,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    RequiresConstraintDefinition as ClientRequiresConstraintDefinition,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._view_property import (
+    EdgeProperty,
+    ReverseDirectRelationProperty,
+    ViewCorePropertyRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
     GraphQLDataModelRequest,
     GraphQLDataModelResponse,
 )
-from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HAS_DATA_FILTER_LIMIT
+from cognite_toolkit._cdf_tk.constants import (
+    BUILD_FOLDER_ENCODING,
+    HAS_DATA_FILTER_LIMIT,
+    VIEW_UPSERT_BATCH_LIMIT,
+)
 from cognite_toolkit._cdf_tk.cruds._base_cruds import (
     ResourceContainerCRUD,
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
     calculate_hash,
+    humanize_collection,
     in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
@@ -93,6 +105,7 @@ from cognite_toolkit._cdf_tk.utils import (
     to_diff,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.utils.tarjan import tarjan
 from cognite_toolkit._cdf_tk.yaml_classes import (
     ContainerYAML,
     DataModelYAML,
@@ -100,10 +113,18 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
     GraphQLDataModelYAML,
     NodeYAML,
     SpaceYAML,
-    ToolkitResource,
     ViewYAML,
 )
-from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import ContainerViewProperty
+from cognite_toolkit._cdf_tk.yaml_classes.container_field_definitions import (
+    DirectNodeRelation,
+    RequiresConstraintDefinition,
+)
+from cognite_toolkit._cdf_tk.yaml_classes.view_field_definitions import (
+    ContainerViewProperty,
+    EdgeConnectionDefinition,
+    ReverseDirectRelationConnectionDefinition,
+    ViewReference,
+)
 
 from .auth import GroupAllScopedCRUD
 
@@ -131,13 +152,17 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceId, SpaceRequest, SpaceResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[SpaceRequest] | None, read_only: bool
-    ) -> list[Capability] | list[Capability]:
+    ) -> list[cap.Capability] | list[cap.Capability]:
         if not items and items is not None:
             return []
 
-        actions = [DataModelsAcl.Action.Read] if read_only else [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write]
+        actions = (
+            [cap.DataModelsAcl.Action.Read]
+            if read_only
+            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
+        )
 
-        return [DataModelsAcl(actions, DataModelsAcl.Scope.All())]
+        return [cap.DataModelsAcl(actions, cap.DataModelsAcl.Scope.All())]
 
     @classmethod
     def get_id(cls, item: SpaceRequest | SpaceResponse | dict) -> SpaceId:
@@ -200,7 +225,7 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceId, SpaceRequest, SpaceResponse]):
         if space:
             yield from self.client.tool.spaces.retrieve([SpaceId(space=space)])
         else:
-            for batch in self.client.tool.spaces.iterate():
+            for batch in self.client.tool.spaces.iterate(limit=None):
                 yield from batch
 
     def count(self, ids: Sequence[SpaceId]) -> int:
@@ -230,14 +255,14 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceId, SpaceRequest, SpaceResponse]):
         if not spaces:
             return
         filter_ = InstanceFilter(instance_type="node", space=spaces)
-        for instances in self.client.tool.instances.iterate(filter=filter_):
+        for instances in self.client.tool.instances.iterate(filter=filter_, limit=None):
             yield [inst.as_id() for inst in instances]  # type: ignore[misc]
 
     def _iterate_over_edges(self, spaces: list[str]) -> Iterable[list[EdgeId]]:
         if not spaces:
             return
         filter_ = InstanceFilter(instance_type="edge", space=spaces)
-        for instances in self.client.tool.instances.iterate(filter=filter_):
+        for instances in self.client.tool.instances.iterate(filter=filter_, limit=None):
             yield [inst.as_id() for inst in instances]  # type: ignore[misc]
 
 
@@ -269,19 +294,23 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerRequest, Contain
     @classmethod
     def get_required_capability(
         cls, items: Sequence[ContainerRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
-        actions = [DataModelsAcl.Action.Read] if read_only else [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write]
-
-        scope = (
-            DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else DataModelsAcl.Scope.All()
+        actions = (
+            [cap.DataModelsAcl.Action.Read]
+            if read_only
+            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
         )
 
-        return DataModelsAcl(actions, scope)
+        scope = (
+            cap.DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
+            if items is not None
+            else cap.DataModelsAcl.Scope.All()
+        )
+
+        return cap.DataModelsAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: ContainerRequest | ContainerResponse | dict) -> ContainerId:
@@ -314,6 +343,29 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerRequest, Contain
                             ContainerCRUD,
                             ContainerId(space=container["space"], external_id=container["externalId"]),
                         )
+
+    @classmethod
+    def get_dependencies(cls, resource: ContainerYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        """Get all external dependencies for a Container resource.
+
+        This includes:
+        - Space dependency
+        - Container dependencies from DirectNodeRelation properties
+        - Container dependencies from RequiresConstraintDefinition constraints
+        """
+        yield SpaceCRUD, SpaceId(space=resource.space)
+
+        # Property-level dependencies
+        if resource.properties:
+            for prop in resource.properties.values():
+                if isinstance(prop.type, DirectNodeRelation) and prop.type.container:
+                    yield ContainerCRUD, prop.type.container.as_id()
+
+        # Constraint-level dependencies
+        if resource.constraints:
+            for constraint in resource.constraints.values():
+                if isinstance(constraint, RequiresConstraintDefinition):
+                    yield ContainerCRUD, constraint.require.as_id()
 
     def dump_resource(self, resource: ContainerResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
@@ -402,7 +454,9 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerRequest, Contain
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ContainerResponse]:
-        for batch in self.client.tool.containers.iterate(filter=ContainerFilter(space=space) if space else None):
+        for batch in self.client.tool.containers.iterate(
+            filter=ContainerFilter(space=space) if space else None, limit=None
+        ):
             yield from batch
 
     def count(self, ids: Sequence[ContainerId]) -> int:
@@ -474,11 +528,11 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerRequest, Contain
         container_dependencies: dict[ContainerId, set[ContainerId]] = defaultdict(set)
         for container_id, container in containers_by_id.items():
             for constraint in (container.constraints or {}).values():
-                if not isinstance(constraint, RequiresConstraintDefinition):
+                if not isinstance(constraint, ClientRequiresConstraintDefinition):
                     continue
                 container_dependencies[container_id].add(constraint.require)
             for property in container.properties.values():
-                if not isinstance(property.type, DirectNodeRelation) or property.type.container is None:
+                if not isinstance(property.type, ClientDirectNodeRelation) or property.type.container is None:
                     continue
                 container_dependencies[container_id].add(property.type.container)
         return container_dependencies
@@ -555,19 +609,23 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[ViewRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
-        actions = [DataModelsAcl.Action.Read] if read_only else [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write]
-
-        scope = (
-            DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else DataModelsAcl.Scope.All()
+        actions = (
+            [cap.DataModelsAcl.Action.Read]
+            if read_only
+            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
         )
 
-        return DataModelsAcl(actions, scope)
+        scope = (
+            cap.DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
+            if items is not None
+            else cap.DataModelsAcl.Scope.All()
+        )
+
+        return cap.DataModelsAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: ViewRequest | ViewResponse | dict) -> ViewId:
@@ -584,16 +642,32 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
         return id.dump()
 
     @classmethod
-    def get_dependencies(cls, resource: ViewYAML) -> Iterable[tuple[type[ToolkitResource], Identifier]]:
+    def get_dependencies(cls, resource: ViewYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
 
-        yield SpaceYAML, SpaceId(space=resource.space)
+        yield SpaceCRUD, SpaceId(space=resource.space)
 
         for implement in resource.implements or []:
-            yield ViewYAML, implement.as_id()
+            yield ViewCRUD, implement.as_id()
+
         if resource.properties:
             for prop in resource.properties.values():
                 if isinstance(prop, ContainerViewProperty):
-                    yield ContainerYAML, prop.container.as_id()
+                    yield ContainerCRUD, prop.container.as_id()
+                    if prop.source:
+                        yield ViewCRUD, prop.source.as_id()
+
+                elif isinstance(prop, EdgeConnectionDefinition):
+                    yield ViewCRUD, prop.source.as_id()
+                    if prop.edge_source:
+                        yield ViewCRUD, prop.edge_source.as_id()
+
+                elif isinstance(prop, ReverseDirectRelationConnectionDefinition):
+                    yield ViewCRUD, prop.source.as_id()
+                    if prop.through.source:
+                        yield (
+                            (ViewCRUD if isinstance(prop.through.source, ViewReference) else ContainerCRUD),
+                            prop.through.source.as_id(),
+                        )
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -706,6 +780,8 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
+        if Flags.DEPENDENCY_ORDERED_DEPLOY.is_enabled():
+            return self._create_dependency_ordered(items)
         try:
             return self.client.tool.views.create(items)
         except ToolkitAPIError as e1:
@@ -713,6 +789,66 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
                 # Fallback to creating one by one if the error is auto-retryable.
                 return self._fallback_create_one_by_one(items, e1)
             raise
+
+    def _create_dependency_ordered(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
+        creation_order = self._compute_deploy_batches(items)
+        created: list[ViewResponse] = []
+        for batch in creation_order:
+            try:
+                created.extend(self.client.tool.views.create(batch))
+            except ToolkitAPIError as e:
+                if e.is_auto_retryable:
+                    created.extend(self._fallback_create_one_by_one(batch, e))
+                else:
+                    raise
+        return created
+
+    def _compute_deploy_batches(self, items: Sequence[ViewRequest]) -> list[list[ViewRequest]]:
+        """Sorts views into batches based on their dependency graph (implements, reverse direct relations,
+        and direct relation sources).
+
+        Computes the strongly connected components in topological order, then packs
+        consecutive SCCs into batches up to VIEW_UPSERT_BATCH_LIMIT.
+        """
+        views_by_id = {self.get_id(item): item for item in items}
+
+        self._sort_implements_or_raise_cycle(views_by_id)
+
+        dependencies_by_id: dict[ViewId, set[ViewId]] = defaultdict(set)
+        for view_id, view in views_by_id.items():
+            dependencies_by_id[view_id].update([parent for parent in view.implements or [] if parent in views_by_id])
+            for view_property in (view.properties or {}).values():
+                if isinstance(view_property, ReverseDirectRelationProperty):
+                    if view_property.source in views_by_id:
+                        dependencies_by_id[view_id].add(view_property.source)
+                    through_source = view_property.through.source
+                    if isinstance(through_source, ViewId) and through_source in views_by_id:
+                        dependencies_by_id[view_id].add(through_source)
+                elif isinstance(view_property, EdgeProperty):
+                    if view_property.source in views_by_id:
+                        dependencies_by_id[view_id].add(view_property.source)
+                    if view_property.edge_source is not None and view_property.edge_source in views_by_id:
+                        dependencies_by_id[view_id].add(view_property.edge_source)
+                elif isinstance(view_property, ViewCorePropertyRequest) and view_property.source is not None:
+                    if view_property.source in views_by_id:
+                        dependencies_by_id[view_id].add(view_property.source)
+
+        batches: list[list[ViewRequest]] = []
+        current_batch: list[ViewRequest] = []
+        for strongly_connected in tarjan(dependencies_by_id):
+            scc_views = [views_by_id[view_id] for view_id in strongly_connected]
+            if len(current_batch) + len(scc_views) > VIEW_UPSERT_BATCH_LIMIT and len(current_batch) > 0:
+                batches.append(current_batch)
+                current_batch = []
+            current_batch.extend(scc_views)
+            if len(scc_views) > VIEW_UPSERT_BATCH_LIMIT:
+                MediumSeverityWarning(
+                    f"Found a strongly interdependent set of {len(scc_views)} views: {humanize_collection(self.get_ids(scc_views))}. "
+                    "This might indicate a data model design issue, and the deployment might fail due to API batch size limits."
+                ).print_warning(console=self.console)
+        if len(current_batch) > 0:
+            batches.append(current_batch)
+        return batches
 
     def _fallback_create_one_by_one(
         self, items: Sequence[ViewRequest], e1: ToolkitAPIError, warn: bool = True
@@ -763,7 +899,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ViewResponse]:
-        for batch in self.client.tool.views.iterate(filter=ViewFilter(space=space) if space else None):
+        for batch in self.client.tool.views.iterate(filter=ViewFilter(space=space, all_versions=True), limit=None):
             yield from batch
 
     @classmethod
@@ -799,8 +935,9 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
                 readonly_properties.add(property_identifier)
         return readonly_properties
 
+    @staticmethod
     def _build_view_implements_dependencies(
-        self, view_by_ids: dict[ViewId, ViewResponse], include: set[ViewId] | None = None
+        view_by_ids: Mapping[ViewId, View], include: set[ViewId] | None = None
     ) -> dict[ViewId, set[ViewId]]:
         """Build a dependency graph based on view implements relationships.
 
@@ -819,19 +956,27 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
                     dependencies[view_id].add(implemented_view_id)
         return dependencies
 
+    @staticmethod
+    def _sort_implements_or_raise_cycle(
+        view_by_ids: Mapping[ViewId, View],
+    ) -> list[ViewId]:
+        """Builds the implements dependency graph and returns views in topological order.
+
+        Raises ToolkitCycleError if there is a cycle in implements.
+        """
+        parents_by_child = ViewCRUD._build_view_implements_dependencies(view_by_ids)
+        try:
+            # static_order() returns a lazy generator in Python 3.11+; must be consumed to trigger CycleError
+            return list(TopologicalSorter(parents_by_child).static_order())
+        except CycleError as e:
+            raise ToolkitCycleError(
+                f"Failed to sort views topologically. This is likely due to a cycle in implements. {e.args[1]}"
+            )
+
     def topological_sort_implements(self, view_ids: list[ViewId]) -> list[ViewId]:
         """Sorts the views in topological order based on their implements and through properties."""
         view_by_ids = self._lookup_views(view_ids)
-        parents_by_child = self._build_view_implements_dependencies(view_by_ids)
-
-        try:
-            sorted_views = list(TopologicalSorter(parents_by_child).static_order())
-        except CycleError as e:
-            raise ToolkitCycleError(
-                f"Failed to sort views topologically. This likely due to a cycle in implements. {e.args[1]}"
-            )
-
-        return sorted_views
+        return self._sort_implements_or_raise_cycle(view_by_ids)
 
     def topological_sort_container_constraints(self, view_ids: list[ViewId]) -> tuple[list[ViewId], list[ViewId]]:
         """Sorts the views in topological order based on their container constraints.
@@ -912,19 +1057,23 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelRequest, DataModelRespons
     @classmethod
     def get_required_capability(
         cls, items: Sequence[DataModelRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
-        actions = [DataModelsAcl.Action.Read] if read_only else [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write]
-
-        scope = (
-            DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else DataModelsAcl.Scope.All()
+        actions = (
+            [cap.DataModelsAcl.Action.Read]
+            if read_only
+            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
         )
 
-        return DataModelsAcl(actions, scope)
+        scope = (
+            cap.DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
+            if items is not None
+            else cap.DataModelsAcl.Scope.All()
+        )
+
+        return cap.DataModelsAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: DataModelRequest | DataModelResponse | dict) -> DataModelId:
@@ -938,6 +1087,19 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelRequest, DataModelRespons
     @classmethod
     def dump_id(cls, id: DataModelId) -> dict[str, Any]:
         return id.dump()
+
+    @classmethod
+    def get_dependencies(cls, resource: DataModelYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        """Get all external dependencies for a DataModel resource.
+
+        This includes:
+        - Space dependency
+        - View dependencies
+        """
+        yield SpaceCRUD, SpaceId(space=resource.space)
+
+        for view in resource.views or []:
+            yield ViewCRUD, view.as_id()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -1027,7 +1189,9 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelRequest, DataModelRespons
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[DataModelResponse]:
-        for batch in self.client.tool.data_models.iterate(filter=DataModelFilter(space=space, include_global=False)):
+        for batch in self.client.tool.data_models.iterate(
+            filter=DataModelFilter(space=space, include_global=False, all_versions=True), limit=None
+        ):
             yield from batch
 
     @classmethod
@@ -1065,21 +1229,21 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeRequest, NodeResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[NodeRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [DataModelInstancesAcl.Action.Read]
+            [cap.DataModelInstancesAcl.Action.Read]
             if read_only
-            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
         )
 
-        return DataModelInstancesAcl(
+        return cap.DataModelInstancesAcl(
             actions,
-            DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items}))
+            cap.DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items}))
             if items is not None
-            else DataModelInstancesAcl.Scope.All(),
+            else cap.DataModelInstancesAcl.Scope.All(),
         )
 
     @classmethod
@@ -1094,6 +1258,23 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeRequest, NodeResponse]):
     @classmethod
     def dump_id(cls, id: NodeId) -> dict[str, Any]:
         return id.dump()
+
+    @classmethod
+    def get_dependencies(cls, resource: NodeYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        """Get all external dependencies for a Node resource.
+
+        This includes:
+        - Space dependency
+        - View or Container dependencies from sources
+        """
+        yield SpaceCRUD, SpaceId(space=resource.space)
+
+        for source in resource.sources or []:
+            if source.source:
+                yield (ViewCRUD if isinstance(source.source, ViewReference) else ContainerCRUD), source.source.as_id()
+
+        if resource.type:
+            yield NodeCRUD, resource.type.as_id()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -1186,7 +1367,7 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeRequest, NodeResponse]):
             space=[space] if space else None,
             source=source_ref,
         )
-        for batch in self.client.tool.instances.iterate(filter=filter_):
+        for batch in self.client.tool.instances.iterate(filter=filter_, limit=None):
             for inst in batch:
                 if isinstance(inst, NodeResponse):
                     yield inst
@@ -1240,16 +1421,29 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, Gr
     @classmethod
     def get_required_capability(
         cls, items: Sequence[GraphQLDataModelRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
-        actions = [DataModelsAcl.Action.Read] if read_only else [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write]
-        return DataModelsAcl(
-            actions,
-            DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else DataModelsAcl.Scope.All(),
+        actions = (
+            [cap.DataModelsAcl.Action.Read]
+            if read_only
+            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
         )
+        return cap.DataModelsAcl(
+            actions,
+            cap.DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
+            if items is not None
+            else cap.DataModelsAcl.Scope.All(),
+        )
+
+    @classmethod
+    def get_dependencies(cls, resource: GraphQLDataModelYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        """Get all external dependencies for a GraphQL DataModel resource.
+
+        This includes:
+        - Space dependency
+        """
+        yield SpaceCRUD, SpaceId(space=resource.space)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -1374,7 +1568,7 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, Gr
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[GraphQLDataModelResponse]:
         filter_ = DataModelFilter(space=space) if space else None
-        for batch in self.client.tool.graphql_data_models.iterate(filter=filter_):
+        for batch in self.client.tool.graphql_data_models.iterate(filter=filter_, limit=None):
             yield from batch
 
     def count(self, ids: Sequence[DataModelId]) -> int:
@@ -1424,21 +1618,21 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeRequest, EdgeResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[EdgeRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [DataModelInstancesAcl.Action.Read]
+            [cap.DataModelInstancesAcl.Action.Read]
             if read_only
-            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
         )
 
-        return DataModelInstancesAcl(
+        return cap.DataModelInstancesAcl(
             actions,
-            DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items}))
+            cap.DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items}))
             if items is not None
-            else DataModelInstancesAcl.Scope.All(),
+            else cap.DataModelInstancesAcl.Scope.All(),
         )
 
     @classmethod
@@ -1457,6 +1651,25 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeRequest, EdgeResponse]):
     @classmethod
     def as_str(cls, id: EdgeId) -> str:
         return sanitize_filename(f"{id.space}_{id.external_id}")
+
+    @classmethod
+    def get_dependencies(cls, resource: EdgeYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        """Get all external dependencies for an Edge resource.
+
+        This includes:
+        - Space dependency
+        - View or Container dependencies from sources
+        - Start, end, and type Node dependencies
+        """
+        yield SpaceCRUD, SpaceId(space=resource.space)
+
+        for source in resource.sources or []:
+            if source.source:
+                yield (ViewCRUD if isinstance(source.source, ViewReference) else ContainerCRUD), source.source.as_id()
+
+        yield NodeCRUD, resource.start_node.as_id()
+        yield NodeCRUD, resource.end_node.as_id()
+        yield NodeCRUD, resource.type.as_id()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -1542,7 +1755,7 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeRequest, EdgeResponse]):
             instance_type="edge",
             space=[space] if space else None,
         )
-        for batch in self.client.tool.instances.iterate(filter=filter_):
+        for batch in self.client.tool.instances.iterate(filter=filter_, limit=None):
             for inst in batch:
                 if isinstance(inst, EdgeResponse):
                     yield inst
