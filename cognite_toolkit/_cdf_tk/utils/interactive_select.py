@@ -11,7 +11,6 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     Asset,
     UserProfileList,
-    filters,
 )
 from cognite.client.data_classes.aggregations import Count
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
@@ -23,6 +22,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawTableId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter, ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.canvas import IndustrialCanvasResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse, Visibility
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerId,
@@ -34,7 +34,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import Canvas
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
@@ -300,18 +299,6 @@ class CanvasFilter:
     created_by: Literal["user"] | None = None
     select_all: bool = False
 
-    def as_dms_filter(self) -> filters.Filter:
-        canvas_id = Canvas.get_source()
-        leaf_filters: list[filters.Filter] = [
-            filters.Not(filters.Equals(canvas_id.as_property_ref("isArchived"), True)),
-            # When sourceCanvasId is not set, we get the newest version of the canvas
-            filters.Not(filters.Exists(canvas_id.as_property_ref("sourceCanvasId"))),
-        ]
-        if self.visibility is not None:
-            leaf_filters.append(filters.Equals(canvas_id.as_property_ref("visibility"), self.visibility))
-
-        return filters.And(*leaf_filters)
-
 
 class InteractiveCanvasSelect:
     opening_choices: ClassVar[list[questionary.Choice]] = [
@@ -339,13 +326,13 @@ class InteractiveCanvasSelect:
         return user_response
 
     def _select_external_ids(self, select_filter: CanvasFilter) -> list[str]:
-        available_canvases = self.client.canvas.list(filter=select_filter.as_dms_filter(), limit=-1)
+        available_canvases = self.client.canvas.list(visibility=select_filter.visibility, limit=None)
         if select_filter.select_all and select_filter.created_by is None:
             return [canvas.external_id for canvas in available_canvases]
         users = self.client.iam.user_profiles.list(limit=-1)
         display_name_by_user_identifier = {user.user_identifier: user.display_name or "missing" for user in users}
         if select_filter.created_by == "user":
-            canvas_by_user: dict[str, list[Canvas]] = defaultdict(list)
+            canvas_by_user: dict[str, list[IndustrialCanvasResponse]] = defaultdict(list)
             for canvas in available_canvases:
                 canvas_by_user[canvas.created_by].append(canvas)
 

@@ -33,6 +33,8 @@ METHOD_MAP: dict[APIMethod, Endpoint] = {
     "list": Endpoint(method="POST", path="/models/instances/list", item_limit=1000),
 }
 QUERY_ENDPOINT = Endpoint(method="POST", path="/models/instances/query", item_limit=1000)
+INSTANCE_UPSERT_ENDPOINT = METHOD_MAP["upsert"]
+INSTANCE_DELETE_ENDPOINT = METHOD_MAP["delete"]
 
 
 class InstancesAPI(CDFResourceAPI[InstanceResponse]):
