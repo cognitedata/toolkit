@@ -18,6 +18,7 @@ class _StubResource(ToolkitResource):
     external_id: str = Field(description="The external ID.")
     name: str = Field(description="The name.")
     runtime: str = Field(default="py311", description="Runtime version.")
+    metadata: dict[str, str] | None = Field(default=None, description="Metadata.")
     description: str | None = Field(default=None, description="Optional description.")
 
     def as_id(self) -> ExternalId:
@@ -185,12 +186,19 @@ class TestResourcesCreateCommand:
         # Optional null field
         assert parsed["description"] is None
 
-        # All YAML lines have an inline comment
-        for line in yaml_lines:
-            assert "  #" in line, f"Missing comment on line: {line!r}"
+        # Every field's first YAML line has an inline comment
+        first_lines = [line for line in lines if not line.startswith("#") and line.strip() and not line.startswith(" ")]
+        for line in first_lines:
+            assert "  #" in line, f"Missing comment on first line: {line!r}"
+
+        # Multi-line values (e.g. dict) have the comment only on the first line
+        metadata_lines = [line for line in lines if "metadata" in line]
+        assert any("  #" in line for line in metadata_lines), "metadata key line should have a comment"
+        continuation_lines = [line for line in metadata_lines if line.startswith(" ")]
+        assert all("  #" not in line for line in continuation_lines), "continuation lines should not have comments"
 
         # Ordering: required → optional with value → optional null
-        field_names = [line.split(":")[0].strip() for line in yaml_lines]
+        field_names = [line.split(":")[0].strip() for line in first_lines]
         assert field_names.index("externalId") < field_names.index("runtime") < field_names.index("description")
 
     def test_create_interactive_kind_selection_abort(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:

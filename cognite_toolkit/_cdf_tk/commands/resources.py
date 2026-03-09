@@ -1,7 +1,8 @@
 import difflib
 import inspect
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, cast
+from typing import Any, cast
 
 import questionary
 import typer
@@ -124,8 +125,11 @@ class ResourcesCommand(ToolkitCommand):
 
         for group in (required_fields, optional_with_value, optional_null):
             for name, value, comment in group:
-                yaml_line = yaml.safe_dump({name: value}, allow_unicode=True, sort_keys=False).rstrip("\n")
-                lines.append(f"{yaml_line}  {comment}")
+                yaml_block = yaml.safe_dump({name: value}, allow_unicode=True, sort_keys=False).rstrip("\n")
+                # Add comment to the first line of the YAML block
+                block_lines = yaml_block.split("\n")
+                block_lines[0] = f"{block_lines[0]}  {comment}"
+                lines.append("\n".join(block_lines))
 
         return "\n".join(lines) + "\n"
 
