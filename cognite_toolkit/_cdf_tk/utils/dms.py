@@ -12,7 +12,7 @@ def serialize_dms(
         The serialized value.
     """
     if isinstance(value, datetime):
-        return _dms_datetime_iso(value)
+        return dms_datetime_iso(value)
     elif isinstance(value, date):
         return value.isoformat()
     elif isinstance(value, list):
@@ -21,7 +21,7 @@ def serialize_dms(
         return value
 
 
-def _dms_datetime_iso(value: datetime) -> str:
+def dms_datetime_iso(value: datetime) -> str:
     """Serializes a datetime value to ISO format for DMS.
 
     Note that .isoformat() does not create the correct format.

@@ -1,15 +1,15 @@
 from datetime import datetime, timezone
 
 import pytest
-from cognite.client import data_modeling as dm
 from cognite.client.data_classes import EventList, EventWrite, EventWriteList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
-    CanvasAnnotationApply,
-    CanvasApply,
-    ContainerReferenceApply,
-    IndustrialCanvasApply,
+from cognite_toolkit._cdf_tk.client.identifiers import NodeId
+from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
+    CANVAS_INSTANCE_SPACE,
+    CanvasAnnotationItem,
+    ContainerReferenceItem,
+    IndustrialCanvasRequest,
 )
 from tests.test_integration.helpers import retry_on_deadlock
 
@@ -35,19 +35,17 @@ def three_events(toolkit_client: ToolkitClient) -> EventList:
     return existing
 
 
-def create_canvas(three_events: EventList) -> IndustrialCanvasApply:
-    return IndustrialCanvasApply(
-        canvas=CanvasApply(
-            external_id="efc2de9d-27a5-4a3b-9779-dff11c572610",
-            name="ToolkitTestData",
-            created_by="ndTFZh9K9-m2W9WBKc30-Q",
-            updated_at=datetime(2025, 6, 28, 10, 24, 34, tzinfo=timezone.utc),
-            updated_by="ndTFZh9K9-m2W9WBKc30-Q",
-            visibility="private",
-            context=[{"type": "FILTERS", "payload": {"filters": []}}],
-        ),
+def create_canvas(three_events: EventList) -> IndustrialCanvasRequest:
+    return IndustrialCanvasRequest(
+        external_id="efc2de9d-27a5-4a3b-9779-dff11c572610",
+        name="ToolkitTestData",
+        created_by="ndTFZh9K9-m2W9WBKc30-Q",
+        updated_at=datetime(2025, 6, 28, 10, 24, 34, tzinfo=timezone.utc),
+        updated_by="ndTFZh9K9-m2W9WBKc30-Q",
+        visibility="private",
+        context=[{"type": "FILTERS", "payload": {"filters": []}}],
         annotations=[
-            CanvasAnnotationApply(
+            CanvasAnnotationItem(
                 external_id="efc2de9d-27a5-4a3b-9779-dff11c572610_4fba01d2-bcb7-4871-934f-0ab7e754bce9",
                 id_="4fba01d2-bcb7-4871-934f-0ab7e754bce9",
                 annotation_type="polylineAnnotation",
@@ -74,21 +72,17 @@ def create_canvas(three_events: EventList) -> IndustrialCanvasApply:
             ),
         ],
         container_references=[
-            ContainerReferenceApply(
+            ContainerReferenceItem(
                 external_id="efc2de9d-27a5-4a3b-9779-dff11c572610_5befa8e5-cdcf-4292-a6f9-ed176f9fb73c",
                 container_reference_type="event",
                 resource_id=three_events[0].id,
                 id_="5befa8e5-cdcf-4292-a6f9-ed176f9fb73c",
-                resource_sub_id=None,
-                charts_id=None,
                 label=three_events[0].external_id,
                 properties_={"zIndex": 0, "unscaledWidth": 600, "unscaledHeight": 500},
                 x=-287,
                 y=-303,
                 width=600,
                 height=500,
-                max_width=None,
-                max_height=None,
             )
         ],
     )
@@ -96,29 +90,40 @@ def create_canvas(three_events: EventList) -> IndustrialCanvasApply:
 
 class TestIndustrialCanvasAPI:
     def test_retrieve_non_existing(self, toolkit_client: ToolkitClient) -> None:
-        result = toolkit_client.canvas.industrial.retrieve("non-existing-canvas")
-        assert result is None, "Expected None when retrieving a non-existing canvas"
+        result = toolkit_client.canvas.retrieve(
+            [NodeId(space=CANVAS_INSTANCE_SPACE, external_id="non-existing-canvas")]
+        )
+        assert result == []
 
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient, three_events: EventList) -> None:
         canvas = create_canvas(three_events)
 
-        deleted: list[dm.NodeId | dm.EdgeId] | None = None
+        deleted = False
         try:
-            created = toolkit_client.canvas.industrial.create(canvas)
-            assert set(created.as_ids()) == set(canvas.as_instance_ids(include_solution_tags=True))
+            created = toolkit_client.canvas.create([canvas])
+            assert len(created) == 1
 
             # Remove annotation
-            canvas.annotations = []
-            updated = toolkit_client.canvas.industrial.update(canvas)
-            assert set(updated.as_ids()) == set(canvas.as_instance_ids(include_solution_tags=True))
+            canvas.annotations = None
+            updated = toolkit_client.canvas.update([canvas])
+            assert len(updated) == 1
 
-            retrieved = toolkit_client.canvas.industrial.retrieve(canvas.as_id())
+            retrieved_list = toolkit_client.canvas.retrieve([canvas.as_id()])
+            assert len(retrieved_list) == 1
+            retrieved = retrieved_list[0]
 
-            assert retrieved.as_write().dump(keep_existing_version=False) == canvas.dump(keep_existing_version=False)
+            assert retrieved.as_request_resource().dump() == canvas.model_dump(
+                mode="json", by_alias=True, exclude_unset=True, exclude={"annotations"}
+            )
 
-            deleted = retry_on_deadlock(lambda: toolkit_client.canvas.industrial.delete(canvas))
+            listed = toolkit_client.canvas.list(limit=10)
+            assert len(listed) >= 1, "Expected at least one canvas to be listed"
 
-            assert toolkit_client.canvas.retrieve(canvas.as_id()) is None
+            retry_on_deadlock(lambda: toolkit_client.canvas.delete([canvas.as_id()]))
+            deleted = True
+
+            assert toolkit_client.canvas.retrieve([canvas.as_id()]) == []
         finally:
-            if deleted is None:
-                toolkit_client.data_modeling.instances.delete_fast(canvas.as_instance_ids())
+            if not deleted:
+                ids = canvas.as_ids()
+                toolkit_client.tool.instances.delete(ids)

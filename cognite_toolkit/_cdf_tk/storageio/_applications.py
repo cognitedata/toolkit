@@ -1,28 +1,30 @@
 from collections.abc import Iterable, Sequence
-from itertools import zip_longest
+from itertools import chain
 from typing import Any
 
-from pydantic import JsonValue
+from cognite.client.data_classes.data_modeling import EdgeId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.api.instances import INSTANCE_DELETE_ENDPOINT, INSTANCE_UPSERT_ENDPOINT
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
-    HTTPResult,
     RequestMessage,
-    SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultList
-from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import (
-    IndustrialCanvas,
-    IndustrialCanvasApply,
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId, NodeId
+from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
+    CANVAS_INSTANCE_SPACE,
+    IndustrialCanvasRequest,
+    IndustrialCanvasResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Page, UploadableStorageIO, UploadItem
+from .logger import LogIssue
 from .selectors import (
     AllChartsSelector,
     CanvasExternalIdSelector,
@@ -138,7 +140,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
         return ChartRequest._load(item_json)
 
 
-class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialCanvasApply]):
+class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, IndustrialCanvasRequest]):
     """Download and upload Industrial Canvases to/from CDF.
 
     Args:
@@ -155,12 +157,15 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
     CHUNK_SIZE = 10
     BASE_SELECTOR = CanvasSelector
 
-    def __init__(self, client: ToolkitClient, exclude_existing_version: bool = True) -> None:
+    def __init__(
+        self, client: ToolkitClient, exclude_existing_version: bool = True, include_solution_tags: bool = True
+    ) -> None:
         super().__init__(client)
         self.exclude_existing_version = exclude_existing_version
+        self.include_solution_tags = include_solution_tags
 
-    def as_id(self, item: IndustrialCanvas) -> str:
-        return item.as_id()
+    def as_id(self, item: IndustrialCanvasResponse) -> str:
+        return item.external_id
 
     def stream_data(self, selector: CanvasSelector, limit: int | None = None) -> Iterable[Page]:
         if not isinstance(selector, CanvasExternalIdSelector):
@@ -170,16 +175,22 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
             canvas_ids = canvas_ids[:limit]
 
         for chunk in chunker_sequence(canvas_ids, self.CHUNK_SIZE):
-            items: list[IndustrialCanvas] = []
-            for canvas_id in chunk:
-                canvas = self.client.canvas.industrial.retrieve(canvas_id)
-                if canvas is not None:
-                    items.append(canvas)
-                else:
-                    MediumSeverityWarning("Canvas with external ID {canvas_id!r} not found. Skipping.").print_warning(
-                        console=self.client.console
-                    )
+            items = self.client.canvas.retrieve(NodeId.from_str_ids(chunk, space=CANVAS_INSTANCE_SPACE))
+            self._log_retrieve_issues(chunk, items)
             yield Page(worker_id="main", items=items)
+
+    def _log_retrieve_issues(self, chunk: tuple[str, ...], items: list[IndustrialCanvasResponse]) -> None:
+        found = {item.external_id for item in items}
+        not_found = sorted(set(chunk) - found)
+        if not_found:
+            self.logger.log(
+                [
+                    LogIssue(id=not_found_item, message=f"Did not find {not_found_item} in CDF")
+                    for not_found_item in not_found
+                ]
+            )
+            for not_found_item in not_found:
+                self.logger.tracker.finalize_item(str(not_found_item), "failure")
 
     def count(self, selector: CanvasSelector) -> int | None:
         if not isinstance(selector, CanvasExternalIdSelector):
@@ -188,76 +199,73 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
 
     def upload_items(
         self,
-        data_chunk: Sequence[UploadItem[IndustrialCanvasApply]],
+        data_chunk: Sequence[UploadItem[IndustrialCanvasRequest]],
         http_client: HTTPClient,
         selector: CanvasSelector | None = None,
     ) -> ItemsResultList:
-        config = http_client.config
+        existing_canvas = self.client.canvas.retrieve([item.item.as_id() for item in data_chunk])
+        existing_by_ids = {item.external_id: item for item in existing_canvas}
         results = ItemsResultList()
         for item in data_chunk:
-            instances = item.item.as_instances()
-            upsert_items: list[dict[str, JsonValue]] = []
-            for instance in instances:
-                dumped = instance.dump()
-                if self.exclude_existing_version:
-                    dumped.pop("existingVersion", None)
-                upsert_items.append(dumped)
+            item_id = item.item.as_id()
+            instances = item.item.dump_instances(include_solution_tags=self.include_solution_tags)
+            instance_ids = set(item.item.as_ids(include_solution_tags=self.include_solution_tags))
+            edges_to_delete: list[EdgeId] = []
+            nodes_to_delete: list[NodeId] = []
+            if item_id.external_id in existing_by_ids:
+                # We will never delete solution tags
+                existing_ids = existing_by_ids[item_id.external_id].as_ids(include_solution_tags=False)
+                for instance_id in existing_ids:
+                    if instance_id not in instance_ids:
+                        if isinstance(instance_id, EdgeId):
+                            edges_to_delete.append(instance_id)
+                        elif isinstance(instance_id, NodeId):
+                            nodes_to_delete.append(instance_id)
 
-            canvas = item.item.canvas
-            existing = self.client.canvas.industrial.retrieve(canvas.external_id)
-            if existing is not None:
-                existing_instance_ids = existing.as_write().as_instance_ids(include_solution_tags=False)
-                delete_set = set(existing_instance_ids) - set(item.item.as_instance_ids())
-                to_delete: list[Any] = [
-                    {
-                        "space": instance_id.space,
-                        "externalId": instance_id.external_id,
-                        "instanceType": instance_id.instance_type,
-                    }
-                    for instance_id in delete_set
-                ]
-            else:
-                to_delete = []
-
-            last_response: HTTPResult | None = None
-            for upsert_chunk, delete_chunk in zip_longest(
-                chunker_sequence(upsert_items, 1000), chunker_sequence(to_delete, 1000), fillvalue=None
-            ):
-                body_content: dict[str, JsonValue] = {}
-                if upsert_chunk:
-                    # MyPy fails do understand that list[dict[str, JsonValue]] is a subtype of JsonValue
-                    body_content["items"] = upsert_chunk  # type: ignore[assignment]
-                if delete_chunk:
-                    body_content["delete"] = delete_chunk
-
-                response = http_client.request_single_retries(
+            for instance_chunk in chunker_sequence(instances, INSTANCE_UPSERT_ENDPOINT.item_limit):
+                result = http_client.request_single_retries(
                     message=RequestMessage(
-                        endpoint_url=config.create_api_url("/models/instances"),
-                        method="POST",
-                        body_content=body_content,
+                        endpoint_url=http_client.config.create_api_url(INSTANCE_UPSERT_ENDPOINT.path),
+                        method=INSTANCE_UPSERT_ENDPOINT.method,
+                        body_content={"items": instance_chunk},  # type:ignore[dict-item]
                     )
                 )
-                if not isinstance(response, SuccessResponse):
-                    results.append(response.as_item_response(item.source_id))
-                last_response = response
-            if last_response is not None:
-                results.append(last_response.as_item_response(item.source_id))
+                results.append(result.as_item_response(item.source_id))
+
+            # It is possible to delete and create in the same request, but we keep this separate
+            # as there is a risk for deadlocks.
+            # We delete all edges before nodes to avoid a deadlock.
+            delete_chunk: list[InstanceDefinitionId]
+            for delete_chunk in chain(  # type: ignore[assignment]
+                chunker_sequence(edges_to_delete, INSTANCE_DELETE_ENDPOINT.item_limit),
+                chunker_sequence(nodes_to_delete, INSTANCE_DELETE_ENDPOINT.item_limit),
+            ):
+                result = http_client.request_single_retries(
+                    message=RequestMessage(
+                        endpoint_url=http_client.config.create_api_url(INSTANCE_DELETE_ENDPOINT.path),
+                        method=INSTANCE_DELETE_ENDPOINT.method,
+                        body_content={
+                            "items": [instance_id.dump() for instance_id in delete_chunk],
+                        },
+                    )
+                )
+                results.append(result.as_item_response(item.source_id))
         return results
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[IndustrialCanvas], selector: CanvasSelector | None = None
+        self, data_chunk: Sequence[IndustrialCanvasResponse], selector: CanvasSelector | None = None
     ) -> list[dict[str, JsonVal]]:
         self._populate_id_cache(data_chunk)
         return [self._dump_resource(canvas) for canvas in data_chunk]
 
-    def _populate_id_cache(self, data_chunk: Sequence[IndustrialCanvas]) -> None:
+    def _populate_id_cache(self, data_chunk: Sequence[IndustrialCanvasResponse]) -> None:
         """Populate the client's lookup cache with all referenced resources in the canvases."""
         asset_ids: set[int] = set()
         time_series_ids: set[int] = set()
         event_ids: set[int] = set()
         file_ids: set[int] = set()
         for canvas in data_chunk:
-            for container_ref in canvas.container_references:
+            for container_ref in canvas.container_references or []:
                 if container_ref.container_reference_type == "asset":
                     asset_ids.add(container_ref.resource_id)
                 elif container_ref.container_reference_type == "timeseries":
@@ -275,8 +283,8 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         if file_ids:
             self.client.lookup.files.external_id(list(file_ids))
 
-    def _dump_resource(self, canvas: IndustrialCanvas) -> dict[str, JsonVal]:
-        dumped = canvas.as_write().dump(keep_existing_version=False)
+    def _dump_resource(self, canvas: IndustrialCanvasResponse) -> dict[str, JsonVal]:
+        dumped = canvas.as_request_resource().dump()
         references = dumped.get("containerReferences", [])
         if not isinstance(references, list):
             return dumped
@@ -285,32 +293,18 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
             if not isinstance(container_ref, dict):
                 new_container_references.append(container_ref)
                 continue
-            sources = container_ref.get("sources", [])
-            if not isinstance(sources, list) or len(sources) == 0:
-                new_container_references.append(container_ref)
-                continue
-            source = sources[0]
-            if not isinstance(source, dict) or "properties" not in source:
-                new_container_references.append(container_ref)
-                continue
-            properties = source["properties"]
+            properties = self._get_properties(container_ref)
             if not isinstance(properties, dict):
                 new_container_references.append(container_ref)
                 continue
             reference_type = properties.get("containerReferenceType")
-            if (
-                reference_type
-                in {
-                    "charts",
-                    "dataGrid",
-                }
-            ):  # These container reference types are special cases with a resourceId statically set to -1, which is why we skip them
+            if reference_type in {"charts", "dataGrid"}:
                 new_container_references.append(container_ref)
                 continue
             resource_id = properties.pop("resourceId", None)
             if not isinstance(resource_id, int):
                 HighSeverityWarning(
-                    f"Invalid resourceId {resource_id!r} in Canvas {canvas.canvas.name}. Skipping."
+                    f"Invalid resourceId {resource_id!r} in Canvas {canvas.name}. Skipping."
                 ).print_warning(console=self.client.console)
                 continue
             if reference_type == "asset":
@@ -326,7 +320,7 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
                 continue
             if external_id is None:
                 HighSeverityWarning(
-                    f"Failed to look-up {reference_type} external ID for resource ID {resource_id!r}. Skipping resource in Canvas {canvas.canvas.name}"
+                    f"Failed to look-up {reference_type} external ID for resource ID {resource_id!r}. Skipping resource in Canvas {canvas.name}"
                 ).print_warning(console=self.client.console)
                 continue
             properties["resourceExternalId"] = external_id
@@ -336,9 +330,23 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
 
     def json_chunk_to_data(
         self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
-    ) -> Sequence[UploadItem[IndustrialCanvasApply]]:
+    ) -> Sequence[UploadItem[IndustrialCanvasRequest]]:
         self._populate_external_id_cache([item_json for _, item_json in data_chunk])
         return super().json_chunk_to_data(data_chunk)
+
+    @staticmethod
+    def _get_properties(container_ref: dict[str, Any]) -> dict[str, Any] | None:
+        """Extract properties from a container reference dict, handling both flat and DMS formats."""
+        sources = container_ref.get("sources", [])
+        if isinstance(sources, list) and len(sources) > 0:
+            source = sources[0]
+            if isinstance(source, dict) and "properties" in source:
+                properties = source["properties"]
+                if isinstance(properties, dict):
+                    return properties
+        if "containerReferenceType" in container_ref:
+            return container_ref
+        return None
 
     def _populate_external_id_cache(self, item_jsons: Sequence[dict[str, JsonVal]]) -> None:
         """Populate the client's lookup cache with all referenced resources in the canvases."""
@@ -353,13 +361,7 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
             for container_ref in references:
                 if not isinstance(container_ref, dict):
                     continue
-                sources = container_ref.get("sources", [])
-                if not isinstance(sources, list) or len(sources) == 0:
-                    continue
-                source = sources[0]
-                if not isinstance(source, dict) or "properties" not in source:
-                    continue
-                properties = source["properties"]
+                properties = self._get_properties(container_ref)
                 if not isinstance(properties, dict):
                     continue
 
@@ -386,28 +388,20 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         if file_external_ids:
             self.client.lookup.files.id(list(file_external_ids))
 
-    def json_to_resource(self, item_json: dict[str, JsonVal]) -> IndustrialCanvasApply:
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> IndustrialCanvasRequest:
         return self._load_resource(item_json)
 
-    def _load_resource(self, item_json: dict[str, JsonVal]) -> IndustrialCanvasApply:
+    def _load_resource(self, item_json: dict[str, JsonVal]) -> IndustrialCanvasRequest:
         name = self._get_name(item_json)
         references = item_json.get("containerReferences", [])
         if not isinstance(references, list):
-            return IndustrialCanvasApply._load(item_json)
+            return IndustrialCanvasRequest._load(item_json)
         new_container_references: list[Any] = []
         for container_ref in references:
             if not isinstance(container_ref, dict):
                 new_container_references.append(container_ref)
                 continue
-            sources = container_ref.get("sources", [])
-            if not isinstance(sources, list) or len(sources) == 0:
-                new_container_references.append(container_ref)
-                continue
-            source = sources[0]
-            if not isinstance(source, dict) or "properties" not in source:
-                new_container_references.append(container_ref)
-                continue
-            properties = source["properties"]
+            properties = self._get_properties(container_ref)
             if not isinstance(properties, dict):
                 new_container_references.append(container_ref)
                 continue
@@ -428,7 +422,6 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
                 new_container_references.append(container_ref)
                 continue
             if resource_id is None:
-                # Failed look-up, skip the resourceId setting
                 HighSeverityWarning(
                     f"Failed to look-up {reference_type} ID for external ID {resource_external_id!r}. Skipping resource in Canvas {name}"
                 ).print_warning(console=self.client.console)
@@ -438,10 +431,14 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvas, IndustrialC
         new_item = dict(item_json)
         new_item["containerReferences"] = new_container_references
 
-        return IndustrialCanvasApply._load(new_item)
+        return IndustrialCanvasRequest._load(new_item)
 
     @classmethod
     def _get_name(cls, item_json: dict[str, JsonVal]) -> str:
+        if "name" in item_json:
+            name = item_json["name"]
+            if isinstance(name, str):
+                return name
         try:
             return item_json["canvas"]["sources"][0]["properties"]["name"]  # type: ignore[index,return-value, call-overload]
         except (KeyError, IndexError, TypeError):
