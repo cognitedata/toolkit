@@ -39,9 +39,8 @@ from cognite.client.data_classes import (
     ClientCredentials,
     OidcCredentials,
 )
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    TransformationsAcl,
+from cognite.client.data_classes import (
+    capabilities as cap,
 )
 from rich import print
 from rich.console import Console
@@ -64,6 +63,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelId,
     SpaceId,
     ViewId,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetScope,
+    ScopeDefinition,
+    TransformationsAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     NonceCredentials,
@@ -98,6 +104,7 @@ from cognite_toolkit._cdf_tk.utils import (
     safe_read,
     sanitize_filename,
 )
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
@@ -160,21 +167,32 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
     @classmethod
     def get_required_capability(
         cls, items: Sequence[TransformationRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [TransformationsAcl.Action.Read]
+            [cap.TransformationsAcl.Action.Read]
             if read_only
-            else [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write]
+            else [cap.TransformationsAcl.Action.Read, cap.TransformationsAcl.Action.Write]
         )
-        scope: TransformationsAcl.Scope.All | TransformationsAcl.Scope.DataSet = TransformationsAcl.Scope.All()  # type: ignore[valid-type]
+        scope: cap.TransformationsAcl.Scope.All | cap.TransformationsAcl.Scope.DataSet = (  # type: ignore[valid-type]
+            cap.TransformationsAcl.Scope.All()
+        )
         if items is not None:
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = TransformationsAcl.Scope.DataSet(list(data_set_ids))
+                scope = cap.TransformationsAcl.Scope.DataSet(list(data_set_ids))
 
-        return TransformationsAcl(actions, scope)
+        return cap.TransformationsAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[TransformationRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield TransformationsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: TransformationResponse | TransformationRequest | dict) -> ExternalId:
@@ -616,10 +634,18 @@ class TransformationScheduleCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[TransformationScheduleRequest] | None, read_only: bool
-    ) -> list[Capability]:
+    ) -> list[cap.Capability]:
         # Access for transformations schedules is checked by the transformation that is deployed
         # first, so we don't need to check for any capabilities here.
         return []
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[TransformationScheduleRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     @classmethod
     def get_id(cls, item: TransformationScheduleResponse | TransformationScheduleRequest | dict) -> ExternalId:
@@ -735,10 +761,18 @@ class TransformationNotificationCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[TransformationNotificationRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         # Access for transformation notification is checked by the transformation that is deployed
         # first, so we don't need to check for any capabilities here.
         return []
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[TransformationNotificationRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     def dump_resource(
         self, resource: TransformationNotificationResponse, local: dict[str, Any] | None = None

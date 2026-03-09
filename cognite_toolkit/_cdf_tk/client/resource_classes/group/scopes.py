@@ -6,17 +6,37 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BeforeValidator, Field, TypeAdapter, field_serializer, field_validator
+from pydantic import BeforeValidator, ConfigDict, Field, TypeAdapter, field_serializer, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import SCOPE_NAME
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 
+def make_hashable(value: Any) -> Any:
+    if isinstance(value, list):
+        return frozenset(make_hashable(v) for v in value)
+    if isinstance(value, dict):
+        return frozenset((k, make_hashable(v)) for k, v in value.items())
+    return value
+
+
 class ScopeDefinition(BaseModelObject):
     """Base class for all scope definitions."""
 
+    model_config = ConfigDict(frozen=True)
     scope_name: str
+
+    def __hash__(self) -> int:
+        dumped = self.model_dump(mode="json")
+        return hash((self.scope_name, make_hashable(dumped)))
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ScopeDefinition):
+            return NotImplemented
+        return self.scope_name == other.scope_name and make_hashable(self.model_dump(mode="json")) == make_hashable(
+            other.model_dump(mode="json")
+        )
 
 
 class AllScope(ScopeDefinition):

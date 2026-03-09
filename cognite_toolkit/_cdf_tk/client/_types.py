@@ -1,6 +1,9 @@
+from datetime import datetime
 from typing import Annotated, Any, TypeAlias
 
-from pydantic import BeforeValidator
+from pydantic import BeforeValidator, PlainSerializer
+
+from cognite_toolkit._cdf_tk.utils.dms import dms_datetime_iso
 
 
 def _keys_and_values_as_string(value: Any) -> Any:
@@ -10,3 +13,4 @@ def _keys_and_values_as_string(value: Any) -> Any:
 
 
 Metadata: TypeAlias = Annotated[dict[str, str], BeforeValidator(_keys_and_values_as_string)]
+DMSTimestamp: TypeAlias = Annotated[datetime, PlainSerializer(dms_datetime_iso)]

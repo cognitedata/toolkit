@@ -1,15 +1,22 @@
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Any, final
+from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities
-from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetScope,
+    RelationshipsAcl,
+    ScopeDefinition,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.relationship import RelationshipRequest, RelationshipResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.yaml_classes import RelationshipYAML
 
 from .classic import AssetCRUD, EventCRUD, SequenceCRUD
@@ -49,24 +56,33 @@ class RelationshipCRUD(ResourceCRUD[ExternalId, RelationshipRequest, Relationshi
     @classmethod
     def get_required_capability(
         cls, items: Sequence[RelationshipRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
-        scope: capabilities.RelationshipsAcl.Scope.All | capabilities.RelationshipsAcl.Scope.DataSet = (  # type: ignore[valid-type]
-            capabilities.RelationshipsAcl.Scope.All()
+        scope: cap.RelationshipsAcl.Scope.All | cap.RelationshipsAcl.Scope.DataSet = (  # type: ignore[valid-type]
+            cap.RelationshipsAcl.Scope.All()
         )
 
         actions = (
-            [capabilities.RelationshipsAcl.Action.Read]
+            [cap.RelationshipsAcl.Action.Read]
             if read_only
-            else [capabilities.RelationshipsAcl.Action.Read, capabilities.RelationshipsAcl.Action.Write]
+            else [cap.RelationshipsAcl.Action.Read, cap.RelationshipsAcl.Action.Write]
         )
 
         if items:
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = capabilities.RelationshipsAcl.Scope.DataSet(list(data_set_ids))
+                scope = cap.RelationshipsAcl.Scope.DataSet(list(data_set_ids))
 
-        return capabilities.RelationshipsAcl(actions, scope)
+        return cap.RelationshipsAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[RelationshipRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield RelationshipsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[RelationshipRequest]) -> list[RelationshipResponse]:
         return self.client.tool.relationships.create(list(items))

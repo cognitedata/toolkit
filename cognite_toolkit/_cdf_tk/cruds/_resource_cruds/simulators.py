@@ -1,7 +1,7 @@
 from collections.abc import Hashable, Iterable, Sequence, Sized
-from typing import Any, final
+from typing import Any, Literal, final
 
-from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalOrExternalId
@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     SimulatorModelRoutineFilter,
     SimulatorModelRoutineRevisionFilter,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelRequest,
     SimulatorModelResponse,
@@ -78,10 +79,18 @@ class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, Simulat
     @classmethod
     def get_required_capability(
         cls, items: Sequence[SimulatorModelRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         # Simulator ACLs is not yet implemented in the PySDK, which means
         # that we cannot check for specific capabilities.
         return []
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[SimulatorModelRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     def create(self, items: Sequence[SimulatorModelRequest]) -> list[SimulatorModelResponse]:
         return self.client.tool.simulators.models.create(items)
@@ -192,8 +201,16 @@ class SimulatorModelRevisionCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[SimulatorModelRevisionRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         return []
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[SimulatorModelRevisionRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     def create(self, items: Sequence[SimulatorModelRevisionRequest]) -> list[SimulatorModelRevisionResponse]:
         return self.client.tool.simulators.model_revisions.create(items)
@@ -295,8 +312,16 @@ class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, Sim
     @classmethod
     def get_required_capability(
         cls, items: Sequence[SimulatorRoutineRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         return []
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[SimulatorRoutineRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     def create(self, items: Sequence[SimulatorRoutineRequest]) -> list[SimulatorRoutineResponse]:
         return self.client.tool.simulators.routines.create(items)
@@ -386,8 +411,16 @@ class SimulatorRoutineRevisionCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[SimulatorRoutineRevisionRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         return []
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[SimulatorRoutineRevisionRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     def create(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> list[SimulatorRoutineRevisionResponse]:
         return self.client.tool.simulators.routine_revisions.create(items)
