@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import Field, field_serializer
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, ViewId
@@ -26,3 +26,9 @@ class ViewToViewMapping(BaseModelObject):
         if not dest_prop_id and self.map_identical_id_properties:
             return source_property
         return dest_prop_id
+
+    @field_serializer("edge_mapping", mode="plain")
+    def serialize_edge_mapping(self, edge_mapping: dict[EdgeTypeId, str] | None) -> dict[str, str] | None:
+        if isinstance(edge_mapping, dict):
+            return {str(k): v for k, v in edge_mapping.items()}
+        return edge_mapping

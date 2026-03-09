@@ -3,7 +3,7 @@ from abc import ABC
 from collections.abc import Iterable
 from typing import Annotated, Any, Literal, TypeVar
 
-from pydantic import PlainSerializer
+from pydantic import PlainSerializer, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers._identifiers import ExternalId
@@ -181,6 +181,21 @@ class EdgeTypeId(Identifier):
 
     def __str__(self) -> str:
         return f"{self.type!s}(direction={self.direction})"
+
+    @model_validator(mode="before")
+    def parse_str(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        # Expected format: "space:externalId(direction=outwards)"
+        try:
+            main_part, direction_part = value.split("(direction=")
+            direction = direction_part.rstrip(")")
+            space, external_id = main_part.split(":")
+            return {"type": {"space": space, "external_id": external_id}, "direction": direction}
+        except Exception as e:
+            raise ValueError(
+                f"Invalid format for EdgeTypeId: {value}. Expected space:externalId(direction=outwards)"
+            ) from e
 
 
 class ContainerDirectId(Identifier):
