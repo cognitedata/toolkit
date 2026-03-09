@@ -116,7 +116,7 @@ from ._wrapped import (
     WrappedInstanceListResponse,
     WrappedInstanceRequest,
     WrappedInstanceResponse,
-    move_properties,
+    move_response_properties,
 )
 
 __all__ = [
@@ -226,5 +226,5 @@ __all__ = [
     "WrappedInstanceListResponse",
     "WrappedInstanceRequest",
     "WrappedInstanceResponse",
-    "move_properties",
+    "move_response_properties",
 ]

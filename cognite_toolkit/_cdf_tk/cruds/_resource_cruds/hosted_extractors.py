@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from cognite.client.data_classes import ClientCredentials
-from cognite.client.data_classes.capabilities import Capability, HostedExtractorsAcl
+from cognite.client.data_classes import capabilities as cap
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -76,19 +76,19 @@ class HostedExtractorSourceCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[HostedExtractorSourceRequestUnion] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [HostedExtractorsAcl.Action.Read]
+            [cap.HostedExtractorsAcl.Action.Read]
             if read_only
-            else [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write]
+            else [cap.HostedExtractorsAcl.Action.Read, cap.HostedExtractorsAcl.Action.Write]
         )
 
-        return HostedExtractorsAcl(
+        return cap.HostedExtractorsAcl(
             actions,
-            HostedExtractorsAcl.Scope.All(),
+            cap.HostedExtractorsAcl.Scope.All(),
         )
 
     def create(self, items: Sequence[HostedExtractorSourceRequestUnion]) -> list[HostedExtractorSourceResponseUnion]:
@@ -194,19 +194,19 @@ class HostedExtractorDestinationCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[HostedExtractorDestinationRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [HostedExtractorsAcl.Action.Read]
+            [cap.HostedExtractorsAcl.Action.Read]
             if read_only
-            else [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write]
+            else [cap.HostedExtractorsAcl.Action.Read, cap.HostedExtractorsAcl.Action.Write]
         )
 
-        return HostedExtractorsAcl(
+        return cap.HostedExtractorsAcl(
             actions,
-            HostedExtractorsAcl.Scope.All(),
+            cap.HostedExtractorsAcl.Scope.All(),
         )
 
     def create(self, items: Sequence[HostedExtractorDestinationRequest]) -> list[HostedExtractorDestinationResponse]:
@@ -301,19 +301,19 @@ class HostedExtractorJobCRUD(ResourceCRUD[ExternalId, HostedExtractorJobRequest,
     @classmethod
     def get_required_capability(
         cls, items: Sequence[HostedExtractorJobRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [HostedExtractorsAcl.Action.Read]
+            [cap.HostedExtractorsAcl.Action.Read]
             if read_only
-            else [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write]
+            else [cap.HostedExtractorsAcl.Action.Read, cap.HostedExtractorsAcl.Action.Write]
         )
 
-        return HostedExtractorsAcl(
+        return cap.HostedExtractorsAcl(
             actions,
-            HostedExtractorsAcl.Scope.All(),
+            cap.HostedExtractorsAcl.Scope.All(),
         )
 
     def dump_resource(
@@ -394,19 +394,19 @@ class HostedExtractorMappingCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[HostedExtractorMappingRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [HostedExtractorsAcl.Action.Read]
+            [cap.HostedExtractorsAcl.Action.Read]
             if read_only
-            else [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write]
+            else [cap.HostedExtractorsAcl.Action.Read, cap.HostedExtractorsAcl.Action.Write]
         )
 
-        return HostedExtractorsAcl(
+        return cap.HostedExtractorsAcl(
             actions,
-            HostedExtractorsAcl.Scope.All(),
+            cap.HostedExtractorsAcl.Scope.All(),
         )
 
     def create(self, items: Sequence[HostedExtractorMappingRequest]) -> list[HostedExtractorMappingResponse]:

@@ -3,7 +3,7 @@ from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any, final
 
-from cognite.client.data_classes.capabilities import Capability, LocationFiltersAcl
+from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
@@ -62,20 +62,20 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
     @classmethod
     def get_required_capability(
         cls, items: Sequence[LocationFilterRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
         # Todo: Specify space ID scopes:
 
         actions = (
-            [LocationFiltersAcl.Action.Read]
+            [cap.LocationFiltersAcl.Action.Read]
             if read_only
-            else [LocationFiltersAcl.Action.Read, LocationFiltersAcl.Action.Write]
+            else [cap.LocationFiltersAcl.Action.Read, cap.LocationFiltersAcl.Action.Write]
         )
 
-        return LocationFiltersAcl(
+        return cap.LocationFiltersAcl(
             actions=actions,
-            scope=LocationFiltersAcl.Scope.All(),
+            scope=cap.LocationFiltersAcl.Scope.All(),
             allow_unknown=True,
         )
 

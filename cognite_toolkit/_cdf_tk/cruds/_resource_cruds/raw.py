@@ -19,10 +19,7 @@ from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, final
 
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    RawAcl,
-)
+from cognite.client.data_classes import capabilities as cap
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
 from rich.console import Console
@@ -66,25 +63,25 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabaseId, RAWDatabaseRequest, R
     @classmethod
     def get_required_capability(
         cls, items: Sequence[RAWDatabaseRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [RawAcl.Action.Read, RawAcl.Action.List]
+            [cap.RawAcl.Action.Read, cap.RawAcl.Action.List]
             if read_only
-            else [RawAcl.Action.Read, RawAcl.Action.Write, RawAcl.Action.List]
+            else [cap.RawAcl.Action.Read, cap.RawAcl.Action.Write, cap.RawAcl.Action.List]
         )
 
-        scope: RawAcl.Scope.All | RawAcl.Scope.Table = RawAcl.Scope.All()  # type: ignore[valid-type]
+        scope: cap.RawAcl.Scope.All | cap.RawAcl.Scope.Table = cap.RawAcl.Scope.All()  # type: ignore[valid-type]
         if items:
             tables_by_database: dict[str, list[str]] = {}
             for item in items:
                 tables_by_database[item.name] = []
 
-            scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()
+            scope = cap.RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else cap.RawAcl.Scope.All()
 
-        return RawAcl(actions, scope)
+        return cap.RawAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: RAWDatabaseResponse | RAWDatabaseRequest | dict) -> RawDatabaseId:
@@ -181,25 +178,25 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
     @classmethod
     def get_required_capability(
         cls, items: Sequence[RAWTableRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [RawAcl.Action.Read, RawAcl.Action.List]
+            [cap.RawAcl.Action.Read, cap.RawAcl.Action.List]
             if read_only
-            else [RawAcl.Action.Read, RawAcl.Action.Write, RawAcl.Action.List]
+            else [cap.RawAcl.Action.Read, cap.RawAcl.Action.Write, cap.RawAcl.Action.List]
         )
 
-        scope: RawAcl.Scope.All | RawAcl.Scope.Table = RawAcl.Scope.All()  # type: ignore[valid-type]
+        scope: cap.RawAcl.Scope.All | cap.RawAcl.Scope.Table = cap.RawAcl.Scope.All()  # type: ignore[valid-type]
         if items:
             tables_by_database = defaultdict(list)
             for item in items:
                 tables_by_database[item.db_name].append(item.name)
 
-            scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()
+            scope = cap.RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else cap.RawAcl.Scope.All()
 
-        return RawAcl(actions, scope)
+        return cap.RawAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: RAWTableResponse | RAWTableRequest | dict) -> RawTableId:

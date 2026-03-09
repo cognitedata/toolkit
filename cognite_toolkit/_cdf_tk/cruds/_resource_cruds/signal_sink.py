@@ -2,7 +2,7 @@ from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, final
 
-from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes import capabilities as cap
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -46,7 +46,7 @@ class SignalSinkCRUD(ResourceCRUD[SignalSinkId, SignalSinkRequest, SignalSinkRes
     @classmethod
     def get_required_capability(
         cls, items: Sequence[SignalSinkRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         # subscribeSignalsAcl is not yet in the SDK — return empty to skip capability verification.
         return []
 

@@ -39,9 +39,8 @@ from cognite.client.data_classes import (
     ClientCredentials,
     OidcCredentials,
 )
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    TransformationsAcl,
+from cognite.client.data_classes import (
+    capabilities as cap,
 )
 from rich import print
 from rich.console import Console
@@ -160,21 +159,23 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
     @classmethod
     def get_required_capability(
         cls, items: Sequence[TransformationRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [TransformationsAcl.Action.Read]
+            [cap.TransformationsAcl.Action.Read]
             if read_only
-            else [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write]
+            else [cap.TransformationsAcl.Action.Read, cap.TransformationsAcl.Action.Write]
         )
-        scope: TransformationsAcl.Scope.All | TransformationsAcl.Scope.DataSet = TransformationsAcl.Scope.All()  # type: ignore[valid-type]
+        scope: cap.TransformationsAcl.Scope.All | cap.TransformationsAcl.Scope.DataSet = (  # type: ignore[valid-type]
+            cap.TransformationsAcl.Scope.All()
+        )
         if items is not None:
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = TransformationsAcl.Scope.DataSet(list(data_set_ids))
+                scope = cap.TransformationsAcl.Scope.DataSet(list(data_set_ids))
 
-        return TransformationsAcl(actions, scope)
+        return cap.TransformationsAcl(actions, scope)
 
     @classmethod
     def get_id(cls, item: TransformationResponse | TransformationRequest | dict) -> ExternalId:
@@ -616,7 +617,7 @@ class TransformationScheduleCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[TransformationScheduleRequest] | None, read_only: bool
-    ) -> list[Capability]:
+    ) -> list[cap.Capability]:
         # Access for transformations schedules is checked by the transformation that is deployed
         # first, so we don't need to check for any capabilities here.
         return []
@@ -735,7 +736,7 @@ class TransformationNotificationCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[TransformationNotificationRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         # Access for transformation notification is checked by the transformation that is deployed
         # first, so we don't need to check for any capabilities here.
         return []

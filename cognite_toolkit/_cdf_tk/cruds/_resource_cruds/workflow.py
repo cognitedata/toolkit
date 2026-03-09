@@ -20,10 +20,7 @@ from pathlib import Path
 from typing import Any, final
 
 from cognite.client.data_classes import ClientCredentials
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    WorkflowOrchestrationAcl,
-)
+from cognite.client.data_classes import capabilities as cap
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -94,19 +91,19 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[WorkflowRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [WorkflowOrchestrationAcl.Action.Read]
+            [cap.WorkflowOrchestrationAcl.Action.Read]
             if read_only
-            else [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write]
+            else [cap.WorkflowOrchestrationAcl.Action.Read, cap.WorkflowOrchestrationAcl.Action.Write]
         )
 
-        return WorkflowOrchestrationAcl(
+        return cap.WorkflowOrchestrationAcl(
             actions,
-            WorkflowOrchestrationAcl.Scope.All(),
+            cap.WorkflowOrchestrationAcl.Scope.All(),
         )
 
     @classmethod
@@ -210,19 +207,19 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest
     @classmethod
     def get_required_capability(
         cls, items: Sequence[WorkflowVersionRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [WorkflowOrchestrationAcl.Action.Read]
+            [cap.WorkflowOrchestrationAcl.Action.Read]
             if read_only
-            else [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write]
+            else [cap.WorkflowOrchestrationAcl.Action.Read, cap.WorkflowOrchestrationAcl.Action.Write]
         )
 
-        return WorkflowOrchestrationAcl(
+        return cap.WorkflowOrchestrationAcl(
             actions,
-            WorkflowOrchestrationAcl.Scope.All(),
+            cap.WorkflowOrchestrationAcl.Scope.All(),
         )
 
     @classmethod
@@ -523,19 +520,19 @@ class WorkflowTriggerCRUD(ResourceCRUD[ExternalId, WorkflowTriggerRequest, Workf
     @classmethod
     def get_required_capability(
         cls, items: Sequence[WorkflowTriggerRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         capability = (
-            [WorkflowOrchestrationAcl.Action.Read]
+            [cap.WorkflowOrchestrationAcl.Action.Read]
             if read_only
-            else [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write]
+            else [cap.WorkflowOrchestrationAcl.Action.Read, cap.WorkflowOrchestrationAcl.Action.Write]
         )
 
-        return WorkflowOrchestrationAcl(
+        return cap.WorkflowOrchestrationAcl(
             capability,
-            WorkflowOrchestrationAcl.Scope.All(),
+            cap.WorkflowOrchestrationAcl.Scope.All(),
         )
 
     def create(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
