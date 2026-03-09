@@ -1,4 +1,5 @@
-from functools import cached_property
+from collections.abc import Sequence
+from functools import cache, cached_property
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes.capabilities import _CAPABILITY_CLASS_BY_NAME, AllScope, Capability
@@ -6,6 +7,7 @@ from cognite.client.data_classes.iam import TokenInspection
 
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
 from cognite_toolkit._cdf_tk.client.resource_classes.capabilities import scope_intersection, scope_union
+from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl
 from cognite_toolkit._cdf_tk.client.resource_classes.token import InspectResponse
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
@@ -118,6 +120,7 @@ class ToolkitTokenAPI:
     def __init__(self, http_client: HTTPClient):
         self._http_client = http_client
 
+    @cache
     def inspect(self) -> InspectResponse:
         """Inspect the current token and return its capabilities and scopes."""
         config = self._http_client.config
@@ -131,3 +134,8 @@ class ToolkitTokenAPI:
         result = InspectResponse.model_validate_json(response.body)
         result.project = self._http_client.config.project
         return result
+
+    def verify_acls(self, required_acls: Sequence[Acl]) -> Sequence[Acl]:
+        """Verify that the current token has the required ACLs, for the current project. Returns the list of missing ACLs."""
+        project_capabilities = self.inspect().to_project_capabilities()
+        return project_capabilities.verify(required_acls)
