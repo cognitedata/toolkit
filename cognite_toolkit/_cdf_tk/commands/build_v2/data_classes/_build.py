@@ -6,8 +6,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
-from ._insights import ConsistencyError, ConsistencyWarning, InsightList, ModelSyntaxError, Recommendation
-from ._lineage import BuildConfigLineage, BuildLineage
+from ._insights import ConsistencyError, InsightList, ModelSyntaxError, Recommendation
+from ._lineage import BuildConfigLineage, BuildLineage, ModuleLineageItem, ResourceLineageItem
 from ._module import ModuleSource
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
@@ -97,44 +97,95 @@ class BuildFolder(BaseModel):
         # Count statistics
         total_syntax_errors = 0
         total_consistency_errors = 0
-        total_warnings = 0
         total_recommendations = 0
 
+        # Create module lineage items
+        module_lineage_items: dict[RelativeDirPath, list[ModuleLineageItem]] = {}
         for built_module in self.built_modules:
             for insight_type, insights in built_module.insights.by_type().items():
                 if insight_type is ModelSyntaxError:
                     total_syntax_errors += len(insights)
                 elif insight_type is ConsistencyError:
                     total_consistency_errors += len(insights)
-                elif insight_type is ConsistencyWarning:
-                    total_warnings += len(insights)
                 elif insight_type is Recommendation:
                     total_recommendations += len(insights)
+
+            # Create resource lineage items for each built file
+            resource_lineage_items: dict[AbsoluteFilePath, ResourceLineageItem] = {}
+            for idx, built_file in enumerate(built_module.built_files):
+                # Use matching resource identifier from the built module
+                resource_id = (
+                    built_module.built_resources_identifiers[idx]
+                    if idx < len(built_module.built_resources_identifiers)
+                    else built_module.built_resources_identifiers[0]
+                    if built_module.built_resources_identifiers
+                    else Identifier()
+                )
+                resource_lineage = ResourceLineageItem(
+                    source_file=built_file,
+                    source_hash="",  # Would need to track this during build
+                    resource_id=resource_id,
+                    resource_type=built_file.parent.name,
+                    resource_kind=built_file.stem.rsplit(".", 1)[-1] if "." in built_file.stem else "",
+                    parsing_successful=built_module.is_success,
+                    built_file=built_file,
+                )
+                resource_lineage_items[built_file] = resource_lineage
+
+            # Create module lineage item
+            module_path: RelativeDirPath = (
+                built_module.source.path.relative_to(self.path.parent)
+                if self.path.parent in built_module.source.path.parents
+                else built_module.source.path
+            )
+            module_lineage = ModuleLineageItem.model_construct(
+                module_source=built_module.source,
+                iteration=0,
+                discovered_resources=len(built_module.built_files),
+                parsing_successful=built_module.is_success,
+                parsing_errors_count=sum(
+                    len(insights)
+                    for insight_type, insights in built_module.insights.by_type().items()
+                    if insight_type is ModelSyntaxError
+                ),
+                resource_lineage_items=resource_lineage_items,
+                built_files=[Path(f) for f in built_module.built_files],
+                built_resources_count=len(built_module.built_resources_identifiers),
+                total_insights_count=len(built_module.insights),
+                insights=built_module.insights.summary,
+            )
+            module_lineage_items.setdefault(module_path, []).append(module_lineage)
 
         total_modules = len(self.built_modules)
         total_resources_discovered = 0
         for module in self.built_modules:
             total_resources_discovered += len([f for f in module.built_files if f])
 
-        return BuildLineage(
+        # Check if any module failed
+        has_failures = any(not module.is_success for module in self.built_modules)
+
+        return BuildLineage.model_construct(
             build_duration_seconds=None,
-            config=BuildConfigLineage(
+            config=BuildConfigLineage.model_construct(
                 organization_dir=self.path,  # This is the build path, lineage will need context update
                 build_dir=self.path,
                 config_name=None,
                 cdf_project="UNKNOWN",  # Will need to be updated from BuildParameters
                 validation_type="prod",  # Will need to be updated from BuildParameters
                 selected_modules=set(),  # Will need to be updated from BuildParameters
+                variables_provided={},
             ),
             total_modules=total_modules,
             total_modules_processed=len(self.built_modules),
             total_resources_discovered=total_resources_discovered,
             total_resources_built=len(self.built_resources_identifiers),
-            total_syntax_errors=total_syntax_errors,
-            total_consistency_errors=total_consistency_errors,
-            total_warnings=total_warnings,
-            total_recommendations=total_recommendations,
-            build_successful=len([m for m in self.built_modules if not m.is_success]) == 0,
+            insights={
+                "syntax_errors": total_syntax_errors,
+                "consistency_errors": total_consistency_errors,
+                "recommendations": total_recommendations,
+            },
+            build_successful=not has_failures and total_consistency_errors == 0,
+            module_lineage_items=module_lineage_items,
         )
 
     @property

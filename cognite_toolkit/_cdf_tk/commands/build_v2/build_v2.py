@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2._module_source_parser import ModuleSourceParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildFolder,
+    BuildLineage,
     BuildParameters,
     BuildSourceFiles,
     BuiltModule,
@@ -508,12 +509,58 @@ class BuildV2Command(ToolkitCommand):
         # Write lineage YAML file
         lineage = build_folder.lineage
         lineage_yaml = build_folder.path / "lineage.yaml"
-        lineage_data = lineage.model_dump(mode="json", by_alias=False)
+        # Serialize lineage using a custom serializer that handles InsightList fields
+        lineage_data = self._serialize_lineage(lineage)
         safe_write(lineage_yaml, yaml_safe_dump(lineage_data))
 
         # Write insights CSV file
         insights_csv = build_folder.path / "insights.csv"
         self._write_insights_csv(insights_csv, build_folder)
+
+    def _serialize_lineage(self, lineage: BuildLineage) -> dict[str, object]:
+        """Serialize BuildLineage to a dict, excluding non-serializable InsightList fields."""
+        # Convert to dict, excluding fields that contain InsightList
+        data = lineage.model_dump(
+            exclude={
+                "module_lineage_items",  # Will handle separately
+            },
+            mode="json",  # This converts Path objects to strings
+        )
+
+        # Manually add module lineage items, excluding InsightList fields
+        module_lineage_items = {}
+        for module_path, lineages in lineage.module_lineage_items.items():
+            serialized_lineages = []
+            for module_lineage in lineages:
+                module_data = module_lineage.model_dump(
+                    exclude={
+                        "resource_lineage_items",  # Will handle separately
+                    },
+                    mode="json",  # Convert Path objects to strings
+                )
+                # Manually add resource lineage items, excluding InsightList fields
+                resource_items = {}
+                for resource_path, resource_item in module_lineage.resource_lineage_items.items():
+                    resource_data = resource_item.model_dump(
+                        exclude={
+                            "parsing_errors",
+                            "parsing_insights",
+                            "local_validation_insights",
+                            "cdf_validation_insights",
+                            "global_validation_insights",
+                            "internal_dependencies",
+                            "external_dependencies",
+                            "missing_dependencies",
+                        },
+                        mode="json",  # Convert Path objects to strings
+                    )
+                    resource_items[str(resource_path)] = resource_data
+                module_data["resource_lineage_items"] = resource_items
+                serialized_lineages.append(module_data)
+            module_lineage_items[str(module_path)] = serialized_lineages
+        data["module_lineage_items"] = module_lineage_items
+
+        return data
 
     def _write_insights_csv(self, csv_path: Path, build_folder: BuildFolder) -> None:
         """Write all insights from the build to a CSV file."""

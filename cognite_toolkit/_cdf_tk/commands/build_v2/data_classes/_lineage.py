@@ -133,6 +133,9 @@ class ModuleLineageItem(BaseModel):
     built_resources_count: int = Field(description="Number of successfully built resources")
     total_insights_count: int = Field(description="Total insights across all resources in this module")
 
+    # Insights breakdown at module level
+    insights: dict[str, int] = Field(description="Breakdown of insights by type for this module")
+
     @property
     def overall_status(self) -> str:
         """Determines overall build status for this module."""
@@ -221,10 +224,7 @@ class BuildLineage(BaseModel):
     total_resources_built: int = Field(description="Total resources successfully built")
 
     # Insights summary
-    total_syntax_errors: int = Field(description="Total parsing/syntax errors")
-    total_consistency_errors: int = Field(description="Total consistency errors")
-    total_warnings: int = Field(description="Total warnings")
-    total_recommendations: int = Field(description="Total recommendations")
+    insights: dict[str, int] = Field(description="Summary of all insights found during build")
 
     # Overall status
     build_successful: bool = Field(description="True if build completed without errors")
@@ -333,10 +333,11 @@ class BuildLineage(BaseModel):
                 "unresolved": len(self.unresolved_dependencies),
             },
             "insights": {
-                "syntax_errors": self.total_syntax_errors,
-                "consistency_errors": self.total_consistency_errors,
-                "warnings": self.total_warnings,
-                "recommendations": self.total_recommendations,
+                "syntax_errors": self.insights["syntax_errors"],
+                "consistency_errors": self.insights["consistency_errors"],
+                "warnings": self.insights["warnings"],
+                "recommendations": self.insights["recommendations"],
+                "total": sum(self.insights.values()),
             },
             "overall_status": "SUCCESS" if self.build_successful else "FAILED",
         }
