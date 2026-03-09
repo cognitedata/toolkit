@@ -14,3 +14,9 @@
   filter:
     topic: cognite_workflows
     severity: error
+- externalId: hosted-extractors-sub
+  sink:
+    type: current_user
+  filter:
+    topic: cognite_hosted_extractors
+    severity: info

@@ -7,8 +7,8 @@ from cognite_toolkit._cdf_tk.client.identifiers import SignalSubscriptionId
 from .base import BaseModelResource, ToolkitResource
 
 
-class SinkRefYAML(BaseModelResource):
-    type: Literal["email", "user", "current_user"] = Field(
+class SinkRefWithExternalIdYAML(BaseModelResource):
+    type: Literal["email", "user"] = Field(
         description="The type of sink to deliver signals to.",
     )
     external_id: str = Field(
@@ -16,6 +16,18 @@ class SinkRefYAML(BaseModelResource):
         min_length=1,
         max_length=255,
     )
+
+
+class CurrentUserSinkRefYAML(BaseModelResource):
+    type: Literal["current_user"] = Field(
+        description="The type of sink to deliver signals to.",
+    )
+
+
+SinkRefYAML = Annotated[
+    SinkRefWithExternalIdYAML | CurrentUserSinkRefYAML,
+    Field(discriminator="type"),
+]
 
 
 class IntegrationsFilterYAML(BaseModelResource):
@@ -34,8 +46,15 @@ class WorkflowsFilterYAML(BaseModelResource):
     severity: Literal["info", "warning", "error"] | None = None
 
 
+class HostedExtractorsFilterYAML(BaseModelResource):
+    topic: Literal["cognite_hosted_extractors"]
+    resource: str | None = Field(default=None, min_length=1, max_length=512)
+    category: list[str] | None = None
+    severity: Literal["info", "warning", "error"] | None = None
+
+
 SubscriptionFilterYAML = Annotated[
-    IntegrationsFilterYAML | WorkflowsFilterYAML,
+    IntegrationsFilterYAML | WorkflowsFilterYAML | HostedExtractorsFilterYAML,
     Field(discriminator="topic"),
 ]
 

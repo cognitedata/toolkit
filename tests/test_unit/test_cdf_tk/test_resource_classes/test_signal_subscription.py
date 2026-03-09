@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SignalSinkId,
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import (
     SignalSubscriptionRequest,
     SignalSubscriptionResponse,
+    UnknownSubscriptionFilter,
 )
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.signal_sink import SignalSinkCRUD
@@ -34,6 +35,12 @@ _WORKFLOWS_SUB = {
     "externalId": "sub-wf",
     "sink": {"type": "user", "externalId": "sink-2"},
     "filter": {"topic": "cognite_workflows", "severity": "warning"},
+}
+
+_HOSTED_EXTRACTORS_SUB = {
+    "externalId": "sub-he",
+    "sink": {"type": "current_user"},
+    "filter": {"topic": "cognite_hosted_extractors", "severity": "info"},
 }
 
 
@@ -67,7 +74,8 @@ def invalid_test_cases() -> Iterable:
         },
         {
             "In field filter input tag 'invalid_topic' found using 'topic' "
-            "does not match any of the expected tags: 'cognite_integrations', 'cognite_workflows'",
+            "does not match any of the expected tags: 'cognite_integrations', 'cognite_workflows', "
+            "'cognite_hosted_extractors'",
         },
         id="invalid-topic",
     )
@@ -80,6 +88,15 @@ def invalid_test_cases() -> Iterable:
         },
         {"Unknown field: 'unknownField'"},
         id="unknown-field",
+    )
+    yield pytest.param(
+        {
+            "externalId": "sub-1",
+            "sink": {"type": "email"},
+            "filter": {"topic": "cognite_workflows"},
+        },
+        {"In sink.email missing required field: 'externalId'"},
+        id="email-sink-missing-external-id",
     )
 
 
@@ -101,9 +118,19 @@ class TestSignalSubscriptionYAML:
         loaded = SignalSubscriptionYAML.model_validate(_WORKFLOWS_SUB)
         assert loaded.as_id() == SignalSubscriptionId(external_id="sub-wf")
 
+    def test_current_user_sink_no_external_id(self) -> None:
+        loaded = SignalSubscriptionYAML.model_validate(_HOSTED_EXTRACTORS_SUB)
+        assert loaded.sink.type == "current_user"
+        dumped = loaded.model_dump(exclude_unset=True, by_alias=True)
+        assert "externalId" not in dumped["sink"]
+
 
 class TestSignalSubscriptionResourceClasses:
-    @pytest.mark.parametrize("raw", [_INTEGRATIONS_SUB, _WORKFLOWS_SUB], ids=["integrations", "workflows"])
+    @pytest.mark.parametrize(
+        "raw",
+        [_INTEGRATIONS_SUB, _WORKFLOWS_SUB, _HOSTED_EXTRACTORS_SUB],
+        ids=["integrations", "workflows", "hosted-extractors"],
+    )
     def test_request_round_trip(self, raw: dict) -> None:
         request = SignalSubscriptionRequest.model_validate(raw)
         assert request.dump(camel_case=True) == raw
@@ -128,6 +155,19 @@ class TestSignalSubscriptionResourceClasses:
         assert isinstance(request, SignalSubscriptionRequest)
         assert request.external_id == "sub-wf"
         assert request.sink.type == "user"
+
+    def test_unknown_filter_topic_preserved(self) -> None:
+        raw = {
+            "externalId": "sub-future",
+            "sink": {"type": "current_user"},
+            "filter": {"topic": "cognite_future_service", "someField": "abc"},
+        }
+        request = SignalSubscriptionRequest.model_validate(raw)
+        assert isinstance(request.filter, UnknownSubscriptionFilter)
+        assert request.filter.topic == "cognite_future_service"
+        dumped = request.dump(camel_case=True)
+        assert dumped["filter"]["topic"] == "cognite_future_service"
+        assert dumped["filter"]["someField"] == "abc"
 
 
 class TestSignalSubscriptionCRUDGetId:
@@ -165,11 +205,6 @@ class TestSignalSubscriptionCRUDGetDependencies:
         assert len(deps) == 2
 
     def test_current_user_sink_no_dependency(self) -> None:
-        raw = {
-            "externalId": "sub-cu",
-            "sink": {"type": "current_user", "externalId": "me"},
-            "filter": {"topic": "cognite_workflows"},
-        }
-        resource = SignalSubscriptionYAML.model_validate(raw)
+        resource = SignalSubscriptionYAML.model_validate(_HOSTED_EXTRACTORS_SUB)
         deps = list(SignalSubscriptionCRUD.get_dependencies(resource))
         assert deps == []

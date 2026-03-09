@@ -13,7 +13,12 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.signal_sink import SignalSinkCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowCRUD
 from cognite_toolkit._cdf_tk.yaml_classes import SignalSubscriptionYAML
-from cognite_toolkit._cdf_tk.yaml_classes.signal_subscription import IntegrationsFilterYAML, WorkflowsFilterYAML
+from cognite_toolkit._cdf_tk.yaml_classes.signal_subscription import (
+    HostedExtractorsFilterYAML,
+    IntegrationsFilterYAML,
+    SinkRefWithExternalIdYAML,
+    WorkflowsFilterYAML,
+)
 
 
 @final
@@ -34,7 +39,7 @@ class SignalSubscriptionCRUD(ResourceCRUD[SignalSubscriptionId, SignalSubscripti
     @classmethod
     def get_dependencies(cls, resource: SignalSubscriptionYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
         sink = resource.sink
-        if sink.type == "email" or sink.type == "user":
+        if isinstance(sink, SinkRefWithExternalIdYAML):
             yield SignalSinkCRUD, SignalSinkId(type=sink.type, external_id=sink.external_id)
 
         if isinstance(resource.filter, IntegrationsFilterYAML) and resource.filter.resource:
@@ -42,6 +47,9 @@ class SignalSubscriptionCRUD(ResourceCRUD[SignalSubscriptionId, SignalSubscripti
             pass
         elif isinstance(resource.filter, WorkflowsFilterYAML) and resource.filter.resource:
             yield WorkflowCRUD, ExternalId(external_id=resource.filter.resource)
+        elif isinstance(resource.filter, HostedExtractorsFilterYAML) and resource.filter.resource:
+            # TODO: hosted extractors filter.resource dependency; add once the mapping is clear.
+            pass
 
     @classmethod
     def get_id(cls, item: SignalSubscriptionRequest | SignalSubscriptionResponse | dict) -> SignalSubscriptionId:
