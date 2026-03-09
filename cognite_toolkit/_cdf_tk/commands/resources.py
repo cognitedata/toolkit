@@ -1,6 +1,7 @@
 import difflib
+import subprocess
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import questionary
 import typer
@@ -8,8 +9,10 @@ from questionary import Choice
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands.functions import FunctionsCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.function import FunctionAppCRUD
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
@@ -101,9 +104,9 @@ class ResourcesCommand(ToolkitCommand):
             "",
         ]
 
-        required_fields = []
-        optional_with_value = []
-        optional_null = []
+        required_fields: list[tuple[str, Any, str]] = []
+        optional_with_value: list[tuple[str, Any, str]] = []
+        optional_null: list[tuple[str, None, str]] = []
 
         for field_name, field in resource_crud.yaml_cls.model_fields.items():
             name = field.alias or field_name
@@ -120,13 +123,19 @@ class ResourcesCommand(ToolkitCommand):
             else:
                 optional_null.append((name, None, f"# {description}"))
 
-        for group in (required_fields, optional_with_value, optional_null):
+        for group in (required_fields, optional_with_value):
             for name, value, comment in group:
                 yaml_block = yaml_safe_dump({name: value}, sort_keys=False).rstrip("\n")
                 # Add comment to the first line of the YAML block
                 block_lines = yaml_block.split("\n")
                 block_lines[0] = f"{block_lines[0]}  {comment}"
                 lines.append("\n".join(block_lines))
+
+        if optional_null:
+            lines.append("")
+            lines.append("# Optional fields (uncomment to use):")
+            for name, _, comment in optional_null:
+                lines.append(f"# {name}:  {comment}")
 
         return "\n".join(lines) + "\n"
 
@@ -136,9 +145,10 @@ class ResourcesCommand(ToolkitCommand):
         module_path: Path,
         prefix: str | None = None,
         verbose: bool = False,
-    ) -> None:
+    ) -> str:
         """
         Creates a new resource YAML file in the specified module using the resource_crud.yaml_cls.
+        Returns the prefix used (which doubles as the external_id for follow-up scaffold steps).
         """
         resource_dir: Path = module_path / resource_crud.folder_name
         if resource_crud.sub_folder_name:
@@ -147,8 +157,19 @@ class ResourcesCommand(ToolkitCommand):
         if not resource_dir.exists():
             resource_dir.mkdir(parents=True, exist_ok=True)
 
-        final_prefix = prefix if prefix is not None else f"my_{resource_crud.kind}"
-        file_name = f"{final_prefix}.{resource_crud.kind}.yaml"
+        if prefix is not None:
+            final_prefix = prefix
+        elif issubclass(resource_crud, FunctionAppCRUD):
+            # FunctionApp uses the prefix as external_id for the scaffold wizard,
+            # so prompt for a meaningful name rather than defaulting to my_<Kind>.
+            final_prefix = questionary.text(
+                f"Enter an externalId for the {resource_crud.kind}:",
+                default=f"my_{resource_crud.kind}",
+            ).unsafe_ask()
+        else:
+            final_prefix = f"my_{resource_crud.kind}"
+        file_kind = getattr(resource_crud, "yaml_file_kind", resource_crud.kind)
+        file_name = f"{final_prefix}.{file_kind}.yaml"
         file_path: Path = resource_dir / file_name
 
         if (
@@ -156,9 +177,19 @@ class ResourcesCommand(ToolkitCommand):
             and not questionary.confirm(f"{file_path.name} file already exists. Overwrite?").unsafe_ask()
         ):
             print("[red]Skipping...[/red]")
-            return
+            return final_prefix
 
         yaml_content = self._get_resource_yaml_content(resource_crud)
+        yaml_content = yaml_content.replace(
+            "externalId: <externalId>  # (Required) The external ID provided by the client.",
+            f"externalId: {final_prefix}",
+        ).replace(
+            "name: <name>  # (Required) The name of the function.",
+            f"name: {final_prefix}",
+        )
+        owner = self._get_git_user()
+        if owner:
+            yaml_content = yaml_content.replace("# owner:  # Owner of the function.", f"owner: {owner}")
         file_path.write_text(yaml_content)
         if verbose:
             print(
@@ -166,6 +197,35 @@ class ResourcesCommand(ToolkitCommand):
             )
         else:
             print(f"[green]Created {file_path.as_posix()}[/green]")
+
+        return final_prefix
+
+    @staticmethod
+    def _get_git_user() -> str | None:
+        """Return 'Name <email>' from git config, or None if unavailable."""
+        try:
+            name = subprocess.check_output(["git", "config", "user.name"], text=True).strip()
+            email = subprocess.check_output(["git", "config", "user.email"], text=True).strip()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return None
+        if name and email:
+            return f"{name} <{email}>"
+        return name or None
+
+    def _create_scaffold_files(
+        self,
+        crud: type[ResourceCRUD],
+        module_path: Path,
+        external_id: str,
+    ) -> None:
+        """Generate extra scaffold files for resource types that need them (e.g. FunctionApp)."""
+        if crud is FunctionAppCRUD:
+            func_cmd = FunctionsCommand(
+                print_warning=self._print_warning,
+                skip_tracking=True,
+                silent=self.silent,
+            )
+            func_cmd.init(module_path=module_path, external_id=external_id)
 
     def create(
         self,
@@ -186,6 +246,7 @@ class ResourcesCommand(ToolkitCommand):
             verbose: Whether to print verbose output.
         """
         module_path = self._get_or_prompt_module_path(module_name, organization_dir, verbose)
-        resource_cruds = self._resolve_kinds(kind)
-        for crud in resource_cruds:
-            self._create_resource_yaml_file(crud, module_path, prefix, verbose)
+
+        for crud in self._resolve_kinds(kind):
+            external_id = self._create_resource_yaml_file(crud, module_path, prefix, verbose)
+            self._create_scaffold_files(crud, module_path, external_id)

@@ -17,7 +17,7 @@ from .datamodel import (
 from .extraction_pipeline import ExtractionPipelineConfigCRUD, ExtractionPipelineCRUD
 from .fieldops import InFieldCDMLocationConfigCRUD, InFieldLocationConfigCRUD, InfieldV1CRUD
 from .file import CogniteFileCRUD, FileMetadataCRUD
-from .function import FunctionCRUD, FunctionScheduleCRUD
+from .function import FunctionAppCRUD, FunctionCRUD, FunctionScheduleCRUD
 from .group_scoped import GroupResourceScopedCRUD
 from .hosted_extractors import (
     HostedExtractorDestinationCRUD,
@@ -65,6 +65,7 @@ __all__ = [
     "ExtractionPipelineCRUD",
     "ExtractionPipelineConfigCRUD",
     "FileMetadataCRUD",
+    "FunctionAppCRUD",
     "FunctionCRUD",
     "FunctionScheduleCRUD",
     "GraphQLCRUD",

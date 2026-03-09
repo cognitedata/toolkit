@@ -74,3 +74,18 @@ class FunctionsYAML(ToolkitResource):
 
     def as_id(self) -> ExternalId:
         return ExternalId(external_id=self.external_id)
+
+
+class FunctionAppYAML(FunctionsYAML):
+    """A CDF Function that follows the cognite-function-apps structure (handler.py + requirements.txt)."""
+
+    function_path: str | None = Field(
+        default="./handler.py",
+        description="Relative path from the root folder to the file containing the handle function.",
+        max_length=500,
+    )
+    secrets: dict[str, str] | None = Field(
+        default_factory=lambda: {"tracing-api-key": "${TRACING_API_KEY}"},
+        description="Secrets attached to the function. Add 'tracing-api-key' to enable Honeycomb tracing.",
+        max_length=30,
+    )
