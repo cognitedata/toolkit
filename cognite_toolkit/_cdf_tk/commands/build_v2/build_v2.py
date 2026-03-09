@@ -504,4 +504,24 @@ class BuildV2Command(ToolkitCommand):
                                 built_module.insights.append(insight)
 
     def _write_results(self, build_folder: BuildFolder) -> None:
-        return None
+        """Write build results including lineage information and insights to the build folder."""
+        # Write lineage YAML file
+        lineage = build_folder.lineage
+        lineage_yaml = build_folder.path / "lineage.yaml"
+        lineage_data = lineage.model_dump(mode="json", by_alias=False)
+        safe_write(lineage_yaml, yaml_safe_dump(lineage_data))
+
+        # Write insights CSV file
+        insights_csv = build_folder.path / "insights.csv"
+        self._write_insights_csv(insights_csv, build_folder)
+
+    def _write_insights_csv(self, csv_path: Path, build_folder: BuildFolder) -> None:
+        """Write all insights from the build to a CSV file."""
+        csv_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Get CSV content from aggregated insights
+        csv_content = build_folder.insights.to_csv()
+
+        # Write to CSV file if there's content
+        if csv_content.strip():
+            safe_write(csv_path, csv_content)
