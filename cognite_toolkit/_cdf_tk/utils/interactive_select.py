@@ -35,8 +35,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
@@ -1069,3 +1069,14 @@ class RecordInteractiveSelect:
             validate=lambda choices: True if choices else "You must select at least one container.",
         ).unsafe_ask()
         return selected_containers
+
+    def select_instance_spaces(self) -> list[str]:
+        available_spaces = self.client.tool.spaces.list(include_global=False)
+        if not available_spaces:
+            raise ToolkitValueError("No spaces found in the project.")
+        selected_spaces = questionary.checkbox(
+            "Select spaces to filter records by:",
+            choices=[Choice(title=space.space, value=space.space) for space in available_spaces],
+            validate=lambda choices: True if choices else "You must select at least one space.",
+        ).unsafe_ask()
+        return selected_spaces

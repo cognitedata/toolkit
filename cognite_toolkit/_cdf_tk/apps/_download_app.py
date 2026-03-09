@@ -1267,12 +1267,12 @@ class DownloadApp(typer.Typer):
                 "If not provided, an interactive selection will be made.",
             ),
         ] = None,
-        instance_space: Annotated[
-            str | None,
+        instance_spaces: Annotated[
+            list[str] | None,
             typer.Option(
                 "--instance-space",
-                help="Only download records belonging to this space. "
-                "If not provided, records from all spaces will be included.",
+                help="Only download records belonging to these spaces. "
+                "Can be specified multiple times. If not provided, records from all spaces will be included.",
             ),
         ] = None,
         containers: Annotated[
@@ -1348,12 +1348,21 @@ class DownloadApp(typer.Typer):
             selected_containers = record_select.select_containers()
 
             download_dir_name = sanitize_filename(selected_stream.external_id)
-            instance_spaces = (instance_space,) if instance_space else None
+            selected_instance_spaces: tuple[str, ...] | None = None
+            if instance_spaces:
+                selected_instance_spaces = tuple(instance_spaces)
+            else:
+                select_instance_space = questionary.confirm(
+                    "Do you want to filter records by space? If no, records from all spaces will be downloaded.",
+                    default=False,
+                ).unsafe_ask()
+                if select_instance_space:
+                    selected_instance_spaces = tuple(record_select.select_instance_spaces())
             selectors = [
                 RecordContainerSelector(
                     stream=SelectedStream(external_id=selected_stream.external_id),
                     container=SelectedContainer(space=container.space, external_id=container.external_id),
-                    instance_spaces=instance_spaces,
+                    instance_spaces=selected_instance_spaces,
                     initialize_cursor=initialize_cursor,
                     download_dir_name=download_dir_name,
                 )
@@ -1370,7 +1379,7 @@ class DownloadApp(typer.Typer):
                 max_limit=RecordIO.MAX_TOTAL_RECORDS,
             )
         elif stream is not None and containers is not None:
-            instance_spaces = (instance_space,) if instance_space else None
+            selected_instance_spaces = tuple(instance_spaces) if instance_spaces else None
             parsed_containers: list[SelectedContainer] = []
             for container_str in containers:
                 parts = container_str.split(":", 1)
@@ -1384,7 +1393,7 @@ class DownloadApp(typer.Typer):
                 RecordContainerSelector(
                     stream=SelectedStream(external_id=stream),
                     container=container,
-                    instance_spaces=instance_spaces,
+                    instance_spaces=selected_instance_spaces,
                     initialize_cursor=initialize_cursor,
                     download_dir_name=sanitize_filename(stream),
                 )
