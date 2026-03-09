@@ -2,7 +2,11 @@ from collections.abc import Iterable
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client.resource_classes.group.scope_logic import scope_intersection, scope_union
+from cognite_toolkit._cdf_tk.client.resource_classes.group.scope_logic import (
+    scope_difference,
+    scope_intersection,
+    scope_union,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.group.scopes import (
     AllScope,
     AppConfigScope,
@@ -188,6 +192,49 @@ class TestScopeLogic:
         union: ScopeDefinition,
     ) -> None:
         assert scope_union(scope1, scope2) == union
+
+    @pytest.mark.parametrize(
+        "scope1, scope2, difference",
+        [
+            pytest.param(
+                DataSetScope(ids=[1, 2, 3]),
+                DataSetScope(ids=[2, 3, 4]),
+                DataSetScope(ids=[1]),
+                id="DataSetScope difference",
+            ),
+            pytest.param(
+                IDScope(ids=[10, 20]),
+                IDScope(ids=[20, 30]),
+                IDScope(ids=[10]),
+                id="IDScope difference",
+            ),
+            pytest.param(
+                SpaceIDScope(space_ids=["a", "b"]),
+                SpaceIDScope(space_ids=["b", "c"]),
+                SpaceIDScope(space_ids=["a"]),
+                id="SpaceIDScope difference",
+            ),
+            pytest.param(
+                AllScope(),
+                DataSetScope(ids=[1, 2]),
+                AllScope(),
+                id="AllScope difference with specific scope",
+            ),
+            pytest.param(
+                DataSetScope(ids=[1, 2, 3]),
+                AllScope(),
+                None,
+                id="Specific scope difference with AllScope",
+            ),
+        ],
+    )
+    def test_scope_difference(
+        self,
+        scope1: ScopeDefinition,
+        scope2: ScopeDefinition,
+        difference: ScopeDefinition | None,
+    ) -> None:
+        assert scope_difference(scope1, scope2) == difference
 
     def test_raises_unknown_scope_intersection(self) -> None:
         instance = UnknownScope(scope_name="mystery")

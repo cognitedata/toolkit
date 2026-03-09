@@ -122,7 +122,7 @@ def scope_difference(scope1: ScopeDefinition, scope2: ScopeDefinition | None) ->
       - AllScope minus any scope yields None; any scope minus AllScope yields the original scope.
       - Scopes must be the same concrete type.
       - Scopes with no data fields (CurrentUserScope) are returned as-is if they are the same, otherwise None.
-      - List fields are set-differenced; an empty result means None.
+      - List fields are set-difference; an empty result means None.
       - TableScope differences the db keys and per-db table lists.
     """
     raise NotImplementedError()

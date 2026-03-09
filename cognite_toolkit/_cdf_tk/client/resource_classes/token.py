@@ -96,8 +96,7 @@ class ProjectCapabilities(UserDict[tuple[type[Acl], str], Scope]):
                 if key not in self.data:
                     missing_actions_by_type_and_scope[(type(acl), acl.scope)].extend(acl.actions)
                     continue
-                existing_scope = self.data[key]
-                if missing_scope := scope_difference(existing_scope, acl.scope):
+                if missing_scope := scope_difference(acl.scope, self.data[key]):
                     missing_actions_by_type_and_scope[(type(acl), missing_scope)].extend(acl.actions)
 
         missing_acls: list[Acl] = []
