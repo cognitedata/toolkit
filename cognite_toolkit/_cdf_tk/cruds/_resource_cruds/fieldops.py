@@ -1,18 +1,27 @@
 import collections.abc
 from collections.abc import Hashable, Iterable, Sequence, Sized
+from functools import cached_property
 from pathlib import Path
-from typing import Any, final
+from typing import Any, Literal, final
 
-from cognite.client.data_classes.capabilities import Capability, DataModelInstancesAcl
+from cognite.client.data_classes import capabilities as cap
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APM_CONFIG_SPACE,
     APMConfigRequest,
     APMConfigResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, SpaceReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataModelInstancesAcl,
+    ScopeDefinition,
+    SpaceIDScope,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     InFieldCDMLocationConfigRequest,
     InFieldCDMLocationConfigResponse,
@@ -21,13 +30,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import (
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
+from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions, space_scoped_resource
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
+from cognite_toolkit._cdf_tk.yaml_classes import (
     InFieldCDMLocationConfigYAML,
     InfieldLocationConfigYAML,
     InfieldV1YAML,
 )
-from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
-from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 
 from .auth import GroupAllScopedCRUD
 from .classic import AssetCRUD
@@ -67,17 +78,26 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
     @classmethod
     def get_required_capability(
         cls, items: collections.abc.Sequence[APMConfigRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [DataModelInstancesAcl.Action.Read]
+            [cap.DataModelInstancesAcl.Action.Read]
             if read_only
-            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
         )
 
-        return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID([APM_CONFIG_SPACE]))
+        return cap.DataModelInstancesAcl(actions, cap.DataModelInstancesAcl.Scope.SpaceID([APM_CONFIG_SPACE]))
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[APMConfigRequest]) -> ScopeDefinition:
+        return SpaceIDScope(space_ids=[APM_CONFIG_SPACE])
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | SpaceIDScope):
+            yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
     def prerequisite_warning(self) -> str | None:
         view_id = APMConfigRequest.VIEW_ID
@@ -93,13 +113,13 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
         return self.client.infield.apm_config.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[APMConfigResponse]:
-        return self.client.infield.apm_config.retrieve(NodeReference.from_external_ids(ids, space=APM_CONFIG_SPACE))
+        return self.client.infield.apm_config.retrieve(NodeId.from_external_ids(ids, space=APM_CONFIG_SPACE))
 
     def update(self, items: Sequence[APMConfigRequest]) -> list[InstanceSlimDefinition]:
         return self.client.infield.apm_config.create(items)
 
     def delete(self, ids: Sequence[ExternalId]) -> int:
-        deleted = self.client.infield.apm_config.delete(NodeReference.from_external_ids(ids, space=APM_CONFIG_SPACE))
+        deleted = self.client.infield.apm_config.delete(NodeId.from_external_ids(ids, space=APM_CONFIG_SPACE))
         return len(deleted)
 
     def _iterate(
@@ -113,18 +133,18 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if isinstance(app_data_space_id := item.get("appDataSpaceId"), str):
-            yield SpaceCRUD, SpaceReference(space=app_data_space_id)
+            yield SpaceCRUD, SpaceId(space=app_data_space_id)
         if isinstance(customer_data_space_id := item.get("customerDataSpaceId"), str):
-            yield SpaceCRUD, SpaceReference(space=customer_data_space_id)
+            yield SpaceCRUD, SpaceId(space=customer_data_space_id)
         for config in cls._get_root_location_configurations(item) or []:
             if isinstance(asset_external_id := config.get("assetExternalId"), str):
                 yield AssetCRUD, ExternalId(external_id=asset_external_id)
             if isinstance(data_set_external_id := config.get("dataSetExternalId"), str):
                 yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
             if isinstance(app_data_instance_space := config.get("appDataInstanceSpace"), str):
-                yield SpaceCRUD, SpaceReference(space=app_data_instance_space)
+                yield SpaceCRUD, SpaceId(space=app_data_instance_space)
             if isinstance(source_data_instance_space := config.get("sourceDataInstanceSpace"), str):
-                yield SpaceCRUD, SpaceReference(space=source_data_instance_space)
+                yield SpaceCRUD, SpaceId(space=source_data_instance_space)
             for key in cls._group_keys:
                 for group in config.get(key, []):
                     if isinstance(group, str):
@@ -144,7 +164,43 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
                         yield AssetCRUD, ExternalId(external_id=asset_external_id)
                 if app_data_instance_space := filter_.get("appDataInstanceSpace"):
                     if isinstance(app_data_instance_space, str):
-                        yield SpaceCRUD, SpaceReference(space=app_data_instance_space)
+                        yield SpaceCRUD, SpaceId(space=app_data_instance_space)
+
+    @classmethod
+    def get_dependencies(cls, resource: InfieldV1YAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.app_data_space_id:
+            yield SpaceCRUD, SpaceId(space=resource.app_data_space_id)
+        if resource.customer_data_space_id:
+            yield SpaceCRUD, SpaceId(space=resource.customer_data_space_id)
+        if not resource.feature_configuration:
+            return
+        for config in resource.feature_configuration.root_location_configurations or []:
+            if config.asset_external_id:
+                yield AssetCRUD, ExternalId(external_id=config.asset_external_id)
+            if config.data_set_external_id:
+                yield DataSetsCRUD, ExternalId(external_id=config.data_set_external_id)
+            if config.app_data_instance_space:
+                yield SpaceCRUD, SpaceId(space=config.app_data_instance_space)
+            if config.source_data_instance_space:
+                yield SpaceCRUD, SpaceId(space=config.source_data_instance_space)
+            for group in config.template_admins or []:
+                yield GroupResourceScopedCRUD, NameId(name=group)
+            for group in config.checklist_admins or []:
+                yield GroupResourceScopedCRUD, NameId(name=group)
+            if not config.data_filters:
+                continue
+            for filter_ in [
+                config.data_filters.general,
+                config.data_filters.assets,
+                config.data_filters.files,
+                config.data_filters.timeseries,
+            ]:
+                if filter_ is None:
+                    continue
+                for data_set_external_id in filter_.data_set_external_ids or []:
+                    yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
+                for asset_external_id in filter_.asset_subtree_external_ids or []:
+                    yield AssetCRUD, ExternalId(external_id=asset_external_id)
 
     def safe_read(self, filepath: Path | str) -> str:
         # The customerDataSpaceVersion is a string, but the user often writes it as an int.
@@ -231,9 +287,7 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
 
 
 @final
-class InFieldLocationConfigCRUD(
-    ResourceCRUD[NodeReference, InFieldLocationConfigRequest, InFieldLocationConfigResponse]
-):
+class InFieldLocationConfigCRUD(ResourceCRUD[NodeId, InFieldLocationConfigRequest, InFieldLocationConfigResponse]):
     folder_name = "cdf_applications"
     resource_cls = InFieldLocationConfigResponse
     resource_write_cls = InFieldLocationConfigRequest
@@ -247,13 +301,13 @@ class InFieldLocationConfigCRUD(
         return "infield location configs"
 
     @classmethod
-    def get_id(cls, item: InFieldLocationConfigRequest | InFieldLocationConfigResponse | dict) -> NodeReference:
+    def get_id(cls, item: InFieldLocationConfigRequest | InFieldLocationConfigResponse | dict) -> NodeId:
         if isinstance(item, dict):
-            return NodeReference(space=item["space"], external_id=item["externalId"])
-        return NodeReference(space=item.space, external_id=item.external_id)
+            return NodeId(space=item["space"], external_id=item["externalId"])
+        return NodeId(space=item.space, external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: NodeReference) -> dict[str, Any]:
+    def dump_id(cls, id: NodeId) -> dict[str, Any]:
         return {
             "space": id.space,
             "externalId": id.external_id,
@@ -262,18 +316,27 @@ class InFieldLocationConfigCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[InFieldLocationConfigRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items or items is None:
             return []
 
         actions = (
-            [DataModelInstancesAcl.Action.Read]
+            [cap.DataModelInstancesAcl.Action.Read]
             if read_only
-            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
         )
         instance_spaces = sorted({item.space for item in items})
 
-        return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
+        return cap.DataModelInstancesAcl(actions, cap.DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[InFieldLocationConfigRequest]) -> ScopeDefinition:
+        return space_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | SpaceIDScope):
+            yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
     def dump_resource(
         self, resource: InFieldLocationConfigResponse, local: dict[str, Any] | None = None
@@ -296,13 +359,13 @@ class InFieldLocationConfigCRUD(
     def create(self, items: Sequence[InFieldLocationConfigRequest]) -> list[InstanceSlimDefinition]:
         return self.client.infield.config.create(items)
 
-    def retrieve(self, ids: Sequence[NodeReference]) -> list[InFieldLocationConfigResponse]:
+    def retrieve(self, ids: Sequence[NodeId]) -> list[InFieldLocationConfigResponse]:
         return self.client.infield.config.retrieve(list(ids))
 
     def update(self, items: Sequence[InFieldLocationConfigRequest]) -> Sized:
         return self.client.infield.config.update(items)
 
-    def delete(self, ids: Sequence[NodeReference]) -> int:
+    def delete(self, ids: Sequence[NodeId]) -> int:
         return len(self.client.infield.config.delete(list(ids)))
 
     def _iterate(
@@ -329,7 +392,7 @@ class InFieldLocationConfigCRUD(
 
 @final
 class InFieldCDMLocationConfigCRUD(
-    ResourceCRUD[NodeReference, InFieldCDMLocationConfigRequest, InFieldCDMLocationConfigResponse]
+    ResourceCRUD[NodeId, InFieldCDMLocationConfigRequest, InFieldCDMLocationConfigResponse]
 ):
     folder_name = "cdf_applications"
     resource_cls = InFieldCDMLocationConfigResponse
@@ -344,13 +407,13 @@ class InFieldCDMLocationConfigCRUD(
         return "infield CDM location configs"
 
     @classmethod
-    def get_id(cls, item: InFieldCDMLocationConfigRequest | InFieldCDMLocationConfigResponse | dict) -> NodeReference:
+    def get_id(cls, item: InFieldCDMLocationConfigRequest | InFieldCDMLocationConfigResponse | dict) -> NodeId:
         if isinstance(item, dict):
-            return NodeReference(space=item["space"], external_id=item["externalId"])
-        return NodeReference(space=item.space, external_id=item.external_id)
+            return NodeId(space=item["space"], external_id=item["externalId"])
+        return NodeId(space=item.space, external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: NodeReference) -> dict[str, Any]:
+    def dump_id(cls, id: NodeId) -> dict[str, Any]:
         return {
             "space": id.space,
             "externalId": id.external_id,
@@ -359,18 +422,38 @@ class InFieldCDMLocationConfigCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[InFieldCDMLocationConfigRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items or items is None:
             return []
 
         actions = (
-            [DataModelInstancesAcl.Action.Read]
+            [cap.DataModelInstancesAcl.Action.Read]
             if read_only
-            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
         )
         instance_spaces = sorted({item.space for item in items})
 
-        return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
+        return cap.DataModelInstancesAcl(actions, cap.DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[InFieldCDMLocationConfigRequest]) -> ScopeDefinition:
+        return space_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | SpaceIDScope):
+            yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
+
+    @cached_property
+    def _legacy_instance_spaces(self) -> set[str]:
+        apm_configs = self.client.infield.apm_config.list(limit=None)
+        return {
+            location.app_data_instance_space
+            for config in apm_configs
+            if config.feature_configuration
+            for location in config.feature_configuration.root_location_configurations or []
+            if location.app_data_instance_space
+        }
 
     def dump_resource(
         self, resource: InFieldCDMLocationConfigResponse, local: dict[str, Any] | None = None
@@ -385,15 +468,28 @@ class InFieldCDMLocationConfigCRUD(
         return dumped
 
     def create(self, items: Sequence[InFieldCDMLocationConfigRequest]) -> list[InstanceSlimDefinition]:
-        return self.client.infield.cdm_config.create(items)
+        legacy_instance_spaces = self._legacy_instance_spaces
+        to_create: list[InFieldCDMLocationConfigRequest] = []
+        for item in items:
+            if item.data_storage and item.data_storage.app_instance_space in legacy_instance_spaces:
+                HighSeverityWarning(
+                    f"Skipping creation of {self.display_name} {item.as_id()}. It is set to write InField data to"
+                    f" an instance space {item.data_storage.app_instance_space!r} that is already used by the "
+                    "legacy InField APM_Config."
+                    "This is not allowed as it will cause the data to be corrupted in the legacy InField."
+                ).print_warning(console=self.console)
+            else:
+                to_create.append(item)
 
-    def retrieve(self, ids: Sequence[NodeReference]) -> list[InFieldCDMLocationConfigResponse]:
+        return self.client.infield.cdm_config.create(to_create)
+
+    def retrieve(self, ids: Sequence[NodeId]) -> list[InFieldCDMLocationConfigResponse]:
         return self.client.infield.cdm_config.retrieve(list(ids))
 
     def update(self, items: Sequence[InFieldCDMLocationConfigRequest]) -> Sized:
         return self.create(items)
 
-    def delete(self, ids: Sequence[NodeReference]) -> int:
+    def delete(self, ids: Sequence[NodeId]) -> int:
         deleted = self.client.infield.cdm_config.delete(list(ids))
         return len(deleted)
 

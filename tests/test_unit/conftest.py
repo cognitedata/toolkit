@@ -16,9 +16,13 @@ from cognite.client.data_classes.data_modeling import NodeList
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewReference, ViewResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
+    CANVAS_INSTANCE_SPACE,
+    ContainerReferenceItem,
+    IndustrialCanvasResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewId, ViewResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import IndustrialCanvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import BuildCommand, ModulesCommand, RepoCommand
@@ -239,174 +243,76 @@ def rsps() -> Iterator[responses.RequestsMock]:
 
 
 @pytest.fixture(scope="session")
-def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[InstanceSource]]:
-    canvas = IndustrialCanvas.load(
-        {
-            "annotations": [],
-            "canvas": [
-                {
-                    "createdTime": 1751540227230,
-                    "externalId": "495af88f-fe1d-403d-91b1-76ef9f80f265",
-                    "instanceType": "node",
-                    "lastUpdatedTime": 1751540558717,
-                    "properties": {
-                        "cdf_industrial_canvas": {
-                            "Canvas/v7": {
-                                "createdBy": "aGQ-cBXUBY6bmmxqIdkFoA",
-                                "isArchived": None,
-                                "isLocked": None,
-                                "name": "Asset-centric1",
-                                "solutionTags": None,
-                                "sourceCanvasId": None,
-                                "updatedAt": "2025-07-03T11:02:37.733+00:00",
-                                "updatedBy": "aGQ-cBXUBY6bmmxqIdkFoA",
-                                "visibility": "public",
-                            }
-                        }
-                    },
-                    "space": "IndustrialCanvasInstanceSpace",
-                    "version": 14,
-                    "existingVersion": 14,
-                }
-            ],
-            "containerReferences": [
-                {
-                    "createdTime": 1751540264906,
-                    "externalId": "495af88f-fe1d-403d-91b1-76ef9f80f265_cf372b29-3012-49ff-8daf-5043404c23d7",
-                    "instanceType": "node",
-                    "lastUpdatedTime": 1751540264906,
-                    "properties": {
-                        "cdf_industrial_canvas": {
-                            "ContainerReference/v2": {
-                                "chartsId": None,
-                                "containerReferenceType": "asset",
-                                "height": 357,
-                                "id": "cf372b29-3012-49ff-8daf-5043404c23d7",
-                                "label": "Kelmarsh 6",
-                                "maxHeight": None,
-                                "maxWidth": None,
-                                "resourceId": 3840956528416998,
-                                "resourceSubId": None,
-                                "width": 600,
-                                "x": 0,
-                                "y": 0,
-                            }
-                        }
-                    },
-                    "space": "IndustrialCanvasInstanceSpace",
-                    "version": 1,
-                    "existingVersion": 1,
-                },
-                {
-                    "createdTime": 1751540275336,
-                    "externalId": "495af88f-fe1d-403d-91b1-76ef9f80f265_09d58ddf-bebb-4e4d-96db-1702da76a016",
-                    "instanceType": "node",
-                    "lastUpdatedTime": 1751540275336,
-                    "properties": {
-                        "cdf_industrial_canvas": {
-                            "ContainerReference/v2": {
-                                "chartsId": None,
-                                "containerReferenceType": "timeseries",
-                                "height": 400,
-                                "id": "09d58ddf-bebb-4e4d-96db-1702da76a016",
-                                "label": "Hub temperature, standard deviation (Â°C)",
-                                "maxHeight": None,
-                                "maxWidth": None,
-                                "resourceId": 11978459264156,
-                                "resourceSubId": None,
-                                "width": 700,
-                                "x": 700,
-                                "y": 0,
-                            }
-                        }
-                    },
-                    "space": "IndustrialCanvasInstanceSpace",
-                    "version": 1,
-                    "existingVersion": 1,
-                },
-                {
-                    "createdTime": 1751540544349,
-                    "externalId": "495af88f-fe1d-403d-91b1-76ef9f80f265_5e2bf845-103c-4c17-8549-9f20329b7f98",
-                    "instanceType": "node",
-                    "lastUpdatedTime": 1751540558717,
-                    "properties": {
-                        "cdf_industrial_canvas": {
-                            "ContainerReference/v2": {
-                                "chartsId": None,
-                                "containerReferenceType": "event",
-                                "height": 500,
-                                "id": "5e2bf845-103c-4c17-8549-9f20329b7f98",
-                                "label": "b18cdf8e-6568-4e2a-a267-535eb52f41bf",
-                                "maxHeight": None,
-                                "maxWidth": None,
-                                "resourceId": 9004025980300864,
-                                "resourceSubId": None,
-                                "width": 600,
-                                "x": -10,
-                                "y": 418,
-                            }
-                        }
-                    },
-                    "space": "IndustrialCanvasInstanceSpace",
-                    "version": 4,
-                    "existingVersion": 4,
-                },
-                {
-                    "createdTime": 1751540600000,
-                    "externalId": "495af88f-fe1d-403d-91b1-76ef9f80f265_chart-ref-1",
-                    "instanceType": "node",
-                    "lastUpdatedTime": 1751540600000,
-                    "properties": {
-                        "cdf_industrial_canvas": {
-                            "ContainerReference/v2": {
-                                "chartsId": "my-chart-id",
-                                "containerReferenceType": "charts",
-                                "height": 400,
-                                "id": "chart-ref-1",
-                                "label": "My Chart",
-                                "maxHeight": None,
-                                "maxWidth": None,
-                                "resourceId": -1,
-                                "resourceSubId": None,
-                                "width": 600,
-                                "x": 100,
-                                "y": 100,
-                            }
-                        }
-                    },
-                    "space": "IndustrialCanvasInstanceSpace",
-                    "version": 1,
-                    "existingVersion": 1,
-                },
-                {
-                    "createdTime": 1751540700000,
-                    "externalId": "495af88f-fe1d-403d-91b1-76ef9f80f265_datagrid-ref-1",
-                    "instanceType": "node",
-                    "lastUpdatedTime": 1751540700000,
-                    "properties": {
-                        "cdf_industrial_canvas": {
-                            "ContainerReference/v2": {
-                                "chartsId": None,
-                                "containerReferenceType": "dataGrid",
-                                "height": 300,
-                                "id": "datagrid-ref-1",
-                                "label": "My Data Grid",
-                                "maxHeight": None,
-                                "maxWidth": None,
-                                "resourceId": -1,
-                                "resourceSubId": None,
-                                "width": 800,
-                                "x": 200,
-                                "y": 200,
-                            }
-                        }
-                    },
-                    "space": "IndustrialCanvasInstanceSpace",
-                    "version": 1,
-                    "existingVersion": 1,
-                },
-            ],
-        }
+def asset_centric_canvas() -> tuple[IndustrialCanvasResponse, NodeList[InstanceSource]]:
+    canvas = IndustrialCanvasResponse(
+        space=CANVAS_INSTANCE_SPACE,
+        external_id="495af88f-fe1d-403d-91b1-76ef9f80f265",
+        name="Asset-centric1",
+        created_by="aGQ-cBXUBY6bmmxqIdkFoA",
+        updated_at="2025-07-03T11:02:37.733+00:00",
+        updated_by="aGQ-cBXUBY6bmmxqIdkFoA",
+        visibility="public",
+        version=14,
+        created_time=1751540227230,
+        last_updated_time=1751540558717,
+        container_references=[
+            ContainerReferenceItem(
+                external_id="495af88f-fe1d-403d-91b1-76ef9f80f265_cf372b29-3012-49ff-8daf-5043404c23d7",
+                container_reference_type="asset",
+                resource_id=3840956528416998,
+                id_="cf372b29-3012-49ff-8daf-5043404c23d7",
+                label="Kelmarsh 6",
+                height=357,
+                width=600,
+                x=0,
+                y=0,
+            ),
+            ContainerReferenceItem(
+                external_id="495af88f-fe1d-403d-91b1-76ef9f80f265_09d58ddf-bebb-4e4d-96db-1702da76a016",
+                container_reference_type="timeseries",
+                resource_id=11978459264156,
+                id_="09d58ddf-bebb-4e4d-96db-1702da76a016",
+                label="Hub temperature, standard deviation (°C)",
+                height=400,
+                width=700,
+                x=700,
+                y=0,
+            ),
+            ContainerReferenceItem(
+                external_id="495af88f-fe1d-403d-91b1-76ef9f80f265_5e2bf845-103c-4c17-8549-9f20329b7f98",
+                container_reference_type="event",
+                resource_id=9004025980300864,
+                id_="5e2bf845-103c-4c17-8549-9f20329b7f98",
+                label="b18cdf8e-6568-4e2a-a267-535eb52f41bf",
+                height=500,
+                width=600,
+                x=-10,
+                y=418,
+            ),
+            ContainerReferenceItem(
+                external_id="495af88f-fe1d-403d-91b1-76ef9f80f265_chart-ref-1",
+                container_reference_type="charts",
+                resource_id=-1,
+                id_="chart-ref-1",
+                charts_id="my-chart-id",
+                label="My Chart",
+                height=400,
+                width=600,
+                x=100,
+                y=100,
+            ),
+            ContainerReferenceItem(
+                external_id="495af88f-fe1d-403d-91b1-76ef9f80f265_datagrid-ref-1",
+                container_reference_type="dataGrid",
+                resource_id=-1,
+                id_="datagrid-ref-1",
+                label="My Data Grid",
+                height=300,
+                width=800,
+                x=200,
+                y=200,
+            ),
+        ],
     )
     mapping = NodeList[InstanceSource](
         [
@@ -418,7 +324,7 @@ def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[InstanceSource]]:
                 created_time=1,
                 resource_type="asset",
                 id_=3840956528416998,
-                preferred_consumer_view_id=ViewReference(space="my_space", external_id="DoctrinoAsset", version="v1"),
+                preferred_consumer_view_id=ViewId(space="my_space", external_id="DoctrinoAsset", version="v1"),
             ),
             InstanceSource(
                 space="MyNewInstanceSpace",
@@ -428,9 +334,7 @@ def asset_centric_canvas() -> tuple[IndustrialCanvas, NodeList[InstanceSource]]:
                 created_time=1,
                 resource_type="timeseries",
                 id_=11978459264156,
-                preferred_consumer_view_id=ViewReference(
-                    space="my_space", external_id="DoctrinoTimeSeries", version="v1"
-                ),
+                preferred_consumer_view_id=ViewId(space="my_space", external_id="DoctrinoTimeSeries", version="v1"),
             ),
             InstanceSource(
                 space="MyNewInstanceSpace",

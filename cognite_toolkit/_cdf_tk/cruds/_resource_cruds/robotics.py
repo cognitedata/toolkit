@@ -1,11 +1,17 @@
 import json
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Any
+from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities
-from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetScope,
+    RoboticsAcl,
+    ScopeDefinition,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotCapabilityRequest,
     RobotCapabilityResponse,
@@ -19,16 +25,18 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotMapResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import (
+from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
+from cognite_toolkit._cdf_tk.yaml_classes import (
     RobotCapabilityYAML,
     RobotDataPostProcessingYAML,
     RobotFrameYAML,
     RobotLocationYAML,
     RobotMapYAML,
 )
-from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 
+@final
 class RoboticFrameCRUD(ResourceCRUD[ExternalId, RobotFrameRequest, RobotFrameResponse]):
     folder_name = "robotics"
     resource_cls = RobotFrameResponse
@@ -54,18 +62,27 @@ class RoboticFrameCRUD(ResourceCRUD[ExternalId, RobotFrameRequest, RobotFrameRes
     @classmethod
     def get_required_capability(
         cls, items: Sequence[RobotFrameRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
-        return capabilities.RoboticsAcl(
+        return cap.RoboticsAcl(
             [
-                capabilities.RoboticsAcl.Action.Read,
-                capabilities.RoboticsAcl.Action.Create,
-                capabilities.RoboticsAcl.Action.Delete,
-                capabilities.RoboticsAcl.Action.Update,
+                cap.RoboticsAcl.Action.Read,
+                cap.RoboticsAcl.Action.Create,
+                cap.RoboticsAcl.Action.Delete,
+                cap.RoboticsAcl.Action.Update,
             ],
-            capabilities.RoboticsAcl.Scope.All(),
+            cap.RoboticsAcl.Scope.All(),
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[RobotFrameRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield RoboticsAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
 
     def dump_resource(self, resource: RobotFrameResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
@@ -100,6 +117,7 @@ class RoboticFrameCRUD(ResourceCRUD[ExternalId, RobotFrameRequest, RobotFrameRes
             yield from frames
 
 
+@final
 class RoboticLocationCRUD(ResourceCRUD[ExternalId, RobotLocationRequest, RobotLocationResponse]):
     folder_name = "robotics"
     resource_cls = RobotLocationResponse
@@ -125,23 +143,32 @@ class RoboticLocationCRUD(ResourceCRUD[ExternalId, RobotLocationRequest, RobotLo
     @classmethod
     def get_required_capability(
         cls, items: Sequence[RobotLocationRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
         actions = (
             [
-                capabilities.RoboticsAcl.Action.Read,
+                cap.RoboticsAcl.Action.Read,
             ]
             if read_only
             else [
-                capabilities.RoboticsAcl.Action.Read,
-                capabilities.RoboticsAcl.Action.Create,
-                capabilities.RoboticsAcl.Action.Delete,
-                capabilities.RoboticsAcl.Action.Update,
+                cap.RoboticsAcl.Action.Read,
+                cap.RoboticsAcl.Action.Create,
+                cap.RoboticsAcl.Action.Delete,
+                cap.RoboticsAcl.Action.Update,
             ]
         )
 
-        return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
+        return cap.RoboticsAcl(actions, cap.RoboticsAcl.Scope.All())
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[RobotLocationRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield RoboticsAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
 
     def create(self, items: Sequence[RobotLocationRequest]) -> list[RobotLocationResponse]:
         return self.client.tool.robotics.locations.create(items)
@@ -174,6 +201,7 @@ class RoboticLocationCRUD(ResourceCRUD[ExternalId, RobotLocationRequest, RobotLo
         return RobotLocationRequest.model_validate(resource)
 
 
+@final
 class RoboticsDataPostProcessingCRUD(
     ResourceCRUD[ExternalId, RobotDataPostProcessingRequest, RobotDataPostProcessingResponse]
 ):
@@ -201,23 +229,32 @@ class RoboticsDataPostProcessingCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[RobotDataPostProcessingRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
         actions = (
             [
-                capabilities.RoboticsAcl.Action.Read,
+                cap.RoboticsAcl.Action.Read,
             ]
             if read_only
             else [
-                capabilities.RoboticsAcl.Action.Read,
-                capabilities.RoboticsAcl.Action.Create,
-                capabilities.RoboticsAcl.Action.Delete,
-                capabilities.RoboticsAcl.Action.Update,
+                cap.RoboticsAcl.Action.Read,
+                cap.RoboticsAcl.Action.Create,
+                cap.RoboticsAcl.Action.Delete,
+                cap.RoboticsAcl.Action.Update,
             ]
         )
 
-        return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
+        return cap.RoboticsAcl(actions, cap.RoboticsAcl.Scope.All())
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[RobotDataPostProcessingRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield RoboticsAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
 
     def create(self, items: Sequence[RobotDataPostProcessingRequest]) -> list[RobotDataPostProcessingResponse]:
         return self.client.tool.robotics.data_postprocessing.create(items)
@@ -263,6 +300,7 @@ class RoboticsDataPostProcessingCRUD(
         return super().diff_list(local, cdf, json_path)
 
 
+@final
 class RobotCapabilityCRUD(ResourceCRUD[ExternalId, RobotCapabilityRequest, RobotCapabilityResponse]):
     folder_name = "robotics"
     resource_cls = RobotCapabilityResponse
@@ -288,23 +326,32 @@ class RobotCapabilityCRUD(ResourceCRUD[ExternalId, RobotCapabilityRequest, Robot
     @classmethod
     def get_required_capability(
         cls, items: Sequence[RobotCapabilityRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
         actions = (
             [
-                capabilities.RoboticsAcl.Action.Read,
+                cap.RoboticsAcl.Action.Read,
             ]
             if read_only
             else [
-                capabilities.RoboticsAcl.Action.Read,
-                capabilities.RoboticsAcl.Action.Create,
-                capabilities.RoboticsAcl.Action.Delete,
-                capabilities.RoboticsAcl.Action.Update,
+                cap.RoboticsAcl.Action.Read,
+                cap.RoboticsAcl.Action.Create,
+                cap.RoboticsAcl.Action.Delete,
+                cap.RoboticsAcl.Action.Update,
             ]
         )
 
-        return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
+        return cap.RoboticsAcl(actions, cap.RoboticsAcl.Scope.All())
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[RobotCapabilityRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield RoboticsAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
 
     def create(self, items: Sequence[RobotCapabilityRequest]) -> list[RobotCapabilityResponse]:
         return self.client.tool.robotics.capabilities.create(items)
@@ -353,6 +400,7 @@ class RobotCapabilityCRUD(ResourceCRUD[ExternalId, RobotCapabilityRequest, Robot
         return super().diff_list(local, cdf, json_path)
 
 
+@final
 class RoboticMapCRUD(ResourceCRUD[ExternalId, RobotMapRequest, RobotMapResponse]):
     folder_name = "robotics"
     resource_cls = RobotMapResponse
@@ -379,24 +427,33 @@ class RoboticMapCRUD(ResourceCRUD[ExternalId, RobotMapRequest, RobotMapResponse]
     @classmethod
     def get_required_capability(
         cls, items: Sequence[RobotMapRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
             [
-                capabilities.RoboticsAcl.Action.Read,
+                cap.RoboticsAcl.Action.Read,
             ]
             if read_only
             else [
-                capabilities.RoboticsAcl.Action.Read,
-                capabilities.RoboticsAcl.Action.Create,
-                capabilities.RoboticsAcl.Action.Delete,
-                capabilities.RoboticsAcl.Action.Update,
+                cap.RoboticsAcl.Action.Read,
+                cap.RoboticsAcl.Action.Create,
+                cap.RoboticsAcl.Action.Delete,
+                cap.RoboticsAcl.Action.Update,
             ]
         )
 
-        return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
+        return cap.RoboticsAcl(actions, cap.RoboticsAcl.Scope.All())
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[RobotMapRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield RoboticsAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
 
     def dump_resource(self, resource: RobotMapResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dump = resource.as_request_resource().dump()

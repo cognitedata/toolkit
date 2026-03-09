@@ -16,6 +16,10 @@ class LogEntry(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_
     id: str
 
 
+class LogIssue(LogEntry):
+    message: str
+
+
 OperationStatus: TypeAlias = Literal["success", "failure", "unchanged", "pending"]
 
 
@@ -54,6 +58,11 @@ class OperationTracker(ABC):
         """Get issue counts, optionally filtered by status."""
         raise NotImplementedError()
 
+    @abstractmethod
+    def reset(self) -> None:
+        """Reset all tracking data."""
+        raise NotImplementedError()
+
 
 class NoOpTracker(OperationTracker):
     """A no-op tracker that does nothing."""
@@ -73,6 +82,10 @@ class NoOpTracker(OperationTracker):
     def get_issue_counts(self, status: OperationStatus) -> dict[str, int]:
         """Return empty issue counts."""
         return {}
+
+    def reset(self) -> None:
+        """No-op: Do nothing."""
+        pass
 
 
 class MemoryOperationTracker(OperationTracker):
@@ -125,6 +138,13 @@ class MemoryOperationTracker(OperationTracker):
         """Get issue counts, optionally filtered by status."""
         with self._lock:
             return dict(self._issue_counts.get(status, {}))
+
+    def reset(self) -> None:
+        """Reset all tracking data."""
+        with self._lock:
+            self._active_items.clear()
+            self._status_counts.clear()
+            self._issue_counts.clear()
 
 
 class DataLogger(ABC):

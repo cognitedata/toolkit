@@ -2,22 +2,21 @@ from collections.abc import Iterable, Mapping, Sequence
 from types import MappingProxyType
 from typing import Any, ClassVar, Literal, cast
 
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes.aggregations import Count
-from cognite.client.data_classes.data_modeling import EdgeId, NodeId, ViewId
 from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import (
-    ContainerReference,
-    EdgeReference,
-    NodeReference,
-    SpaceReference,
-    ViewReference,
+    ContainerId,
+    EdgeId,
+    NodeId,
+    SpaceId,
+    ViewId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    EdgeProperty,
     InstanceRequest,
     InstanceResponse,
     QueryEdgeExpression,
@@ -71,7 +70,7 @@ class InstanceIO(
         super().__init__(client)
         self._remove_existing_version = remove_existing_version
         # Cache for view to read-only properties mapping
-        self._view_readonly_properties_cache: dict[ViewReference, set[str]] = {}
+        self._view_readonly_properties_cache: dict[ViewId, set[str]] = {}
         self._view_crud = ViewCRUD.create_loader(self.client)
 
     def as_id(self, item: InstanceResponse) -> str:
@@ -87,11 +86,11 @@ class InstanceIO(
         Returns:
             An InstanceFilter for the toolkit instances API.
         """
-        source: ViewReference | None = None
+        source: ViewId | None = None
         space: list[str] | None = None
 
         if isinstance(selector, InstanceViewSelector):
-            source = ViewReference(
+            source = ViewId(
                 space=selector.view.space,
                 external_id=selector.view.external_id,
                 version=selector.view.version or "",
@@ -101,7 +100,7 @@ class InstanceIO(
         elif isinstance(selector, InstanceSpaceSelector):
             space = [selector.instance_space]
             if selector.view and selector.view.version:
-                source = ViewReference(
+                source = ViewId(
                     space=selector.view.space,
                     external_id=selector.view.external_id,
                     version=selector.view.version,
@@ -146,13 +145,13 @@ class InstanceIO(
             if source.properties is None:
                 continue
             readonly_properties: set[str] = set()
-            if isinstance(source.source, ViewReference):
+            if isinstance(source.source, ViewId):
                 if source.source not in self._view_readonly_properties_cache:
                     self._view_readonly_properties_cache[source.source] = self._view_crud.get_readonly_properties(
                         source.source
                     )
                 readonly_properties = self._view_readonly_properties_cache[source.source]
-            elif isinstance(source.source, ContainerReference):
+            elif isinstance(source.source, ContainerId):
                 if source.source.as_tuple() in constants.READONLY_CONTAINER_PROPERTIES:
                     readonly_properties = constants.READONLY_CONTAINER_PROPERTIES[source.source.as_tuple()]
             if not readonly_properties:
@@ -160,7 +159,7 @@ class InstanceIO(
             source.properties = {k: v for k, v in source.properties.items() if k not in readonly_properties}
 
     def stream_data(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[Page]:
-        if isinstance(selector, InstanceViewSelector) and selector.include_edges and selector.instance_type == "node":
+        if isinstance(selector, InstanceViewSelector) and selector.edge_types and selector.instance_type == "node":
             yield from self._instances_with_container_and_edge_properties(selector, limit)
         elif isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
             yield from self._instances_with_container_properties(selector, limit)
@@ -174,10 +173,9 @@ class InstanceIO(
         self, selector: InstanceViewSelector, limit: int | None
     ) -> Iterable[Page]:
         instance_filter = self._build_query_filter(selector, "node")
-        views = self.client.tool.views.retrieve([selector.view.as_id()])
-        if not views:
-            raise ToolkitValueError(f"The view {selector.view.as_id()} does not exist")
-        view = views[0]
+        view_id = selector.view.as_id()
+        if not isinstance(view_id, ViewId):
+            raise ToolkitValueError("ViewId is required for InstanceViewSelector")
         with_: dict[str, QueryNodeExpression | QueryEdgeExpression] = {
             "nodes": QueryNodeExpression(
                 limit=min(self.CHUNK_SIZE, limit) if limit is not None else self.CHUNK_SIZE,
@@ -188,22 +186,27 @@ class InstanceIO(
             )
         }
         select: dict[str, QuerySelect] = {
-            "nodes": QuerySelect(sources=[QuerySelectSource(source=view.as_id(), properties=["*"])])
+            "nodes": QuerySelect(sources=[QuerySelectSource(source=view_id, properties=["*"])])
         }
         edge_ids: list[str] = []
-        for prop_id, prop in view.properties.items():
-            if not isinstance(prop, EdgeProperty):
-                continue
-            with_[prop_id] = QueryEdgeExpression(
+        for no, edge_type in enumerate(selector.edge_types or [], start=1):
+            query_id = f"edge_{no}"
+            with_[query_id] = QueryEdgeExpression(
                 edges=QueryEdgeTableExpression(
                     from_="nodes",
-                    chain_to="source" if prop.direction == "outwards" else "destination",
-                    direction=prop.direction,
+                    chain_to="source" if edge_type.direction == "outwards" else "destination",
+                    direction=edge_type.direction,
+                    filter={
+                        "equals": {
+                            "property": ["edge", "type"],
+                            "value": edge_type.type.dump(include_instance_type=False),
+                        }
+                    },
                 ),
                 sort=[QuerySortSpec(property=["edge", "space"]), QuerySortSpec(property=["edge", "externalId"])],
             )
-            edge_ids.append(prop_id)
-            select[prop_id] = QuerySelect()
+            edge_ids.append(query_id)
+            select[query_id] = QuerySelect()
 
         query = QueryRequest(with_=with_, select=select)
         total = 0
@@ -212,7 +215,7 @@ class InstanceIO(
             nodes = response.items.get("nodes", [])
             # De-duplicate edges across properties, as the same edge can be returned for multiple
             # properties if it connects two nodes that are in the result set.
-            edges: dict[NodeReference | EdgeReference, InstanceResponse] = {}
+            edges: dict[NodeId | EdgeId, InstanceResponse] = {}
             for prop_id in edge_ids:
                 for edge in response.items.get(prop_id, []):
                     ref = edge.as_id()
@@ -291,9 +294,9 @@ class InstanceIO(
         else:
             yield from (
                 [
-                    NodeId(space=instance.space, external_id=instance.external_id)
+                    dm.NodeId(space=instance.space, external_id=instance.external_id)
                     if instance.instance_type == "node"
-                    else EdgeId(space=instance.space, external_id=instance.external_id)
+                    else dm.EdgeId(space=instance.space, external_id=instance.external_id)
                     for instance in chunk.items
                 ]
                 for chunk in self.stream_data(selector, limit)
@@ -305,7 +308,7 @@ class InstanceIO(
         ):
             view_id = cast(SelectedView, selector.view)
             result = self.client.data_modeling.instances.aggregate(
-                view=ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
+                view=dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
                 aggregates=Count("externalId"),
                 instance_type=selector.instance_type,
                 space=selector.get_instance_spaces(),
@@ -345,7 +348,7 @@ class InstanceIO(
         if not spaces:
             return
         space_crud = SpaceCRUD.create_loader(self.client)
-        retrieved_spaces = space_crud.retrieve([SpaceReference(space=space) for space in spaces])
+        retrieved_spaces = space_crud.retrieve([SpaceId(space=space) for space in spaces])
         retrieved_spaces = [space for space in retrieved_spaces if not space.is_global]
         if not retrieved_spaces:
             return

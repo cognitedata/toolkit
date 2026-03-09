@@ -3,10 +3,10 @@ from typing import Any
 from pydantic import JsonValue, field_serializer, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Identifier, RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerReference
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 
 
-class RecordIdentifier(Identifier):
+class RecordId(Identifier):
     space: str
     external_id: str
 
@@ -15,11 +15,11 @@ class RecordIdentifier(Identifier):
 
 
 class RecordSource(BaseModelObject):
-    source: ContainerReference
+    source: ContainerId
     properties: dict[str, JsonValue]
 
     @field_serializer("source", mode="plain")
-    def serialize_source(self, value: ContainerReference) -> Any:
+    def serialize_source(self, value: ContainerId) -> Any:
         return {**value.dump(), "type": value.type}
 
 
@@ -30,8 +30,8 @@ class RecordRequest(RequestResource):
     external_id: str
     sources: list[RecordSource]
 
-    def as_id(self) -> RecordIdentifier:
-        return RecordIdentifier(space=self.space, external_id=self.external_id)
+    def as_id(self) -> RecordId:
+        return RecordId(space=self.space, external_id=self.external_id)
 
 
 class RecordResponse(ResponseResource[RecordRequest]):
@@ -39,15 +39,15 @@ class RecordResponse(ResponseResource[RecordRequest]):
 
     space: str
     external_id: str
-    properties: dict[ContainerReference, dict[str, JsonValue]] | None = None
+    properties: dict[ContainerId, dict[str, JsonValue]] | None = None
 
     @field_validator("properties", mode="before")
     def parse_reference(cls, value: Any) -> Any:
         if not isinstance(value, dict):
             return value
-        parsed: dict[ContainerReference, dict[str, JsonValue]] = {}
+        parsed: dict[ContainerId, dict[str, JsonValue]] = {}
         for space, inner_dict in value.items():
-            if isinstance(space, ContainerReference):
+            if isinstance(space, ContainerId):
                 parsed[space] = inner_dict
                 continue
             if not isinstance(inner_dict, dict) or not isinstance(space, str):
@@ -56,13 +56,13 @@ class RecordResponse(ResponseResource[RecordRequest]):
                     f"got: dict[{type(space).__name__}, {type(inner_dict).__name__}]"
                 )
             for container_external_id, props in inner_dict.items():
-                source_ref = ContainerReference(space=space, external_id=container_external_id)  # pyright: ignore[reportCallIssue]
+                source_ref = ContainerId(space=space, external_id=container_external_id)  # pyright: ignore[reportCallIssue]
                 parsed[source_ref] = props
         return parsed
 
     @field_serializer("properties", mode="plain")
     def serialize_properties(
-        self, value: dict[ContainerReference, dict[str, JsonValue]] | None
+        self, value: dict[ContainerId, dict[str, JsonValue]] | None
     ) -> dict[str, dict[str, dict[str, JsonValue]]] | None:
         if value is None:
             return None

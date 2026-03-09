@@ -17,18 +17,23 @@ import json
 from collections.abc import Hashable, Iterable, Sequence
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any, final
+from typing import Any, Literal, final
 
 from cognite.client.data_classes import ClientCredentials
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    WorkflowOrchestrationAcl,
-)
+from cognite.client.data_classes import capabilities as cap
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, WorkflowVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetScope,
+    ScopeDefinition,
+    WorkflowOrchestrationAcl,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     NonceCredentials,
@@ -46,7 +51,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCycleError,
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.resource_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
     MissingReferencedWarning,
     ToolkitWarning,
@@ -57,8 +61,11 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     sanitize_filename,
 )
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
+from cognite_toolkit._cdf_tk.yaml_classes import WorkflowTriggerYAML, WorkflowVersionYAML, WorkflowYAML
+from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import SubworkflowTask
 
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
@@ -90,21 +97,30 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
         return "workflows"
 
     @classmethod
+    def get_minimum_scope(cls, items: Sequence[WorkflowRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield WorkflowOrchestrationAcl(actions=sorted(actions), scope=scope)
+
+    @classmethod
     def get_required_capability(
         cls, items: Sequence[WorkflowRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [WorkflowOrchestrationAcl.Action.Read]
+            [cap.WorkflowOrchestrationAcl.Action.Read]
             if read_only
-            else [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write]
+            else [cap.WorkflowOrchestrationAcl.Action.Read, cap.WorkflowOrchestrationAcl.Action.Write]
         )
 
-        return WorkflowOrchestrationAcl(
+        return cap.WorkflowOrchestrationAcl(
             actions,
-            WorkflowOrchestrationAcl.Scope.All(),
+            cap.WorkflowOrchestrationAcl.Scope.All(),
         )
 
     @classmethod
@@ -156,7 +172,7 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[WorkflowResponse]:
         if data_set_external_id is None:
-            for workflows in self.client.tool.workflows.iterate(limit=100):
+            for workflows in self.client.tool.workflows.iterate(limit=None):
                 yield from workflows
             return
         data_sets = self.client.tool.datasets.retrieve(
@@ -165,7 +181,7 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
         if not data_sets:
             raise ToolkitRequiredValueError(f"DataSet {data_set_external_id!r} does not exist")
         data_set = data_sets[0]
-        for workflows in self.client.tool.workflows.iterate(limit=100):
+        for workflows in self.client.tool.workflows.iterate(limit=None):
             for workflow in workflows:
                 if workflow.data_set_id == data_set.id:
                     yield workflow
@@ -179,6 +195,11 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
         """
         if "dataSetExternalId" in item:
             yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: WorkflowYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
 
 
 @final
@@ -201,21 +222,29 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest
         return "workflow versions"
 
     @classmethod
+    def get_minimum_scope(cls, items: Sequence[WorkflowVersionRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
+
+    @classmethod
     def get_required_capability(
         cls, items: Sequence[WorkflowVersionRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [WorkflowOrchestrationAcl.Action.Read]
+            [cap.WorkflowOrchestrationAcl.Action.Read]
             if read_only
-            else [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write]
+            else [cap.WorkflowOrchestrationAcl.Action.Read, cap.WorkflowOrchestrationAcl.Action.Write]
         )
 
-        return WorkflowOrchestrationAcl(
+        return cap.WorkflowOrchestrationAcl(
             actions,
-            WorkflowOrchestrationAcl.Scope.All(),
+            cap.WorkflowOrchestrationAcl.Scope.All(),
         )
 
     @classmethod
@@ -358,6 +387,20 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest
             yield WorkflowCRUD, ExternalId(external_id=item["workflowExternalId"])
 
     @classmethod
+    def get_dependencies(cls, resource: WorkflowVersionYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield WorkflowCRUD, ExternalId(external_id=resource.workflow_external_id)
+        for task in resource.workflow_definition.tasks:
+            if isinstance(task, SubworkflowTask):
+                subworkflow = task.parameters.subworkflow
+                if isinstance(subworkflow, WorkflowVersionId):
+                    yield (
+                        cls,
+                        WorkflowVersionId(
+                            workflow_external_id=subworkflow.workflow_external_id, version=subworkflow.version
+                        ),
+                    )
+
+    @classmethod
     def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
         warnings: list[ToolkitWarning] = []
         tasks = item.get("workflowDefinition", {}).get("tasks", [])
@@ -413,7 +456,7 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[WorkflowVersionResponse]:
         # Note: The new API doesn't support filtering by workflow_ids in list, so we iterate over all
-        for versions in self.client.tool.workflows.versions.iterate(limit=100):
+        for versions in self.client.tool.workflows.versions.iterate(limit=None):
             if parent_ids is not None:
                 workflow_ids = {
                     parent_id.external_id if isinstance(parent_id, ExternalId) else parent_id
@@ -502,20 +545,28 @@ class WorkflowTriggerCRUD(ResourceCRUD[ExternalId, WorkflowTriggerRequest, Workf
     @classmethod
     def get_required_capability(
         cls, items: Sequence[WorkflowTriggerRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         capability = (
-            [WorkflowOrchestrationAcl.Action.Read]
+            [cap.WorkflowOrchestrationAcl.Action.Read]
             if read_only
-            else [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write]
+            else [cap.WorkflowOrchestrationAcl.Action.Read, cap.WorkflowOrchestrationAcl.Action.Write]
         )
 
-        return WorkflowOrchestrationAcl(
+        return cap.WorkflowOrchestrationAcl(
             capability,
-            WorkflowOrchestrationAcl.Scope.All(),
+            cap.WorkflowOrchestrationAcl.Scope.All(),
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[WorkflowTriggerRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     def create(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
         return self._upsert(items)
@@ -583,6 +634,14 @@ class WorkflowTriggerCRUD(ResourceCRUD[ExternalId, WorkflowTriggerRequest, Workf
                     WorkflowVersionCRUD,
                     WorkflowVersionId(workflow_external_id=item["workflowExternalId"], version=item["workflowVersion"]),
                 )
+
+    @classmethod
+    def get_dependencies(cls, resource: WorkflowTriggerYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield WorkflowCRUD, ExternalId(external_id=resource.workflow_external_id)
+        yield (
+            WorkflowVersionCRUD,
+            WorkflowVersionId(workflow_external_id=resource.workflow_external_id, version=resource.workflow_version),
+        )
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None

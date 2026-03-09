@@ -15,35 +15,46 @@
 
 from collections.abc import Hashable, Iterable, Sequence
 from datetime import date, datetime
-from typing import Any, final
+from typing import Any, Literal, final
 
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    DataModelInstancesAcl,
-    FilesAcl,
-)
+from cognite.client.data_classes import capabilities as cap
 from cognite.client.utils._time import convert_data_modelling_timestamp
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     InternalOrExternalId,
     NameId,
-    NodeReference,
-    SpaceReference,
+    NodeId,
+    SpaceId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest, CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataModelInstancesAcl,
+    DataSetScope,
+    FilesAcl,
+    ScopeDefinition,
+    SpaceIDScope,
+)
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.resource_classes import CogniteFileYAML, FileMetadataYAML
 from cognite_toolkit._cdf_tk.utils import (
     in_dict,
 )
+from cognite_toolkit._cdf_tk.utils.acl_helper import (
+    as_instance_acl_actions,
+    dataset_scoped_resource,
+    space_scoped_resource,
+)
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML
 
 from .auth import GroupAllScopedCRUD, SecurityCategoryCRUD
 from .classic import AssetCRUD
@@ -70,18 +81,27 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
     @classmethod
     def get_required_capability(
         cls, items: Sequence[FileMetadataRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
-        actions = [FilesAcl.Action.Read] if read_only else [FilesAcl.Action.Read, FilesAcl.Action.Write]
+        actions = [cap.FilesAcl.Action.Read] if read_only else [cap.FilesAcl.Action.Read, cap.FilesAcl.Action.Write]
 
-        scope: FilesAcl.Scope.All | FilesAcl.Scope.DataSet = FilesAcl.Scope.All()  # type: ignore[valid-type]
+        scope: cap.FilesAcl.Scope.All | cap.FilesAcl.Scope.DataSet = cap.FilesAcl.Scope.All()  # type: ignore[valid-type]
         if items:
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = FilesAcl.Scope.DataSet(list(data_set_ids))
+                scope = cap.FilesAcl.Scope.DataSet(list(data_set_ids))
 
-        return FilesAcl(actions, scope)
+        return cap.FilesAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[FileMetadataRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield FilesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: FileMetadataRequest | FileMetadataResponse | dict) -> ExternalId:
@@ -115,6 +135,18 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
                 elif isinstance(label, str):
                     yield LabelCRUD, ExternalId(external_id=label)
         for asset_external_id in item.get("assetExternalIds", []):
+            yield AssetCRUD, ExternalId(external_id=asset_external_id)
+
+    @classmethod
+    def get_dependencies(cls, resource: FileMetadataYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+        for security_category in resource.security_categories or []:
+            yield SecurityCategoryCRUD, NameId(name=security_category)
+        for label in resource.labels or []:
+            if isinstance(label, dict):
+                yield LabelCRUD, ExternalId(external_id=label["externalId"])
+        for asset_external_id in resource.asset_external_ids or []:
             yield AssetCRUD, ExternalId(external_id=asset_external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FileMetadataRequest:
@@ -178,7 +210,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
 
 
 @final
-class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, CogniteFileResponse]):
+class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteFileResponse]):
     template_pattern = "$FILENAME"
     item_name = "file contents"
     folder_name = "files"
@@ -195,38 +227,54 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, C
         return "cognite files"
 
     @classmethod
-    def get_id(cls, item: CogniteFileResponse | CogniteFileRequest | dict) -> NodeReference:
+    def get_id(cls, item: CogniteFileResponse | CogniteFileRequest | dict) -> NodeId:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"space", "externalId"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return NodeReference(space=item["space"], external_id=item["externalId"])
-        return NodeReference(space=item.space, external_id=item.external_id)
+            return NodeId(space=item["space"], external_id=item["externalId"])
+        return NodeId(space=item.space, external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: NodeReference) -> dict[str, Any]:
+    def dump_id(cls, id: NodeId) -> dict[str, Any]:
         return id.dump()
 
     @classmethod
-    def get_required_capability(cls, items: Sequence[CogniteFileRequest] | None, read_only: bool) -> list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[CogniteFileRequest] | None, read_only: bool
+    ) -> list[cap.Capability]:
         if not items and items is not None:
             return []
 
-        file_actions = [FilesAcl.Action.Read] if read_only else [FilesAcl.Action.Read, FilesAcl.Action.Write]
+        file_actions = (
+            [cap.FilesAcl.Action.Read] if read_only else [cap.FilesAcl.Action.Read, cap.FilesAcl.Action.Write]
+        )
         instance_actions = (
-            [DataModelInstancesAcl.Action.Read]
+            [cap.DataModelInstancesAcl.Action.Read]
             if read_only
-            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
         )
 
-        scope: DataModelInstancesAcl.Scope.All | DataModelInstancesAcl.Scope.SpaceID = DataModelInstancesAcl.Scope.All()  # type: ignore[valid-type]
+        scope: cap.DataModelInstancesAcl.Scope.All | cap.DataModelInstancesAcl.Scope.SpaceID = (  # type: ignore[valid-type]
+            cap.DataModelInstancesAcl.Scope.All()
+        )
         if items:
             if spaces := {item.space for item in items}:
-                scope = DataModelInstancesAcl.Scope.SpaceID(list(spaces))
+                scope = cap.DataModelInstancesAcl.Scope.SpaceID(list(spaces))
         return [
-            FilesAcl(file_actions, FilesAcl.Scope.All()),
-            DataModelInstancesAcl(instance_actions, scope),
+            cap.FilesAcl(file_actions, cap.FilesAcl.Scope.All()),
+            cap.DataModelInstancesAcl(instance_actions, scope),
         ]
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[CogniteFileRequest]) -> ScopeDefinition:
+        return space_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield FilesAcl(actions=sorted(actions), scope=AllScope())
+        if isinstance(scope, AllScope | SpaceIDScope):
+            yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
     def dump_resource(self, resource: CogniteFileResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump(context="toolkit")
@@ -263,19 +311,17 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, C
     def create(self, items: Sequence[CogniteFileRequest]) -> list[InstanceSlimDefinition]:
         return self.client.tool.cognite_files.create(items)
 
-    def retrieve(self, ids: Sequence[NodeReference]) -> list[CogniteFileResponse]:
+    def retrieve(self, ids: Sequence[NodeId]) -> list[CogniteFileResponse]:
         return self.client.tool.cognite_files.retrieve(
-            [NodeReference(space=id_.space, external_id=id_.external_id) for id_ in ids]
+            [NodeId(space=id_.space, external_id=id_.external_id) for id_ in ids]
         )
 
     def update(self, items: Sequence[CogniteFileRequest]) -> list[InstanceSlimDefinition]:
         return self.client.tool.cognite_files.create(items)
 
-    def delete(self, ids: Sequence[NodeReference]) -> int:
+    def delete(self, ids: Sequence[NodeId]) -> int:
         return len(
-            self.client.tool.cognite_files.delete(
-                [NodeReference(space=id_.space, external_id=id_.external_id) for id_ in ids]
-            )
+            self.client.tool.cognite_files.delete([NodeId(space=id_.space, external_id=id_.external_id) for id_ in ids])
         )
 
     def _iterate(
@@ -287,10 +333,10 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, C
         # We do not have a way to know the source of the file, so we cannot filter on that.
         return []
 
-    def count(self, ids: Sequence[NodeReference]) -> int:
+    def count(self, ids: Sequence[NodeId]) -> int:
         return sum(bool(file.is_uploaded or False) for file in self.retrieve(ids))
 
-    def drop_data(self, ids: Sequence[NodeReference]) -> int:
+    def drop_data(self, ids: Sequence[NodeId]) -> int:
         # Deleting and recreating the file, will remove the file contents but keep the metadata.
         retrieved = self.retrieve(ids)
         self.delete(ids)
@@ -304,11 +350,20 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeReference, CogniteFileRequest, C
         DatasetLoader and identifier of that dataset.
         """
         if "space" in item:
-            yield SpaceCRUD, SpaceReference(space=item["space"])
+            yield SpaceCRUD, SpaceId(space=item["space"])
         for key in ["source", "category", "type"]:
             if key in item and in_dict(("space", "externalId"), item[key]):
-                yield NodeCRUD, NodeReference(space=item[key]["space"], external_id=item[key]["externalId"])
+                yield NodeCRUD, NodeId(space=item[key]["space"], external_id=item[key]["externalId"])
         if "assets" in item:
             for asset in item["assets"]:
                 if isinstance(asset, dict) and in_dict(("space", "externalId"), asset):
-                    yield NodeCRUD, NodeReference(space=asset["space"], external_id=asset["externalId"])
+                    yield NodeCRUD, NodeId(space=asset["space"], external_id=asset["externalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: CogniteFileYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield SpaceCRUD, SpaceId(space=resource.space)
+        for ref in [resource.source, resource.category, resource.type]:
+            if ref:
+                yield NodeCRUD, NodeId(space=ref.space, external_id=ref.external_id)
+        for asset in resource.assets or []:
+            yield NodeCRUD, NodeId(space=asset.space, external_id=asset.external_id)

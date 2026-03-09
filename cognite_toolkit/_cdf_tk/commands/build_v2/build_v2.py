@@ -24,7 +24,11 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ResourceType,
     ValidationType,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxError, Recommendation
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    ConsistencyError,
+    ModelSyntaxError,
+    Recommendation,
+)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     BuildVariable,
     FailedReadResource,
@@ -34,14 +38,17 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._plugins import NeatPlugin
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, MODULES
-from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds import (
+    RESOURCE_CRUD_BY_FOLDER_NAME,
+    ResourceCRUD,
+)
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
-from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, relative_to_if_possible, safe_read, yaml_safe_dump
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
+from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 
 class BuildV2Command(ToolkitCommand):
@@ -53,6 +60,8 @@ class BuildV2Command(ToolkitCommand):
         module_sources = self._parse_module_sources(build_files)
 
         build_folder = self._build_modules(module_sources, parameters.build_dir)
+
+        self._cdf_dependency_validation(build_folder, client)
 
         # Todo: Some mixpanel tracking.
         # Can be parallelized with number of plugins.
@@ -243,7 +252,14 @@ class BuildV2Command(ToolkitCommand):
 
             if module.is_success:
                 self._local_validation(module)
+
                 built_module.built_files = self._export_module(module, build_dir)
+                built_module.built_resources_identifiers = [
+                    resource.resource.as_id()
+                    for resource in module.resources
+                    if isinstance(resource, SuccessfulReadResource)
+                ]
+                built_module.dependencies = module.dependencies
 
             built_module.insights.extend(module.insights)
             for resource in module.resources:
@@ -443,6 +459,31 @@ class BuildV2Command(ToolkitCommand):
     def _local_validation(self, module: Module) -> None:
         """Local validations are post-syntax validations executed"""
         RulesOrchestrator().run(module)
+
+    def _cdf_dependency_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
+        """CDF dependency validations are validations that require checking the existence of resources in CDF."""
+
+        dependencies_by_built_module = build_folder.cdf_dependencies_by_built_module
+
+        if client:
+            for built_module, dependencies_by_file in dependencies_by_built_module.items():
+                for file, dependencies_by_crud in dependencies_by_file.items():
+                    for crud_cls, dependencies in dependencies_by_crud.items():
+                        crud = crud_cls(client=client, build_dir=build_folder.path)
+                        response = {resource.as_id() for resource in crud.retrieve(list(dependencies))}
+
+                        if missing := dependencies - response:
+                            for m in missing:
+                                built_module.insights.append(
+                                    ConsistencyError(
+                                        code="MISSING-DEPENDENCY",
+                                        message=(
+                                            f"{crud.kind} '{m}' referenced in file '{file}' "
+                                            "does not exist locally neither in CDF."
+                                        ),
+                                        fix="Make sure the resource exists in CDF or remove the reference to it.",
+                                    )
+                                )
 
     def _global_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
         """This validation is performed per resource type and not per individual resource and against CDF

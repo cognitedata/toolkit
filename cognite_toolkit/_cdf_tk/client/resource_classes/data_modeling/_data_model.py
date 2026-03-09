@@ -5,7 +5,7 @@ from pydantic import field_serializer
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.client.identifiers import DataModelReference, ViewReference
+from cognite_toolkit._cdf_tk.client.identifiers import DataModelId, ViewId
 
 from ._view import ViewResponse
 
@@ -24,8 +24,8 @@ class DataModel(BaseModelObject, ABC):
     name: str | None = None
     description: str | None = None
 
-    def as_id(self) -> DataModelReference:
-        return DataModelReference(
+    def as_id(self) -> DataModelId:
+        return DataModelId(
             space=self.space,
             external_id=self.external_id,
             version=self.version,
@@ -33,20 +33,18 @@ class DataModel(BaseModelObject, ABC):
 
 
 class DataModelRequest(DataModel, RequestResource):
-    views: list[ViewReference] | None = None
+    views: list[ViewId] | None = None
 
     @field_serializer("views", mode="plain")
     @classmethod
-    def serialize_views(
-        cls, views: list[ViewReference] | None, info: FieldSerializationInfo
-    ) -> list[dict[str, Any]] | None:
+    def serialize_views(cls, views: list[ViewId] | None, info: FieldSerializationInfo) -> list[dict[str, Any]] | None:
         if views is None:
             return None
         return [{**view.model_dump(**vars(info)), "type": "view"} for view in views]
 
 
 class DataModelResponse(DataModel, ResponseResource[DataModelRequest]):
-    views: list[ViewReference] | None = None
+    views: list[ViewId] | None = None
     created_time: int
     last_updated_time: int
     is_global: bool
@@ -57,9 +55,7 @@ class DataModelResponse(DataModel, ResponseResource[DataModelRequest]):
 
     @field_serializer("views", mode="plain")
     @classmethod
-    def serialize_views(
-        cls, views: list[ViewReference] | None, info: FieldSerializationInfo
-    ) -> list[dict[str, Any]] | None:
+    def serialize_views(cls, views: list[ViewId] | None, info: FieldSerializationInfo) -> list[dict[str, Any]] | None:
         if views is None:
             return None
         return [{**view.model_dump(**vars(info)), "type": "view"} for view in views]

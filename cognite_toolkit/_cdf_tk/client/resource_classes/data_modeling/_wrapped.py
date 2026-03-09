@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     RequestResource,
     ResponseResource,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition, NodeReference, ViewReference
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId, NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._constants import InstanceType
 
 
@@ -23,7 +23,7 @@ class WrappedInstanceRequest(RequestResource, ABC):
     It is used to define resources that are
     """
 
-    VIEW_ID: ClassVar[ViewReference]
+    VIEW_ID: ClassVar[ViewId]
     instance_type: InstanceType
     space: str
     external_id: str
@@ -69,7 +69,7 @@ T_WrappedInstanceRequest = TypeVar("T_WrappedInstanceRequest", bound=WrappedInst
 
 
 class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
-    VIEW_ID: ClassVar[ViewReference]
+    VIEW_ID: ClassVar[ViewId]
     instance_type: InstanceType
     space: str
     external_id: str
@@ -82,7 +82,7 @@ class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
     @model_validator(mode="before")
     def move_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Move properties from sources to the top level."""
-        return move_properties(values, cls.VIEW_ID)
+        return move_response_properties(values, cls.VIEW_ID)
 
     def dump(
         self, camel_case: bool = True, exclude_extra: bool = False, context: Literal["api", "toolkit"] = "api"
@@ -123,7 +123,7 @@ class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
         return output
 
 
-def move_properties(values: dict[str, Any], view_id: ViewReference) -> dict[str, Any]:
+def move_response_properties(values: dict[str, Any], view_id: ViewId) -> dict[str, Any]:
     """Help function to move properties from properties.space.externalId/version to the top level.
 
     It is used in WrappedInstanceResponse to move properties from the response to the top level.
@@ -141,11 +141,28 @@ def move_properties(values: dict[str, Any], view_id: ViewReference) -> dict[str,
     return {**{key: value for key, value in values.items() if key != "properties"}, **source_properties}
 
 
+def move_request_properties(values: dict[str, Any]) -> dict[str, Any]:
+    """Help function to move properties from the top level to properties.space.externalId/version.
+
+    It is used in WrappedInstanceRequest to move properties from the request to the correct place in the API payload.
+    """
+    if "sources" not in values:
+        return values
+    sources = values["sources"]
+    if not isinstance(sources, list):
+        return values
+    source_properties: dict[str, Any] = {}
+    for source in sources:
+        if isinstance(properties := source.get("properties"), dict):
+            source_properties.update(properties)
+    return {**{key: value for key, value in values.items() if key != "sources"}, **source_properties}
+
+
 T_WrappedInstanceResponse = TypeVar("T_WrappedInstanceResponse", bound=WrappedInstanceResponse)
 
 
 class WrappedInstanceListRequest(RequestResource, ABC):
-    VIEW_ID: ClassVar[ViewReference]
+    VIEW_ID: ClassVar[ViewId]
     instance_type: Literal["node"] = "node"
     space: str
     external_id: str
@@ -155,14 +172,14 @@ class WrappedInstanceListRequest(RequestResource, ABC):
         """Dumps the object to a list of instance request dictionaries."""
         raise NotImplementedError()
 
-    def as_id(self) -> NodeReference:
-        return NodeReference(
+    def as_id(self) -> NodeId:
+        return NodeId(
             space=self.space,
             external_id=self.external_id,
         )
 
     @abstractmethod
-    def as_ids(self) -> list[InstanceIdDefinition]:
+    def as_ids(self) -> list[InstanceDefinitionId]:
         """Convert the response to a list of typed instance identifiers."""
         raise NotImplementedError()
 
@@ -171,7 +188,7 @@ T_InstancesListRequest = TypeVar("T_InstancesListRequest", bound=WrappedInstance
 
 
 class WrappedInstanceListResponse(ResponseResource[T_InstancesListRequest], ABC):
-    VIEW_ID: ClassVar[ViewReference]
+    VIEW_ID: ClassVar[ViewId]
     instance_type: Literal["node"] = "node"
     space: str
     external_id: str
@@ -180,10 +197,16 @@ class WrappedInstanceListResponse(ResponseResource[T_InstancesListRequest], ABC)
     @classmethod
     def move_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Move properties from sources to the top level."""
-        return move_properties(values, cls.VIEW_ID)
+        return move_response_properties(values, cls.VIEW_ID)
+
+    def as_id(self) -> NodeId:
+        return NodeId(
+            space=self.space,
+            external_id=self.external_id,
+        )
 
     @abstractmethod
-    def as_ids(self) -> list[InstanceIdDefinition]:
+    def as_ids(self) -> list[InstanceDefinitionId]:
         """Convert the response to a list of typed instance identifiers."""
         raise NotImplementedError()
 

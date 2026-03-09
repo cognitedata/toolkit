@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Annotated, Any, Literal
 
 from pydantic import AliasChoices, Field, model_serializer, model_validator
@@ -15,11 +15,11 @@ SemanticVersion = Annotated[
 ]
 
 
-class InternalOrExternalIdDefinition(Identifier):
+class InternalOrExternalIdDefinitionId(Identifier):
     type: str
 
 
-class InternalIdUnwrapped(Identifier):
+class InternalUnwrappedId(Identifier):
     id: int
 
     def __str__(self) -> str:
@@ -37,7 +37,7 @@ class InternalIdUnwrapped(Identifier):
         return value
 
 
-class InternalId(InternalOrExternalIdDefinition):
+class InternalId(InternalOrExternalIdDefinitionId):
     type: Literal["id"] = Field("id", exclude=True)
     id: int
 
@@ -48,16 +48,16 @@ class InternalId(InternalOrExternalIdDefinition):
     def __str__(self) -> str:
         return f"id={self.id}"
 
-    def as_unwrapped(self) -> InternalIdUnwrapped:
-        return InternalIdUnwrapped(id=self.id)
+    def as_unwrapped(self) -> InternalUnwrappedId:
+        return InternalUnwrappedId(id=self.id)
 
 
-class ExternalId(InternalOrExternalIdDefinition):
+class ExternalId(InternalOrExternalIdDefinitionId):
     type: Literal["externalId"] = Field("externalId", exclude=True)
     external_id: str
 
     @classmethod
-    def from_external_ids(cls, external_ids: list[str]) -> list["ExternalId"]:
+    def from_external_ids(cls, external_ids: Iterable[str]) -> list["ExternalId"]:
         return [cls(external_id=ext_id) for ext_id in external_ids]
 
     def __str__(self) -> str:
@@ -175,3 +175,11 @@ class PrincipalLoginId(Identifier):
 
     def __str__(self) -> str:
         return f"principal='{self.principal}', id='{self.id}'"
+
+
+class SignalSinkId(Identifier):
+    type: Literal["email", "user"]
+    external_id: str
+
+    def __str__(self) -> str:
+        return f"type='{self.type}', externalId='{self.external_id}'"

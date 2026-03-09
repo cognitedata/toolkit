@@ -17,8 +17,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentResponse,
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DataModelResponse,
     SpaceResponse,
-    ViewReference,
-    ViewReferenceNoVersion,
+    ViewId,
+    ViewNoVersionId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline import ExtractionPipelineResponse
@@ -174,7 +174,7 @@ def three_data_models() -> list[DataModelResponse]:
             space="my_space",
             external_id="my_model",
             version="v1",
-            views=[ViewReference(space="my_space", external_id="firstView", version="v1")],
+            views=[ViewId(space="my_space", external_id="firstView", version="v1")],
             **default_args,
         ),
         DataModelResponse(
@@ -182,8 +182,8 @@ def three_data_models() -> list[DataModelResponse]:
             external_id="my_model",
             version="v2",
             views=[
-                ViewReference(space="my_space", external_id="firstView", version="v2"),
-                ViewReference(space="my_space2", external_id="secondView", version="v2"),
+                ViewId(space="my_space", external_id="firstView", version="v2"),
+                ViewId(space="my_space2", external_id="secondView", version="v2"),
             ],
             **default_args,
         ),
@@ -191,7 +191,7 @@ def three_data_models() -> list[DataModelResponse]:
             space="my_space",
             external_id="other_model",
             version="v1",
-            views=[ViewReference(space="my_space", external_id="otherView", version="v1")],
+            views=[ViewId(space="my_space", external_id="otherView", version="v1")],
             **default_args,
         ),
     ]
@@ -313,6 +313,7 @@ def three_agents() -> list[AgentResponse]:
                     description=f"This is tool {character}",
                 )
             ],
+            labels=["published"],
             created_time=1,
             last_updated_time=1,
             owner_id="test",
@@ -931,19 +932,19 @@ class TestDumpSpaces:
 def three_search_configs() -> list[SearchConfigResponse]:
     return [
         SearchConfigResponse(
-            view=ViewReferenceNoVersion(external_id="searchConfigA", space="spaceA"),
+            view=ViewNoVersionId(external_id="searchConfigA", space="spaceA"),
             id=1,
             created_time=1,
             last_updated_time=2,
         ),
         SearchConfigResponse(
-            view=ViewReferenceNoVersion(external_id="searchConfigB", space="spaceB"),
+            view=ViewNoVersionId(external_id="searchConfigB", space="spaceB"),
             id=2,
             created_time=1,
             last_updated_time=2,
         ),
         SearchConfigResponse(
-            view=ViewReferenceNoVersion(external_id="searchConfigC", space="spaceC"),
+            view=ViewNoVersionId(external_id="searchConfigC", space="spaceC"),
             id=3,
             created_time=1,
             last_updated_time=2,
@@ -970,8 +971,8 @@ class TestSearchConfigFinder:
             selected = finder._interactive_select()
 
         assert selected == (
-            ViewReferenceNoVersion(external_id="searchConfigB", space="spaceB"),
-            ViewReferenceNoVersion(external_id="searchConfigC", space="spaceC"),
+            ViewNoVersionId(external_id="searchConfigB", space="spaceB"),
+            ViewNoVersionId(external_id="searchConfigC", space="spaceC"),
         )
 
 
@@ -985,8 +986,8 @@ class TestDumpSearchConfigs:
                 SearchConfigFinder(
                     client,
                     (
-                        ViewReferenceNoVersion(external_id="searchConfigB", space="spaceB"),
-                        ViewReferenceNoVersion(external_id="searchConfigC", space="spaceC"),
+                        ViewNoVersionId(external_id="searchConfigB", space="spaceB"),
+                        ViewNoVersionId(external_id="searchConfigC", space="spaceC"),
                     ),
                 ),
                 output_dir=tmp_path,
@@ -1013,7 +1014,7 @@ def three_resource_view_mappings() -> list[ResourceViewMappingResponse]:
             last_updated_time=1,
             created_time=1,
             resource_type="asset",
-            view_id=ViewReference(space="my_space", external_id="CogniteAsset", version="v1"),
+            view_id=ViewId(space="my_space", external_id="CogniteAsset", version="v1"),
             property_mapping={"name": "name", "description": "description"},
         ),
         ResourceViewMappingResponse(
@@ -1022,7 +1023,7 @@ def three_resource_view_mappings() -> list[ResourceViewMappingResponse]:
             last_updated_time=1,
             created_time=1,
             resource_type="event",
-            view_id=ViewReference(space="my_space", external_id="CogniteEvent", version="v1"),
+            view_id=ViewId(space="my_space", external_id="CogniteEvent", version="v1"),
             property_mapping={"type": "type", "subtype": "subtype"},
         ),
         ResourceViewMappingResponse(
@@ -1031,7 +1032,7 @@ def three_resource_view_mappings() -> list[ResourceViewMappingResponse]:
             last_updated_time=1,
             created_time=1,
             resource_type="timeseries",
-            view_id=ViewReference(space="my_space", external_id="CogniteTimeSeries", version="v1"),
+            view_id=ViewId(space="my_space", external_id="CogniteTimeSeries", version="v1"),
             property_mapping={"name": "name", "unit": "unit"},
         ),
     ]

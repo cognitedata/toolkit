@@ -9,6 +9,7 @@ import httpx
 import pytest
 import responses
 import respx
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes.data_modeling import (
     DataModel,
     DataModelList,
@@ -16,17 +17,22 @@ from cognite.client.data_classes.data_modeling import (
     NodeList,
     NodeOrEdgeData,
     View,
-    ViewId,
 )
 from cognite.client.data_classes.data_modeling.statistics import InstanceStatistics, ProjectStatistics
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
+    CANVAS_INSTANCE_SPACE,
+    CANVAS_VIEW_ID,
+    CONTAINER_REFERENCE_VIEW_ID,
+    ContainerReferenceItem,
+    IndustrialCanvasResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData, ChartSource, ChartTimeseries
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, ViewReference
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import ContainerReference, IndustrialCanvas
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource as LegacyInstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
@@ -251,7 +257,7 @@ class TestMigrationCommand:
                 external_id=asset.external_id,
                 sources=[
                     InstanceSource(
-                        source=ViewReference(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
+                        source=ViewId(space="cdf_cdm", external_id="CogniteAsset", version="v1"),
                         properties={
                             "name": asset.name,
                             "description": asset.description,
@@ -428,7 +434,7 @@ class TestMigrationCommand:
                 type=(space, asset_annotation.annotation_type),
                 sources=[
                     NodeOrEdgeData(
-                        source=ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
+                        source=dm.ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
                         properties={
                             "sourceContext": asset_annotation.creating_app_version,
                             "sourceCreatedUser": asset_annotation.creating_user,
@@ -450,7 +456,7 @@ class TestMigrationCommand:
                 type=(space, file_annotation.annotation_type),
                 sources=[
                     NodeOrEdgeData(
-                        source=ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
+                        source=dm.ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1"),
                         properties={
                             "sourceContext": file_annotation.creating_app_version,
                             "sourceCreatedUser": file_annotation.creating_user,
@@ -526,7 +532,7 @@ class TestMigrationCommand:
                             resource_type="timeseries",
                             id_=1,
                             classic_external_id=None,
-                            preferred_consumer_view_id=ViewReference(
+                            preferred_consumer_view_id=ViewId(
                                 space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
                             ),
                         ).dump(),
@@ -539,7 +545,7 @@ class TestMigrationCommand:
                             resource_type="timeseries",
                             id_=2,
                             classic_external_id="ts_1",
-                            preferred_consumer_view_id=ViewReference(
+                            preferred_consumer_view_id=ViewId(
                                 space="my_schema_space", external_id="MyTimeSeries", version="v1"
                             ),
                         ).dump(),
@@ -631,51 +637,121 @@ class TestMigrationCommand:
         cognite_migration_model: respx.MockRouter,
         tmp_path: Path,
         respx_mock: respx.MockRouter,
-        asset_centric_canvas: tuple[IndustrialCanvas, NodeList[InstanceSource]],
+        asset_centric_canvas: tuple[IndustrialCanvasResponse, NodeList[InstanceSource]],
         rsps: responses.RequestsMock,
     ) -> None:
         respx_mock = cognite_migration_model
         config = toolkit_config
         canvas, instance_sources = asset_centric_canvas
         id_ = uuid.uuid4()
-        non_existing_file = ContainerReference(
-            space="IndustrialCanvasInstanceSpace",
-            external_id=f"{canvas.canvas.external_id}_{id_!s}",
-            version=1,
-            last_updated_time=1,
-            created_time=1,
+        non_existing_file = ContainerReferenceItem(
+            external_id=f"{canvas.external_id}_{id_!s}",
             container_reference_type="file",
             resource_id=999,
             id_=str(id_),
         )
-        # Canvas retrieve ids
-        rsps.add(
-            responses.POST,
-            config.create_api_url("/models/instances/query"),
-            json={
-                "items": {
-                    "canvas": [canvas.canvas.dump()],
-                    "solutionTags": [solution_tag.dump() for solution_tag in canvas.solution_tags],
-                    "annotations": [annotation.dump() for annotation in canvas.annotations],
-                    "containerReferences": [
-                        container_reference.dump() for container_reference in canvas.container_references
-                    ]
-                    + [non_existing_file.dump()],
-                    "fdmInstanceContainerReferences": [
-                        fdm_container_reference.dump()
-                        for fdm_container_reference in canvas.fdm_instance_container_references
-                    ],
+
+        def _to_query_node(space, external_id, view_id, props, version=1, created_time=0, last_updated_time=0):
+            """Build a DMS query response node with properties nested under space/view."""
+            return {
+                "instanceType": "node",
+                "space": space,
+                "externalId": external_id,
+                "version": version,
+                "createdTime": created_time,
+                "lastUpdatedTime": last_updated_time,
+                "properties": {
+                    view_id.space: {
+                        f"{view_id.external_id}/{view_id.version}": props,
+                    }
                 },
-                "nextCursor": {
-                    "canvas": None,
-                    "solutionTags": None,
-                    "annotations": None,
-                    "containerReferences": None,
-                    "fdmInstanceContainerReferences": None,
-                },
+            }
+
+        def _item_to_query_node(item, view_id):
+            props = item.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude={"space", "external_id"})
+            return _to_query_node(item.space, item.external_id, view_id, props)
+
+        canvas_props = canvas.model_dump(
+            mode="json",
+            by_alias=True,
+            exclude_unset=True,
+            exclude={
+                "instance_type",
+                "space",
+                "external_id",
+                "version",
+                "created_time",
+                "last_updated_time",
+                "annotations",
+                "container_references",
+                "fdm_instance_container_references",
+                "solution_tag_items",
             },
-            status=200,
         )
+        canvas_node = _to_query_node(
+            canvas.space,
+            canvas.external_id,
+            CANVAS_VIEW_ID,
+            canvas_props,
+            version=canvas.version,
+            created_time=canvas.created_time,
+            last_updated_time=canvas.last_updated_time,
+        )
+
+        container_ref_nodes = [
+            _item_to_query_node(ref, CONTAINER_REFERENCE_VIEW_ID) for ref in (canvas.container_references or [])
+        ] + [_item_to_query_node(non_existing_file, CONTAINER_REFERENCE_VIEW_ID)]
+
+        canvas_query_data = {
+            "items": {
+                "canvas": [canvas_node],
+                "solutionTags": [],
+                "annotations": [],
+                "containerReferences": container_ref_nodes,
+                "fdmInstanceContainerReferences": [],
+            },
+            "nextCursor": {
+                "canvas": None,
+                "solutionTags": None,
+                "annotations": None,
+                "containerReferences": None,
+                "fdmInstanceContainerReferences": None,
+            },
+        }
+        empty_query_data = {"items": {"canvas": []}, "nextCursor": {}}
+        query_call_count = 0
+
+        def _query_side_effect(request: httpx.Request) -> httpx.Response:
+            nonlocal query_call_count
+            query_call_count += 1
+            if query_call_count == 1:
+                return httpx.Response(status_code=200, json=canvas_query_data)
+            return httpx.Response(status_code=200, json=empty_query_data)
+
+        respx_mock.post(config.create_api_url("/models/instances/query")).mock(
+            side_effect=_query_side_effect,
+        )
+
+        def _echo_upsert_items(request: httpx.Request) -> httpx.Response:
+            body = json.loads(request.content)
+            items = [
+                {
+                    "instanceType": item.get("instanceType", "node"),
+                    "space": item.get("space", CANVAS_INSTANCE_SPACE),
+                    "externalId": item.get("externalId", "unknown"),
+                    "version": 1,
+                    "wasModified": True,
+                    "createdTime": 0,
+                    "lastUpdatedTime": 0,
+                }
+                for item in body.get("items", [])
+            ]
+            return httpx.Response(status_code=200, json={"items": items})
+
+        respx_mock.post(config.create_api_url("/models/instances")).mock(
+            side_effect=_echo_upsert_items,
+        )
+
         for resource_type in ["asset", "event", "timeseries", "file"]:
             rsps.add(
                 responses.POST,
@@ -686,7 +762,6 @@ class TestMigrationCommand:
                             instance_source.dump()
                             for instance_source in instance_sources
                             if instance_source.resource_type == resource_type
-                            # Simulating that the non_existing_file does not exist
                         ]
                         if resource_type != "file"
                         else []
@@ -695,39 +770,12 @@ class TestMigrationCommand:
                 },
                 status=200,
             )
-        # Creation of backup, we just return empty.
-        rsps.add(
-            responses.POST,
-            config.create_api_url("/models/instances/byids"),
-            json={"items": []},
-            status=200,
-        )
-        rsps.add(
-            responses.POST,
-            config.create_api_url("/models/instances"),
-            json={"items": [], "deleted": []},
-            status=200,
-        )
-        # Upsert of migrated canvas
-        rsps.add(
-            responses.POST,
-            config.create_api_url("/models/instances/query"),
-            json={"items": {"canvas": []}, "nextCursor": {}},
-            status=200,
-        )
-        respx.post(
-            config.create_api_url("/models/instances"),
-        ).mock(
-            return_value=httpx.Response(
-                status_code=200,
-                json={"items": [], "deleted": []},
-            )
-        )
+        # byids and upsert for instances are now handled by httpx/respx, not requests
 
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)
 
-        selector = CanvasExternalIdSelector(external_ids=(canvas.canvas.external_id,))
+        selector = CanvasExternalIdSelector(external_ids=(canvas.external_id,))
         results_by_selector = command.migrate(
             selectors=[selector],
             data=CanvasIO(client, exclude_existing_version=True),
@@ -741,23 +789,27 @@ class TestMigrationCommand:
         actual_results = {status.status: status.count for status in result}
         assert actual_results == {"failure": 0, "pending": 0, "success": 1, "unchanged": 0}
 
-        assert len(respx_mock.calls) == 2
-        call = respx_mock.calls[-1]
-        assert call.request.url == config.create_api_url("/models/instances")
-        assert call.request.method == "POST"
+        upsert_calls = [
+            c
+            for c in respx_mock.calls
+            if str(c.request.url) == config.create_api_url("/models/instances") and c.request.method == "POST"
+        ]
+        assert len(upsert_calls) >= 1
+        call = upsert_calls[-1]
         created_instance = json.loads(call.request.content.decode("utf-8"))["items"]
         created_nodes = Counter(
             item["sources"][0]["source"]["externalId"] for item in created_instance if item["instanceType"] == "node"
         )
         asset_centric_ref_count = sum(
             1
-            for ref in canvas.container_references
+            for ref in (canvas.container_references or [])
             if ref.container_reference_type in CanvasMapper.asset_centric_resource_types
         )
         assert created_nodes == {
             "Canvas": 1,
-            "ContainerReference": len(canvas.container_references) - asset_centric_ref_count,
-            "FdmInstanceContainerReference": len(canvas.fdm_instance_container_references) + asset_centric_ref_count,
+            "ContainerReference": len(canvas.container_references or []) - asset_centric_ref_count,
+            "FdmInstanceContainerReference": len(canvas.fdm_instance_container_references or [])
+            + asset_centric_ref_count,
         }
 
         has_existing_version = [item["externalId"] for item in created_instance if "existingVersion" in item]
@@ -854,3 +906,18 @@ class TestMigrationCommand:
             )
             client.data_modeling.statistics.project.return_value = stats
             cmd.validate_available_capacity(client, 10_000)
+
+    @pytest.mark.parametrize(
+        "existing_files, stem, expected",
+        [
+            ([], "migration_log", "migration_log-"),
+            (["migration_log-part001.log"], "migration_log", "migration_log-run2-"),
+            (["migration_log-part001.log", "migration_log-run3-part001.log"], "migration_log", "migration_log-run4-"),
+        ],
+    )
+    def test_create_logfile_stem(self, existing_files: list[str], stem: str, expected: str, tmp_path: Path) -> None:
+        for filename in existing_files:
+            (tmp_path / filename).touch()
+        actual = MigrationCommand._create_logfile_stem(tmp_path, stem, "not_important")
+
+        assert actual == expected

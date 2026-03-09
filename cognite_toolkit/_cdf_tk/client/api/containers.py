@@ -10,10 +10,11 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, 
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    ContainerReference,
+    ContainerId,
     ContainerRequest,
     ContainerResponse,
 )
+from cognite_toolkit._cdf_tk.constants import CONTAINER_UPSERT_BATCH_LIMIT
 
 
 class ContainersAPI(CDFResourceAPI[ContainerResponse]):
@@ -26,9 +27,7 @@ class ContainersAPI(CDFResourceAPI[ContainerResponse]):
         super().__init__(
             http_client=http_client,
             method_endpoint_map={
-                # The actual API limit is 100, but depending on the number of properties DMS struggles with large
-                # batches, thus, we set it to 50 to be safe.
-                "upsert": Endpoint(method="POST", path="/models/containers", item_limit=50),
+                "upsert": Endpoint(method="POST", path="/models/containers", item_limit=CONTAINER_UPSERT_BATCH_LIMIT),
                 "retrieve": Endpoint(method="POST", path="/models/containers/byids", item_limit=100),
                 "delete": Endpoint(method="POST", path="/models/containers/delete", item_limit=100),
                 "list": Endpoint(method="GET", path="/models/containers", item_limit=1000),
@@ -61,7 +60,7 @@ class ContainersAPI(CDFResourceAPI[ContainerResponse]):
         """
         return self._request_item_response(items, "upsert")
 
-    def retrieve(self, items: Sequence[ContainerReference]) -> list[ContainerResponse]:
+    def retrieve(self, items: Sequence[ContainerId]) -> list[ContainerResponse]:
         """Retrieve containers from CDF.
 
         Args:
@@ -72,7 +71,7 @@ class ContainersAPI(CDFResourceAPI[ContainerResponse]):
         """
         return self._request_item_response(items, method="retrieve")
 
-    def delete(self, items: Sequence[ContainerReference]) -> None:
+    def delete(self, items: Sequence[ContainerId]) -> None:
         """Delete containers from CDF.
 
         Args:

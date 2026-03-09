@@ -1,15 +1,21 @@
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Any, final
+from typing import Any, Literal, final
 
-from cognite.client.data_classes.capabilities import Capability, StreamsAcl
+from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    ScopeDefinition,
+    StreamsAcl,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamRequest,
     StreamResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import StreamYAML
+from cognite_toolkit._cdf_tk.yaml_classes import StreamYAML
 
 from .datamodel import ContainerCRUD
 
@@ -42,16 +48,30 @@ class StreamCRUD(ResourceCRUD[ExternalId, StreamRequest, StreamResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[StreamRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [StreamsAcl.Action.Read]
+            [cap.StreamsAcl.Action.Read]
             if read_only
-            else [StreamsAcl.Action.Read, StreamsAcl.Action.Create, StreamsAcl.Action.Delete]
+            else [cap.StreamsAcl.Action.Read, cap.StreamsAcl.Action.Create, cap.StreamsAcl.Action.Delete]
         )
-        return StreamsAcl(actions, StreamsAcl.Scope.All())
+        return cap.StreamsAcl(actions, cap.StreamsAcl.Scope.All())
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[StreamRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope):
+            acl_actions: list[Literal["READ", "CREATE", "DELETE"]] = []
+            if "READ" in actions:
+                acl_actions.append("READ")
+            if "WRITE" in actions:
+                acl_actions.extend(["CREATE", "DELETE"])
+            yield StreamsAcl(actions=acl_actions, scope=scope)
 
     def create(self, items: Sequence[StreamRequest]) -> list[StreamResponse]:
         return self.client.streams.create(items)

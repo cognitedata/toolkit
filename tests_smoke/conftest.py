@@ -5,12 +5,12 @@ from pathlib import Path
 import pytest
 from cognite.client import global_config
 from cognite.client.credentials import OAuthClientCredentials
-from cognite.client.data_classes.data_modeling import Space, SpaceApply
 from dotenv import load_dotenv
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessResponse
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SpaceId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceRequest, SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetRequest, DataSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from tests.data import THREE_D_He2_FBX_ZIP
@@ -66,19 +66,21 @@ def smoke_dataset(toolkit_client: ToolkitClient) -> DataSetResponse:
 
 
 @pytest.fixture(scope="session")
-def smoke_space(toolkit_client: ToolkitClient) -> "Space":
+def smoke_space(toolkit_client: ToolkitClient) -> SpaceResponse:
     client = toolkit_client
 
     space_external_id = SMOKE_SPACE
-    if space := client.data_modeling.spaces.retrieve(space_external_id):
-        return space
-    return client.data_modeling.spaces.apply(
-        SpaceApply(
-            name="Toolkit Smoke Test Space",
-            space=space_external_id,
-            description="Space for Cognite Toolkit migration integration tests",
-        )
-    )
+    if spaces := client.tool.spaces.retrieve([SpaceId(space=space_external_id)]):
+        return spaces[0]
+    return client.tool.spaces.create(
+        [
+            SpaceRequest(
+                name="Toolkit Smoke Test Space",
+                space=space_external_id,
+                description="Space for Cognite Toolkit migration integration tests",
+            )
+        ]
+    )[0]
 
 
 @pytest.fixture(scope="session")

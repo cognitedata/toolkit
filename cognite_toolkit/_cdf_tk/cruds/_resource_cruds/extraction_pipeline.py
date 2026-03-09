@@ -15,14 +15,12 @@
 
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, final
+from typing import Any, Literal, final
 
 import yaml
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    ExtractionPipelinesAcl,
-)
+from cognite.client.data_classes import capabilities as cap
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
@@ -40,12 +38,18 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config 
     ExtractionPipelineConfigRequest,
     ExtractionPipelineConfigResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetScope,
+    ExtractionPipelinesAcl,
+    ScopeDefinition,
+)
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.resource_classes import ExtractionPipelineConfigYAML, ExtractionPipelineYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
 )
@@ -57,6 +61,7 @@ from cognite_toolkit._cdf_tk.utils import (
     stringify_value_by_key_in_yaml,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
+from cognite_toolkit._cdf_tk.yaml_classes import ExtractionPipelineConfigYAML, ExtractionPipelineYAML
 
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
@@ -80,24 +85,33 @@ class ExtractionPipelineCRUD(ResourceCRUD[ExternalId, ExtractionPipelineRequest,
     @classmethod
     def get_required_capability(
         cls, items: Sequence[ExtractionPipelineRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [ExtractionPipelinesAcl.Action.Read]
+            [cap.ExtractionPipelinesAcl.Action.Read]
             if read_only
-            else [ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write]
+            else [cap.ExtractionPipelinesAcl.Action.Read, cap.ExtractionPipelinesAcl.Action.Write]
         )
 
-        scope: ExtractionPipelinesAcl.Scope.All | ExtractionPipelinesAcl.Scope.DataSet = (  # type: ignore[valid-type]
-            ExtractionPipelinesAcl.Scope.All()
+        scope: cap.ExtractionPipelinesAcl.Scope.All | cap.ExtractionPipelinesAcl.Scope.DataSet = (  # type: ignore[valid-type]
+            cap.ExtractionPipelinesAcl.Scope.All()
         )
         if items is not None:
             if data_set_id := {item.data_set_id for item in items if item.data_set_id}:
-                scope = ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
+                scope = cap.ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
 
-        return ExtractionPipelinesAcl(actions, scope)
+        return cap.ExtractionPipelinesAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[ExtractionPipelineRequest]) -> ScopeDefinition:
+        return DataSetScope(ids=list({item.data_set_id for item in items}))
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield ExtractionPipelinesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: ExtractionPipelineRequest | ExtractionPipelineResponse | dict) -> ExternalId:
@@ -136,6 +150,18 @@ class ExtractionPipelineCRUD(ResourceCRUD[ExternalId, ExtractionPipelineRequest,
                         yield RawDatabaseCRUD, RawDatabaseId(name=db)
                     if "tableName" in entry:
                         yield RawTableCRUD, RawTableId(db_name=db, name=entry["tableName"])
+
+    @classmethod
+    def get_dependencies(cls, resource: ExtractionPipelineYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+        seen_databases: set[str] = set()
+        for entry in resource.raw_tables or []:
+            if entry.db_name and entry.db_name not in seen_databases:
+                seen_databases.add(entry.db_name)
+                yield RawDatabaseCRUD, RawDatabaseId(name=entry.db_name)
+            if entry.db_name and entry.table_name:
+                yield RawTableCRUD, RawTableId(db_name=entry.db_name, name=entry.table_name)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
@@ -219,9 +245,17 @@ class ExtractionPipelineConfigCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[ExtractionPipelineConfigRequest] | None, read_only: bool
-    ) -> list[Capability]:
+    ) -> list[cap.Capability]:
         # We check the parent extraction pipeline permissions instead
         return []
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[ExtractionPipelineConfigRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     @classmethod
     def get_id(cls, item: ExtractionPipelineConfigRequest | ExtractionPipelineConfigResponse | dict) -> ExternalId:
@@ -243,6 +277,12 @@ class ExtractionPipelineConfigCRUD(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "externalId" in item:
             yield ExtractionPipelineCRUD, ExternalId(external_id=item["externalId"])
+
+    @classmethod
+    def get_dependencies(
+        cls, resource: ExtractionPipelineConfigYAML
+    ) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield ExtractionPipelineCRUD, ExternalId(external_id=resource.external_id)
 
     def safe_read(self, filepath: Path | str) -> str:
         # The config is expected to be a string that is parsed as a YAML on the server side.
@@ -339,7 +379,8 @@ class ExtractionPipelineConfigCRUD(
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ExtractionPipelineConfigResponse]:
         return self.client.tool.extraction_pipelines.configs.retrieve(
-            [ExtractionPipelineConfigId(external_id=pipeline_id.external_id) for pipeline_id in ids]
+            [ExtractionPipelineConfigId(external_id=pipeline_id.external_id) for pipeline_id in ids],
+            ignore_unknown_ids=True,
         )
 
     def delete(self, ids: Sequence[ExternalId]) -> int:

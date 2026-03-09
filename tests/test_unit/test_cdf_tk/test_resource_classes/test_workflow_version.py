@@ -4,11 +4,11 @@ from typing import get_args
 
 import pytest
 
-from cognite_toolkit._cdf_tk.resource_classes.workflow_version import Task, TaskDefinition, WorkflowVersionYAML
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
+from cognite_toolkit._cdf_tk.yaml_classes.workflow_version import Task, TaskDefinition, WorkflowVersionYAML
 from tests.test_unit.utils import find_resources
 
 
@@ -84,9 +84,35 @@ def invalid_workflow_version_test_cases() -> Iterable:
         {
             "In workflowDefinition.tasks[1] input tag 'unknownType' found using 'type' "
             "does not match any of the expected tags: 'function', 'transformation', "
-            "'cdfRequest', 'dynamic', 'subworkflow', 'simulation'"
+            "'cdfRequest', 'dynamic', 'subworkflow', 'simulation', 'functionApp'"
         },
         id="Invalid task type",
+    )
+    yield pytest.param(
+        {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "t1",
+                        "type": "functionApp",
+                        "parameters": {
+                            "functionApp": {
+                                "externalId": "my-app",
+                                "path": "/invoke",
+                                "parameters": {f"k{i}": "v" for i in range(11)},
+                            }
+                        },
+                    }
+                ]
+            },
+        },
+        {
+            "In workflowDefinition.tasks[1].functionApp.parameters.functionApp.parameters "
+            "dictionary should have at most 10 items after validation, not 11"
+        },
+        id="functionApp parameters exceeds max 10 entries",
     )
 
 

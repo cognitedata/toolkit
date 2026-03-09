@@ -1,7 +1,7 @@
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import Recommendation
 from cognite_toolkit._cdf_tk.cruds._resource_cruds import WorkflowCRUD
-from cognite_toolkit._cdf_tk.resource_classes import WorkflowYAML
 from cognite_toolkit._cdf_tk.rules._base import ToolkitResourceRule
+from cognite_toolkit._cdf_tk.yaml_classes import WorkflowYAML
 
 BASE_CODE = "TOOLKIT-WORKFLOW"
 

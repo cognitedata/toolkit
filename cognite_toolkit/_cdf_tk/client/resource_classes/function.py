@@ -1,5 +1,7 @@
 from typing import Literal, TypeAlias
 
+from pydantic import Field
+
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client._types import Metadata
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
@@ -29,6 +31,10 @@ class FunctionBase(BaseModelObject):
 class FunctionRequest(FunctionBase, RequestResource):
     """Request resource for creating/updating functions."""
 
+    # This is not part of the request payload, but we store the information such that we can use it
+    # to check which acl is needed to deploy the function code.
+    data_set_id: int | None = Field(None, exclude=True)
+
     def as_id(self) -> ExternalId:
         if self.external_id is None:
             raise ValueError("Cannot create ExternalId: external_id is None")
@@ -36,7 +42,10 @@ class FunctionRequest(FunctionBase, RequestResource):
 
 
 class FunctionAPIError(BaseModelObject):
-    code: int
+    # this is deviating from the official API spec. However, users of Toolkit has reported
+    # that hte error response from the API does not always follow the spec. The code
+    # field can be missing.
+    code: int | None = None
     message: str
 
 

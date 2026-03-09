@@ -1,23 +1,30 @@
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, final
+from typing import Any, Literal, final
 
-from cognite.client.data_classes.capabilities import AppConfigAcl, Capability
+from cognite.client.data_classes import capabilities as cap
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewReferenceNoVersion
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewNoVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    AppConfigAcl,
+    AppConfigScope,
+    ScopeDefinition,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigRequest, SearchConfigResponse
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import SearchConfigYAML
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.yaml_classes import SearchConfigYAML
 
 from .datamodel import ViewCRUD
 
 
 @final
-class SearchConfigCRUD(ResourceCRUD[ViewReferenceNoVersion, SearchConfigRequest, SearchConfigResponse]):
+class SearchConfigCRUD(ResourceCRUD[ViewNoVersionId, SearchConfigRequest, SearchConfigResponse]):
     support_drop = False
     folder_name = "cdf_applications"
     resource_cls = SearchConfigResponse
@@ -30,7 +37,7 @@ class SearchConfigCRUD(ResourceCRUD[ViewReferenceNoVersion, SearchConfigRequest,
 
     def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
         super().__init__(client, build_path, console)
-        self._internal_id_by_view: dict[ViewReferenceNoVersion, int] | None = None
+        self._internal_id_by_view: dict[ViewNoVersionId, int] | None = None
 
     @property
     def display_name(self) -> str:
@@ -39,31 +46,44 @@ class SearchConfigCRUD(ResourceCRUD[ViewReferenceNoVersion, SearchConfigRequest,
     @classmethod
     def get_required_capability(
         cls, items: Sequence[SearchConfigRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
-        actions = [AppConfigAcl.Action.Read] if read_only else [AppConfigAcl.Action.Read, AppConfigAcl.Action.Write]
+        actions = (
+            [cap.AppConfigAcl.Action.Read]
+            if read_only
+            else [cap.AppConfigAcl.Action.Read, cap.AppConfigAcl.Action.Write]
+        )
 
-        return AppConfigAcl(
+        return cap.AppConfigAcl(
             actions=actions,
-            scope=AppConfigAcl.Scope.AppConfig(apps=["SEARCH"]),
+            scope=cap.AppConfigAcl.Scope.AppConfig(apps=["SEARCH"]),
             allow_unknown=True,
         )
 
     @classmethod
-    def get_id(cls, item: SearchConfigRequest | SearchConfigResponse | dict) -> ViewReferenceNoVersion:
-        if isinstance(item, dict):
-            view = item.get("view", {})
-            return ViewReferenceNoVersion(space=view.get("space", ""), external_id=view.get("externalId", ""))
-        return ViewReferenceNoVersion(space=item.view.space, external_id=item.view.external_id)
+    def get_minimum_scope(cls, items: Sequence[SearchConfigRequest]) -> ScopeDefinition:
+        return AppConfigScope(apps=["SEARCH"])
 
     @classmethod
-    def dump_id(cls, id: ViewReferenceNoVersion) -> dict[str, Any]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | AppConfigScope):
+            yield AppConfigAcl(actions=sorted(actions), scope=scope)
+
+    @classmethod
+    def get_id(cls, item: SearchConfigRequest | SearchConfigResponse | dict) -> ViewNoVersionId:
+        if isinstance(item, dict):
+            view = item.get("view", {})
+            return ViewNoVersionId(space=view.get("space", ""), external_id=view.get("externalId", ""))
+        return ViewNoVersionId(space=item.view.space, external_id=item.view.external_id)
+
+    @classmethod
+    def dump_id(cls, id: ViewNoVersionId) -> dict[str, Any]:
         return {"view": id.dump()}
 
     @classmethod
-    def as_str(cls, id: ViewReferenceNoVersion) -> str:
+    def as_str(cls, id: ViewNoVersionId) -> str:
         return sanitize_filename(f"{id.external_id}_{id.space}")
 
     def dump_resource(self, resource: SearchConfigResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -102,7 +122,7 @@ class SearchConfigCRUD(ResourceCRUD[ViewReferenceNoVersion, SearchConfigRequest,
         """
         return self.client.tool.search_configurations.create(items)
 
-    def retrieve(self, ids: Sequence[ViewReferenceNoVersion]) -> list[SearchConfigResponse]:
+    def retrieve(self, ids: Sequence[ViewNoVersionId]) -> list[SearchConfigResponse]:
         """Retrieve search configurations by their IDs"""
         all_configs = self.client.tool.search_configurations.list()
         id_set = set(ids)
@@ -115,7 +135,7 @@ class SearchConfigCRUD(ResourceCRUD[ViewReferenceNoVersion, SearchConfigRequest,
         """
         return self.client.tool.search_configurations.update(items)
 
-    def delete(self, ids: Sequence[ViewReferenceNoVersion]) -> int:
+    def delete(self, ids: Sequence[ViewNoVersionId]) -> int:
         """
         Delete is not implemented in the API client
         """

@@ -1,22 +1,30 @@
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Any, final
+from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities
-from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes import capabilities as cap
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     InternalId,
     NameId,
     ThreeDModelRevisionId,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetScope,
+    ScopeDefinition,
+    ThreeDAcl,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicRequest,
     ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import ThreeDModelYAML
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
+from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions, dataset_scoped_resource
+from cognite_toolkit._cdf_tk.yaml_classes import ThreeDModelYAML
 
 from .data_organization import DataSetsCRUD
 
@@ -63,28 +71,37 @@ class ThreeDModelCRUD(ResourceContainerCRUD[NameId, ThreeDModelClassicRequest, T
     @classmethod
     def get_required_capability(
         cls, items: Sequence[ThreeDModelClassicRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
-        scope: capabilities.ThreeDAcl.Scope.All | capabilities.ThreeDAcl.Scope.DataSet = (  # type: ignore[valid-type]
-            capabilities.ThreeDAcl.Scope.All()
+        scope: cap.ThreeDAcl.Scope.All | cap.ThreeDAcl.Scope.DataSet = (  # type: ignore[valid-type]
+            cap.ThreeDAcl.Scope.All()
         )
         if items:
             if data_set_ids := {item.data_set_id for item in items or [] if item.data_set_id}:
-                scope = capabilities.ThreeDAcl.Scope.DataSet(list(data_set_ids))
+                scope = cap.ThreeDAcl.Scope.DataSet(list(data_set_ids))
 
         actions = (
-            [capabilities.ThreeDAcl.Action.Read]
+            [cap.ThreeDAcl.Action.Read]
             if read_only
             else [
-                capabilities.ThreeDAcl.Action.Read,
-                capabilities.ThreeDAcl.Action.Create,
-                capabilities.ThreeDAcl.Action.Update,
-                capabilities.ThreeDAcl.Action.Delete,
+                cap.ThreeDAcl.Action.Read,
+                cap.ThreeDAcl.Action.Create,
+                cap.ThreeDAcl.Action.Update,
+                cap.ThreeDAcl.Action.Delete,
             ]
         )
 
-        return capabilities.ThreeDAcl(actions, scope)
+        return cap.ThreeDAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[ThreeDModelClassicRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield ThreeDAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
 
     def create(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelClassicResponse]:
         return self.client.tool.three_d.models_classic.create(items)
@@ -153,6 +170,11 @@ class ThreeDModelCRUD(ResourceContainerCRUD[NameId, ThreeDModelClassicRequest, T
         """
         if "dataSetExternalId" in item:
             yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: ThreeDModelYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ThreeDModelClassicRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):

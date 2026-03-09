@@ -1,12 +1,19 @@
 from collections.abc import Hashable, Iterable, Sequence, Sized
-from typing import Any, final
+from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities
-from cognite.client.data_classes.capabilities import Capability
-from cognite.client.data_classes.data_modeling import ViewId
+from cognite.client import data_modeling as dm
+from cognite.client.data_classes import capabilities as cap
 
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeReference
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference, ViewReference
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataModelInstancesAcl,
+    ScopeDefinition,
+    SpaceIDScope,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     RESOURCE_MAPPING_VIEW_ID,
     ResourceViewMappingRequest,
@@ -14,8 +21,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
 )
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import ResourceViewMappingYAML
 from cognite_toolkit._cdf_tk.utils import in_dict, sanitize_filename
+from cognite_toolkit._cdf_tk.utils.acl_helper import as_instance_acl_actions
+from cognite_toolkit._cdf_tk.yaml_classes import ResourceViewMappingYAML
 
 from .datamodel import SpaceCRUD, ViewCRUD
 
@@ -51,24 +59,33 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
     @classmethod
     def get_required_capability(
         cls, items: Sequence[ResourceViewMappingRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [capabilities.DataModelInstancesAcl.Action.Read]
+            [cap.DataModelInstancesAcl.Action.Read]
             if read_only
-            else [capabilities.DataModelInstancesAcl.Action.Read, capabilities.DataModelInstancesAcl.Action.Write]
+            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
         )
 
-        return capabilities.DataModelInstancesAcl(
-            actions=actions, scope=capabilities.DataModelInstancesAcl.Scope.SpaceID([COGNITE_MIGRATION_SPACE])
+        return cap.DataModelInstancesAcl(
+            actions=actions, scope=cap.DataModelInstancesAcl.Scope.SpaceID([COGNITE_MIGRATION_SPACE])
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[ResourceViewMappingRequest]) -> ScopeDefinition:
+        return SpaceIDScope(space_ids=[COGNITE_MIGRATION_SPACE])
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | SpaceIDScope):
+            yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
     def prerequisite_warning(self) -> str | None:
         view_id = RESOURCE_MAPPING_VIEW_ID
         views = self.client.data_modeling.views.retrieve(
-            ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version)
+            dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version)
         )
         if len(views) > 0:
             return None
@@ -81,11 +98,11 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
         return self.client.migration.resource_view_mapping.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[ResourceViewMappingResponse]:
-        node_ids = NodeReference.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
+        node_ids = NodeId.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
         return self.client.migration.resource_view_mapping.retrieve(node_ids)
 
     def delete(self, ids: Sequence[ExternalId]) -> int:
-        node_ids = NodeReference.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
+        node_ids = NodeId.from_external_ids(ids, space=COGNITE_MIGRATION_SPACE)
         result = self.client.migration.resource_view_mapping.delete(node_ids)
         return len(result)
 
@@ -102,11 +119,11 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceCRUD], Hashable]]":
-        yield SpaceCRUD, SpaceReference(space=COGNITE_MIGRATION_SPACE)
+        yield SpaceCRUD, SpaceId(space=COGNITE_MIGRATION_SPACE)
         view_id = RESOURCE_MAPPING_VIEW_ID
         yield (
             ViewCRUD,
-            ViewReference(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
+            ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version),
         )
 
         if "viewId" in item:
@@ -114,12 +131,19 @@ class ResourceViewMappingCRUD(ResourceCRUD[ExternalId, ResourceViewMappingReques
             if isinstance(view_id_dict, dict) and in_dict(("space", "externalId", "version"), view_id_dict):
                 yield (
                     ViewCRUD,
-                    ViewReference(
+                    ViewId(
                         space=view_id_dict["space"],
                         external_id=view_id_dict["externalId"],
                         version=view_id_dict["version"],
                     ),
                 )
+
+    @classmethod
+    def get_dependencies(cls, resource: ResourceViewMappingYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield SpaceCRUD, SpaceId(space=COGNITE_MIGRATION_SPACE)
+        yield ViewCRUD, RESOURCE_MAPPING_VIEW_ID
+        if resource.view_id:
+            yield ViewCRUD, resource.view_id.as_id()
 
     def dump_resource(
         self, resource: ResourceViewMappingResponse, local: dict[str, Any] | None = None

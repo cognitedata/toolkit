@@ -1,5 +1,4 @@
 from collections.abc import Sequence
-from typing import Any
 
 from cognite_toolkit._cdf_tk.client.api.instances import MultiWrappedInstancesAPI, WrappedInstancesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse, ResponseItems
@@ -8,13 +7,21 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ItemsSuccessResponse,
     SuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import InstanceIdDefinition, NodeReference
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APM_CONFIG_SPACE,
     APMConfigRequest,
     APMConfigResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import QueryResponseUntyped
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import (
+    QueryNodeExpression,
+    QueryNodeTableExpression,
+    QueryRequest,
+    QueryResponseUntyped,
+    QuerySelect,
+    QuerySelectSource,
+    QueryThrough,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
     DataExplorationConfig,
     InFieldCDMLocationConfigRequest,
@@ -33,39 +40,35 @@ class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, In
         # 500 is chosen as 1000 is the maximum for nodes, and each location config consists of 1 or 2 nodes
         super().__init__(http_client, query_chunk=500)
 
-    def _retrieve_query(self, items: Sequence[InstanceIdDefinition]) -> dict[str, Any]:
-        return {
-            "with": {
-                self._LOCATION_REF: {
-                    "limit": len(items),
-                    "nodes": {
-                        "filter": {
-                            "instanceReferences": [
-                                {"space": item.space, "externalId": item.external_id} for item in items
-                            ]
-                        },
-                    },
-                },
-                self._EXPLORATION_REF: {
-                    "nodes": {
-                        "from": "locationConfig",
-                        "direction": "outwards",
-                        "through": {
-                            "source": InFieldLocationConfig.VIEW_ID.dump(include_type=True),
-                            "identifier": "dataExplorationConfig",
-                        },
-                    }
-                },
+    def _retrieve_query(self, items: Sequence[InstanceDefinitionId]) -> QueryRequest:
+        return QueryRequest(
+            with_={
+                self._LOCATION_REF: QueryNodeExpression(
+                    limit=len(items),
+                    nodes=QueryNodeTableExpression(
+                        filter={"instanceReferences": [item.dump(include_instance_type=False) for item in items]},
+                    ),
+                ),
+                self._EXPLORATION_REF: QueryNodeExpression(
+                    nodes=QueryNodeTableExpression(
+                        from_="locationConfig",
+                        direction="outwards",
+                        through=QueryThrough(
+                            source=InFieldLocationConfig.VIEW_ID,
+                            identifier="dataExplorationConfig",
+                        ),
+                    ),
+                ),
             },
-            "select": {
-                self._LOCATION_REF: {
-                    "sources": [{"source": InFieldLocationConfig.VIEW_ID.dump(include_type=True), "properties": ["*"]}],
-                },
-                self._EXPLORATION_REF: {
-                    "sources": [{"source": DataExplorationConfig.VIEW_ID.dump(include_type=True), "properties": ["*"]}],
-                },
+            select={
+                self._LOCATION_REF: QuerySelect(
+                    sources=[QuerySelectSource(source=InFieldLocationConfig.VIEW_ID, properties=["*"])],
+                ),
+                self._EXPLORATION_REF: QuerySelect(
+                    sources=[QuerySelectSource(source=DataExplorationConfig.VIEW_ID, properties=["*"])],
+                ),
             },
-        }
+        )
 
     def _validate_query_response(self, query_response: QueryResponseUntyped) -> list[InFieldLocationConfigResponse]:
         exploration_config_results = (
@@ -84,25 +87,35 @@ class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, In
         return results
 
 
-class InFieldCDMConfigAPI(WrappedInstancesAPI[NodeReference, InFieldCDMLocationConfigResponse]):
+class InFieldCDMConfigAPI(WrappedInstancesAPI[NodeId, InFieldCDMLocationConfigResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(http_client, InFieldCDMLocationConfigRequest.VIEW_ID)
 
-    def _validate_response(self, response: SuccessResponse) -> ResponseItems[NodeReference]:
-        return ResponseItems[NodeReference].model_validate_json(response.body)
+    def _validate_response(self, response: SuccessResponse) -> ResponseItems[NodeId]:
+        return ResponseItems[NodeId].model_validate_json(response.body)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
     ) -> PagedResponse[InFieldCDMLocationConfigResponse]:
         return PagedResponse[InFieldCDMLocationConfigResponse].model_validate_json(response.body)
 
+    def list(self, limit: int | None = 100) -> list[InFieldCDMLocationConfigResponse]:
+        """List all in-field CDM configs.
 
-class APMConfigAPI(WrappedInstancesAPI[NodeReference, APMConfigResponse]):
+        Args:
+            limit: Maximum number of items to return. If None, all items are returned.
+        Returns:
+            List of InFieldCDMLocationConfigResponse objects.
+        """
+        return super()._list_instances(instance_type="node", limit=limit)
+
+
+class APMConfigAPI(WrappedInstancesAPI[NodeId, APMConfigResponse]):
     def __init__(self, http_client: HTTPClient) -> None:
         super().__init__(http_client, APMConfigRequest.VIEW_ID)
 
-    def _validate_response(self, response: SuccessResponse) -> ResponseItems[NodeReference]:
-        return ResponseItems[NodeReference].model_validate_json(response.body)
+    def _validate_response(self, response: SuccessResponse) -> ResponseItems[NodeId]:
+        return ResponseItems[NodeId].model_validate_json(response.body)
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse

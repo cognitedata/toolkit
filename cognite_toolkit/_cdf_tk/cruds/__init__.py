@@ -63,6 +63,7 @@ from ._resource_cruds import (
     SecurityCategoryCRUD,
     SequenceCRUD,
     SequenceRowCRUD,
+    SignalSinkCRUD,
     SimulatorModelCRUD,
     SimulatorModelRevisionCRUD,
     SimulatorRoutineCRUD,
@@ -93,6 +94,8 @@ if not FeatureFlag.is_enabled(Flags.MIGRATE):
     _EXCLUDED_CRUDS.add(ResourceViewMappingCRUD)
 if not FeatureFlag.is_enabled(Flags.STREAMS):
     _EXCLUDED_CRUDS.add(StreamCRUD)
+if not FeatureFlag.is_enabled(Flags.SIGNALS):
+    _EXCLUDED_CRUDS.add(SignalSinkCRUD)
 if not FeatureFlag.is_enabled(Flags.SIMULATORS):
     _EXCLUDED_CRUDS.add(SimulatorModelCRUD)
     _EXCLUDED_CRUDS.add(SimulatorRoutineRevisionCRUD)
@@ -130,6 +133,11 @@ RESOURCE_CRUD_BY_FOLDER_NAME = {
     if (cruds := [crud for crud in loaders if issubclass(crud, ResourceCRUD)])
 }
 
+RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND: dict[str, dict[str, type[ResourceCRUD]]] = {
+    folder_name: {crud.kind: crud for crud in cruds if issubclass(crud, ResourceCRUD)}
+    for folder_name, cruds in RESOURCE_CRUD_BY_FOLDER_NAME.items()
+}
+
 CRUD_LIST = list(itertools.chain.from_iterable(CRUDS_BY_FOLDER_NAME.values()))
 RESOURCE_CRUD_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceCRUD)]
 RESOURCE_CRUD_CONTAINER_LIST = [loader for loader in CRUD_LIST if issubclass(loader, ResourceContainerCRUD)]
@@ -161,6 +169,7 @@ ResourceTypes: TypeAlias = Literal[
     "functions",
     "raw",
     "robotics",
+    "signals",
     "simulators",
     "streams",
     "streamlit",
@@ -237,6 +246,7 @@ __all__ = [
     "SecurityCategoryCRUD",
     "SequenceCRUD",
     "SequenceRowCRUD",
+    "SignalSinkCRUD",
     "SimulatorModelCRUD",
     "SpaceCRUD",
     "StreamlitCRUD",

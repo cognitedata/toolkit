@@ -1,15 +1,22 @@
 from collections.abc import Hashable, Iterable, Sequence
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any, final
+from typing import Any, Literal, final
 
-from cognite.client.data_classes.capabilities import Capability, LocationFiltersAcl
+from cognite.client.data_classes import capabilities as cap
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    DataModelReference,
-    SpaceReference,
-    ViewReference,
+    DataModelId,
+    SpaceId,
+    ViewId,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    LocationFiltersAcl,
+    ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
     LocationFilterRequest,
@@ -18,9 +25,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.location_filter import (
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError, ToolkitCycleError
-from cognite_toolkit._cdf_tk.resource_classes import LocationYAML
 from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.yaml_classes import LocationYAML
+from cognite_toolkit._cdf_tk.yaml_classes.location import AssetCentricFields
 
 from .classic import AssetCRUD, SequenceCRUD
 from .data_organization import DataSetsCRUD
@@ -60,22 +68,31 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
     @classmethod
     def get_required_capability(
         cls, items: Sequence[LocationFilterRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
         # Todo: Specify space ID scopes:
 
         actions = (
-            [LocationFiltersAcl.Action.Read]
+            [cap.LocationFiltersAcl.Action.Read]
             if read_only
-            else [LocationFiltersAcl.Action.Read, LocationFiltersAcl.Action.Write]
+            else [cap.LocationFiltersAcl.Action.Read, cap.LocationFiltersAcl.Action.Write]
         )
 
-        return LocationFiltersAcl(
+        return cap.LocationFiltersAcl(
             actions=actions,
-            scope=LocationFiltersAcl.Scope.All(),
+            scope=cap.LocationFiltersAcl.Scope.All(),
             allow_unknown=True,
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[LocationFilterRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope):
+            yield LocationFiltersAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: LocationFilterRequest | LocationFilterResponse | dict) -> ExternalId:
@@ -250,15 +267,46 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
             if in_dict(["space", "externalId", "version"], view):
                 yield (
                     ViewCRUD,
-                    ViewReference(space=view["space"], external_id=view["externalId"], version=view["version"]),
+                    ViewId(space=view["space"], external_id=view["externalId"], version=view["version"]),
                 )
         for space in item.get("instanceSpaces", []):
-            yield SpaceCRUD, SpaceReference(space=space)
+            yield SpaceCRUD, SpaceId(space=space)
         for data_model in item.get("dataModels", []):
             if in_dict(["space", "externalId", "version"], data_model):
                 yield (
                     DataModelCRUD,
-                    DataModelReference(
+                    DataModelId(
                         space=data_model["space"], external_id=data_model["externalId"], version=data_model["version"]
                     ),
                 )
+
+    @classmethod
+    def _asset_centric_deps(cls, fields: AssetCentricFields) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        for data_set_external_id in fields.data_set_external_ids or []:
+            yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
+        for asset in fields.asset_subtree_external_ids or []:
+            if ext_id := asset.get("externalId"):
+                yield AssetCRUD, ExternalId(external_id=ext_id)
+
+    @classmethod
+    def get_dependencies(cls, resource: LocationYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.asset_centric:
+            yield from cls._asset_centric_deps(resource.asset_centric)
+            for subfilter in [
+                resource.asset_centric.assets,
+                resource.asset_centric.events,
+                resource.asset_centric.timeseries,
+                resource.asset_centric.files,
+                resource.asset_centric.sequences,
+            ]:
+                if subfilter is not None:
+                    yield from cls._asset_centric_deps(subfilter)
+        for view in resource.views or []:
+            yield ViewCRUD, ViewId(space=view.space, external_id=view.external_id, version=view.version)
+        for space in resource.instance_spaces or []:
+            yield SpaceCRUD, SpaceId(space=space)
+        for data_model in resource.data_models or []:
+            yield (
+                DataModelCRUD,
+                DataModelId(space=data_model.space, external_id=data_model.external_id, version=data_model.version),
+            )

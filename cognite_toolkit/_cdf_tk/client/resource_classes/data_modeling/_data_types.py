@@ -5,7 +5,7 @@ from pydantic import Field, TypeAdapter, field_serializer
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerReference, ViewReference
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, ViewId
 
 
 class PropertyTypeDefinition(BaseModelObject, ABC):
@@ -78,14 +78,14 @@ class SequenceCDFExternalIdReference(ListablePropertyTypeDefinition):
 
 class DirectNodeRelation(ListablePropertyTypeDefinition):
     type: Literal["direct"] = "direct"
-    container: ContainerReference | None = None
+    container: ContainerId | None = None
     # This property is only available in the response object. It will be ignored in the request object.
     # In the request object, use ViewCoreProperty.source instead.
-    source: ViewReference | None = Field(None, exclude=True)
+    source: ViewId | None = Field(None, exclude=True)
 
     @field_serializer("container", mode="plain", when_used="unless-none")
     @classmethod
-    def serialize_require(cls, container: ContainerReference, info: FieldSerializationInfo) -> dict[str, Any]:
+    def serialize_require(cls, container: ContainerId, info: FieldSerializationInfo) -> dict[str, Any]:
         return {**container.model_dump(**vars(info)), "type": "container"}
 
 

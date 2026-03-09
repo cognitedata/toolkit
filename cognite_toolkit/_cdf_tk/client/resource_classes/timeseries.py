@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     UpdatableRequestResource,
 )
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalOrExternalId, NodeReferenceUntyped
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalOrExternalId, NodeUntypedId
 
 
 class TimeSeries(BaseModelObject):
@@ -43,8 +43,8 @@ class TimeSeriesRequest(TimeSeries, UpdatableRequestResource):
 
 class TimeSeriesResponse(TimeSeries, ResponseResource[TimeSeriesRequest]):
     id: int
-    instance_id: NodeReferenceUntyped | None = None
-    pending_instance_id: NodeReferenceUntyped | None = None
+    instance_id: NodeUntypedId | None = None
+    pending_instance_id: NodeUntypedId | None = None
     type: str
     created_time: int
     last_updated_time: int

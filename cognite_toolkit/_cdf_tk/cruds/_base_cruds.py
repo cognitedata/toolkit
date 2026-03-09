@@ -2,18 +2,24 @@ import sys
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Sized
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 
 from cognite.client.data_classes.capabilities import Capability
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
+from cognite_toolkit._cdf_tk.client._resource_base import (
+    Identifier,
+    T_Identifier,
+    T_RequestResource,
+    T_ResponseResource,
+)
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, ScopeDefinition
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
-from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
+from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
@@ -52,7 +58,7 @@ class Loader(ABC):
             raise ValueError(f"Build directory cannot be the same as the resource folder name: {self.folder_name}")
         elif build_dir is not None:
             self.resource_build_path = build_dir / self.folder_name
-        self.console = console
+        self.console = console or client.console
 
     @classmethod
     def create_loader(
@@ -167,6 +173,23 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
     ) -> Capability | list[Capability]:
         raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
 
+    @classmethod
+    def create_minimum_acl(
+        cls, actions: set[Literal["READ", "WRITE"]], items: Sequence[T_RequestResource]
+    ) -> Iterable[Acl]:
+        if minimum_scope := cls.get_minimum_scope(items):
+            yield from cls.create_acl(actions, minimum_scope)
+
+    @classmethod
+    @abstractmethod
+    def get_minimum_scope(cls, items: Sequence[T_RequestResource]) -> ScopeDefinition | None:
+        raise NotImplementedError(f"get_minimum_scope must be implemented for {cls.__name__}.")
+
+    @classmethod
+    @abstractmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        raise NotImplementedError(f"create_acl must be implemented for {cls.__name__} ")
+
     @abstractmethod
     def create(self, items: Sequence[T_RequestResource]) -> Sized:
         raise NotImplementedError
@@ -221,6 +244,20 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
         to work. For example, the InfieldV1CRUD and the ResourceViewMappingCRUD.
         """
         return None
+
+    @classmethod
+    def get_dependencies(cls, resource: Any) -> "Iterable[tuple[type[ResourceCRUD], Identifier]]":
+        """Returns dependencies for a given resource.
+        This is used to determine the order of deployment and to check for missing dependencies.
+
+        Args:
+            resource: The resource to get dependencies for.
+
+        """
+        # TODO: Temporary set to return empty dict until all resource CRUDs have implemented this method.
+        # Once all resource CRUDs have implemented this method,
+        # we can remove the default implementation that returns an empty dict.
+        return {}
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> "Iterable[tuple[type[ResourceCRUD], Hashable]]":

@@ -39,14 +39,14 @@ from cognite.client.data_classes import (
     ClientCredentials,
     OidcCredentials,
 )
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    TransformationsAcl,
+from cognite.client.data_classes import (
+    capabilities as cap,
 )
 from rich import print
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
@@ -60,9 +60,16 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     TransformationNotificationFilter,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
-    DataModelReference,
-    SpaceReference,
-    ViewReference,
+    DataModelId,
+    SpaceId,
+    ViewId,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetScope,
+    ScopeDefinition,
+    TransformationsAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import (
     NonceCredentials,
@@ -87,11 +94,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.resource_classes import (
-    TransformationNotificationYAML,
-    TransformationScheduleYAML,
-    TransformationYAML,
-)
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
@@ -102,9 +104,20 @@ from cognite_toolkit._cdf_tk.utils import (
     safe_read,
     sanitize_filename,
 )
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
+from cognite_toolkit._cdf_tk.yaml_classes import (
+    TransformationNotificationYAML,
+    TransformationScheduleYAML,
+    TransformationYAML,
+)
+from cognite_toolkit._cdf_tk.yaml_classes.transformation_destination import (
+    DataModelSource,
+    RawDataSource,
+    ViewDataSource,
+)
 
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
@@ -154,21 +167,32 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
     @classmethod
     def get_required_capability(
         cls, items: Sequence[TransformationRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [TransformationsAcl.Action.Read]
+            [cap.TransformationsAcl.Action.Read]
             if read_only
-            else [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write]
+            else [cap.TransformationsAcl.Action.Read, cap.TransformationsAcl.Action.Write]
         )
-        scope: TransformationsAcl.Scope.All | TransformationsAcl.Scope.DataSet = TransformationsAcl.Scope.All()  # type: ignore[valid-type]
+        scope: cap.TransformationsAcl.Scope.All | cap.TransformationsAcl.Scope.DataSet = (  # type: ignore[valid-type]
+            cap.TransformationsAcl.Scope.All()
+        )
         if items is not None:
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = TransformationsAcl.Scope.DataSet(list(data_set_ids))
+                scope = cap.TransformationsAcl.Scope.DataSet(list(data_set_ids))
 
-        return TransformationsAcl(actions, scope)
+        return cap.TransformationsAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[TransformationRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield TransformationsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: TransformationResponse | TransformationRequest | dict) -> ExternalId:
@@ -206,17 +230,49 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
                 yield RawTableCRUD, RawTableId(db_name=destination["database"], name=destination["table"])
             elif destination.get("type") in ("nodes", "edges") and (view := destination.get("view", {})):
                 if space := destination.get("instanceSpace"):
-                    yield SpaceCRUD, SpaceReference(space=space)
+                    yield SpaceCRUD, SpaceId(space=space)
                 if in_dict(("space", "externalId", "version"), view):
                     view["version"] = str(view["version"])
-                    yield ViewCRUD, ViewReference.model_validate(view)
+                    yield ViewCRUD, ViewId.model_validate(view)
             elif destination.get("type") == "instances":
                 if space := destination.get("instanceSpace"):
-                    yield SpaceCRUD, SpaceReference(space=space)
+                    yield SpaceCRUD, SpaceId(space=space)
                 if data_model := destination.get("dataModel"):
                     if in_dict(("space", "externalId", "version"), data_model):
                         data_model["version"] = str(data_model["version"])
-                        yield DataModelCRUD, DataModelReference.model_validate(data_model)
+                        yield DataModelCRUD, DataModelId.model_validate(data_model)
+
+    @classmethod
+    def get_dependencies(cls, resource: TransformationYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+        if destination := resource.destination:
+            if isinstance(destination, RawDataSource):
+                yield RawDatabaseCRUD, RawDatabaseId(name=destination.database)
+                yield RawTableCRUD, RawTableId(db_name=destination.database, name=destination.table)
+            elif isinstance(destination, ViewDataSource):
+                if destination.instance_space:
+                    yield SpaceCRUD, SpaceId(space=destination.instance_space)
+                if destination.view:
+                    yield (
+                        ViewCRUD,
+                        ViewId(
+                            space=destination.view.space,
+                            external_id=destination.view.external_id,
+                            version=destination.view.version,
+                        ),
+                    )
+            elif isinstance(destination, DataModelSource):
+                if destination.instance_space:
+                    yield SpaceCRUD, SpaceId(space=destination.instance_space)
+                yield (
+                    DataModelCRUD,
+                    DataModelId(
+                        space=destination.data_model.space,
+                        external_id=destination.data_model.external_id,
+                        version=destination.data_model.version,
+                    ),
+                )
 
     def safe_read(self, filepath: Path | str) -> str:
         # If the destination is a DataModel or a View we need to ensure that the version is a string
@@ -578,10 +634,18 @@ class TransformationScheduleCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[TransformationScheduleRequest] | None, read_only: bool
-    ) -> list[Capability]:
+    ) -> list[cap.Capability]:
         # Access for transformations schedules is checked by the transformation that is deployed
         # first, so we don't need to check for any capabilities here.
         return []
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[TransformationScheduleRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     @classmethod
     def get_id(cls, item: TransformationScheduleResponse | TransformationScheduleRequest | dict) -> ExternalId:
@@ -603,6 +667,10 @@ class TransformationScheduleCRUD(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "externalId" in item:
             yield TransformationCRUD, ExternalId(external_id=item["externalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: TransformationScheduleYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield TransformationCRUD, ExternalId(external_id=resource.external_id)
 
     def create(self, items: Sequence[TransformationScheduleRequest]) -> list[TransformationScheduleResponse]:
         try:
@@ -693,10 +761,18 @@ class TransformationNotificationCRUD(
     @classmethod
     def get_required_capability(
         cls, items: Sequence[TransformationNotificationRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         # Access for transformation notification is checked by the transformation that is deployed
         # first, so we don't need to check for any capabilities here.
         return []
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[TransformationNotificationRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     def dump_resource(
         self, resource: TransformationNotificationResponse, local: dict[str, Any] | None = None
@@ -742,15 +818,20 @@ class TransformationNotificationCRUD(
             for notifications in self.client.tool.transformations.notifications.iterate(limit=None):
                 yield from notifications
         else:
-            for parent_id in parent_ids:
-                if not isinstance(parent_id, ExternalId):
-                    continue
-                filter = TransformationNotificationFilter(transformation_external_id=parent_id.external_id)
-                for notifications in self.client.tool.transformations.notifications.iterate(limit=None, filter=filter):
-                    for notification in notifications:
-                        # This is not set by the API.
-                        notification.transformation_external_id = parent_id.external_id
-                        yield notification
+            parent_external_ids = [parent_id for parent_id in parent_ids if isinstance(parent_id, ExternalId)]
+            if parent_external_ids:
+                existing_parents = self.client.tool.transformations.retrieve(
+                    parent_external_ids, ignore_unknown_ids=True
+                )
+                for parent_id in existing_parents:
+                    filter = TransformationNotificationFilter(transformation_external_id=parent_id.external_id)
+                    for notifications in self.client.tool.transformations.notifications.iterate(
+                        limit=None, filter=filter
+                    ):
+                        for notification in notifications:
+                            # This is not set by the API.
+                            notification.transformation_external_id = parent_id.external_id
+                            yield notification
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
@@ -761,3 +842,9 @@ class TransformationNotificationCRUD(
         """
         if "transformationExternalId" in item:
             yield TransformationCRUD, ExternalId(external_id=item["transformationExternalId"])
+
+    @classmethod
+    def get_dependencies(
+        cls, resource: TransformationNotificationYAML
+    ) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield TransformationCRUD, ExternalId(external_id=resource.transformation_external_id)

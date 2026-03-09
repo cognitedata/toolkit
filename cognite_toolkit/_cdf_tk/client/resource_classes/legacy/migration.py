@@ -5,16 +5,16 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from cognite.client import CogniteClient
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.data_classes.data_modeling import DirectRelationReference
-from cognite.client.data_classes.data_modeling.ids import ViewId
 from cognite.client.data_classes.data_modeling.instances import (
     PropertyOptions,
     TypedNode,
     TypedNodeApply,
 )
 
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference, ViewReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, ViewId
 from cognite_toolkit._cdf_tk.constants import COGNITE_MIGRATION_SPACE
 from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType, AssetCentricTypeExtended
@@ -29,6 +29,15 @@ else:
 class AssetCentricId(CogniteObject):
     resource_type: AssetCentricTypeExtended
     id_: int
+
+    @property
+    def id_value(self) -> int:
+        """Generic name of the identifier.
+
+        The AssetCentricExternalId has the same property. Thus, this means that these two
+        classes can be used interchangeably when only the value of the identifier is needed, and not the type.
+        """
+        return self.id_
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
@@ -59,8 +68,8 @@ class _InstanceSourceProperties:
     ingestion_view = PropertyOptions("ingestionView")
 
     @classmethod
-    def get_source(cls) -> ViewId:
-        return ViewId("cognite_migration", "InstanceSource", "v1")
+    def get_source(cls) -> dm.ViewId:
+        return dm.ViewId("cognite_migration", "InstanceSource", "v1")
 
 
 class InstanceSource(_InstanceSourceProperties, TypedNode):
@@ -102,7 +111,7 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
         id_: int,
         data_set_id: int | None = None,
         classic_external_id: str | None = None,
-        preferred_consumer_view_id: ViewReference | None = None,
+        preferred_consumer_view_id: ViewId | None = None,
         ingestion_view: DirectRelationReference | None = None,
         type: DirectRelationReference | None = None,
         deleted_time: int | None = None,
@@ -128,7 +137,7 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
         if "preferredConsumerViewId" in resource:
             preferred_consumer_view_id = resource.pop("preferredConsumerViewId")
             try:
-                resource["preferredConsumerViewId"] = ViewReference.model_validate(preferred_consumer_view_id)
+                resource["preferredConsumerViewId"] = ViewId.model_validate(preferred_consumer_view_id)
             except ValueError as e:
                 warnings.warn(
                     IgnoredValueWarning(
@@ -146,7 +155,7 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
             id_=self.id_,
         )
 
-    def consumer_view(self) -> ViewReference:
+    def consumer_view(self) -> ViewId:
         if self.preferred_consumer_view_id:
             return self.preferred_consumer_view_id
         if self.resource_type == "sequence":
@@ -158,7 +167,7 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
             "file": "CogniteFile",
             "timeseries": "CogniteTimeSeries",
         }[self.resource_type]
-        return ViewReference(space="cdf_cdm", external_id=external_id, version="v1")
+        return ViewId(space="cdf_cdm", external_id=external_id, version="v1")
 
     def as_direct_relation_reference(self) -> DirectRelationReference:
         return DirectRelationReference(space=self.space, external_id=self.external_id)
@@ -170,8 +179,8 @@ class _ResourceViewMapping:
     property_mapping = PropertyOptions("propertyMapping")
 
     @classmethod
-    def get_source(cls) -> ViewId:
-        return ViewId("cognite_migration", "ResourceViewMapping", "v1")
+    def get_source(cls) -> dm.ViewId:
+        return dm.ViewId("cognite_migration", "ResourceViewMapping", "v1")
 
 
 class ResourceViewMappingApply(_ResourceViewMapping, TypedNodeApply):
@@ -199,7 +208,7 @@ class ResourceViewMappingApply(_ResourceViewMapping, TypedNodeApply):
         external_id: str,
         *,
         resource_type: str,
-        view_id: ViewReference,
+        view_id: ViewId,
         property_mapping: dict[str, str],
         existing_version: int | None = None,
         type: DirectRelationReference | tuple[str, str] | None = None,
@@ -221,7 +230,7 @@ class ResourceViewMappingApply(_ResourceViewMapping, TypedNodeApply):
             >>> node = ResourceViewMappingApply(
             ...    external_id="myMapping",
             ...    resource_type="asset",
-            ...    view_id=ViewId("cdf_cdm", "CogniteAsset", "v1"),
+            ...    view_id=dm.ViewId("cdf_cdm", "CogniteAsset", "v1"),
             ...    property_mapping={"name": "name"},
             ... )
             >>> node.dump(camel_case=True, context="api")
@@ -284,7 +293,7 @@ class ResourceViewMappingApply(_ResourceViewMapping, TypedNodeApply):
         base_props = cls._load_base_properties(resource)
         properties = cls._load_properties(resource)
         if "viewId" in resource:
-            properties["view_id"] = ViewId.load(resource["viewId"])
+            properties["view_id"] = dm.ViewId.load(resource["viewId"])
 
         return cls(**base_props, **properties)
 
@@ -320,7 +329,7 @@ class ResourceViewMapping(_ResourceViewMapping, TypedNode):
         created_time: int,
         *,
         resource_type: str,
-        view_id: ViewReference,
+        view_id: ViewId,
         property_mapping: dict[str, str],
         type: DirectRelationReference | None = None,
         deleted_time: int | None = None,
@@ -347,7 +356,7 @@ class ResourceViewMapping(_ResourceViewMapping, TypedNode):
         if "viewId" in resource:
             view_id = resource.pop("viewId")
             try:
-                resource["viewId"] = ViewReference.model_validate(view_id)
+                resource["viewId"] = ViewId.model_validate(view_id)
             except ValueError as e:
                 raise ValueError(f"Invalid viewId format. Expected 'space', 'externalId', 'version'. Error: {e!s}")
         return super()._load_properties(resource)
@@ -399,11 +408,11 @@ class CreatedSourceSystem(TypedNode):
         self.source = source
 
     @classmethod
-    def get_source(cls) -> ViewId:
-        return ViewId("cognite_migration", "CreatedSourceSystem", "v1")
+    def get_source(cls) -> dm.ViewId:
+        return dm.ViewId("cognite_migration", "CreatedSourceSystem", "v1")
 
-    def as_direct_relation_reference(self) -> NodeReference:
-        return NodeReference(space=self.space, external_id=self.external_id)
+    def as_direct_relation_reference(self) -> NodeId:
+        return NodeId(space=self.space, external_id=self.external_id)
 
 
 class SpaceSource(TypedNode):
@@ -454,5 +463,5 @@ class SpaceSource(TypedNode):
         self.data_set_external_id = data_set_external_id
 
     @classmethod
-    def get_source(cls) -> ViewId:
-        return ViewId("cognite_migration", "SpaceSource", "v1")
+    def get_source(cls) -> dm.ViewId:
+        return dm.ViewId("cognite_migration", "SpaceSource", "v1")

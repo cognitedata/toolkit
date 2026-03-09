@@ -36,8 +36,10 @@ GroupResponse:
       scope:
         tableScope:
           dbsToTables:
-            contextualizationState: []
-            ingestion: []
+            contextualizationState:
+              tables: []
+            ingestion:
+              tables: []
   - dataModelInstancesAcl:
       actions:
       - READ
@@ -148,8 +150,10 @@ GroupResponse:
       scope:
         tableScope:
           dbsToTables:
-            contextualizationState: []
-            ingestion: []
+            contextualizationState:
+              tables: []
+            ingestion:
+              tables: []
   - dataModelInstancesAcl:
       actions:
       - READ

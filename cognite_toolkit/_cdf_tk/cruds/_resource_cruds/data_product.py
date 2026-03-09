@@ -1,15 +1,17 @@
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Any, final
+from typing import Any, Literal, final
 
-from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes import capabilities as cap
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, ScopeDefinition
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.auth import GroupAllScopedCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import SpaceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import DataProductYAML
+from cognite_toolkit._cdf_tk.yaml_classes import DataProductYAML
 
 
 @final
@@ -43,17 +45,30 @@ class DataProductCRUD(ResourceCRUD[ExternalId, DataProductRequest, DataProductRe
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "schemaSpace" in item:
-            yield SpaceCRUD, SpaceReference(space=item["schemaSpace"])
+            yield SpaceCRUD, SpaceId(space=item["schemaSpace"])
+
+    @classmethod
+    def get_dependencies(cls, resource: DataProductYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.schema_space:
+            yield SpaceCRUD, SpaceId(space=resource.schema_space)
 
     @classmethod
     def get_required_capability(
         cls, items: Sequence[DataProductRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
 
         # TODO: dataproductsAcl is not yet in the SDK — return empty to skip capability verification.
         # Cannot use UnknownACL due to bug in the SDK.
         # Once available, require: CREATE, READ, UPDATE, DELETE (all four actions).
         return []
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[DataProductRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     def dump_resource(self, resource: DataProductResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()

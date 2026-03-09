@@ -20,29 +20,31 @@ from pathlib import Path
 from typing import Any, Literal, final
 
 from cognite.client.data_classes import capabilities as cap
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    GroupsAcl,
-    SecurityCategoriesAcl,
-)
 from rich import print
 from rich.console import Console
 from rich.markup import escape
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     InternalId,
-    InternalIdUnwrapped,
+    InternalUnwrappedId,
     NameId,
     RawDatabaseId,
     RawTableId,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    CurrentUserScope,
     GroupRequest,
     GroupResponse,
+    GroupsAcl,
+    ScopeDefinition,
+    SecurityCategoriesAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
     SecurityCategoryRequest,
@@ -50,7 +52,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
-from cognite_toolkit._cdf_tk.resource_classes import GroupYAML, SecurityCategoriesYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     MediumSeverityWarning,
@@ -58,6 +59,8 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
+from cognite_toolkit._cdf_tk.yaml_classes import GroupYAML, SecurityCategoriesYAML
+from cognite_toolkit._cdf_tk.yaml_classes import capabilities as yaml_cap
 
 
 @dataclass
@@ -110,29 +113,43 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[GroupRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
             [
-                GroupsAcl.Action.Read,
-                GroupsAcl.Action.List,
+                cap.GroupsAcl.Action.Read,
+                cap.GroupsAcl.Action.List,
             ]
             if read_only
             else [
-                GroupsAcl.Action.Read,
-                GroupsAcl.Action.List,
-                GroupsAcl.Action.Create,
-                GroupsAcl.Action.Delete,
-                GroupsAcl.Action.Update,
+                cap.GroupsAcl.Action.Read,
+                cap.GroupsAcl.Action.List,
+                cap.GroupsAcl.Action.Create,
+                cap.GroupsAcl.Action.Delete,
+                cap.GroupsAcl.Action.Update,
             ]
         )
 
-        return GroupsAcl(
+        return cap.GroupsAcl(
             actions,
-            GroupsAcl.Scope.All(),
+            cap.GroupsAcl.Scope.All(),
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[GroupRequest]) -> ScopeDefinition:
+        return CurrentUserScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | CurrentUserScope):
+            acl_actions: list[Literal["CREATE", "DELETE", "READ", "LIST", "UPDATE"]] = []
+            if "READ" in actions:
+                acl_actions.extend(["LIST", "READ"])
+            if "WRITE" in actions:
+                acl_actions.extend(["CREATE", "UPDATE", "DELETE"])
+            yield GroupsAcl(actions=sorted(acl_actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: GroupRequest | GroupResponse | dict) -> NameId:
@@ -164,7 +181,7 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
                     if space_ids := scope.get(cap.SpaceIDScope._scope_name, []):
                         if isinstance(space_ids, dict) and "spaceIds" in space_ids:
                             for space_id in space_ids["spaceIds"]:
-                                yield SpaceCRUD, SpaceReference(space=space_id)
+                                yield SpaceCRUD, SpaceId(space=space_id)
                     if data_set_ids := scope.get(cap.DataSetScope._scope_name, []):
                         if isinstance(data_set_ids, dict) and "ids" in data_set_ids:
                             for data_set_id in data_set_ids["ids"]:
@@ -207,6 +224,54 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
                                     yield loader, NameId(name=id_)
                                 else:
                                     yield loader, id_
+
+    @classmethod
+    def get_dependencies(cls, resource: GroupYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        from .classic import AssetCRUD
+        from .data_organization import DataSetsCRUD
+        from .datamodel import SpaceCRUD
+        from .extraction_pipeline import ExtractionPipelineCRUD
+        from .location import LocationFilterCRUD
+        from .raw import RawDatabaseCRUD, RawTableCRUD
+        from .timeseries import TimeSeriesCRUD
+
+        for capability in resource.capabilities or []:
+            scope = capability.scope
+            if isinstance(scope, yaml_cap.SpaceIDScope):
+                for space_id in scope.space_ids:
+                    yield SpaceCRUD, SpaceId(space=space_id)
+            elif isinstance(scope, yaml_cap.DataSetScope):
+                for data_set_id in scope.ids:
+                    yield DataSetsCRUD, ExternalId(external_id=data_set_id)
+            elif isinstance(scope, yaml_cap.TableScope):
+                for db_name, tables in scope.dbs_to_tables.items():
+                    yield RawDatabaseCRUD, RawDatabaseId(name=db_name)
+                    for table in tables:
+                        yield RawTableCRUD, RawTableId(db_name=db_name, name=table)
+            elif isinstance(scope, yaml_cap.ExtractionPipelineScope):
+                for extraction_pipeline_id in scope.ids:
+                    yield ExtractionPipelineCRUD, ExternalId(external_id=extraction_pipeline_id)
+            elif isinstance(scope, yaml_cap.AssetRootIDScope):
+                for asset_root_id in scope.root_ids:
+                    yield AssetCRUD, ExternalId(external_id=asset_root_id)
+            elif isinstance(scope, yaml_cap.IDScope | yaml_cap.IDScopeLowerCase):
+                loader: type[ResourceCRUD] | None = None
+                if isinstance(capability, yaml_cap.DataSetsAcl):
+                    loader = DataSetsCRUD
+                elif isinstance(capability, yaml_cap.ExtractionPipelinesAcl):
+                    loader = ExtractionPipelineCRUD
+                elif isinstance(capability, yaml_cap.TimeSeriesAcl):
+                    loader = TimeSeriesCRUD
+                elif isinstance(capability, yaml_cap.SecurityCategoriesAcl):
+                    loader = SecurityCategoryCRUD
+                elif isinstance(capability, yaml_cap.LocationFiltersAcl):
+                    loader = LocationFilterCRUD
+                if loader is not None:
+                    for id_ in scope.ids:
+                        if loader in {TimeSeriesCRUD, LocationFilterCRUD, DataSetsCRUD, ExtractionPipelineCRUD}:
+                            yield loader, ExternalId(external_id=id_)
+                        elif loader is SecurityCategoryCRUD:
+                            yield loader, NameId(name=id_)
 
     def _substitute_scope_ids(self, group: dict[str, Any], is_dry_run: bool, reverse: bool = False) -> dict[str, Any]:
         replace_method_by_acl = self._create_replace_method_by_acl_and_scope()
@@ -503,29 +568,43 @@ class SecurityCategoryCRUD(ResourceCRUD[NameId, SecurityCategoryRequest, Securit
     @classmethod
     def get_required_capability(
         cls, items: Sequence[SecurityCategoryRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
             [
-                SecurityCategoriesAcl.Action.List,
-                SecurityCategoriesAcl.Action.MemberOf,
+                cap.SecurityCategoriesAcl.Action.List,
+                cap.SecurityCategoriesAcl.Action.MemberOf,
             ]
             if read_only
             else [
-                SecurityCategoriesAcl.Action.Create,
-                SecurityCategoriesAcl.Action.Update,
-                SecurityCategoriesAcl.Action.MemberOf,
-                SecurityCategoriesAcl.Action.List,
-                SecurityCategoriesAcl.Action.Delete,
+                cap.SecurityCategoriesAcl.Action.Create,
+                cap.SecurityCategoriesAcl.Action.Update,
+                cap.SecurityCategoriesAcl.Action.MemberOf,
+                cap.SecurityCategoriesAcl.Action.List,
+                cap.SecurityCategoriesAcl.Action.Delete,
             ]
         )
 
-        return SecurityCategoriesAcl(
+        return cap.SecurityCategoriesAcl(
             actions,
-            SecurityCategoriesAcl.Scope.All(),
+            cap.SecurityCategoriesAcl.Scope.All(),
         )
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[SecurityCategoryRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope):
+            acl_actions: list[Literal["MEMBEROF", "LIST", "CREATE", "UPDATE", "DELETE"]] = []
+            if "READ" in actions:
+                acl_actions.extend(["LIST", "MEMBEROF"])
+            if "WRITE" in actions:
+                acl_actions.extend(["CREATE", "UPDATE", "DELETE"])
+            yield SecurityCategoriesAcl(actions=acl_actions, scope=scope)
 
     def create(self, items: Sequence[SecurityCategoryRequest]) -> list[SecurityCategoryResponse]:
         return self.client.tool.security_categories.create(items)
@@ -538,7 +617,7 @@ class SecurityCategoryCRUD(ResourceCRUD[NameId, SecurityCategoryRequest, Securit
     def delete(self, ids: Sequence[NameId]) -> int:
         retrieved = self.retrieve(ids)
         if retrieved:
-            self.client.tool.security_categories.delete([InternalIdUnwrapped(id=cat.id) for cat in retrieved])
+            self.client.tool.security_categories.delete([InternalUnwrappedId(id=cat.id) for cat in retrieved])
         return len(retrieved)
 
     def _iterate(

@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter
 from cognite_toolkit._cdf_tk.client.request_classes.graphql import UPSERT_BODY
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataModelReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import DataModelId
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
     GraphQLDataModelRequest,
     GraphQLDataModelResponse,
@@ -105,9 +105,7 @@ class GraphQLDataModelsAPI(CDFResourceAPI[GraphQLDataModelResponse]):
             results.append(response.upsert_graph_ql_dml_version.result)
         return results
 
-    def retrieve(
-        self, items: Sequence[DataModelReference], inline_views: bool = False
-    ) -> list[GraphQLDataModelResponse]:
+    def retrieve(self, items: Sequence[DataModelId], inline_views: bool = False) -> list[GraphQLDataModelResponse]:
         """Retrieve GraphQL data models from CDF.
 
         Args:
@@ -119,7 +117,7 @@ class GraphQLDataModelsAPI(CDFResourceAPI[GraphQLDataModelResponse]):
         """
         return self._request_item_response(items, method="retrieve", extra_body={"inlineViews": inline_views})
 
-    def delete(self, items: Sequence[DataModelReference]) -> None:
+    def delete(self, items: Sequence[DataModelId]) -> None:
         """Delete GraphQL data models from CDF.
 
         Args:

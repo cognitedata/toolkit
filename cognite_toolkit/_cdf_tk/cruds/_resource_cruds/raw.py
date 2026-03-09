@@ -17,19 +17,24 @@ import itertools
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, final
+from typing import Any, Literal, final
 
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    RawAcl,
-)
+from cognite.client.data_classes import capabilities as cap
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import NameId, RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    RawAcl,
+    ScopeDefinition,
+    TableScope,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWDatabaseResponse,
@@ -37,7 +42,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWTableResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
-from cognite_toolkit._cdf_tk.resource_classes import DatabaseYAML, TableYAML
+from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_list_write_actions
+from cognite_toolkit._cdf_tk.yaml_classes import DatabaseYAML, TableYAML
 
 from .auth import GroupAllScopedCRUD
 
@@ -65,25 +71,34 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabaseId, RAWDatabaseRequest, R
     @classmethod
     def get_required_capability(
         cls, items: Sequence[RAWDatabaseRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [RawAcl.Action.Read, RawAcl.Action.List]
+            [cap.RawAcl.Action.Read, cap.RawAcl.Action.List]
             if read_only
-            else [RawAcl.Action.Read, RawAcl.Action.Write, RawAcl.Action.List]
+            else [cap.RawAcl.Action.Read, cap.RawAcl.Action.Write, cap.RawAcl.Action.List]
         )
 
-        scope: RawAcl.Scope.All | RawAcl.Scope.Table = RawAcl.Scope.All()  # type: ignore[valid-type]
+        scope: cap.RawAcl.Scope.All | cap.RawAcl.Scope.Table = cap.RawAcl.Scope.All()  # type: ignore[valid-type]
         if items:
             tables_by_database: dict[str, list[str]] = {}
             for item in items:
                 tables_by_database[item.name] = []
 
-            scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()
+            scope = cap.RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else cap.RawAcl.Scope.All()
 
-        return RawAcl(actions, scope)
+        return cap.RawAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[RAWDatabaseRequest]) -> ScopeDefinition:
+        return TableScope(dbs_to_tables={item.name: [] for item in items})
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | TableScope):
+            yield RawAcl(actions=as_read_list_write_actions(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: RAWDatabaseResponse | RAWDatabaseRequest | dict) -> RawDatabaseId:
@@ -126,7 +141,7 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabaseId, RAWDatabaseRequest, R
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[RAWDatabaseResponse]:
-        for databases in self.client.tool.raw.databases.iterate():
+        for databases in self.client.tool.raw.databases.iterate(limit=None):
             yield from databases
 
     def count(self, ids: Sequence[RawDatabaseId]) -> int:
@@ -180,25 +195,37 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
     @classmethod
     def get_required_capability(
         cls, items: Sequence[RAWTableRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [RawAcl.Action.Read, RawAcl.Action.List]
+            [cap.RawAcl.Action.Read, cap.RawAcl.Action.List]
             if read_only
-            else [RawAcl.Action.Read, RawAcl.Action.Write, RawAcl.Action.List]
+            else [cap.RawAcl.Action.Read, cap.RawAcl.Action.Write, cap.RawAcl.Action.List]
         )
 
-        scope: RawAcl.Scope.All | RawAcl.Scope.Table = RawAcl.Scope.All()  # type: ignore[valid-type]
+        scope: cap.RawAcl.Scope.All | cap.RawAcl.Scope.Table = cap.RawAcl.Scope.All()  # type: ignore[valid-type]
         if items:
             tables_by_database = defaultdict(list)
             for item in items:
                 tables_by_database[item.db_name].append(item.name)
 
-            scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()
+            scope = cap.RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else cap.RawAcl.Scope.All()
 
-        return RawAcl(actions, scope)
+        return cap.RawAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[RAWTableRequest]) -> ScopeDefinition:
+        tables_by_database: dict[str, list[str]] = defaultdict(list)
+        for item in items:
+            tables_by_database[item.db_name].append(item.name)
+        return TableScope(dbs_to_tables=dict(tables_by_database))
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | TableScope):
+            yield RawAcl(actions=as_read_list_write_actions(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: RAWTableResponse | RAWTableRequest | dict) -> RawTableId:
@@ -217,6 +244,10 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dbName" in item:
             yield RawDatabaseCRUD, RawDatabaseId(name=item["dbName"])
+
+    @classmethod
+    def get_dependencies(cls, resource: TableYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield RawDatabaseCRUD, RawDatabaseId(name=resource.db_name)
 
     def dump_resource(self, resource: RAWTableResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         return {"dbName": resource.db_name, "tableName": resource.name}
@@ -272,7 +303,7 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
         for parent_id in parent_ids:
             if not isinstance(parent_id, NameId):
                 continue
-            for tables in self.client.tool.raw.tables.iterate(db_name=parent_id.name):
+            for tables in self.client.tool.raw.tables.iterate(db_name=parent_id.name, limit=None):
                 yield from tables
 
     def count(self, ids: Sequence[RawTableId]) -> int:

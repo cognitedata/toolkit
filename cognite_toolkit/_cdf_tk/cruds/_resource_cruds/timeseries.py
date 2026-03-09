@@ -4,12 +4,9 @@ from itertools import zip_longest
 from pathlib import Path
 from typing import Any, Literal, final
 
-from cognite.client.data_classes.capabilities import (
-    Capability,
-    TimeSeriesAcl,
-    TimeSeriesSubscriptionsAcl,
-)
+from cognite.client.data_classes import capabilities as cap
 
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import (
     DatapointSubscriptionTimeSeriesId,
     ExternalId,
@@ -17,13 +14,21 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     NameId,
 )
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeReference
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (
     AddRemove,
     DatapointSubscriptionRequest,
     DatapointSubscriptionResponse,
     DataPointSubscriptionUpdate,
     DatapointSubscriptionUpdateRequest,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetScope,
+    ScopeDefinition,
+    TimeSeriesAcl,
+    TimeSeriesSubscriptionsAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.constants import MAX_TIMESTAMP_MS, MIN_TIMESTAMP_MS
@@ -32,15 +37,17 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.resource_classes import DatapointSubscriptionYAML, TimeSeriesYAML
 from cognite_toolkit._cdf_tk.utils import calculate_hash
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
+from cognite_toolkit._cdf_tk.yaml_classes import DatapointSubscriptionYAML, TimeSeriesYAML
 
 from .auth import GroupAllScopedCRUD, SecurityCategoryCRUD
 from .classic import AssetCRUD
 from .data_organization import DataSetsCRUD
+from .datamodel import NodeCRUD
 
 
 @final
@@ -61,18 +68,31 @@ class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSe
     @classmethod
     def get_required_capability(
         cls, items: Sequence[TimeSeriesRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
-        actions = [TimeSeriesAcl.Action.Read] if read_only else [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write]
+        actions = (
+            [cap.TimeSeriesAcl.Action.Read]
+            if read_only
+            else [cap.TimeSeriesAcl.Action.Read, cap.TimeSeriesAcl.Action.Write]
+        )
 
-        scope: TimeSeriesAcl.Scope.All | TimeSeriesAcl.Scope.DataSet = TimeSeriesAcl.Scope.All()  # type: ignore[valid-type]
+        scope: cap.TimeSeriesAcl.Scope.All | cap.TimeSeriesAcl.Scope.DataSet = cap.TimeSeriesAcl.Scope.All()  # type: ignore[valid-type]
         if items:
             if dataset_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = TimeSeriesAcl.Scope.DataSet(list(dataset_ids))
+                scope = cap.TimeSeriesAcl.Scope.DataSet(list(dataset_ids))
 
-        return TimeSeriesAcl(actions, scope)
+        return cap.TimeSeriesAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[TimeSeriesRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield TimeSeriesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: TimeSeriesRequest | TimeSeriesResponse | dict) -> ExternalId:
@@ -101,6 +121,15 @@ class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSe
                 yield SecurityCategoryCRUD, NameId(name=security_category)
         if "assetExternalId" in item:
             yield AssetCRUD, ExternalId(external_id=item["assetExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: TimeSeriesYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+        for security_category in resource.security_categories or []:
+            yield SecurityCategoryCRUD, NameId(name=security_category)
+        if resource.asset_external_id:
+            yield AssetCRUD, ExternalId(external_id=resource.asset_external_id)
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> TimeSeriesRequest:
         if ds_external_id := resource.pop("dataSetExternalId", None):
@@ -224,26 +253,44 @@ class DatapointSubscriptionCRUD(
             yield TimeSeriesCRUD, ExternalId(external_id=timeseries_id)
 
     @classmethod
+    def get_dependencies(cls, resource: DatapointSubscriptionYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
+        for timeseries_id in resource.time_series_ids or []:
+            yield TimeSeriesCRUD, ExternalId(external_id=timeseries_id)
+        for instance_id in resource.instance_ids or []:
+            yield NodeCRUD, NodeId(space=instance_id.space, external_id=instance_id.external_id)
+
+    @classmethod
     def get_required_capability(
         cls, items: Sequence[DatapointSubscriptionRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
+    ) -> cap.Capability | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         actions = (
-            [TimeSeriesSubscriptionsAcl.Action.Read]
+            [cap.TimeSeriesSubscriptionsAcl.Action.Read]
             if read_only
-            else [TimeSeriesSubscriptionsAcl.Action.Read, TimeSeriesSubscriptionsAcl.Action.Write]
+            else [cap.TimeSeriesSubscriptionsAcl.Action.Read, cap.TimeSeriesSubscriptionsAcl.Action.Write]
         )
 
-        scope: TimeSeriesSubscriptionsAcl.Scope.All | TimeSeriesSubscriptionsAcl.Scope.DataSet = (  # type: ignore[valid-type]
-            TimeSeriesSubscriptionsAcl.Scope.All()
+        scope: cap.TimeSeriesSubscriptionsAcl.Scope.All | cap.TimeSeriesSubscriptionsAcl.Scope.DataSet = (  # type: ignore[valid-type]
+            cap.TimeSeriesSubscriptionsAcl.Scope.All()
         )
         if items:
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = TimeSeriesSubscriptionsAcl.Scope.DataSet(list(data_set_ids))
+                scope = cap.TimeSeriesSubscriptionsAcl.Scope.DataSet(list(data_set_ids))
 
-        return TimeSeriesSubscriptionsAcl(actions, scope)
+        return cap.TimeSeriesSubscriptionsAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[DatapointSubscriptionRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield TimeSeriesSubscriptionsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[DatapointSubscriptionRequest]) -> list[DatapointSubscriptionResponse]:
         created_list = []
@@ -411,8 +458,8 @@ class DatapointSubscriptionCRUD(
 
     @classmethod
     def _split_ts_instance_ids(
-        cls, ids: list[tuple[Literal["ts"], str] | tuple[Literal["instance"], NodeReference]]
-    ) -> tuple[list[str], list[NodeReference]]:
+        cls, ids: list[tuple[Literal["ts"], str] | tuple[Literal["instance"], NodeId]]
+    ) -> tuple[list[str], list[NodeId]]:
         ts_ids, instance_ids = [], []
         for id_type, identifier in ids:
             if id_type == "ts":
@@ -447,7 +494,7 @@ class DatapointSubscriptionCRUD(
 
         # Get current time series IDs from the subscription
         current_timeseries_ids: set[str] = set()
-        current_instance_ids: set[NodeReference] = set()
+        current_instance_ids: set[NodeId] = set()
         for ts in current_ts:
             if ts.external_id and ts.instance_id is None:
                 current_timeseries_ids.add(ts.external_id)

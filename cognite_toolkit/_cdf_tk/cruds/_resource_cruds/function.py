@@ -5,16 +5,9 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Literal, cast, final
 
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import ClientCredentials
-from cognite.client.data_classes.capabilities import (
-    AllScope,
-    Capability,
-    DataSetScope,
-    FilesAcl,
-    FunctionsAcl,
-    SessionsAcl,
-)
-from cognite.client.data_classes.data_modeling import NodeId
+from cognite.client.data_classes import capabilities as cap
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
 from cognite.client.exceptions import CogniteAPIError
@@ -23,6 +16,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
@@ -30,12 +24,19 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
     FunctionScheduleResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetScope,
+    FilesAcl,
+    FunctionsAcl,
+    ScopeDefinition,
+)
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.resource_classes import FunctionScheduleYAML, FunctionsYAML
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
@@ -43,9 +44,11 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
     humanize_collection,
 )
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.file import create_temporary_zip, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
+from cognite_toolkit._cdf_tk.yaml_classes import FunctionScheduleYAML, FunctionsYAML
 
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
@@ -96,19 +99,35 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[FunctionRequest] | None, read_only: bool
-    ) -> list[Capability] | list[Capability]:
+    ) -> list[cap.Capability] | list[cap.Capability]:
         if not items and items is not None:
             return []
 
         function_actions = (
-            [FunctionsAcl.Action.Read] if read_only else [FunctionsAcl.Action.Read, FunctionsAcl.Action.Write]
+            [cap.FunctionsAcl.Action.Read]
+            if read_only
+            else [cap.FunctionsAcl.Action.Read, cap.FunctionsAcl.Action.Write]
         )
-        file_actions = [FilesAcl.Action.Read] if read_only else [FilesAcl.Action.Read, FilesAcl.Action.Write]
+        file_actions = (
+            [cap.FilesAcl.Action.Read] if read_only else [cap.FilesAcl.Action.Read, cap.FilesAcl.Action.Write]
+        )
 
         return [
-            FunctionsAcl(function_actions, FunctionsAcl.Scope.All()),
-            FilesAcl(file_actions, FilesAcl.Scope.All()),  # Needed for uploading function artifacts
+            cap.FunctionsAcl(function_actions, cap.FunctionsAcl.Scope.All()),
+            cap.FilesAcl(file_actions, cap.FilesAcl.Scope.All()),  # Needed for uploading function artifacts
         ]
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[FunctionRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            # Functions ACLs do not support dataset scoping, so we always create them with AllScope.
+            yield FunctionsAcl(actions=sorted(actions), scope=AllScope())
+            # The files ACL is needed to deploy the function code.
+            yield FilesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: FunctionResponse | FunctionRequest | dict) -> ExternalId:
@@ -130,6 +149,11 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dataSetExternalId" in item:
             yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: FunctionsYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        if resource.data_set_external_id:
+            yield DataSetsCRUD, ExternalId(external_id=resource.data_set_external_id)
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
@@ -182,7 +206,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
 
     def get_function_required_capabilities(
         self, items: Sequence[FunctionRequest] | None, read_only: bool
-    ) -> list[Capability]:
+    ) -> list[cap.Capability]:
         """
         Get required capabilities for working with CDF Functions and their associated files.
 
@@ -195,11 +219,15 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
             return []
 
         function_actions = (
-            [FunctionsAcl.Action.Read] if read_only else [FunctionsAcl.Action.Read, FunctionsAcl.Action.Write]
+            [cap.FunctionsAcl.Action.Read]
+            if read_only
+            else [cap.FunctionsAcl.Action.Read, cap.FunctionsAcl.Action.Write]
         )
-        file_actions = [FilesAcl.Action.Read] if read_only else [FilesAcl.Action.Read, FilesAcl.Action.Write]
+        file_actions = (
+            [cap.FilesAcl.Action.Read] if read_only else [cap.FilesAcl.Action.Read, cap.FilesAcl.Action.Write]
+        )
 
-        file_scope: AllScope | DataSetScope = FilesAcl.Scope.All()
+        file_scope: cap.AllScope | cap.DataSetScope = cap.FilesAcl.Scope.All()
 
         if items and self.data_set_id_by_external_id:
             dataset_ids = [
@@ -208,18 +236,21 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
                 if item.external_id and item.external_id in self.data_set_id_by_external_id
             ]
             if dataset_ids:
-                file_scope = FilesAcl.Scope.DataSet(dataset_ids)
+                file_scope = cap.FilesAcl.Scope.DataSet(dataset_ids)
 
         return [
-            FunctionsAcl(function_actions, FunctionsAcl.Scope.All()),
-            FilesAcl(file_actions, file_scope),  # Needed for uploading function artifacts
+            cap.FunctionsAcl(function_actions, cap.FunctionsAcl.Scope.All()),
+            cap.FilesAcl(file_actions, file_scope),  # Needed for uploading function artifacts
         ]
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionRequest:
         item_id = self.get_id(resource)
         external_id = item_id.external_id
         if ds_external_id := resource.pop("dataSetExternalId", None):
-            self.data_set_id_by_external_id[external_id] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+            data_set_id = self.client.lookup.data_sets.id(ds_external_id)
+            self.data_set_id_by_external_id[external_id] = data_set_id
+            # We store the dataSetId to use for ACL check.
+            resource["dataSetId"] = data_set_id
         if space := resource.pop("space", None):
             self.space_by_external_id[external_id] = space
         # The fileID is required for the function to be created, but in the `.create` method
@@ -431,7 +462,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         self.client.tool.functions.delete(list(ids), ignore_unknown_ids=True)
         file_ids = {func.file_id for func in functions if func.file_id}
         files = self.client.files.retrieve_multiple(list(file_ids), ignore_unknown_ids=True)
-        dm_file_nodes: set[NodeId] = set()
+        dm_file_nodes: set[dm.NodeId] = set()
         classic_file_ids: set[int] = set()
         for file in files:
             if file.instance_id is not None:
@@ -450,7 +481,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         space: str | None = None,
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[FunctionResponse]:
-        for functions in self.client.tool.functions.iterate():
+        for functions in self.client.tool.functions.iterate(limit=None):
             yield from functions
 
 
@@ -480,19 +511,29 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
     @classmethod
     def get_required_capability(
         cls, items: Sequence[FunctionScheduleRequest] | None, read_only: bool
-    ) -> list[Capability]:
+    ) -> list[cap.Capability]:
         if not items and items is not None:
             return []
 
         function_actions = (
-            [FunctionsAcl.Action.Read] if read_only else [FunctionsAcl.Action.Read, FunctionsAcl.Action.Write]
+            [cap.FunctionsAcl.Action.Read]
+            if read_only
+            else [cap.FunctionsAcl.Action.Read, cap.FunctionsAcl.Action.Write]
         )
-        required_capabilities: list[Capability] = [
-            FunctionsAcl(function_actions, FunctionsAcl.Scope.All()),
+        required_capabilities: list[cap.Capability] = [
+            cap.FunctionsAcl(function_actions, cap.FunctionsAcl.Scope.All()),
         ]
         if not read_only:
-            required_capabilities.append(SessionsAcl([SessionsAcl.Action.Create], SessionsAcl.Scope.All()))
+            required_capabilities.append(cap.SessionsAcl([cap.SessionsAcl.Action.Create], cap.SessionsAcl.Scope.All()))
         return required_capabilities
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[FunctionScheduleRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     @classmethod
     def dump_id(cls, id: FunctionScheduleId) -> dict[str, Any]:
@@ -518,6 +559,10 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "functionExternalId" in item:
             yield FunctionCRUD, ExternalId(external_id=item["functionExternalId"])
+
+    @classmethod
+    def get_dependencies(cls, resource: FunctionScheduleYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
+        yield FunctionCRUD, ExternalId(external_id=resource.function_external_id)
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
@@ -656,7 +701,7 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
         parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[FunctionScheduleResponse]:
         if parent_ids is None:
-            for schedules in self.client.tool.functions.schedules.iterate():
+            for schedules in self.client.tool.functions.schedules.iterate(limit=None):
                 yield from schedules
         else:
             external_ids = [parent_id.external_id for parent_id in parent_ids if isinstance(parent_id, ExternalId)]
@@ -664,7 +709,7 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
                 return
             internal_ids = self.client.lookup.functions.id(external_ids)
             for function_id in internal_ids:
-                for schedules in self.client.tool.functions.schedules.iterate(function_id=function_id):
+                for schedules in self.client.tool.functions.schedules.iterate(function_id=function_id, limit=None):
                     yield from schedules
 
     def sensitive_strings(self, item: FunctionScheduleRequest) -> Iterable[str]:

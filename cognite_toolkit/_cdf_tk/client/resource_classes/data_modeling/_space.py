@@ -1,7 +1,7 @@
 from abc import ABC
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
-from cognite_toolkit._cdf_tk.client.identifiers import SpaceReference
+from cognite_toolkit._cdf_tk.client.identifiers import SpaceId
 
 
 class Space(BaseModelObject, ABC):
@@ -9,8 +9,8 @@ class Space(BaseModelObject, ABC):
     name: str | None = None
     description: str | None = None
 
-    def as_id(self) -> SpaceReference:
-        return SpaceReference(space=self.space)
+    def as_id(self) -> SpaceId:
+        return SpaceId(space=self.space)
 
 
 class SpaceRequest(Space, RequestResource): ...
