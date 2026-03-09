@@ -97,7 +97,7 @@ class ProjectCapabilities(UserDict[tuple[type[Acl], str], Scope]):
                     missing_actions_by_type_and_scope[(type(acl), acl.scope)].append(action)
                     continue
                 if missing_scope := scope_difference(acl.scope, self.data[key]):
-                    missing_actions_by_type_and_scope[(type(acl), missing_scope)].extend(acl.actions)
+                    missing_actions_by_type_and_scope[(type(acl), missing_scope)].append(action)
 
         missing_acls: list[Acl] = []
         for (acl_type, scope), actions in missing_actions_by_type_and_scope.items():
