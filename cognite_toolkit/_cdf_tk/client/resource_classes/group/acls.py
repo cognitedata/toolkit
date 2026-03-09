@@ -562,6 +562,14 @@ class SimulatorsAcl(Acl):
     scope: AllScope | DataSetScope
 
 
+class SubscribeSignalsAcl(Acl):
+    """ACL for Subscribe Signals resources (workflow email notifications)."""
+
+    acl_name: Literal["subscribeSignalsAcl"] = Field("subscribeSignalsAcl", exclude=True)
+    actions: Sequence[Literal["READ", "WRITE"]]
+    scope: AllScope | CurrentUserScope
+
+
 class UnknownAcl(BaseModelObject):
     """Fallback for unknown ACL types."""
 
@@ -657,6 +665,7 @@ AclType: TypeAlias = Annotated[
         | WellsAcl
         | WorkflowOrchestrationAcl
         | SimulatorsAcl
+        | SubscribeSignalsAcl
         | UnknownAcl
     ),
     BeforeValidator(_handle_unknown_acl),
