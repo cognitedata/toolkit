@@ -523,9 +523,13 @@ class BuildV2Command(ToolkitCommand):
         data = lineage.model_dump(
             exclude={
                 "module_lineage_items",  # Will handle separately
+                "build_successful",  # Will use status property instead
             },
             mode="json",  # This converts Path objects to strings
         )
+
+        # Add status at build level
+        data["status"] = lineage.status
 
         # Manually add module lineage items, excluding InsightList fields
         module_lineage_items = {}
@@ -538,13 +542,14 @@ class BuildV2Command(ToolkitCommand):
                     },
                     mode="json",  # Convert Path objects to strings
                 )
+                # Add module status based on insights
+                module_data["status"] = module_lineage.overall_status
+
                 # Manually add resource lineage items, excluding InsightList fields
                 resource_items = {}
                 for resource_path, resource_item in module_lineage.resource_lineage_items.items():
                     resource_data = resource_item.model_dump(
                         exclude={
-                            "parsing_errors",
-                            "parsing_insights",
                             "local_validation_insights",
                             "cdf_validation_insights",
                             "global_validation_insights",
@@ -552,8 +557,11 @@ class BuildV2Command(ToolkitCommand):
                             "external_dependencies",
                             "missing_dependencies",
                         },
+                        by_alias=True,  # Use aliases like 'type' instead of 'resource_type'
                         mode="json",  # Convert Path objects to strings
                     )
+                    # Add resource status
+                    resource_data["status"] = resource_item.overall_status
                     resource_items[str(resource_path)] = resource_data
                 module_data["resource_lineage_items"] = resource_items
                 serialized_lineages.append(module_data)

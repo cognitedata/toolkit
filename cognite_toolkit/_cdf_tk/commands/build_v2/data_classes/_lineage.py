@@ -12,6 +12,22 @@ from ._module import ModuleSource
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, ValidationType
 
 
+class ModulesSummary(BaseModel):
+    """Summary of module statistics."""
+
+    discovered: int = Field(description="Total modules discovered")
+    processed: int = Field(description="Total modules successfully processed")
+    failed: int = Field(description="Total modules that failed")
+
+
+class ResourcesSummary(BaseModel):
+    """Summary of resource statistics."""
+
+    discovered: int = Field(description="Total resources discovered")
+    processed: int = Field(description="Total resources successfully processed")
+    failed: int = Field(description="Total resources that failed")
+
+
 class BuildConfigLineage(BaseModel):
     """Tracks build configuration and environment."""
 
@@ -29,27 +45,19 @@ class BuildConfigLineage(BaseModel):
 class ResourceLineageItem(BaseModel):
     """Tracks a single resource through the build process."""
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
 
     source_file: AbsoluteFilePath = Field(description="Absolute path to source YAML file")
     source_hash: str = Field(description="Hash of source file content (before variable substitution)")
-    resource_id: Identifier = Field(description="Resource identifier (e.g., space/externalId)")
-    resource_type: str = Field(description="Resource type folder (e.g., 'spaces', 'containers', 'views')")
-    resource_kind: str = Field(description="Resource kind (e.g., 'space', 'container', 'view')")
+    resource_type: str = Field(alias="type", description="Resource type folder (e.g., 'spaces', 'containers', 'views')")
+    kind: str = Field(description="Resource kind (e.g., 'space', 'container', 'view')")
 
     # Variable substitution tracking
     variables_applied: list[str] = Field(
         default_factory=list, description="Variables that were substituted in this resource"
     )
 
-    # Parsing phase
-    parsing_successful: bool = Field(description="Whether resource parsed without syntax errors")
-    parsing_errors: InsightList = Field(default_factory=InsightList, description="Syntax errors during parsing")
-    parsing_insights: InsightList = Field(
-        default_factory=InsightList, description="Recommendations from parsing (e.g., unknown fields)"
-    )
-
-    # Validation phase
+    # Validation phase insights
     local_validation_insights: InsightList = Field(
         default_factory=InsightList, description="Rule validation insights (local validation)"
     )
@@ -77,16 +85,12 @@ class ResourceLineageItem(BaseModel):
     @property
     def overall_status(self) -> str:
         """Determines overall build status for this resource."""
-        if not self.parsing_successful:
-            return "FAILED"
-        if self.parsing_errors:
-            return "FAILED"
         if self.missing_dependencies:
             return "FAILED"
         # Check for consistency errors in CDF validation
         if any(insight.__class__.__name__ == "ConsistencyError" for insight in self.cdf_validation_insights):
             return "FAILED"
-        if (self.parsing_insights or self.local_validation_insights) or any(
+        if (self.local_validation_insights) or any(
             insight.__class__.__name__ == "ConsistencyWarning" for insight in self.cdf_validation_insights
         ):
             return "BUILT_WITH_WARNINGS"
@@ -96,8 +100,6 @@ class ResourceLineageItem(BaseModel):
     def all_insights(self) -> InsightList:
         """Aggregates all insights across all phases."""
         combined = InsightList()
-        combined.extend(self.parsing_errors)
-        combined.extend(self.parsing_insights)
         combined.extend(self.local_validation_insights)
         combined.extend(self.cdf_validation_insights)
         combined.extend(self.global_validation_insights)
@@ -114,10 +116,8 @@ class ModuleLineageItem(BaseModel):
         default=0, description="Iteration number if multi-value variables were used (0 if no iteration)"
     )
 
-    # Parsing phase
+    # Resource discovery
     discovered_resources: int = Field(description="Number of resources discovered in source files")
-    parsing_successful: bool = Field(description="Whether all resources in module parsed without syntax errors")
-    parsing_errors_count: int = Field(description="Count of parsing errors across all resources")
 
     # Resource tracking
     resource_lineage_items: dict[AbsoluteFilePath, ResourceLineageItem] = Field(
@@ -131,7 +131,6 @@ class ModuleLineageItem(BaseModel):
 
     # Statistics
     built_resources_count: int = Field(description="Number of successfully built resources")
-    total_insights_count: int = Field(description="Total insights across all resources in this module")
 
     # Insights breakdown at module level
     insights: dict[str, int] = Field(description="Breakdown of insights by type for this module")
@@ -139,9 +138,8 @@ class ModuleLineageItem(BaseModel):
     @property
     def overall_status(self) -> str:
         """Determines overall build status for this module."""
-        if not self.parsing_successful:
-            return "FAILED"
-        if self.parsing_errors_count > 0:
+        # Check insights first - if there are syntax or consistency errors, module failed
+        if self.insights.get("syntax_errors", 0) > 0 or self.insights.get("consistency_errors", 0) > 0:
             return "FAILED"
 
         # Check if any resource failed
@@ -218,10 +216,8 @@ class BuildLineage(BaseModel):
     )
 
     # Summary statistics
-    total_modules: int = Field(description="Total modules discovered")
-    total_modules_processed: int = Field(description="Total module iterations processed")
-    total_resources_discovered: int = Field(description="Total resources found in source")
-    total_resources_built: int = Field(description="Total resources successfully built")
+    modules: ModulesSummary = Field(description="Module statistics (discovered, processed, failed)")
+    resources: ResourcesSummary = Field(description="Resource statistics (discovered, processed, failed)")
 
     # Insights summary
     insights: dict[str, int] = Field(description="Summary of all insights found during build")
@@ -230,6 +226,11 @@ class BuildLineage(BaseModel):
     build_successful: bool = Field(description="True if build completed without errors")
 
     # ==================== Properties for Analysis ====================
+
+    @property
+    def status(self) -> str:
+        """Overall build status based on success flag."""
+        return "SUCCESS" if self.build_successful else "FAILED"
 
     @property
     def failed_modules(self) -> list[tuple[RelativeDirPath, ModuleLineageItem]]:
@@ -316,15 +317,14 @@ class BuildLineage(BaseModel):
             "cdf_project": self.config.cdf_project,
             "validation_type": self.config.validation_type,
             "modules": {
-                "total": self.total_modules,
-                "processed": self.total_modules_processed,
-                "successful": len(self.built_modules),
-                "failed": len(self.failed_modules),
+                "discovered": self.modules.discovered,
+                "processed": self.modules.processed,
+                "failed": self.modules.failed,
             },
             "resources": {
-                "total_discovered": self.total_resources_discovered,
-                "total_built": self.total_resources_built,
-                "failed": len(self.failed_resources),
+                "discovered": self.resources.discovered,
+                "processed": self.resources.processed,
+                "failed": self.resources.failed,
             },
             "dependencies": {
                 "total": len(self.dependencies),
@@ -335,11 +335,10 @@ class BuildLineage(BaseModel):
             "insights": {
                 "syntax_errors": self.insights["syntax_errors"],
                 "consistency_errors": self.insights["consistency_errors"],
-                "warnings": self.insights["warnings"],
                 "recommendations": self.insights["recommendations"],
                 "total": sum(self.insights.values()),
             },
-            "overall_status": "SUCCESS" if self.build_successful else "FAILED",
+            "status": self.status,
         }
 
     # ==================== Methods for Analysis ====================
@@ -350,15 +349,6 @@ class BuildLineage(BaseModel):
         for lineage in lineages:
             if lineage.iteration == iteration:
                 return lineage
-        return None
-
-    def get_resource_lineage(self, resource_id: Identifier) -> ResourceLineageItem | None:
-        """Get lineage for a specific resource."""
-        for lineages in self.module_lineage_items.values():
-            for lineage in lineages:
-                for resource in lineage.resource_lineage_items.values():
-                    if resource.resource_id == resource_id:
-                        return resource
         return None
 
     def get_dependency_chain(self, resource_id: Identifier) -> list[list[Identifier]]:

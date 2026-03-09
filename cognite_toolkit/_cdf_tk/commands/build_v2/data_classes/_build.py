@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
@@ -7,7 +8,14 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
 from ._insights import ConsistencyError, InsightList, ModelSyntaxError, Recommendation
-from ._lineage import BuildConfigLineage, BuildLineage, ModuleLineageItem, ResourceLineageItem
+from ._lineage import (
+    BuildConfigLineage,
+    BuildLineage,
+    ModuleLineageItem,
+    ModulesSummary,
+    ResourceLineageItem,
+    ResourcesSummary,
+)
 from ._module import ModuleSource
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
@@ -112,22 +120,21 @@ class BuildFolder(BaseModel):
 
             # Create resource lineage items for each built file
             resource_lineage_items: dict[AbsoluteFilePath, ResourceLineageItem] = {}
+
+            # Collect all source files from the module
+            source_files = []
+            for resource_type, files in built_module.source.resource_files_by_folder.items():
+                source_files.extend(files)
+
             for idx, built_file in enumerate(built_module.built_files):
-                # Use matching resource identifier from the built module
-                resource_id = (
-                    built_module.built_resources_identifiers[idx]
-                    if idx < len(built_module.built_resources_identifiers)
-                    else built_module.built_resources_identifiers[0]
-                    if built_module.built_resources_identifiers
-                    else Identifier()
-                )
+                # Get corresponding source file (if available)
+                source_file = source_files[idx] if idx < len(source_files) else built_file
+
                 resource_lineage = ResourceLineageItem(
-                    source_file=built_file,
+                    source_file=source_file,
                     source_hash="",  # Would need to track this during build
-                    resource_id=resource_id,
                     resource_type=built_file.parent.name,
-                    resource_kind=built_file.stem.rsplit(".", 1)[-1] if "." in built_file.stem else "",
-                    parsing_successful=built_module.is_success,
+                    kind=built_file.stem.rsplit(".", 1)[-1] if "." in built_file.stem else "",
                     built_file=built_file,
                 )
                 resource_lineage_items[built_file] = resource_lineage
@@ -142,29 +149,28 @@ class BuildFolder(BaseModel):
                 module_source=built_module.source,
                 iteration=0,
                 discovered_resources=len(built_module.built_files),
-                parsing_successful=built_module.is_success,
-                parsing_errors_count=sum(
-                    len(insights)
-                    for insight_type, insights in built_module.insights.by_type().items()
-                    if insight_type is ModelSyntaxError
-                ),
                 resource_lineage_items=resource_lineage_items,
                 built_files=[Path(f) for f in built_module.built_files],
                 built_resources_count=len(built_module.built_resources_identifiers),
-                total_insights_count=len(built_module.insights),
                 insights=built_module.insights.summary,
             )
             module_lineage_items.setdefault(module_path, []).append(module_lineage)
 
-        total_modules = len(self.built_modules)
-        total_resources_discovered = 0
-        for module in self.built_modules:
-            total_resources_discovered += len([f for f in module.built_files if f])
+        # Calculate module and resource summaries
+        modules_discovered = len(self.built_modules)
+        modules_processed = sum(1 for module in self.built_modules if module.is_success)
+        modules_failed = modules_discovered - modules_processed
+
+        # Count resource statistics
+        resources_discovered = sum(len(module.built_files) for module in self.built_modules)
+        resources_processed = len(self.built_resources_identifiers)
+        resources_failed = resources_discovered - resources_processed
 
         # Check if any module failed
         has_failures = any(not module.is_success for module in self.built_modules)
 
         return BuildLineage.model_construct(
+            build_timestamp=datetime.utcnow(),
             build_duration_seconds=None,
             config=BuildConfigLineage.model_construct(
                 organization_dir=self.path,  # This is the build path, lineage will need context update
@@ -175,10 +181,16 @@ class BuildFolder(BaseModel):
                 selected_modules=set(),  # Will need to be updated from BuildParameters
                 variables_provided={},
             ),
-            total_modules=total_modules,
-            total_modules_processed=len(self.built_modules),
-            total_resources_discovered=total_resources_discovered,
-            total_resources_built=len(self.built_resources_identifiers),
+            modules=ModulesSummary(
+                discovered=modules_discovered,
+                processed=modules_processed,
+                failed=modules_failed,
+            ),
+            resources=ResourcesSummary(
+                discovered=resources_discovered,
+                processed=resources_processed,
+                failed=resources_failed,
+            ),
             insights={
                 "syntax_errors": total_syntax_errors,
                 "consistency_errors": total_consistency_errors,

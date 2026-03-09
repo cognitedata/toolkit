@@ -11,7 +11,9 @@ from ._lineage import (
     BuildLineage,
     DependencyLineageItem,
     ModuleLineageItem,
+    ModulesSummary,
     ResourceLineageItem,
+    ResourcesSummary,
 )
 from ._module import (
     BuildVariable,
@@ -43,12 +45,14 @@ __all__ = [
     "Module",
     "ModuleLineageItem",
     "ModuleSource",
+    "ModulesSummary",
     "ReadResource",
     "Recommendation",
     "RelativeDirPath",
     "RelativeFilePath",
     "ResourceLineageItem",
     "ResourceType",
+    "ResourcesSummary",
     "SuccessfulReadResource",
     "ValidationType",
 ]
