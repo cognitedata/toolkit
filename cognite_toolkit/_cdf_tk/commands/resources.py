@@ -6,7 +6,6 @@ from typing import Any, cast
 
 import questionary
 import typer
-import yaml
 from questionary import Choice
 from rich import print
 
@@ -15,6 +14,7 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceCRUD
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 
 class ResourcesCommand(ToolkitCommand):
@@ -109,7 +109,7 @@ class ResourcesCommand(ToolkitCommand):
 
         for field_name, field in resource_crud.yaml_cls.model_fields.items():
             name = field.alias or field_name
-            description = field.description or name
+            description = field.description or ""
 
             if field.is_required():
                 required_fields.append((name, f"<{name}>", f"# (Required) {description}"))
@@ -125,7 +125,7 @@ class ResourcesCommand(ToolkitCommand):
 
         for group in (required_fields, optional_with_value, optional_null):
             for name, value, comment in group:
-                yaml_block = yaml.safe_dump({name: value}, allow_unicode=True, sort_keys=False).rstrip("\n")
+                yaml_block = yaml_safe_dump({name: value}, sort_keys=False).rstrip("\n")
                 # Add comment to the first line of the YAML block
                 block_lines = yaml_block.split("\n")
                 block_lines[0] = f"{block_lines[0]}  {comment}"

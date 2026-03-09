@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 import typer
@@ -25,7 +26,7 @@ class _StubResource(ToolkitResource):
         return ExternalId(external_id=self.external_id)
 
 
-class _StubCRUD:
+class _StubCRUD(MagicMock):
     yaml_cls = _StubResource
 
     @classmethod
@@ -177,25 +178,27 @@ class TestResourcesCreateCommand:
         parsed = yaml.safe_load("\n".join(line.split("  #")[0] for line in yaml_lines))
 
         # Required fields use placeholder strings
-        assert parsed["externalId"] == "<externalId>"
-        assert parsed["name"] == "<name>"
-
-        # Optional field with non-null default
-        assert parsed["runtime"] == "py311"
-
-        # Optional null field
-        assert parsed["description"] is None
+        assert parsed == {
+            "externalId": "<externalId>",
+            "name": "<name>",
+            "runtime": "py311",
+            "metadata": None,
+            "description": None,
+        }
 
         # Every field's first YAML line has an inline comment
         first_lines = [line for line in lines if not line.startswith("#") and line.strip() and not line.startswith(" ")]
-        for line in first_lines:
-            assert "  #" in line, f"Missing comment on first line: {line!r}"
+        missing_inline_comments = [line for line in first_lines if "  #" not in line]
+        assert not missing_inline_comments, f"Missing inline comment on lines: {missing_inline_comments}"
 
         # Multi-line values (e.g. dict) have the comment only on the first line
-        metadata_lines = [line for line in lines if "metadata" in line]
-        assert any("  #" in line for line in metadata_lines), "metadata key line should have a comment"
-        continuation_lines = [line for line in metadata_lines if line.startswith(" ")]
-        assert all("  #" not in line for line in continuation_lines), "continuation lines should not have comments"
+        metadata_lines_without_comment = [line for line in lines if "metadata" in line and "  #" not in line]
+        assert not metadata_lines_without_comment, "metadata key line should have a comment"
+
+        continuation_lines_with_comment = [
+            line for line in lines if "metadata" in line and line.startswith(" ") and "  #" in line
+        ]
+        assert not continuation_lines_with_comment, "continuation lines should not have comments"
 
         # Ordering: required → optional with value → optional null
         field_names = [line.split(":")[0].strip() for line in first_lines]
