@@ -21,6 +21,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group.scopes import (
     TableScope,
     UnknownScope,
 )
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
+from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 
 def scope_logic_test_cases() -> Iterable:
@@ -267,3 +269,45 @@ class TestScopeLogic:
         assert scope_union(AllScope(), scope) == AllScope()
         assert scope_union(scope, AllScope()) == AllScope()
         assert scope_union(scope, DataSetScope(ids=[1]), AllScope()) == AllScope()
+
+
+class TestScopes:
+    @pytest.mark.parametrize("scope_cls", get_concrete_subclasses(ScopeDefinition))
+    def test_scope_is_hashable(self, scope_cls: type[ScopeDefinition]) -> None:
+        """Ensure all ScopeDefinition subclasses are hashable."""
+        instance = FakeCogniteResourceGenerator(seed=42).create_instance(scope_cls)
+        assert isinstance(instance, ScopeDefinition)
+        assert isinstance(hash(instance), int)
+
+    @pytest.mark.parametrize(
+        "scope, other, are_equal",
+        [
+            pytest.param(DataSetScope(ids=[1, 2]), DataSetScope(ids=[1, 2]), True, id="Identical DataSetScopes"),
+            pytest.param(DataSetScope(ids=[1, 2]), DataSetScope(ids=[2, 3]), False, id="Different DataSetScopes"),
+            pytest.param(
+                TableScope(dbs_to_tables={"db1": []}),
+                TableScope(dbs_to_tables={"db1": []}),
+                True,
+                id="Identical empty TableScopes",
+            ),
+            pytest.param(
+                TableScope(dbs_to_tables={"db1": []}),
+                TableScope(dbs_to_tables={"db1": ["table1"]}),
+                False,
+                id="Empty vs non-empty TableScope",
+            ),
+            pytest.param(
+                TableScope(dbs_to_tables={"db1": ["table1", "table2"]}),
+                TableScope(dbs_to_tables={"db1": ["table2", "table1"]}),
+                True,
+                id="TableScopes with same tables in different order",
+            ),
+        ],
+    )
+    def test_scope_equality(self, scope: ScopeDefinition, other: ScopeDefinition, are_equal: bool) -> None:
+        """Test equality and inequality of ScopeDefinition instances."""
+        if are_equal:
+            assert scope == other
+            assert hash(scope) == hash(other)
+        else:
+            assert scope != other

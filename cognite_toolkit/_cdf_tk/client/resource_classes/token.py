@@ -67,6 +67,11 @@ class InspectCapability(BaseModelObject):
 
 
 class ProjectCapabilities(UserDict[tuple[type[Acl], str], Scope]):
+    """A helper class to represent the capabilities for a given CDF Project.
+
+    The capabilities are stored as a mapping from (ACL type, action) to scope, which allows for easy verification of ACLs against the capabilities.
+    """
+
     def __init__(self, capabilities: dict[tuple[type[Acl], str], Scope], name: str, groups: list[int]) -> None:
         super().__init__(capabilities)
         self.name = name
@@ -81,15 +86,15 @@ class ProjectCapabilities(UserDict[tuple[type[Acl], str], Scope]):
         Returns:
             The list of ACLs that are not covered by the capabilities in this project.
         """
-        missing_acitions_by_type_and_scope: dict[tuple[type[Acl], ScopeDefinition], list[str]] = defaultdict(list)
+        missing_actions_by_type_and_scope: dict[tuple[type[Acl], ScopeDefinition], list[str]] = defaultdict(list)
         for acl in acls:
             for action in acl.actions:
                 key = (type(acl), action)
                 if key not in self.data:
-                    missing_acitions_by_type_and_scope[(type(acl), acl.scope)].extend(acl.actions)
+                    missing_actions_by_type_and_scope[(type(acl), acl.scope)].extend(acl.actions)
                     continue
         missing_acls: list[Acl] = []
-        for (acl_type, scope), actions in missing_acitions_by_type_and_scope.items():
+        for (acl_type, scope), actions in missing_actions_by_type_and_scope.items():
             missing_acls.append(acl_type(actions=actions, scope=scope))  # type: ignore[arg-type]
         return missing_acls
 
