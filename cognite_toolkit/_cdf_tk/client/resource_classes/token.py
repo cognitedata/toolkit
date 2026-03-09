@@ -12,7 +12,7 @@ from typing import Any
 from pydantic import JsonValue, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.resource_classes.group import Scope
+from cognite_toolkit._cdf_tk.client.resource_classes.group import Scope, ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import ACL_NAME
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import Acl, AclType
 from cognite_toolkit._cdf_tk.client.resource_classes.group.scope_logic import scope_union
@@ -81,17 +81,16 @@ class ProjectCapabilities(UserDict[tuple[type[Acl], str], Scope]):
         Returns:
             The list of ACLs that are not covered by the capabilities in this project.
         """
-        missing_acls_by_type: dict[type[Acl], list[Acl]] = defaultdict(list)
+        missing_acitions_by_type_and_scope: dict[tuple[type[Acl], ScopeDefinition], list[str]] = defaultdict(list)
         for acl in acls:
             for action in acl.actions:
                 key = (type(acl), action)
                 if key not in self.data:
-                    missing_acls_by_type[type(acl)].append(acl)
+                    missing_acitions_by_type_and_scope[(type(acl), acl.scope)].extend(acl.actions)
                     continue
         missing_acls: list[Acl] = []
-        for acl_type, acls in missing_acls_by_type.items():
-            # all scopes are the same merge then into one ACL with that scope
-            ...
+        for (acl_type, scope), actions in missing_acitions_by_type_and_scope.items():
+            missing_acls.append(acl_type(actions=actions, scope=scope))  # type: ignore[arg-type]
         return missing_acls
 
 

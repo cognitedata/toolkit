@@ -6,7 +6,7 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BeforeValidator, Field, TypeAdapter, field_serializer, field_validator
+from pydantic import BeforeValidator, ConfigDict, Field, TypeAdapter, field_serializer, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import SCOPE_NAME
@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 class ScopeDefinition(BaseModelObject):
     """Base class for all scope definitions."""
 
+    model_config = ConfigDict(frozen=True)
     scope_name: str
 
 
