@@ -1,5 +1,5 @@
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Any, final
+from typing import Any, Literal, final
 
 from cognite.client.data_classes import capabilities as cap
 
@@ -10,12 +10,20 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     NameId,
     ThreeDModelRevisionId,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetScope,
+    ScopeDefinition,
+    ThreeDAcl,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicRequest,
     ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceContainerCRUD, ResourceCRUD
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
+from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions, dataset_scoped_resource
 from cognite_toolkit._cdf_tk.yaml_classes import ThreeDModelYAML
 
 from .data_organization import DataSetsCRUD
@@ -85,6 +93,15 @@ class ThreeDModelCRUD(ResourceContainerCRUD[NameId, ThreeDModelClassicRequest, T
         )
 
         return cap.ThreeDAcl(actions, scope)
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[ThreeDModelClassicRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield ThreeDAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
 
     def create(self, items: Sequence[ThreeDModelClassicRequest]) -> list[ThreeDModelClassicResponse]:
         return self.client.tool.three_d.models_classic.create(items)

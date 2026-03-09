@@ -24,6 +24,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
     FunctionScheduleResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetScope,
+    FilesAcl,
+    FunctionsAcl,
+    ScopeDefinition,
+)
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
@@ -36,6 +44,7 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
     humanize_collection,
 )
+from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.file import create_temporary_zip, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
@@ -107,6 +116,18 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
             cap.FunctionsAcl(function_actions, cap.FunctionsAcl.Scope.All()),
             cap.FilesAcl(file_actions, cap.FilesAcl.Scope.All()),  # Needed for uploading function artifacts
         ]
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[FunctionRequest]) -> ScopeDefinition:
+        return dataset_scoped_resource(items)
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            # Functions ACLs do not support dataset scoping, so we always create them with AllScope.
+            yield FunctionsAcl(actions=sorted(actions), scope=AllScope())
+            # The files ACL is needed to deploy the function code.
+            yield FilesAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
     def get_id(cls, item: FunctionResponse | FunctionRequest | dict) -> ExternalId:
@@ -226,7 +247,10 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         item_id = self.get_id(resource)
         external_id = item_id.external_id
         if ds_external_id := resource.pop("dataSetExternalId", None):
-            self.data_set_id_by_external_id[external_id] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+            data_set_id = self.client.lookup.data_sets.id(ds_external_id)
+            self.data_set_id_by_external_id[external_id] = data_set_id
+            # We store the dataSetId to use for ACL check.
+            resource["dataSetId"] = data_set_id
         if space := resource.pop("space", None):
             self.space_by_external_id[external_id] = space
         # The fileID is required for the function to be created, but in the `.create` method
@@ -502,6 +526,14 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
         if not read_only:
             required_capabilities.append(cap.SessionsAcl([cap.SessionsAcl.Action.Create], cap.SessionsAcl.Scope.All()))
         return required_capabilities
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[FunctionScheduleRequest]) -> ScopeDefinition | None:
+        return None
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        yield from ()
 
     @classmethod
     def dump_id(cls, id: FunctionScheduleId) -> dict[str, Any]:

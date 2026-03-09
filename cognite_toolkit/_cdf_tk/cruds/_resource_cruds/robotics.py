@@ -1,10 +1,17 @@
 import json
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Any
+from typing import Any, Literal, final
 
 from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetScope,
+    RoboticsAcl,
+    ScopeDefinition,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotCapabilityRequest,
     RobotCapabilityResponse,
@@ -18,6 +25,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotMapResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.utils.acl_helper import as_read_create_update_delete_actions
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 from cognite_toolkit._cdf_tk.yaml_classes import (
     RobotCapabilityYAML,
@@ -28,6 +36,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import (
 )
 
 
+@final
 class RoboticFrameCRUD(ResourceCRUD[ExternalId, RobotFrameRequest, RobotFrameResponse]):
     folder_name = "robotics"
     resource_cls = RobotFrameResponse
@@ -66,6 +75,15 @@ class RoboticFrameCRUD(ResourceCRUD[ExternalId, RobotFrameRequest, RobotFrameRes
             cap.RoboticsAcl.Scope.All(),
         )
 
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[RobotFrameRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield RoboticsAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
+
     def dump_resource(self, resource: RobotFrameResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump()
         local = local or {}
@@ -99,6 +117,7 @@ class RoboticFrameCRUD(ResourceCRUD[ExternalId, RobotFrameRequest, RobotFrameRes
             yield from frames
 
 
+@final
 class RoboticLocationCRUD(ResourceCRUD[ExternalId, RobotLocationRequest, RobotLocationResponse]):
     folder_name = "robotics"
     resource_cls = RobotLocationResponse
@@ -142,6 +161,15 @@ class RoboticLocationCRUD(ResourceCRUD[ExternalId, RobotLocationRequest, RobotLo
 
         return cap.RoboticsAcl(actions, cap.RoboticsAcl.Scope.All())
 
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[RobotLocationRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield RoboticsAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
+
     def create(self, items: Sequence[RobotLocationRequest]) -> list[RobotLocationResponse]:
         return self.client.tool.robotics.locations.create(items)
 
@@ -173,6 +201,7 @@ class RoboticLocationCRUD(ResourceCRUD[ExternalId, RobotLocationRequest, RobotLo
         return RobotLocationRequest.model_validate(resource)
 
 
+@final
 class RoboticsDataPostProcessingCRUD(
     ResourceCRUD[ExternalId, RobotDataPostProcessingRequest, RobotDataPostProcessingResponse]
 ):
@@ -218,6 +247,15 @@ class RoboticsDataPostProcessingCRUD(
 
         return cap.RoboticsAcl(actions, cap.RoboticsAcl.Scope.All())
 
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[RobotDataPostProcessingRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield RoboticsAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
+
     def create(self, items: Sequence[RobotDataPostProcessingRequest]) -> list[RobotDataPostProcessingResponse]:
         return self.client.tool.robotics.data_postprocessing.create(items)
 
@@ -262,6 +300,7 @@ class RoboticsDataPostProcessingCRUD(
         return super().diff_list(local, cdf, json_path)
 
 
+@final
 class RobotCapabilityCRUD(ResourceCRUD[ExternalId, RobotCapabilityRequest, RobotCapabilityResponse]):
     folder_name = "robotics"
     resource_cls = RobotCapabilityResponse
@@ -304,6 +343,15 @@ class RobotCapabilityCRUD(ResourceCRUD[ExternalId, RobotCapabilityRequest, Robot
         )
 
         return cap.RoboticsAcl(actions, cap.RoboticsAcl.Scope.All())
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[RobotCapabilityRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield RoboticsAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
 
     def create(self, items: Sequence[RobotCapabilityRequest]) -> list[RobotCapabilityResponse]:
         return self.client.tool.robotics.capabilities.create(items)
@@ -352,6 +400,7 @@ class RobotCapabilityCRUD(ResourceCRUD[ExternalId, RobotCapabilityRequest, Robot
         return super().diff_list(local, cdf, json_path)
 
 
+@final
 class RoboticMapCRUD(ResourceCRUD[ExternalId, RobotMapRequest, RobotMapResponse]):
     folder_name = "robotics"
     resource_cls = RobotMapResponse
@@ -396,6 +445,15 @@ class RoboticMapCRUD(ResourceCRUD[ExternalId, RobotMapRequest, RobotMapResponse]
         )
 
         return cap.RoboticsAcl(actions, cap.RoboticsAcl.Scope.All())
+
+    @classmethod
+    def get_minimum_scope(cls, items: Sequence[RobotMapRequest]) -> ScopeDefinition:
+        return AllScope()
+
+    @classmethod
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+        if isinstance(scope, AllScope | DataSetScope):
+            yield RoboticsAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
 
     def dump_resource(self, resource: RobotMapResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dump = resource.as_request_resource().dump()
