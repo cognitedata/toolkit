@@ -74,7 +74,7 @@ class UnknownInstanceSpaces(AgentInstanceSpacesDefinition): ...
 
 
 _KNOWN_INSTANCE_SPACES = {
-    cls_.type: cls_
+    cls_.model_fields["type"].default: cls_
     for cls_ in get_concrete_subclasses(AgentInstanceSpacesDefinition)
     if cls_ is not UnknownInstanceSpaces
 }
@@ -92,7 +92,6 @@ def _handle_unknown_instance_spaces(value: Any) -> Any:
 
 AgentInstanceSpaces = Annotated[
     AllInstanceSpaces | ManualInstanceSpaces | UnknownInstanceSpaces,
-    Field(discriminator="type"),
     BeforeValidator(_handle_unknown_instance_spaces),
 ]
 
@@ -169,7 +168,6 @@ AgentTool = Annotated[
     | SummarizeDocument
     | TimeSeriesAnalysis
     | UnknownAgentTool,
-    Field(discriminator="type"),
     BeforeValidator(_handle_unknown_tool),
 ]
 

@@ -226,6 +226,7 @@ class TestAgentResponse:
                             {"space": "cdf_cdm", "externalId": "CogniteCore", "version": "v1"},
                         ],
                         "instanceSpaces": {"type": "providedAtRuntime", "some_extra": "value"},
+                        "version": "v1",
                     },
                 }
             ],
