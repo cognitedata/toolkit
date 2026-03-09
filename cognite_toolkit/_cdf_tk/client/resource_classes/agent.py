@@ -6,7 +6,11 @@ from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Reque
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 
-class AgentToolDefinition(BaseModelObject):
+class AgentObject(BaseModelObject):
+    model_config = ConfigDict(extra="allow")
+
+
+class AgentToolDefinition(AgentObject):
     model_config = ConfigDict(extra="allow")
 
     type: str
@@ -26,7 +30,7 @@ class AskDocument(AgentToolDefinition):
     type: Literal["askDocument"] = "askDocument"
 
 
-class CallFunctionConfig(BaseModelObject):
+class CallFunctionConfig(AgentObject):
     external_id: str
     max_polling_time: int = 540
     schema_: dict[str, Any] | None = Field(None, alias="schema")
@@ -45,14 +49,14 @@ class ExamineDataSemantically(AgentToolDefinition):
     type: Literal["examineDataSemantically"] = "examineDataSemantically"
 
 
-class AgentDataModel(BaseModelObject):
+class AgentDataModel(AgentObject):
     space: str
     external_id: str
     version: str
     view_external_ids: list[str] | None = None
 
 
-class AgentInstanceSpacesDefinition(BaseModelObject):
+class AgentInstanceSpacesDefinition(AgentObject):
     type: str
 
 
@@ -71,7 +75,7 @@ AgentInstanceSpaces = Annotated[
 ]
 
 
-class QueryKnowledgeGraphConfig(BaseModelObject):
+class QueryKnowledgeGraphConfig(AgentObject):
     data_models: list[AgentDataModel]
     instance_spaces: AgentInstanceSpaces | None = None
     # This is deviating from the API documentation, but the Atlas team has confirmed that "v2" is the default
@@ -147,9 +151,7 @@ AgentTool = Annotated[
 ]
 
 
-class Agent(BaseModelObject):
-    model_config = ConfigDict(extra="allow")
-
+class Agent(AgentObject):
     external_id: str
     name: str
     description: str | None = None
@@ -163,10 +165,12 @@ class Agent(BaseModelObject):
 
 
 class AgentRequest(Agent, RequestResource):
+    model_config = ConfigDict(extra="allow")
     runtime_version: str | None = None
 
 
 class AgentResponse(Agent, ResponseResource[AgentRequest]):
+    model_config = ConfigDict(extra="allow")
     created_time: int
     last_updated_time: int
     owner_id: str
