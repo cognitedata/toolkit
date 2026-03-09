@@ -1,6 +1,18 @@
-from ._build import BuildFolder, BuildParameters, BuildSourceFiles, BuiltModule
+from ._build import (
+    BuildFolder,
+    BuildParameters,
+    BuildSourceFiles,
+    BuiltModule,
+)
 from ._config import ConfigYAML
 from ._insights import ConsistencyError, Insight, InsightList, ModelSyntaxError, Recommendation
+from ._lineage import (
+    BuildConfigLineage,
+    BuildLineage,
+    DependencyLineageItem,
+    ModuleLineageItem,
+    ResourceLineageItem,
+)
 from ._module import (
     BuildVariable,
     FailedReadResource,
@@ -14,23 +26,28 @@ from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath, Validati
 
 __all__ = [
     "AbsoluteDirPath",
+    "BuildConfigLineage",
     "BuildFolder",
+    "BuildLineage",
     "BuildParameters",
     "BuildSourceFiles",
     "BuildVariable",
     "BuiltModule",
     "ConfigYAML",
     "ConsistencyError",
+    "DependencyLineageItem",
     "FailedReadResource",
     "Insight",
     "InsightList",
     "ModelSyntaxError",
     "Module",
+    "ModuleLineageItem",
     "ModuleSource",
     "ReadResource",
     "Recommendation",
     "RelativeDirPath",
     "RelativeFilePath",
+    "ResourceLineageItem",
     "ResourceType",
     "SuccessfulReadResource",
     "ValidationType",

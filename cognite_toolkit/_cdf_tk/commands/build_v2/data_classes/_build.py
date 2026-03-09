@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
 from ._insights import InsightList
+from ._lineage import BuildConfigLineage, BuildLineage
 from ._module import ModuleSource
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
@@ -75,9 +76,6 @@ class BuiltModule(BaseModel):
         return hash(self.source.path)
 
 
-class BuildLineage(BaseModel): ...
-
-
 class BuildFolder(BaseModel):
     """Built folder acts as a container holding all built modules and insights from the build process."""
 
@@ -95,8 +93,49 @@ class BuildFolder(BaseModel):
 
     @property
     def lineage(self) -> BuildLineage:
-        """Lineage should be generated based on the built modules, but for now it is just a placeholder."""
-        return BuildLineage()
+        """Generate BuildLineage from the built modules and folder data."""
+        # Count statistics
+        total_syntax_errors = 0
+        total_consistency_errors = 0
+        total_warnings = 0
+        total_recommendations = 0
+
+        for built_module in self.built_modules:
+            for insight_type, insights in built_module.insights.by_type().items():
+                if insight_type.__name__ == "ModelSyntaxError":
+                    total_syntax_errors += len(insights)
+                elif insight_type.__name__ == "ConsistencyError":
+                    total_consistency_errors += len(insights)
+                elif insight_type.__name__ == "ConsistencyWarning":
+                    total_warnings += len(insights)
+                elif insight_type.__name__ == "Recommendation":
+                    total_recommendations += len(insights)
+
+        total_modules = len(self.built_modules)
+        total_resources_discovered = 0
+        for module in self.built_modules:
+            total_resources_discovered += len([f for f in module.built_files if f])
+
+        return BuildLineage(
+            build_duration_seconds=None,
+            config=BuildConfigLineage(
+                organization_dir=self.path,  # This is the build path, lineage will need context update
+                build_dir=self.path,
+                config_name=None,
+                cdf_project="UNKNOWN",  # Will need to be updated from BuildParameters
+                validation_type="prod",  # Will need to be updated from BuildParameters
+                selected_modules=set(),  # Will need to be updated from BuildParameters
+            ),
+            total_modules=total_modules,
+            total_modules_processed=len(self.built_modules),
+            total_resources_discovered=total_resources_discovered,
+            total_resources_built=len(self.built_resources_identifiers),
+            total_syntax_errors=total_syntax_errors,
+            total_consistency_errors=total_consistency_errors,
+            total_warnings=total_warnings,
+            total_recommendations=total_recommendations,
+            build_successful=len([m for m in self.built_modules if not m.is_success]) == 0,
+        )
 
     @property
     def built_modules_by_success(self) -> dict[bool, list[str]]:
