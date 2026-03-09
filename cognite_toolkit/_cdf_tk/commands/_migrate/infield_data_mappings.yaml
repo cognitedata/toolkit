@@ -149,7 +149,7 @@
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
   edgeMapping:
-    cdf_apm:referenceChecklist(direction=inwards): checklist
+    cdf_apm:referenceChecklistItems(direction=inwards): checklist
     cdf_apm:referenceObservations(direction=outwards): observations
 - externalId: InFieldTemplateItemMapping
   sourceView:
@@ -167,4 +167,4 @@
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
   edgeMapping:
-    cdf_apm:referenceTemplate(direction=inwards): template
+    cdf_apm:referenceTemplateItems(direction=inwards): template
