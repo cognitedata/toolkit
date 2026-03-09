@@ -214,9 +214,30 @@ class TestRecordIO:
             assert {item["externalId"] for item in items} == {f"record_{i}" for i in range(record_count)}
             return httpx.Response(status_code=200, json={"items": items})
 
+        stream_url = config.create_api_url("/streams/my_stream")
+        aggregate_url = config.create_api_url(RecordIO.AGGREGATE_ENDPOINT.format(streamId="my_stream"))
         sync_url = config.create_api_url(RecordIO.SYNC_ENDPOINT.format(streamId="my_stream"))
         upload_url = config.create_api_url(RecordIO.UPLOAD_ENDPOINT.format(streamId="my_stream"))
 
+        respx_mock.get(stream_url).respond(
+            json={
+                "externalId": "my_stream",
+                "createdTime": 1730204346000,
+                "createdFromTemplate": "BasicLiveData",
+                "type": "Mutable",
+                "settings": {
+                    "lifecycle": {"retainedAfterSoftDelete": "P42D"},
+                    "limits": {
+                        "maxRecordsTotal": {"provisioned": 5000000},
+                        "maxGigaBytesTotal": {"provisioned": 15},
+                    },
+                },
+            },
+            status_code=200,
+        )
+        respx_mock.post(aggregate_url).respond(
+            json={"aggregates": {"total": {"count": record_count}}}, status_code=200
+        )
         respx_mock.post(sync_url).respond(json=sync_response_data, status_code=200)
         respx_mock.post(upload_url).mock(side_effect=record_upload_callback)
 
@@ -248,4 +269,4 @@ class TestRecordIO:
             kind=RecordIO.KIND,
         )
 
-        assert len(respx_mock.calls) == 2
+        assert len(respx_mock.calls) == 4
