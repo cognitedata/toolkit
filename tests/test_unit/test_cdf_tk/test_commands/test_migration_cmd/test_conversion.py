@@ -1395,7 +1395,7 @@ class TestInstanceToInstanceConversion:
         source_view=SOURCE_VIEW_ID,
         destination_view=DEST_VIEW_ID,
         map_identical_id_properties=True,
-        property_mapping={
+        container_mapping={
             "relatesTo": "relatedAsset",
             "hasChild": "parentAsset",
             "listRel": "listAssets",

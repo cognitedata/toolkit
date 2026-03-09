@@ -856,7 +856,7 @@ def convert_container_properties(
     for source_prop_id, value in source_properties.items():
         dest_prop_id = mapping.get_destination_property(source_prop_id)
         if not dest_prop_id or (
-            dest_prop_id not in destination_properties and dest_prop_id not in mapping.property_mapping
+            dest_prop_id not in destination_properties and dest_prop_id not in mapping.container_mapping
         ):
             # We do not warn about the node properties, as they are typically ignored.
             if not source_prop_id.startswith("node."):

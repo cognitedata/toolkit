@@ -474,7 +474,7 @@ class TestFDMtoCDMMapper:
         source_view=SOURCE_VIEW_ID,
         destination_view=DESTINATION_VIEW_ID,
         # Set by each test.
-        property_mapping={},
+        container_mapping={},
     )
 
     FILE_RESPONSE = FileMetadataResponse(
