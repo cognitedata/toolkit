@@ -1,6 +1,6 @@
 import json
 from collections.abc import Mapping
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar
 from unittest.mock import MagicMock
 
 import pytest
@@ -8,7 +8,7 @@ from cognite.client.data_classes import Sequence
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ViewDirectId
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, ViewDirectId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -1396,14 +1396,16 @@ class TestInstanceToInstanceConversion:
         destination_view=DEST_VIEW_ID,
         map_identical_id_properties=True,
         container_mapping={
-            "relatesTo": "relatedAsset",
-            "hasChild": "parentAsset",
-            "listRel": "listAssets",
-            "textEdge": "textProp",
-            "edgeRel": "destEdge",
-            "dupRel": "relatedAsset",
             "epoch": "timestamp",
             "jsonVal": "jsonDestination",
+        },
+        edge_mapping={
+            EdgeTypeId(type=NodeId(space="src_space", external_id="relatesTo"), direction="outwards"): "relatedAsset",
+            EdgeTypeId(type=NodeId(space="src_space", external_id="hasChild"), direction="inwards"): "parentAsset",
+            EdgeTypeId(type=NodeId(space="src_space", external_id="listRel"), direction="outwards"): "listAssets",
+            EdgeTypeId(type=NodeId(space="src_space", external_id="textEdge"), direction="outwards"): "textProp",
+            EdgeTypeId(type=NodeId(space="src_space", external_id="edgeRel"), direction="inwards"): "destEdge",
+            EdgeTypeId(type=NodeId(space="src_space", external_id="dupRel"), direction="outwards"): "relatedAsset",
         },
     )
 
@@ -1458,9 +1460,8 @@ class TestInstanceToInstanceConversion:
                     ],
                 },
                 [
-                    "Too many items for direct relation property jsonVal in view "
-                    "src_space:SrcView(version=v1): expected at most 2, got 3. Truncated to the "
-                    "first 2 items."
+                    "Too many items for direct relation property expected at most 2, got 3. "
+                    "Truncated to the first 2 items."
                 ],
                 id="Implicit json connection with list truncated due to max list size.",
             ),
@@ -1516,13 +1517,13 @@ class TestInstanceToInstanceConversion:
         [
             pytest.param(
                 {
-                    (NodeId(space="src_space", external_id="relatesTo"), "outwards"): [
+                    EdgeTypeId(type=NodeId(space="src_space", external_id="relatesTo"), direction="outwards"): [
                         EdgeOtherSide(
                             edge_id=IGNORED_EDGE_ID,
                             other_side=NodeId(space="dst_space", external_id="asset_123"),
                         )
                     ],
-                    (NodeId(space="src_space", external_id="hasChild"), "inwards"): [
+                    EdgeTypeId(type=NodeId(space="src_space", external_id="hasChild"), direction="inwards"): [
                         EdgeOtherSide(
                             edge_id=IGNORED_EDGE_ID,
                             other_side=NodeId(space="dst_space", external_id="asset_456"),
@@ -1538,7 +1539,7 @@ class TestInstanceToInstanceConversion:
             ),
             pytest.param(
                 {
-                    (NodeId(space="src_space", external_id="relatesTo"), "outwards"): [
+                    EdgeTypeId(type=NodeId(space="src_space", external_id="relatesTo"), direction="outwards"): [
                         EdgeOtherSide(
                             edge_id=IGNORED_EDGE_ID,
                             other_side=NodeId(space="dst_space", external_id="asset_C"),
@@ -1548,7 +1549,7 @@ class TestInstanceToInstanceConversion:
                             other_side=NodeId(space="dst_space", external_id="asset_D"),
                         ),
                     ],
-                    (NodeId(space="src_space", external_id="listRel"), "outwards"): [
+                    EdgeTypeId(type=NodeId(space="src_space", external_id="listRel"), direction="outwards"): [
                         EdgeOtherSide(
                             edge_id=IGNORED_EDGE_ID,
                             other_side=NodeId(space="dst_space", external_id="asset_A"),
@@ -1558,19 +1559,19 @@ class TestInstanceToInstanceConversion:
                             other_side=NodeId(space="dst_space", external_id="asset_B"),
                         ),
                     ],
-                    (NodeId(space="src_space", external_id="textEdge"), "outwards"): [
+                    EdgeTypeId(type=NodeId(space="src_space", external_id="textEdge"), direction="outwards"): [
                         EdgeOtherSide(
                             edge_id=IGNORED_EDGE_ID,
                             other_side=NodeId(space="dst_space", external_id="asset_E"),
                         ),
                     ],
-                    (NodeId(space="src_space", external_id="edgeRel"), "inwards"): [
+                    EdgeTypeId(type=NodeId(space="src_space", external_id="edgeRel"), direction="inwards"): [
                         EdgeOtherSide(
                             edge_id=EdgeId(space="dst_space", external_id="dst_edge"),
                             other_side=NodeId(space="dst_space", external_id="asset_F"),
                         ),
                     ],
-                    (NodeId(space="src_space", external_id="dupRel"), "outwards"): [
+                    EdgeTypeId(type=NodeId(space="src_space", external_id="dupRel"), direction="outwards"): [
                         EdgeOtherSide(
                             edge_id=IGNORED_EDGE_ID,
                             other_side=NodeId(space="dst_space", external_id="asset_G"),
@@ -1594,10 +1595,9 @@ class TestInstanceToInstanceConversion:
                     ),
                 ],
                 [
-                    "Too many targets for items relation property 'relatesTo' in view "
-                    "src_space:SrcView(version=v1): expected exactly 1, got 2. Returning the "
-                    "first item.",
-                    "Cannot map edge property 'textEdge' to non-connection property text.",
+                    "Too many targets for items relation property src_space:relatesTo(direction=outwards):"
+                    " expected exactly 1, got 2. Returning the first item.",
+                    "Cannot map edge property src_space:textEdge(direction=outwards) to non-connection property text.",
                 ],
                 id="List relation, multi-target single, edge creation (inwards), non-connection error, and duplicate mapping",
             ),
@@ -1605,7 +1605,7 @@ class TestInstanceToInstanceConversion:
     )
     def test_convert_edges(
         self,
-        edge_targets: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]],
+        edge_targets: dict[EdgeTypeId, list[EdgeOtherSide]],
         expected_relations: dict[str, JsonValue],
         expected_edges: list[EdgeRequest],
         expected_errors: list[str],
@@ -1618,7 +1618,6 @@ class TestInstanceToInstanceConversion:
             self.DESTINATION_PROPERTIES,
             self.NEW_ID,
             connection_creator,
-            self.SOURCE_VIEW_ID,
         )
 
         assert results.container_properties == expected_relations
