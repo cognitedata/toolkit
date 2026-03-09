@@ -1070,6 +1070,12 @@ class RecordInteractiveSelect:
         ).unsafe_ask()
         return selected_containers
 
+    def select_initialize_cursor(self, default: str = "365d-ago") -> str:
+        return questionary.text(
+            "How far back should we read changes from? (e.g. '30d-ago', '12h-ago'):",
+            default=default,
+        ).unsafe_ask()
+
     def select_instance_spaces(self) -> list[str]:
         available_spaces = self.client.tool.spaces.list(include_global=False)
         if not available_spaces:

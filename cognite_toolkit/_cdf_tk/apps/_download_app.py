@@ -8,7 +8,6 @@ from questionary import Choice
 from rich import print
 
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, RawTableId, ViewId
-
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeProperty
 from cognite_toolkit._cdf_tk.commands import DownloadCommand
 from cognite_toolkit._cdf_tk.constants import DATA_DEFAULT_DIR
@@ -1348,6 +1347,7 @@ class DownloadApp(typer.Typer):
             selected_containers = record_select.select_containers()
 
             download_dir_name = sanitize_filename(selected_stream.external_id)
+
             selected_instance_spaces: tuple[str, ...] | None = None
             if instance_spaces:
                 selected_instance_spaces = tuple(instance_spaces)
@@ -1358,12 +1358,13 @@ class DownloadApp(typer.Typer):
                 ).unsafe_ask()
                 if select_instance_space:
                     selected_instance_spaces = tuple(record_select.select_instance_spaces())
+            selected_initialize_cursor = record_select.select_initialize_cursor(default=initialize_cursor)
             selectors = [
                 RecordContainerSelector(
                     stream=SelectedStream(external_id=selected_stream.external_id),
                     container=SelectedContainer(space=container.space, external_id=container.external_id),
                     instance_spaces=selected_instance_spaces,
-                    initialize_cursor=initialize_cursor,
+                    initialize_cursor=selected_initialize_cursor,
                     download_dir_name=download_dir_name,
                 )
                 for container in selected_containers
