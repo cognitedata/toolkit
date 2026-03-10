@@ -1,8 +1,8 @@
 from typing import Literal
 
-from cognite.client import data_modeling as dm
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, SPACE_FORMAT_PATTERN
 
 from ._base import DataSelector, SelectorObject
@@ -30,8 +30,8 @@ class SelectedContainer(SelectorObject):
         pattern=DM_EXTERNAL_ID_PATTERN,
     )
 
-    def as_id(self) -> dm.ContainerId:
-        return dm.ContainerId(space=self.space, external_id=self.external_id)
+    def as_id(self) -> ContainerId:
+        return ContainerId(space=self.space, external_id=self.external_id)
 
     def __str__(self) -> str:
         return f"{self.space}_{self.external_id}"
