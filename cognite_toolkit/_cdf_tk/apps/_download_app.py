@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     HierarchyIO,
     InstanceIO,
     RawIO,
+    RecordIO,
     StorageIO,
     TimeSeriesIO,
 )
@@ -44,6 +45,11 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     SelectedView,
 )
 from cognite_toolkit._cdf_tk.storageio.selectors._file_content import FileInternalID
+from cognite_toolkit._cdf_tk.storageio.selectors._records import (
+    RecordContainerSelector,
+    SelectedContainer,
+    SelectedStream,
+)
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
@@ -55,6 +61,7 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     InteractiveCanvasSelect,
     InteractiveChartSelect,
     RawTableInteractiveSelect,
+    RecordInteractiveSelect,
     TimeSeriesInteractiveSelect,
     ViewSelectFilter,
 )
@@ -101,6 +108,10 @@ class CanvasFormats(str, Enum):
     ndjson = "ndjson"
 
 
+class RecordFormats(str, Enum):
+    ndjson = "ndjson"
+
+
 class InstanceTypes(str, Enum):
     node = "node"
     edge = "edge"
@@ -126,6 +137,7 @@ class DownloadApp(typer.Typer):
         self.command("hierarchy")(self.download_hierarchy_cmd)
         if Flags.EXTEND_DOWNLOAD.is_enabled():
             self.command("datapoints")(self.download_datapoints_cmd)
+            self.command("records")(self.download_records_cmd)
         self.command("instances")(self.download_instances_cmd)
         self.command("charts")(self.download_charts_cmd)
         self.command("canvas")(self.download_canvas_cmd)
@@ -927,6 +939,7 @@ class DownloadApp(typer.Typer):
         limit: int,
         display_name: str,
         selector_type: str,
+        max_limit: int | None = None,
     ) -> tuple[Path, Enum, Enum, int]:
         """Interactive selection of output_dir, file_format, compression and limit for the download commands."""
         selected_output_dir = Path(
@@ -948,9 +961,14 @@ class DownloadApp(typer.Typer):
             choices=[Choice(title=comp.value, value=comp) for comp in CompressionFormat],
             default=compression,
         ).unsafe_ask()
+        limit_prompt = f"The maximum number of {display_name} to download per {selector_type}. "
+        if max_limit is not None:
+            limit_prompt += f"Use -1 to download up to the maximum of {max_limit:,} {display_name}."
+        else:
+            limit_prompt += f"Use -1 to download all {display_name}."
         selected_limit = int(
             questionary.text(
-                f"The maximum number of {display_name} to download per {selector_type}. Use -1 to download all {display_name}.",
+                limit_prompt,
                 default=str(limit),
                 validate=lambda value: value.lstrip("-").isdigit() and (int(value) == -1 or int(value) > 0),
             ).unsafe_ask()
@@ -1228,6 +1246,170 @@ class DownloadApp(typer.Typer):
             lambda: cmd.download(
                 selectors=[selector],
                 io=CanvasIO(client),
+                output_dir=output_dir,
+                file_format=f".{file_format.value}",
+                compression=compression.value,
+                limit=limit if limit != -1 else None,
+                verbose=verbose,
+            )
+        )
+
+    @classmethod
+    def download_records_cmd(
+        cls,
+        stream: Annotated[
+            str | None,
+            typer.Option(
+                "--stream",
+                "-s",
+                help="The external ID of the stream to download records from. "
+                "If not provided, an interactive selection will be made.",
+            ),
+        ] = None,
+        instance_spaces: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--instance-space",
+                help="Only download records belonging to these spaces. "
+                "Can be specified multiple times. If not provided, records from all spaces will be included.",
+            ),
+        ] = None,
+        containers: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--container",
+                "-c",
+                help="Containers to download record properties from, in 'space:externalId' format. "
+                "Can be specified multiple times to download records from multiple containers.",
+            ),
+        ] = None,
+        initialize_cursor: Annotated[
+            str,
+            typer.Option(
+                "--initialize-cursor",
+                help="Controls where to start reading changes from the stream. "
+                "The format is 'duration-ago', where 'duration' is a correct duration "
+                "representation: 3m, 400h, 25d, etc. For instance, '2d-ago' will give "
+                "changes ingested up to 2 days ago.",
+            ),
+        ] = "365d-ago",
+        file_format: Annotated[
+            RecordFormats,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to download the records in.",
+            ),
+        ] = RecordFormats.ndjson,
+        compression: Annotated[
+            CompressionFormat,
+            typer.Option(
+                "--compression",
+                "-z",
+                help="Compression format to use when downloading the records.",
+            ),
+        ] = CompressionFormat.gzip,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to download the records.",
+                allow_dash=True,
+            ),
+        ] = DEFAULT_DOWNLOAD_DIR,
+        limit: Annotated[
+            int,
+            typer.Option(
+                "--limit",
+                "-l",
+                help=f"The maximum number of records to download per container. Use -1 to download up to the maximum of {RecordIO.MAX_TOTAL_RECORDS} records.",
+                max=RecordIO.MAX_TOTAL_RECORDS,
+            ),
+        ] = 100_000,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will download Records from a CDF stream into a temporary directory."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DownloadCommand(client=client)
+
+        selectors: list[RecordContainerSelector]
+        if stream is None and containers is None:
+            record_select = RecordInteractiveSelect(client)
+            selected_stream = record_select.select_stream()
+            selected_containers = record_select.select_containers()
+
+            download_dir_name = sanitize_filename(selected_stream.external_id)
+
+            selected_instance_spaces: tuple[str, ...] | None = None
+            if instance_spaces:
+                selected_instance_spaces = tuple(instance_spaces)
+            else:
+                select_instance_space = questionary.confirm(
+                    "Do you want to filter records by space? If no, records from all spaces will be downloaded.",
+                    default=False,
+                ).unsafe_ask()
+                if select_instance_space:
+                    selected_instance_spaces = tuple(record_select.select_instance_spaces())
+            selected_initialize_cursor = record_select.select_initialize_cursor(default=initialize_cursor)
+            selectors = [
+                RecordContainerSelector(
+                    stream=SelectedStream(external_id=selected_stream.external_id),
+                    container=SelectedContainer(space=container.space, external_id=container.external_id),
+                    instance_spaces=selected_instance_spaces,
+                    initialize_cursor=selected_initialize_cursor,
+                    download_dir_name=download_dir_name,
+                )
+                for container in selected_containers
+            ]
+            output_dir, file_format, compression, limit = cls._interactive_select_shared(  # type: ignore[assignment]
+                output_dir,
+                file_format,
+                RecordFormats,
+                compression,
+                limit,
+                "records",
+                "container",
+                max_limit=RecordIO.MAX_TOTAL_RECORDS,
+            )
+        elif stream is not None and containers is not None:
+            selected_instance_spaces = tuple(instance_spaces) if instance_spaces else None
+            parsed_containers: list[SelectedContainer] = []
+            for container_str in containers:
+                parts = container_str.split(":", 1)
+                if len(parts) != 2 or not all(parts):
+                    raise typer.BadParameter(
+                        f"Invalid container format: {container_str!r}. Expected 'space:externalId'.",
+                        param_hint="--container",
+                    )
+                parsed_containers.append(SelectedContainer(space=parts[0], external_id=parts[1]))
+            selectors = [
+                RecordContainerSelector(
+                    stream=SelectedStream(external_id=stream),
+                    container=container,
+                    instance_spaces=selected_instance_spaces,
+                    initialize_cursor=initialize_cursor,
+                    download_dir_name=sanitize_filename(stream),
+                )
+                for container in parsed_containers
+            ]
+        else:
+            raise typer.BadParameter(
+                "Both '--stream' and '--container' must be provided together.",
+                param_hint="--stream / --container",
+            )
+
+        cmd.run(
+            lambda: cmd.download(
+                selectors=selectors,
+                io=RecordIO(client),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,

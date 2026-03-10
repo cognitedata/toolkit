@@ -38,6 +38,7 @@ from .robotics import (
     RoboticsDataPostProcessingCRUD,
 )
 from .signal_sink import SignalSinkCRUD
+from .signal_subscription import SignalSubscriptionCRUD
 from .simulators import (
     SimulatorModelCRUD,
     SimulatorModelRevisionCRUD,
@@ -95,6 +96,7 @@ __all__ = [
     "SequenceCRUD",
     "SequenceRowCRUD",
     "SignalSinkCRUD",
+    "SignalSubscriptionCRUD",
     "SimulatorModelCRUD",
     "SimulatorModelRevisionCRUD",
     "SimulatorRoutineCRUD",
