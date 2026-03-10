@@ -47,11 +47,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
-    ContainerPropertiesMapping,
     ConversionContext,
     DirectRelationCache,
     EdgeOtherSide,
-    InstanceToInstanceSpecialMapping,
+    SpecialConnectionMapping,
+    SpecialContainerPropertiesMapping,
     asset_centric_to_dm,
     convert_container_properties,
     convert_edges,
@@ -682,15 +682,15 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         client: ToolkitClient,
         space_mapping: Mapping[str, str],
         mappings: Sequence[ViewToViewMapping],
-        special_connection_cases: Sequence[InstanceToInstanceSpecialMapping] | None = None,
-        special_cases: Sequence[ContainerPropertiesMapping] | None = None,
+        special_connection_cases: Sequence[SpecialConnectionMapping] | None = None,
+        special_cases: Sequence[SpecialContainerPropertiesMapping] | None = None,
     ) -> None:
         super().__init__(client)
         self._connection_creator = ConnectionCreator(client, space_mapping, special_connection_cases)
         self._mappings_by_source_view: dict[ViewId, ViewToViewMapping] = {
             mapping.source_view: mapping for mapping in mappings
         }
-        self._special_cases: dict[ViewId, ContainerPropertiesMapping] = {
+        self._special_cases: dict[ViewId, SpecialContainerPropertiesMapping] = {
             view_id: mapping for mapping in (special_cases or []) for view_id in mapping.VIEW_IDS
         }
 

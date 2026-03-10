@@ -446,7 +446,7 @@ class EdgeOtherSide:
     other_side: NodeId
 
 
-class InstanceToInstanceSpecialMapping(ABC, Generic[T_ID]):
+class SpecialConnectionMapping(ABC, Generic[T_ID]):
     """
     This class is used for special mapping cases in the instance to instance conversion.
 
@@ -462,58 +462,6 @@ class InstanceToInstanceSpecialMapping(ABC, Generic[T_ID]):
     @abstractmethod
     def update(self, items: Iterable[T_ID]) -> None:
         raise NotImplementedError()
-
-
-class InFieldAssetMapping(InstanceToInstanceSpecialMapping[NodeId]):
-    """Special cases in the InField data migration
-
-    These are reference to classical assets which are mirrored into FDM. We look up these in the CogniteMigration
-    model.
-
-    """
-
-    VIEW_PROPERTIES = frozenset(
-        {
-            (ViewId(space="cdf_apm", external_id="Activity", version="v2"), "asset"),
-            (ViewId(space="cdf_apm", external_id="Checklist", version="v7"), "rootLocation"),
-            (ViewId(space="cdf_apm", external_id="ChecklistItem", version="v7"), "asset"),
-            (ViewId(space="cdf_apm", external_id="Observation", version="v5"), "asset"),
-            (ViewId(space="cdf_apm", external_id="Observation", version="v5"), "rootLocation"),
-            (ViewId(space="cdf_apm", external_id="Template", version="v8"), "rootLocation"),
-            (ViewId(space="cdf_apm", external_id="TemplateItem", version="v7"), "asset"),
-        }
-    )
-
-    def __init__(self, client: ToolkitClient) -> None:
-        self.client = client
-        # We use None to indicate that we have looked up the reference, but it was not found,
-        # this allows us to distinguish between "not looked up yet" and "looked up but not found",
-        # which is important to avoid repeated lookups for missing references.
-        self._node_id_by_external_id: dict[str, NodeId | None] = {}
-
-    def __getitem__(self, item: NodeId) -> NodeId:
-        # We ignore the space and assume external ID matches
-        # the external ID classic.
-        result = self._node_id_by_external_id[item.external_id]
-        if result is None:
-            raise KeyError(f"No mapping found for {item!r}")
-        return result
-
-    def update(self, items: Iterable[NodeId]) -> None:
-        external_ids = {item.external_id for item in items}
-        missing_external_ids = external_ids - set(self._node_id_by_external_id.keys())
-        if missing_external_ids:
-            results = self.client.migration.instance_source.retrieve(
-                external_ids=AssetCentricExternalId.from_external_ids("asset", missing_external_ids)
-            )
-            for result in results:
-                if result.classic_external_id:
-                    self._node_id_by_external_id[result.classic_external_id] = NodeId(
-                        space=result.space, external_id=result.external_id
-                    )
-            failed_lookups = missing_external_ids - set(self._node_id_by_external_id.keys())
-            for failed in failed_lookups:
-                self._node_id_by_external_id[failed] = None
 
 
 class ConnectionCreator:
@@ -535,20 +483,20 @@ class ConnectionCreator:
         self,
         client: ToolkitClient,
         space_mapping: Mapping[str, str],
-        special_cases: Sequence[InstanceToInstanceSpecialMapping] | None = None,
+        special_cases: Sequence[SpecialConnectionMapping] | None = None,
     ) -> None:
         self._client = client
         self.space_mapping = space_mapping
         self.view_by_id: dict[ViewId, ViewResponse] = {}
-        self._special_cases: Sequence[InstanceToInstanceSpecialMapping] = special_cases or []
+        self._special_cases: Sequence[SpecialConnectionMapping] = special_cases or []
         self._special_case_caches = self._create_special_case_caches(special_cases or [])
         self._timeseries_reference_cache: dict[str, NodeId] = {}
         self._file_reference_cache: dict[str, NodeId] = {}
 
     def _create_special_case_caches(
-        self, special_cases: Sequence[InstanceToInstanceSpecialMapping]
-    ) -> dict[tuple[ViewId, str], InstanceToInstanceSpecialMapping]:
-        mapping: dict[tuple[ViewId, str], InstanceToInstanceSpecialMapping] = {}
+        self, special_cases: Sequence[SpecialConnectionMapping]
+    ) -> dict[tuple[ViewId, str], SpecialConnectionMapping]:
+        mapping: dict[tuple[ViewId, str], SpecialConnectionMapping] = {}
         for case in special_cases:
             for view_property in case.VIEW_PROPERTIES:
                 mapping[view_property] = case
@@ -575,7 +523,7 @@ class ConnectionCreator:
     def _update_property_caches(self, instances: Sequence[InstanceResponse]) -> None:
         timeseries_refs: set[str] = set()
         file_refs: set[str] = set()
-        special_cases_keys: dict[tuple[ViewId, str], tuple[InstanceToInstanceSpecialMapping, set[Hashable]]] = {}
+        special_cases_keys: dict[tuple[ViewId, str], tuple[SpecialConnectionMapping, set[Hashable]]] = {}
         for special_caches in self._special_cases:
             # We create the keys for this special case cache here. This is to ensure all
             # view properties will write to the same set.
@@ -857,7 +805,7 @@ class ConversionContext:
     new_id: NodeId
 
 
-class ContainerPropertiesMapping(ABC):
+class SpecialContainerPropertiesMapping(ABC):
     """Base class for defining custom mapping of container properties in instance to instance conversion
 
     ClassVar:
@@ -873,7 +821,7 @@ class ContainerPropertiesMapping(ABC):
         raise NotImplementedError()
 
 
-class InFieldConditionMapping(ContainerPropertiesMapping):
+class InFieldConditionMapping(SpecialContainerPropertiesMapping):
     VIEW_IDS: ClassVar[Set[ViewId]] = frozenset({ViewId(space="cdf_apm", external_id="Condition", version="v1")})
 
     def __init__(self, mappings: Sequence[ViewToViewMapping]) -> None:
@@ -899,6 +847,58 @@ class InFieldConditionMapping(ContainerPropertiesMapping):
             else:
                 created_properties["sourceView"] = self._source_view_mapping[value]
         return ConversionResult(container_properties=created_properties, errors=issues)
+
+
+class InFieldAssetMapping(SpecialConnectionMapping[NodeId]):
+    """Special cases in the InField data migration
+
+    These are reference to classical assets which are mirrored into FDM. We look up these in the CogniteMigration
+    model.
+
+    """
+
+    VIEW_PROPERTIES = frozenset(
+        {
+            (ViewId(space="cdf_apm", external_id="Activity", version="v2"), "asset"),
+            (ViewId(space="cdf_apm", external_id="Checklist", version="v7"), "rootLocation"),
+            (ViewId(space="cdf_apm", external_id="ChecklistItem", version="v7"), "asset"),
+            (ViewId(space="cdf_apm", external_id="Observation", version="v5"), "asset"),
+            (ViewId(space="cdf_apm", external_id="Observation", version="v5"), "rootLocation"),
+            (ViewId(space="cdf_apm", external_id="Template", version="v8"), "rootLocation"),
+            (ViewId(space="cdf_apm", external_id="TemplateItem", version="v7"), "asset"),
+        }
+    )
+
+    def __init__(self, client: ToolkitClient) -> None:
+        self.client = client
+        # We use None to indicate that we have looked up the reference, but it was not found,
+        # this allows us to distinguish between "not looked up yet" and "looked up but not found",
+        # which is important to avoid repeated lookups for missing references.
+        self._node_id_by_external_id: dict[str, NodeId | None] = {}
+
+    def __getitem__(self, item: NodeId) -> NodeId:
+        # We ignore the space and assume external ID matches
+        # the external ID classic.
+        result = self._node_id_by_external_id[item.external_id]
+        if result is None:
+            raise KeyError(f"No mapping found for {item!r}")
+        return result
+
+    def update(self, items: Iterable[NodeId]) -> None:
+        external_ids = {item.external_id for item in items}
+        missing_external_ids = external_ids - set(self._node_id_by_external_id.keys())
+        if missing_external_ids:
+            results = self.client.migration.instance_source.retrieve(
+                external_ids=AssetCentricExternalId.from_external_ids("asset", missing_external_ids)
+            )
+            for result in results:
+                if result.classic_external_id:
+                    self._node_id_by_external_id[result.classic_external_id] = NodeId(
+                        space=result.space, external_id=result.external_id
+                    )
+            failed_lookups = missing_external_ids - set(self._node_id_by_external_id.keys())
+            for failed in failed_lookups:
+                self._node_id_by_external_id[failed] = None
 
 
 def convert_container_properties(

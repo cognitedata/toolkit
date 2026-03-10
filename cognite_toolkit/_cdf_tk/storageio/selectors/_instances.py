@@ -174,3 +174,6 @@ class InstanceQuerySelector(InstanceSelector):
 
     def get_instance_spaces(self) -> list[str] | None:
         return None
+
+    def __str__(self) -> str:
+        return f"query_{self.root}_{'_'.join(self.subselections)}"
