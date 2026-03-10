@@ -59,12 +59,16 @@ class LandingPageMiddleware:
         handler_path: str,
         cdf_project: str,
         cdf_cluster: str,
+        tracing_enabled: bool = False,
+        tracing_endpoint: str = "",
     ) -> None:
         self.app = app
         self.handler_name = handler_name
         self.handler_path = handler_path
         self.cdf_project = cdf_project
         self.cdf_cluster = cdf_cluster
+        self.tracing_enabled = tracing_enabled
+        self.tracing_endpoint = tracing_endpoint
         self.last_reload = datetime.now(tz=timezone.utc)
         self._start_time = time.monotonic()
 
@@ -160,6 +164,8 @@ class LandingPageMiddleware:
             cdf_project=self.cdf_project,
             cdf_cluster=self.cdf_cluster,
             last_reload=self.last_reload.strftime("%Y-%m-%d %H:%M:%S UTC"),
+            tracing_enabled=self.tracing_enabled,
+            tracing_endpoint=self.tracing_endpoint,
         )
         await self._send_response(send, status=200, content_type="text/html; charset=utf-8", body=html.encode())
 
@@ -171,10 +177,25 @@ def _build_landing_html(
     cdf_project: str,
     cdf_cluster: str,
     last_reload: str,
+    tracing_enabled: bool = False,
+    tracing_endpoint: str = "",
 ) -> str:
     # Escape for safe HTML embedding
     def esc(s: str) -> str:
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+    if tracing_enabled:
+        if tracing_endpoint:
+            tracing_value = f'<span style="color: #81c784;">Configured</span> — {esc(tracing_endpoint)}'
+        else:
+            tracing_value = '<span style="color: #81c784;">Configured</span>'
+    else:
+        tracing_value = '<span style="color: #888;">Not configured</span>'
+
+    tracing_row = f"""    <div class="info-row">
+      <span class="info-label">Tracing</span>
+      <span class="info-value">{tracing_value}</span>
+    </div>"""
 
     return f"""\
 <!DOCTYPE html>
@@ -262,6 +283,7 @@ def _build_landing_html(
       <span class="info-label">Last Reload</span>
       <span class="info-value" id="reload-ts">{esc(last_reload)}</span>
     </div>
+{tracing_row}
     <div style="margin-top: 12px;">
       <a href="/docs" class="docs-link">Open API Docs</a>
     </div>

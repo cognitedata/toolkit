@@ -1,5 +1,6 @@
 """Serve command for running a local development server for Function Apps."""
 
+import os
 import re
 import shutil
 import sys
@@ -11,6 +12,8 @@ from pathlib import Path
 from rich import print
 
 from ._base import ToolkitCommand
+
+_ALLOWED_BUILD_TYPES = frozenset({"dev", "staging", "test", "qa"})
 
 
 class ServeFunctionCommand(ToolkitCommand):
@@ -45,6 +48,7 @@ class ServeFunctionCommand(ToolkitCommand):
 
         handler_path = path.resolve()
         self._validate_handler_directory(handler_path)
+        self._validate_handler_is_function_app(handler_path)
 
         # Authenticate via the toolkit's standard auth path
         from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables  # noqa: PLC0415
@@ -53,15 +57,11 @@ class ServeFunctionCommand(ToolkitCommand):
         cdf_project = env_vars.CDF_PROJECT
         cdf_cluster = env_vars.CDF_CLUSTER
 
+        # Check build type — block prod
+        self._check_build_type(cdf_project, cdf_cluster)
+
         url = f"http://{host}:{port}"
-        print()
-        print(
-            f"[bold yellow]⚠  Dev server will authenticate to project "
-            f"'{cdf_project}' on cluster '{cdf_cluster}'.[/]"
-        )
-        print("[bold yellow]   Handlers can read AND WRITE data.[/]")
-        print()
-        print(f"[bold green]Starting server at {url}[/]")
+        print(f"\n[bold green]Starting server at {url}[/]")
         if reload:
             print("[yellow]Auto-reload enabled — watching for changes...[/]")
         print("[yellow]Press CTRL+C to quit[/]\n")
@@ -79,6 +79,48 @@ class ServeFunctionCommand(ToolkitCommand):
             self._run_server_without_reload(
                 uvicorn, handler_path, host, port, log_level, handler_name, cdf_project, cdf_cluster
             )
+
+    @staticmethod
+    def _check_build_type(cdf_project: str, cdf_cluster: str) -> None:
+        """Check CDF_BUILD_TYPE and prompt the user to acknowledge the risk."""
+        build_type = os.environ.get("CDF_BUILD_TYPE", "").strip().lower()
+
+        if build_type == "prod":
+            print(
+                "[bold red]Error:[/] The dev server cannot run against a production configuration.\n"
+                f"  CDF_BUILD_TYPE = [bold]prod[/]\n"
+                f"  CDF_PROJECT    = [bold]{cdf_project}[/]\n"
+                f"  CDF_CLUSTER    = [bold]{cdf_cluster}[/]\n\n"
+                "The dev server gives handlers [bold]full read/write access[/] to CDF.\n"
+                "Running against production risks accidental data mutation.\n\n"
+                "Use a [bold]dev[/] or [bold]staging[/] configuration instead."
+            )
+            raise SystemExit(1)
+
+        if not build_type:
+            label = "[yellow]<not set>[/]"
+        else:
+            label = f"[bold]{build_type}[/]"
+
+        print(
+            f"[bold yellow]⚠  The dev server will authenticate to CDF with full read/write access.[/]\n"
+            f"   CDF_BUILD_TYPE = {label}\n"
+            f"   CDF_PROJECT    = [bold]{cdf_project}[/]\n"
+            f"   CDF_CLUSTER    = [bold]{cdf_cluster}[/]\n"
+        )
+
+        # Non-interactive environments (CI, piped stdin) skip the prompt
+        if not sys.stdin.isatty():
+            return
+
+        try:
+            answer = input("Continue? [y/N] ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            raise SystemExit(1)
+
+        if answer not in ("y", "yes"):
+            raise SystemExit(0)
 
     @staticmethod
     def _validate_handler_directory(handler_path: Path) -> None:
@@ -106,6 +148,68 @@ class ServeFunctionCommand(ToolkitCommand):
                 "[yellow]Please rename the directory to avoid import conflicts.[/]"
             )
             raise SystemExit(1)
+
+    @staticmethod
+    def _validate_handler_is_function_app(handler_path: Path) -> None:
+        """Check that handler.py defines a FunctionService handle (not a classical function)."""
+        handler_file = handler_path / "handler.py"
+        if not handler_file.is_file():
+            print(f"[bold red]Error:[/] handler.py not found in {handler_path}")
+            raise SystemExit(1)
+
+        source = handler_file.read_text()
+
+        # Quick heuristic: FunctionApp-based handlers import from cognite_function_apps
+        # and call create_function_service(). Classical handlers define `def handle(client, data)`.
+        has_function_apps_import = "cognite_function_apps" in source or "create_function_service" in source
+        if not has_function_apps_import:
+            print(
+                "[bold red]Error:[/] This handler appears to be a classical Cognite Function, "
+                "not a Function App.\n\n"
+                "The dev server only supports Function Apps that use [bold]cognite-function-apps[/].\n"
+                "Classical functions (with [bold]def handle(client, data)[/]) are not supported.\n\n"
+                "See the Function Apps documentation for how to migrate."
+            )
+            raise SystemExit(1)
+
+    @staticmethod
+    def _detect_tracing(handle: object) -> tuple[bool, str]:
+        """Detect if the loaded FunctionService uses tracing.
+
+        Returns (tracing_enabled, backend_endpoint).
+        """
+        try:
+            from cognite_function_apps.tracer import TracingApp  # noqa: PLC0415
+
+            # Walk the ASGI app chain looking for a TracingApp
+            app = getattr(handle, "asgi_app", None)
+            while app is not None:
+                if isinstance(app, TracingApp):
+                    # Try to get the endpoint from the exporter provider closure
+                    endpoint = ""
+                    try:
+                        from cognite_function_apps.tracer import OTLP_BACKENDS  # noqa: PLC0415
+
+                        # Check known backends by matching the exporter_provider
+                        for name, config in OTLP_BACKENDS.items():
+                            if config.endpoint and hasattr(app, "_exporter_provider"):
+                                # Try to find the endpoint by inspecting the closure
+                                closure = getattr(app._exporter_provider, "__closure__", None)
+                                if closure:
+                                    for cell in closure:
+                                        cell_val = cell.cell_contents
+                                        if hasattr(cell_val, "endpoint") and cell_val.endpoint == config.endpoint:
+                                            endpoint = config.endpoint
+                                            break
+                                if endpoint:
+                                    break
+                    except Exception:
+                        pass
+                    return True, endpoint
+                app = getattr(app, "next_app", None)
+        except ImportError:
+            pass
+        return False, ""
 
     @staticmethod
     def _patch_cognite_client_factory() -> None:
@@ -166,12 +270,18 @@ from cognite_toolkit._cdf_tk.commands._landing_page import LandingPageMiddleware
 
 handler_module = importlib.import_module("{package_name}.handler")
 _inner_app = create_asgi_app(handler_module.handle)
+
+# Detect tracing from the loaded handler
+_tracing_enabled, _tracing_endpoint = ServeFunctionCommand._detect_tracing(handler_module.handle)
+
 app = LandingPageMiddleware(
     _inner_app,
     handler_name={handler_name!r},
     handler_path={str(handler_path / "handler.py")!r},
     cdf_project={cdf_project!r},
     cdf_cluster={cdf_cluster!r},
+    tracing_enabled=_tracing_enabled,
+    tracing_endpoint=_tracing_endpoint,
 )
 '''
         )
@@ -224,6 +334,9 @@ app = LandingPageMiddleware(
             handle = _load_handler_from_path(handler_path)
             print("[green]Handler loaded successfully[/]")
 
+            # Detect tracing
+            tracing_enabled, tracing_endpoint = ServeFunctionCommand._detect_tracing(handle)
+
             print("[blue]Creating ASGI app...[/]")
             inner_app = create_asgi_app(handle)
             asgi_app = LandingPageMiddleware(
@@ -232,6 +345,8 @@ app = LandingPageMiddleware(
                 handler_path=str(handler_path / "handler.py"),
                 cdf_project=cdf_project,
                 cdf_cluster=cdf_cluster,
+                tracing_enabled=tracing_enabled,
+                tracing_endpoint=tracing_endpoint,
             )
             print("[green]ASGI app created[/]")
 

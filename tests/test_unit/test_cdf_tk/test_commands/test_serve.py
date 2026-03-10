@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -44,6 +45,71 @@ class TestValidateHandlerDirectory:
         d.mkdir()
         # Should not raise
         ServeFunctionCommand._validate_handler_directory(d)
+
+
+# ── ServeFunctionCommand._validate_handler_is_function_app ──
+
+
+class TestValidateHandlerIsFunctionApp:
+    def test_rejects_classical_handler(self, tmp_path: Path) -> None:
+        d = tmp_path / "my_func"
+        d.mkdir()
+        (d / "handler.py").write_text("def handle(client, data):\n    return {}\n")
+        with pytest.raises(SystemExit):
+            ServeFunctionCommand._validate_handler_is_function_app(d)
+
+    def test_accepts_function_app_handler(self, tmp_path: Path) -> None:
+        d = tmp_path / "my_func"
+        d.mkdir()
+        (d / "handler.py").write_text(
+            "from cognite_function_apps import FunctionApp, create_function_service\n"
+            "app = FunctionApp('test', '1.0')\n"
+            "handle = create_function_service(app)\n"
+        )
+        # Should not raise
+        ServeFunctionCommand._validate_handler_is_function_app(d)
+
+    def test_missing_handler_file(self, tmp_path: Path) -> None:
+        d = tmp_path / "my_func"
+        d.mkdir()
+        with pytest.raises(SystemExit):
+            ServeFunctionCommand._validate_handler_is_function_app(d)
+
+
+# ── ServeFunctionCommand._check_build_type ──
+
+
+class TestCheckBuildType:
+    def test_blocks_prod(self) -> None:
+        with patch.dict(os.environ, {"CDF_BUILD_TYPE": "prod"}):
+            with pytest.raises(SystemExit):
+                ServeFunctionCommand._check_build_type("my-project", "westeurope-1")
+
+    def test_blocks_prod_case_insensitive(self) -> None:
+        with patch.dict(os.environ, {"CDF_BUILD_TYPE": "Prod"}):
+            with pytest.raises(SystemExit):
+                ServeFunctionCommand._check_build_type("my-project", "westeurope-1")
+
+    def test_prompts_for_dev(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("builtins.input", lambda _: "y")
+        with patch.dict(os.environ, {"CDF_BUILD_TYPE": "dev"}), patch("sys.stdin") as mock_stdin:
+            mock_stdin.isatty.return_value = True
+            # Should not raise when user says "y"
+            ServeFunctionCommand._check_build_type("my-project", "westeurope-1")
+
+    def test_aborts_on_no(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("builtins.input", lambda _: "n")
+        with patch.dict(os.environ, {"CDF_BUILD_TYPE": "dev"}), patch("sys.stdin") as mock_stdin:
+            mock_stdin.isatty.return_value = True
+            with pytest.raises(SystemExit):
+                ServeFunctionCommand._check_build_type("my-project", "westeurope-1")
+
+    def test_skips_prompt_in_non_tty(self) -> None:
+        with patch.dict(os.environ, {"CDF_BUILD_TYPE": "dev"}):
+            with patch("sys.stdin") as mock_stdin:
+                mock_stdin.isatty.return_value = False
+                # Should not raise or prompt
+                ServeFunctionCommand._check_build_type("my-project", "westeurope-1")
 
 
 # ── ServeFunctionCommand._patch_cognite_client_factory ──
@@ -146,19 +212,21 @@ async def _noop_receive():
     return {"type": "http.request", "body": b"", "more_body": False}
 
 
-def _make_middleware(inner_app=None):
+def _make_middleware(inner_app=None, **kwargs):
     if inner_app is None:
         async def inner_app(scope, receive, send):
             await send({"type": "http.response.start", "status": 200, "headers": [], "trailers": False})
             await send({"type": "http.response.body", "body": b"inner", "more_body": False})
 
-    return LandingPageMiddleware(
-        inner_app,
+    defaults = dict(
         handler_name="my_func",
         handler_path="/path/to/my_func/handler.py",
         cdf_project="test-project",
         cdf_cluster="westeurope-1",
     )
+    defaults.update(kwargs)
+
+    return LandingPageMiddleware(inner_app, **defaults)
 
 
 class TestLandingPageMiddleware:
@@ -175,6 +243,25 @@ class TestLandingPageMiddleware:
         assert "westeurope-1" in body
         assert "/docs" in body
         assert "read/write" in body.lower() or "read AND WRITE" in body or "read/write access" in body.lower()
+
+    def test_landing_page_shows_tracing_not_configured(self) -> None:
+        mw = _make_middleware(tracing_enabled=False)
+        collector = _ResponseCollector()
+        _run_async(mw(_make_scope("/"), _noop_receive, collector))
+
+        body = collector.body_text
+        assert "Tracing" in body
+        assert "Not configured" in body
+
+    def test_landing_page_shows_tracing_configured(self) -> None:
+        mw = _make_middleware(tracing_enabled=True, tracing_endpoint="https://api.eu1.honeycomb.io:443")
+        collector = _ResponseCollector()
+        _run_async(mw(_make_scope("/"), _noop_receive, collector))
+
+        body = collector.body_text
+        assert "Tracing" in body
+        assert "Configured" in body
+        assert "honeycomb" in body
 
     def test_status_endpoint_returns_json(self) -> None:
         mw = _make_middleware()
