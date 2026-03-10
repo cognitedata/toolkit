@@ -4,7 +4,6 @@ from datetime import datetime
 import pytest
 import responses
 import respx
-from cognite.client.data_classes.data_modeling import NodeList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
@@ -159,7 +158,7 @@ class TestChartIO:
 
 class TestCanvasIO:
     def test_download_iterable(
-        self, asset_centric_canvas: tuple[IndustrialCanvasResponse, NodeList[InstanceSource]]
+        self, asset_centric_canvas: tuple[IndustrialCanvasResponse, list[InstanceSource]]
     ) -> None:
         canvas, _ = asset_centric_canvas
         ids = [

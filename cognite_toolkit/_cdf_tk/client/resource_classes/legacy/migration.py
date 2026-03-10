@@ -1,32 +1,36 @@
 import json
-import sys
 import warnings
-from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
-from cognite.client import CogniteClient
-from cognite.client import data_modeling as dm
-from cognite.client.data_classes._base import CogniteObject
-from cognite.client.data_classes.data_modeling import DirectRelationReference
-from cognite.client.data_classes.data_modeling.instances import (
-    PropertyOptions,
-    TypedNode,
-)
+from pydantic import ConfigDict, Field, field_serializer, field_validator, model_validator
 
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, ViewId
+from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.identifiers import NodeId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._wrapped import move_response_properties
 from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType, AssetCentricTypeExtended
 
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
+INSTANCE_SOURCE_VIEW_ID = ViewId(space="cognite_migration", external_id="InstanceSource", version="v1")
+CREATED_SOURCE_SYSTEM_VIEW_ID = ViewId(space="cognite_migration", external_id="CreatedSourceSystem", version="v1")
+SPACE_SOURCE_VIEW_ID = ViewId(space="cognite_migration", external_id="SpaceSource", version="v1")
+
+_DMS_NODE_KEYS = frozenset(
+    {
+        "instanceType",
+        "space",
+        "externalId",
+        "version",
+        "createdTime",
+        "lastUpdatedTime",
+        "deletedTime",
+    }
+)
 
 
-@dataclass(frozen=True)
-class AssetCentricId(CogniteObject):
+class AssetCentricId(BaseModelObject):
+    model_config = ConfigDict(frozen=True)
     resource_type: AssetCentricTypeExtended
-    id_: int
+    id_: int = Field(alias="id")
 
     @property
     def id_value(self) -> int:
@@ -37,128 +41,84 @@ class AssetCentricId(CogniteObject):
         """
         return self.id_
 
-    @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
-        """Load an AssetCentricId from a dictionary."""
-        return cls(
-            resource_type=resource["resourceType"],
-            id_=resource["id"],
-        )
-
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
-        """Dump the AssetCentricId to a dictionary."""
-        return {
-            "resourceType" if camel_case else "resource_type": self.resource_type,
-            "id" if camel_case else "id_": self.id_,
-        }
-
     def __str__(self) -> str:
-        """Return a string representation of the AssetCentricId."""
         return f"{self.resource_type}(id={self.id_})"
 
 
-class _InstanceSourceProperties:
-    resource_type = PropertyOptions("resourceType")
-    id_ = PropertyOptions("id")
-    data_set_id = PropertyOptions("dataSetId")
-    classic_external_id = PropertyOptions("classicExternalId")
-    preferred_consumer_view_id = PropertyOptions("preferredConsumerViewId")
-    ingestion_view = PropertyOptions("ingestionView")
+def _dump_dms_node(model: BaseModelObject, view_id: ViewId, camel_case: bool = True) -> dict[str, Any]:
+    """Dump a Pydantic model as a DMS node response with nested properties."""
+    flat = model.model_dump(mode="json", by_alias=camel_case, exclude_unset=True)
+    properties: dict[str, Any] = {}
+    for key in list(flat):
+        if key not in _DMS_NODE_KEYS:
+            properties[key] = flat.pop(key)
+    flat["properties"] = {
+        view_id.space: {
+            f"{view_id.external_id}/{view_id.version}": properties,
+        }
+    }
+    return flat
 
+
+class InstanceSource(BaseModelObject):
+    """Pydantic model for reading InstanceSource nodes from the cognite_migration data model."""
+
+    VIEW_ID: ClassVar[ViewId] = INSTANCE_SOURCE_VIEW_ID
+
+    instance_type: str = "node"
+    space: str
+    external_id: str
+    version: int
+    created_time: int
+    last_updated_time: int
+    deleted_time: int | None = None
+
+    resource_type: AssetCentricType
+    id_: int = Field(alias="id")
+    data_set_id: int | None = None
+    classic_external_id: str | None = None
+    preferred_consumer_view_id: ViewId | None = None
+    ingestion_view: dict[str, str] | None = None
+
+    @model_validator(mode="before")
     @classmethod
-    def get_source(cls) -> dm.ViewId:
-        return dm.ViewId("cognite_migration", "InstanceSource", "v1")
+    def _extract_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
+        return move_response_properties(values, INSTANCE_SOURCE_VIEW_ID)
 
-
-class InstanceSource(_InstanceSourceProperties, TypedNode):
-    """This represents the reading format of instance source.
-
-    It is used to when data is read from CDF.
-
-    The source of the instance in asset-centric resources.
-
-    Args:
-        space: The space where the node is located.
-        external_id: The external id of the instance source.
-        version (int): DMS version.
-        last_updated_time (int): The number of milliseconds since 00:00:00 Thursday, 1 January 1970,
-            Coordinated Universal Time (UTC), minus leap seconds.
-        created_time (int): The number of milliseconds since 00:00:00 Thursday, 1 January 1970,
-            Coordinated Universal Time (UTC), minus leap seconds.
-        resource_type: The resource type field.
-        id_: The id field.
-        data_set_id: The data set id field.
-        classic_external_id: The classic external id field.
-        preferred_consumer_view_id: The preferred consumer view id field.
-        ingestion_view: The ingestion view field.
-        type: Direct relation pointing to the type node.
-        deleted_time: The number of milliseconds since 00:00:00 Thursday, 1 January 1970, Coordinated Universal Time
-            (UTC), minus leap seconds. Timestamp when the instance was soft deleted. Note that deleted instances
-            are filtered out of query results, but present in sync results
-    """
-
-    def __init__(
-        self,
-        space: str,
-        external_id: str,
-        version: int,
-        last_updated_time: int,
-        created_time: int,
-        *,
-        resource_type: AssetCentricType,
-        id_: int,
-        data_set_id: int | None = None,
-        classic_external_id: str | None = None,
-        preferred_consumer_view_id: ViewId | None = None,
-        ingestion_view: DirectRelationReference | None = None,
-        type: DirectRelationReference | None = None,
-        deleted_time: int | None = None,
-    ) -> None:
-        TypedNode.__init__(self, space, external_id, version, last_updated_time, created_time, deleted_time, type)
-        self.resource_type = resource_type
-        self.id_ = id_
-        self.data_set_id = data_set_id
-        self.classic_external_id = classic_external_id
-        self.preferred_consumer_view_id = preferred_consumer_view_id
-        self.ingestion_view = DirectRelationReference.load(ingestion_view) if ingestion_view else None
-
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
-        output = super().dump(camel_case)
-        if self.preferred_consumer_view_id:
-            output["properties"]["cognite_migration"]["InstanceSource/v1"]["preferredConsumerViewId"] = (
-                self.preferred_consumer_view_id.dump(camel_case=camel_case)
-            )
-        return output
-
+    @field_validator("preferred_consumer_view_id", mode="before")
     @classmethod
-    def _load_properties(cls, resource: dict[str, Any]) -> dict[str, Any]:
-        if "preferredConsumerViewId" in resource:
-            preferred_consumer_view_id = resource.pop("preferredConsumerViewId")
-            try:
-                resource["preferredConsumerViewId"] = ViewId.model_validate(preferred_consumer_view_id)
-            except ValueError as e:
-                warnings.warn(
-                    IgnoredValueWarning(
-                        name="InstanceSource.preferredConsumerViewId",
-                        value=json.dumps(preferred_consumer_view_id),
-                        reason=f"Invalid ViewId format expected 'space', 'externalId', 'version': {e!s}",
-                    )
+    def _validate_view_id(cls, v: Any) -> ViewId | None:
+        if v is None:
+            return None
+        try:
+            return ViewId.model_validate(v)
+        except Exception as e:
+            warnings.warn(
+                IgnoredValueWarning(
+                    name="InstanceSource.preferredConsumerViewId",
+                    value=json.dumps(v) if not isinstance(v, str) else v,
+                    reason=f"Invalid ViewId format expected 'space', 'externalId', 'version': {e!s}",
                 )
-        return super()._load_properties(resource)
+            )
+            return None
+
+    @field_serializer("preferred_consumer_view_id")
+    def _serialize_preferred_view(self, v: ViewId | None) -> dict[str, str] | None:
+        if v is None:
+            return None
+        return v.dump()
+
+    def dump(self, camel_case: bool = True, **kwargs: Any) -> dict[str, Any]:
+        return _dump_dms_node(self, self.VIEW_ID, camel_case=camel_case)
 
     def as_asset_centric_id(self) -> AssetCentricId:
-        """Return the AssetCentricId representation of the mapping."""
-        return AssetCentricId(
-            resource_type=self.resource_type,
-            id_=self.id_,
-        )
+        return AssetCentricId(resource_type=self.resource_type, id_=self.id_)
 
     def consumer_view(self) -> ViewId:
         if self.preferred_consumer_view_id:
             return self.preferred_consumer_view_id
         if self.resource_type == "sequence":
             raise ValueError(f"Missing consumer view for sequence {self.external_id}.")
-        # Default consumer view for asset-centric resources
         external_id = {
             "asset": "CogniteAsset",
             "event": "CogniteActivity",
@@ -167,102 +127,58 @@ class InstanceSource(_InstanceSourceProperties, TypedNode):
         }[self.resource_type]
         return ViewId(space="cdf_cdm", external_id=external_id, version="v1")
 
-    def as_direct_relation_reference(self) -> DirectRelationReference:
-        return DirectRelationReference(space=self.space, external_id=self.external_id)
+    def as_node_id(self) -> NodeId:
+        return NodeId(space=self.space, external_id=self.external_id)
 
 
-class CreatedSourceSystem(TypedNode):
-    """This represents the reading format of instance source.
+class CreatedSourceSystem(BaseModelObject):
+    """Pydantic model for reading CreatedSourceSystem nodes from the cognite_migration data model."""
 
-    It is used to when data is read from CDF.
+    VIEW_ID: ClassVar[ViewId] = CREATED_SOURCE_SYSTEM_VIEW_ID
 
-    The source of the instance in asset-centric resources.
+    instance_type: str = "node"
+    space: str
+    external_id: str
+    version: int
+    created_time: int
+    last_updated_time: int
+    deleted_time: int | None = None
 
-    Args:
-        space: The space where the node is located.
-        external_id: The external id of the instance source.
-        version (int): DMS version.
-        last_updated_time (int): The number of milliseconds since 00:00:00 Thursday, 1 January 1970,
-            Coordinated Universal Time (UTC), minus leap seconds.
-        created_time (int): The number of milliseconds since 00:00:00 Thursday, 1 January 1970,
-            Coordinated Universal Time (UTC), minus leap seconds.
-        source: The source string from the asset-centric Asset, Event, or FileMetadata source property.
-        type: Direct relation pointing to the type node.
-        deleted_time: The number of milliseconds since 00:00:00 Thursday, 1 January 1970, Coordinated Universal Time
-            (UTC), minus leap seconds. Timestamp when the instance was soft deleted. Note that deleted instances
-            are filtered out of query results, but present in sync results
-    """
+    source: str
 
-    def __init__(
-        self,
-        space: str,
-        external_id: str,
-        version: int,
-        last_updated_time: int,
-        created_time: int,
-        *,
-        source: str,
-        type: DirectRelationReference | None = None,
-        deleted_time: int | None = None,
-    ) -> None:
-        TypedNode.__init__(self, space, external_id, version, last_updated_time, created_time, deleted_time, type)
-        self.source = source
-
+    @model_validator(mode="before")
     @classmethod
-    def get_source(cls) -> dm.ViewId:
-        return dm.ViewId("cognite_migration", "CreatedSourceSystem", "v1")
+    def _extract_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
+        return move_response_properties(values, CREATED_SOURCE_SYSTEM_VIEW_ID)
+
+    def dump(self, camel_case: bool = True, **kwargs: Any) -> dict[str, Any]:
+        return _dump_dms_node(self, self.VIEW_ID, camel_case=camel_case)
 
     def as_direct_relation_reference(self) -> NodeId:
         return NodeId(space=self.space, external_id=self.external_id)
 
 
-class SpaceSource(TypedNode):
-    """This represents the reading format of space source.
+class SpaceSource(BaseModelObject):
+    """Pydantic model for reading SpaceSource nodes from the cognite_migration data model."""
 
-    It is used to when data is read from CDF.
+    VIEW_ID: ClassVar[ViewId] = SPACE_SOURCE_VIEW_ID
 
-    The source dataSet of an instance space
+    instance_type: str = "node"
+    space: str
+    external_id: str
+    version: int
+    created_time: int
+    last_updated_time: int
+    deleted_time: int | None = None
 
-    Args:
-        space: The space where the node is located.
-        external_id: The external id of the node.
-        version (int): DMS version.
-        last_updated_time (int): The number of milliseconds since 00:00:00 Thursday, 1 January 1970,
-            Coordinated Universal Time (UTC), minus leap seconds.
-        created_time (int): The number of milliseconds since 00:00:00 Thursday, 1 January 1970,
-            Coordinated Universal Time (UTC), minus leap seconds.
-        instance_space (str): The instance space name.
-        data_set_id: The data set id associated with the instance space.
-        data_set_external_id: The classic external id associated with the instance space.
-        type: Direct relation pointing to the type node.
-        deleted_time: The number of milliseconds since 00:00:00 Thursday, 1 January 1970, Coordinated Universal Time
-            (UTC), minus leap seconds. Timestamp when the instance was soft deleted. Note that deleted instances
-            are filtered out of query results, but present in sync results
-    """
+    instance_space: str
+    data_set_id: int
+    data_set_external_id: str | None = None
 
-    instance_space = PropertyOptions("instanceSpace")
-    data_set_id = PropertyOptions("dataSetId")
-    data_set_external_id = PropertyOptions("dataSetExternalId")
-
-    def __init__(
-        self,
-        space: str,
-        external_id: str,
-        version: int,
-        last_updated_time: int,
-        created_time: int,
-        *,
-        instance_space: str,
-        data_set_id: int,
-        data_set_external_id: str | None = None,
-        type: DirectRelationReference | None = None,
-        deleted_time: int | None = None,
-    ) -> None:
-        TypedNode.__init__(self, space, external_id, version, last_updated_time, created_time, deleted_time, type)
-        self.instance_space = instance_space
-        self.data_set_id = data_set_id
-        self.data_set_external_id = data_set_external_id
-
+    @model_validator(mode="before")
     @classmethod
-    def get_source(cls) -> dm.ViewId:
-        return dm.ViewId("cognite_migration", "SpaceSource", "v1")
+    def _extract_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
+        return move_response_properties(values, SPACE_SOURCE_VIEW_ID)
+
+    def dump(self, camel_case: bool = True, **kwargs: Any) -> dict[str, Any]:
+        return _dump_dms_node(self, self.VIEW_ID, camel_case=camel_case)

@@ -1,7 +1,8 @@
 from typing import Any, ClassVar
 
+import httpx
 import pytest
-import responses
+import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, ViewId
@@ -11,17 +12,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import Ins
 @pytest.fixture()
 def lookup_client(
     toolkit_config: ToolkitClientConfig,
-    rsps: responses.RequestsMock,
-) -> tuple[ToolkitClient, responses.RequestsMock]:
+    respx_mock: respx.MockRouter,
+) -> tuple[ToolkitClient, respx.MockRouter]:
     config = toolkit_config
-    rsps.add(
-        method=responses.POST,
-        url=config.create_api_url("models/instances/query"),
-        json=TestMigrationLookup.QUERY_RESPONSE,
-        status=200,
+    respx_mock.post(config.create_api_url("/models/instances/query")).mock(
+        return_value=httpx.Response(status_code=200, json=TestMigrationLookup.QUERY_RESPONSE),
     )
-
-    return ToolkitClient(config=config), rsps
+    return ToolkitClient(config=config), respx_mock
 
 
 @pytest.mark.usefixtures("disable_pypi_check")
@@ -71,25 +68,25 @@ class TestMigrationLookup:
         self,
         args: dict[str, Any],
         expected_return: dict | NodeId | None,
-        lookup_client: tuple[ToolkitClient, responses.RequestsMock],
+        lookup_client: tuple[ToolkitClient, respx.MockRouter],
     ) -> None:
         client, _ = lookup_client
         actual_return = client.migration.lookup.assets(**args)
         assert actual_return == expected_return
 
-    def test_multi_lookup_single_api_call(self, lookup_client: tuple[ToolkitClient, responses.RequestsMock]) -> None:
-        client, rsps = lookup_client
+    def test_multi_lookup_single_api_call(self, lookup_client: tuple[ToolkitClient, respx.MockRouter]) -> None:
+        client, mock = lookup_client
         _ = client.migration.lookup.assets(self.EXISTING_ID)
         _ = client.migration.lookup.assets(self.EXISTING_ID)
 
-        assert len(rsps.calls) == 1, "Expected only one API call for multiple lookups of the same ID"
+        assert len(mock.calls) == 1, "Expected only one API call for multiple lookups of the same ID"
 
-    def test_single_api_call_non_existing(self, lookup_client: tuple[ToolkitClient, responses.RequestsMock]) -> None:
-        client, rsps = lookup_client
+    def test_single_api_call_non_existing(self, lookup_client: tuple[ToolkitClient, respx.MockRouter]) -> None:
+        client, mock = lookup_client
         _ = client.migration.lookup.assets(-1)
         _ = client.migration.lookup.assets(-1)
 
-        assert len(rsps.calls) == 1, "Expected only one API call for multiple lookups of the same non-existing ID"
+        assert len(mock.calls) == 1, "Expected only one API call for multiple lookups of the same non-existing ID"
 
     def test_invalid_input(self, toolkit_config: ToolkitClientConfig):
         client = ToolkitClient(config=toolkit_config)
@@ -117,27 +114,27 @@ class TestMigrationLookup:
         self,
         args: dict[str, Any],
         expected_return: ViewId,
-        lookup_client: tuple[ToolkitClient, responses.RequestsMock],
+        lookup_client: tuple[ToolkitClient, respx.MockRouter],
     ) -> None:
         client, _ = lookup_client
         actual_return = client.migration.lookup.assets.consumer_view(**args)
         assert actual_return == expected_return
 
-    def test_consumer_view_single_api_call(self, lookup_client: tuple[ToolkitClient, responses.RequestsMock]) -> None:
-        client, rsps = lookup_client
+    def test_consumer_view_single_api_call(self, lookup_client: tuple[ToolkitClient, respx.MockRouter]) -> None:
+        client, mock = lookup_client
         _ = client.migration.lookup.assets.consumer_view(self.EXISTING_ID)
         _ = client.migration.lookup.assets.consumer_view(self.EXISTING_ID)
 
-        assert len(rsps.calls) == 1, "Expected only one API call for multiple lookups of the same ID"
+        assert len(mock.calls) == 1, "Expected only one API call for multiple lookups of the same ID"
 
     def test_consumer_view_non_existing_single_api_call(
-        self, lookup_client: tuple[ToolkitClient, responses.RequestsMock]
+        self, lookup_client: tuple[ToolkitClient, respx.MockRouter]
     ) -> None:
-        client, rsps = lookup_client
+        client, mock = lookup_client
         _ = client.migration.lookup.assets.consumer_view(-1)
         _ = client.migration.lookup.assets.consumer_view(-1)
 
-        assert len(rsps.calls) == 1, "Expected only one API call for multiple lookups of the same non-existing ID"
+        assert len(mock.calls) == 1, "Expected only one API call for multiple lookups of the same non-existing ID"
 
     def test_consumer_view_invalid_input(self, toolkit_config: ToolkitClientConfig):
         client = ToolkitClient(config=toolkit_config)

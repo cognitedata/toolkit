@@ -566,8 +566,8 @@ class TestAssetCentricConversion:
                 },
                 {"assetName": "Test Asset", "assetDescription": "A test asset"},
                 ConversionIssue(
-                    id=str(AssetCentricId("asset", 123)),
-                    asset_centric_id=AssetCentricId("asset", 123),
+                    id=str(AssetCentricId(resource_type="asset", id_=123)),
+                    asset_centric_id=AssetCentricId(resource_type="asset", id_=123),
                     instance_id=INSTANCE_REF,
                     ignored_asset_centric_properties=["createdTime", "lastUpdatedTime", "rootId"],
                 ),
@@ -646,8 +646,8 @@ class TestAssetCentricConversion:
                     "deviceLocation": "room_1",
                 },
                 ConversionIssue(
-                    id=str(AssetCentricId("timeseries", 456)),
-                    asset_centric_id=AssetCentricId("timeseries", id_=456),
+                    id=str(AssetCentricId(resource_type="timeseries", id_=456)),
+                    asset_centric_id=AssetCentricId(resource_type="timeseries", id_=456),
                     instance_id=INSTANCE_REF,
                     ignored_asset_centric_properties=[
                         "createdTime",
@@ -772,8 +772,8 @@ class TestAssetCentricConversion:
                     "assets": [{"space": "test_space", "externalId": "asset_123_instance"}],
                 },
                 ConversionIssue(
-                    id=str(AssetCentricId("event", 789)),
-                    asset_centric_id=AssetCentricId("event", id_=789),
+                    id=str(AssetCentricId(resource_type="event", id_=789)),
+                    asset_centric_id=AssetCentricId(resource_type="event", id_=789),
                     instance_id=INSTANCE_REF,
                     ignored_asset_centric_properties=["createdTime", "description", "lastUpdatedTime"],
                     missing_asset_centric_properties=["metadata.missingMetaProp", "missing_prop"],
@@ -853,8 +853,8 @@ class TestAssetCentricConversion:
                 },
                 {},
                 ConversionIssue(
-                    id=str(AssetCentricId("file", 321)),
-                    asset_centric_id=AssetCentricId("file", id_=321),
+                    id=str(AssetCentricId(resource_type="file", id_=321)),
+                    asset_centric_id=AssetCentricId(resource_type="file", id_=321),
                     instance_id=INSTANCE_REF,
                     ignored_asset_centric_properties=[
                         "createdTime",
@@ -913,8 +913,8 @@ class TestAssetCentricConversion:
                 },
                 {"timeSeriesName": "Test TimeSeries"},
                 ConversionIssue(
-                    id=str(AssetCentricId("timeseries", 654)),
-                    asset_centric_id=AssetCentricId("timeseries", id_=654),
+                    id=str(AssetCentricId(resource_type="timeseries", id_=654)),
+                    asset_centric_id=AssetCentricId(resource_type="timeseries", id_=654),
                     instance_id=INSTANCE_REF,
                     ignored_asset_centric_properties=[
                         "createdTime",
@@ -965,8 +965,8 @@ class TestAssetCentricConversion:
                 },
                 {"assetName": "The name"},
                 ConversionIssue(
-                    id=str(AssetCentricId("asset", 999)),
-                    asset_centric_id=AssetCentricId("asset", id_=999),
+                    id=str(AssetCentricId(resource_type="asset", id_=999)),
+                    asset_centric_id=AssetCentricId(resource_type="asset", id_=999),
                     instance_id=INSTANCE_REF,
                     ignored_asset_centric_properties=["createdTime", "lastUpdatedTime", "rootId"],
                     missing_asset_centric_properties=["description"],
@@ -1017,8 +1017,8 @@ class TestAssetCentricConversion:
                     "category": "MyType",
                 },
                 ConversionIssue(
-                    id=str(AssetCentricId("event", 999)),
-                    asset_centric_id=AssetCentricId("event", id_=999),
+                    id=str(AssetCentricId(resource_type="event", id_=999)),
+                    asset_centric_id=AssetCentricId(resource_type="event", id_=999),
                     instance_id=INSTANCE_REF,
                     ignored_asset_centric_properties=["createdTime", "lastUpdatedTime", "metadata.category"],
                     failed_conversions=[
@@ -1140,8 +1140,8 @@ class TestAssetCentricConversion:
                     ],
                 ),
                 ConversionIssue(
-                    id=str(AssetCentricId("annotation", 37)),
-                    asset_centric_id=AssetCentricId("annotation", id_=37),
+                    id=str(AssetCentricId(resource_type="annotation", id_=37)),
+                    asset_centric_id=AssetCentricId(resource_type="annotation", id_=37),
                     instance_id=NodeId(space="test_space", external_id="annotation_37"),
                     ignored_asset_centric_properties=[
                         "annotatedResourceType",
@@ -1205,8 +1205,8 @@ class TestAssetCentricConversion:
         )
 
         expected_issue = ConversionIssue(
-            id=str(AssetCentricId("annotation", 38)),
-            asset_centric_id=AssetCentricId("annotation", id_=38),
+            id=str(AssetCentricId(resource_type="annotation", id_=38)),
+            asset_centric_id=AssetCentricId(resource_type="annotation", id_=38),
             instance_id=NodeId(space="test_space", external_id="annotation_38"),
             ignored_asset_centric_properties=[
                 "annotatedResourceType",

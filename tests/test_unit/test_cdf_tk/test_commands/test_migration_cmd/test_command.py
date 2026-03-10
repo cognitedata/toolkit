@@ -14,7 +14,6 @@ from cognite.client.data_classes.data_modeling import (
     DataModel,
     DataModelList,
     EdgeApply,
-    NodeList,
     NodeOrEdgeData,
     View,
 )
@@ -293,7 +292,6 @@ class TestMigrationCommand:
         self,
         toolkit_config: ToolkitClientConfig,
         cognite_migration_model: respx.MockRouter,
-        rsps: responses.RequestsMock,
         tmp_path: Path,
     ) -> None:
         respx_mock = cognite_migration_model
@@ -346,38 +344,43 @@ class TestMigrationCommand:
             )
         )
         # Lookup asset and file instance ID
+        query_responses = []
         for items in [
             [("asset", 4000)],
             [("file", 5000), ("file", 3000), ("file", 3001)],
         ]:
-            rsps.post(
-                config.create_api_url("/models/instances/query"),
-                json={
-                    "items": {
-                        "instanceSource": [
-                            {
-                                "instanceType": "node",
-                                "space": space,
-                                "externalId": f"{resource_type}_{resource_id}",
-                                "version": 0,
-                                "createdTime": 0,
-                                "lastUpdatedTime": 0,
-                                "properties": {
-                                    "cognite_migration": {
-                                        "InstanceSource/v1": {
-                                            "id": resource_id,
-                                            "resourceType": resource_type,
-                                        }
+            query_responses.append(
+                httpx.Response(
+                    status_code=200,
+                    json={
+                        "items": {
+                            "instanceSource": [
+                                {
+                                    "instanceType": "node",
+                                    "space": space,
+                                    "externalId": f"{resource_type}_{resource_id}",
+                                    "version": 0,
+                                    "createdTime": 0,
+                                    "lastUpdatedTime": 0,
+                                    "properties": {
+                                        "cognite_migration": {
+                                            "InstanceSource/v1": {
+                                                "id": resource_id,
+                                                "resourceType": resource_type,
+                                            }
+                                        },
                                     },
-                                },
-                            }
-                            for (resource_type, resource_id) in items
-                        ],
+                                }
+                                for (resource_type, resource_id) in items
+                            ],
+                        },
+                        "nextCursor": {"instanceSource": None},
                     },
-                    "nextCursor": {"instanceSource": None},
-                },
-                status=200,
+                )
             )
+        respx_mock.post(config.create_api_url("/models/instances/query")).mock(
+            side_effect=query_responses,
+        )
 
         # Instance creation
         respx.post(
@@ -478,7 +481,6 @@ class TestMigrationCommand:
         toolkit_config: ToolkitClientConfig,
         cognite_migration_model: respx.MockRouter,
         tmp_path: Path,
-        rsps: responses.RequestsMock,
     ) -> None:
         respx_mock = cognite_migration_model
         config = toolkit_config
@@ -516,44 +518,44 @@ class TestMigrationCommand:
                 "items": [chart.dump() for chart in charts],
             },
         )
-        # TimeSeries Instance ID lookup
-        rsps.add(
-            method=responses.POST,
-            url=config.create_api_url("models/instances/query"),
-            json={
-                "items": {
-                    "instanceSource": [
-                        LegacyInstanceSource(
-                            space="my_space",
-                            external_id="node_123",
-                            version=1,
-                            last_updated_time=1,
-                            created_time=1,
-                            resource_type="timeseries",
-                            id_=1,
-                            classic_external_id=None,
-                            preferred_consumer_view_id=ViewId(
-                                space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
-                            ),
-                        ).dump(),
-                        LegacyInstanceSource(
-                            space="my_space",
-                            external_id="node_ts_1",
-                            version=1,
-                            last_updated_time=1,
-                            created_time=1,
-                            resource_type="timeseries",
-                            id_=2,
-                            classic_external_id="ts_1",
-                            preferred_consumer_view_id=ViewId(
-                                space="my_schema_space", external_id="MyTimeSeries", version="v1"
-                            ),
-                        ).dump(),
-                    ]
+        # TimeSeries Instance ID lookup (uses toolkit InstancesAPI → httpx)
+        respx_mock.post(config.create_api_url("/models/instances/query")).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={
+                    "items": {
+                        "instanceSource": [
+                            LegacyInstanceSource(
+                                space="my_space",
+                                external_id="node_123",
+                                version=1,
+                                last_updated_time=1,
+                                created_time=1,
+                                resource_type="timeseries",
+                                id_=1,
+                                classic_external_id=None,
+                                preferred_consumer_view_id=ViewId(
+                                    space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
+                                ),
+                            ).dump(),
+                            LegacyInstanceSource(
+                                space="my_space",
+                                external_id="node_ts_1",
+                                version=1,
+                                last_updated_time=1,
+                                created_time=1,
+                                resource_type="timeseries",
+                                id_=2,
+                                classic_external_id="ts_1",
+                                preferred_consumer_view_id=ViewId(
+                                    space="my_schema_space", external_id="MyTimeSeries", version="v1"
+                                ),
+                            ).dump(),
+                        ]
+                    },
+                    "nextCursor": {"instanceSource": None},
                 },
-                "nextCursor": {"instanceSource": None},
-            },
-            status=200,
+            )
         )
 
         # Chart upsert
@@ -582,7 +584,7 @@ class TestMigrationCommand:
         assert actual_results == {"failure": 0, "pending": 0, "success": len(charts), "unchanged": 0}
 
         calls = respx_mock.calls
-        assert len(calls) == 3
+        assert len(calls) == 4
         last_call = calls[-1]
         assert last_call.request.url == config.create_app_url("/storage/charts/charts")
         assert last_call.request.method == "PUT"
@@ -636,9 +638,7 @@ class TestMigrationCommand:
         toolkit_config: ToolkitClientConfig,
         cognite_migration_model: respx.MockRouter,
         tmp_path: Path,
-        respx_mock: respx.MockRouter,
-        asset_centric_canvas: tuple[IndustrialCanvasResponse, NodeList[InstanceSource]],
-        rsps: responses.RequestsMock,
+        asset_centric_canvas: tuple[IndustrialCanvasResponse, list[LegacyInstanceSource]],
     ) -> None:
         respx_mock = cognite_migration_model
         config = toolkit_config
@@ -719,12 +719,37 @@ class TestMigrationCommand:
             },
         }
         empty_query_data = {"items": {"canvas": []}, "nextCursor": {}}
-        query_call_count = 0
+        canvas_query_done = False
 
         def _query_side_effect(request: httpx.Request) -> httpx.Response:
-            nonlocal query_call_count
-            query_call_count += 1
-            if query_call_count == 1:
+            nonlocal canvas_query_done
+            body = json.loads(request.content)
+            with_keys = set(body.get("with", {}).keys())
+            if "instanceSource" in with_keys:
+                return httpx.Response(
+                    status_code=200,
+                    json={
+                        "items": {
+                            "instanceSource": [
+                                instance_source.dump()
+                                for instance_source in instance_sources
+                                if instance_source.resource_type
+                                in {
+                                    v
+                                    for f in body.get("with", {})
+                                    .get("instanceSource", {})
+                                    .get("nodes", {})
+                                    .get("filter", {})
+                                    .get("and", [])
+                                    if (v := f.get("equals", {}).get("value")) is not None
+                                }
+                            ]
+                        },
+                        "nextCursor": {"instanceSource": None},
+                    },
+                )
+            if not canvas_query_done:
+                canvas_query_done = True
                 return httpx.Response(status_code=200, json=canvas_query_data)
             return httpx.Response(status_code=200, json=empty_query_data)
 
@@ -751,26 +776,6 @@ class TestMigrationCommand:
         respx_mock.post(config.create_api_url("/models/instances")).mock(
             side_effect=_echo_upsert_items,
         )
-
-        for resource_type in ["asset", "event", "timeseries", "file"]:
-            rsps.add(
-                responses.POST,
-                config.create_api_url("/models/instances/query"),
-                json={
-                    "items": {
-                        "instanceSource": [
-                            instance_source.dump()
-                            for instance_source in instance_sources
-                            if instance_source.resource_type == resource_type
-                        ]
-                        if resource_type != "file"
-                        else []
-                    },
-                    "nextCursor": {"instanceSource": None},
-                },
-                status=200,
-            )
-        # byids and upsert for instances are now handled by httpx/respx, not requests
 
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)

@@ -226,8 +226,8 @@ def asset_centric_to_dm(
     external_id = dumped.pop("externalId", None)
 
     issue = ConversionIssue(
-        id=str(AssetCentricId(resource_type, id_=id_)),
-        asset_centric_id=AssetCentricId(resource_type, id_=id_),
+        id=str(AssetCentricId(resource_type=resource_type, id_=id_)),
+        asset_centric_id=AssetCentricId(resource_type=resource_type, id_=id_),
         instance_id=NodeId(space=instance_id.space, external_id=instance_id.external_id),
     )
 

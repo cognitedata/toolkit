@@ -12,7 +12,6 @@ import yaml
 from cognite.client import global_config
 from cognite.client.credentials import Token
 from cognite.client.data_classes import CreatedSession
-from cognite.client.data_classes.data_modeling import NodeList
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
@@ -243,7 +242,7 @@ def rsps() -> Iterator[responses.RequestsMock]:
 
 
 @pytest.fixture(scope="session")
-def asset_centric_canvas() -> tuple[IndustrialCanvasResponse, NodeList[InstanceSource]]:
+def asset_centric_canvas() -> tuple[IndustrialCanvasResponse, list[InstanceSource]]:
     canvas = IndustrialCanvasResponse(
         space=CANVAS_INSTANCE_SPACE,
         external_id="495af88f-fe1d-403d-91b1-76ef9f80f265",
@@ -314,39 +313,37 @@ def asset_centric_canvas() -> tuple[IndustrialCanvasResponse, NodeList[InstanceS
             ),
         ],
     )
-    mapping = NodeList[InstanceSource](
-        [
-            InstanceSource(
-                space="MyNewInstanceSpace",
-                external_id="my_asset",
-                version=1,
-                last_updated_time=1,
-                created_time=1,
-                resource_type="asset",
-                id_=3840956528416998,
-                preferred_consumer_view_id=ViewId(space="my_space", external_id="DoctrinoAsset", version="v1"),
-            ),
-            InstanceSource(
-                space="MyNewInstanceSpace",
-                external_id="my_timeseries",
-                version=1,
-                last_updated_time=1,
-                created_time=1,
-                resource_type="timeseries",
-                id_=11978459264156,
-                preferred_consumer_view_id=ViewId(space="my_space", external_id="DoctrinoTimeSeries", version="v1"),
-            ),
-            InstanceSource(
-                space="MyNewInstanceSpace",
-                external_id="my_event",
-                version=1,
-                last_updated_time=1,
-                created_time=1,
-                resource_type="event",
-                id_=9004025980300864,
-            ),
-        ]
-    )
+    mapping = [
+        InstanceSource(
+            space="MyNewInstanceSpace",
+            external_id="my_asset",
+            version=1,
+            last_updated_time=1,
+            created_time=1,
+            resource_type="asset",
+            id_=3840956528416998,
+            preferred_consumer_view_id=ViewId(space="my_space", external_id="DoctrinoAsset", version="v1"),
+        ),
+        InstanceSource(
+            space="MyNewInstanceSpace",
+            external_id="my_timeseries",
+            version=1,
+            last_updated_time=1,
+            created_time=1,
+            resource_type="timeseries",
+            id_=11978459264156,
+            preferred_consumer_view_id=ViewId(space="my_space", external_id="DoctrinoTimeSeries", version="v1"),
+        ),
+        InstanceSource(
+            space="MyNewInstanceSpace",
+            external_id="my_event",
+            version=1,
+            last_updated_time=1,
+            created_time=1,
+            resource_type="event",
+            id_=9004025980300864,
+        ),
+    ]
     return canvas, mapping
 
 
