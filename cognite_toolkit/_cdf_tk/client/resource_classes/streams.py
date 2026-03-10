@@ -22,6 +22,9 @@ ModelObject: type = BaseModelObject if Flags.v08.is_enabled() else StreamsModelO
 class Stream(ModelObject):
     external_id: str
 
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
+
 
 class StreamTemplate(ModelObject):
     name: StreamTemplateName | str
@@ -35,9 +38,6 @@ class StreamRequest(Stream, RequestResource):
     """Stream request resource class."""
 
     settings: StreamRequestSettings
-
-    def as_id(self) -> ExternalId:
-        return ExternalId(external_id=self.external_id)
 
 
 class LifecycleObject(ModelObject):
