@@ -4,22 +4,19 @@ from collections.abc import Hashable, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, cast
+from typing import TYPE_CHECKING, Any, Generic, Literal
 
-from cognite.client.data_classes.capabilities import Capability
 from rich import print
 from rich.panel import Panel
 from yaml import YAMLError
 
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
-from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest
 from cognite_toolkit._cdf_tk.constants import TABLE_FORMATS
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from cognite_toolkit._cdf_tk.utils import to_diff
 
-from . import FunctionCRUD
 from ._base_cruds import ResourceCRUD
 
 if TYPE_CHECKING:
@@ -144,17 +141,13 @@ class ResourceWorker(Generic[T_Identifier, T_RequestResource, T_ResponseResource
     def validate_access(
         self, local_by_id: dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]], is_dry_run: bool
     ) -> None:
-        capabilities: Capability | list[Capability]
-        if isinstance(self.loader, FunctionCRUD):
-            function_loader: FunctionCRUD = self.loader
-            function_items = cast(list[FunctionRequest], [item for _, item in local_by_id.values()])
-            capabilities = function_loader.get_function_required_capabilities(function_items, read_only=is_dry_run)
-        else:
-            capabilities = self.loader.get_required_capability(
-                [item for _, item in local_by_id.values()], read_only=is_dry_run
+        actions: set[Literal["READ", "WRITE"]] = {"READ"} if is_dry_run else {"READ", "WRITE"}
+        items = [item for _, item in local_by_id.values()]
+        required_acls = list(self.loader.create_minimum_acl(actions, items))
+        if missing := self.loader.client.tool.token.verify_acls(required_acls):
+            raise self.loader.client.tool.token.create_error(
+                missing, action=f"{self.action} {self.loader.display_name}"
             )
-        if capabilities and (missing := self.loader.client.verify.authorization(capabilities)):
-            raise self.loader.client.verify.create_error(missing, action=f"{self.action} {self.loader.display_name}")
 
     def categorize_resources(
         self,

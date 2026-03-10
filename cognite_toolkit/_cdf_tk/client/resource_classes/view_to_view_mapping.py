@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import Field, field_serializer
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, ViewId
@@ -14,14 +14,21 @@ class ViewToViewMapping(BaseModelObject):
         "you can achieve the same by including the properties in the property_mapping with identical "
         " and destination IDs.",
     )
-    property_mapping: dict[str, str]
-    edge_types: list[EdgeTypeId] | None = Field(
-        None,
-        description="Edges to retrieve when mapping from the source view to the destination view. If not specified, no edges will be retrieved.",
+    container_mapping: dict[str, str] = Field(
+        description="Mapping from property Ids in the source view to property Ids in the destination view."
+    )
+    edge_mapping: dict[EdgeTypeId, str] | None = Field(
+        None, description="Mapping from edge types to destination property Ids. "
     )
 
     def get_destination_property(self, source_property: str) -> str | None:
-        dest_prop_id = self.property_mapping.get(source_property)
+        dest_prop_id = self.container_mapping.get(source_property)
         if not dest_prop_id and self.map_identical_id_properties:
             return source_property
         return dest_prop_id
+
+    @field_serializer("edge_mapping", mode="plain")
+    def serialize_edge_mapping(self, edge_mapping: dict[EdgeTypeId, str] | None) -> dict[str, str] | None:
+        if isinstance(edge_mapping, dict):
+            return {str(k): v for k, v in edge_mapping.items()}
+        return edge_mapping
