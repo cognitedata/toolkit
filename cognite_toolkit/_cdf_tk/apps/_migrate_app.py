@@ -1433,15 +1433,15 @@ class MigrateApp(typer.Typer):
                 )
 
         cmd.run(
-            lambda: cmd.migrate(  # type: ignore[misc]
+            lambda: cmd.migrate(
                 selectors=selectors,
                 data=InstanceIO(client),
                 mapper=FDMtoCDMMapper(
                     client,
                     space_mapping,
                     infield_mappings,
-                    special_connection_mapping=[InFieldAssetMapping(client)],
-                    special_properties_mapping=[InFieldConditionMapping(infield_mappings)],
+                    custom_connection_mapping=[InFieldAssetMapping(client)],
+                    custom_properties_mapping=[InFieldConditionMapping(infield_mappings)],
                 ),
                 log_dir=log_dir,
                 dry_run=dry_run,

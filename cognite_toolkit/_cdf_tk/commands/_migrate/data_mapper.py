@@ -48,10 +48,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
     ConversionContext,
+    CustomConnectionMapping,
+    CustomContainerPropertiesMapping,
     DirectRelationCache,
     EdgeOtherSide,
-    SpecialConnectionMapping,
-    SpecialContainerPropertiesMapping,
     asset_centric_to_dm,
     convert_container_properties,
     convert_edges,
@@ -670,9 +670,9 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
         client: The ToolkitClient to use for lookups and caching.
         space_mapping: A mapping from source spaces to target spaces.
         mappings: A sequence of ViewToViewMappings defining how to map source views to target views and how to convert properties and edges.
-        special_connection_mapping: Optional sequence of InstanceToInstanceSpecialMappings defining special cases for mapping connections
+        custom_connection_mapping: Optional sequence of InstanceToInstanceSpecialMappings defining special cases for mapping connections
             between instances that cannot be handled by the general ViewToViewMappings.
-        special_properties_mapping: Optional sequence of ContainerPropertiesMappings defining special cases for mapping container
+        custom_properties_mapping: Optional sequence of ContainerPropertiesMappings defining special cases for mapping container
             properties that cannot be handled by the general ViewToViewMappings.
 
     """
@@ -682,16 +682,16 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
         client: ToolkitClient,
         space_mapping: Mapping[str, str],
         mappings: Sequence[ViewToViewMapping],
-        special_connection_mapping: Sequence[SpecialConnectionMapping] | None = None,
-        special_properties_mapping: Sequence[SpecialContainerPropertiesMapping] | None = None,
+        custom_connection_mapping: Sequence[CustomConnectionMapping] | None = None,
+        custom_properties_mapping: Sequence[CustomContainerPropertiesMapping] | None = None,
     ) -> None:
         super().__init__(client)
-        self._connection_creator = ConnectionCreator(client, space_mapping, special_connection_mapping)
+        self._connection_creator = ConnectionCreator(client, space_mapping, custom_connection_mapping)
         self._mappings_by_source_view: dict[ViewId, ViewToViewMapping] = {
             mapping.source_view: mapping for mapping in mappings
         }
-        self._special_properties_mapping: dict[ViewId, SpecialContainerPropertiesMapping] = {
-            view_id: mapping for mapping in (special_properties_mapping or []) for view_id in mapping.VIEW_IDS
+        self._custom_properties_mapping: dict[ViewId, CustomContainerPropertiesMapping] = {
+            view_id: mapping for mapping in (custom_properties_mapping or []) for view_id in mapping.VIEW_IDS
         }
 
     def prepare(self, source_selector: InstanceSelector) -> None:
@@ -786,8 +786,8 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
                 }
             )
             special_properties: dict[str, JsonValue] = {}
-            if context.mapping.source_view in self._special_properties_mapping:
-                special_results = self._special_properties_mapping[context.mapping.source_view].convert(
+            if context.mapping.source_view in self._custom_properties_mapping:
+                special_results = self._custom_properties_mapping[context.mapping.source_view].convert(
                     source_properties, context
                 )
                 issue.errors.extend(special_results.errors)
