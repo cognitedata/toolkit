@@ -396,6 +396,7 @@ app = LandingPageMiddleware(
                 reload=True,
                 reload_dirs=[str(handler_path)],
                 log_level=log_level,
+                timeout_graceful_shutdown=1,
             )
         finally:
             if temp_dir_added and temp_dir in sys.path:
