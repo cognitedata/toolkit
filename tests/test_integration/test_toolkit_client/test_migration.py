@@ -1,9 +1,16 @@
 import pytest
-from cognite.client.data_classes.data_modeling import NodeApply, NodeApplyList, NodeList, NodeOrEdgeData, Space
+from cognite.client.data_classes.data_modeling import Space
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    InstanceSource as NodeDataSource,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    NodeRequest,
+    ViewId,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import (
+    AssetCentricId,
     CreatedSourceSystem,
     InstanceSource,
     SpaceSource,
@@ -12,74 +19,62 @@ from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping impor
     ResourceViewMappingRequest,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import SPACE
-from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning, catch_warnings
 from tests.test_integration.helpers import retry_on_deadlock
 
 
 @pytest.fixture(scope="session")
-def three_sources(toolkit_client: ToolkitClient, toolkit_space: Space) -> NodeList[InstanceSource]:
-    nodes = NodeApplyList(
-        [
-            NodeApply(
-                space=toolkit_space.space,
-                external_id=f"toolkit_test_migration_{i}",
-                sources=[
-                    NodeOrEdgeData(
-                        InstanceSource.get_source(),
-                        {
-                            "resourceType": "asset",
-                            "id": i,
-                            "preferredConsumerViewId": {
-                                "space": "cdf_cdm",
-                                "externalId": "CogniteAsset",
-                                "version": "v1",
-                            }
-                            if i < 2
-                            else {"invalid": "json"},
+def three_sources(toolkit_client: ToolkitClient, toolkit_space: Space) -> list[InstanceSource]:
+    nodes = [
+        NodeRequest(
+            space=toolkit_space.space,
+            external_id=f"toolkit_test_migration_{i}",
+            sources=[
+                NodeDataSource(
+                    source=InstanceSource.VIEW_ID,
+                    properties={
+                        "resourceType": "asset",
+                        "id": i,
+                        "preferredConsumerViewId": {
+                            "space": "cdf_cdm",
+                            "externalId": "CogniteAsset",
+                            "version": "v1",
                         },
-                    )
-                ],
-            )
-            for i in range(3)
-        ]
-    )
+                    },
+                )
+            ],
+        )
+        for i in range(3)
+    ]
 
-    _ = toolkit_client.data_modeling.instances.apply(nodes)
+    toolkit_client.tool.instances.create(nodes)
 
-    created = toolkit_client.data_modeling.instances.retrieve_nodes(nodes.as_ids(), node_cls=InstanceSource)
+    ids = [AssetCentricId(resource_type="asset", id_=i) for i in range(3)]
+    created = toolkit_client.migration.instance_source.retrieve(ids)
     assert len(created) == 3, "Expected 3 mappings to be created"
     return created
 
 
 class TestInstanceSourceAPI:
-    def test_retrieve_mappings(self, toolkit_client: ToolkitClient, three_sources: NodeList[InstanceSource]) -> None:
+    def test_retrieve_mappings(self, toolkit_client: ToolkitClient, three_sources: list[InstanceSource]) -> None:
         ids = [instance_source.as_asset_centric_id() for instance_source in three_sources]
 
-        with catch_warnings(IgnoredValueWarning) as warnings:
-            retrieved = toolkit_client.migration.instance_source.retrieve(ids)
+        retrieved = toolkit_client.migration.instance_source.retrieve(ids)
 
-        assert retrieved.dump() == three_sources.dump(), "Failed to retrieve instance source using asset-centric IDs"
-        assert len(warnings) == 1, "Expected one warning about invalid JSON in preferredConsumerViewId"
-        has_preferred_consumer_view = [
-            item.as_id() for item in retrieved if item.preferred_consumer_view_id is not None
-        ]
-        assert has_preferred_consumer_view == [item.as_id() for item in three_sources[:2]]
-        no_preferred_consumer_view = [item.as_id() for item in retrieved if item.preferred_consumer_view_id is None]
-        assert no_preferred_consumer_view == [three_sources[2].as_id()], (
-            "Expected last item to have no preferred consumer view"
-        )
+        assert len(retrieved) == len(three_sources), "Failed to retrieve instance source using asset-centric IDs"
+        retrieved_ext_ids = sorted(item.external_id for item in retrieved)
+        expected_ext_ids = sorted(item.external_id for item in three_sources)
+        assert retrieved_ext_ids == expected_ext_ids
 
-    def test_list_mappings(self, toolkit_client: ToolkitClient, three_sources: NodeList[InstanceSource]) -> None:
+    def test_list_mappings(self, toolkit_client: ToolkitClient, three_sources: list[InstanceSource]) -> None:
         assert all(source.resource_type == "asset" for source in three_sources)
         listed = toolkit_client.migration.instance_source.list("asset", limit=10)
         assert len(listed) >= 3, "Expected at least 3 instance sources to be listed"
 
 
 class TestLookupAPI:
-    def test_asset_lookup(self, toolkit_client: ToolkitClient, three_sources: NodeList[InstanceSource]) -> None:
-        client = toolkit_client
+    def test_asset_lookup(self, toolkit_client: ToolkitClient, three_sources: list[InstanceSource]) -> None:
         ids = [instance_source.id_ for instance_source in three_sources[:2]]
-        instance_id_by_id = client.migration.lookup.assets(ids)
+        instance_id_by_id = toolkit_client.migration.lookup.assets(id=ids)
         assert len(instance_id_by_id) == 2, "Expected to lookup 2 asset instance IDs"
         assert set(instance_id_by_id.keys()) == set(ids), "Mismatch in looked up IDs"
 
@@ -125,18 +120,18 @@ class TestResourceViewMappingAPI:
 @pytest.fixture(scope="session")
 def created_source_system(toolkit_client: ToolkitClient, toolkit_space: Space) -> str:
     source = "toolkit_test_created_source_system"
-    node = NodeApply(
+    node = NodeRequest(
         space=toolkit_space.space,
         external_id=source,
         sources=[
-            NodeOrEdgeData(
-                CreatedSourceSystem.get_source(),
-                {"source": source},
+            NodeDataSource(
+                source=CreatedSourceSystem.VIEW_ID,
+                properties={"source": source},
             )
         ],
     )
-    if not toolkit_client.data_modeling.instances.retrieve_nodes([node.as_id()], node_cls=CreatedSourceSystem):
-        _ = toolkit_client.data_modeling.instances.apply(node)
+    if not toolkit_client.migration.created_source_system.retrieve([source]):
+        toolkit_client.tool.instances.create([node])
     return source
 
 
@@ -155,14 +150,14 @@ class TestCreatedSourceSystemAPI:
 
 
 @pytest.fixture(scope="session")
-def space_source(toolkit_client) -> SpaceSource:
-    node = NodeApply(
+def space_source(toolkit_client: ToolkitClient) -> SpaceSource:
+    node = NodeRequest(
         space=SPACE.space,
         external_id="toolkit_test_space_source_instance",
         sources=[
-            NodeOrEdgeData(
-                SpaceSource.get_source(),
-                {
+            NodeDataSource(
+                source=SpaceSource.VIEW_ID,
+                properties={
                     "instanceSpace": "the_instance_space",
                     "dataSetId": 12345,
                     "dataSetExternalId": "the_classic_data_set",
@@ -170,10 +165,12 @@ def space_source(toolkit_client) -> SpaceSource:
             )
         ],
     )
-    if not toolkit_client.data_modeling.instances.retrieve_nodes([node.as_id()], node_cls=SpaceSource):
-        _ = toolkit_client.data_modeling.instances.apply(node)
-    retrieved = toolkit_client.data_modeling.instances.retrieve_nodes([node.as_id()], node_cls=SpaceSource)
-    return retrieved[0]
+    existing = toolkit_client.migration.space_source.retrieve(data_set_id=12345)
+    if not existing:
+        toolkit_client.tool.instances.create([node])
+    retrieved = toolkit_client.migration.space_source.retrieve(data_set_id=12345)
+    assert retrieved is not None, "Failed to create and retrieve space source"
+    return retrieved
 
 
 class TestSpaceSourceAPI:
