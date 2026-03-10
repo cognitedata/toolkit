@@ -235,9 +235,7 @@ class TestRecordIO:
             },
             status_code=200,
         )
-        respx_mock.post(aggregate_url).respond(
-            json={"aggregates": {"total": {"count": record_count}}}, status_code=200
-        )
+        respx_mock.post(aggregate_url).respond(json={"aggregates": {"total": {"count": record_count}}}, status_code=200)
         respx_mock.post(sync_url).respond(json=sync_response_data, status_code=200)
         respx_mock.post(upload_url).mock(side_effect=record_upload_callback)
 
