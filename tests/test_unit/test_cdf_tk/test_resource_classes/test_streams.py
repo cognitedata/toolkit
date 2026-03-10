@@ -25,7 +25,7 @@ def invalid_stream_test_cases() -> Iterable:
     yield pytest.param(
         {"externalId": "test-stream", "settings": {"template": {"name": "InvalidTemplate"}}},
         {
-            "In settings.template.name input should be 'ImmutableTestStream', 'BasicArchive' or 'BasicLiveData'. Got 'InvalidTemplate'."
+            "In settings.template.name input should be 'ImmutableTestStream', 'BasicArchive', 'BasicLiveData' or '4yArchive'. Got 'InvalidTemplate'."
         },
         id="Invalid template name",
     )

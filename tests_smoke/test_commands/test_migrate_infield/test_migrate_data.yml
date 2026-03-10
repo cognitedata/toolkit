@@ -201,6 +201,6 @@ instances:
         source:
           externalId: -3Z4iakG1YSFRAfVlazYMA
           space: smoke_infield_migration_target_space
-        sourceView: cdf_apm/ChecklistItem/v7
+        sourceView: infield_cdm_source_desc_sche_asset_file_ts/ChecklistItem/v1
         value: Not applicable
   space: smoke_infield_migration_target_space

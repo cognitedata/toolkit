@@ -5,7 +5,6 @@ from pydantic import ConfigDict
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.constants import StreamTemplateName
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 
@@ -22,9 +21,14 @@ ModelObject: type = BaseModelObject if Flags.v08.is_enabled() else StreamsModelO
 class Stream(ModelObject):
     external_id: str
 
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
+
 
 class StreamTemplate(ModelObject):
-    name: StreamTemplateName | str
+    # The literal contains the officially support templates, in addition, we
+    # allow any string to support potential custom templates that may be used by some customers.
+    name: Literal["ImmutableTestStream", "BasicArchive", "BasicLiveData"] | str
 
 
 class StreamRequestSettings(ModelObject):
@@ -35,9 +39,6 @@ class StreamRequest(Stream, RequestResource):
     """Stream request resource class."""
 
     settings: StreamRequestSettings
-
-    def as_id(self) -> ExternalId:
-        return ExternalId(external_id=self.external_id)
 
 
 class LifecycleObject(ModelObject):
@@ -73,7 +74,7 @@ class StreamResponse(Stream, ResponseResource[StreamRequest]):
     """Stream response resource class."""
 
     created_time: int
-    created_from_template: StreamTemplateName
+    created_from_template: str
     type: Literal["Mutable", "Immutable"]
     settings: StreamSettings | None = None
 
@@ -82,14 +83,6 @@ class StreamResponse(Stream, ResponseResource[StreamRequest]):
         return StreamRequest
 
     def as_request_resource(self) -> StreamRequest:
-        return StreamRequest.model_validate(
-            {
-                "externalId": self.external_id,
-                "settings": {"template": {"name": self.created_from_template}},
-            }
-        )
-
-    def as_write(self) -> StreamRequest:
         return StreamRequest.model_validate(
             {
                 "externalId": self.external_id,
