@@ -838,13 +838,71 @@ class ConversionResult:
     edges: list[EdgeRequest] = field(default_factory=list)
 
 
+@dataclass
+class ConversionContext:
+    """Context for converting properties and edges for instance to instance conversion.
+
+    Args:
+        mapping: The ViewToViewMapping defining how to map properties from the source view to the destination view.
+        destination_properties: Dict of defined properties in the destination view.
+        connection_creator: Helper object to create connections (edges and direct relations) based on property values.
+        source_view_id: The ID of the source view, used for error messages.
+        new_id: The ID of the new instance being created. Used when creating edges.
+    """
+
+    mapping: ViewToViewMapping
+    destination_properties: dict[str, ViewResponseProperty]
+    connection_creator: ConnectionCreator
+    source_view_id: ViewId
+    new_id: NodeId
+
+
+class ContainerPropertiesMapping(ABC):
+    """Base class for defining custom mapping of container properties in instance to instance conversion
+
+    ClassVar:
+        VIEW_IDS: Set of view IDs that this mapping applies to. If the source view ID of the instance being converted is in this set,
+        this mapping will be used to convert the container properties.
+
+    ."""
+
+    VIEW_IDS: ClassVar[Set[ViewId]] = frozenset()
+
+    @abstractmethod
+    def convert(self, source_properties: dict[str, JsonValue], context: ConversionContext) -> ConversionResult:
+        raise NotImplementedError()
+
+
+class InFieldConditionMapping(ContainerPropertiesMapping):
+    VIEW_IDS: ClassVar[Set[ViewId]] = frozenset({ViewId(space="cdf_apm", external_id="Condition", version="v1")})
+
+    def __init__(self, mappings: Sequence[ViewToViewMapping]) -> None:
+        self._source_view_mapping = {
+            self._as_source_view_format(mapping.source_view): self._as_source_view_format(mapping.destination_view)
+            for mapping in mappings
+        }
+
+    def _as_source_view_format(self, view_id: ViewId) -> str:
+        """The special format used in the sourceView property of InField"""
+        return f"{view_id.space}/{view_id.external_id}/{view_id.version!s}"
+
+    def convert(self, source_properties: dict[str, JsonValue], context: ConversionContext) -> ConversionResult:
+        created_properties: dict[str, JsonValue] = {}
+        issues: list[str] = []
+        if value := source_properties.get("sourceView"):
+            if not isinstance(value, str):
+                issues.append(
+                    f"Invalid sourceView value {value!r} for view {context.source_view_id!s}: expected a string."
+                )
+            elif value not in self._source_view_mapping:
+                issues.append(f"Unexpected sourceView value {value!r} for view {context.source_view_id!s}")
+            else:
+                created_properties["sourceView"] = self._source_view_mapping[value]
+        return ConversionResult(container_properties=created_properties, errors=issues)
+
+
 def convert_container_properties(
-    source_properties: dict[str, JsonValue],
-    mapping: ViewToViewMapping,
-    destination_properties: dict[str, ViewResponseProperty],
-    connection_creator: ConnectionCreator,
-    source_view_id: ViewId,
-    source_id: NodeId,
+    source_properties: dict[str, JsonValue], context: ConversionContext
 ) -> ConversionResult:
     """
     Create properties for a data model instance from another instance's properties.
@@ -853,37 +911,35 @@ def convert_container_properties(
 
     Args:
         source_properties: Dict of source property IDs to values.
-        mapping: The ViewToViewMapping defining how to map properties from the source view to the destination view.
-        destination_properties: Dict of defined properties in the destination view.
-        connection_creator: Helper object to create connections (edges and direct relations) based on property values.
-        source_view_id: The ID of the source view, used for error messages.
-        source_id: The ID of the source instance used for edge creation and error messages.
+        context: ConversionContext containing the mapping and other necessary information for the conversion.
+    Returns:
+        ConversionResult containing the created properties, edges to create and any errors encountered during conversion.
     """
     created_properties: dict[str, JsonValue] = {}
     edges: list[EdgeRequest] = []
     errors: list[str] = []
     for source_prop_id, value in source_properties.items():
-        dest_prop_id = mapping.get_destination_property(source_prop_id)
+        dest_prop_id = context.mapping.get_destination_property(source_prop_id)
         if not dest_prop_id or (
-            dest_prop_id not in destination_properties and dest_prop_id not in mapping.container_mapping
+            dest_prop_id not in context.destination_properties and dest_prop_id not in context.mapping.container_mapping
         ):
             # We do not warn about the node properties, as they are typically ignored.
             if not source_prop_id.startswith("node."):
                 errors.append(f"Source instance property {source_prop_id!r} is not mapped to any destination property.")
             continue
-        if dest_prop_id not in destination_properties:
+        if dest_prop_id not in context.destination_properties:
             errors.append(f"Destination instance is missing property {dest_prop_id!r}.")
             continue
 
-        dm_prop = destination_properties[dest_prop_id]
+        dm_prop = context.destination_properties[dest_prop_id]
         if isinstance(dm_prop, EdgeProperty):
             try:
-                created_edges, issues = connection_creator.create_edges(
+                created_edges, issues = context.connection_creator.create_edges(
                     value,
                     dm_prop,
                     source_prop_id,
-                    source_view_id,
-                    source_id,
+                    context.source_view_id,
+                    context.new_id,
                 )
             except ValueError as e:
                 errors.append(f"Failed to create edges for property {source_prop_id!r} with value {value!r}: {e!s}")
@@ -892,11 +948,11 @@ def convert_container_properties(
             errors.extend(issues)
         elif isinstance(dm_prop, ViewCorePropertyResponse) and isinstance(dm_prop.type, DirectNodeRelation):
             try:
-                created_connection, issues = connection_creator.create_direct_relation(
+                created_connection, issues = context.connection_creator.create_direct_relation(
                     value,
                     dm_prop.type,
                     source_prop_id,
-                    source_view_id,
+                    context.source_view_id,
                 )
             except ValueError as e:
                 errors.append(
@@ -926,29 +982,33 @@ def convert_container_properties(
 
 
 def convert_edges(
-    edge_targets_by_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]],
-    mapping: ViewToViewMapping,
-    destination_properties: dict[str, ViewResponseProperty],
-    source_id: NodeId,
-    connection_creator: ConnectionCreator,
+    edge_targets_by_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]], context: ConversionContext
 ) -> ConversionResult:
+    """Convert edges from the source instance to the destination instance based on the edge mapping in the context.
+    Args:
+        edge_targets_by_type_and_direction: Dict mapping edge type IDs to lists of EdgeOtherSide, representing the edges connected to the source instance grouped by their type and direction.
+        context: ConversionContext containing the mapping and other necessary information for the conversion.
+
+    Returns:
+        ConversionResult containing the created properties, edges to create and any errors encountered during conversion.
+    """
     created_properties: dict[str, JsonValue] = {}
     new_edges: list[EdgeRequest] = []
     errors: list[str] = []
-    for source_type, dest_prop_id in (mapping.edge_mapping or {}).items():
+    for source_type, dest_prop_id in (context.mapping.edge_mapping or {}).items():
         edge_targets = edge_targets_by_type_and_direction.get(source_type, [])
         if not edge_targets:
             continue
 
-        if dest_prop_id not in destination_properties:
+        if dest_prop_id not in context.destination_properties:
             # Already captured as missing instance property in 'conver_container_properties', so we can just ignore it here.
             continue
 
-        dm_prop = destination_properties[dest_prop_id]
+        dm_prop = context.destination_properties[dest_prop_id]
 
         if isinstance(dm_prop, ViewCorePropertyResponse) and isinstance(dm_prop.type, DirectNodeRelation):
             try:
-                created_connection, issues = connection_creator.create_direct_relation_from_edges(
+                created_connection, issues = context.connection_creator.create_direct_relation_from_edges(
                     edge_targets,
                     dm_prop.type,
                     source_type,
@@ -970,10 +1030,10 @@ def convert_edges(
             errors.append(f"Cannot map edge property {source_type!s} to non-connection property {dm_prop.type.type!s}.")
         elif isinstance(dm_prop, EdgeProperty):
             try:
-                created_edges, issues = connection_creator.create_edges_from_edges(
+                created_edges, issues = context.connection_creator.create_edges_from_edges(
                     edge_targets,
                     dm_prop,
-                    source_id,
+                    context.new_id,
                 )
             except ValueError as e:
                 errors.append(
