@@ -45,10 +45,15 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPResult, RequestMessage, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, SpaceRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamRequestSettings, StreamResponse, StreamTemplate
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWTableRequest,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
+    StreamRequest,
+    StreamRequestSettings,
+    StreamResponse,
+    StreamTemplate,
 )
 from cognite_toolkit._cdf_tk.commands import CollectCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
@@ -145,9 +150,7 @@ def toolkit_space(cognite_client: CogniteClient) -> Space:
 @pytest.fixture(scope="session")
 def toolkit_stream(toolkit_client: ToolkitClient) -> StreamResponse:
     """BasicLiveData stream, created if it doesn't exist."""
-    retrieved = toolkit_client.streams.retrieve(
-        [ExternalId(external_id=TOOLKIT_TEST_STREAM)], ignore_unknown_ids=True
-    )
+    retrieved = toolkit_client.streams.retrieve([ExternalId(external_id=TOOLKIT_TEST_STREAM)], ignore_unknown_ids=True)
     if retrieved:
         return retrieved[0]
     created = toolkit_client.streams.create(
