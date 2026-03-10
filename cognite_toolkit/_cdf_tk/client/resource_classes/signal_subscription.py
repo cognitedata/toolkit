@@ -85,8 +85,8 @@ class SignalSubscription(BaseModelObject):
     sink: SinkRef
     filter: SubscriptionFilter
 
-    def as_id(self) -> SignalSubscriptionId:
-        return SignalSubscriptionId(external_id=self.external_id)
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)
 
 
 class SignalSubscriptionRequest(SignalSubscription, UpdatableRequestResource):
