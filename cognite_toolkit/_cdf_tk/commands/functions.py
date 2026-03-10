@@ -1,5 +1,6 @@
 import os
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -8,6 +9,62 @@ from questionary import Choice
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+
+
+@dataclass(slots=True)
+class ScaffoldDef:
+    """Defines scaffold files to generate alongside the resource YAML.
+
+    Attributes:
+        kind: What the user types (e.g. "Function", "FunctionApp").
+        crud: The ResourceCRUD class used for YAML generation.
+        run: Callable(module_path, external_id, cmd) that creates the scaffold files.
+        prompt_external_id: Whether to interactively prompt for an externalId.
+    """
+
+    kind: str
+    crud: type  # type[ResourceCRUD] — avoid importing to prevent circulars
+    run: Callable[[Path, str, ToolkitCommand], None]
+    prompt_external_id: bool = False
+
+
+_BASIC_HANDLER_PY = """\
+from cognite.client import CogniteClient
+
+
+def handle(client: CogniteClient, data: dict) -> dict:
+    print(f"Hello from {data.get('name', 'world')}!")
+    return {"status": "ok"}
+"""
+
+
+def _scaffold_basic_function(module_path: Path, external_id: str, cmd: ToolkitCommand) -> None:
+    handler_dir = module_path / "functions" / external_id
+    handler_dir.mkdir(parents=True, exist_ok=True)
+    (handler_dir / "handler.py").write_text(_BASIC_HANDLER_PY)
+    print(f"[green]Created {(handler_dir / 'handler.py').as_posix()}[/green]")
+    (handler_dir / "requirements.txt").write_text("")
+    print(f"[green]Created {(handler_dir / 'requirements.txt').as_posix()}[/green]")
+
+
+def _scaffold_function_app(module_path: Path, external_id: str, cmd: ToolkitCommand) -> None:
+    func_cmd = FunctionsCommand(
+        print_warning=cmd._print_warning,
+        skip_tracking=True,
+        silent=cmd.silent,
+    )
+    func_cmd.init(module_path=module_path, external_id=external_id)
+
+
+def get_scaffolds() -> list[ScaffoldDef]:
+    # Lazy import: cruds → loaders → commands creates a circular import chain.
+    # Deferring the import to call-time breaks the cycle.
+    from cognite_toolkit._cdf_tk.cruds._resource_cruds.function import FunctionCRUD
+
+    return [
+        ScaffoldDef("Function", FunctionCRUD, run=_scaffold_basic_function),
+        ScaffoldDef("FunctionApp", FunctionCRUD, prompt_external_id=True, run=_scaffold_function_app),
+    ]
 
 
 @dataclass(slots=True)

@@ -9,13 +9,18 @@ from questionary import Choice
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.commands.functions import FunctionsCommand
+from cognite_toolkit._cdf_tk.commands.functions import ScaffoldDef, get_scaffolds as _fn_scaffolds
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceCRUD
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.function import FunctionAppCRUD
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
+
+# Scaffold definitions for resource types that need extra files beyond the YAML.
+# This pattern is reusable: add get_scaffolds() to any command module
+# (e.g. transformations for .sql files, streamlit for app code)
+# and register it here.
+_ALL_SCAFFOLDS: dict[str, ScaffoldDef] = {s.kind.casefold(): s for s in _fn_scaffolds()}
 
 
 class ResourcesCommand(ToolkitCommand):
@@ -58,9 +63,13 @@ class ResourcesCommand(ToolkitCommand):
 
         return cast(Path, selected)
 
-    def _resolve_kinds(self, kinds: list[str] | None) -> list[type[ResourceCRUD]]:
+    def _resolve_kinds(self, kinds: list[str] | None) -> list[tuple[str, type[ResourceCRUD]]]:
         """
         Resolve kinds from list of strings or do an interactive selection.
+
+        Returns a list of (kind_str, crud) tuples. The kind_str preserves the
+        original user input (e.g. "FunctionApp") so the caller can choose
+        different scaffold behaviour for aliases.
         """
         all_cruds = {crud.kind.casefold(): crud for crud in RESOURCE_CRUD_LIST}
 
@@ -72,17 +81,22 @@ class ResourcesCommand(ToolkitCommand):
             if not selected:
                 print("[red]No resource type selected. Aborting...[/red]")
                 raise typer.Exit()
-            return [selected]
+            return [(selected.kind, selected)]
 
-        resolved_cruds = []
+        resolved: list[tuple[str, type[ResourceCRUD]]] = []
         for kind in kinds:
             kind_lower = kind.casefold()
             if kind_lower in all_cruds:
-                resolved_cruds.append(all_cruds[kind_lower])
+                resolved.append((kind, all_cruds[kind_lower]))
+            elif kind_lower in _ALL_SCAFFOLDS:
+                resolved.append((kind, _ALL_SCAFFOLDS[kind_lower].crud))
             else:
-                matches = difflib.get_close_matches(kind_lower, all_cruds.keys())
+                matches = difflib.get_close_matches(kind_lower, list(all_cruds.keys()) + list(_ALL_SCAFFOLDS.keys()))
                 if matches:
-                    suggestion = all_cruds[matches[0]].kind
+                    suggestion = matches[0]
+                    # Show the canonical name from the CRUD if it's a real kind
+                    if suggestion in all_cruds:
+                        suggestion = all_cruds[suggestion].kind
                     print(f"[red]Unknown resource type '{kind}'. Did you mean '{suggestion}'?[/red]")
                 else:
                     print(
@@ -91,7 +105,7 @@ class ResourcesCommand(ToolkitCommand):
                     )
                 raise typer.Exit()
 
-        return resolved_cruds
+        return resolved
 
     def _get_resource_yaml_content(
         self,
@@ -158,6 +172,8 @@ class ResourcesCommand(ToolkitCommand):
         module_path: Path,
         prefix: str | None = None,
         verbose: bool = False,
+        prompt_external_id: bool = False,
+        kind_label: str = "",
     ) -> str:
         """
         Creates a new resource YAML file in the specified module using the resource_crud.yaml_cls.
@@ -170,19 +186,17 @@ class ResourcesCommand(ToolkitCommand):
         if not resource_dir.exists():
             resource_dir.mkdir(parents=True, exist_ok=True)
 
+        display_kind = kind_label or resource_crud.kind
         if prefix is not None:
             final_prefix = prefix
-        elif issubclass(resource_crud, FunctionAppCRUD):
-            # FunctionApp uses the prefix as external_id for the scaffold wizard,
-            # so prompt for a meaningful name rather than defaulting to my_<Kind>.
+        elif prompt_external_id:
             final_prefix = questionary.text(
-                f"Enter an externalId for the {resource_crud.kind}:",
-                default=f"my_{resource_crud.kind}",
+                f"Enter an externalId for the {display_kind}:",
+                default=f"my_{display_kind}",
             ).unsafe_ask()
         else:
             final_prefix = f"my_{resource_crud.kind}"
-        file_kind = getattr(resource_crud, "yaml_file_kind", resource_crud.kind)
-        file_name = f"{final_prefix}.{file_kind}.yaml"
+        file_name = f"{final_prefix}.{resource_crud.kind}.yaml"
         file_path: Path = resource_dir / file_name
 
         if (
@@ -221,21 +235,6 @@ class ResourcesCommand(ToolkitCommand):
             return f"{name} <{email}>"
         return name or None
 
-    def _create_scaffold_files(
-        self,
-        crud: type[ResourceCRUD],
-        module_path: Path,
-        external_id: str,
-    ) -> None:
-        """Generate extra scaffold files for resource types that need them (e.g. FunctionApp)."""
-        if crud is FunctionAppCRUD:
-            func_cmd = FunctionsCommand(
-                print_warning=self._print_warning,
-                skip_tracking=True,
-                silent=self.silent,
-            )
-            func_cmd.init(module_path=module_path, external_id=external_id)
-
     def create(
         self,
         organization_dir: Path,
@@ -256,6 +255,15 @@ class ResourcesCommand(ToolkitCommand):
         """
         module_path = self._get_or_prompt_module_path(module_name, organization_dir, verbose)
 
-        for crud in self._resolve_kinds(kind):
-            external_id = self._create_resource_yaml_file(crud, module_path, prefix, verbose)
-            self._create_scaffold_files(crud, module_path, external_id)
+        for kind_str, crud in self._resolve_kinds(kind):
+            scaffold = _ALL_SCAFFOLDS.get(kind_str.casefold())
+            external_id = self._create_resource_yaml_file(
+                crud,
+                module_path,
+                prefix,
+                verbose,
+                prompt_external_id=scaffold.prompt_external_id if scaffold else False,
+                kind_label=scaffold.kind if scaffold else "",
+            )
+            if scaffold:
+                scaffold.run(module_path, external_id, self)
