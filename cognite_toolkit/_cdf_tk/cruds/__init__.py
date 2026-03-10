@@ -64,6 +64,7 @@ from ._resource_cruds import (
     SequenceCRUD,
     SequenceRowCRUD,
     SignalSinkCRUD,
+    SignalSubscriptionCRUD,
     SimulatorModelCRUD,
     SimulatorModelRevisionCRUD,
     SimulatorRoutineCRUD,
@@ -96,6 +97,7 @@ if not FeatureFlag.is_enabled(Flags.STREAMS):
     _EXCLUDED_CRUDS.add(StreamCRUD)
 if not FeatureFlag.is_enabled(Flags.SIGNALS):
     _EXCLUDED_CRUDS.add(SignalSinkCRUD)
+    _EXCLUDED_CRUDS.add(SignalSubscriptionCRUD)
 if not FeatureFlag.is_enabled(Flags.SIMULATORS):
     _EXCLUDED_CRUDS.add(SimulatorModelCRUD)
     _EXCLUDED_CRUDS.add(SimulatorRoutineRevisionCRUD)
@@ -247,6 +249,7 @@ __all__ = [
     "SequenceCRUD",
     "SequenceRowCRUD",
     "SignalSinkCRUD",
+    "SignalSubscriptionCRUD",
     "SimulatorModelCRUD",
     "SpaceCRUD",
     "StreamlitCRUD",

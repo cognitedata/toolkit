@@ -33,6 +33,7 @@ from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.sequence_rows import SequenceRowsAPI
+from cognite_toolkit._cdf_tk.client.api.signal_subscriptions import SignalSubscriptionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_routine_revisions import SimulatorRoutineRevisionsAPI
@@ -148,6 +149,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.sequence import (
     SequenceResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.signal_sink import SignalSinkRequest, SignalSinkResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import (
+    SignalSubscriptionRequest,
+    SignalSubscriptionResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -267,6 +273,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         UserProfilesAPI,
         # Special handling due to need for file Id and update.
         AnnotationsAPI,
+        # Subscriptions depend on existing sinks and have no retrieve method.
+        SignalSubscriptionsAPI,
     }
 )
 
@@ -477,6 +485,20 @@ def get_examples_minimum_requests(request_cls: type[ResponseResource]) -> list[d
         RAWTableResponse: [{"name": "smoke-test-raw-table", "dbName": "smoke-test-raw-database"}],
         SearchConfigResponse: [{"view": {"space": "cdf_cdm", "externalId": "CogniteAsset"}}],
         SecurityCategoryResponse: [{"name": "smoke-test-security-category"}],
+        SignalSinkResponse: [
+            {
+                "type": "email",
+                "externalId": "smoke-test-signal-sink",
+                "emailAddress": "smoke-test@example.com",
+            }
+        ],
+        SignalSubscriptionResponse: [
+            {
+                "externalId": "smoke-test-signal-subscription",
+                "sink": {"type": "email", "externalId": "smoke-test-signal-sink"},
+                "filter": {"topic": "cognite_integrations"},
+            }
+        ],
         SequenceResponse: [
             {"externalId": "smoke-test-sequence", "columns": [{"externalId": "smoke-test-sequence-column"}]}
         ],
@@ -1959,3 +1981,50 @@ class TestCDFResourceAPI:
         finally:
             # Clean up
             client.tool.annotations.delete([annotation_request.as_id()])
+
+    def test_signal_subscriptions_crudl(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        sink_example = get_examples_minimum_requests(SignalSinkResponse)[0]
+        sink_request = SignalSinkRequest.model_validate(sink_example)
+        sink_id = sink_request.as_id()
+
+        subscription_example = get_examples_minimum_requests(SignalSubscriptionResponse)[0]
+        subscription_request = SignalSubscriptionRequest.model_validate(subscription_example)
+        subscription_id = subscription_request.as_id()
+
+        try:
+            # Create sink (subscription depends on it)
+            sink_endpoints = client.tool.signal_sinks._method_endpoint_map
+            self.assert_endpoint_method(
+                lambda: client.tool.signal_sinks.create([sink_request]),
+                "create",
+                sink_endpoints["create"],
+                sink_id,
+            )
+
+            # Create subscription
+            sub_endpoints = client.tool.signal_subscriptions._method_endpoint_map
+            self.assert_endpoint_method(
+                lambda: client.tool.signal_subscriptions.create([subscription_request]),
+                "create",
+                sub_endpoints["create"],
+                subscription_id,
+            )
+
+            # Update subscription
+            self.assert_endpoint_method(
+                lambda: client.tool.signal_subscriptions.update([subscription_request]),
+                "update",
+                sub_endpoints["update"],
+                subscription_id,
+            )
+
+            # List subscriptions
+            list_endpoint = sub_endpoints["list"]
+            listed = client.tool.signal_subscriptions.list(limit=1)
+            if len(listed) == 0:
+                raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed subscription, got 0")
+        finally:
+            client.tool.signal_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
+            client.tool.signal_sinks.delete([sink_id], ignore_unknown_ids=True)
