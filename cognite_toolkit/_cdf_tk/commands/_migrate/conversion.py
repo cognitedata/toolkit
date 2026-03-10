@@ -857,6 +857,24 @@ class ConversionContext:
     new_id: NodeId
 
 
+class ContainerPropertiesMapping(ABC):
+    """Base class for defining custom mapping of container properties in instance to instance conversion
+
+    ClassVar:
+        VIEW_IDS: Set of view IDs that this mapping applies to. If the source view ID of the instance being converted is in this set,
+        this mapping will be used to convert the container properties.
+        RUN_DEFAULT_CONVERSIONS: Whether to run the default conversion logic in addition to the custom conversion defined in the convert method
+
+    ."""
+
+    VIEW_IDS: ClassVar[Set[ViewId]] = frozenset()
+    RUN_DEFAULT_CONVERSIONS: ClassVar[bool] = True
+
+    @abstractmethod
+    def convert(self, source_properties: dict[str, JsonValue], context: ConversionContext) -> ConversionResult:
+        raise NotImplementedError()
+
+
 def convert_container_properties(
     source_properties: dict[str, JsonValue], context: ConversionContext
 ) -> ConversionResult:
@@ -867,7 +885,9 @@ def convert_container_properties(
 
     Args:
         source_properties: Dict of source property IDs to values.
-
+        context: ConversionContext containing the mapping and other necessary information for the conversion.
+    Returns:
+        ConversionResult containing the created properties, edges to create and any errors encountered during conversion.
     """
     created_properties: dict[str, JsonValue] = {}
     edges: list[EdgeRequest] = []
@@ -938,6 +958,14 @@ def convert_container_properties(
 def convert_edges(
     edge_targets_by_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]], context: ConversionContext
 ) -> ConversionResult:
+    """Convert edges from the source instance to the destination instance based on the edge mapping in the context.
+    Args:
+        edge_targets_by_type_and_direction: Dict mapping edge type IDs to lists of EdgeOtherSide, representing the edges connected to the source instance grouped by their type and direction.
+        context: ConversionContext containing the mapping and other necessary information for the conversion.
+
+    Returns:
+        ConversionResult containing the created properties, edges to create and any errors encountered during conversion.
+    """
     created_properties: dict[str, JsonValue] = {}
     new_edges: list[EdgeRequest] = []
     errors: list[str] = []

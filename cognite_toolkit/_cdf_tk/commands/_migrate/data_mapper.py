@@ -46,6 +46,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
+    ContainerPropertiesMapping,
     ConversionContext,
     DirectRelationCache,
     EdgeOtherSide,
@@ -664,6 +665,15 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
     - Supports converting timeseries/files references to direct relation pointing to the CogniteTimeSeries/CogniteFile
         views.
 
+    Args:
+        client: The ToolkitClient to use for lookups and caching.
+        space_mapping: A mapping from source spaces to target spaces.
+        mappings: A sequence of ViewToViewMappings defining how to map source views to target views and how to convert properties and edges.
+        special_connection_cases: Optional sequence of InstanceToInstanceSpecialMappings defining special cases for mapping connections
+            between instances that cannot be handled by the general ViewToViewMappings.
+        special_cases: Optional sequence of ContainerPropertiesMappings defining special cases for mapping container
+            properties that cannot be handled by the general ViewToViewMappings.
+
     """
 
     def __init__(
@@ -672,11 +682,15 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         space_mapping: Mapping[str, str],
         mappings: Sequence[ViewToViewMapping],
         special_connection_cases: Sequence[InstanceToInstanceSpecialMapping] | None = None,
+        special_cases: Sequence[ContainerPropertiesMapping] | None = None,
     ) -> None:
         super().__init__(client)
         self._connection_creator = ConnectionCreator(client, space_mapping, special_connection_cases)
         self._mappings_by_source_view: dict[ViewId, ViewToViewMapping] = {
             mapping.source_view: mapping for mapping in mappings
+        }
+        self._special_cases: dict[ViewId, ContainerPropertiesMapping] = {
+            view_id: mapping for mapping in (special_cases or []) for view_id in mapping.VIEW_IDS
         }
 
     def prepare(self, source_selector: InstanceViewSelector) -> None:
