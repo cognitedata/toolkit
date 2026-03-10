@@ -118,7 +118,7 @@ class RecordIO(
         container_crud = ContainerCRUD.create_loader(self.client)
         for container in container_crud.retrieve([selector.container.as_id()]):
             if container.is_global:
-                continue    
+                continue
             yield StorageIOConfig(
                 kind=ContainerCRUD.kind,
                 folder_name=ContainerCRUD.folder_name,
