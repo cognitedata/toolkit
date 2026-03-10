@@ -21,7 +21,10 @@ class DevFunctionApp(typer.Typer):
 
     @staticmethod
     def serve(
-        path: Annotated[Path | None, typer.Argument(help="Path to the directory containing handler.py. If omitted, discovers and prompts.")] = None,
+        path: Annotated[
+            Path | None,
+            typer.Argument(help="Path to the directory containing handler.py. If omitted, discovers and prompts."),
+        ] = None,
         host: Annotated[str, typer.Option("--host", help="Host to bind to")] = "127.0.0.1",
         port: Annotated[int, typer.Option("--port", help="Port to bind to")] = 8000,
         reload: Annotated[bool, typer.Option("--reload/--no-reload", help="Enable auto-reload on code changes")] = True,

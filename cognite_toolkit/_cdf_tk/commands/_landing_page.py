@@ -27,7 +27,7 @@ ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 class _LogCollector(logging.Handler):
     """Logging handler that appends formatted records to a deque."""
 
-    def __init__(self, buffer: deque[dict[str, str]], *, maxlen: int = 500) -> None:
+    def __init__(self, buffer: deque[dict[str, Any]], *, maxlen: int = 500) -> None:
         super().__init__()
         self.buffer = buffer
         self._seq = 0
@@ -73,7 +73,7 @@ class LandingPageMiddleware:
         self._start_time = time.monotonic()
 
         # Log collection — attach to root and key loggers that may have propagate=False
-        self._log_buffer: deque[dict[str, str]] = deque(maxlen=500)
+        self._log_buffer: deque[dict[str, Any]] = deque(maxlen=500)
         self._log_handler = _LogCollector(self._log_buffer)
         self._log_handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
         logging.getLogger().addHandler(self._log_handler)

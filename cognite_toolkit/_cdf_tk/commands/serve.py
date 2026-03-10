@@ -8,6 +8,7 @@ import tempfile
 import threading
 import webbrowser
 from pathlib import Path
+from typing import Any
 
 from rich import print
 
@@ -25,7 +26,7 @@ class ServeFunctionCommand(ToolkitCommand):
     ) -> None:
         """Start a local development server for testing a function app handler."""
         try:
-            import uvicorn  # noqa: PLC0415
+            import uvicorn
         except ImportError:
             print(
                 "[bold red]Error:[/] Missing dependencies for serve command.\n"
@@ -35,8 +36,8 @@ class ServeFunctionCommand(ToolkitCommand):
             raise SystemExit(1)
 
         try:
-            from cognite_function_apps.cli import _load_handler_from_path  # noqa: F401, PLC0415
-            from cognite_function_apps.devserver import create_asgi_app  # noqa: F401, PLC0415
+            from cognite_function_apps.cli import _load_handler_from_path  # noqa: F401
+            from cognite_function_apps.devserver import create_asgi_app  # noqa: F401
         except ImportError:
             print(
                 "[bold red]Error:[/] Missing [bold]cognite-function-apps[/] package.\n"
@@ -53,7 +54,7 @@ class ServeFunctionCommand(ToolkitCommand):
         self._validate_handler_is_function_app(handler_path)
 
         # Authenticate via the toolkit's standard auth path
-        from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables  # noqa: PLC0415
+        from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
         env_vars = EnvironmentVariables.create_from_environment()
         cdf_project = env_vars.CDF_PROJECT
@@ -89,7 +90,7 @@ class ServeFunctionCommand(ToolkitCommand):
     def _discover_function_dirs(organization_dir: Path | None = None) -> list[Path]:
         """Discover function app directories by scanning for handler.py files
         that import cognite_function_apps."""
-        from cognite_toolkit._cdf_tk.utils.modules import iterate_modules  # noqa: PLC0415
+        from cognite_toolkit._cdf_tk.utils.modules import iterate_modules
 
         root = organization_dir or Path.cwd()
         function_dirs: list[Path] = []
@@ -115,7 +116,7 @@ class ServeFunctionCommand(ToolkitCommand):
     @staticmethod
     def _prompt_function_selection() -> Path:
         """Discover function apps and prompt the user to pick one."""
-        from cognite_toolkit._cdf_tk.cdf_toml import CDFToml  # noqa: PLC0415
+        from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 
         toml = CDFToml.load(Path.cwd())
         org_dir = toml.cdf.default_organization_dir
@@ -178,8 +179,8 @@ class ServeFunctionCommand(ToolkitCommand):
         Falls back to CDF_BUILD_TYPE env var, then 'dev'.
         """
         try:
-            from cognite_toolkit._cdf_tk.cdf_toml import CDFToml  # noqa: PLC0415
-            from cognite_toolkit._cdf_tk.data_classes._config_yaml import BuildConfigYAML  # noqa: PLC0415
+            from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+            from cognite_toolkit._cdf_tk.data_classes._config_yaml import BuildConfigYAML
 
             toml = CDFToml.load(Path.cwd())
             build_env = toml.cdf.default_env
@@ -284,7 +285,7 @@ class ServeFunctionCommand(ToolkitCommand):
         Returns (tracing_enabled, backend_endpoint).
         """
         try:
-            from cognite_function_apps.tracer import TracingApp  # noqa: PLC0415
+            from cognite_function_apps.tracer import TracingApp
 
             # Walk the ASGI app chain looking for a TracingApp
             app = getattr(handle, "asgi_app", None)
@@ -293,7 +294,7 @@ class ServeFunctionCommand(ToolkitCommand):
                     # Try to get the endpoint from the exporter provider closure
                     endpoint = ""
                     try:
-                        from cognite_function_apps.tracer import OTLP_BACKENDS  # noqa: PLC0415
+                        from cognite_function_apps.tracer import OTLP_BACKENDS
 
                         for _name, config in OTLP_BACKENDS.items():
                             if config.endpoint and hasattr(app, "_exporter_provider"):
@@ -319,7 +320,7 @@ class ServeFunctionCommand(ToolkitCommand):
         """Monkey-patch cognite_function_apps to use the toolkit's auth path."""
         import importlib
 
-        from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables  # noqa: PLC0415
+        from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
         asgi_module = importlib.import_module("cognite_function_apps.devserver.asgi")
 
@@ -327,13 +328,13 @@ class ServeFunctionCommand(ToolkitCommand):
             env_vars = EnvironmentVariables.create_from_environment()
             return env_vars.get_client(is_strict_validation=False)
 
-        asgi_module.get_cognite_client_from_env = _toolkit_get_client  # type: ignore[assignment]
+        asgi_module.get_cognite_client_from_env = _toolkit_get_client  # type: ignore[attr-defined]
 
     # ── Server startup ──
 
     @staticmethod
     def _run_server_with_reload(
-        uvicorn: object,
+        uvicorn: Any,
         handler_path: Path,
         host: str,
         port: int,
@@ -388,7 +389,7 @@ app = LandingPageMiddleware(
             sys.path.insert(0, temp_dir)
 
         try:
-            uvicorn.run(  # type: ignore[union-attr]
+            uvicorn.run(
                 "_cdf_serve_asgi_app:app",
                 host=host,
                 port=port,
@@ -403,7 +404,7 @@ app = LandingPageMiddleware(
 
     @staticmethod
     def _run_server_without_reload(
-        uvicorn: object,
+        uvicorn: Any,
         handler_path: Path,
         host: str,
         port: int,
@@ -413,10 +414,10 @@ app = LandingPageMiddleware(
         cdf_cluster: str,
     ) -> None:
         """Run the development server without auto-reload."""
-        from cognite_function_apps.cli import _load_handler_from_path  # noqa: PLC0415
-        from cognite_function_apps.devserver import create_asgi_app  # noqa: PLC0415
+        from cognite_function_apps.cli import _load_handler_from_path
+        from cognite_function_apps.devserver import create_asgi_app
 
-        from ._landing_page import LandingPageMiddleware  # noqa: PLC0415
+        from ._landing_page import LandingPageMiddleware
 
         package_root = str(handler_path.parent)
         package_root_added = package_root not in sys.path
@@ -437,7 +438,7 @@ app = LandingPageMiddleware(
             print("[blue]Creating ASGI app...[/]")
             inner_app = create_asgi_app(handle)
             asgi_app = LandingPageMiddleware(
-                inner_app,
+                inner_app,  # type: ignore[arg-type]
                 handler_name=handler_name,
                 handler_path=str(handler_path / "handler.py"),
                 cdf_project=cdf_project,
@@ -447,7 +448,7 @@ app = LandingPageMiddleware(
             )
             print("[green]ASGI app created[/]")
 
-            uvicorn.run(  # type: ignore[union-attr]
+            uvicorn.run(
                 asgi_app,
                 host=host,
                 port=port,

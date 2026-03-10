@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -12,7 +11,6 @@ import pytest
 
 from cognite_toolkit._cdf_tk.commands._landing_page import LandingPageMiddleware
 from cognite_toolkit._cdf_tk.commands.serve import ServeFunctionCommand
-
 
 # ── ServeFunctionCommand._validate_handler_directory ──
 
@@ -157,6 +155,7 @@ class TestPatchCogniteClientFactory:
 
 # ── LandingPageMiddleware ──
 
+
 def _run_async(coro):
     """Helper to run async code in tests."""
     loop = asyncio.new_event_loop()
@@ -181,10 +180,7 @@ class _ResponseCollector:
 
     @property
     def headers_dict(self) -> dict[str, str]:
-        return {
-            k.decode(): v.decode()
-            for k, v in self.messages[0].get("headers", [])
-        }
+        return {k.decode(): v.decode() for k, v in self.messages[0].get("headers", [])}
 
     @property
     def body(self) -> bytes:
@@ -211,6 +207,7 @@ async def _noop_receive():
 
 def _make_middleware(inner_app=None, **kwargs):
     if inner_app is None:
+
         async def inner_app(scope, receive, send):
             await send({"type": "http.response.start", "status": 200, "headers": [], "trailers": False})
             await send({"type": "http.response.body", "body": b"inner", "more_body": False})
