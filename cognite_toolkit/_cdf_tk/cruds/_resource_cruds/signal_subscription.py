@@ -4,7 +4,7 @@ from typing import Any, Literal, final
 from cognite.client.data_classes.capabilities import Capability
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SignalSinkId, SignalSubscriptionId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SignalSinkId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     Acl,
     AllScope,
@@ -17,6 +17,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import 
     SignalSubscriptionResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.hosted_extractors import (
+    HostedExtractorDestinationCRUD,
+    HostedExtractorSourceCRUD,
+)
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.signal_sink import SignalSinkCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.workflow import WorkflowCRUD
 from cognite_toolkit._cdf_tk.yaml_classes import SignalSubscriptionYAML
@@ -29,7 +33,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.signal_subscription import (
 
 
 @final
-class SignalSubscriptionCRUD(ResourceCRUD[SignalSubscriptionId, SignalSubscriptionRequest, SignalSubscriptionResponse]):
+class SignalSubscriptionCRUD(ResourceCRUD[ExternalId, SignalSubscriptionRequest, SignalSubscriptionResponse]):
     folder_name = "signals"
     resource_cls = SignalSubscriptionResponse
     resource_write_cls = SignalSubscriptionRequest
@@ -54,18 +58,20 @@ class SignalSubscriptionCRUD(ResourceCRUD[SignalSubscriptionId, SignalSubscripti
             pass
         elif isinstance(resource.filter, WorkflowsFilterYAML) and resource.filter.resource:
             yield WorkflowCRUD, ExternalId(external_id=resource.filter.resource)
-        elif isinstance(resource.filter, HostedExtractorsFilterYAML) and resource.filter.resource:
-            # TODO: hosted extractors filter.resource dependency; add once the mapping is clear.
-            pass
+        elif isinstance(resource.filter, HostedExtractorsFilterYAML):
+            if resource.filter.source_external_id:
+                yield HostedExtractorSourceCRUD, ExternalId(external_id=resource.filter.source_external_id)
+            if resource.filter.destination_external_id:
+                yield HostedExtractorDestinationCRUD, ExternalId(external_id=resource.filter.destination_external_id)
 
     @classmethod
-    def get_id(cls, item: SignalSubscriptionRequest | SignalSubscriptionResponse | dict) -> SignalSubscriptionId:
+    def get_id(cls, item: SignalSubscriptionRequest | SignalSubscriptionResponse | dict) -> ExternalId:
         if isinstance(item, dict):
-            return SignalSubscriptionId(external_id=item["externalId"])
-        return SignalSubscriptionId(external_id=item.external_id)
+            return ExternalId(external_id=item["externalId"])
+        return ExternalId(external_id=item.external_id)
 
     @classmethod
-    def dump_id(cls, id: SignalSubscriptionId) -> dict[str, Any]:
+    def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
 
     @classmethod
@@ -86,13 +92,14 @@ class SignalSubscriptionCRUD(ResourceCRUD[SignalSubscriptionId, SignalSubscripti
     def create(self, items: Sequence[SignalSubscriptionRequest]) -> list[SignalSubscriptionResponse]:
         return self.client.tool.signal_subscriptions.create(list(items))
 
-    def retrieve(self, ids: Sequence[SignalSubscriptionId]) -> list[SignalSubscriptionResponse]:
-        return []
+    def retrieve(self, ids: Sequence[ExternalId]) -> list[SignalSubscriptionResponse]:
+        id_set = {id_.external_id for id_ in ids}
+        return [item for item in self.client.tool.signal_subscriptions.list() if item.external_id in id_set]
 
     def update(self, items: Sequence[SignalSubscriptionRequest]) -> list[SignalSubscriptionResponse]:
         return self.client.tool.signal_subscriptions.update(list(items))
 
-    def delete(self, ids: Sequence[SignalSubscriptionId]) -> int:
+    def delete(self, ids: Sequence[ExternalId]) -> int:
         self.client.tool.signal_subscriptions.delete(list(ids), ignore_unknown_ids=True)
         return len(ids)
 

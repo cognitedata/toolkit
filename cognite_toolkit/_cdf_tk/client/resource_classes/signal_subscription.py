@@ -4,7 +4,7 @@ from typing import Annotated, Any, ClassVar, Literal
 from pydantic import BeforeValidator, ConfigDict, Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, ResponseResource, UpdatableRequestResource
-from cognite_toolkit._cdf_tk.client.identifiers import SignalSubscriptionId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 

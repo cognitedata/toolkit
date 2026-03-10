@@ -183,10 +183,3 @@ class SignalSinkId(Identifier):
 
     def __str__(self) -> str:
         return f"type='{self.type}', externalId='{self.external_id}'"
-
-
-class SignalSubscriptionId(Identifier):
-    external_id: str
-
-    def __str__(self) -> str:
-        return f"externalId='{self.external_id}'"

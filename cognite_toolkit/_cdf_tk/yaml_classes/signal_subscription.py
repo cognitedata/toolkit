@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client.identifiers import SignalSubscriptionId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 
 from .base import BaseModelResource, ToolkitResource
 
@@ -51,6 +51,9 @@ class HostedExtractorsFilterYAML(BaseModelResource):
     resource: str | None = Field(default=None, min_length=1, max_length=512)
     category: list[str] | None = None
     severity: Literal["info", "warning", "error"] | None = None
+    source_type: str | None = None
+    source_external_id: str | None = Field(default=None, min_length=1, max_length=255)
+    destination_external_id: str | None = Field(default=None, min_length=1, max_length=255)
 
 
 SubscriptionFilterYAML = Annotated[
@@ -72,5 +75,5 @@ class SignalSubscriptionYAML(ToolkitResource):
         description="Filter determining which signals are delivered to the sink.",
     )
 
-    def as_id(self) -> SignalSubscriptionId:
-        return SignalSubscriptionId(external_id=self.external_id)
+    def as_id(self) -> ExternalId:
+        return ExternalId(external_id=self.external_id)

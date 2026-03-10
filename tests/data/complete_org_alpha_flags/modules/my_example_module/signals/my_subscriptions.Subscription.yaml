@@ -20,3 +20,5 @@
   filter:
     topic: cognite_hosted_extractors
     severity: info
+    sourceExternalId: my-source
+    destinationExternalId: my-dest
