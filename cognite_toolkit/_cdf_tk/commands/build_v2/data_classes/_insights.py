@@ -73,27 +73,21 @@ class InsightList(UserList[Insight]):
         return any(isinstance(insight, ModelSyntaxError) for insight in self.data)
 
     @property
+    def has_errors(self) -> bool:
+        """Returns True if there are any errors (model syntax or consistency) in the insights."""
+        return any(isinstance(insight, (ModelSyntaxError, ConsistencyError)) for insight in self.data)
+
+    @property
     def summary(self) -> dict[str, int]:
         """Returns a summary dict with breakdown of insights by type.
 
         Returns:
             Dict with keys: syntax_errors, consistency_errors, recommendations
         """
-        breakdown = {
-            "syntax_errors": 0,
-            "consistency_errors": 0,
-            "recommendations": 0,
-        }
 
-        for insight in self.data:
-            if isinstance(insight, ModelSyntaxError):
-                breakdown["syntax_errors"] += 1
-            elif isinstance(insight, ConsistencyError):
-                breakdown["consistency_errors"] += 1
-            elif isinstance(insight, Recommendation):
-                breakdown["recommendations"] += 1
+        by_type = self.by_type()
 
-        return breakdown
+        return {insight_type.__name__: len(insights) for insight_type, insights in by_type.items()}
 
     def to_csv(self) -> str:
         """Returns a CSV formatted string representation of the insights.

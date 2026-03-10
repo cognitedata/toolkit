@@ -1,30 +1,21 @@
 """Build lineage tracking classes for comprehensive build process traceability."""
 
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
+import yaml
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
-from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuildParameters, BuiltModule
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
+    ConsistencyError,
+    Insight,
+    ModelSyntaxError,
+    Recommendation,
+)
 
-from ._insights import InsightList
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, ValidationType
-
-
-class ModulesSummary(BaseModel):
-    """Summary of module statistics."""
-
-    discovered: int = Field(description="Total modules discovered")
-    processed: int = Field(description="Total modules successfully processed")
-    failed: int = Field(description="Total modules that failed")
-
-
-class ResourcesSummary(BaseModel):
-    """Summary of resource statistics."""
-
-    discovered: int = Field(description="Total resources discovered")
-    processed: int = Field(description="Total resources successfully processed")
-    failed: int = Field(description="Total resources that failed")
 
 
 class BuildConfigLineage(BaseModel):
@@ -47,61 +38,16 @@ class ResourceLineageItem(BaseModel):
 
     source_file: AbsoluteFilePath = Field(description="Absolute path to source YAML file")
     source_hash: str = Field(description="Hash of source file content (before variable substitution)")
-    resource_type: str = Field(alias="type", description="Resource type folder (e.g., 'spaces', 'containers', 'views')")
+    type_: str = Field(alias="type", description="Resource type folder (e.g., 'spaces', 'containers', 'views')")
     kind: str = Field(description="Resource kind (e.g., 'space', 'container', 'view')")
-
-    # Variable substitution tracking
-    variables_applied: list[str] = Field(
-        default_factory=list, description="Variables that were substituted in this resource"
-    )
-
-    # Validation phase insights
-    local_validation_insights: InsightList = Field(
-        default_factory=InsightList, description="Rule validation insights (local validation)"
-    )
-    cdf_validation_insights: InsightList = Field(
-        default_factory=InsightList, description="CDF dependency validation insights"
-    )
-    global_validation_insights: InsightList = Field(
-        default_factory=InsightList, description="Cross-resource validation insights (e.g., from NEAT)"
-    )
-
-    # Dependencies
-    internal_dependencies: set[tuple[type[ResourceCRUD], Identifier]] = Field(
-        default_factory=set, description="Dependencies on other resources in this build"
-    )
-    external_dependencies: set[tuple[type[ResourceCRUD], Identifier]] = Field(
-        default_factory=set, description="Dependencies on resources that must exist in CDF"
-    )
-    missing_dependencies: set[tuple[type[ResourceCRUD], Identifier]] = Field(
-        default_factory=set, description="External dependencies that don't exist in build or CDF"
-    )
 
     # Output
     built_file: AbsoluteFilePath | None = Field(None, description="Path to output YAML file in build directory")
 
     @property
-    def overall_status(self) -> str:
-        """Determines overall build status for this resource."""
-        if self.missing_dependencies:
-            return "FAILED"
-        # Check for consistency errors in CDF validation
-        if any(insight.__class__.__name__ == "ConsistencyError" for insight in self.cdf_validation_insights):
-            return "FAILED"
-        if (self.local_validation_insights) or any(
-            insight.__class__.__name__ == "ConsistencyWarning" for insight in self.cdf_validation_insights
-        ):
-            return "BUILT_WITH_WARNINGS"
-        return "SUCCESS"
-
-    @property
-    def all_insights(self) -> InsightList:
-        """Aggregates all insights across all phases."""
-        combined = InsightList()
-        combined.extend(self.local_validation_insights)
-        combined.extend(self.cdf_validation_insights)
-        combined.extend(self.global_validation_insights)
-        return combined
+    def is_success(self) -> bool:
+        """Determine if resource build was successful based on presence of built file."""
+        return self.built_file is not None
 
 
 class ModuleLineageItem(BaseModel):
@@ -111,276 +57,163 @@ class ModuleLineageItem(BaseModel):
 
     module_id: str = Field(description="Module identifier (e.g., modules/my_module)")
     module_path: AbsoluteDirPath = Field(description="Absolute path to module source directory")
-    iteration: int = Field(
-        default=0, description="Iteration number if multi-value variables were used (0 if no iteration)"
-    )
 
     # Resource tracking
-    resource_lineage: dict[AbsoluteFilePath, ResourceLineageItem] = Field(
-        default_factory=dict, description="Mapping of source file to resource lineage"
+    resource_lineage: list[ResourceLineageItem] = Field(
+        default_factory=list, description="List of resource lineage items for this module"
     )
-
-    # Resource summary
-    resources: ResourcesSummary = Field(description="Resource statistics (discovered, processed, failed)")
 
     # Insights breakdown at module level
-    insights: dict[str, int] = Field(description="Breakdown of insights by type for this module")
+    insights_summary: dict[type[Insight], int] = Field(description="Breakdown of insights by type for this module")
 
     @property
-    def overall_status(self) -> str:
-        """Determines overall build status for this module."""
-        # Check insights first - if there are syntax or consistency errors, module failed
-        if self.insights.get("syntax_errors", 0) > 0 or self.insights.get("consistency_errors", 0) > 0:
-            return "FAILED"
+    def is_success(self) -> bool:
+        """Determine if module build was successful based on insights summary."""
+        return (
+            self.insights_summary.get(ModelSyntaxError, 0) == 0
+            and self.insights_summary.get(ConsistencyError, 0) == 0
+            and bool(self.resource_lineage)
+        )
 
-        # Check if any resource failed
-        if any(item.overall_status == "FAILED" for item in self.resource_lineage.values()):
-            return "FAILED"
+    @classmethod
+    def from_built_module(cls, module: BuiltModule) -> "ModuleLineageItem":
+        """Construct lineage item from built module."""
 
-        if any(item.overall_status == "BUILT_WITH_WARNINGS" for item in self.resource_lineage.values()):
-            return "BUILT_WITH_WARNINGS"
+        resource_lineage = []
 
-        return "SUCCESS"
+        for type_, file_by_kind in module.resource_by_type_by_kind.items():
+            for kind, files in file_by_kind.items():
+                for built_file in files:
+                    source_file = module.built_files_by_source.get(built_file)
+                    if source_file is None:
+                        raise RuntimeError("This is a bug - built file does not have a corresponding source file.")
 
-    @property
-    def failure_reason(self) -> str | None:
-        """Indicates why the module failed, if it did."""
-        reasons = []
-        if self.insights.get("syntax_errors", 0) > 0:
-            reasons.append("SYNTAX_ERRORS")
-        if self.insights.get("consistency_errors", 0) > 0:
-            reasons.append("CONSISTENCY_ERRORS")
+                    resource_lineage.append(
+                        ResourceLineageItem(
+                            source_file=source_file,
+                            source_hash="",  # Todo: Store source hash in built module for accurate lineage.
+                            type_=type_,
+                            kind=kind,
+                            built_file=built_file,
+                        )
+                    )
 
-        if reasons:
-            return " | ".join(reasons)
-        return None
+        return cls(
+            module_id=module.source.id.as_posix(),
+            module_path=module.source.path,
+            resource_lineage=resource_lineage,
+            insights_summary={type_: len(insights) for type_, insights in module.insights.by_type().items()},
+        )
 
-    @property
-    def all_insights(self) -> InsightList:
-        """Aggregates all insights from all resources."""
-        combined = InsightList()
-        for item in self.resource_lineage.values():
-            combined.extend(item.all_insights)
-        return combined
+    def to_dict(self, organization_dir: Path | None = None) -> dict[str, Any]:
+        """Generate a dictionary representation of ModuleLineageItem containing only string values."""
+        simple_dict = {
+            "moduleId": self.module_id,
+            "modulePath": str(self.module_path.relative_to(organization_dir))
+            if organization_dir
+            else str(self.module_path),
+            "resources": [
+                {
+                    "sourceFile": str(item.source_file.relative_to(organization_dir))
+                    if organization_dir
+                    else str(item.source_file),
+                    "type": item.type_,
+                    "kind": item.kind,
+                    "builtFile": str(item.built_file.relative_to(organization_dir))
+                    if item.built_file and organization_dir
+                    else (str(item.built_file) if item.built_file else None),
+                }
+                for item in self.resource_lineage
+            ],
+            "insightsSummary": {insight_type.__name__: count for insight_type, count in self.insights_summary.items()},
+            "status": "SUCCESS" if self.is_success else "FAILED",
+        }
 
+        if simple_dict["status"] == "FAILED":
+            if self.insights_summary.get(ModelSyntaxError, 0) > 0:
+                simple_dict["failureReasons"] = "ModelSyntaxError"
+            elif self.insights_summary.get(ConsistencyError, 0) > 0:
+                simple_dict["failureReasons"] = "ConsistencyError"
 
-class DependencyLineageItem(BaseModel):
-    """Tracks dependency resolution through the build process."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    dependent_resource_id: Identifier = Field(description="Resource that has a dependency")
-    dependency_resource_id: Identifier = Field(description="Resource being depended on")
-    dependency_type: type[ResourceCRUD] = Field(description="CRUD class for dependency")
-
-    # Dependency classification
-    is_internal: bool = Field(description="True if dependency is within the build, False if external to CDF")
-    resolved_in_build: bool = Field(
-        description="True if dependency is found in the build (for internal) or in CDF (for external)"
-    )
-    built_in_same_module: bool = Field(
-        default=False, description="True if dependency is in same module as dependent (internal only)"
-    )
-
-    # Resolution details
-    satisfied_by: Identifier | None = Field(
-        None, description="Actual identifier of the resource that satisfies this dependency (if found)"
-    )
+        return simple_dict
 
 
 class BuildLineage(BaseModel):
-    """Comprehensive lineage tracking for the entire build process.
+    """Minimal linage"""
 
-    Provides full traceability of:
-    - Source files and modules
-    - Resource parsing and validation
-    - Dependencies and their resolution
-    - Validation insights by phase
-    - Build output and statistics
-    """
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
 
     # Build metadata
-    build_timestamp: datetime = Field(
-        default_factory=datetime.utcnow, description="When build started", alias="timestamp"
-    )
-    build_duration_seconds: float | None = Field(None, description="Total build duration in seconds", alias="duration")
+    timestamp: datetime = Field(default_factory=datetime.now, description="When build started", alias="timestamp")
+    duration: float | None = Field(None, description="Total build duration in seconds", alias="duration")
 
-    # Configuration
-    config: BuildConfigLineage = Field(description="Build configuration and environment")
+    organization_dir: Path = Field(alias="organizationDirectory")
+    build_dir: Path = Field(alias="buildDirectory")
 
     # Module tracking
-    module_lineage: dict[RelativeDirPath, list[ModuleLineageItem]] = Field(
-        default_factory=dict,
+    module_lineage: list[ModuleLineageItem] = Field(
+        default_factory=list,
+        alias="moduleLineage",
         description="Lineage for each module, indexed by module path. List because of iterations.",
     )
 
-    # Dependency tracking
-    dependencies: list[DependencyLineageItem] = Field(
-        default_factory=list, description="All dependencies discovered across all resources"
-    )
-
-    # Summary statistics
-    modules: ModulesSummary = Field(description="Module statistics (discovered, processed, failed)")
-
-    # Insights summary
-    insights: dict[str, int] = Field(description="Summary of all insights found during build")
-
-    # Overall status
-    build_successful: bool = Field(description="True if build completed without errors")
-
-    # ==================== Properties for Analysis ====================
-
     @property
-    def status(self) -> str:
-        """Overall build status based on success flag."""
-        return "SUCCESS" if self.build_successful else "FAILED"
-
-    @property
-    def failed_modules(self) -> list[tuple[RelativeDirPath, ModuleLineageItem]]:
-        """All modules that failed during build."""
-        failed = []
-        for module_path, lineages in self.module_lineage.items():
-            for lineage in lineages:
-                if lineage.overall_status == "FAILED":
-                    failed.append((module_path, lineage))
-        return failed
-
-    @property
-    def built_modules(self) -> list[tuple[RelativeDirPath, ModuleLineageItem]]:
-        """All modules that were successfully built."""
-        built = []
-        for module_path, lineages in self.module_lineage.items():
-            for lineage in lineages:
-                if lineage.overall_status in ("SUCCESS", "BUILT_WITH_WARNINGS"):
-                    built.append((module_path, lineage))
-        return built
-
-    @property
-    def failed_resources(self) -> list[tuple[RelativeDirPath, ResourceLineageItem]]:
-        """All resources that failed during build."""
-        failed = []
-        for module_path, lineages in self.module_lineage.items():
-            for lineage in lineages:
-                for resource in lineage.resource_lineage.values():
-                    if resource.overall_status == "FAILED":
-                        failed.append((module_path, resource))
-        return failed
-
-    @property
-    def unresolved_dependencies(self) -> list[DependencyLineageItem]:
-        """All dependencies that could not be resolved."""
-        return [dep for dep in self.dependencies if not dep.resolved_in_build]
-
-    @property
-    def dependency_graph(self) -> dict[Identifier, list[Identifier]]:
-        """Returns dependency graph: dependent → [dependencies]."""
-        graph: dict[Identifier, list[Identifier]] = {}
-        for dep in self.dependencies:
-            if dep.dependent_resource_id not in graph:
-                graph[dep.dependent_resource_id] = []
-            graph[dep.dependent_resource_id].append(dep.dependency_resource_id)
-        return graph
-
-    @property
-    def dependents_graph(self) -> dict[Identifier, list[Identifier]]:
-        """Reverse dependency graph: resource → [resources that depend on it]."""
-        graph: dict[Identifier, list[Identifier]] = {}
-        for dep in self.dependencies:
-            if dep.dependency_resource_id not in graph:
-                graph[dep.dependency_resource_id] = []
-            graph[dep.dependency_resource_id].append(dep.dependent_resource_id)
-        return graph
-
-    @property
-    def internal_dependencies_only(self) -> list[DependencyLineageItem]:
-        """Dependencies within the build."""
-        return [dep for dep in self.dependencies if dep.is_internal]
-
-    @property
-    def external_dependencies_only(self) -> list[DependencyLineageItem]:
-        """Dependencies on resources external to the build."""
-        return [dep for dep in self.dependencies if not dep.is_internal]
-
-    @property
-    def all_insights(self) -> InsightList:
-        """Aggregates all insights across entire build."""
-        combined = InsightList()
-        for lineages in self.module_lineage.values():
-            for lineage in lineages:
-                combined.extend(lineage.all_insights)
-        return combined
-
-    @property
-    def build_report(self) -> dict[str, object]:
-        """Generates a comprehensive build report."""
+    def modules_summary(self) -> dict[str, int]:
         return {
-            "timestamp": self.build_timestamp.isoformat(),
-            "duration_seconds": self.build_duration_seconds,
-            "organization": str(self.config.organization_dir),
-            "cdf_project": self.config.cdf_project,
-            "validation_type": self.config.validation_type,
-            "modules": {
-                "discovered": self.modules.discovered,
-                "processed": self.modules.processed,
-                "failed": self.modules.failed,
-            },
-            "dependencies": {
-                "total": len(self.dependencies),
-                "internal": len(self.internal_dependencies_only),
-                "external": len(self.external_dependencies_only),
-                "unresolved": len(self.unresolved_dependencies),
-            },
-            "insights": {
-                "syntax_errors": self.insights["syntax_errors"],
-                "consistency_errors": self.insights["consistency_errors"],
-                "recommendations": self.insights["recommendations"],
-                "total": sum(self.insights.values()),
-            },
-            "status": self.status,
+            "processed": len(self.module_lineage),
+            "succeeded": sum(1 for module in self.module_lineage if module.is_success),
+            "failed": sum(1 for module in self.module_lineage if not module.is_success),
         }
 
-    # ==================== Methods for Analysis ====================
+    @property
+    def insights_summary(self) -> dict[type[Insight], int]:
 
-    def get_module_lineage(self, module_id: RelativeDirPath, iteration: int = 0) -> ModuleLineageItem | None:
-        """Get lineage for a specific module and iteration."""
-        lineages = self.module_lineage.get(module_id, [])
-        for lineage in lineages:
-            if lineage.iteration == iteration:
-                return lineage
-        return None
+        summary: dict[type[Insight], int] = {ModelSyntaxError: 0, ConsistencyError: 0, Recommendation: 0}
 
-    def get_dependency_chain(self, resource_id: Identifier) -> list[list[Identifier]]:
-        """Get all dependency chains for a resource (depth-first paths)."""
-        chains: list[list[Identifier]] = []
+        for module in self.module_lineage:
+            for insight_type, count in module.insights_summary.items():
+                summary[insight_type] += count
 
-        def dfs(current: Identifier, path: list[Identifier]) -> None:
-            path.append(current)
-            dependencies = self.dependency_graph.get(current, [])
-            if not dependencies:
-                chains.append(path[:])
-            else:
-                for dep in dependencies:
-                    dfs(dep, path)
-            path.pop()
+        return summary
 
-        dfs(resource_id, [])
-        return chains
+    @classmethod
+    def from_build_parameters_and_results(
+        cls,
+        parameters: BuildParameters,
+        folder: BuildFolder,
+        timestamp: datetime | None = None,
+        duration: float | None = None,
+    ) -> "BuildLineage":
+        """Construct lineage from build output folder."""
 
-    def get_dependents_chain(self, resource_id: Identifier) -> list[list[Identifier]]:
-        """Get all dependent chains (reverse dependency paths)."""
-        chains: list[list[Identifier]] = []
+        return cls(
+            timestamp=timestamp or datetime.now(),
+            duration=duration,
+            organization_dir=parameters.organization_dir,
+            build_dir=parameters.build_dir,
+            module_lineage=[ModuleLineageItem.from_built_module(module) for module in folder.built_modules],
+        )
 
-        def dfs(current: Identifier, path: list[Identifier]) -> None:
-            path.append(current)
-            dependents = self.dependents_graph.get(current, [])
-            if not dependents:
-                chains.append(path[:])
-            else:
-                for dependent in dependents:
-                    dfs(dependent, path)
-            path.pop()
+    def to_dict(self) -> dict[str, Any]:
+        """Generate a dictionary representation of BuildLineage containing only string values."""
 
-        dfs(resource_id, [])
-        return chains
+        is_relative = self.build_dir.is_relative_to(self.organization_dir)
+
+        return {
+            "timestamp": self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            "duration": round(self.duration, 2) if self.duration is not None else None,
+            "organizationDirectory": str(self.organization_dir),
+            "buildDirectory": str(self.build_dir.relative_to(self.organization_dir))
+            if is_relative
+            else str(self.build_dir),
+            "modulesSummary": self.modules_summary,
+            "insightsSummary": {insight_type.__name__: count for insight_type, count in self.insights_summary.items()},
+            "moduleLineage": [
+                module.to_dict(self.organization_dir if is_relative else None) for module in self.module_lineage
+            ],
+        }
+
+    def to_yaml(self) -> str:
+        """Convert BuildLineage to YAML string representation."""
+        data = self.to_dict()
+        return yaml.dump(data, default_flow_style=False, sort_keys=False)

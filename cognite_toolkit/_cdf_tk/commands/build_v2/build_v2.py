@@ -1,7 +1,7 @@
 import os
 import sys
-import time
 from collections.abc import Iterable, Sequence
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
+    InsightList,
     ModelSyntaxError,
     Recommendation,
 )
@@ -58,7 +59,7 @@ class BuildV2Command(ToolkitCommand):
         console = client.console if client else Console()
 
         # Track build duration
-        build_start_time = time.time()
+        build_start_time = datetime.now()
 
         self._validate_build_parameters(parameters, console, sys.argv)
         build_files = self._read_file_system(parameters)
@@ -74,10 +75,9 @@ class BuildV2Command(ToolkitCommand):
         self._global_validation(build_folder, client)
 
         # Calculate build duration
-        build_duration_seconds = round(time.time() - build_start_time, 2)
-        build_folder.build_duration_seconds = build_duration_seconds
+        build_duration_seconds = round((datetime.now() - build_start_time).total_seconds(), 2)
 
-        self._write_results(build_folder)
+        self._write_results(parameters, build_folder, build_start_time, build_duration_seconds)
         return build_folder
 
     @classmethod
@@ -262,7 +262,7 @@ class BuildV2Command(ToolkitCommand):
             if module.is_success:
                 self._local_validation(module)
 
-                built_module.built_files = self._export_module(module, build_dir)
+                built_module.built_files_by_source = self._export_module(module, build_dir)
                 built_module.built_resources_identifiers = [
                     resource.resource.as_id()
                     for resource in module.resources
@@ -290,7 +290,6 @@ class BuildV2Command(ToolkitCommand):
                 resources.extend(
                     self._import_resource_file(resource_file, class_by_kind, source.variables, resource_folder)
                 )
-
         return Module(source=source, resources=resources)
 
     def _import_resource_file(
@@ -343,7 +342,7 @@ class BuildV2Command(ToolkitCommand):
                         resource=resource,
                         source_hash=file_hash,
                         resource_type=resource_type,
-                        insights=recommendations,
+                        insights=InsightList(recommendations),
                     )
                 )
         return resources
@@ -437,22 +436,22 @@ class BuildV2Command(ToolkitCommand):
             fix="Make sure the resource YAML content is valid and follows the expected structure.",
         )
 
-    def _export_module(self, module: Module, build_dir: Path) -> list[Path]:
+    def _export_module(self, module: Module, build_dir: Path) -> dict[Path, Path]:
         build_dir.mkdir(parents=True, exist_ok=True)
 
-        built_files: list[Path] = []
+        built_files: dict[Path, Path] = {}
         for resource in module.resources:
             if not isinstance(resource, SuccessfulReadResource):
                 continue
             folder = build_dir / resource.resource_type.resource_folder
             folder.mkdir(parents=True, exist_ok=True)
-            resource_file = (
+            built_file = (
                 folder
                 / f"resource_{sanitize_filename(str(resource.resource.as_id()))}.{resource.resource_type.kind}.yaml"
             )
             # Todo Move into Toolkit resource.
-            safe_write(resource_file, yaml_safe_dump(resource.resource.model_dump(by_alias=True, exclude_unset=True)))
-            built_files.append(resource_file)
+            safe_write(built_file, yaml_safe_dump(resource.resource.model_dump(by_alias=True, exclude_unset=True)))
+            built_files[built_file] = resource.source_path
 
         # Todo: Store source path, source hash, ID, and so on for build_linage
         return built_files
@@ -501,10 +500,10 @@ class BuildV2Command(ToolkitCommand):
 
         # Can be parallelized if needed
         for built_module in build_folder.built_modules:
-            if not built_module.is_success:
+            if not built_module.files_built:
                 continue
 
-            if files_by_resource_type := built_module.resource_by_type.get(DataModelCRUD.folder_name):
+            if files_by_resource_type := built_module.resource_by_type_by_kind.get(DataModelCRUD.folder_name):
                 if NeatPlugin.installed() and client and DataModelCRUD.kind in files_by_resource_type:
                     neat = NeatPlugin(client)
                     for data_model_file in files_by_resource_type[DataModelCRUD.kind]:
@@ -512,114 +511,25 @@ class BuildV2Command(ToolkitCommand):
                             if insight not in built_module.insights:
                                 built_module.insights.append(insight)
 
-    def _write_results(self, build_folder: BuildFolder) -> None:
+    def _write_results(
+        self,
+        parameters: BuildParameters,
+        build_folder: BuildFolder,
+        timestamp: datetime | None = None,
+        duration: float | None = None,
+    ) -> None:
         """Write build results including lineage information and insights to the build folder."""
-        # Write lineage YAML file
-        lineage = build_folder.lineage
-        lineage_yaml = build_folder.path / "lineage.yaml"
-        # Serialize lineage using a custom serializer that handles InsightList fields
-        lineage_data = self._serialize_lineage(lineage)
-        safe_write(lineage_yaml, yaml_safe_dump(lineage_data))
 
-        # Write insights CSV file
-        insights_csv = build_folder.path / "insights.csv"
-        self._write_insights_csv(insights_csv, build_folder)
+        insight_file = build_folder.path / "insights.csv"
+        insight_file.parent.mkdir(parents=True, exist_ok=True)
 
-    def _serialize_lineage(self, lineage: BuildLineage) -> dict[str, object]:
-        """Serialize BuildLineage to a dict, converting paths to relative and excluding non-serializable fields."""
-        # Convert to dict, excluding fields that contain InsightList
-        data = lineage.model_dump(
-            exclude={
-                "module_lineage",  # Will handle separately
-                "build_successful",  # Will use status property instead
-                "dependencies",  # Not needed in lineage output
-            },
-            by_alias=True,  # Use aliases for field names
-            mode="json",  # This converts Path objects to strings
-        )
+        insight_file_content = build_folder.insights.to_csv()
+        if insight_file_content.strip():
+            safe_write(insight_file, insight_file_content)
 
-        # Round timestamp to 2 decimal places (centiseconds) and format cleanly
-        if isinstance(data["timestamp"], str):
-            # Parse the timestamp and round it
-            from datetime import datetime as dt
-
-            parsed_ts = dt.fromisoformat(data["timestamp"].replace("Z", "+00:00"))
-            rounded_ts = parsed_ts.replace(microsecond=round(parsed_ts.microsecond / 10000) * 10000)
-            # Format with exactly 2 decimal places
-            centiseconds = rounded_ts.microsecond // 10000
-            data["timestamp"] = rounded_ts.strftime(f"%Y-%m-%dT%H:%M:%S.{centiseconds:02d}")
-
-        # Get the organization directory (parent of build_dir)
-        org_dir = Path(data["config"]["build_dir"]).parent
-
-        # Keep organization_dir absolute, convert build_dir to relative
-        data["config"]["organization_dir"] = str(org_dir)
-        data["config"]["build_dir"] = str(Path(data["config"]["build_dir"]).relative_to(org_dir))
-
-        # Add status at build level
-        data["status"] = lineage.status
-
-        # Manually add module lineage items, excluding InsightList fields
-        module_lineage_dict = {}
-        for module_path, lineages in lineage.module_lineage.items():
-            serialized_lineages = []
-            for module_lineage in lineages:
-                module_data = module_lineage.model_dump(
-                    exclude={
-                        "resource_lineage",  # Will handle separately
-                    },
-                    mode="json",  # Convert Path objects to strings
-                )
-                # Convert module_path to relative
-                module_data["module_path"] = str(Path(module_data["module_path"]).relative_to(org_dir))
-
-                # Add module status based on insights
-                module_data["status"] = module_lineage.overall_status
-
-                # Add failure reason if module failed
-                if module_lineage.failure_reason:
-                    module_data["failure_reason"] = module_lineage.failure_reason
-
-                # Manually add resource lineage items, excluding InsightList fields
-                resource_items = {}
-                for resource_path, resource_item in module_lineage.resource_lineage.items():
-                    resource_data = resource_item.model_dump(
-                        exclude={
-                            "local_validation_insights",
-                            "cdf_validation_insights",
-                            "global_validation_insights",
-                            "internal_dependencies",
-                            "external_dependencies",
-                            "missing_dependencies",
-                        },
-                        by_alias=True,  # Use aliases like 'type' instead of 'resource_type'
-                        mode="json",  # Convert Path objects to strings
-                    )
-                    # Convert paths to relative
-                    resource_data["source_file"] = str(Path(resource_data["source_file"]).relative_to(org_dir))
-                    resource_data["built_file"] = str(Path(resource_data["built_file"]).relative_to(org_dir))
-
-                    # Add resource status
-                    resource_data["status"] = resource_item.overall_status
-                    # Use relative path as key
-                    relative_resource_path = str(Path(str(resource_path)).relative_to(org_dir))
-                    resource_items[relative_resource_path] = resource_data
-                module_data["resource_lineage"] = resource_items
-                serialized_lineages.append(module_data)
-            # Use relative path as key for module
-            relative_module_path = str(module_path)
-            module_lineage_dict[relative_module_path] = serialized_lineages
-        data["module_lineage"] = module_lineage_dict
-
-        return data
-
-    def _write_insights_csv(self, csv_path: Path, build_folder: BuildFolder) -> None:
-        """Write all insights from the build to a CSV file."""
-        csv_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Get CSV content from aggregated insights
-        csv_content = build_folder.insights.to_csv()
-
-        # Write to CSV file if there's content
-        if csv_content.strip():
-            safe_write(csv_path, csv_content)
+        lineage_file = build_folder.path / "lineage.yaml"
+        lineage_file.parent.mkdir(parents=True, exist_ok=True)
+        lineage = BuildLineage.from_build_parameters_and_results(
+            parameters, build_folder, timestamp, duration
+        ).to_yaml()
+        safe_write(lineage_file, lineage)

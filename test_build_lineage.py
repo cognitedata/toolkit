@@ -41,7 +41,7 @@ def test_build_lineage():
     )
 
     lineage = BuildLineage(
-        config=config,
+        config_lineage=config,
         total_modules=2,
         total_modules_processed=2,
         total_resources_discovered=10,
@@ -70,7 +70,7 @@ def test_build_report():
     )
 
     lineage = BuildLineage(
-        config=config,
+        config_lineage=config,
         total_modules=1,
         total_modules_processed=1,
         total_resources_discovered=5,
