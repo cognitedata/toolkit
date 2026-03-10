@@ -10,7 +10,13 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     SimulatorModelRoutineFilter,
     SimulatorModelRoutineRevisionFilter,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, ScopeDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    Acl,
+    AllScope,
+    DataSetScope,
+    ScopeDefinition,
+    SimulatorsAcl,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelRequest,
     SimulatorModelResponse,
@@ -86,11 +92,17 @@ class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, Simulat
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[SimulatorModelRequest]) -> ScopeDefinition | None:
-        return None
+        return DataSetScope(ids=list({item.data_set_id for item in items}))
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
-        yield from ()
+        if isinstance(scope, AllScope | DataSetScope):
+            acl_actions: list[Literal["READ", "WRITE", "DELETE", "RUN", "MANAGE"]] = []
+            if "READ" in actions:
+                acl_actions.append("READ")
+            if "WRITE" in actions:
+                acl_actions.extend(["WRITE", "DELETE", "MANAGE"])
+            yield SimulatorsAcl(actions=acl_actions, scope=scope)
 
     def create(self, items: Sequence[SimulatorModelRequest]) -> list[SimulatorModelResponse]:
         return self.client.tool.simulators.models.create(items)
@@ -172,6 +184,7 @@ class SimulatorModelRevisionCRUD(
     yaml_cls = SimulatorModelRevisionYAML
     kind = "SimulatorModelRevision"
     dependencies = frozenset({SimulatorModelCRUD, FileMetadataCRUD})
+    parent_resource = frozenset({SimulatorModelCRUD})
     _doc_url = "Simulator-Models/operation/create_simulator_model_revision_simulators_models_revisions_post"
 
     @property
@@ -382,6 +395,7 @@ class SimulatorRoutineRevisionCRUD(
     yaml_cls = SimulatorRoutineRevisionYAML
     kind = "SimulatorRoutineRevision"
     dependencies = frozenset({SimulatorRoutineCRUD, TimeSeriesCRUD})
+    parent_resource = frozenset({SimulatorRoutineCRUD})
     _doc_url = "Simulator-Routines/operation/create_simulator_routine_revision_simulators_routines_revisions_post"
 
     @property
