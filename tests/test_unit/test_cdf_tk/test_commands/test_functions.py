@@ -115,8 +115,10 @@ class TestInteractivePrompts:
         # Answers: name, route path, desc, has_body, add_another, tracing backend
         with MockQuestionary(_MOCK_TARGET, monkeypatch, ["Prompted Function", "/process", "My route", True, False, ""]):
             _cmd().init(module_path=module_path, external_id="prompted-func")
-        text = (module_path / "functions" / "prompted-func" / "handler.py").read_text()
+        func_dir = module_path / "functions" / "prompted-func"
+        text = (func_dir / "handler.py").read_text()
         assert "create_tracing_app" not in text
+        assert "[tracing]" not in (func_dir / "requirements.txt").read_text()
 
     def test_tracing_backend_selection(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         module_path = _make_module(tmp_path / "org")

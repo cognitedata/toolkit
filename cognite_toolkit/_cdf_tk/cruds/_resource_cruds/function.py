@@ -57,6 +57,7 @@ from .group_scoped import GroupResourceScopedCRUD
 CDF_TOML = CDFToml.load()
 
 
+@final
 class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
     support_drop = True
     folder_name = "functions"

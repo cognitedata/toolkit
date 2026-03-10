@@ -13,10 +13,12 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 # Constants
 
 _BASIC_HANDLER_PY = """\
+from typing import Any
+
 from cognite.client import CogniteClient
 
 
-def handle(client: CogniteClient, data: dict) -> dict:
+def handle(client: CogniteClient, data: dict[str, Any]) -> dict[str, Any]:
     print(f"Hello from {data.get('name', 'world')}!")
     return {"status": "ok"}
 """
@@ -27,7 +29,7 @@ _TRACING_BACKENDS = [
     Choice(title="honeycomb     — Honeycomb US (free tier available)", value="honeycomb"),
     Choice(title="lightstep     — Lightstep / ServiceNow", value="lightstep"),
 ]
-_DEFAULT_TRACING_BACKEND = _TRACING_BACKENDS[1].value
+_DEFAULT_TRACING_BACKEND: str = _TRACING_BACKENDS[1].value  # type: ignore[assignment]
 
 
 # Dataclasses
@@ -72,7 +74,13 @@ def _path_to_model_name(path: str) -> str:
     return "".join(p.capitalize() for p in _path_to_func_name(path).split("_") if p) + "Request"
 
 
+def _escape_docstring(s: str) -> str:
+    """Escape triple quotes so user input cannot break out of a docstring."""
+    return s.replace('"""', r"\"\"\"")
+
+
 def _generate_handler_py(name: str, routes: list[Route], tracing_backend: str = _DEFAULT_TRACING_BACKEND) -> str:
+    safe_name = _escape_docstring(name)
     route_docs = "\n".join(f"  POST  {r.path:<20} {r.description}" for r in routes)
     t_import = "\n    create_tracing_app," if tracing_backend else ""
     t_setup = (
@@ -89,8 +97,9 @@ def _generate_handler_py(name: str, routes: list[Route], tracing_backend: str = 
         params = "client: CogniteClient, logger: logging.Logger"
         if r.has_body:
             params += f", request: {_path_to_model_name(r.path)}"
-        doc = f'    """{r.description}"""\n' if r.description else ""
-        return f'@app.post("{r.path}")\n{t_deco}def {fn}({params}) -> dict:\n{doc}    raise NotImplementedError\n'
+        desc = _escape_docstring(r.description)
+        doc = f'    """{desc}"""\n' if desc else ""
+        return f'@app.post("{r.path}")\n{t_deco}def {fn}({params}) -> dict[str, Any]:\n{doc}    raise NotImplementedError\n'
 
     body_routes = [r for r in routes if r.has_body]
     models = (
@@ -103,13 +112,14 @@ def _generate_handler_py(name: str, routes: list[Route], tracing_backend: str = 
     route_fns = "\n".join(_route_block(r) for r in routes)
 
     return f'''\
-"""{name} — Cognite Function App.
+"""{safe_name} — Cognite Function App.
 
 Routes:
 {route_docs}
 """
 
 import logging
+from typing import Any
 
 from cognite.client import CogniteClient
 from cognite_function_apps import (
@@ -119,7 +129,7 @@ from cognite_function_apps import (
 )
 from pydantic import BaseModel
 
-app = FunctionApp(title="{name}", version="1.0.0"){t_setup}
+app = FunctionApp(title="{safe_name}", version="1.0.0"){t_setup}
 introspection = create_introspection_app()
 
 {models}
@@ -134,7 +144,14 @@ __all__ = ["handle"]
 '''
 
 
+def _validate_safe_path(name: str) -> None:
+    """Reject path traversal sequences in user-provided identifiers."""
+    if ".." in name or "/" in name or "\\" in name:
+        raise ValueError(f"Invalid identifier {name!r}: must not contain path separators or '..'")
+
+
 def _scaffold_basic_function(module_path: Path, external_id: str, cmd: ToolkitCommand) -> None:
+    _validate_safe_path(external_id)
     handler_dir = module_path / "functions" / external_id
     handler_dir.mkdir(parents=True, exist_ok=True)
     for name, content in [("handler.py", _BASIC_HANDLER_PY), ("requirements.txt", "")]:
@@ -143,6 +160,7 @@ def _scaffold_basic_function(module_path: Path, external_id: str, cmd: ToolkitCo
 
 
 def _scaffold_function_app(module_path: Path, external_id: str, cmd: ToolkitCommand) -> None:
+    _validate_safe_path(external_id)
     FunctionsCommand(print_warning=cmd._print_warning, skip_tracking=True, silent=cmd.silent).init(
         module_path=module_path, external_id=external_id
     )
@@ -186,11 +204,13 @@ class FunctionsCommand(ToolkitCommand):
         if prompt_tracing:
             tracing_backend = self._guide_tracing()
 
+        _validate_safe_path(external_id)
         handler_dir = module_path / "functions" / external_id
         handler_dir.mkdir(parents=True, exist_ok=True)
 
         self._write_file(handler_dir / "handler.py", _generate_handler_py(name, routes, tracing_backend))
-        self._write_file(handler_dir / "requirements.txt", "cognite-function-apps[tracing]\n")
+        tracing_extra = "[tracing]" if tracing_backend else ""
+        self._write_file(handler_dir / "requirements.txt", f"cognite-function-apps{tracing_extra}\n")
         print("\n[bold green]Function app scaffolded![/bold green]")
 
     def _collect_routes(self) -> list[Route]:

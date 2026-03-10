@@ -9,7 +9,7 @@ from questionary import Choice
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.commands.functions import ScaffoldDef
+from cognite_toolkit._cdf_tk.commands.functions import ScaffoldDef, _validate_safe_path
 from cognite_toolkit._cdf_tk.commands.functions import get_scaffolds as _fn_scaffolds
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceCRUD
@@ -183,6 +183,7 @@ class ResourcesCommand(ToolkitCommand):
             ).unsafe_ask()
         else:
             final_prefix = f"my_{resource_crud.kind}"
+        _validate_safe_path(final_prefix)
         file_name = f"{final_prefix}.{resource_crud.kind}.yaml"
         file_path: Path = resource_dir / file_name
 
@@ -228,7 +229,7 @@ class ResourcesCommand(ToolkitCommand):
         if len(variants) == 1:
             return variants[0]
         choices = [Choice(title=f"{v.label}  — {v.description}", value=v) for v in variants]
-        return questionary.select("Select a variant:", choices=choices, default=variants[0]).unsafe_ask()
+        return questionary.select("Select a variant:", choices=choices, default=choices[0]).unsafe_ask()
 
     def create(
         self,
