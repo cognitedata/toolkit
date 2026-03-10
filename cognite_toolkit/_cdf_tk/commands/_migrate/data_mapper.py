@@ -77,7 +77,7 @@ from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, NoOpLogger
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasSelector,
     ChartSelector,
-    InstanceViewSelector,
+    InstanceSelector,
     ThreeDSelector,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -656,7 +656,7 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, 
         return mapped_request, issue
 
 
-class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, InstanceRequest]):
+class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequest]):
     """This mapper maps instances to instances accounting for the difference between older data models
     (back when they were called Flexible Data Models) and newer data models (backed by Cognite Core Data Model).
 
@@ -670,9 +670,9 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         client: The ToolkitClient to use for lookups and caching.
         space_mapping: A mapping from source spaces to target spaces.
         mappings: A sequence of ViewToViewMappings defining how to map source views to target views and how to convert properties and edges.
-        special_connection_cases: Optional sequence of InstanceToInstanceSpecialMappings defining special cases for mapping connections
+        special_connection_mapping: Optional sequence of InstanceToInstanceSpecialMappings defining special cases for mapping connections
             between instances that cannot be handled by the general ViewToViewMappings.
-        special_cases: Optional sequence of ContainerPropertiesMappings defining special cases for mapping container
+        special_properties_mapping: Optional sequence of ContainerPropertiesMappings defining special cases for mapping container
             properties that cannot be handled by the general ViewToViewMappings.
 
     """
@@ -682,19 +682,19 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         client: ToolkitClient,
         space_mapping: Mapping[str, str],
         mappings: Sequence[ViewToViewMapping],
-        special_connection_cases: Sequence[SpecialConnectionMapping] | None = None,
-        special_cases: Sequence[SpecialContainerPropertiesMapping] | None = None,
+        special_connection_mapping: Sequence[SpecialConnectionMapping] | None = None,
+        special_properties_mapping: Sequence[SpecialContainerPropertiesMapping] | None = None,
     ) -> None:
         super().__init__(client)
-        self._connection_creator = ConnectionCreator(client, space_mapping, special_connection_cases)
+        self._connection_creator = ConnectionCreator(client, space_mapping, special_connection_mapping)
         self._mappings_by_source_view: dict[ViewId, ViewToViewMapping] = {
             mapping.source_view: mapping for mapping in mappings
         }
-        self._special_cases: dict[ViewId, SpecialContainerPropertiesMapping] = {
-            view_id: mapping for mapping in (special_cases or []) for view_id in mapping.VIEW_IDS
+        self._special_properties_mapping: dict[ViewId, SpecialContainerPropertiesMapping] = {
+            view_id: mapping for mapping in (special_properties_mapping or []) for view_id in mapping.VIEW_IDS
         }
 
-    def prepare(self, source_selector: InstanceViewSelector) -> None:
+    def prepare(self, source_selector: InstanceSelector) -> None:
         view_ids = set(mapping.source_view for mapping in self._mappings_by_source_view.values()) | set(
             mapping.destination_view for mapping in self._mappings_by_source_view.values()
         )
@@ -786,8 +786,10 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
                 }
             )
             special_properties: dict[str, JsonValue] = {}
-            if context.mapping.source_view in self._special_cases:
-                special_results = self._special_cases[context.mapping.source_view].convert(source_properties, context)
+            if context.mapping.source_view in self._special_properties_mapping:
+                special_results = self._special_properties_mapping[context.mapping.source_view].convert(
+                    source_properties, context
+                )
                 issue.errors.extend(special_results.errors)
                 new_edges.extend(special_results.edges)
                 special_properties = special_results.container_properties
