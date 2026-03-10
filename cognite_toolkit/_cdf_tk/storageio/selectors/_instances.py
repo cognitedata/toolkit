@@ -162,3 +162,9 @@ class InstanceQuerySelector(InstanceSelector):
     query: QueryRequest
     root: str
     subselections: list[str]
+
+    def get_schema_spaces(self) -> list[str] | None:
+        return None
+
+    def get_instance_spaces(self) -> list[str] | None:
+        return None

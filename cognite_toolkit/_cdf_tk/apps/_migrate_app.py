@@ -24,7 +24,10 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     ThreeDAssetMapper,
     ThreeDMapper,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import create_infield_data_mappings
+from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
+    create_infield_data_mappings,
+    create_infield_schedule_selector,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
@@ -41,6 +44,7 @@ from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO, InstanceIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
+    InstanceQuerySelector,
     InstanceViewSelector,
     SelectedView,
     ThreeDModelIdSelector,
@@ -1409,18 +1413,24 @@ class MigrateApp(typer.Typer):
             "cognite_app_data": "cognite_app_data",
         }
         infield_mappings = create_infield_data_mappings()
-        selectors = [
-            InstanceViewSelector(
-                view=SelectedView(
-                    space=mapping.source_view.space,
-                    external_id=mapping.source_view.external_id,
-                    version=mapping.source_view.version,
-                ),
-                instance_spaces=(source_space,),
-                edge_types=tuple(mapping.edge_mapping.keys()) if mapping.edge_mapping else None,
-            )
-            for mapping in infield_mappings
-        ]
+        schedule_selector = create_infield_schedule_selector()
+        selectors: list[InstanceViewSelector | InstanceQuerySelector] = []
+        for mapping in infield_mappings:
+            if mapping.source_view.external_id == "Schedule":
+                # Special case for schedules, see create_infield_schedule_query for docs on why.
+                selectors.append(schedule_selector)
+            else:
+                selectors.append(
+                    InstanceViewSelector(
+                        view=SelectedView(
+                            space=mapping.source_view.space,
+                            external_id=mapping.source_view.external_id,
+                            version=mapping.source_view.version,
+                        ),
+                        instance_spaces=(source_space,),
+                        edge_types=tuple(mapping.edge_mapping.keys()) if mapping.edge_mapping else None,
+                    )
+                )
 
         cmd.run(
             lambda: cmd.migrate(  # type: ignore[misc]
@@ -1436,6 +1446,5 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
-                user_log_filestem="infield_data",
             )
         )
