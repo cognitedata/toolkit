@@ -3,12 +3,12 @@ from collections.abc import Hashable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from functools import cache
-from typing import Any, ClassVar, Generic, Literal, cast
+from typing import Any, ClassVar, Generic, cast
 
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import AssetCentricExternalId, ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import AssetCentricExternalId, EdgeTypeId, ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse, AssetLinkData, FileLinkData
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -751,17 +751,19 @@ class ConnectionCreator:
         self, value: Any, dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
     ) -> tuple[NodeId | list[NodeId], list[str]]:
         targets, target_issues = self._create_targets(value, source_prop_id, source_view_id)
-        relations, relation_issues = self._targets_to_direct_relation(targets, dm_prop, source_prop_id, source_view_id)
+        relations, relation_issues = self._targets_to_direct_relation(
+            targets, dm_prop, f"{source_view_id!s}.{source_prop_id!s}"
+        )
         return relations, target_issues + relation_issues
 
     def _targets_to_direct_relation(
-        self, targets: list[NodeId], dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
+        self, targets: list[NodeId], dm_prop: DirectNodeRelation, source_display_name: str
     ) -> tuple[NodeId | list[NodeId], list[str]]:
         errors: list[str] = []
         if dm_prop.list:
             if dm_prop.max_list_size and len(targets) > dm_prop.max_list_size:
                 errors.append(
-                    f"Too many items for direct relation property {source_prop_id!s} in view {source_view_id!s}: expected at most {dm_prop.max_list_size}, got {len(targets)}. Truncated to the first {dm_prop.max_list_size} items."
+                    f"Too many items for direct relation property expected at most {dm_prop.max_list_size}, got {len(targets)}. Truncated to the first {dm_prop.max_list_size} items."
                 )
                 targets = targets[: dm_prop.max_list_size]
             return targets, errors
@@ -769,26 +771,33 @@ class ConnectionCreator:
             return targets[0], errors
         elif len(targets) == 0:
             raise ValueError(
-                f"No targets for items relation property {source_prop_id!r} in view {source_view_id!s}: expected exactly 1, got 0"
+                f"No targets for items relation property {source_display_name!s}: expected exactly 1, got 0"
             )
         else:
             errors.append(
-                f"Too many targets for items relation property {source_prop_id!r} in view {source_view_id!s}: expected exactly 1, got {len(targets)}. Returning the first item."
+                f"Too many targets for items relation property {source_display_name!s}: expected exactly 1, got {len(targets)}. Returning the first item."
             )
             return targets[0], errors
 
     def create_direct_relation_from_edges(
-        self, edges: list[EdgeOtherSide], dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
+        self, edges: list[EdgeOtherSide], dm_prop: DirectNodeRelation, source_edge_type: EdgeTypeId
     ) -> tuple[NodeId | list[NodeId], list[str]]:
-        targets = [self.map_instance(edge.other_side) for edge in edges]
-        return self._targets_to_direct_relation(targets, dm_prop, source_prop_id, source_view_id)
+        targets: list[NodeId] = []
+        issues: list[str] = []
+        for edge in edges:
+            try:
+                target = self.map_instance(edge.other_side)
+            except KeyError as e:
+                issues.append(f"Failed to map {edge.other_side!s} to destination space: {e!s}")
+                continue
+            targets.append(target)
+        result, relation_issues = self._targets_to_direct_relation(targets, dm_prop, str(source_edge_type))
+        return result, issues + relation_issues
 
     def create_edges_from_edges(
         self,
         edges: list[EdgeOtherSide],
         dm_prop: EdgeProperty,
-        source_prop_id: str,
-        source_view_id: ViewId,
         source_id: NodeId,
     ) -> tuple[list[EdgeRequest], list[str]]:
         issues: list[str] = []
@@ -856,7 +865,7 @@ def convert_container_properties(
     for source_prop_id, value in source_properties.items():
         dest_prop_id = mapping.get_destination_property(source_prop_id)
         if not dest_prop_id or (
-            dest_prop_id not in destination_properties and dest_prop_id not in mapping.property_mapping
+            dest_prop_id not in destination_properties and dest_prop_id not in mapping.container_mapping
         ):
             # We do not warn about the node properties, as they are typically ignored.
             if not source_prop_id.startswith("node."):
@@ -917,23 +926,21 @@ def convert_container_properties(
 
 
 def convert_edges(
-    edge_targets_by_type_and_direction: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]],
+    edge_targets_by_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]],
     mapping: ViewToViewMapping,
     destination_properties: dict[str, ViewResponseProperty],
     source_id: NodeId,
     connection_creator: ConnectionCreator,
-    source_view_id: ViewId,
 ) -> ConversionResult:
     created_properties: dict[str, JsonValue] = {}
     new_edges: list[EdgeRequest] = []
     errors: list[str] = []
-    for prop_id, source_edge_def in connection_creator.edges(source_view_id).items():
-        edge_targets = edge_targets_by_type_and_direction.get((source_edge_def.type, source_edge_def.direction), [])
+    for source_type, dest_prop_id in (mapping.edge_mapping or {}).items():
+        edge_targets = edge_targets_by_type_and_direction.get(source_type, [])
         if not edge_targets:
             continue
 
-        dest_prop_id = mapping.get_destination_property(prop_id)
-        if not dest_prop_id or dest_prop_id not in destination_properties:
+        if dest_prop_id not in destination_properties:
             # Already captured as missing instance property in 'conver_container_properties', so we can just ignore it here.
             continue
 
@@ -944,12 +951,11 @@ def convert_edges(
                 created_connection, issues = connection_creator.create_direct_relation_from_edges(
                     edge_targets,
                     dm_prop.type,
-                    prop_id,
-                    source_view_id,
+                    source_type,
                 )
             except ValueError as e:
                 errors.append(
-                    f"Failed to create direct relation for edge property {prop_id!r} with targets {[target.other_side.dump() for target in edge_targets]!r}: {e!s}"
+                    f"Failed to create direct relation for edge property {source_type!s} with targets {[target.other_side.dump() for target in edge_targets]!r}: {e!s}"
                 )
                 continue
             errors.extend(issues)
@@ -961,19 +967,17 @@ def convert_edges(
                 created_properties[dest_prop_id] = created_connection.dump(include_instance_type=False)
         elif isinstance(dm_prop, ViewCorePropertyResponse):
             # Todo: If json or text we can potentially convert to a string representation of the edge targets, but for now we just log an error.
-            errors.append(f"Cannot map edge property {prop_id!r} to non-connection property {dm_prop.type.type!s}.")
+            errors.append(f"Cannot map edge property {source_type!s} to non-connection property {dm_prop.type.type!s}.")
         elif isinstance(dm_prop, EdgeProperty):
             try:
                 created_edges, issues = connection_creator.create_edges_from_edges(
                     edge_targets,
                     dm_prop,
-                    prop_id,
-                    source_view_id,
                     source_id,
                 )
             except ValueError as e:
                 errors.append(
-                    f"Failed to create edges for edge property {prop_id!r} with targets {[target.other_side.dump() for target in edge_targets]!r}: {e!s}"
+                    f"Failed to create edges for edge property {source_type!s} with targets {[target.other_side.dump() for target in edge_targets]!r}: {e!s}"
                 )
                 continue
             errors.extend(issues)
