@@ -42,6 +42,8 @@ class RecordContainerSelector(DataSelector):
     kind: Literal["Records"] = "Records"
     stream: SelectedStream
     container: SelectedContainer
+    instance_spaces: tuple[str, ...] | None = None
+    initialize_cursor: str | None = None
 
     def __str__(self) -> str:
         return f"{self.container.space}_{self.container.external_id}"
