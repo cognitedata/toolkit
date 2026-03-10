@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
+    ConversionContext,
     DirectRelationCache,
     EdgeOtherSide,
     asset_centric_to_dm,
@@ -1473,16 +1474,15 @@ class TestInstanceToInstanceConversion:
         expected_properties: dict[str, Any],
         expected_errors: list[str],
     ) -> None:
-        connection_creator = self._create_connection_creator()
-
-        results = convert_container_properties(
-            source_properties,
-            self.MAPPING,
-            self.DESTINATION_PROPERTIES,
-            connection_creator,
-            self.SOURCE_VIEW_ID,
-            self.SOURCE_ID,
+        context = ConversionContext(
+            mapping=self.MAPPING,
+            destination_properties=self.DESTINATION_PROPERTIES,
+            connection_creator=self._create_connection_creator(),
+            source_view_id=self.SOURCE_VIEW_ID,
+            new_id=self.NEW_ID,
         )
+
+        results = convert_container_properties(source_properties, context)
 
         assert results.container_properties == expected_properties
         assert results.errors == expected_errors
@@ -1610,15 +1610,15 @@ class TestInstanceToInstanceConversion:
         expected_edges: list[EdgeRequest],
         expected_errors: list[str],
     ) -> None:
-        connection_creator = self._create_connection_creator()
-
-        results = convert_edges(
-            edge_targets,
-            self.MAPPING,
-            self.DESTINATION_PROPERTIES,
-            self.NEW_ID,
-            connection_creator,
+        context = ConversionContext(
+            mapping=self.MAPPING,
+            destination_properties=self.DESTINATION_PROPERTIES,
+            connection_creator=self._create_connection_creator(),
+            source_view_id=self.SOURCE_VIEW_ID,
+            new_id=self.NEW_ID,
         )
+
+        results = convert_edges(edge_targets, context)
 
         assert results.container_properties == expected_relations
         assert [edge.model_dump() for edge in results.edges] == [edge.model_dump() for edge in expected_edges]
