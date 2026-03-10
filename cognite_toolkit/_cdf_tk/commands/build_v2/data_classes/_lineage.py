@@ -10,7 +10,6 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuildParameters, BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
-    Insight,
     ModelSyntaxError,
     Recommendation,
 )
@@ -58,14 +57,14 @@ class ModuleLineageItem(BaseModel):
     )
 
     # Insights breakdown at module level
-    insights_summary: dict[type[Insight], int] = Field(description="Breakdown of insights by type for this module")
+    insights_summary: dict[str, int] = Field(description="Breakdown of insights by type for this module")
 
     @property
     def is_success(self) -> bool:
         """Determine if module build was successful based on insights summary."""
         return (
-            self.insights_summary.get(ModelSyntaxError, 0) == 0
-            and self.insights_summary.get(ConsistencyError, 0) == 0
+            self.insights_summary.get(ModelSyntaxError.__name__, 0) == 0
+            and self.insights_summary.get(ConsistencyError.__name__, 0) == 0
             and bool(self.resource_lineage)
         )
 
@@ -96,7 +95,7 @@ class ModuleLineageItem(BaseModel):
             module_id=module.source.id.as_posix(),
             module_path=module.source.path,
             resource_lineage=resource_lineage,
-            insights_summary={type_: len(insights) for type_, insights in module.insights.by_type().items()},
+            insights_summary=module.insights.summary,
         )
 
     def to_dict(self, organization_dir: Path | None = None) -> dict[str, Any]:
@@ -119,14 +118,14 @@ class ModuleLineageItem(BaseModel):
                 }
                 for item in self.resource_lineage
             ],
-            "insightsSummary": {insight_type.__name__: count for insight_type, count in self.insights_summary.items()},
+            "insightsSummary": self.insights_summary,
             "status": "SUCCESS" if self.is_success else "FAILED",
         }
 
         if simple_dict["status"] == "FAILED":
-            if self.insights_summary.get(ModelSyntaxError, 0) > 0:
+            if self.insights_summary.get(ModelSyntaxError.__name__, 0) > 0:
                 simple_dict["failureReasons"] = "ModelSyntaxError"
-            elif self.insights_summary.get(ConsistencyError, 0) > 0:
+            elif self.insights_summary.get(ConsistencyError.__name__, 0) > 0:
                 simple_dict["failureReasons"] = "ConsistencyError"
 
         return simple_dict
@@ -160,9 +159,13 @@ class BuildLineage(BaseModel):
         }
 
     @property
-    def insights_summary(self) -> dict[type[Insight], int]:
+    def insights_summary(self) -> dict[str, int]:
 
-        summary: dict[type[Insight], int] = {ModelSyntaxError: 0, ConsistencyError: 0, Recommendation: 0}
+        summary: dict[str, int] = {
+            ModelSyntaxError.__name__: 0,
+            ConsistencyError.__name__: 0,
+            Recommendation.__name__: 0,
+        }
 
         for module in self.module_lineage:
             for insight_type, count in module.insights_summary.items():
@@ -201,7 +204,7 @@ class BuildLineage(BaseModel):
             if is_relative
             else str(self.build_dir),
             "modulesSummary": self.modules_summary,
-            "insightsSummary": {insight_type.__name__: count for insight_type, count in self.insights_summary.items()},
+            "insightsSummary": {insight_type: count for insight_type, count in self.insights_summary.items()},
             "moduleLineage": [
                 module.to_dict(self.organization_dir if is_relative else None) for module in self.module_lineage
             ],
