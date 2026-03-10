@@ -46,6 +46,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
+    ConversionContext,
     DirectRelationCache,
     EdgeOtherSide,
     InstanceToInstanceSpecialMapping,
@@ -759,12 +760,9 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         new_edges: list[EdgeRequest] = []
         issue = InstanceConversionIssue(id=str(new_id))
         for view_or_container_id, source_properties in (node.properties or {}).items():
-            if not (mapping := self._get_mapping(view_or_container_id, issue, node.as_id())):
+            if not (context := self._create_context(view_or_container_id, issue, node.as_id(), new_id)):
                 continue
-            if not (destination_view := self._get_destination_view(mapping, issue)):
-                continue
-            # Validated in the get_mapping method.
-            view_id = cast(ViewId, view_or_container_id)
+
             source_properties.update(
                 {
                     "node.createdTime": node.created_time,
@@ -772,16 +770,8 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
                     "node.version": node.version,
                 }
             )
-            container_results = convert_container_properties(
-                source_properties, mapping, destination_view.properties, self._connection_creator, view_id, new_id
-            )
-            edge_results = convert_edges(
-                other_side_by_edge_type_and_direction,
-                mapping,
-                destination_view.properties,
-                new_id,
-                self._connection_creator,
-            )
+            container_results = convert_container_properties(source_properties, context)
+            edge_results = convert_edges(other_side_by_edge_type_and_direction, context)
 
             issue.errors.extend(container_results.errors)
             issue.errors.extend(edge_results.errors)
@@ -791,29 +781,46 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
                 **edge_results.container_properties,
             }
             if created_container_properties:
-                sources.append(InstanceSource(source=destination_view.as_id(), properties=created_container_properties))
+                sources.append(
+                    InstanceSource(source=context.mapping.destination_view, properties=created_container_properties)
+                )
             new_edges.extend(container_results.edges)
             new_edges.extend(edge_results.edges)
 
         return sources, new_edges, issue
 
-    def _get_mapping(
-        self, view_id: ViewId | ContainerId, issue: InstanceConversionIssue, node_id: NodeId
-    ) -> ViewToViewMapping | None:
-        if not isinstance(view_id, ViewId):
+    def _create_context(
+        self,
+        view_or_container_id: ViewId | ContainerId,
+        issue: InstanceConversionIssue,
+        source_id: NodeId,
+        new_id: NodeId,
+    ) -> ConversionContext | None:
+        if not isinstance(view_or_container_id, ViewId):
             issue.errors.append(
-                f"Migration of ContainerReferenced properties is not supported. Found property with non-view ID '{view_id}' on node '{node_id}'."
+                f"Migration of ContainerReferenced properties is not supported. Found property with non-view ID '{view_or_container_id}' on node '{source_id}'."
             )
             return None
-        mapping = self._mappings_by_source_view.get(view_id)
+        mapping = self._mappings_by_source_view.get(view_or_container_id)
         if mapping is None:
-            issue.errors.append(f"No mapping found for view '{view_id}'")
-        return mapping
-
-    def _get_destination_view(self, mapping: ViewToViewMapping, issue: InstanceConversionIssue) -> ViewResponse | None:
+            issue.errors.append(f"No mapping found for view '{view_or_container_id}'")
+            return None
         destination_view = self._connection_creator.view_by_id.get(mapping.destination_view)
         if destination_view is None:
             issue.errors.append(
                 f"Invalid mapping {mapping.external_id}': destination view {mapping.destination_view} not found."
             )
-        return destination_view
+            return None
+        if view_or_container_id not in self._connection_creator.view_by_id:
+            issue.errors.append(
+                f"View '{view_or_container_id}' not found in source data. This likely indicates that the view is missing from the cache. Did you forget to call .prepare()?"
+            )
+            return None
+
+        return ConversionContext(
+            mapping=mapping,
+            destination_properties=destination_view.properties,
+            connection_creator=self._connection_creator,
+            source_view_id=view_or_container_id,
+            new_id=new_id,
+        )
