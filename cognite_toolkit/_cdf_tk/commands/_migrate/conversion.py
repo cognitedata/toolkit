@@ -877,7 +877,6 @@ class InFieldConditionMapping(ContainerPropertiesMapping):
     VIEW_IDS: ClassVar[Set[ViewId]] = frozenset({ViewId(space="cdf_apm", external_id="Condition", version="v1")})
 
     def __init__(self, mappings: Sequence[ViewToViewMapping]) -> None:
-        "cdf_apm / ChecklistItem / v7"
         self._source_view_mapping = {
             self._as_source_view_format(mapping.source_view): self._as_source_view_format(mapping.destination_view)
             for mapping in mappings
