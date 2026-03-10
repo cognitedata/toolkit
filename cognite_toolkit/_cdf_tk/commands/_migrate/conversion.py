@@ -873,6 +873,35 @@ class ContainerPropertiesMapping(ABC):
         raise NotImplementedError()
 
 
+class InFieldConditionMapping(ContainerPropertiesMapping):
+    VIEW_IDS: ClassVar[Set[ViewId]] = frozenset({ViewId(space="cdf_apm", external_id="Condition", version="v1")})
+
+    def __init__(self, mappings: Sequence[ViewToViewMapping]) -> None:
+        "cdf_apm / ChecklistItem / v7"
+        self._source_view_mapping = {
+            self._as_source_view_format(mapping.source_view): self._as_source_view_format(mapping.destination_view)
+            for mapping in mappings
+        }
+
+    def _as_source_view_format(self, view_id: ViewId) -> str:
+        """The special format used in the sourceView property of InField"""
+        return f"{view_id.space}/{view_id.external_id}/{view_id.version!s}"
+
+    def convert(self, source_properties: dict[str, JsonValue], context: ConversionContext) -> ConversionResult:
+        created_properties: dict[str, JsonValue] = {}
+        issues: list[str] = []
+        if value := source_properties.get("sourceView"):
+            if not isinstance(value, str):
+                issues.append(
+                    f"Invalid sourceView value {value!r} for view {context.source_view_id!s}: expected a string."
+                )
+            elif value not in self._source_view_mapping:
+                issues.append(f"Unexpected sourceView value {value!r} for view {context.source_view_id!s}")
+            else:
+                created_properties["sourceView"] = self._source_view_mapping[value]
+        return ConversionResult(container_properties=created_properties, errors=issues)
+
+
 def convert_container_properties(
     source_properties: dict[str, JsonValue], context: ConversionContext
 ) -> ConversionResult:
