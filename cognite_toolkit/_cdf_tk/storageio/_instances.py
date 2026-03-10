@@ -39,6 +39,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from . import StorageIOConfig
 from ._base import ConfigurableStorageIO, Page, UploadableStorageIO
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector, SelectedView
+from .selectors._instances import InstanceQuerySelector
 
 
 class InstanceIO(
@@ -209,40 +210,44 @@ class InstanceIO(
             select[query_id] = QuerySelect()
 
         query = QueryRequest(with_=with_, select=select)
+        yield from self._instance_by_query(query, "nodes", edge_ids, limit)
+
+    def _instance_by_query(
+        self, query: QueryRequest, root_selection: str, sub_selections: list[str], limit: int | None
+    ) -> Iterable[Page]:
         total = 0
         while True:
-            response = self._exhaust_edge_queries(query, edge_ids)
-            nodes = response.items.get("nodes", [])
+            response = self._exhaust_sub_selections(query, root_selection, sub_selections)
+            nodes = response.items.get(root_selection, [])
             # De-duplicate edges across properties, as the same edge can be returned for multiple
             # properties if it connects two nodes that are in the result set.
-            edges: dict[NodeId | EdgeId, InstanceResponse] = {}
-            for prop_id in edge_ids:
+            sub_responses: dict[NodeId | EdgeId, InstanceResponse] = {}
+            for prop_id in sub_selections:
                 for edge in response.items.get(prop_id, []):
                     ref = edge.as_id()
-                    if ref not in edges:
-                        edges[ref] = edge
-            items = nodes + list(edges.values())
+                    if ref not in sub_responses:
+                        sub_responses[ref] = edge
+            items = nodes + list(sub_responses.values())
             total += len(nodes)
-            next_cursor = response.next_cursor.get("nodes")
+            next_cursor = response.next_cursor.get(root_selection)
             yield Page(worker_id="main", items=items, next_cursor=next_cursor)
             if next_cursor is None or (limit is not None and total >= limit) or not nodes:
                 break
             page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
-            query.with_["nodes"].limit = page_limit
-            query.cursors = {"nodes": next_cursor}
+            query.with_[root_selection].limit = page_limit
+            query.cursors = {root_selection: next_cursor}
 
-    def _exhaust_edge_queries(self, query: QueryRequest, edge_properties: list[str]) -> QueryResponseTyped:
-        """Exhausts the edge queries in the with_ clause of the query until all cursors are None.
-
-        This is necessary to ensure that we get all edges for the nodes in the result set, as edges can be returned
-        on multiple properties if they connect two nodes that are in the result set.
+    def _exhaust_sub_selections(
+        self, query: QueryRequest, root_selection: str, sub_selections: list[str]
+    ) -> QueryResponseTyped:
+        """Exhaust a query with sub-selections by following the cursors for the sub-selections until they are all exhausted.
 
         Args:
-            query: The query to execute.
-            edge_properties: The list of edge properties to exhaust.
+            query: The query to exhaust. It is assumed that the query has sub-selections with the ids in sub_selections.
+            sub_selections:  The ids of the sub-selections to exhaust.
 
         Returns:
-            The final QueryResponse with all edge queries exhausted.
+            A QueryResponseTyped with all items from the initial query and the sub-selections.
         """
         first: QueryResponseTyped | None = None
         while True:
@@ -257,15 +262,15 @@ class InstanceIO(
                     else:
                         first.items[key].extend(items)
             next_cursors: dict[str, str] = {}
-            for prop_id in edge_properties:
-                edge_cursor = response.next_cursor.get(prop_id)
-                if edge_cursor is not None:
-                    next_cursors[prop_id] = edge_cursor
+            for prop_id in sub_selections:
+                sub_cursor = response.next_cursor.get(prop_id)
+                if sub_cursor is not None:
+                    next_cursors[prop_id] = sub_cursor
             if not next_cursors or not response.items:
                 return first
-            node_cursor = response.next_cursor.get("nodes")
+            node_cursor = response.next_cursor.get(root_selection)
             if node_cursor is not None:
-                next_cursors["nodes"] = node_cursor
+                next_cursors[root_selection] = node_cursor
             query = query.model_copy(update={"cursors": next_cursors})
 
     def _instances_with_container_properties(
@@ -326,6 +331,8 @@ class InstanceIO(
             raise ValueError(f"Unknown instance type {selector.instance_type!r}")
         elif isinstance(selector, InstanceFileSelector):
             return len(selector.items)
+        elif isinstance(selector, InstanceQuerySelector):
+            return None
         raise NotImplementedError()
 
     def data_to_json_chunk(
