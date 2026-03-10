@@ -72,11 +72,13 @@ class LandingPageMiddleware:
         self.last_reload = datetime.now(tz=timezone.utc)
         self._start_time = time.monotonic()
 
-        # Log collection
+        # Log collection — attach to root and key loggers that may have propagate=False
         self._log_buffer: deque[dict[str, str]] = deque(maxlen=500)
         self._log_handler = _LogCollector(self._log_buffer)
-        self._log_handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+        self._log_handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
         logging.getLogger().addHandler(self._log_handler)
+        for name in ("uvicorn", "uvicorn.access", "uvicorn.error", "cognite_function_apps"):
+            logging.getLogger(name).addHandler(self._log_handler)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
