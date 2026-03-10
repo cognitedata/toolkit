@@ -49,6 +49,9 @@ class HostedExtractorsSubscriptionFilter(SubscriptionFilterBase):
     resource: str | None = None
     category: list[str] | None = None
     severity: Literal["info", "warning", "error"] | None = None
+    source_type: str | None = None
+    source_external_id: str | None = None
+    destination_external_id: str | None = None
 
 
 class UnknownSubscriptionFilter(SubscriptionFilterBase): ...
