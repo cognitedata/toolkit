@@ -35,7 +35,7 @@ class SignalSubscriptionCRUD(ResourceCRUD[SignalSubscriptionId, SignalSubscripti
     resource_write_cls = SignalSubscriptionRequest
     kind = "Subscription"
     yaml_cls = SignalSubscriptionYAML
-    dependencies = frozenset({SignalSinkCRUD, WorkflowCRUD})
+    dependencies = frozenset({SignalSinkCRUD, WorkflowCRUD, HostedExtractorDestinationCRUD, HostedExtractorSourceCRUD})
     support_update = True
     _doc_url = "Signals/operation/createSignalSubscriptions"
 
