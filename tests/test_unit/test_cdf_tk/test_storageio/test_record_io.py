@@ -253,6 +253,8 @@ class TestRecordIO:
                         "externalId": "my_container",
                         "usedFor": "record",
                         "isGlobal": False,
+                        "createdTime": 0,
+                        "lastUpdatedTime": 0,
                         "properties": {"name": {"type": {"type": "text"}}},
                     }
                 ]
