@@ -55,15 +55,27 @@ class ResourcesCommand(ToolkitCommand):
 
         return cast(Path, selected)
 
+    @staticmethod
+    def _qualified_name(crud: type[ResourceCRUD]) -> str:
+        return f"{crud.folder_name}.{crud.kind}"
+
+    @classmethod
+    def _unique_cruds(cls) -> list[type[ResourceCRUD]]:
+        """Deduplicate and sort RESOURCE_CRUD_LIST by folder_name.kind."""
+        return sorted(
+            {(c.folder_name, c.kind): c for c in RESOURCE_CRUD_LIST}.values(),
+            key=cls._qualified_name,
+        )
+
     def _resolve_kinds(self, kinds: list[str] | None) -> list[type[ResourceCRUD]]:
         """
         Resolve kinds from list of strings or do an interactive selection.
+        Accepts both plain kind names (e.g. 'Space') and qualified names (e.g. 'data_modeling.Space').
         """
-        all_cruds = {crud.kind.casefold(): crud for crud in RESOURCE_CRUD_LIST}
+        unique_cruds = self._unique_cruds()
 
         if not kinds:
-            sorted_cruds = sorted(RESOURCE_CRUD_LIST, key=lambda x: x.kind)
-            choices = [Choice(title=crud.kind, value=crud) for crud in sorted_cruds]
+            choices = [Choice(title=self._qualified_name(crud), value=crud) for crud in unique_cruds]
 
             selected = questionary.select("Select resource type:", choices=choices).unsafe_ask()
             if not selected:
@@ -71,22 +83,44 @@ class ResourcesCommand(ToolkitCommand):
                 raise typer.Exit()
             return [selected]
 
+        by_qualified = {self._qualified_name(crud).casefold(): crud for crud in unique_cruds}
+        by_kind: dict[str, list[type[ResourceCRUD]]] = {}
+        for crud in unique_cruds:
+            by_kind.setdefault(crud.kind.casefold(), []).append(crud)
+
         resolved_cruds = []
         for kind in kinds:
             kind_lower = kind.casefold()
-            if kind_lower in all_cruds:
-                resolved_cruds.append(all_cruds[kind_lower])
-            else:
-                matches = difflib.get_close_matches(kind_lower, all_cruds.keys())
-                if matches:
-                    suggestion = all_cruds[matches[0]].kind
-                    print(f"[red]Unknown resource type '{kind}'. Did you mean '{suggestion}'?[/red]")
-                else:
-                    print(
-                        f"[red]Unknown resource type '{kind}'. "
-                        f"Available types: {humanize_collection(sorted([c.kind for c in RESOURCE_CRUD_LIST]))}[/red]"
-                    )
+
+            if kind_lower in by_qualified:
+                resolved_cruds.append(by_qualified[kind_lower])
+                continue
+
+            if kind_lower in by_kind:
+                matches = by_kind[kind_lower]
+                if len(matches) == 1:
+                    resolved_cruds.append(matches[0])
+                    continue
+                qualified_names = sorted(self._qualified_name(m) for m in matches)
+                print(
+                    f"[red]Ambiguous resource type '{kind}'. "
+                    f"Did you mean: {humanize_collection(qualified_names)}?[/red]"
+                )
                 raise typer.Exit()
+
+            all_names = list(by_qualified.keys()) + [k for k, v in by_kind.items() if len(v) == 1]
+            close = difflib.get_close_matches(kind_lower, all_names)
+            if close:
+                match = close[0]
+                if match in by_qualified:
+                    suggestion = self._qualified_name(by_qualified[match])
+                else:
+                    suggestion = by_kind[match][0].kind
+                print(f"[red]Unknown resource type '{kind}'. Did you mean '{suggestion}'?[/red]")
+            else:
+                available = sorted(self._qualified_name(c) for c in unique_cruds)
+                print(f"[red]Unknown resource type '{kind}'. Available types: {humanize_collection(available)}[/red]")
+            raise typer.Exit()
 
         return resolved_cruds
 
