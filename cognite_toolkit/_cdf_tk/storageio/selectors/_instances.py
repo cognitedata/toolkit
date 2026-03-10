@@ -160,3 +160,5 @@ class InstanceQuerySelector(InstanceSelector):
     type: Literal["instanceQuery"] = "instanceQuery"
 
     query: QueryRequest
+    root: str
+    subselections: list[str]
