@@ -2,21 +2,26 @@ from collections.abc import Sequence
 from itertools import groupby
 from typing import Any, Literal, TypeVar, cast, overload
 
-from cognite.client._api.data_modeling import InstancesAPI
-from cognite.client._constants import DEFAULT_LIMIT_READ
-from cognite.client.data_classes.data_modeling import (
-    NodeList,
-    filters,
-    query,
-)
 from cognite.client.utils.useful_types import SequenceNotStr
+from pydantic import JsonValue
 
-from cognite_toolkit._cdf_tk.client.api.instances import WrappedInstancesAPI
+from cognite_toolkit._cdf_tk.client.api.instances import InstancesAPI, WrappedInstancesAPI
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import AssetCentricExternalId, NodeId
+from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import (
+    QueryNodeExpression,
+    QueryNodeTableExpression,
+    QueryRequest,
+    QuerySelect,
+    QuerySelectSource,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import (
+    CREATED_SOURCE_SYSTEM_VIEW_ID,
+    INSTANCE_SOURCE_VIEW_ID,
+    SPACE_SOURCE_VIEW_ID,
     AssetCentricId,
     CreatedSourceSystem,
     InstanceSource,
@@ -31,22 +36,57 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType
 
 
+def _has_data_filter(view_id: ViewId) -> dict[str, Any]:
+    return {"hasData": [view_id.dump(include_type=True)]}
+
+
+def _equals_filter(view_id: ViewId, property_name: str, value: Any) -> dict[str, Any]:
+    return {
+        "equals": {
+            "property": view_id.as_property_reference(property_name),
+            "value": value,
+        }
+    }
+
+
+def _in_filter(view_id: ViewId, property_name: str, values: list[Any]) -> dict[str, Any]:
+    return {
+        "in": {
+            "property": view_id.as_property_reference(property_name),
+            "values": values,
+        }
+    }
+
+
+def _and_filter(*filters: dict[str, Any]) -> dict[str, Any]:
+    return {"and": list(filters)}
+
+
+def _or_filter(*filters: dict[str, Any]) -> dict[str, Any]:
+    return {"or": list(filters)}
+
+
+def _select_all(view_id: ViewId) -> QuerySelect:
+    return QuerySelect(sources=[QuerySelectSource(source=view_id, properties=["*"])])
+
+
 class InstanceSourceAPI:
-    def __init__(self, instance_api: InstancesAPI) -> None:
-        self._instance_api = instance_api
+    def __init__(self, instances_api: InstancesAPI) -> None:
+        self._instances_api = instances_api
         self._RETRIEVE_LIMIT = 1000
-        self._view_id = InstanceSource.get_source()
+        self._view_id = INSTANCE_SOURCE_VIEW_ID
 
     def retrieve(
         self,
         ids: Sequence[AssetCentricId] | None = None,
         *,
         external_ids: Sequence[AssetCentricExternalId] | None = None,
-    ) -> NodeList[InstanceSource]:
+    ) -> list[InstanceSource]:
         """Retrieve a list of instance sources by their IDs.
 
         Args:
-            ids (Sequence[AssetCentricId]): A sequence of AssetCentricId objects representing the IDs of the instance sources to retrieve.
+            ids: A sequence of AssetCentricId objects representing the IDs of the instance sources to retrieve.
+            external_ids: A sequence of AssetCentricExternalId objects representing the external IDs.
 
         """
         if ids is not None and external_ids is None:
@@ -57,45 +97,55 @@ class InstanceSourceAPI:
             selected_ids = external_ids
         else:
             raise ValueError("Exactly one of 'ids' or 'external_ids' must be provided.")
-        results: NodeList[InstanceSource] = NodeList[InstanceSource]([])
+
+        results: list[InstanceSource] = []
         for chunk in chunker_sequence(selected_ids, self._RETRIEVE_LIMIT):
-            retrieve_query = query.Query(
+            query_request = QueryRequest(
                 with_={
-                    "instanceSource": query.NodeResultSetExpression(
-                        filter=filters.And(
-                            filters.HasData(views=[self._view_id]), self._create_dms_filter(chunk, id_property)
+                    "instanceSource": QueryNodeExpression(
+                        nodes=QueryNodeTableExpression(
+                            filter=_and_filter(
+                                _has_data_filter(self._view_id),
+                                self._create_dms_filter(chunk, id_property),
+                            ),
                         ),
                         limit=len(chunk),
                     ),
                 },
-                select={"instanceSource": query.Select([query.SourceSelector(self._view_id, ["*"])])},
+                select={"instanceSource": _select_all(self._view_id)},
             )
-            chunk_response = self._instance_api.query(retrieve_query)
-            results.extend([InstanceSource._load(item.dump()) for item in chunk_response.get("instanceSource", [])])
+            response = self._instances_api.query(query_request, type_results=False)
+            for item in response.items.get("instanceSource", []):
+                results.append(InstanceSource.model_validate(item))
         return results
 
     @staticmethod
-    def _create_dms_filter(ids: Sequence[AssetCentricId | AssetCentricExternalId], id_property: str) -> filters.Filter:
+    def _create_dms_filter(
+        ids: Sequence[AssetCentricId | AssetCentricExternalId], id_property: str
+    ) -> dict[str, JsonValue]:
         """Create a filter that matches all the AssetCentricIds in the list."""
-        to_or_filters: list[filters.Filter] = []
-        instance_source_view = InstanceSource.get_source()
+        to_or_filters: list[dict[str, JsonValue]] = []
         for resource_type, resource_ids in groupby(
             sorted(ids, key=lambda x: x.resource_type), key=lambda x: x.resource_type
         ):
-            is_resource = filters.Equals(instance_source_view.as_property_ref("resourceType"), resource_type)
-            is_id = filters.In(
-                instance_source_view.as_property_ref(id_property),
+            is_resource = _equals_filter(INSTANCE_SOURCE_VIEW_ID, "resourceType", resource_type)
+            is_id = _in_filter(
+                INSTANCE_SOURCE_VIEW_ID,
+                id_property,
                 [resource_id.id_value for resource_id in resource_ids],
             )
-            to_or_filters.append(filters.And(is_resource, is_id))
-        return filters.Or(*to_or_filters)
+            to_or_filters.append(_and_filter(is_resource, is_id))
+        return _or_filter(*to_or_filters)
 
-    def list(self, resource_type: AssetCentricType, limit: int | None = DEFAULT_LIMIT_READ) -> NodeList[InstanceSource]:
-        """List instance sources filtered by resource type"""
-        is_selected = filters.Equals(self._view_id.as_property_ref("resourceType"), resource_type)
-
-        nodes = self._instance_api.list(instance_type="node", filter=is_selected, limit=limit, sources=self._view_id)
-        return NodeList[InstanceSource]([InstanceSource._load(node.dump()) for node in nodes])
+    def list(self, resource_type: AssetCentricType, limit: int | None = 100) -> list[InstanceSource]:
+        """List instance sources filtered by resource type."""
+        filter_ = InstanceFilter(
+            instance_type="node",
+            source=self._view_id,
+            filter=_equals_filter(self._view_id, "resourceType", resource_type),
+        )
+        nodes = self._instances_api.list(filter=filter_, limit=limit)
+        return [InstanceSource.model_validate(node.dump()) for node in nodes]
 
 
 class ResourceViewMappingsAPI(WrappedInstancesAPI[NodeId, ResourceViewMappingResponse]):
@@ -133,49 +183,55 @@ class ResourceViewMappingsAPI(WrappedInstancesAPI[NodeId, ResourceViewMappingRes
 
 
 class CreatedSourceSystemAPI:
-    def __init__(self, instance_api: InstancesAPI) -> None:
-        self._instance_api = instance_api
+    def __init__(self, instances_api: InstancesAPI) -> None:
+        self._instances_api = instances_api
         self._RETRIEVE_LIMIT = 1000
-        self._view_id = CreatedSourceSystem.get_source()
+        self._view_id = CREATED_SOURCE_SYSTEM_VIEW_ID
 
-    def retrieve(self, source: SequenceNotStr[str]) -> NodeList[CreatedSourceSystem]:
-        """Retrieve one or more view sources by their external IDs."""
-        results: NodeList[CreatedSourceSystem] = NodeList[CreatedSourceSystem]([])
-        # MyPy does not understand that SequenceNotStr is a sequence.
+    def retrieve(self, source: SequenceNotStr[str]) -> list[CreatedSourceSystem]:
+        """Retrieve one or more created source systems by their source strings."""
+        results: list[CreatedSourceSystem] = []
         for chunk in chunker_sequence(source, self._RETRIEVE_LIMIT):  # type: ignore[type-var]
-            retrieve_query = query.Query(
+            query_request = QueryRequest(
                 with_={
-                    "sourceSystem": query.NodeResultSetExpression(
-                        filter=filters.And(filters.HasData(views=[self._view_id]), self._create_dms_filter(chunk)),
+                    "sourceSystem": QueryNodeExpression(
+                        nodes=QueryNodeTableExpression(
+                            filter=_and_filter(
+                                _has_data_filter(self._view_id),
+                                self._create_dms_filter(chunk),
+                            ),
+                        ),
                         limit=len(chunk),
                     ),
                 },
-                select={"sourceSystem": query.Select([query.SourceSelector(self._view_id, ["*"])])},
+                select={"sourceSystem": _select_all(self._view_id)},
             )
-            chunk_response = self._instance_api.query(retrieve_query)
-            results.extend([CreatedSourceSystem._load(item.dump()) for item in chunk_response.get("sourceSystem", [])])
+            response = self._instances_api.query(query_request, type_results=False)
+            for item in response.items.get("sourceSystem", []):
+                results.append(CreatedSourceSystem.model_validate(item))
         return results
 
-    def _create_dms_filter(self, source: SequenceNotStr[str]) -> filters.Filter:
+    def _create_dms_filter(self, source: SequenceNotStr[str]) -> dict[str, JsonValue]:
         """Create a filter that matches all CreatedSourceSystem with given source in the list."""
         if not source:
             raise ValueError("Cannot create a filter from an empty source list.")
-        return filters.In(self._view_id.as_property_ref("source"), list(source))
+        return _in_filter(self._view_id, "source", list(source))
 
-    def list(self, limit: int = -1) -> NodeList[CreatedSourceSystem]:
+    def list(self, limit: int | None = None) -> list[CreatedSourceSystem]:
         """Lists all created source systems."""
-        return self._instance_api.list(instance_type=CreatedSourceSystem, limit=limit)
+        filter_ = InstanceFilter(instance_type="node", source=self._view_id)
+        nodes = self._instances_api.list(filter=filter_, limit=limit)
+        return [CreatedSourceSystem.model_validate(node.dump()) for node in nodes]
 
 
 _T = TypeVar("_T", bound=int | str)
 
 
 class SpaceSourceAPI:
-    def __init__(self, instance_api: InstancesAPI) -> None:
-        self._instance_api = instance_api
+    def __init__(self, instances_api: InstancesAPI) -> None:
+        self._instances_api = instances_api
         self._RETRIEVE_LIMIT = 1000
-        self._view_id = SpaceSource.get_source()
-        # Cache for space sources by data set ID and external ID
+        self._view_id = SPACE_SOURCE_VIEW_ID
         self._cache_by_id: dict[int, SpaceSource] = {}
         self._cache_by_external_id: dict[str, SpaceSource] = {}
 
@@ -183,23 +239,22 @@ class SpaceSourceAPI:
     def retrieve(self, data_set_id: int) -> SpaceSource | None: ...
 
     @overload
-    def retrieve(self, data_set_id: Sequence[int]) -> NodeList[SpaceSource]: ...
+    def retrieve(self, data_set_id: Sequence[int]) -> list[SpaceSource]: ...
 
     @overload
     def retrieve(self, *, data_set_external_id: str) -> SpaceSource | None: ...
 
     @overload
-    def retrieve(self, *, data_set_external_id: SequenceNotStr[str]) -> NodeList[SpaceSource]: ...
+    def retrieve(self, *, data_set_external_id: SequenceNotStr[str]) -> list[SpaceSource]: ...
 
     def retrieve(
         self,
         data_set_id: int | Sequence[int] | None = None,
         data_set_external_id: str | SequenceNotStr[str] | None = None,
-    ) -> SpaceSource | NodeList[SpaceSource] | None:
+    ) -> SpaceSource | list[SpaceSource] | None:
         """Retrieve a space source by data set ID or external ID.
 
-        This method uses caching to avoid redundant API calls. If a space source
-        has been retrieved before, it will be returned from cache.
+        This method uses caching to avoid redundant API calls.
         """
         if data_set_id is not None and data_set_external_id is None:
             return self._retrieve_with_cache(
@@ -225,12 +280,10 @@ class SpaceSourceAPI:
         property_name: str,
         cache: dict[_T, SpaceSource],
         is_single: bool,
-    ) -> SpaceSource | NodeList[SpaceSource] | None:
+    ) -> SpaceSource | list[SpaceSource] | None:
         """Retrieve space sources with caching support."""
-        # MyPy does not understand that if is_single is True, value is _T, else Sequence[_T].
         values: list[_T] = [value] if is_single else list(value)  # type: ignore[arg-type, list-item]
 
-        # Check cache for all requested values
         cached_results: list[SpaceSource] = []
         missing_values: list[_T] = []
         for val in values:
@@ -239,7 +292,6 @@ class SpaceSourceAPI:
             else:
                 missing_values.append(val)
 
-        # Fetch missing values from API
         if missing_values:
             fetched = self._retrieve_by_property(property_name=property_name, values=missing_values)
             for item in fetched:
@@ -248,7 +300,7 @@ class SpaceSourceAPI:
 
         if is_single:
             return cached_results[0] if cached_results else None
-        return NodeList[SpaceSource](cached_results)
+        return cached_results
 
     def _add_to_cache(self, space_source: SpaceSource) -> None:
         """Add a space source to both caches."""
@@ -261,36 +313,35 @@ class SpaceSourceAPI:
         self,
         property_name: str,
         values: Sequence[_T],
-    ) -> NodeList[SpaceSource]:
+    ) -> list[SpaceSource]:
         """Retrieve space sources by filtering on a specific property."""
-        results: NodeList[SpaceSource] = NodeList[SpaceSource]([])
+        results: list[SpaceSource] = []
         for chunk in chunker_sequence(values, self._RETRIEVE_LIMIT):
-            retrieve_query = query.Query(
+            query_request = QueryRequest(
                 with_={
-                    "spaceSource": query.NodeResultSetExpression(
-                        filter=filters.And(
-                            filters.HasData(views=[self._view_id]),
-                            filters.In(self._view_id.as_property_ref(property_name), chunk),
+                    "spaceSource": QueryNodeExpression(
+                        nodes=QueryNodeTableExpression(
+                            filter=_and_filter(
+                                _has_data_filter(self._view_id),
+                                _in_filter(self._view_id, property_name, list(chunk)),
+                            ),
                         ),
                         limit=len(chunk),
                     ),
                 },
-                select={"spaceSource": query.Select([query.SourceSelector(self._view_id, ["*"])])},
+                select={"spaceSource": _select_all(self._view_id)},
             )
-            chunk_response = self._instance_api.query(retrieve_query)
-            items = chunk_response.get("spaceSource", [])
-            results.extend([SpaceSource._load(item.dump()) for item in items])
-
+            response = self._instances_api.query(query_request, type_results=False)
+            for item in response.items.get("spaceSource", []):
+                results.append(SpaceSource.model_validate(item))
         return results
 
-    def list(self, limit: int = -1) -> NodeList[SpaceSource]:
-        """Lists all space sources and populates the cache.
-
-        Note: This method always fetches from the API and does not use the cache,
-        but it will populate the cache with all retrieved space sources.
-        """
-        results = self._instance_api.list(instance_type=SpaceSource, limit=limit)
-        # Populate cache with all retrieved space sources
+    def list(self, limit: int = -1) -> list[SpaceSource]:
+        """Lists all space sources and populates the cache."""
+        effective_limit = None if limit == -1 else limit
+        filter_ = InstanceFilter(instance_type="node", source=self._view_id)
+        nodes = self._instances_api.list(filter=filter_, limit=effective_limit)
+        results = [SpaceSource.model_validate(node.dump()) for node in nodes]
         for space_source in results:
             self._add_to_cache(space_source)
         return results
@@ -300,10 +351,10 @@ _T_Cached = TypeVar("_T_Cached", bound=NodeId | ViewId)
 
 
 class LookupAPI:
-    def __init__(self, instance_api: InstancesAPI, resource_type: AssetCentricType) -> None:
-        self._instance_api = instance_api
+    def __init__(self, instances_api: InstancesAPI, resource_type: AssetCentricType) -> None:
+        self._instances_api = instances_api
         self._resource_type = resource_type
-        self._view_id = InstanceSource.get_source()
+        self._view_id = INSTANCE_SOURCE_VIEW_ID
         self._node_id_by_id: dict[int, NodeId | None] = {}
         self._node_id_by_external_id: dict[str, NodeId | None] = {}
         self._consumer_view_id_by_id: dict[int, ViewId | None] = {}
@@ -325,16 +376,7 @@ class LookupAPI:
     def __call__(
         self, id: int | SequenceNotStr[int] | None = None, external_id: str | SequenceNotStr[str] | None = None
     ) -> dict[int, NodeId] | dict[str, NodeId] | NodeId | None:
-        """Lookup NodeId by either internal ID or external ID.
-
-        Args:
-            id (int | Sequence[int] | None): The internal ID(s) to lookup.
-            external_id (str | SequenceNotStr[str] | None): The external ID(s) to lookup.
-
-        Returns:
-            NodeId | dict[int, NodeReference] | dict[str, NodeReference] | None: The corresponding NodeReference(s) if found, otherwise None.
-
-        """
+        """Lookup NodeId by either internal ID or external ID."""
         if id is not None and external_id is None:
             return self._lookup(
                 identifier=id,
@@ -369,14 +411,7 @@ class LookupAPI:
     def consumer_view(
         self, id: int | SequenceNotStr[int] | None = None, external_id: str | SequenceNotStr[str] | None = None
     ) -> dict[int, ViewId] | dict[str, ViewId] | ViewId | None:
-        """Lookup Consumer ViewReference by either internal ID or external ID.
-
-        Args:
-            id (int | Sequence[int] | None): The internal ID(s) to lookup.
-            external_id (str | SequenceNotStr[str] | None): The external ID(s) to lookup.
-        Returns:
-            ViewReference | dict[int, ViewReference] | dict[str, ViewReference] | None
-        """
+        """Lookup Consumer ViewReference by either internal ID or external ID."""
         if id is not None and external_id is None:
             return self._lookup(
                 identifier=id,
@@ -420,24 +455,25 @@ class LookupAPI:
 
     def _fetch_and_cache(self, identifiers: Sequence[int | str], by: Literal["id", "classicExternalId"]) -> None:
         for chunk in chunker_sequence(identifiers, self._RETRIEVE_LIMIT):
-            retrieve_query = query.Query(
+            query_request = QueryRequest(
                 with_={
-                    "instanceSource": query.NodeResultSetExpression(
-                        filter=filters.And(
-                            filters.HasData(views=[self._view_id]),
-                            filters.Equals(self._view_id.as_property_ref("resourceType"), self._resource_type),
-                            filters.In(self._view_id.as_property_ref(by), list(chunk)),
+                    "instanceSource": QueryNodeExpression(
+                        nodes=QueryNodeTableExpression(
+                            filter=_and_filter(
+                                _has_data_filter(self._view_id),
+                                _equals_filter(self._view_id, "resourceType", self._resource_type),
+                                _in_filter(self._view_id, by, list(chunk)),
+                            ),
                         ),
                         limit=len(chunk),
                     ),
                 },
-                select={"instanceSource": query.Select([query.SourceSelector(self._view_id, ["*"])])},
+                select={"instanceSource": _select_all(self._view_id)},
             )
-            chunk_response = self._instance_api.query(retrieve_query)
-            items = chunk_response.get("instanceSource", [])
-            for item in items:
-                instance_source = InstanceSource._load(item.dump())
-                node_id = NodeId(space=instance_source.space, external_id=instance_source.external_id)
+            response = self._instances_api.query(query_request, type_results=False)
+            for item in response.items.get("instanceSource", []):
+                instance_source = InstanceSource.model_validate(item)
+                node_id = instance_source.as_id()
                 self._node_id_by_id[instance_source.id_] = node_id
                 self._consumer_view_id_by_id[instance_source.id_] = instance_source.consumer_view()
                 if instance_source.classic_external_id:
@@ -461,17 +497,17 @@ class LookupAPI:
 
 
 class MigrationLookupAPI:
-    def __init__(self, instance_api: InstancesAPI) -> None:
-        self.assets = LookupAPI(instance_api, "asset")
-        self.events = LookupAPI(instance_api, "event")
-        self.files = LookupAPI(instance_api, "file")
-        self.time_series = LookupAPI(instance_api, "timeseries")
+    def __init__(self, instances_api: InstancesAPI) -> None:
+        self.assets = LookupAPI(instances_api, "asset")
+        self.events = LookupAPI(instances_api, "event")
+        self.files = LookupAPI(instances_api, "file")
+        self.time_series = LookupAPI(instances_api, "timeseries")
 
 
 class MigrationAPI:
-    def __init__(self, instance_api: InstancesAPI, http_client: HTTPClient) -> None:
-        self.instance_source = InstanceSourceAPI(instance_api)
+    def __init__(self, instances_api: InstancesAPI, http_client: HTTPClient) -> None:
+        self.instance_source = InstanceSourceAPI(instances_api)
         self.resource_view_mapping = ResourceViewMappingsAPI(http_client)
-        self.created_source_system = CreatedSourceSystemAPI(instance_api)
-        self.space_source = SpaceSourceAPI(instance_api)
-        self.lookup = MigrationLookupAPI(instance_api)
+        self.created_source_system = CreatedSourceSystemAPI(instances_api)
+        self.space_source = SpaceSourceAPI(instances_api)
+        self.lookup = MigrationLookupAPI(instances_api)

@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
@@ -147,7 +147,7 @@ class DirectRelationCache:
             if missing:
                 source_systems = self._client.migration.created_source_system.retrieve(list(missing))
                 for source_system in source_systems:
-                    source_reference = source_system.as_direct_relation_reference()
+                    source_reference = source_system.as_id()
                     cache[source_system.source] = source_reference
                     if original_str := missing.get(source_system.source):
                         cache[original_str] = source_reference
@@ -226,8 +226,8 @@ def asset_centric_to_dm(
     external_id = dumped.pop("externalId", None)
 
     issue = ConversionIssue(
-        id=str(AssetCentricId(resource_type, id_=id_)),
-        asset_centric_id=AssetCentricId(resource_type, id_=id_),
+        id=str(AssetCentricId(resource_type=resource_type, id_=id_)),
+        asset_centric_id=AssetCentricId(resource_type=resource_type, id_=id_),
         instance_id=NodeId(space=instance_id.space, external_id=instance_id.external_id),
     )
 

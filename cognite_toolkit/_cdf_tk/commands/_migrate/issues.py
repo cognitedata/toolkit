@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, field_serializer
 from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.storageio.logger import LogEntry
 
 
