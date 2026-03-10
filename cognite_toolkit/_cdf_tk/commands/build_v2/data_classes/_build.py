@@ -90,6 +90,7 @@ class BuildFolder(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     path: Path
     built_modules: list[BuiltModule] = Field(default_factory=list)
+    build_duration_seconds: float | None = Field(None, description="Total build duration in seconds")
 
     @property
     def insights(self) -> InsightList:
@@ -119,7 +120,7 @@ class BuildFolder(BaseModel):
                     total_recommendations += len(insights)
 
             # Create resource lineage items for each built file
-            resource_lineage_items: dict[AbsoluteFilePath, ResourceLineageItem] = {}
+            resource_lineage: dict[AbsoluteFilePath, ResourceLineageItem] = {}
 
             # Collect all source files from the module
             source_files = []
@@ -130,52 +131,65 @@ class BuildFolder(BaseModel):
                 # Get corresponding source file (if available)
                 source_file = source_files[idx] if idx < len(source_files) else built_file
 
-                resource_lineage = ResourceLineageItem(
+                resource_lineage_item = ResourceLineageItem(
                     source_file=source_file,
                     source_hash="",  # Would need to track this during build
                     resource_type=built_file.parent.name,
                     kind=built_file.stem.rsplit(".", 1)[-1] if "." in built_file.stem else "",
                     built_file=built_file,
                 )
-                resource_lineage_items[built_file] = resource_lineage
-
+                resource_lineage[built_file] = resource_lineage_item
             # Create module lineage item
             module_path: RelativeDirPath = (
                 built_module.source.path.relative_to(self.path.parent)
                 if self.path.parent in built_module.source.path.parents
                 else built_module.source.path
             )
+
+            # Calculate resource summaries
+            resources_discovered = len(resource_lineage)
+            resources_processed = sum(
+                1 for res in resource_lineage.values() if res.overall_status in ("SUCCESS", "BUILT_WITH_WARNINGS")
+            )
+            resources_failed = resources_discovered - resources_processed
+
             module_lineage = ModuleLineageItem.model_construct(
-                module_source=built_module.source,
+                module_id=str(built_module.source.id),
+                module_path=built_module.source.path,
                 iteration=0,
-                discovered_resources=len(built_module.built_files),
-                resource_lineage_items=resource_lineage_items,
-                built_files=[Path(f) for f in built_module.built_files],
-                built_resources_count=len(built_module.built_resources_identifiers),
+                resource_lineage=resource_lineage,
+                resources=ResourcesSummary(
+                    discovered=resources_discovered,
+                    processed=resources_processed,
+                    failed=resources_failed,
+                ),
                 insights=built_module.insights.summary,
             )
             module_lineage_items.setdefault(module_path, []).append(module_lineage)
 
-        # Calculate module and resource summaries
+        # Calculate module summaries - a module fails if it has syntax or consistency errors
         modules_discovered = len(self.built_modules)
-        modules_processed = sum(1 for module in self.built_modules if module.is_success)
-        modules_failed = modules_discovered - modules_processed
+        modules_failed = sum(
+            1
+            for module in self.built_modules
+            if module.insights.summary.get("syntax_errors", 0) > 0
+            or module.insights.summary.get("consistency_errors", 0) > 0
+        )
+        modules_processed = modules_discovered - modules_failed
 
-        # Count resource statistics
-        resources_discovered = sum(len(module.built_files) for module in self.built_modules)
-        resources_processed = len(self.built_resources_identifiers)
-        resources_failed = resources_discovered - resources_processed
+        # Check if any module failed based on insights
+        has_failures = modules_failed > 0
 
-        # Check if any module failed
-        has_failures = any(not module.is_success for module in self.built_modules)
+        # Round timestamp to 2 decimal places (centiseconds)
+        timestamp = datetime.utcnow()
+        timestamp = timestamp.replace(microsecond=round(timestamp.microsecond / 10000) * 10000)
 
         return BuildLineage.model_construct(
-            build_timestamp=datetime.utcnow(),
-            build_duration_seconds=None,
+            build_timestamp=timestamp,
+            build_duration_seconds=self.build_duration_seconds,
             config=BuildConfigLineage.model_construct(
                 organization_dir=self.path,  # This is the build path, lineage will need context update
                 build_dir=self.path,
-                config_name=None,
                 cdf_project="UNKNOWN",  # Will need to be updated from BuildParameters
                 validation_type="prod",  # Will need to be updated from BuildParameters
                 selected_modules=set(),  # Will need to be updated from BuildParameters
@@ -186,18 +200,13 @@ class BuildFolder(BaseModel):
                 processed=modules_processed,
                 failed=modules_failed,
             ),
-            resources=ResourcesSummary(
-                discovered=resources_discovered,
-                processed=resources_processed,
-                failed=resources_failed,
-            ),
             insights={
                 "syntax_errors": total_syntax_errors,
                 "consistency_errors": total_consistency_errors,
                 "recommendations": total_recommendations,
             },
             build_successful=not has_failures and total_consistency_errors == 0,
-            module_lineage_items=module_lineage_items,
+            module_lineage=module_lineage_items,
         )
 
     @property

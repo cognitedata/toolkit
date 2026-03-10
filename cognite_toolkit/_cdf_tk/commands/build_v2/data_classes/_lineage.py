@@ -8,7 +8,6 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
 from ._insights import InsightList
-from ._module import ModuleSource
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, ValidationType
 
 
@@ -33,7 +32,6 @@ class BuildConfigLineage(BaseModel):
 
     organization_dir: AbsoluteDirPath = Field(description="Organization root directory")
     build_dir: AbsoluteDirPath = Field(description="Build output directory")
-    config_name: str | None = Field(None, description="Config YAML name if provided")
     cdf_project: str = Field(description="Target CDF project")
     validation_type: ValidationType = Field(description="Validation type (prod/dev)")
     selected_modules: set[RelativeDirPath | str] = Field(description="Selected modules for build")
@@ -111,26 +109,19 @@ class ModuleLineageItem(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    module_source: ModuleSource = Field(description="Module source configuration")
+    module_id: str = Field(description="Module identifier (e.g., modules/my_module)")
+    module_path: AbsoluteDirPath = Field(description="Absolute path to module source directory")
     iteration: int = Field(
         default=0, description="Iteration number if multi-value variables were used (0 if no iteration)"
     )
 
-    # Resource discovery
-    discovered_resources: int = Field(description="Number of resources discovered in source files")
-
     # Resource tracking
-    resource_lineage_items: dict[AbsoluteFilePath, ResourceLineageItem] = Field(
+    resource_lineage: dict[AbsoluteFilePath, ResourceLineageItem] = Field(
         default_factory=dict, description="Mapping of source file to resource lineage"
     )
 
-    # Build output
-    built_files: list[AbsoluteFilePath] = Field(
-        default_factory=list, description="Output YAML files generated for this module"
-    )
-
-    # Statistics
-    built_resources_count: int = Field(description="Number of successfully built resources")
+    # Resource summary
+    resources: ResourcesSummary = Field(description="Resource statistics (discovered, processed, failed)")
 
     # Insights breakdown at module level
     insights: dict[str, int] = Field(description="Breakdown of insights by type for this module")
@@ -143,19 +134,32 @@ class ModuleLineageItem(BaseModel):
             return "FAILED"
 
         # Check if any resource failed
-        if any(item.overall_status == "FAILED" for item in self.resource_lineage_items.values()):
+        if any(item.overall_status == "FAILED" for item in self.resource_lineage.values()):
             return "FAILED"
 
-        if any(item.overall_status == "BUILT_WITH_WARNINGS" for item in self.resource_lineage_items.values()):
+        if any(item.overall_status == "BUILT_WITH_WARNINGS" for item in self.resource_lineage.values()):
             return "BUILT_WITH_WARNINGS"
 
         return "SUCCESS"
 
     @property
+    def failure_reason(self) -> str | None:
+        """Indicates why the module failed, if it did."""
+        reasons = []
+        if self.insights.get("syntax_errors", 0) > 0:
+            reasons.append("SYNTAX_ERRORS")
+        if self.insights.get("consistency_errors", 0) > 0:
+            reasons.append("CONSISTENCY_ERRORS")
+
+        if reasons:
+            return " | ".join(reasons)
+        return None
+
+    @property
     def all_insights(self) -> InsightList:
         """Aggregates all insights from all resources."""
         combined = InsightList()
-        for item in self.resource_lineage_items.values():
+        for item in self.resource_lineage.values():
             combined.extend(item.all_insights)
         return combined
 
@@ -198,14 +202,16 @@ class BuildLineage(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     # Build metadata
-    build_timestamp: datetime = Field(default_factory=datetime.utcnow, description="When build started")
-    build_duration_seconds: float | None = Field(None, description="Total build duration in seconds")
+    build_timestamp: datetime = Field(
+        default_factory=datetime.utcnow, description="When build started", alias="timestamp"
+    )
+    build_duration_seconds: float | None = Field(None, description="Total build duration in seconds", alias="duration")
 
     # Configuration
     config: BuildConfigLineage = Field(description="Build configuration and environment")
 
     # Module tracking
-    module_lineage_items: dict[RelativeDirPath, list[ModuleLineageItem]] = Field(
+    module_lineage: dict[RelativeDirPath, list[ModuleLineageItem]] = Field(
         default_factory=dict,
         description="Lineage for each module, indexed by module path. List because of iterations.",
     )
@@ -217,7 +223,6 @@ class BuildLineage(BaseModel):
 
     # Summary statistics
     modules: ModulesSummary = Field(description="Module statistics (discovered, processed, failed)")
-    resources: ResourcesSummary = Field(description="Resource statistics (discovered, processed, failed)")
 
     # Insights summary
     insights: dict[str, int] = Field(description="Summary of all insights found during build")
@@ -236,7 +241,7 @@ class BuildLineage(BaseModel):
     def failed_modules(self) -> list[tuple[RelativeDirPath, ModuleLineageItem]]:
         """All modules that failed during build."""
         failed = []
-        for module_path, lineages in self.module_lineage_items.items():
+        for module_path, lineages in self.module_lineage.items():
             for lineage in lineages:
                 if lineage.overall_status == "FAILED":
                     failed.append((module_path, lineage))
@@ -246,7 +251,7 @@ class BuildLineage(BaseModel):
     def built_modules(self) -> list[tuple[RelativeDirPath, ModuleLineageItem]]:
         """All modules that were successfully built."""
         built = []
-        for module_path, lineages in self.module_lineage_items.items():
+        for module_path, lineages in self.module_lineage.items():
             for lineage in lineages:
                 if lineage.overall_status in ("SUCCESS", "BUILT_WITH_WARNINGS"):
                     built.append((module_path, lineage))
@@ -256,9 +261,9 @@ class BuildLineage(BaseModel):
     def failed_resources(self) -> list[tuple[RelativeDirPath, ResourceLineageItem]]:
         """All resources that failed during build."""
         failed = []
-        for module_path, lineages in self.module_lineage_items.items():
+        for module_path, lineages in self.module_lineage.items():
             for lineage in lineages:
-                for resource in lineage.resource_lineage_items.values():
+                for resource in lineage.resource_lineage.values():
                     if resource.overall_status == "FAILED":
                         failed.append((module_path, resource))
         return failed
@@ -302,7 +307,7 @@ class BuildLineage(BaseModel):
     def all_insights(self) -> InsightList:
         """Aggregates all insights across entire build."""
         combined = InsightList()
-        for lineages in self.module_lineage_items.values():
+        for lineages in self.module_lineage.values():
             for lineage in lineages:
                 combined.extend(lineage.all_insights)
         return combined
@@ -320,11 +325,6 @@ class BuildLineage(BaseModel):
                 "discovered": self.modules.discovered,
                 "processed": self.modules.processed,
                 "failed": self.modules.failed,
-            },
-            "resources": {
-                "discovered": self.resources.discovered,
-                "processed": self.resources.processed,
-                "failed": self.resources.failed,
             },
             "dependencies": {
                 "total": len(self.dependencies),
@@ -345,7 +345,7 @@ class BuildLineage(BaseModel):
 
     def get_module_lineage(self, module_id: RelativeDirPath, iteration: int = 0) -> ModuleLineageItem | None:
         """Get lineage for a specific module and iteration."""
-        lineages = self.module_lineage_items.get(module_id, [])
+        lineages = self.module_lineage.get(module_id, [])
         for lineage in lineages:
             if lineage.iteration == iteration:
                 return lineage

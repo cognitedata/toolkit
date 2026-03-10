@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
@@ -56,6 +57,9 @@ class BuildV2Command(ToolkitCommand):
     def build(self, parameters: BuildParameters, client: ToolkitClient | None = None) -> BuildFolder:
         console = client.console if client else Console()
 
+        # Track build duration
+        build_start_time = time.time()
+
         self._validate_build_parameters(parameters, console, sys.argv)
         build_files = self._read_file_system(parameters)
         module_sources = self._parse_module_sources(build_files)
@@ -68,6 +72,10 @@ class BuildV2Command(ToolkitCommand):
         # Can be parallelized with number of plugins.
         # Neat is done inside the global validation.
         self._global_validation(build_folder, client)
+
+        # Calculate build duration
+        build_duration_seconds = round(time.time() - build_start_time, 2)
+        build_folder.build_duration_seconds = build_duration_seconds
 
         self._write_results(build_folder)
         return build_folder
@@ -518,36 +526,63 @@ class BuildV2Command(ToolkitCommand):
         self._write_insights_csv(insights_csv, build_folder)
 
     def _serialize_lineage(self, lineage: BuildLineage) -> dict[str, object]:
-        """Serialize BuildLineage to a dict, excluding non-serializable InsightList fields."""
+        """Serialize BuildLineage to a dict, converting paths to relative and excluding non-serializable fields."""
         # Convert to dict, excluding fields that contain InsightList
         data = lineage.model_dump(
             exclude={
-                "module_lineage_items",  # Will handle separately
+                "module_lineage",  # Will handle separately
                 "build_successful",  # Will use status property instead
+                "dependencies",  # Not needed in lineage output
             },
+            by_alias=True,  # Use aliases for field names
             mode="json",  # This converts Path objects to strings
         )
+
+        # Round timestamp to 2 decimal places (centiseconds) and format cleanly
+        if isinstance(data["timestamp"], str):
+            # Parse the timestamp and round it
+            from datetime import datetime as dt
+
+            parsed_ts = dt.fromisoformat(data["timestamp"].replace("Z", "+00:00"))
+            rounded_ts = parsed_ts.replace(microsecond=round(parsed_ts.microsecond / 10000) * 10000)
+            # Format with exactly 2 decimal places
+            centiseconds = rounded_ts.microsecond // 10000
+            data["timestamp"] = rounded_ts.strftime(f"%Y-%m-%dT%H:%M:%S.{centiseconds:02d}")
+
+        # Get the organization directory (parent of build_dir)
+        org_dir = Path(data["config"]["build_dir"]).parent
+
+        # Keep organization_dir absolute, convert build_dir to relative
+        data["config"]["organization_dir"] = str(org_dir)
+        data["config"]["build_dir"] = str(Path(data["config"]["build_dir"]).relative_to(org_dir))
 
         # Add status at build level
         data["status"] = lineage.status
 
         # Manually add module lineage items, excluding InsightList fields
-        module_lineage_items = {}
-        for module_path, lineages in lineage.module_lineage_items.items():
+        module_lineage_dict = {}
+        for module_path, lineages in lineage.module_lineage.items():
             serialized_lineages = []
             for module_lineage in lineages:
                 module_data = module_lineage.model_dump(
                     exclude={
-                        "resource_lineage_items",  # Will handle separately
+                        "resource_lineage",  # Will handle separately
                     },
                     mode="json",  # Convert Path objects to strings
                 )
+                # Convert module_path to relative
+                module_data["module_path"] = str(Path(module_data["module_path"]).relative_to(org_dir))
+
                 # Add module status based on insights
                 module_data["status"] = module_lineage.overall_status
 
+                # Add failure reason if module failed
+                if module_lineage.failure_reason:
+                    module_data["failure_reason"] = module_lineage.failure_reason
+
                 # Manually add resource lineage items, excluding InsightList fields
                 resource_items = {}
-                for resource_path, resource_item in module_lineage.resource_lineage_items.items():
+                for resource_path, resource_item in module_lineage.resource_lineage.items():
                     resource_data = resource_item.model_dump(
                         exclude={
                             "local_validation_insights",
@@ -560,13 +595,21 @@ class BuildV2Command(ToolkitCommand):
                         by_alias=True,  # Use aliases like 'type' instead of 'resource_type'
                         mode="json",  # Convert Path objects to strings
                     )
+                    # Convert paths to relative
+                    resource_data["source_file"] = str(Path(resource_data["source_file"]).relative_to(org_dir))
+                    resource_data["built_file"] = str(Path(resource_data["built_file"]).relative_to(org_dir))
+
                     # Add resource status
                     resource_data["status"] = resource_item.overall_status
-                    resource_items[str(resource_path)] = resource_data
-                module_data["resource_lineage_items"] = resource_items
+                    # Use relative path as key
+                    relative_resource_path = str(Path(str(resource_path)).relative_to(org_dir))
+                    resource_items[relative_resource_path] = resource_data
+                module_data["resource_lineage"] = resource_items
                 serialized_lineages.append(module_data)
-            module_lineage_items[str(module_path)] = serialized_lineages
-        data["module_lineage_items"] = module_lineage_items
+            # Use relative path as key for module
+            relative_module_path = str(module_path)
+            module_lineage_dict[relative_module_path] = serialized_lineages
+        data["module_lineage"] = module_lineage_dict
 
         return data
 
