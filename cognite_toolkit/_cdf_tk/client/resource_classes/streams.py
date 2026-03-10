@@ -73,7 +73,7 @@ class StreamResponse(Stream, ResponseResource[StreamRequest]):
     """Stream response resource class."""
 
     created_time: int
-    created_from_template: StreamTemplateName
+    created_from_template: str
     type: Literal["Mutable", "Immutable"]
     settings: StreamSettings | None = None
 
@@ -82,14 +82,6 @@ class StreamResponse(Stream, ResponseResource[StreamRequest]):
         return StreamRequest
 
     def as_request_resource(self) -> StreamRequest:
-        return StreamRequest.model_validate(
-            {
-                "externalId": self.external_id,
-                "settings": {"template": {"name": self.created_from_template}},
-            }
-        )
-
-    def as_write(self) -> StreamRequest:
         return StreamRequest.model_validate(
             {
                 "externalId": self.external_id,

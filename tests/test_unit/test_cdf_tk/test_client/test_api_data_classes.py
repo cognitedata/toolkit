@@ -500,6 +500,7 @@ class TestStreams:
         data = {
             "externalId": "stream_1",
             "createdFromTemplate": "unknown_template",
+            "type": "Mutable",
             "createdTime": 1731844296876,
         }
         stream_response = StreamResponse.model_validate(data)
