@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from cognite.client import data_modeling as dm
 from cognite.client.exceptions import CogniteException
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId
@@ -784,22 +785,39 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
                     "node.version": node.version,
                 }
             )
+            special_properties: dict[str, JsonValue] = {}
+            if context.mapping.source_view in self._special_cases:
+                special_results = self._special_cases[context.mapping.source_view].convert(source_properties, context)
+                issue.errors.extend(special_results.errors)
+                new_edges.extend(special_results.edges)
+                special_properties = special_results.container_properties
+
             container_results = convert_container_properties(source_properties, context)
             edge_results = convert_edges(other_side_by_edge_type_and_direction, context)
-
             issue.errors.extend(container_results.errors)
             issue.errors.extend(edge_results.errors)
+            new_edges.extend(container_results.edges)
+            new_edges.extend(edge_results.edges)
+
+            if overwritten := set(container_results.container_properties) & set(edge_results.container_properties):
+                issue.errors.append(
+                    f"Conflicting mapping. When converting container properties and edge for view "
+                    f"'{context.mapping.source_view}' on node '{node.as_id()}' there were conflicting"
+                    " destination properties. The properties from the edge will be prioritized for the "
+                    f"conflicting properties: {humanize_collection(overwritten)}"
+                )
 
             created_container_properties = {
                 **container_results.container_properties,
                 **edge_results.container_properties,
+                # We overwrite the special properties.
+                **special_properties,
             }
+
             if created_container_properties:
                 sources.append(
                     InstanceSource(source=context.mapping.destination_view, properties=created_container_properties)
                 )
-            new_edges.extend(container_results.edges)
-            new_edges.extend(edge_results.edges)
 
         return sources, new_edges, issue
 

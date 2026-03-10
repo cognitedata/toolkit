@@ -863,12 +863,10 @@ class ContainerPropertiesMapping(ABC):
     ClassVar:
         VIEW_IDS: Set of view IDs that this mapping applies to. If the source view ID of the instance being converted is in this set,
         this mapping will be used to convert the container properties.
-        RUN_DEFAULT_CONVERSIONS: Whether to run the default conversion logic in addition to the custom conversion defined in the convert method
 
     ."""
 
     VIEW_IDS: ClassVar[Set[ViewId]] = frozenset()
-    RUN_DEFAULT_CONVERSIONS: ClassVar[bool] = True
 
     @abstractmethod
     def convert(self, source_properties: dict[str, JsonValue], context: ConversionContext) -> ConversionResult:
