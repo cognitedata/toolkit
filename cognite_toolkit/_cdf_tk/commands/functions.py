@@ -1,4 +1,5 @@
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -16,9 +17,27 @@ class Route:
     has_body: bool
 
 
+def _sanitize_route_path(path: str) -> str:
+    """Normalise a user-supplied route path to lowercase-with-hyphens.
+
+    - Lowercases the path
+    - Replaces underscores, spaces, and dots with hyphens
+    - Strips any remaining non-alphanumeric characters (keeping ``/`` and ``-``)
+    - Collapses consecutive hyphens
+    - Ensures a leading ``/``
+    """
+    path = path.lower()
+    path = re.sub(r"[_\s.]+", "-", path)
+    path = re.sub(r"[^a-z0-9/\-]", "", path)
+    path = re.sub(r"-+", "-", path)
+    path = path.strip("-/")
+    return f"/{path}"
+
+
 def _path_to_func_name(path: str) -> str:
     """Convert /some-route/action → some_route_action."""
-    return path.lstrip("/").replace("-", "_").replace("/", "_")
+    name = re.sub(r"[^a-zA-Z0-9]", "_", path.lstrip("/"))
+    return re.sub(r"_+", "_", name).strip("_")
 
 
 def _path_to_model_name(path: str) -> str:
@@ -48,38 +67,34 @@ _SIGNUP_URLS: dict[str, str] = {
 def _generate_handler_py(name: str, routes: list[Route], tracing_backend: str = _DEFAULT_TRACING_BACKEND) -> str:
     route_docs = "\n".join(f"  POST  {r.path:<20} {r.description}" for r in routes)
 
-    imports = [
-        "from cognite_function_apps import (",
-        "    FunctionApp,",
-        "    create_function_service,",
-        "    create_introspection_app,",
-    ]
+    imports: list[str] = []
+    imports.append("from cognite_function_apps import (")
+    imports.append("    FunctionApp,")
+    imports.append("    create_function_service,")
+    imports.append("    create_introspection_app,")
     if tracing_backend:
         imports.append("    create_tracing_app,")
     imports.append(")")
 
-    lines: list[str] = [
-        f'"""{name} — Cognite Function App.',
-        "",
-        "Routes:",
-        route_docs,
-        '"""',
-        "",
-        "import logging",
-        "",
-        "from cognite.client import CogniteClient",
-        *imports,
-        "from pydantic import BaseModel",
-        "",
-        f'app = FunctionApp(title="{name}", version="1.0.0")',
-    ]
+    lines: list[str] = []
+    lines.append(f'"""{name} — Cognite Function App.')
+    lines.append("")
+    lines.append("Routes:")
+    lines.append(route_docs)
+    lines.append('"""')
+    lines.append("")
+    lines.append("import logging")
+    lines.append("")
+    lines.append("from cognite.client import CogniteClient")
+    lines.extend(imports)
+    lines.append("from pydantic import BaseModel")
+    lines.append("")
+    lines.append(f'app = FunctionApp(title="{name}", version="1.0.0")')
     if tracing_backend:
         lines.append(f'tracing = create_tracing_app(backend="{tracing_backend}")  # no-op if tracing-api-key is absent')
-    lines += [
-        "introspection = create_introspection_app()",
-        "",
-        "",
-    ]
+    lines.append("introspection = create_introspection_app()")
+    lines.append("")
+    lines.append("")
 
     body_routes = [r for r in routes if r.has_body]
     if body_routes:
@@ -114,14 +129,12 @@ def _generate_handler_py(name: str, routes: list[Route], tracing_backend: str = 
         lines.append("")
         lines.append("")
 
-    lines += [
-        "# ── Entry point ───────────────────────────────────────────────────────────────",
-        "",
-        f"handle = create_function_service({'tracing, ' if tracing_backend else ''}introspection, app)",
-        "",
-        '__all__ = ["handle"]',
-        "",
-    ]
+    lines.append("# ── Entry point ───────────────────────────────────────────────────────────────")
+    lines.append("")
+    lines.append(f"handle = create_function_service({'tracing, ' if tracing_backend else ''}introspection, app)")
+    lines.append("")
+    lines.append('__all__ = ["handle"]')
+    lines.append("")
 
     return "\n".join(lines)
 
@@ -178,8 +191,7 @@ class FunctionsCommand(ToolkitCommand):
             has_body = questionary.confirm(
                 "Does this route accept a structured request body?", default=True
             ).unsafe_ask()
-            if not path.startswith("/"):
-                path = f"/{path}"
+            path = _sanitize_route_path(path)
             routes.append(Route(path=path, description=desc, has_body=has_body))
             if not questionary.confirm("Add another route?", default=False).unsafe_ask():
                 break

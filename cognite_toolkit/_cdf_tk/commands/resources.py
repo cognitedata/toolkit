@@ -93,11 +93,21 @@ class ResourcesCommand(ToolkitCommand):
 
         return resolved_cruds
 
-    def _get_resource_yaml_content(self, resource_crud: type[ResourceCRUD]) -> str:
+    def _get_resource_yaml_content(
+        self,
+        resource_crud: type[ResourceCRUD],
+        overrides: dict[str, Any] | None = None,
+    ) -> str:
         """
         Creates a new resource in the specified module using the resource_crud.yaml_cls.
         Each field is rendered with its default value and a comment describing it.
+
+        Args:
+            resource_crud: The CRUD class whose yaml_cls defines the fields.
+            overrides: Optional dict of field name → value to substitute into the
+                generated YAML instead of the placeholder/default.
         """
+        overrides = overrides or {}
         lines = [
             f"# API docs: {resource_crud.doc_url()}",
             "# YAML reference: https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library",
@@ -112,7 +122,10 @@ class ResourcesCommand(ToolkitCommand):
             name = field.alias or field_name
             description = field.description or ""
 
-            if field.is_required():
+            if name in overrides:
+                # Overridden fields are always emitted with their value (no placeholder).
+                required_fields.append((name, overrides[name], f"# {description}"))
+            elif field.is_required():
                 required_fields.append((name, f"<{name}>", f"# (Required) {description}"))
             elif field.default_factory is not None:
                 # Will fail for factories that require validated data as input (one-arg variant).
@@ -179,17 +192,13 @@ class ResourcesCommand(ToolkitCommand):
             print("[red]Skipping...[/red]")
             return final_prefix
 
-        yaml_content = self._get_resource_yaml_content(resource_crud)
-        yaml_content = yaml_content.replace(
-            "externalId: <externalId>  # (Required) The external ID provided by the client.",
-            f"externalId: {final_prefix}",
-        ).replace(
-            "name: <name>  # (Required) The name of the function.",
-            f"name: {final_prefix}",
-        )
+        overrides: dict[str, Any] = {"externalId": final_prefix}
+        if "name" in resource_crud.yaml_cls.model_fields:
+            overrides["name"] = final_prefix
         owner = self._get_git_user()
-        if owner:
-            yaml_content = yaml_content.replace("# owner:  # Owner of the function.", f"owner: {owner}")
+        if owner and "owner" in resource_crud.yaml_cls.model_fields:
+            overrides["owner"] = owner
+        yaml_content = self._get_resource_yaml_content(resource_crud, overrides=overrides)
         file_path.write_text(yaml_content)
         if verbose:
             print(
