@@ -475,7 +475,7 @@ class ConnectionCreator:
     Args:
         client: ToolkitClient to use for lookups when creating connections.
         space_mapping: Mapping from source space IDs to destination space IDs, used to map instance IDs from source to destination space when creating connections.
-        custom_mapping: Optional mapping for any custom cases where the mapping from source to destination instance ID cannot be handled by the space mapping or
+        custom_mappings: Optional mapping for any custom cases where the mapping from source to destination instance ID cannot be handled by the space mapping or
         timeseries/files reference cache. The keys are tuples of (source_view_id, source_prop_id) and the values are mappings
         from source instance IDs (either external ID or NodeId) to destination NodeIds.
 
@@ -485,13 +485,13 @@ class ConnectionCreator:
         self,
         client: ToolkitClient,
         space_mapping: Mapping[str, str],
-        custom_mapping: Sequence[CustomConnectionMapping] | None = None,
+        custom_mappings: Sequence[CustomConnectionMapping] | None = None,
     ) -> None:
         self._client = client
         self.space_mapping = space_mapping
         self.view_by_id: dict[ViewId, ViewResponse] = {}
-        self._custom_mappings: Sequence[CustomConnectionMapping] = custom_mapping or []
-        self._custom_mapping_caches = self._create_custom_case_caches(custom_mapping or [])
+        self._custom_mappings: Sequence[CustomConnectionMapping] = custom_mappings or []
+        self._custom_mapping_caches = self._create_custom_case_caches(custom_mappings or [])
         self._timeseries_reference_cache: dict[str, NodeId] = {}
         self._file_reference_cache: dict[str, NodeId] = {}
 
