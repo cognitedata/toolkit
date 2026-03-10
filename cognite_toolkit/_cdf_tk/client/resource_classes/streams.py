@@ -5,7 +5,6 @@ from pydantic import ConfigDict
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource, ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.constants import StreamTemplateName
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 
@@ -27,7 +26,9 @@ class Stream(ModelObject):
 
 
 class StreamTemplate(ModelObject):
-    name: StreamTemplateName | str
+    # The literal contains the officially support templates, in addition, we
+    # allow any string to support potential custom templates that may be used by some customers.
+    name: Literal["ImmutableTestStream", "BasicArchive", "BasicLiveData"] | str
 
 
 class StreamRequestSettings(ModelObject):
