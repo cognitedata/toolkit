@@ -1427,7 +1427,7 @@ class MigrateApp(typer.Typer):
                 selectors=selectors,
                 data=InstanceIO(client),
                 mapper=FDMtoCDMMapper(
-                    client, space_mapping, infield_mappings, special_cases=[InFieldAssetMapping(client)]
+                    client, space_mapping, infield_mappings, special_connection_cases=[InFieldAssetMapping(client)]
                 ),
                 log_dir=log_dir,
                 dry_run=dry_run,
