@@ -189,6 +189,8 @@ class ApprovalToolkitClient:
         self.mock_client.iam.sessions.create.return_value = CreatedSession(
             id=1234, status="READY", nonce="123", type="CLIENT_CREDENTIALS", client_id="12345-12345-12345-12345"
         )
+        # Set the token verify to never be missing ACLs.
+        self.mock_client.tool.token.verify_acls.return_value = []
         # Set functions to be activated
         self.mock_client.functions.status.return_value = FunctionsStatus(status="activated")
 
