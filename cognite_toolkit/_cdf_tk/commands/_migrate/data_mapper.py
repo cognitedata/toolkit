@@ -786,7 +786,6 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
             issue.errors.extend(container_results.errors)
             issue.errors.extend(edge_results.errors)
 
-            # Todo: Merge conflicting?
             created_container_properties = {
                 **container_results.container_properties,
                 **edge_results.container_properties,
