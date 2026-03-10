@@ -241,7 +241,13 @@ class TestRecordIO:
         respx_mock.post(upload_url).mock(side_effect=record_upload_callback)
 
         spaces_url = config.create_api_url("/models/spaces/byids")
-        respx_mock.post(spaces_url).respond(json={"items": [{"space": "my_space", "isGlobalSpace": False}]})
+        respx_mock.post(spaces_url).respond(
+            json={
+                "items": [
+                    {"space": "my_space", "isGlobal": False, "createdTime": 0, "lastUpdatedTime": 0}
+                ]
+            }
+        )
         containers_url = config.create_api_url("/models/containers/byids")
         respx_mock.post(containers_url).respond(
             json={
