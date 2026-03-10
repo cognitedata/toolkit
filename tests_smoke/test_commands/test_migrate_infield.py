@@ -333,7 +333,6 @@ class TestMigrateInfield:
     ) -> tuple[dict[ViewId, list[NodeId]], int, list[ViewId]]:
         mappings = create_infield_data_mappings()
         mapping_by_source = {item.source_view: item for item in mappings}
-        # We do not any edges in the destination data, all should have been converted to direct relations.
         destination_by_view_id: dict[ViewId, list[NodeId]] = defaultdict(list)
         missing_mappings: list[ViewId] = []
         expected_node_count = 0
