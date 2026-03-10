@@ -8,6 +8,7 @@ from cognite.client import data_modeling as dm
 from cognite.client.exceptions import CogniteException
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     ContainerReferenceItem,
     FdmInstanceContainerReferenceItem,
@@ -714,30 +715,30 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         self, source: Sequence[NodeResponse | EdgeResponse]
     ) -> tuple[
         list[NodeResponse],
-        dict[NodeId, dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]]],
+        dict[NodeId, dict[EdgeTypeId, list[EdgeOtherSide]]],
     ]:
         nodes: list[NodeResponse] = []
-        other_side_by_edge_type_and_direction_by_source: dict[
-            NodeId, dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]]
-        ] = defaultdict(lambda: defaultdict(list))
+        other_side_by_edge_type_and_direction_by_source: dict[NodeId, dict[EdgeTypeId, list[EdgeOtherSide]]] = (
+            defaultdict(lambda: defaultdict(list))
+        )
         for item in source:
             if isinstance(item, NodeResponse):
                 nodes.append(item)
             elif isinstance(item, EdgeResponse):
                 edge_id = item.as_id()
-                other_side_by_edge_type_and_direction_by_source[item.start_node][(item.type, "outwards")].append(
-                    EdgeOtherSide(edge_id, item.end_node)
-                )
+                other_side_by_edge_type_and_direction_by_source[item.start_node][
+                    EdgeTypeId(type=item.type, direction="outwards")
+                ].append(EdgeOtherSide(edge_id, item.end_node))
 
-                other_side_by_edge_type_and_direction_by_source[item.end_node][(item.type, "inwards")].append(
-                    EdgeOtherSide(edge_id, item.start_node)
-                )
+                other_side_by_edge_type_and_direction_by_source[item.end_node][
+                    EdgeTypeId(type=item.type, direction="inwards")
+                ].append(EdgeOtherSide(edge_id, item.start_node))
         return nodes, other_side_by_edge_type_and_direction_by_source
 
     def _map_single_node(
         self,
         node: NodeResponse,
-        other_side_by_edge_type_and_direction: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]],
+        other_side_by_edge_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]],
     ) -> tuple[NodeRequest, list[EdgeRequest], InstanceConversionIssue]:
         new_id = self._connection_creator.map_instance(node)
         sources, new_edges, issue = self._create_instance_data(new_id, node, other_side_by_edge_type_and_direction)
@@ -752,7 +753,7 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         self,
         new_id: NodeId,
         node: NodeResponse,
-        other_side_by_edge_type_and_direction: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]],
+        other_side_by_edge_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]],
     ) -> tuple[list[InstanceSource], list[EdgeRequest], InstanceConversionIssue]:
         sources: list[InstanceSource] = []
         new_edges: list[EdgeRequest] = []
@@ -793,7 +794,6 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
                 destination_view.properties,
                 new_id,
                 self._connection_creator,
-                view_id,
             )
             issue.errors.extend(edge_results.errors)
 

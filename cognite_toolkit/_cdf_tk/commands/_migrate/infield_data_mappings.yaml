@@ -12,7 +12,7 @@
     version: v1
     type: view
   mapIdenticalIdProperties: true
-  propertyMapping:
+  containerMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
 - externalId: InfieldObservationMapping
@@ -26,7 +26,7 @@
     externalId: FieldObservation
     version: v1
     type: view
-  propertyMapping:
+  containerMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
     source: source
@@ -53,7 +53,7 @@
     version: v1
     type: view
   mapIdenticalIdProperties: true
-  propertyMapping:
+  containerMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
 - externalId: InFieldMeasurementReadingMapping
@@ -68,14 +68,11 @@
     version: v1
     type: view
   mapIdenticalIdProperties: true
-  propertyMapping:
+  containerMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
-  edgeTypes:
-  - type:
-      space: cdf_apm
-      externalId: referenceMeasurements
-    direction: inwards
+  edgeMapping:
+    cdf_apm:referenceMeasurements(direction=inwards): item
 - externalId: InFieldScheduleMapping
   sourceView:
     space: cdf_apm
@@ -88,7 +85,7 @@
     version: v1
     type: view
   mapIdenticalIdProperties: true
-  propertyMapping:
+  containerMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
 - externalId: InFieldTemplateMapping
@@ -103,7 +100,7 @@
     version: v1
     type: view
   mapIdenticalIdProperties: true
-  propertyMapping:
+  containerMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
 - externalId: InFieldActionMapping
@@ -118,7 +115,7 @@
     version: v1
     type: view
   mapIdenticalIdProperties: true
-  propertyMapping:
+  containerMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
 - externalId: InFieldConditionMapping
@@ -133,7 +130,7 @@
     version: v1
     type: view
   mapIdenticalIdProperties: true
-  propertyMapping:
+  containerMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
 - externalId: InFieldChecklistItemMapping
@@ -148,18 +145,12 @@
     version: v1
     type: view
   mapIdenticalIdProperties: true
-  propertyMapping:
+  containerMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
-  edgeTypes:
-    - type:
-        space: cdf_apm
-        externalId: referenceChecklistItems
-      direction: inwards
-    - type:
-        space: cdf_apm
-        externalId: referenceObservations
-      direction: outwards
+  edgeMapping:
+    cdf_apm:referenceChecklistItems(direction=inwards): checklist
+    cdf_apm:referenceObservations(direction=outwards): observations
 - externalId: InFieldTemplateItemMapping
   sourceView:
     space: cdf_apm
@@ -172,15 +163,8 @@
     version: v1
     type: view
   mapIdenticalIdProperties: true
-  propertyMapping:
+  containerMapping:
     node.createdTime: sourceCreatedTime
     node.lastUpdatedTime: sourceUpdatedTime
-  edgeTypes:
-  - type:
-      space: cdf_apm
-      externalId: referenceTemplateItems
-    direction: inwards
-  - type:
-      space: cdf_apm
-      externalId: referenceSchedules
-    direction: outwards
+  edgeMapping:
+    cdf_apm:referenceTemplateItems(direction=inwards): template
