@@ -225,6 +225,13 @@ def _build_landing_html(
   .log-line .lvl-ERROR {{ color: #ef5350; }}
   .log-line .lvl-DEBUG {{ color: #81c784; }}
   #reload-ts {{ font-family: monospace; color: #aaa; }}
+  .log-toggle {{ display: flex; gap: 4px; }}
+  .log-btn {{
+    background: #2a2d3a; color: #888; border: 1px solid #3a3d4a; border-radius: 4px;
+    padding: 3px 10px; font-size: 12px; cursor: pointer; font-family: inherit;
+  }}
+  .log-btn:hover {{ background: #333648; color: #bbb; }}
+  .log-btn.active {{ background: #1565c0; color: #fff; border-color: #1976d2; }}
 </style>
 </head>
 <body>
@@ -261,7 +268,13 @@ def _build_landing_html(
   </div>
 
   <div class="card">
-    <h2>Server Logs</h2>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <h2 style="margin-bottom: 0;">Server Logs</h2>
+      <div class="log-toggle">
+        <button id="btn-warn" class="log-btn active" onclick="setLogLevel('warn')">Warnings+</button>
+        <button id="btn-all" class="log-btn" onclick="setLogLevel('all')">All</button>
+      </div>
+    </div>
     <div id="log-viewer"></div>
   </div>
 </div>
@@ -271,12 +284,35 @@ def _build_landing_html(
   const viewer = document.getElementById('log-viewer');
   const reloadTs = document.getElementById('reload-ts');
   let autoScroll = true;
+  let logLevel = 'warn'; // default: warnings and above
+  const allEntries = [];
+  const WARN_LEVELS = new Set(['WARNING', 'ERROR', 'CRITICAL']);
+
+  window.setLogLevel = function(level) {{
+    logLevel = level;
+    document.getElementById('btn-warn').className = 'log-btn' + (level === 'warn' ? ' active' : '');
+    document.getElementById('btn-all').className = 'log-btn' + (level === 'all' ? ' active' : '');
+    rerenderLogs();
+  }};
+
+  function shouldShow(entry) {{
+    if (logLevel === 'all') return true;
+    return WARN_LEVELS.has(entry.level);
+  }}
+
+  function rerenderLogs() {{
+    viewer.innerHTML = '';
+    for (const entry of allEntries) {{
+      if (shouldShow(entry)) appendLogDom(entry);
+    }}
+    if (autoScroll) viewer.scrollTop = viewer.scrollHeight;
+  }}
 
   viewer.addEventListener('scroll', function() {{
     autoScroll = (viewer.scrollTop + viewer.clientHeight >= viewer.scrollHeight - 30);
   }});
 
-  function appendLog(entry) {{
+  function appendLogDom(entry) {{
     const div = document.createElement('div');
     div.className = 'log-line';
     const ts = entry.ts ? entry.ts.substring(11, 19) : '';
@@ -285,7 +321,14 @@ def _build_landing_html(
       + '<span class="lvl-' + lvl + '">' + lvl.padEnd(8) + '</span> '
       + escapeHtml(entry.message || '');
     viewer.appendChild(div);
-    if (autoScroll) viewer.scrollTop = viewer.scrollHeight;
+  }}
+
+  function addEntry(entry) {{
+    allEntries.push(entry);
+    if (shouldShow(entry)) {{
+      appendLogDom(entry);
+      if (autoScroll) viewer.scrollTop = viewer.scrollHeight;
+    }}
   }}
 
   function escapeHtml(s) {{
@@ -297,7 +340,7 @@ def _build_landing_html(
   const evtSource = new EventSource('/api/logs');
   evtSource.onmessage = function(e) {{
     try {{
-      appendLog(JSON.parse(e.data));
+      addEntry(JSON.parse(e.data));
     }} catch(err) {{}}
   }};
 
