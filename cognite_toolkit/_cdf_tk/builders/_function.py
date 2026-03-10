@@ -90,7 +90,7 @@ class FunctionBuilder(Builder):
                 continue
 
             warnings = WarningList[FileReadWarning]()
-            if issubclass(loader, FunctionCRUD):
+            if loader is FunctionCRUD:
                 warnings = self.copy_function_directory_to_build(source_file)
 
             destination_path = self._create_destination_path(source_file.source.path, loader.kind)

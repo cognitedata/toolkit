@@ -321,11 +321,6 @@ FileMetadata:
   id: 64
   name: first_example_function.zip
   overwrite: true
-- data_set_id: null
-  external_id: fn_first_function_app
-  id: 64
-  name: First_Function_App.zip
-  overwrite: true
 FileMetadataResponse:
 - dataSetId: 7982613576047462211
   directory: /files
@@ -365,13 +360,6 @@ FunctionResponse:
   runtime: py311
   secrets:
     mysecret: ${ENVIRONMENT_SECRET}
-- externalId: fn_first_function_app
-  fileId: 64
-  functionPath: ./handler.py
-  metadata:
-    cognite-toolkit-hash: /=50ad7403;handler.py=44f16f54;requirements.txt=2788fc40
-  name: First Function App
-  runtime: py311
 FunctionScheduleResponse:
 - cronExpression: 0 8 * * *
   data:

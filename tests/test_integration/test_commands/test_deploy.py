@@ -168,7 +168,7 @@ def get_changed_source_files(
             # Authentication that causes the diff to fail
             loader_cls in {HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD}
             # External files that cannot (or not yet supported) be pulled
-            or issubclass(loader_cls, FunctionCRUD)
+            or loader_cls is FunctionCRUD
             or loader_cls in {GraphQLCRUD, StreamlitCRUD}
             # Have authentication hashes that is different for each environment
             or loader_cls in {TransformationCRUD, FunctionScheduleCRUD, WorkflowTriggerCRUD}

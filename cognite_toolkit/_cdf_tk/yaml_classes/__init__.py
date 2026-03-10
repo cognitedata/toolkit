@@ -22,7 +22,7 @@ from .extraction_pipeline import ExtractionPipelineYAML
 from .extraction_pipeline_config import ExtractionPipelineConfigYAML
 from .filemetadata import FileMetadataYAML
 from .function_schedule import FunctionScheduleYAML
-from .functions import FunctionAppYAML, FunctionsYAML
+from .functions import FunctionsYAML
 from .graphql_model import GraphQLDataModelYAML
 from .groups import GroupYAML
 from .hosted_extractor_destination import HostedExtractorDestinationYAML
@@ -78,7 +78,6 @@ __all__ = [
     "ExtractionPipelineConfigYAML",
     "ExtractionPipelineYAML",
     "FileMetadataYAML",
-    "FunctionAppYAML",
     "FunctionScheduleYAML",
     "FunctionsYAML",
     "GraphQLDataModelYAML",

@@ -1,4 +1,0 @@
-- name: First Function App
-  externalId: fn_first_function_app
-  runtime: py311
-  functionPath: ./handler.py

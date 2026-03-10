@@ -34,7 +34,6 @@ from ._resource_cruds import (
     ExtractionPipelineConfigCRUD,
     ExtractionPipelineCRUD,
     FileMetadataCRUD,
-    FunctionAppCRUD,
     FunctionCRUD,
     FunctionScheduleCRUD,
     GraphQLCRUD,
@@ -113,7 +112,6 @@ for _loader in itertools.chain(
     ResourceContainerCRUD.__subclasses__(),
     DataCRUD.__subclasses__(),
     GroupCRUD.__subclasses__(),
-    FunctionCRUD.__subclasses__(),
 ):
     if _loader in [ResourceCRUD, ResourceContainerCRUD, DataCRUD, GroupCRUD]:
         # Skipping base classes
@@ -217,7 +215,6 @@ __all__ = [
     "ExtractionPipelineConfigCRUD",
     "FileCRUD",
     "FileMetadataCRUD",
-    "FunctionAppCRUD",
     "FunctionCRUD",
     "FunctionScheduleCRUD",
     "GroupAllScopedCRUD",
