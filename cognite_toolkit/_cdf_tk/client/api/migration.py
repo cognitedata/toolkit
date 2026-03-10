@@ -114,9 +114,9 @@ class InstanceSourceAPI:
                 },
                 select={"instanceSource": _select_all(self._view_id)},
             )
-            response = self._instances_api.query(query_request)
+            response = self._instances_api.query(query_request, type_results=False)
             for item in response.items.get("instanceSource", []):
-                results.append(InstanceSource.model_validate(item.dump()))
+                results.append(InstanceSource.model_validate(item))
         return results
 
     @staticmethod
@@ -206,9 +206,9 @@ class CreatedSourceSystemAPI:
                 },
                 select={"sourceSystem": _select_all(self._view_id)},
             )
-            response = self._instances_api.query(query_request)
+            response = self._instances_api.query(query_request, type_results=False)
             for item in response.items.get("sourceSystem", []):
-                results.append(CreatedSourceSystem.model_validate(item.dump()))
+                results.append(CreatedSourceSystem.model_validate(item))
         return results
 
     def _create_dms_filter(self, source: SequenceNotStr[str]) -> dict[str, JsonValue]:
@@ -217,11 +217,10 @@ class CreatedSourceSystemAPI:
             raise ValueError("Cannot create a filter from an empty source list.")
         return _in_filter(self._view_id, "source", list(source))
 
-    def list(self, limit: int = -1) -> list[CreatedSourceSystem]:
+    def list(self, limit: int | None = None) -> list[CreatedSourceSystem]:
         """Lists all created source systems."""
-        effective_limit = None if limit == -1 else limit
         filter_ = InstanceFilter(instance_type="node", source=self._view_id)
-        nodes = self._instances_api.list(filter=filter_, limit=effective_limit)
+        nodes = self._instances_api.list(filter=filter_, limit=limit)
         return [CreatedSourceSystem.model_validate(node.dump()) for node in nodes]
 
 
@@ -332,9 +331,9 @@ class SpaceSourceAPI:
                 },
                 select={"spaceSource": _select_all(self._view_id)},
             )
-            response = self._instances_api.query(query_request)
+            response = self._instances_api.query(query_request, type_results=False)
             for item in response.items.get("spaceSource", []):
-                results.append(SpaceSource.model_validate(item.dump()))
+                results.append(SpaceSource.model_validate(item))
         return results
 
     def list(self, limit: int = -1) -> list[SpaceSource]:
@@ -471,9 +470,9 @@ class LookupAPI:
                 },
                 select={"instanceSource": _select_all(self._view_id)},
             )
-            response = self._instances_api.query(query_request)
+            response = self._instances_api.query(query_request, type_results=False)
             for item in response.items.get("instanceSource", []):
-                instance_source = InstanceSource.model_validate(item.dump())
+                instance_source = InstanceSource.model_validate(item)
                 node_id = instance_source.as_id()
                 self._node_id_by_id[instance_source.id_] = node_id
                 self._consumer_view_id_by_id[instance_source.id_] = instance_source.consumer_view()
