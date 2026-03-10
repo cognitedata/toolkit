@@ -125,6 +125,8 @@ class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
 
 
 class WrappedInstanceResponseOnly(BaseModelObject, ABC):
+    """This is the base class for instances which Toolkit only needs to read, and never write."""
+
     VIEW_ID: ClassVar[ViewId]
     instance_type: InstanceType
     space: str
