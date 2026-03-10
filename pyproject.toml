@@ -82,8 +82,10 @@ sql = [
     "sqlparse >=0.5.3",
 ]
 v08 = [
-
     "cognite-neat >=1.0.43"
+]
+serve = [
+    "cognite-function-apps[cli]",
 ]
 
 [project.scripts]
