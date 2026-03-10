@@ -213,6 +213,8 @@ def infield_legacy(
     #######
 
     #### Create 'migrated' timeseries and files #####
+    # Ensure that the syncer has created the timeseries and files before updating.
+    time.sleep(2)
     # These are technically not migrated, but it is the simplest way is to create CogniteTimeSeries/CogniteFile
     # and update the classic with the externalId.from
     timeseries_updates: list[TimeSeriesUpdate] = []

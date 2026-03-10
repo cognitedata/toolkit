@@ -168,7 +168,9 @@ class InstanceIO(
             for chunk in chunker_sequence(selector.ids, self.CHUNK_SIZE):
                 yield Page(worker_id="main", items=self.client.tool.instances.retrieve(chunk))
         elif isinstance(selector, InstanceQuerySelector):
-            yield from self._instance_by_query(selector.query, selector.root, selector.subselections, limit)
+            yield from self._instance_by_query(
+                QueryRequest.model_validate_json(selector.query), selector.root, list(selector.subselections), limit
+            )
         else:
             raise NotImplementedError()
 

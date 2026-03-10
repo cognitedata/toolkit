@@ -8,7 +8,7 @@ from cognite.client.utils._identifier import InstanceId
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, InstanceDefinitionId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import QueryRequest, ViewId, ViewNoVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
 from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceIdCSVList
 from cognite_toolkit._cdf_tk.storageio.selectors._base import DataSelector, SelectorObject
@@ -155,13 +155,19 @@ class InstanceQuerySelector(InstanceSelector):
 
     The motivation for introducing it is the migration of InField data. This requires a special query
     for downloading the relevant instances.
+
+    Args:
+        query: The query to execute for selecting the instances. It should be a json-string represting a QueryRequest object.
+        root: The root node in the query. This is used for identifying the relevant spaces for
+            the migration and for identifying the relevant instances in the response.
+        subselections: A list of subselection names in the query. This is used for identifying
     """
 
     type: Literal["instanceQuery"] = "instanceQuery"
 
-    query: QueryRequest
+    query: str
     root: str
-    subselections: list[str]
+    subselections: tuple[str, ...]
 
     def get_schema_spaces(self) -> list[str] | None:
         return None

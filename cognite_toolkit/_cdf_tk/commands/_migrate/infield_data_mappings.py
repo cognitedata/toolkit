@@ -92,7 +92,7 @@ def create_infield_schedule_selector() -> InstanceQuerySelector:
                 "templateItemEdges": QuerySelect(),
                 "templateEdges": QuerySelect(),
             },
-        ),
+        ).model_dump_json(),
         root="template",
-        subselections=["schedules", "templateItemEdges", "templateEdges"],
+        subselections=tuple(["schedules", "templateItemEdges", "templateEdges"]),
     )
