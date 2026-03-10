@@ -8,6 +8,9 @@ instances:
         createdBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
+        item:
+          externalId: 0083e7c3-946f-4d5d-958b-133963108ad9
+          space: smoke_infield_migration_target_space
         order: 2
         title: any comments ?
         type: message
@@ -21,6 +24,9 @@ instances:
         createdBy:
           externalId: VJZrRM_kByZe-moErWilvg
           space: cognite_app_data
+        item:
+          externalId: -3Z4iakG1YSFRAfVlazYMA
+          space: smoke_infield_migration_target_space
         max: 90
         min: 10
         order: 0
@@ -45,6 +51,7 @@ instances:
         freq: DAILY
         interval: '1'
         startTime: '2025-02-20T08:30:00+00:00'
+        templateItems: []
         timezone: Asia/Colombo
   space: smoke_infield_migration_target_space
 - createdTime: 1772711570808
@@ -87,6 +94,9 @@ instances:
         labels:
         - group:one Task group
         order: 141
+        template:
+          externalId: 87f1ce17-c510-4359-9bbe-2ec7477b2cfe
+          space: smoke_infield_migration_target_space
         title: Task 01
         updatedBy:
           externalId: VJZrRM_kByZe-moErWilvg
@@ -124,6 +134,9 @@ instances:
       ChecklistItem/v1:
         asset:
           externalId: SmokeAsset
+          space: smoke_infield_migration_target_space
+        checklist:
+          externalId: RhIUePwMQI0WDEQQv-xkig
           space: smoke_infield_migration_target_space
         createdBy:
           externalId: VJZrRM_kByZe-moErWilvg

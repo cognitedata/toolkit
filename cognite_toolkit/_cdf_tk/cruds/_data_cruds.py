@@ -5,12 +5,12 @@ from typing import TYPE_CHECKING, cast, final
 
 import pandas as pd
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import FileMetadataWrite
 
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import ExtendableCogniteFileApply
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import RAWTableResponse
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.utils import read_yaml_content, safe_read
@@ -108,7 +108,7 @@ class FileCRUD(DataCRUD):
                 CogniteFileCRUD.kind: (CogniteFileCRUD, "instance_id"),
             }.get(resource.kind):
                 loader_cls, id_name = result
-                meta: FileMetadataWrite | ExtendableCogniteFileApply = self._read_metadata(
+                meta: FileMetadataRequest | CogniteFileRequest = self._read_metadata(
                     resource.destination,
                     loader_cls,  # type: ignore[arg-type]
                     resource.identifier,
