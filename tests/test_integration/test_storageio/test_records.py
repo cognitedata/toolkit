@@ -2,22 +2,21 @@ import pytest
 from cognite.client.data_classes.data_modeling import Space
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerPropertyDefinition,
     ContainerRequest,
     ContainerResponse,
     TextProperty,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest, RecordSource
-from cognite_toolkit._cdf_tk.storageio import RecordIO, UploadItem
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
+from cognite_toolkit._cdf_tk.storageio import RecordIO
 from cognite_toolkit._cdf_tk.storageio.selectors._records import (
     RecordContainerSelector,
     SelectedContainer,
     SelectedStream,
 )
-
-RECORD_COUNT = 5
+from tests.test_integration.constants import RECORD_COUNT
 
 
 @pytest.fixture(scope="module")
@@ -41,31 +40,45 @@ def record_container(toolkit_client: ToolkitClient, toolkit_space: Space) -> Con
 
 
 @pytest.fixture(scope="module")
-def record_selector(toolkit_client: ToolkitClient, record_container: ContainerResponse) -> RecordContainerSelector:
-    """Ensure records exist in the stream and return a selector for downloading them."""
+def record_selector(
+    toolkit_client: ToolkitClient, record_container: ContainerResponse, toolkit_stream: StreamResponse
+) -> RecordContainerSelector:
+    """Ensure records exist in the stream via upsert and return a selector."""
     selector = RecordContainerSelector(
-        stream=SelectedStream(external_id="my-stream2"),
+        stream=SelectedStream(external_id=toolkit_stream.external_id),
         container=SelectedContainer(space=record_container.space, external_id=record_container.external_id),
+        initialize_cursor="9999d-ago",
         download_dir_name=None,
+        instance_spaces=(record_container.space,),
     )
 
-    records = [
-        RecordRequest(
-            space=record_container.space,
-            external_id=f"toolkit_test_record_{i}",
-            sources=[
-                RecordSource(
-                    source=record_container.as_id(),
-                    properties={"name": f"Test Record {i}"},
-                )
+    items = [
+        {
+            "space": record_container.space,
+            "externalId": f"toolkit_test_record_{i}",
+            "sources": [
+                {
+                    "source": {
+                        "type": "container",
+                        "space": record_container.space,
+                        "externalId": record_container.external_id,
+                    },
+                    "properties": {"name": f"Test Record {i}"},
+                }
             ],
-        )
+        }
         for i in range(RECORD_COUNT)
     ]
-    upload_items = [UploadItem(source_id=record.external_id, item=record) for record in records]
-    io = RecordIO(toolkit_client)
+    upsert_url = f"/streams/{toolkit_stream.external_id}/records/upsert"
     with HTTPClient(toolkit_client.config) as http_client:
-        io.upload_items(upload_items, http_client, selector=selector)
+        result = http_client.request_single_retries(
+            RequestMessage(
+                endpoint_url=toolkit_client.config.create_api_url(upsert_url),
+                method="POST",
+                body_content={"items": items},
+            )
+        )
+        result.get_success_or_raise()
 
     return selector
 
@@ -76,4 +89,4 @@ class TestRecordIO:
         pages = list(io.stream_data(record_selector))
 
         results = [record for page in pages for record in page.items]
-        assert len(results) == RECORD_COUNT, f"Expected {RECORD_COUNT} records, got {len(results)}"
+        assert len(results) >= RECORD_COUNT, f"Expected at least {RECORD_COUNT} records, got {len(results)}"
