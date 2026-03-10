@@ -3,8 +3,7 @@ import io
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from cognite.client.data_classes.capabilities import FilesAcl, FunctionsAcl
-
+from cognite_toolkit._cdf_tk.client.resource_classes.group import DataSetScope, FilesAcl, FunctionsAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     ScheduleTriggerRule,
     WorkflowTriggerResponse,
@@ -57,18 +56,17 @@ authentication:
         with patch(
             "cognite_toolkit._cdf_tk.cruds._resource_cruds.function.FunctionCRUD.load_resource_file"
         ) as mock_load_resource_file:
-            mock_authorization = toolkit_client_approval.mock_client.verify.authorization
+            mock_authorization = toolkit_client_approval.mock_client.tool.token.verify_acls
             mock_authorization.return_value = []
             mock_load_resource_file.return_value = [
                 {
                     "externalId": "my_function",
                     "name": "My Function",
                     "fileId": 123,
+                    "dataSetExternalId": "my_dataset",
                 }
             ]
-
             loader = FunctionCRUD.create_loader(toolkit_client_approval.mock_client, None)
-            loader.data_set_id_by_external_id = {"my_function": 789}
 
             local_file = MagicMock(spec=Path)
             local_file.parent.name = FunctionCRUD.folder_name
@@ -82,5 +80,5 @@ authentication:
             assert len(capabilities_arg) == 2
             assert isinstance(capabilities_arg[0], FunctionsAcl)
             assert isinstance(capabilities_arg[1], FilesAcl)
-            assert isinstance(capabilities_arg[1].scope, FilesAcl.Scope.DataSet)
-            assert capabilities_arg[1].scope.ids == [789]
+            assert isinstance(capabilities_arg[1].scope, DataSetScope)
+            assert capabilities_arg[1].scope.ids == [4228768136987700990]
