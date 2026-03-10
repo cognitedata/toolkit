@@ -35,7 +35,7 @@ class SignalSubscriptionsAPI(CDFResourceAPI[SignalSubscriptionResponse]):
     ) -> list[SignalSubscriptionResponse]:
         return self._update(items, mode=mode)
 
-    def delete(self, ids: Sequence[SignalSubscriptionId], ignore_unknown_ids: bool = False) -> None:
+    def delete(self, ids: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> None:
         self._request_no_response(ids, "delete", extra_body={"ignoreUnknownIds": ignore_unknown_ids})
 
     def iterate(self, limit: int | None = 100) -> Iterable[list[SignalSubscriptionResponse]]:
