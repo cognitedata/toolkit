@@ -196,7 +196,7 @@ def asset_centric_client(
         client.lookup.assets.external_id.side_effect = lookup_asset_external_id
         client.lookup.assets.id.side_effect = lookup_asset_id
 
-        client.verify.authorization.return_value = []
+        client.tool.token.verify_acls.return_value = []
         client.labels.retrieve.return_value = LabelDefinitionList(
             [LabelDefinition(external_id="my_label", name="my_label")]
         )

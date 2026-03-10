@@ -11,7 +11,7 @@ from cognite.client.data_classes.data_modeling import (
     NodeList,
 )
 
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, NodeId, ViewDirectId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, NodeId, ViewDirectId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     IndustrialCanvasResponse,
@@ -474,7 +474,7 @@ class TestFDMtoCDMMapper:
         source_view=SOURCE_VIEW_ID,
         destination_view=DESTINATION_VIEW_ID,
         # Set by each test.
-        property_mapping={},
+        container_mapping={},
     )
 
     FILE_RESPONSE = FileMetadataResponse(
@@ -496,7 +496,7 @@ class TestFDMtoCDMMapper:
     )
 
     @pytest.mark.parametrize(
-        "instances, property_mapping, expected",
+        "instances, container_mapping, edge_mapping, expected",
         [
             pytest.param(
                 [
@@ -510,11 +510,10 @@ class TestFDMtoCDMMapper:
                     )
                 ],
                 {
-                    # Text to Int with type change
                     "textProp": "targetInt",
-                    # Node property moved to container property with type change
                     "node.lastUpdatedTime": "targetTimestamp",
                 },
+                None,
                 [
                     NodeRequest(
                         space=TARGET_SPACE,
@@ -546,11 +545,10 @@ class TestFDMtoCDMMapper:
                     )
                 ],
                 {
-                    # Timeseries reference to CogniteTimeSeries
                     "timeseriesRef": "targetDirectTimeseries",
-                    # FileReference to CogniteFile
                     "fileRef": "targetDirectFile",
                 },
+                None,
                 [
                     NodeRequest(
                         space=TARGET_SPACE,
@@ -615,15 +613,17 @@ class TestFDMtoCDMMapper:
                         end_node=NodeId(space=SOURCE_SPACE, external_id="node4"),
                     ),
                 ],
+                {"textProp": "targetInt"},
                 {
-                    # Edge to edge
-                    "sourceEdge1": "targetEdge1",
-                    # Edge to direct relation
-                    "sourceEdge2": "targetDirect1",
-                    # Edge to reverse
-                    "sourceEdge3": "targetReverse1",
-                    # Text to Int with type change
-                    "textProp": "targetInt",
+                    EdgeTypeId(
+                        type=NodeId(space="schema_space1", external_id="sourceEdge1"), direction="outwards"
+                    ): "targetEdge1",
+                    EdgeTypeId(
+                        type=NodeId(space="schema_space1", external_id="sourceEdge2"), direction="outwards"
+                    ): "targetDirect1",
+                    EdgeTypeId(
+                        type=NodeId(space="schema_space1", external_id="sourceEdge3"), direction="outwards"
+                    ): "targetReverse1",
                 },
                 [
                     NodeRequest(
@@ -635,7 +635,6 @@ class TestFDMtoCDMMapper:
                                 properties={
                                     "targetInt": 37,
                                     "targetDirect1": {"space": TARGET_SPACE, "externalId": "node3"},
-                                    # Revers should be ignored.
                                 },
                             )
                         ],
@@ -655,7 +654,8 @@ class TestFDMtoCDMMapper:
     def test_map_fdm_to_cdm(
         self,
         instances: Sequence[InstanceResponse],
-        property_mapping: dict[str, str],
+        container_mapping: dict[str, str],
+        edge_mapping: dict[EdgeTypeId, str] | None,
         expected: Sequence[InstanceRequest],
     ):
         with monkeypatch_toolkit_client() as client:
@@ -663,7 +663,9 @@ class TestFDMtoCDMMapper:
             client.tool.timeseries.retrieve.return_value = [self.TIMESERIES_RESPONSE]
             client.tool.filemetadata.retrieve.return_value = [self.FILE_RESPONSE]
 
-            mapping = self.VIEW_MAPPING.model_copy(update={"property_mapping": property_mapping})
+            mapping = self.VIEW_MAPPING.model_copy(
+                update={"container_mapping": container_mapping, "edge_mapping": edge_mapping}
+            )
             mapper = FDMtoCDMMapper(client, self.SPACE_MAPPING, [mapping])
             mapper.prepare(MagicMock())
 
