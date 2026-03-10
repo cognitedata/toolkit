@@ -143,6 +143,7 @@ class TestRecordIO:
             stream=SelectedStream(external_id="my_stream"),
             container=SelectedContainer(space="my_space", external_id="my_container"),
             instance_spaces=("filtered_space",),
+            initialize_cursor="365d-ago",
         )
         sync_url = toolkit_config.create_api_url("/streams/my_stream/records/sync")
 
