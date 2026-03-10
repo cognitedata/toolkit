@@ -177,8 +177,9 @@ class InstanceIO(
         view_id = selector.view.as_id()
         if not isinstance(view_id, ViewId):
             raise ToolkitValueError("ViewId is required for InstanceViewSelector")
+        root = "nodes"
         with_: dict[str, QueryNodeExpression | QueryEdgeExpression] = {
-            "nodes": QueryNodeExpression(
+            root: QueryNodeExpression(
                 limit=min(self.CHUNK_SIZE, limit) if limit is not None else self.CHUNK_SIZE,
                 nodes=QueryNodeTableExpression(filter=instance_filter),
                 # Sort to ensure performance. f you do not sort, you get the internal index,
@@ -187,14 +188,14 @@ class InstanceIO(
             )
         }
         select: dict[str, QuerySelect] = {
-            "nodes": QuerySelect(sources=[QuerySelectSource(source=view_id, properties=["*"])])
+            root: QuerySelect(sources=[QuerySelectSource(source=view_id, properties=["*"])])
         }
         edge_ids: list[str] = []
         for no, edge_type in enumerate(selector.edge_types or [], start=1):
             query_id = f"edge_{no}"
             with_[query_id] = QueryEdgeExpression(
                 edges=QueryEdgeTableExpression(
-                    from_="nodes",
+                    from_=root,
                     chain_to="source" if edge_type.direction == "outwards" else "destination",
                     direction=edge_type.direction,
                     filter={
@@ -210,7 +211,7 @@ class InstanceIO(
             select[query_id] = QuerySelect()
 
         query = QueryRequest(with_=with_, select=select)
-        yield from self._instance_by_query(query, "nodes", edge_ids, limit)
+        yield from self._instance_by_query(query, root, edge_ids, limit)
 
     def _instance_by_query(
         self, query: QueryRequest, root_selection: str, sub_selections: list[str], limit: int | None
