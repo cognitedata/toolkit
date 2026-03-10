@@ -91,7 +91,8 @@ from .api.three_d import (
     ThreeDDMAssetMappingAPI,
 )
 from .api.timeseries import TimeSeriesAPI
-from .api.token import TokenAPI
+from .api.token import TokenAPI as LegacyTokenAPI
+from .api.token import ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
 from .api.verify import VerifyAPI
 from .api.workflow_triggers import WorkflowTriggersAPI
@@ -201,6 +202,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.sequences.rows = MagicMock(spec_set=SequenceRowsAPI)
         self.tool.transformations = MagicMock(spec=TransformationsAPI)
         self.tool.streamlit = MagicMock(spec=StreamlitAPI)
+        self.tool.token = MagicMock(spec=ToolkitTokenAPI)
         self.tool.transformations.schedules = MagicMock(spec=TransformationSchedulesAPI)
         self.tool.transformations.notifications = MagicMock(spec=TransformationNotificationsAPI)
         self.tool.workflows = MagicMock(spec=WorkflowsAPI)
@@ -212,7 +214,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.streams = MagicMock(spec=StreamsAPI)
 
         # This is a helper API, not a real API.
-        self.token = TokenAPI(self)
+        self.token = LegacyTokenAPI(self)
         self.verify = MagicMock(spec_set=VerifyAPI)
 
 

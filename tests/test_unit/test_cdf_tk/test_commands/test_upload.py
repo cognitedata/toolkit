@@ -98,7 +98,7 @@ def raw_mock_client(
     monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
     monkeypatch.setenv("CDF_PROJECT", config.project)
     with monkeypatch_toolkit_client() as client:
-        client.verify.authorization.return_value = []
+        client.tool.token.verify_acls.return_value = []
         client.raw.tables.list.return_value = []
         client.raw.tables.create.return_value = TableList([Table(name="test_table")])
         client.config = config
@@ -154,7 +154,7 @@ class TestUploadCommand:
         monkeypatch.setenv("CDF_CLUSTER", config.cdf_cluster)
         monkeypatch.setenv("CDF_PROJECT", config.project)
         with monkeypatch_toolkit_client() as client:
-            client.verify.authorization.return_value = []
+            client.tool.token.verify_acls.return_value = []
             cmd.upload(raw_json_directory, client, deploy_resources=True, dry_run=True, verbose=False)
 
             client.raw.rows.insert.assert_not_called()

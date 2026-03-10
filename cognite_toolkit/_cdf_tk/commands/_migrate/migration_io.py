@@ -1,8 +1,6 @@
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import ClassVar, Literal, cast
 
-from cognite.client import data_modeling as dm
-
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
@@ -18,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeId, InstanceRequest, NodeId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.pending_instances_ids import PendingInstanceId
+from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
     AssetMappingDMRequestId,
@@ -230,7 +228,7 @@ class AssetCentricMigrationIO(
             raise ValueError(f"Unexpected ID type: {type(source.properties['id']).__name__!r}")
         id_ = source.properties["id"]
         return PendingInstanceId(
-            pending_instance_id=dm.NodeId(item.space, item.external_id),
+            pending_instance_id=NodeId(space=item.space, external_id=item.external_id),
             id=id_,
         )
 
