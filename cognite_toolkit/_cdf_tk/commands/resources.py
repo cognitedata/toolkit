@@ -13,7 +13,6 @@ from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceCRUD
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
-from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 
 class ResourcesCommand(ToolkitCommand):
@@ -91,32 +90,45 @@ class ResourcesCommand(ToolkitCommand):
 
         return resolved_cruds
 
-    def _create_resource_yaml_skeleton(self, yaml_cls: type[ToolkitResource]) -> dict[str, str]:
-        """
-        Build YAML skeleton from a Pydantic model class using JSON schema for better type information.
-        """
-        yaml_skeleton: dict[str, str] = {}
-        for field_name, field in yaml_cls.model_fields.items():
-            name = field.alias or field_name
-            description = field.description or name
-            if field.is_required():
-                yaml_skeleton[name] = f"(Required) {description}"
-            else:
-                yaml_skeleton[name] = description
-
-        return yaml_skeleton
-
     def _get_resource_yaml_content(self, resource_crud: type[ResourceCRUD]) -> str:
         """
         Creates a new resource in the specified module using the resource_crud.yaml_cls.
+        Each field is rendered with its default value and a comment describing it.
         """
-        yaml_header = (
-            f"# API docs: {resource_crud.doc_url()}\n"
-            f"# YAML reference: https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library"
-        )
-        yaml_skeleton = self._create_resource_yaml_skeleton(resource_crud.yaml_cls)
-        yaml_contents = yaml_safe_dump(yaml_skeleton)
-        return yaml_header + "\n\n" + yaml_contents
+        lines = [
+            f"# API docs: {resource_crud.doc_url()}",
+            "# YAML reference: https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library",
+            "",
+        ]
+
+        required_fields = []
+        optional_with_value = []
+        optional_null = []
+
+        for field_name, field in resource_crud.yaml_cls.model_fields.items():
+            name = field.alias or field_name
+            description = field.description or ""
+
+            if field.is_required():
+                required_fields.append((name, f"<{name}>", f"# (Required) {description}"))
+            elif field.default_factory is not None:
+                # Will fail for factories that require validated data as input (one-arg variant).
+                value = field.default_factory()  # type: ignore[call-arg]
+                optional_with_value.append((name, value, f"# {description}"))
+            elif field.default is not None:
+                optional_with_value.append((name, field.default, f"# {description}"))
+            else:
+                optional_null.append((name, None, f"# {description}"))
+
+        for group in (required_fields, optional_with_value, optional_null):
+            for name, value, comment in group:
+                yaml_block = yaml_safe_dump({name: value}, sort_keys=False).rstrip("\n")
+                # Add comment to the first line of the YAML block
+                block_lines = yaml_block.split("\n")
+                block_lines[0] = f"{block_lines[0]}  {comment}"
+                lines.append("\n".join(block_lines))
+
+        return "\n".join(lines) + "\n"
 
     def _create_resource_yaml_file(
         self,
