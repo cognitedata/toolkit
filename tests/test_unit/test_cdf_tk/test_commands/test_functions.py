@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
-from cognite_toolkit._cdf_tk.commands.functions import FunctionsCommand, Route
+from cognite_toolkit._cdf_tk.commands.functions import FunctionsCommand, Route, _path_to_func_name, _sanitize_route_path
 from cognite_toolkit._cdf_tk.constants import MODULES
 from tests.test_unit.utils import MockQuestionary
 
@@ -53,6 +53,42 @@ class TestFunctionsInitScaffold:
         # YAML files are created by ResourcesCommand, not FunctionsCommand
         assert not (module_path / "functions" / "my-func.Function.yaml").exists()
         assert not (module_path / "functions" / "my-func.FunctionApp.yaml").exists()
+
+
+class TestSanitizeRoutePath:
+    @pytest.mark.parametrize(
+        "raw, expected",
+        [
+            ("/process", "/process"),
+            ("process", "/process"),
+            ("/My Route", "/my-route"),
+            ("/path.to/thing", "/path-to/thing"),
+            ("/Under_Score", "/under-score"),
+            ("/UPPER/CASE", "/upper/case"),
+            ("/a--b//c", "/a-b/c"),
+            ("/special!@#chars", "/specialchars"),
+            ("  /padded  ", "/padded"),
+        ],
+        ids=["noop", "no-slash", "spaces", "dots", "underscores", "uppercase", "collapse", "strip-special", "trim"],
+    )
+    def test_sanitize_route_path(self, raw: str, expected: str) -> None:
+        assert _sanitize_route_path(raw) == expected
+
+
+class TestPathToFuncName:
+    @pytest.mark.parametrize(
+        "path, expected",
+        [
+            ("/some-route/action", "some_route_action"),
+            ("/do-work", "do_work"),
+            ("/process", "process"),
+            ("/path.to/thing", "path_to_thing"),
+            ("/has spaces", "has_spaces"),
+        ],
+        ids=["multi-segment", "hyphen", "simple", "dots", "spaces"],
+    )
+    def test_path_to_func_name(self, path: str, expected: str) -> None:
+        assert _path_to_func_name(path) == expected
 
 
 class TestHandlerGeneration:

@@ -30,6 +30,7 @@ def _sanitize_route_path(path: str) -> str:
     path = re.sub(r"[_\s.]+", "-", path)
     path = re.sub(r"[^a-z0-9/\-]", "", path)
     path = re.sub(r"-+", "-", path)
+    path = re.sub(r"/+", "/", path)
     path = path.strip("-/")
     return f"/{path}"
 
