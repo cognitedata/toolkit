@@ -36,18 +36,12 @@ class ResourceLineageItem(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
 
-    source_file: AbsoluteFilePath = Field(description="Absolute path to source YAML file")
+    source_file: AbsoluteFilePath
     source_hash: str = Field(description="Hash of source file content (before variable substitution)")
     type_: str = Field(alias="type", description="Resource type folder (e.g., 'spaces', 'containers', 'views')")
     kind: str = Field(description="Resource kind (e.g., 'space', 'container', 'view')")
 
-    # Output
-    built_file: AbsoluteFilePath | None = Field(None, description="Path to output YAML file in build directory")
-
-    @property
-    def is_success(self) -> bool:
-        """Determine if resource build was successful based on presence of built file."""
-        return self.built_file is not None
+    built_file: AbsoluteFilePath
 
 
 class ModuleLineageItem(BaseModel):
