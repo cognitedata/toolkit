@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, Reque
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeUntypedId, InternalId, NodeUntypedId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceApplyList
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     ASSET_ANNOTATIONS_ID,
     FILE_ANNOTATIONS_ID,

@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     NodeId,
     ViewId,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
 
 from .data_modeling import (
     EdgeRequest,
