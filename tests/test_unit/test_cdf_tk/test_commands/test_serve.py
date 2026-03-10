@@ -81,35 +81,32 @@ class TestValidateHandlerIsFunctionApp:
 
 class TestCheckBuildType:
     def test_blocks_prod(self) -> None:
-        with patch.dict(os.environ, {"CDF_BUILD_TYPE": "prod"}):
-            with pytest.raises(SystemExit):
-                ServeFunctionCommand._check_build_type("my-project", "westeurope-1")
+        with pytest.raises(SystemExit):
+            ServeFunctionCommand._check_build_type("my-project", "westeurope-1", "prod")
 
     def test_blocks_prod_case_insensitive(self) -> None:
-        with patch.dict(os.environ, {"CDF_BUILD_TYPE": "Prod"}):
-            with pytest.raises(SystemExit):
-                ServeFunctionCommand._check_build_type("my-project", "westeurope-1")
+        with pytest.raises(SystemExit):
+            ServeFunctionCommand._check_build_type("my-project", "westeurope-1", "Prod")
 
     def test_prompts_for_dev(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr("builtins.input", lambda _: "y")
-        with patch.dict(os.environ, {"CDF_BUILD_TYPE": "dev"}), patch("sys.stdin") as mock_stdin:
+        with patch("sys.stdin") as mock_stdin:
             mock_stdin.isatty.return_value = True
             # Should not raise when user says "y"
-            ServeFunctionCommand._check_build_type("my-project", "westeurope-1")
+            ServeFunctionCommand._check_build_type("my-project", "westeurope-1", "dev")
 
     def test_aborts_on_no(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr("builtins.input", lambda _: "n")
-        with patch.dict(os.environ, {"CDF_BUILD_TYPE": "dev"}), patch("sys.stdin") as mock_stdin:
+        with patch("sys.stdin") as mock_stdin:
             mock_stdin.isatty.return_value = True
             with pytest.raises(SystemExit):
-                ServeFunctionCommand._check_build_type("my-project", "westeurope-1")
+                ServeFunctionCommand._check_build_type("my-project", "westeurope-1", "dev")
 
     def test_skips_prompt_in_non_tty(self) -> None:
-        with patch.dict(os.environ, {"CDF_BUILD_TYPE": "dev"}):
-            with patch("sys.stdin") as mock_stdin:
-                mock_stdin.isatty.return_value = False
-                # Should not raise or prompt
-                ServeFunctionCommand._check_build_type("my-project", "westeurope-1")
+        with patch("sys.stdin") as mock_stdin:
+            mock_stdin.isatty.return_value = False
+            # Should not raise or prompt
+            ServeFunctionCommand._check_build_type("my-project", "westeurope-1", "dev")
 
 
 # ── ServeFunctionCommand._patch_cognite_client_factory ──

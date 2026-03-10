@@ -13,13 +13,11 @@ from rich import print
 
 from ._base import ToolkitCommand
 
-_ALLOWED_BUILD_TYPES = frozenset({"dev", "staging", "test", "qa"})
-
 
 class ServeFunctionCommand(ToolkitCommand):
     def serve(
         self,
-        path: Path,
+        path: Path | None,
         host: str = "127.0.0.1",
         port: int = 8000,
         reload: bool = True,
@@ -46,6 +44,10 @@ class ServeFunctionCommand(ToolkitCommand):
             )
             raise SystemExit(1)
 
+        # If no path given, discover and prompt
+        if path is None:
+            path = self._prompt_function_selection()
+
         handler_path = path.resolve()
         self._validate_handler_directory(handler_path)
         self._validate_handler_is_function_app(handler_path)
@@ -58,7 +60,8 @@ class ServeFunctionCommand(ToolkitCommand):
         cdf_cluster = env_vars.CDF_CLUSTER
 
         # Check build type — block prod
-        self._check_build_type(cdf_project, cdf_cluster)
+        validation_type = self._load_validation_type()
+        self._check_build_type(cdf_project, cdf_cluster, validation_type)
 
         url = f"http://{host}:{port}"
         print(f"\n[bold green]Starting server at {url}[/]")
@@ -80,33 +83,135 @@ class ServeFunctionCommand(ToolkitCommand):
                 uvicorn, handler_path, host, port, log_level, handler_name, cdf_project, cdf_cluster
             )
 
-    @staticmethod
-    def _check_build_type(cdf_project: str, cdf_cluster: str) -> None:
-        """Check CDF_BUILD_TYPE and prompt the user to acknowledge the risk."""
-        build_type = os.environ.get("CDF_BUILD_TYPE", "").strip().lower()
+    # ── Function discovery ──
 
-        if build_type == "prod":
+    @staticmethod
+    def _discover_function_dirs(organization_dir: Path | None = None) -> list[Path]:
+        """Discover function app directories by scanning for handler.py files
+        that import cognite_function_apps."""
+        from cognite_toolkit._cdf_tk.utils.modules import iterate_modules  # noqa: PLC0415
+
+        root = organization_dir or Path.cwd()
+        function_dirs: list[Path] = []
+
+        for _module_dir, files in iterate_modules(root):
+            for f in files:
+                if f.name != "handler.py":
+                    continue
+                # Check if parent is inside a functions/ folder
+                if f.parent.parent.name != "functions":
+                    continue
+                # Quick check: is this a Function App handler?
+                try:
+                    source = f.read_text()
+                except OSError:
+                    continue
+                if "cognite_function_apps" in source or "create_function_service" in source:
+                    function_dirs.append(f.parent)
+
+        function_dirs.sort(key=lambda p: p.name)
+        return function_dirs
+
+    @staticmethod
+    def _prompt_function_selection() -> Path:
+        """Discover function apps and prompt the user to pick one."""
+        from cognite_toolkit._cdf_tk.cdf_toml import CDFToml  # noqa: PLC0415
+
+        toml = CDFToml.load(Path.cwd())
+        org_dir = toml.cdf.default_organization_dir
+
+        dirs = ServeFunctionCommand._discover_function_dirs(org_dir)
+
+        if not dirs:
+            print(
+                "[bold red]Error:[/] No Function App handlers found.\n"
+                "Looked for handler.py files importing cognite_function_apps\n"
+                f"under [bold]{org_dir}[/]."
+            )
+            raise SystemExit(1)
+
+        if len(dirs) == 1:
+            print(f"[blue]Found one function app:[/] [bold]{dirs[0].name}[/] ({dirs[0]})")
+            return dirs[0]
+
+        if not sys.stdin.isatty():
+            print(
+                "[bold red]Error:[/] Multiple function apps found but stdin is not interactive.\n"
+                "Specify the function path explicitly: [bold]cdf dev function serve <path>[/]"
+            )
+            raise SystemExit(1)
+
+        print("[bold]Available function apps:[/]\n")
+        for i, d in enumerate(dirs, 1):
+            # Show relative path from cwd for readability
+            try:
+                rel = d.relative_to(Path.cwd())
+            except ValueError:
+                rel = d
+            print(f"  [bold cyan]{i}[/]  {d.name}  [dim]({rel})[/]")
+
+        print()
+        try:
+            answer = input(f"Select function [1-{len(dirs)}]: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            raise SystemExit(1)
+
+        try:
+            idx = int(answer) - 1
+            if not 0 <= idx < len(dirs):
+                raise ValueError
+        except ValueError:
+            print(f"[bold red]Error:[/] Invalid selection: {answer!r}")
+            raise SystemExit(1)
+
+        return dirs[idx]
+
+    # ── Config & validation ──
+
+    @staticmethod
+    def _load_validation_type() -> str:
+        """Load the validation-type from the project's config YAML.
+
+        Uses the same config file resolution as build/deploy:
+        reads config.{env}.yaml from the organization directory.
+        Falls back to CDF_BUILD_TYPE env var, then 'dev'.
+        """
+        try:
+            from cognite_toolkit._cdf_tk.cdf_toml import CDFToml  # noqa: PLC0415
+            from cognite_toolkit._cdf_tk.data_classes._config_yaml import BuildConfigYAML  # noqa: PLC0415
+
+            toml = CDFToml.load(Path.cwd())
+            build_env = toml.cdf.default_env
+            org_dir = toml.cdf.default_organization_dir
+            config = BuildConfigYAML.load_from_directory(org_dir, build_env)
+            return config.environment.validation_type
+        except Exception:
+            # Fall back to env var
+            return os.environ.get("CDF_BUILD_TYPE", "").strip().lower() or "dev"
+
+    @staticmethod
+    def _check_build_type(cdf_project: str, cdf_cluster: str, validation_type: str) -> None:
+        """Check validation type and prompt the user to acknowledge the risk."""
+        validation_type = validation_type.strip().lower()
+
+        if validation_type == "prod":
             print(
                 "[bold red]Error:[/] The dev server cannot run against a production configuration.\n"
-                f"  CDF_BUILD_TYPE = [bold]prod[/]\n"
-                f"  CDF_PROJECT    = [bold]{cdf_project}[/]\n"
-                f"  CDF_CLUSTER    = [bold]{cdf_cluster}[/]\n\n"
+                f"  validation-type = [bold]prod[/]\n"
+                f"  CDF_PROJECT     = [bold]{cdf_project}[/]\n"
+                f"  CDF_CLUSTER     = [bold]{cdf_cluster}[/]\n\n"
                 "The dev server gives handlers [bold]full read/write access[/] to CDF.\n"
                 "Running against production risks accidental data mutation.\n\n"
                 "Use a [bold]dev[/] or [bold]staging[/] configuration instead."
             )
             raise SystemExit(1)
 
-        if not build_type:
-            label = "[yellow]<not set>[/]"
-        else:
-            label = f"[bold]{build_type}[/]"
-
         print(
             f"[bold yellow]⚠  The dev server will authenticate to CDF with full read/write access.[/]\n"
-            f"   CDF_BUILD_TYPE = {label}\n"
-            f"   CDF_PROJECT    = [bold]{cdf_project}[/]\n"
-            f"   CDF_CLUSTER    = [bold]{cdf_cluster}[/]\n"
+            f"   validation-type = [bold]{validation_type}[/]\n"
+            f"   CDF_PROJECT     = [bold]{cdf_project}[/]\n"
+            f"   CDF_CLUSTER     = [bold]{cdf_cluster}[/]\n"
         )
 
         # Non-interactive environments (CI, piped stdin) skip the prompt
@@ -190,10 +295,8 @@ class ServeFunctionCommand(ToolkitCommand):
                     try:
                         from cognite_function_apps.tracer import OTLP_BACKENDS  # noqa: PLC0415
 
-                        # Check known backends by matching the exporter_provider
-                        for name, config in OTLP_BACKENDS.items():
+                        for _name, config in OTLP_BACKENDS.items():
                             if config.endpoint and hasattr(app, "_exporter_provider"):
-                                # Try to find the endpoint by inspecting the closure
                                 closure = getattr(app._exporter_provider, "__closure__", None)
                                 if closure:
                                     for cell in closure:
@@ -201,8 +304,8 @@ class ServeFunctionCommand(ToolkitCommand):
                                         if hasattr(cell_val, "endpoint") and cell_val.endpoint == config.endpoint:
                                             endpoint = config.endpoint
                                             break
-                                if endpoint:
-                                    break
+                            if endpoint:
+                                break
                     except Exception:
                         pass
                     return True, endpoint
@@ -213,19 +316,11 @@ class ServeFunctionCommand(ToolkitCommand):
 
     @staticmethod
     def _patch_cognite_client_factory() -> None:
-        """Monkey-patch cognite_function_apps to use the toolkit's auth path.
-
-        The cognite_function_apps library creates its own CogniteClient via
-        get_cognite_client_from_env() using COGNITE_* env vars. We replace that
-        with the toolkit's EnvironmentVariables auth path so users only need to
-        configure CDF_CLUSTER / CDF_PROJECT and their IDP credentials.
-        """
+        """Monkey-patch cognite_function_apps to use the toolkit's auth path."""
         import importlib
 
         from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables  # noqa: PLC0415
 
-        # Import the module directly — works both when it's already in sys.modules
-        # and when called before create_asgi_app (e.g. in the reload subprocess).
         asgi_module = importlib.import_module("cognite_function_apps.devserver.asgi")
 
         def _toolkit_get_client() -> object:
@@ -233,6 +328,8 @@ class ServeFunctionCommand(ToolkitCommand):
             return env_vars.get_client(is_strict_validation=False)
 
         asgi_module.get_cognite_client_from_env = _toolkit_get_client  # type: ignore[assignment]
+
+    # ── Server startup ──
 
     @staticmethod
     def _run_server_with_reload(
