@@ -11,6 +11,7 @@ from typing import Any, ClassVar, Literal, TypeVar
 from pydantic import model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
+    BaseModelObject,
     RequestResource,
     ResponseResource,
 )
@@ -69,6 +70,61 @@ T_WrappedInstanceRequest = TypeVar("T_WrappedInstanceRequest", bound=WrappedInst
 
 
 class WrappedInstanceResponse(ResponseResource[T_WrappedInstanceRequest], ABC):
+    VIEW_ID: ClassVar[ViewId]
+    instance_type: InstanceType
+    space: str
+    external_id: str
+
+    version: int
+    created_time: int
+    last_updated_time: int
+    deleted_time: int | None = None
+
+    @model_validator(mode="before")
+    def move_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Move properties from sources to the top level."""
+        return move_response_properties(values, cls.VIEW_ID)
+
+    def dump(
+        self, camel_case: bool = True, exclude_extra: bool = False, context: Literal["api", "toolkit"] = "api"
+    ) -> dict[str, Any]:
+        """Dump the resource to a dictionary.
+
+        Args:
+            camel_case (bool): Whether to use camelCase for the keys. Default is True.
+            exclude_extra (bool): Whether to exclude extra fields not defined in the model. Default is False.
+
+        """
+        output = super().dump(camel_case=camel_case, exclude_extra=exclude_extra)
+        if context == "toolkit":
+            return output
+        properties: dict[str, Any] = {}
+        for key in list(output.keys()):
+            if key in {
+                "instanceType",
+                "space",
+                "externalId",
+                "version",
+                "createdTime",
+                "lastUpdatedTime",
+                "deletedTime",
+                "instance_type",
+                "external_id",
+                "created_time",
+                "last_updated_time",
+                "deleted_time",
+            }:
+                continue
+            properties[key] = output.pop(key)
+        output["properties"] = {
+            self.VIEW_ID.space: {
+                f"{self.VIEW_ID.external_id}/{self.VIEW_ID.version}": properties,
+            }
+        }
+        return output
+
+
+class WrappedInstanceResponseOnly(BaseModelObject, ABC):
     VIEW_ID: ClassVar[ViewId]
     instance_type: InstanceType
     space: str

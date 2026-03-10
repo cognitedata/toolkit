@@ -36,11 +36,11 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricType
 
 
-def _has_data_filter(view_id: ViewId) -> dict[str, JsonValue]:
+def _has_data_filter(view_id: ViewId) -> dict[str, Any]:
     return {"hasData": [view_id.dump(include_type=True)]}
 
 
-def _equals_filter(view_id: ViewId, property_name: str, value: JsonValue) -> dict[str, JsonValue]:
+def _equals_filter(view_id: ViewId, property_name: str, value: Any) -> dict[str, Any]:
     return {
         "equals": {
             "property": view_id.as_property_reference(property_name),
@@ -49,7 +49,7 @@ def _equals_filter(view_id: ViewId, property_name: str, value: JsonValue) -> dic
     }
 
 
-def _in_filter(view_id: ViewId, property_name: str, values: list[JsonValue]) -> dict[str, JsonValue]:
+def _in_filter(view_id: ViewId, property_name: str, values: list[Any]) -> dict[str, Any]:
     return {
         "in": {
             "property": view_id.as_property_reference(property_name),
@@ -58,11 +58,11 @@ def _in_filter(view_id: ViewId, property_name: str, values: list[JsonValue]) -> 
     }
 
 
-def _and_filter(*filters: dict[str, JsonValue]) -> dict[str, JsonValue]:
+def _and_filter(*filters: dict[str, Any]) -> dict[str, Any]:
     return {"and": list(filters)}
 
 
-def _or_filter(*filters: dict[str, JsonValue]) -> dict[str, JsonValue]:
+def _or_filter(*filters: dict[str, Any]) -> dict[str, Any]:
     return {"or": list(filters)}
 
 
@@ -474,7 +474,7 @@ class LookupAPI:
             response = self._instances_api.query(query_request)
             for item in response.items.get("instanceSource", []):
                 instance_source = InstanceSource.model_validate(item.dump())
-                node_id = instance_source.as_node_id()
+                node_id = instance_source.as_id()
                 self._node_id_by_id[instance_source.id_] = node_id
                 self._consumer_view_id_by_id[instance_source.id_] = instance_source.consumer_view()
                 if instance_source.classic_external_id:

@@ -147,7 +147,7 @@ class DirectRelationCache:
             if missing:
                 source_systems = self._client.migration.created_source_system.retrieve(list(missing))
                 for source_system in source_systems:
-                    source_reference = source_system.as_direct_relation_reference()
+                    source_reference = source_system.as_id()
                     cache[source_system.source] = source_reference
                     if original_str := missing.get(source_system.source):
                         cache[original_str] = source_reference
