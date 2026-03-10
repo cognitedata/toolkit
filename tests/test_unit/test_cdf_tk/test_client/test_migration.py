@@ -6,7 +6,7 @@ import respx
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, ViewId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource
 
 
 @pytest.fixture()

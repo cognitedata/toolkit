@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (

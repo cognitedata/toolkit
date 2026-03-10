@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerResponse, ViewId, ViewResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import BuildCommand, ModulesCommand, RepoCommand
 from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, MODULES

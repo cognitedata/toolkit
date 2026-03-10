@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import
     QuerySelect,
     QuerySelectSource,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import (
     CREATED_SOURCE_SYSTEM_VIEW_ID,
     INSTANCE_SOURCE_VIEW_ID,
     SPACE_SOURCE_VIEW_ID,

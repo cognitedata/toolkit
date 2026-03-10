@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import CreatedSourceSystem
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import CreatedSourceSystem
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.creators import (

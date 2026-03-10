@@ -32,7 +32,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData, ChartSource, ChartTimeseries
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, ViewId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import InstanceSource as LegacyInstanceSource
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource as LegacyInstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, CanvasMapper, ChartMapper

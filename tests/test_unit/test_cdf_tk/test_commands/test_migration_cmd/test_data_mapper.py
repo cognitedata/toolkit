@@ -35,7 +35,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import CreatedSourceSystem
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import CreatedSourceSystem
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
