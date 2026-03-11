@@ -7,7 +7,7 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BeforeValidator, Field, JsonValue, TypeAdapter, model_serializer, model_validator
+from pydantic import BeforeValidator, Field, TypeAdapter, model_serializer, model_validator
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
@@ -575,7 +575,7 @@ class UnknownAcl(BaseModelObject):
 
     acl_name: str = Field("unknownAcl", exclude=True)
     actions: Sequence[str]
-    scope: dict[str, JsonValue]
+    scope: Scope
 
 
 def _get_acl_name(cls: type[Acl]) -> str | None:

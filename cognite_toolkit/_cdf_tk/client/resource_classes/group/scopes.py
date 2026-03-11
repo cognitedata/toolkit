@@ -188,6 +188,7 @@ def _handle_unknown_scope(value: Any) -> Any:
         scope_class = _KNOWN_SCOPES.get(scope_name)
         if scope_class:
             return TypeAdapter(scope_class).validate_python(value)
+        return UnknownScope.model_validate({**value, SCOPE_NAME: scope_name})
     return UnknownScope.model_validate(value)
 
 
