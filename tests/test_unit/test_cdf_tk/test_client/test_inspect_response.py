@@ -118,7 +118,7 @@ class TestProjectCapability:
                         ),
                     ],
                 ),
-                ProjectCapabilities({(AssetsAcl, "READ"): AllScope()}, name="test_project", groups=[]),
+                ProjectCapabilities({(AssetsAcl, "assetsAcl", "READ"): AllScope()}, name="test_project", groups=[]),
                 id="Union of scopes with same action should result in the most permissive scope (AllScope in this case)",
             ),
             pytest.param(
@@ -130,7 +130,7 @@ class TestProjectCapability:
                         InspectCapability(
                             acl=UnknownAcl(
                                 actions=["READ"],
-                                scope=UnknownScope.model_validate({"scopeName": "unknown_cope", "someIds": [1, 2]}),
+                                scope=UnknownScope.model_validate({"scopeName": "unknown_scope", "someIds": [1, 2]}),
                                 acl_name="unknown_acl",
                             ),
                             project_scope=AllProjects(all_projects={}),
@@ -147,7 +147,7 @@ class TestProjectCapability:
                 ),
                 ProjectCapabilities(
                     {
-                        (UnknownAcl, "READ"): UnknownScope.model_validate(
+                        (UnknownAcl, "unknown_acl", "READ"): UnknownScope.model_validate(
                             {"scopeName": "unknown_scope", "someIds": [1, 2, 3]}
                         ),
                     },
