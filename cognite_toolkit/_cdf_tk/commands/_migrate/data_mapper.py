@@ -48,7 +48,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
     ConversionContext,
-    CustomConnectionMapping,
     CustomContainerPropertiesMapping,
     DirectRelationCache,
     EdgeOtherSide,
@@ -668,31 +667,34 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
 
     Args:
         client: The ToolkitClient to use for lookups and caching.
-        space_mapping: A mapping from source spaces to target spaces.
         mappings: A sequence of ViewToViewMappings defining how to map source views to target views and how to convert properties and edges.
-        custom_connection_mappings: Optional sequence of InstanceToInstanceSpecialMappings defining special cases for mapping connections
-            between instances that cannot be handled by the general ViewToViewMappings.
+        connection_creator: A ConnectionCreator instance to handle the creation of connections
+            (edges and direct/reverse direct relations) based on the provided mappings.
         custom_properties_mappings: Optional sequence of ContainerPropertiesMappings defining special cases for mapping container
             properties that cannot be handled by the general ViewToViewMappings.
+        custom_instance_mappings: Optional mapping of view IDs to custom DataMappers for handling special cases of
+        instance mapping that cannot be handled by the general ViewToViewMappings and ConnectionCreator.
 
     """
 
     def __init__(
         self,
         client: ToolkitClient,
-        space_mapping: Mapping[str, str],
         mappings: Sequence[ViewToViewMapping],
-        custom_connection_mappings: Sequence[CustomConnectionMapping] | None = None,
+        connection_creator: ConnectionCreator,
         custom_properties_mappings: Sequence[CustomContainerPropertiesMapping] | None = None,
+        custom_instance_mappings: Mapping[ViewId, DataMapper[InstanceSelector, InstanceResponse, InstanceRequest]]
+        | None = None,
     ) -> None:
         super().__init__(client)
-        self._connection_creator = ConnectionCreator(client, space_mapping, custom_connection_mappings)
+        self._connection_creator = connection_creator
         self._mappings_by_source_view: dict[ViewId, ViewToViewMapping] = {
             mapping.source_view: mapping for mapping in mappings
         }
         self._custom_properties_mapping: dict[ViewId, CustomContainerPropertiesMapping] = {
             view_id: mapping for mapping in (custom_properties_mappings or []) for view_id in mapping.VIEW_IDS
         }
+        self._custom_instance_mappings = custom_instance_mappings
 
     def prepare(self, source_selector: InstanceSelector) -> None:
         view_ids = set(mapping.source_view for mapping in self._mappings_by_source_view.values()) | set(
@@ -702,6 +704,12 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
         self._connection_creator.update_view_cache(views)
 
     def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
+        if (
+            self._custom_instance_mappings
+            and (first_view_id := self._get_first_view_id(source)) in self._custom_instance_mappings
+            and first_view_id is not None
+        ):
+            return self._custom_instance_mappings[first_view_id].map(source)
         self._connection_creator.update_cache(source)
         nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)
         mapped_instances: list[InstanceRequest | None] = []
@@ -726,6 +734,17 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
         if issue_list:
             self.logger.log(issue_list)
         return mapped_instances
+
+    def _get_first_view_id(self, source: Sequence[InstanceResponse]) -> ViewId | None:
+        if not source:
+            return None
+        first = source[0]
+        if first.properties is None or not first.properties:
+            return None
+        first_view_id = next(iter(first.properties.keys()))
+        if not isinstance(first_view_id, ViewId):
+            return None
+        return first_view_id
 
     def _as_nodes_and_edges(
         self, source: Sequence[NodeResponse | EdgeResponse]

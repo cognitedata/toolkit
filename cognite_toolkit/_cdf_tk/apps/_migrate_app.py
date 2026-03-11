@@ -10,7 +10,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.annotation import Annotatio
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
-from cognite_toolkit._cdf_tk.commands._migrate.conversion import InFieldAssetMapping, InFieldConditionMapping
+from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
+    ConnectionCreator,
+    InFieldAssetMapping,
+    InFieldConditionMapping,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.creators import (
     InfieldV2ConfigCreator,
     InstanceSpaceCreator,
@@ -1431,16 +1435,17 @@ class MigrateApp(typer.Typer):
                         edge_types=tuple(mapping.edge_mapping.keys()) if mapping.edge_mapping else None,
                     )
                 )
-
+        connection_creator = ConnectionCreator(
+            client, space_mapping=space_mapping, custom_mappings=[InFieldAssetMapping(client)]
+        )
         cmd.run(
             lambda: cmd.migrate(
                 selectors=selectors,
                 data=InstanceIO(client),
                 mapper=FDMtoCDMMapper(
                     client,
-                    space_mapping,
                     infield_mappings,
-                    custom_connection_mappings=[InFieldAssetMapping(client)],
+                    connection_creator=connection_creator,
                     custom_properties_mappings=[InFieldConditionMapping(infield_mappings)],
                 ),
                 log_dir=log_dir,

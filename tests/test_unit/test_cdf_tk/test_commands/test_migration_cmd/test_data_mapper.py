@@ -44,6 +44,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.commands._migrate.conversion import ConnectionCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     AssetCentricMapping,
     AssetCentricMappingList,
@@ -661,7 +662,8 @@ class TestFDMtoCDMMapper:
             mapping = self.VIEW_MAPPING.model_copy(
                 update={"container_mapping": container_mapping, "edge_mapping": edge_mapping}
             )
-            mapper = FDMtoCDMMapper(client, self.SPACE_MAPPING, [mapping])
+            connection_creator = ConnectionCreator(client, space_mapping=self.SPACE_MAPPING)
+            mapper = FDMtoCDMMapper(client, [mapping], connection_creator)
             mapper.prepare(MagicMock())
 
             actual = mapper.map(instances)
