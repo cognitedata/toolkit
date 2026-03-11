@@ -1,7 +1,7 @@
 import os
 import sys
 from collections.abc import Iterable, Sequence
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -59,7 +59,7 @@ class BuildV2Command(ToolkitCommand):
         console = client.console if client else Console()
 
         # Track build duration
-        build_start_time = datetime.now()
+        build_start_time = datetime.now(timezone.utc)
 
         self._validate_build_parameters(parameters, console, sys.argv)
         build_files = self._read_file_system(parameters)
@@ -75,7 +75,7 @@ class BuildV2Command(ToolkitCommand):
         self._global_validation(build_folder, client)
 
         # Calculate build duration
-        build_duration_seconds = round((datetime.now() - build_start_time).total_seconds(), 2)
+        build_duration_seconds = round((datetime.now(timezone.utc) - build_start_time).total_seconds(), 2)
 
         self._write_results(parameters, build_folder, build_start_time, build_duration_seconds)
         return build_folder

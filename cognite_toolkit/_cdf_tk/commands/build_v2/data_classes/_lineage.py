@@ -1,50 +1,61 @@
-"""Build lineage tracking classes for comprehensive build process traceability."""
-
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializationInfo,
+    computed_field,
+    field_serializer,
+)
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuildParameters, BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     ModelSyntaxError,
-    Recommendation,
 )
 
 from ._types import AbsoluteDirPath, AbsoluteFilePath
 
 
-class ResourceLineageItem(BaseModel):
+class _BaseLineageModel(BaseModel):
+    """Base model for lineage tracking with common configuration."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class ResourceLineageItem(_BaseLineageModel):
     """Tracks a single resource through the build process."""
 
-    model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
-
-    source_file: AbsoluteFilePath
-    source_hash: str = Field(description="Hash of source file content (before variable substitution)")
+    source_file: AbsoluteFilePath = Field(alias="sourceFile")
+    source_hash: str = Field(alias="sourceHash")
     type_: str = Field(alias="type", description="Resource type folder (e.g., 'spaces', 'containers', 'views')")
     kind: str = Field(description="Resource kind (e.g., 'space', 'container', 'view')")
+    built_file: AbsoluteFilePath = Field(alias="builtFile")
 
-    built_file: AbsoluteFilePath
+    @field_serializer("source_file", "built_file", when_used="json")
+    def serialize_paths(self, value: Path, info: SerializationInfo) -> str:
+        """Serialize absolute paths to strings."""
+        organization_dir = info.context.get("organization_dir") if info.context else None
+        if organization_dir and value.is_relative_to(organization_dir):
+            return value.relative_to(organization_dir).as_posix()
+        return value.as_posix()
 
 
-class ModuleLineageItem(BaseModel):
+class ModuleLineageItem(_BaseLineageModel):
     """Tracks a module through the build process."""
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    module_id: str = Field(description="Module identifier (e.g., modules/my_module)")
-    module_path: AbsoluteDirPath = Field(description="Absolute path to module source directory")
-
-    # Resource tracking
-    resource_lineage: list[ResourceLineageItem] = Field(
-        default_factory=list, description="List of resource lineage items for this module"
+    module_id: str = Field(description="Module identifier (e.g., modules/my_module)", alias="moduleId")
+    module_path: AbsoluteDirPath = Field(description="Absolute path to module source directory", alias="modulePath")
+    insights_summary: dict[str, int] = Field(
+        description="Breakdown of insights by type for this module", alias="insightsSummary"
     )
-
-    # Insights breakdown at module level
-    insights_summary: dict[str, int] = Field(description="Breakdown of insights by type for this module")
+    resource_lineage: list[ResourceLineageItem] = Field(
+        default_factory=list, description="List of resource lineage items for this module", alias="resources"
+    )
 
     @property
     def is_success(self) -> bool:
@@ -54,6 +65,27 @@ class ModuleLineageItem(BaseModel):
             and self.insights_summary.get(ConsistencyError.__name__, 0) == 0
             and bool(self.resource_lineage)
         )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def status(self) -> str:
+        """Overall status of the module build based on insights summary."""
+        if self.is_success:
+            return "SUCCESS"
+        elif self.insights_summary.get(ModelSyntaxError.__name__, 0) > 0:
+            return "FAILED: ModelSyntaxError"
+        elif self.insights_summary.get(ConsistencyError.__name__, 0) > 0:
+            return "FAILED: ConsistencyError"
+        else:
+            return "FAILED: Unknown reason"
+
+    @field_serializer("module_path", when_used="json")
+    def serialize_module_path(self, value: Path, info: SerializationInfo) -> str:
+        """Serialize module path to relative path."""
+        organization_dir = info.context.get("organization_dir") if info.context else None
+        if organization_dir and value.is_relative_to(organization_dir):
+            return str(value.relative_to(organization_dir))
+        return str(value)
 
     @classmethod
     def from_built_module(cls, module: BuiltModule) -> "ModuleLineageItem":
@@ -71,7 +103,7 @@ class ModuleLineageItem(BaseModel):
                     resource_lineage.append(
                         ResourceLineageItem(
                             source_file=source_file,
-                            source_hash="",  # Todo: Store source hash in built module for accurate lineage.
+                            source_hash="",
                             type_=type_,
                             kind=kind,
                             built_file=built_file,
@@ -85,80 +117,43 @@ class ModuleLineageItem(BaseModel):
             insights_summary=module.insights.summary,
         )
 
-    def to_dict(self, organization_dir: Path | None = None) -> dict[str, Any]:
-        """Generate a dictionary representation of ModuleLineageItem containing only string values."""
-        simple_dict = {
-            "moduleId": self.module_id,
-            "modulePath": str(self.module_path.relative_to(organization_dir))
-            if organization_dir
-            else str(self.module_path),
-            "resources": [
-                {
-                    "sourceFile": str(item.source_file.relative_to(organization_dir))
-                    if organization_dir
-                    else str(item.source_file),
-                    "type": item.type_,
-                    "kind": item.kind,
-                    "builtFile": str(item.built_file.relative_to(organization_dir))
-                    if item.built_file and organization_dir
-                    else (str(item.built_file) if item.built_file else None),
-                }
-                for item in self.resource_lineage
-            ],
-            "insightsSummary": self.insights_summary,
-            "status": "SUCCESS" if self.is_success else "FAILED",
-        }
 
-        if simple_dict["status"] == "FAILED":
-            if self.insights_summary.get(ModelSyntaxError.__name__, 0) > 0:
-                simple_dict["failureReasons"] = "ModelSyntaxError"
-            elif self.insights_summary.get(ConsistencyError.__name__, 0) > 0:
-                simple_dict["failureReasons"] = "ConsistencyError"
+class BuildLineage(_BaseLineageModel):
+    """Minimal lineage"""
 
-        return simple_dict
-
-
-class BuildLineage(BaseModel):
-    """Minimal linage"""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
-
-    # Build metadata
     timestamp: datetime = Field(default_factory=datetime.now, description="When build started", alias="timestamp")
     duration: float | None = Field(None, description="Total build duration in seconds", alias="duration")
-
     organization_dir: Path = Field(alias="organizationDirectory")
     build_dir: Path = Field(alias="buildDirectory")
+    modules_summary: dict[str, int] = Field(description="Summary of modules by build status", alias="modulesSummary")
+    insights_summary: dict[str, int] = Field(
+        description="Summary of insights by type across all modules", alias="insightsSummary"
+    )
 
-    # Module tracking
     module_lineage: list[ModuleLineageItem] = Field(
         default_factory=list,
         alias="moduleLineage",
         description="Lineage for each module, indexed by module path. List because of iterations.",
     )
 
-    @property
-    def modules_summary(self) -> dict[str, int]:
-        return {
-            "processed": len(self.module_lineage),
-            "succeeded": sum(1 for module in self.module_lineage if module.is_success),
-            "failed": sum(1 for module in self.module_lineage if not module.is_success),
-        }
+    @field_serializer("timestamp", when_used="json")
+    def serialize_timestamp(self, value: datetime, info: SerializationInfo) -> str:
+        """Serialize timestamp to string."""
+        return value.replace(microsecond=0).isoformat()
 
-    @property
-    def insights_summary(self) -> dict[str, int]:
+    @field_serializer("organization_dir", "build_dir", when_used="json")
+    def serialize_paths(self, value: Path, info: SerializationInfo) -> str:
+        """Serialize build_dir to relative path if possible."""
+        if info.field_name == "build_dir":  # type: ignore
+            organization_dir = info.context.get("organization_dir") if info.context else None
+            if organization_dir and value.is_relative_to(organization_dir):
+                return value.relative_to(organization_dir).as_posix()
+        return value.as_posix()
 
-        summary: dict[str, int] = {
-            ModelSyntaxError.__name__: 0,
-            ConsistencyError.__name__: 0,
-            Recommendation.__name__: 0,
-        }
-
-        for module in self.module_lineage:
-            for insight_type, count in module.insights_summary.items():
-                summary[insight_type] += count
-
-        return summary
+    @field_serializer("duration", when_used="json")
+    def serialize_duration(self, value: float | None, info: SerializationInfo) -> float | None:
+        """Serialize duration with 2 decimal places."""
+        return round(value, 2) if value is not None else None
 
     @classmethod
     def from_build_parameters_and_results(
@@ -170,34 +165,33 @@ class BuildLineage(BaseModel):
     ) -> "BuildLineage":
         """Construct lineage from build output folder."""
 
+        module_lineage = [ModuleLineageItem.from_built_module(module) for module in folder.built_modules]
+        modules_summary = {
+            "processed": len(module_lineage),
+            "succeeded": sum(1 for module in module_lineage if module.is_success),
+            "failed": sum(1 for module in module_lineage if not module.is_success),
+        }
+        insights_summary: dict[str, int] = defaultdict(int)
+        for module in module_lineage:
+            for insight_type, count in module.insights_summary.items():
+                insights_summary[insight_type] += count
+
         return cls(
             timestamp=timestamp or datetime.now(),
             duration=duration,
             organization_dir=parameters.organization_dir,
             build_dir=parameters.build_dir,
-            module_lineage=[ModuleLineageItem.from_built_module(module) for module in folder.built_modules],
+            module_lineage=module_lineage,
+            modules_summary=modules_summary,
+            insights_summary=insights_summary,
         )
-
-    def to_dict(self) -> dict[str, Any]:
-        """Generate a dictionary representation of BuildLineage containing only string values."""
-
-        is_relative = self.build_dir.is_relative_to(self.organization_dir)
-
-        return {
-            "timestamp": self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-            "duration": round(self.duration, 2) if self.duration is not None else None,
-            "organizationDirectory": str(self.organization_dir),
-            "buildDirectory": str(self.build_dir.relative_to(self.organization_dir))
-            if is_relative
-            else str(self.build_dir),
-            "modulesSummary": self.modules_summary,
-            "insightsSummary": {insight_type: count for insight_type, count in self.insights_summary.items()},
-            "moduleLineage": [
-                module.to_dict(self.organization_dir if is_relative else None) for module in self.module_lineage
-            ],
-        }
 
     def to_yaml(self) -> str:
         """Convert BuildLineage to YAML string representation."""
-        data = self.to_dict()
+        data = self.model_dump(
+            by_alias=True,
+            exclude_none=False,
+            mode="json",  # ← Add this to trigger @field_serializer with when_used="json"
+            context={"organization_dir": self.organization_dir},
+        )
         return yaml.dump(data, default_flow_style=False, sort_keys=False)
