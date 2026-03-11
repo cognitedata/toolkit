@@ -181,6 +181,12 @@ class TestBuildCommand:
             "MISSING-DEPENDENCY",
         }
 
+        lineage_file = list(build_dir.rglob("lineage.yaml"))
+        insights_file = list(build_dir.rglob("insights.csv"))
+
+        assert len(lineage_file) == 1
+        assert len(insights_file) == 1
+
     def test_end_to_end_failed_build(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
         cmd = BuildV2Command()
 
