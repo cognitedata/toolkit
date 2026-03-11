@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuildParameters, BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
@@ -14,20 +14,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Recommendation,
 )
 
-from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, ValidationType
-
-
-class BuildConfigLineage(BaseModel):
-    """Tracks build configuration and environment."""
-
-    organization_dir: AbsoluteDirPath = Field(description="Organization root directory")
-    build_dir: AbsoluteDirPath = Field(description="Build output directory")
-    cdf_project: str = Field(description="Target CDF project")
-    validation_type: ValidationType = Field(description="Validation type (prod/dev)")
-    selected_modules: set[RelativeDirPath | str] = Field(description="Selected modules for build")
-    variables_provided: dict[str, JsonValue] = Field(
-        default_factory=dict, description="Variables provided via config or command line"
-    )
+from ._types import AbsoluteDirPath, AbsoluteFilePath
 
 
 class ResourceLineageItem(BaseModel):
