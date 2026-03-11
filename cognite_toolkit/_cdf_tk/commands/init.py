@@ -16,7 +16,6 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.auth import AuthCommand
-from cognite_toolkit._cdf_tk.commands.collect import CollectCommand
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.commands.repo import RepoCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
@@ -98,11 +97,6 @@ class InitCommand(ToolkitCommand):
                 name="initRepo",
                 description="Git repository",
                 function=lambda: self._init_repo(dry_run=dry_run),
-            ),
-            InitChecklistItem(
-                name="initDataCollection",
-                description="Usage statistics",
-                function=lambda: self._init_data_collection(dry_run=dry_run),
             ),
         ]
 
@@ -218,21 +212,3 @@ class InitCommand(ToolkitCommand):
     def _init_repo(self, dry_run: bool = False) -> None:
         repo_command = RepoCommand()
         repo_command.run(lambda: repo_command.init(cwd=Path.cwd(), host=None, verbose=False))
-
-    def _init_data_collection(self, dry_run: bool = False) -> None:
-        """Opt in to collect usage statistics"""
-
-        opt_in = questionary.confirm(
-            "Do you want to opt in to collect usage statistics? This will help us improve the Toolkit.",
-            default=True,
-        ).unsafe_ask()
-        if dry_run:
-            print("Would opt in to collect data" if opt_in else "Would not opt in to collect data")
-            return
-
-        if opt_in:
-            collect_command = CollectCommand()
-            collect_command.run(lambda: collect_command.execute("opt-in"))
-        else:
-            collect_command = CollectCommand()
-            collect_command.run(lambda: collect_command.execute("opt-out"))

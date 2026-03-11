@@ -4,7 +4,6 @@ from typing import Any
 import pytest
 import yaml
 from cognite.client.data_classes.aggregations import UniqueResult, UniqueResultList
-from cognite.client.data_classes.data_modeling import NodeList
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
@@ -16,7 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import CreatedSourceSystem
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import CreatedSourceSystem
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.creators import (
@@ -170,18 +169,16 @@ class TestCreator:
         client.assets.aggregate_unique_values.return_value = asset_sources
         client.events.aggregate_unique_values.return_value = event_sources
         client.documents.aggregate_unique_values.return_value = file_sources
-        client.migration.created_source_system.list.return_value = NodeList[CreatedSourceSystem](
-            [
-                CreatedSourceSystem(
-                    space="my_other_space",
-                    external_id="sap",
-                    version=1,
-                    last_updated_time=1,
-                    created_time=1,
-                    source="sap",
-                )
-            ]
-        )
+        client.migration.created_source_system.list.return_value = [
+            CreatedSourceSystem(
+                space="my_other_space",
+                external_id="sap",
+                version=1,
+                last_updated_time=1,
+                created_time=1,
+                source="sap",
+            )
+        ]
 
         _ = MigrationCommand(silent=True).create(
             client=toolkit_client_approval.client,

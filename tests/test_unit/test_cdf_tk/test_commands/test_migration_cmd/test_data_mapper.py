@@ -6,10 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 import yaml
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes.data_modeling import (
-    InstanceApply,
-    NodeList,
-)
+from cognite.client.data_classes.data_modeling import InstanceApply
 
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, NodeId, ViewDirectId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
@@ -38,7 +35,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import CreatedSourceSystem
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import CreatedSourceSystem
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
@@ -119,18 +116,16 @@ class TestAssetCentricMapper:
                 )
             ]
 
-            client.migration.created_source_system.retrieve.return_value = NodeList[CreatedSourceSystem](
-                [
-                    CreatedSourceSystem(
-                        space="source_systems",
-                        external_id="SAP",
-                        source="sap",
-                        last_updated_time=1,
-                        created_time=0,
-                        version=1,
-                    ),
-                ]
-            )
+            client.migration.created_source_system.retrieve.return_value = [
+                CreatedSourceSystem(
+                    space="source_systems",
+                    external_id="SAP",
+                    source="sap",
+                    last_updated_time=1,
+                    created_time=0,
+                    version=1,
+                ),
+            ]
             client.tool.views.retrieve.return_value = cognite_core_no_3D.views + cognite_extractor_views
 
             mapper = AssetCentricMapper(client)
@@ -196,7 +191,7 @@ class TestAssetCentricMapper:
 
         with monkeypatch_toolkit_client() as client:
             # Return empty list to simulate missing view source
-            client.migration.resource_view_mapping.retrieve.return_value = NodeList[ResourceViewMappingResponse]([])
+            client.migration.resource_view_mapping.retrieve.return_value = []
 
             mapper = AssetCentricMapper(client)
 

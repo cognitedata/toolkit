@@ -10,9 +10,12 @@ from pydantic import Field, TypeAdapter
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest, RecordResponse
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import ContainerCRUD, SpaceCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.streams import StreamCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
@@ -97,10 +100,40 @@ class RecordIO(
             window_start = window_end
         return total
 
-    # TODO: Download container, space and stream definitions alongside record data,
-    # similar to how InstanceIO downloads views, containers, and spaces.
     def configurations(self, selector: RecordContainerSelector) -> Iterable[StorageIOConfig]:
-        return ()
+        spaces = {selector.container.space}
+        if selector.instance_spaces:
+            spaces.update(selector.instance_spaces)
+        space_crud = SpaceCRUD.create_loader(self.client)
+        for space in space_crud.retrieve([SpaceId(space=s) for s in spaces]):
+            if space.is_global:
+                continue
+            yield StorageIOConfig(
+                kind=SpaceCRUD.kind,
+                folder_name=SpaceCRUD.folder_name,
+                value=space_crud.dump_resource(space),
+                filename=sanitize_filename(space.space),
+            )
+
+        container_crud = ContainerCRUD.create_loader(self.client)
+        for container in container_crud.retrieve([selector.container.as_id()]):
+            if container.is_global:
+                continue
+            yield StorageIOConfig(
+                kind=ContainerCRUD.kind,
+                folder_name=ContainerCRUD.folder_name,
+                value=container_crud.dump_resource(container),
+                filename=sanitize_filename(f"{container.space}_{container.external_id}"),
+            )
+
+        stream_crud = StreamCRUD.create_loader(self.client)
+        for stream in stream_crud.retrieve([ExternalId(external_id=selector.stream.external_id)]):
+            yield StorageIOConfig(
+                kind=StreamCRUD.kind,
+                folder_name=StreamCRUD.folder_name,
+                value=stream_crud.dump_resource(stream),
+                filename=sanitize_filename(selector.stream.external_id),
+            )
 
     @staticmethod
     def _build_sync_filter(selector: RecordContainerSelector) -> dict[str, object]:
