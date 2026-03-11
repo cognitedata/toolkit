@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group.scopes import (
 
 def _data_fields(scope: ScopeDefinition) -> dict[str, Any]:
     """Return field name-value pairs excluding scope_name."""
-    return {name: getattr(scope, name) for name in type(scope).model_fields if name != "scope_name"}
+    return scope.model_dump(by_alias=False, exclude={"scope_name"})
 
 
 def scope_intersection(*scopes: ScopeDefinition) -> ScopeDefinition | None:
