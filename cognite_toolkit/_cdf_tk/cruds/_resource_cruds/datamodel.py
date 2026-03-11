@@ -830,13 +830,7 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
         creation_order = self._compute_deploy_batches(items)
         created: list[ViewResponse] = []
         for batch in creation_order:
-            try:
-                created.extend(self.client.tool.views.create(batch))
-            except ToolkitAPIError as e:
-                if e.is_auto_retryable:
-                    created.extend(self._fallback_create_one_by_one(batch, e))
-                else:
-                    raise
+            created.extend(self.client.tool.views.create(batch))
         return created
 
     def _compute_deploy_batches(self, items: Sequence[ViewRequest]) -> list[list[ViewRequest]]:
