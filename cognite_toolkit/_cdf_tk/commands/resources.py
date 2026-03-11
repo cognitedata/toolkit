@@ -9,13 +9,13 @@ from questionary import Choice
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.commands.functions import ScaffoldDef, _validate_safe_path
+from cognite_toolkit._cdf_tk.commands.functions import ScaffoldDef
 from cognite_toolkit._cdf_tk.commands.functions import get_scaffolds as _fn_scaffolds
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceCRUD
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import validate_safe_path, yaml_safe_dump
 
 # Scaffold variants keyed by CRUD kind (casefold). Each entry is a list of
 # ScaffoldDef variants the user can choose from after the YAML is created.
@@ -183,7 +183,7 @@ class ResourcesCommand(ToolkitCommand):
             ).unsafe_ask()
         else:
             final_prefix = f"my_{resource_crud.kind}"
-        _validate_safe_path(final_prefix)
+        validate_safe_path(final_prefix)
         file_name = f"{final_prefix}.{resource_crud.kind}.yaml"
         file_path: Path = resource_dir / file_name
 
