@@ -96,12 +96,8 @@ class ErrorDetails(BaseModel):
         header_value = response.headers.get("cdf-is-auto-retryable", "")
         if header_value:
             error.is_auto_retryable = header_value.lower() == "true"
-        elif error.is_auto_retryable is None:
-            try:
-                raw = TypeAdapter(dict[str, Any]).validate_json(response.text)
-                error.is_auto_retryable = raw.get("error", {}).get("isAutoRetryable")
-            except ValueError:
-                pass
+        else:
+            error.is_auto_retryable = response.json().get("error", {}).get("isAutoRetryable")
         return error
 
 
