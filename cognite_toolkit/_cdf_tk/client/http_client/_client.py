@@ -224,11 +224,20 @@ class HTTPClient:
             time.sleep(retry_after)
             return request
 
-        if request.status_attempt < self._max_retries and response.status_code in self._retry_status_codes:
+        is_auto_retryable = self._is_auto_retryable(response)
+        should_retry = response.status_code in self._retry_status_codes or is_auto_retryable
+        if request.status_attempt < self._max_retries and should_retry:
             request.status_attempt += 1
             time.sleep(self._backoff_time(request.total_attempts))
             return request
         return None
+
+    @staticmethod
+    def _is_auto_retryable(response: httpx.Response) -> bool:
+        if response.headers.get("cdf-is-auto-retryable", "").lower() == "true":
+            return True
+        error_details = ErrorDetails.from_response(response)
+        return error_details.is_auto_retryable is True
 
     def _handle_error_single(self, e: Exception, request: RequestMessage) -> RequestMessage | HTTPResult:
         if isinstance(e, httpx.ReadTimeout | httpx.TimeoutException):
