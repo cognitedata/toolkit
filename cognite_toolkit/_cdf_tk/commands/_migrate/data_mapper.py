@@ -1,7 +1,8 @@
+import json
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
-from typing import Generic, Literal, cast
+from typing import ClassVar, Generic, Literal, cast
 from uuid import uuid4
 
 from cognite.client import data_modeling as dm
@@ -79,7 +80,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     InstanceSelector,
     ThreeDSelector,
 )
-from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
 
 from .data_classes import AssetCentricMapping
@@ -903,5 +904,92 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
 
     """
 
+    SCHEDULE_VIEW = ViewId(space="cdf_apm", external_id="Schedule", version="v4")
+    TEMPLATE_EDGE_TYPE = NodeId(space="cdf_apm", external_id="referenceTemplateItems")
+    TEMPLATE_ITEM_EDGE_TYPE = NodeId(space="cdf_apm", external_id="referenceSchedules")
+    UNIQUE_SCHEDULE_PROPERTIES: ClassVar[tuple[str, ...]] = (
+        "until",
+        "byMonth",
+        "byDay",
+        "interval",
+        "freq",
+        "exceptionDates",
+        "timezone",
+        "status",
+        "startTime",
+        "endTime",
+        "status",
+    )
+
+    def __init__(self, client: ToolkitClient, connection_creator: ConnectionCreator) -> None:
+        super().__init__(client)
+        self._connection_creator = connection_creator
+
     def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
+        schedules, template_edges, template_id_edges, issues = self._as_schedules_and_edges(source)
+        output: list[InstanceRequest | None] = []
+        for duplicated_schedules in schedules.values():
+            mapped_item, issue = self._create_single_schedule(duplicated_schedules, template_edges, template_id_edges)
+            if issue.has_issues:
+                issues.append(issue)
+            output.append(mapped_item)
+        if issues:
+            self.logger.log(issues)
+        return output
+
+    def _as_schedules_and_edges(
+        self, source: Sequence[InstanceResponse]
+    ) -> tuple[
+        dict[str, list[NodeResponse]],
+        dict[NodeId, list[EdgeResponse]],
+        dict[NodeId, list[EdgeResponse]],
+        list[InstanceConversionIssue],
+    ]:
+        schedules: dict[str, list[NodeResponse]] = defaultdict(list)
+        template_edges_by_item_id: dict[NodeId, list[EdgeResponse]] = defaultdict(list)
+        template_item_edges_by_schedule_id: dict[NodeId, list[EdgeResponse]] = defaultdict(list)
+        issues: list[InstanceConversionIssue] = []
+        for item in source:
+            if isinstance(item, NodeResponse):
+                if schedule_properties := (item.properties or {}).get(self.SCHEDULE_VIEW):
+                    schedule_hash = self._calculate_schedule_hash(schedule_properties)
+                    schedules[schedule_hash].append(item)
+                else:
+                    issues.append(
+                        InstanceConversionIssue(
+                            id=str(item.as_id()),
+                            errors=[
+                                f"Unexpected node with ID {item.as_id()} found in source that does not have the Schedule view."
+                            ],
+                        )
+                    )
+
+                    self.logger.tracker.finalize_item(str(item.as_id()), "failure")
+            elif isinstance(item, EdgeResponse):
+                if item.type == self.TEMPLATE_EDGE_TYPE:
+                    template_edges_by_item_id[item.end_node].append(item)
+                elif item.type == self.TEMPLATE_ITEM_EDGE_TYPE:
+                    template_item_edges_by_schedule_id[item.end_node].append(item)
+                else:
+                    issues.append(
+                        InstanceConversionIssue(
+                            id=str(item.as_id()),
+                            errors=[
+                                f"Unexpected edge with ID {item.as_id()} and type {item.type} found in source. Expected edge types are {self.TEMPLATE_EDGE_TYPE} and {self.TEMPLATE_ITEM_EDGE_TYPE}."
+                            ],
+                        )
+                    )
+                    self.logger.tracker.finalize_item(str(item.as_id()), "failure")
+        return schedules, template_edges_by_item_id, template_item_edges_by_schedule_id, issues
+
+    def _calculate_schedule_hash(self, properties: dict[str, JsonValue]) -> str:
+        relevant_properties = {key: properties.get(key) for key in self.UNIQUE_SCHEDULE_PROPERTIES}
+        return calculate_hash(json.dumps(relevant_properties, sort_keys=True), shorten=True)
+
+    def _create_single_schedule(
+        self,
+        duplicated_schedules: list[NodeResponse],
+        template_edges_by_item_id: dict[NodeId, list[EdgeResponse]],
+        template_item_edges_by_schedule_id: dict[NodeId, list[EdgeResponse]],
+    ) -> tuple[InstanceRequest, InstanceConversionIssue]:
         raise NotImplementedError()
