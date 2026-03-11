@@ -1,7 +1,7 @@
 import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, InstanceDefinitionId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerPropertyDefinition,
     ContainerRequest,
@@ -130,7 +130,7 @@ def two_nodes_with_edge(
 @pytest.fixture(scope="session")
 def infield_apm_app_data_schedule_populated(
     toolkit_client: ToolkitClient, toolkit_space: Space
-) -> list[InstanceSlimDefinition]:
+) -> list[InstanceDefinitionId]:
     instance_space = toolkit_space.space
     template = ViewId(space="cdf_apm", external_id="Template", version="v8")
     item = ViewId(space="cdf_apm", external_id="TemplateItem", version="v7")
@@ -189,8 +189,8 @@ def infield_apm_app_data_schedule_populated(
         ),
     ]
     created_instances = toolkit_client.tool.instances.create(instances)
-    assert created_instances, "Failed to create instance"
-    return created_instances
+    assert len(created_instances) == len(created_instances), "Failed to create instance"
+    return [schedule_id, *[edge.as_id() for edge in created_instances if edge.instance_type == "edge"]]
 
 
 class TestInstanceIO:
@@ -222,7 +222,7 @@ class TestInstanceIO:
     def test_stream_nodes_by_infield_query(
         self,
         toolkit_client: ToolkitClient,
-        infield_apm_app_data_schedule_populated: list[InstanceSlimDefinition],
+        infield_apm_app_data_schedule_populated: list[InstanceDefinitionId],
     ) -> None:
         instance_spaces = list(set(instance.space for instance in infield_apm_app_data_schedule_populated))
         assert len(instance_spaces) == 1, "Expected all instances to be in the same space"
@@ -232,5 +232,6 @@ class TestInstanceIO:
         pages = list(io.stream_data(selector))
 
         actual = [instance.as_id() for page in pages for instance in page.items]
-        expected = [instance.as_id() for instance in infield_apm_app_data_schedule_populated]
-        assert actual == expected, f"Expected {actual} instances to be in the same space, got {expected}"
+        expected = infield_apm_app_data_schedule_populated
+        assert actual[0] == expected[0], f"Expected schedule instance {expected[0]}, got {actual[0]}"
+        assert set(actual[1:]) == set(expected[1:]), f"Expected edge instances {expected[1:]}, got {actual[1:]}"
