@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     GroupsAcl,
     Scope,
     SpaceIDScope,
+    UnknownAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.token import (
     AllProjects,
@@ -118,7 +119,37 @@ class TestProjectCapability:
                 ),
                 ProjectCapabilities({(AssetsAcl, "READ"): AllScope()}, name="test_project", groups=[]),
                 id="Union of scopes with same action should result in the most permissive scope (AllScope in this case)",
-            )
+            ),
+            pytest.param(
+                InspectResponse(
+                    subject="test",
+                    projects=[InspectProjectInfo(project_url_name="test_project", groups=[])],
+                    project="test_project",
+                    capabilities=[
+                        InspectCapability(
+                            acl=UnknownAcl(
+                                actions=["READ", "WRITE"], scope={"unknown_scope": [1, 2, 3]}, acl_name="unknown_acl"
+                            ),
+                            project_scope=AllProjects(all_projects={}),
+                        ),
+                        InspectCapability(
+                            acl=UnknownAcl(
+                                actions=["READ", "WRITE"], scope={"unknown_scope": [1, 2, 3]}, acl_name="unknown_acl"
+                            ),
+                            project_scope=AllProjects(all_projects={}),
+                        ),
+                    ],
+                ),
+                ProjectCapabilities(
+                    {
+                        (UnknownAcl, "READ"): {"unknown_scope": [1, 2, 3]},
+                        (UnknownAcl, "WRITE"): {"unknown_scope": [1, 2, 3]},
+                    },
+                    name="test_project",
+                    groups=[],
+                ),
+                id="Unknown ACL types should be included in the capabilities with their scopes intact",
+            ),
         ],
     )
     def test_to_project_capabilities(self, token: InspectResponse, expected_capabilities: ProjectCapabilities) -> None:
