@@ -32,6 +32,7 @@ from ._file_content import (
 )
 from ._instances import (
     InstanceFileSelector,
+    InstanceQuerySelector,
     InstanceSelector,
     InstanceSpaceSelector,
     InstanceViewSelector,
@@ -60,7 +61,8 @@ Selector = Annotated[
     | FileMetadataTemplateSelector
     | FileDataModelingTemplateSelector
     | FileIdentifierSelector
-    | RecordContainerSelector,
+    | RecordContainerSelector
+    | InstanceQuerySelector,
     Field(discriminator="type"),
 ]
 
@@ -119,6 +121,7 @@ __all__ = [
     "FileMetadataTemplateSelector",
     "InstanceColumn",
     "InstanceFileSelector",
+    "InstanceQuerySelector",
     "InstanceSelector",
     "InstanceSpaceSelector",
     "InstanceViewSelector",

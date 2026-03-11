@@ -148,3 +148,32 @@ class InstanceFileSelector(InstanceSelector):
 
     def get_instance_spaces(self) -> list[str] | None:
         return sorted({instance.space for instance in self.items})
+
+
+class InstanceQuerySelector(InstanceSelector):
+    """This is intended for internal use only.
+
+    The motivation for introducing it is the migration of InField data. This requires a special query
+    for downloading the relevant instances.
+
+    Args:
+        query: The query to execute for selecting the instances. It should be a json-string represting a QueryRequest object.
+        root: The root node in the query. This is used for identifying the relevant spaces for
+            the migration and for identifying the relevant instances in the response.
+        subselections: A list of subselection names in the query. This is used for identifying
+    """
+
+    type: Literal["instanceQuery"] = "instanceQuery"
+
+    query: str
+    root: str
+    subselections: tuple[str, ...]
+
+    def get_schema_spaces(self) -> list[str] | None:
+        return None
+
+    def get_instance_spaces(self) -> list[str] | None:
+        return None
+
+    def __str__(self) -> str:
+        return f"query_{self.root}_{'_'.join(self.subselections)}"
