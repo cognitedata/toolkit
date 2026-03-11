@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
+from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import create_infield_schedule_selector
 from cognite_toolkit._cdf_tk.storageio import InstanceIO
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceViewSelector, SelectedView
 
@@ -126,6 +127,72 @@ def two_nodes_with_edge(
     return toolkit_client.tool.instances.create([node_a, node_b, connecting_edge])
 
 
+@pytest.fixture(scope="session")
+def infield_apm_app_data_schedule_populated(
+    toolkit_client: ToolkitClient, toolkit_space: Space
+) -> list[InstanceSlimDefinition]:
+    instance_space = toolkit_space.space
+    template = ViewId(space="cdf_apm", external_id="Template", version="v8")
+    item = ViewId(space="cdf_apm", external_id="TemplateItem", version="v7")
+    schedule = ViewId(space="cdf_apm", external_id="Schedule", version="v4")
+    template_to_item_type = NodeId(space="cdf_apm", external_id="referenceTemplateItems")
+    item_to_schedule_type = NodeId(space="cdf_apm", external_id="referenceSchedules")
+
+    template_id = NodeId(space=instance_space, external_id="infield_apm_app_data_schedule_populated_template")
+    item_id = NodeId(space=instance_space, external_id="infield_apm_app_data_schedule_populated_item")
+    schedule_id = NodeId(space=instance_space, external_id="infield_apm_app_data_schedule_populated_schedule")
+
+    instances = [
+        NodeRequest(
+            space=template_id.space,
+            external_id=template_id.external_id,
+            sources=[
+                InstanceSource(
+                    source=template,
+                    properties={"title": "Toolkit Integration test template"},
+                )
+            ],
+        ),
+        EdgeRequest(
+            space=instance_space,
+            external_id=f"{template_id.external_id}_{item_id.external_id}",
+            start_node=template_id,
+            end_node=item_id,
+            type=template_to_item_type,
+        ),
+        NodeRequest(
+            space=item_id.space,
+            external_id=item_id.external_id,
+            sources=[
+                InstanceSource(
+                    source=item,
+                    properties={"title": "Toolkit Integration test template item"},
+                )
+            ],
+        ),
+        EdgeRequest(
+            space=instance_space,
+            external_id=f"{item_id.external_id}_{schedule_id.external_id}",
+            start_node=item_id,
+            end_node=schedule_id,
+            type=item_to_schedule_type,
+        ),
+        NodeRequest(
+            space=schedule_id.space,
+            external_id=schedule_id.external_id,
+            sources=[
+                InstanceSource(
+                    source=schedule,
+                    properties={"status": "confirmed"},
+                )
+            ],
+        ),
+    ]
+    created_instances = toolkit_client.tool.instances.create(instances)
+    assert created_instances, "Failed to create instance"
+    return created_instances
+
+
 class TestInstanceIO:
     @pytest.mark.usefixtures("two_nodes_with_edge")
     def test_stream_nodes_with_edges(
@@ -151,3 +218,19 @@ class TestInstanceIO:
 
         results = [instance for page in pages for instance in page.items]
         assert len(results) == 3, f"Expected 3 instances (2 nodes + 1 edge), got {len(results)}"
+
+    def test_stream_nodes_by_infield_query(
+        self,
+        toolkit_client: ToolkitClient,
+        infield_apm_app_data_schedule_populated: list[InstanceSlimDefinition],
+    ) -> None:
+        instance_spaces = list(set(instance.space for instance in infield_apm_app_data_schedule_populated))
+        assert len(instance_spaces) == 1, "Expected all instances to be in the same space"
+        client = toolkit_client
+        selector = create_infield_schedule_selector(instance_space=instance_spaces[0])
+        io = InstanceIO(client)
+        pages = list(io.stream_data(selector))
+
+        actual = [instance.as_id() for page in pages for instance in page.items]
+        expected = [instance.as_id() for instance in infield_apm_app_data_schedule_populated]
+        assert actual == expected, f"Expected {actual} instances to be in the same space, got {expected}"

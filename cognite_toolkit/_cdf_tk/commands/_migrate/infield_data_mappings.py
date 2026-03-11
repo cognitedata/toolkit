@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 from pydantic import TypeAdapter
 from pydantic.config import ExtraValues
@@ -24,13 +25,17 @@ def create_infield_data_mappings(extra: ExtraValues | None = None) -> list[ViewT
     return TypeAdapter(list[ViewToViewMapping]).validate_python(mappings_dict, extra=extra)
 
 
-def create_infield_schedule_selector() -> InstanceQuerySelector:
+def create_infield_schedule_selector(instance_space: str | None = None) -> InstanceQuerySelector:
     """The migration of schedules is a bit more complex as we need to fetch all schedules connected to
     a single Template item along with all edges connecting them.
 
     The reason is that in the migration of schedules, instead of connecting:
     Template -> TemplateItem -> Schedule, we are going to connect Schedule -> TemplateItem and Schedule -> Template.
     In addition, to remove duplicated schedules (of which there are many).
+
+    Args:
+        instance_space: If provided, only selects schedules connected to template items in the specified space.
+            Note that the schedule, template items and edges will be selected regardless of their space.
 
     Returns:
         An InstanceQuerySelector that selects all schedules connected to a single template item along with the edges connecting them.
@@ -39,12 +44,15 @@ def create_infield_schedule_selector() -> InstanceQuerySelector:
     template = ViewId(space="cdf_apm", external_id="Template", version="v8")
     item = ViewId(space="cdf_apm", external_id="TemplateItem", version="v7")
     schedule = ViewId(space="cdf_apm", external_id="Schedule", version="v4")
+    template_filter: dict[str, Any] = {"hasData": [template.dump(include_type=True)]}
+    if instance_space is not None:
+        template_filter = {
+            "and": [template_filter, {"equals": {"property": ["node", "space"], "value": instance_space}}]
+        }
     return InstanceQuerySelector(
         query=QueryRequest(
             with_={
-                "template": QueryNodeExpression(
-                    limit=1, nodes=QueryNodeTableExpression(filter={"hasData": [template.dump(include_type=True)]})
-                ),
+                "template": QueryNodeExpression(limit=1, nodes=QueryNodeTableExpression(filter=template_filter)),
                 "templateEdges": QueryEdgeExpression(
                     edges=QueryEdgeTableExpression(
                         from_="template",
