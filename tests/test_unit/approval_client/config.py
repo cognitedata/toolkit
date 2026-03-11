@@ -221,6 +221,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence import SequenceRequest, SequenceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.sequence_rows import SequenceRowsRequest, SequenceRowsResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_sink import SignalSinkRequest, SignalSinkResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import (
+    SignalSubscriptionRequest,
+    SignalSubscriptionResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.simulator_model import (
     SimulatorModelRequest,
     SimulatorModelResponse,
@@ -1250,6 +1254,17 @@ API_RESOURCES = [
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
                 Method(api_class_method="retrieve", mock_class_method="retrieve"),
+                Method(api_class_method="list", mock_class_method="list"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.signal_subscriptions",
+        resource_cls=SignalSubscriptionResponse,
+        _write_cls=SignalSubscriptionRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
                 Method(api_class_method="list", mock_class_method="list"),
             ],
         },

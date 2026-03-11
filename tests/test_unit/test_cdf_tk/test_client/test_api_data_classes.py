@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
     SimulatorRoutineRevisionRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from tests.test_unit.test_cdf_tk.test_client.data import (
     CDFResource,
@@ -482,8 +482,8 @@ class TestNodeRequest:
         assert my_node_request.type == my_node_type
 
 
-class TestStreamsRequest:
-    def test_stream_with_unknown_template(self) -> None:
+class TestStreams:
+    def test_stream_request_with_unknown_template(self) -> None:
         data = {
             "externalId": "stream_1",
             "settings": {
@@ -495,3 +495,13 @@ class TestStreamsRequest:
         }
         stream_request = StreamRequest.model_validate(data)
         assert stream_request.dump() == data
+
+    def test_stream_response_with_unknown_template(self) -> None:
+        data = {
+            "externalId": "stream_1",
+            "createdFromTemplate": "unknown_template",
+            "type": "Mutable",
+            "createdTime": 1731844296876,
+        }
+        stream_response = StreamResponse.model_validate(data)
+        assert stream_response.dump() == data

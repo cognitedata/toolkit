@@ -1,7 +1,7 @@
 from typing import Literal
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import (
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import (
     AssetCentricId,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (

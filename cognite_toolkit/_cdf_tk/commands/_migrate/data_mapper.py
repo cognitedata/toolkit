@@ -6,9 +6,10 @@ from uuid import uuid4
 
 from cognite.client import data_modeling as dm
 from cognite.client.exceptions import CogniteException
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     ContainerReferenceItem,
     FdmInstanceContainerReferenceItem,
@@ -46,9 +47,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
+    ConversionContext,
+    CustomConnectionMapping,
+    CustomContainerPropertiesMapping,
     DirectRelationCache,
     EdgeOtherSide,
-    InstanceToInstanceSpecialMapping,
     asset_centric_to_dm,
     convert_container_properties,
     convert_edges,
@@ -74,7 +77,7 @@ from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, NoOpLogger
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasSelector,
     ChartSelector,
-    InstanceViewSelector,
+    InstanceSelector,
     ThreeDSelector,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -653,7 +656,7 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, 
         return mapped_request, issue
 
 
-class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, InstanceRequest]):
+class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequest]):
     """This mapper maps instances to instances accounting for the difference between older data models
     (back when they were called Flexible Data Models) and newer data models (backed by Cognite Core Data Model).
 
@@ -663,6 +666,15 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
     - Supports converting timeseries/files references to direct relation pointing to the CogniteTimeSeries/CogniteFile
         views.
 
+    Args:
+        client: The ToolkitClient to use for lookups and caching.
+        space_mapping: A mapping from source spaces to target spaces.
+        mappings: A sequence of ViewToViewMappings defining how to map source views to target views and how to convert properties and edges.
+        custom_connection_mappings: Optional sequence of InstanceToInstanceSpecialMappings defining special cases for mapping connections
+            between instances that cannot be handled by the general ViewToViewMappings.
+        custom_properties_mappings: Optional sequence of ContainerPropertiesMappings defining special cases for mapping container
+            properties that cannot be handled by the general ViewToViewMappings.
+
     """
 
     def __init__(
@@ -670,15 +682,19 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         client: ToolkitClient,
         space_mapping: Mapping[str, str],
         mappings: Sequence[ViewToViewMapping],
-        special_cases: Sequence[InstanceToInstanceSpecialMapping] | None = None,
+        custom_connection_mappings: Sequence[CustomConnectionMapping] | None = None,
+        custom_properties_mappings: Sequence[CustomContainerPropertiesMapping] | None = None,
     ) -> None:
         super().__init__(client)
-        self._connection_creator = ConnectionCreator(client, space_mapping, special_cases)
+        self._connection_creator = ConnectionCreator(client, space_mapping, custom_connection_mappings)
         self._mappings_by_source_view: dict[ViewId, ViewToViewMapping] = {
             mapping.source_view: mapping for mapping in mappings
         }
+        self._custom_properties_mapping: dict[ViewId, CustomContainerPropertiesMapping] = {
+            view_id: mapping for mapping in (custom_properties_mappings or []) for view_id in mapping.VIEW_IDS
+        }
 
-    def prepare(self, source_selector: InstanceViewSelector) -> None:
+    def prepare(self, source_selector: InstanceSelector) -> None:
         view_ids = set(mapping.source_view for mapping in self._mappings_by_source_view.values()) | set(
             mapping.destination_view for mapping in self._mappings_by_source_view.values()
         )
@@ -758,25 +774,10 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         sources: list[InstanceSource] = []
         new_edges: list[EdgeRequest] = []
         issue = InstanceConversionIssue(id=str(new_id))
-        for view_id, source_properties in (node.properties or {}).items():
-            if not isinstance(view_id, ViewId):
-                issue.errors.append(
-                    f"Migration of ContainerReferenced properties is not supported. Found property with non-view ID '{view_id}' on node '{node.as_id()}'."
-                )
+        for view_or_container_id, source_properties in (node.properties or {}).items():
+            if not (context := self._create_context(view_or_container_id, issue, node.as_id(), new_id)):
                 continue
-            mapping = self._mappings_by_source_view.get(view_id)
-            if mapping is None:
-                issue.errors.append(f"No mapping found for view '{view_id}'")
-                continue
-            destination_view = self._connection_creator.view_by_id.get(mapping.destination_view)
-            if destination_view is None:
-                issue.errors.append(
-                    f"Invalid mapping {mapping.external_id}': destination view {mapping.destination_view} not found."
-                )
-                continue
-            if view_id not in self._connection_creator.view_by_id:
-                issue.errors.append(f"Invalid mapping {mapping.external_id}': source view {view_id} not found.")
-                continue
+
             source_properties.update(
                 {
                     "node.createdTime": node.created_time,
@@ -784,27 +785,76 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
                     "node.version": node.version,
                 }
             )
-            container_results = convert_container_properties(
-                source_properties, mapping, destination_view.properties, self._connection_creator, view_id, new_id
-            )
-            issue.errors.extend(container_results.errors)
-            edge_results = convert_edges(
-                other_side_by_edge_type_and_direction,
-                mapping,
-                destination_view.properties,
-                new_id,
-                self._connection_creator,
-            )
-            issue.errors.extend(edge_results.errors)
+            special_properties: dict[str, JsonValue] = {}
+            if context.mapping.source_view in self._custom_properties_mapping:
+                special_results = self._custom_properties_mapping[context.mapping.source_view].convert(
+                    source_properties, context
+                )
+                issue.errors.extend(special_results.errors)
+                new_edges.extend(special_results.edges)
+                special_properties = special_results.container_properties
 
-            # Todo: Merge conflicting?
-            created_container_properties = {
-                **container_results.container_properties,
-                **edge_results.container_properties,
-            }
-            if created_container_properties:
-                sources.append(InstanceSource(source=destination_view.as_id(), properties=created_container_properties))
+            container_results = convert_container_properties(source_properties, context)
+            edge_results = convert_edges(other_side_by_edge_type_and_direction, context)
+            issue.errors.extend(container_results.errors)
+            issue.errors.extend(edge_results.errors)
             new_edges.extend(container_results.edges)
             new_edges.extend(edge_results.edges)
 
+            if overwritten := set(container_results.container_properties) & set(edge_results.container_properties):
+                issue.errors.append(
+                    f"Conflicting mapping. When converting container properties and edge for view "
+                    f"'{context.mapping.source_view}' on node '{node.as_id()}' there were conflicting"
+                    " destination properties. The properties from the edge will be prioritized for the "
+                    f"conflicting properties: {humanize_collection(overwritten)}"
+                )
+
+            created_container_properties = {
+                **container_results.container_properties,
+                **edge_results.container_properties,
+                # We overwrite the special properties.
+                **special_properties,
+            }
+
+            if created_container_properties:
+                sources.append(
+                    InstanceSource(source=context.mapping.destination_view, properties=created_container_properties)
+                )
+
         return sources, new_edges, issue
+
+    def _create_context(
+        self,
+        view_or_container_id: ViewId | ContainerId,
+        issue: InstanceConversionIssue,
+        source_id: NodeId,
+        new_id: NodeId,
+    ) -> ConversionContext | None:
+        if not isinstance(view_or_container_id, ViewId):
+            issue.errors.append(
+                f"Migration of ContainerReferenced properties is not supported. Found property with non-view ID '{view_or_container_id}' on node '{source_id}'."
+            )
+            return None
+        mapping = self._mappings_by_source_view.get(view_or_container_id)
+        if mapping is None:
+            issue.errors.append(f"No mapping found for view '{view_or_container_id}'")
+            return None
+        destination_view = self._connection_creator.view_by_id.get(mapping.destination_view)
+        if destination_view is None:
+            issue.errors.append(
+                f"Invalid mapping {mapping.external_id}': destination view {mapping.destination_view} not found."
+            )
+            return None
+        if view_or_container_id not in self._connection_creator.view_by_id:
+            issue.errors.append(
+                f"View '{view_or_container_id}' not found in source data. This likely indicates that the view is missing from the cache. Did you forget to call .prepare()?"
+            )
+            return None
+
+        return ConversionContext(
+            mapping=mapping,
+            destination_properties=destination_view.properties,
+            connection_creator=self._connection_creator,
+            source_view_id=view_or_container_id,
+            new_id=new_id,
+        )

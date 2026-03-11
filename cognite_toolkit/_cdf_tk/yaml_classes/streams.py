@@ -3,7 +3,6 @@ from typing import Literal
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.constants import StreamTemplateName
 
 from .base import BaseModelResource, ToolkitResource
 
@@ -11,8 +10,10 @@ from .base import BaseModelResource, ToolkitResource
 class StreamSettings(BaseModelResource):
     """Stream settings resource class."""
 
-    template: dict[Literal["name"], StreamTemplateName] = Field(
-        description="Reference to a template which should be used to define initial settings for the stream."
+    # The '4yArchive' is not official, but we know it is valid for certain customers, thus
+    # we include it here to avoid validation warnings for those customers.
+    template: dict[Literal["name"], Literal["ImmutableTestStream", "BasicArchive", "BasicLiveData", "4yArchive"]] = (
+        Field(description="Reference to a template which should be used to define initial settings for the stream.")
     )
 
 
