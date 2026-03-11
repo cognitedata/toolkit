@@ -224,7 +224,9 @@ class HTTPClient:
             time.sleep(retry_after)
             return request
 
-        if request.status_attempt < self._max_retries and response.status_code in self._retry_status_codes:
+        is_auto_retryable = ErrorDetails.from_response(response).is_auto_retryable is True
+        should_retry = response.status_code in self._retry_status_codes or is_auto_retryable
+        if request.status_attempt < self._max_retries and should_retry:
             request.status_attempt += 1
             time.sleep(self._backoff_time(request.total_attempts))
             return request

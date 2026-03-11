@@ -92,7 +92,13 @@ class ErrorDetails(BaseModel):
             res = TypeAdapter(dict[Literal["error"], ErrorDetails]).validate_json(response.text)
         except ValueError:
             return cls(code=response.status_code, message=response.text)
-        return res["error"]
+        error = res["error"]
+        header_value = response.headers.get("cdf-is-auto-retryable", "")
+        if header_value:
+            error.is_auto_retryable = header_value.lower() == "true"
+        else:
+            error.is_auto_retryable = response.json().get("error", {}).get("isAutoRetryable")
+        return error
 
 
 class FailedResponse(HTTPResult):
