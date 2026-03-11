@@ -627,7 +627,7 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
         self.functions: list[FunctionResponse] | None = None
 
     def _interactive_select(self) -> tuple[str, ...]:
-        self.functions = self.client.tool.functions.list(limit=-1)
+        self.functions = self.client.tool.functions.list(limit=None)
         if not self.functions:
             raise ToolkitMissingResourceError("No functions found")
         choices = [
