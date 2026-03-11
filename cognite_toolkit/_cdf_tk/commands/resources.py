@@ -38,6 +38,7 @@ class ResourcesCommand(ToolkitCommand):
                     return mod.dir
 
             if questionary.confirm(f"{module} module not found. Do you want to create a new one?").unsafe_ask():
+                validate_safe_path(module)
                 return organization_dir / MODULES / module
 
             if verbose:
@@ -56,6 +57,7 @@ class ResourcesCommand(ToolkitCommand):
             if not new_module_name:
                 print("[red]No module name provided. Aborting...[/red]")
                 raise typer.Exit()
+            validate_safe_path(new_module_name)
             return organization_dir / MODULES / new_module_name
 
         if not selected:
