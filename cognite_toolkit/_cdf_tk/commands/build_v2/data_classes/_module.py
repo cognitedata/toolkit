@@ -69,12 +69,9 @@ class Module(BaseModel):
 
     @property
     def is_success(self) -> bool:
-        if not self.insights:
-            return all(isinstance(resource, SuccessfulReadResource) for resource in self.resources)
-        else:
-            return self.insights.has_errors and all(
-                isinstance(resource, SuccessfulReadResource) for resource in self.resources
-            )
+        return not self.insights.has_errors and all(
+            isinstance(resource, SuccessfulReadResource) for resource in self.resources
+        )
 
     @cached_property
     def dependencies(self) -> dict[AbsoluteFilePath, set[tuple[type[ResourceCRUD], Identifier]]]:
