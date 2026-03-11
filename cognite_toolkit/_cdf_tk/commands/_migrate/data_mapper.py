@@ -34,8 +34,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewId,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     RESOURCE_VIEW_MAPPING_SPACE,
+    ResourceContainerMappingRequest,
     ResourceViewMappingRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -53,6 +55,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     DirectRelationCache,
     EdgeOtherSide,
     asset_centric_to_dm,
+    asset_centric_to_record,
     convert_container_properties,
     convert_edges,
 )
@@ -61,7 +64,10 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     ThreeDMigrationRequest,
     ThreeDRevisionMigrationRequest,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
+from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
+    create_default_container_mappings,
+    create_default_mappings,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     CanvasMigrationIssue,
     ChartMigrationIssue,
@@ -219,6 +225,72 @@ class AssetCentricMapper(
         if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
             conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {mapping.data_set_id!r}"
         return instance, conversion_issue
+
+
+class RecordsMapper(
+    DataMapper[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResourceExtended], RecordRequest]
+):
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._container_mapping_by_id: dict[str, ResourceContainerMappingRequest] = {}
+
+    def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
+        ingestion_mapping_ids = source_selector.get_ingestion_mappings()
+        defaults = {mapping.external_id: mapping for mapping in create_default_container_mappings()}
+        # TODO: Load custom ResourceContainerMapping nodes from CDF (parallel to how view mappings are loaded)
+        self._container_mapping_by_id = defaults
+        missing_mappings = set(ingestion_mapping_ids) - set(self._container_mapping_by_id.keys())
+        if missing_mappings:
+            raise ToolkitValueError(
+                f"The following container mappings were not found: {humanize_collection(missing_mappings)}"
+            )
+
+    def map(
+        self, source: Sequence[AssetCentricMapping[T_AssetCentricResourceExtended]]
+    ) -> Sequence[RecordRequest | None]:
+        output: list[RecordRequest | None] = []
+        issues: list[ConversionIssue] = []
+        for item in source:
+            record, conversion_issue = self._map_single_item(item)
+            identifier = str(item.mapping.as_asset_centric_id())
+
+            if conversion_issue.missing_instance_space:
+                self.logger.tracker.add_issue(identifier, "Missing instance space")
+            if conversion_issue.missing_asset_centric_properties:
+                self.logger.tracker.add_issue(identifier, "Missing asset-centric properties")
+            if conversion_issue.ignored_asset_centric_properties:
+                self.logger.tracker.add_issue(identifier, "Ignored asset-centric properties")
+
+            if conversion_issue.has_issues:
+                issues.append(conversion_issue)
+
+            if record is None:
+                self.logger.tracker.finalize_item(identifier, "failure")
+            output.append(record)
+        if issues:
+            self.logger.log(issues)
+        return output
+
+    def _map_single_item(
+        self, item: AssetCentricMapping[T_AssetCentricResourceExtended]
+    ) -> tuple[RecordRequest | None, ConversionIssue]:
+        mapping = item.mapping
+        ingestion_view = mapping.get_ingestion_view()
+        try:
+            container_source = self._container_mapping_by_id[ingestion_view]
+        except KeyError as e:
+            raise RuntimeError(
+                f"Failed to lookup container mapping '{ingestion_view}'. Did you forget to call .prepare()?"
+            ) from e
+        record, conversion_issue = asset_centric_to_record(
+            item.resource,
+            instance_id=NodeId(space=mapping.instance_id.space, external_id=mapping.instance_id.external_id),
+            container_source=container_source,
+            property_mapping_values=container_source.property_mapping,
+        )
+        if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
+            conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {mapping.data_set_id!r}"
+        return record, conversion_issue
 
 
 class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):

@@ -130,7 +130,74 @@ SPACE_SOURCE = ContainerRequest(
     },
 )
 
-CONTAINERS = [RESOURCE_VIEW_MAPPING, INSTANCE_SOURCE_CONTAINER, CREATED_SOURCE_SYSTEM, SPACE_SOURCE]
+RESOURCE_CONTAINER_MAPPING = ContainerRequest(
+    space=SPACE.space,
+    external_id="ResourceContainerMapping",
+    used_for="node",
+    properties={
+        "resourceType": ContainerPropertyDefinition(
+            type=TextProperty(max_text_size=255),
+            nullable=False,
+        ),
+        "containerId": ContainerPropertyDefinition(
+            type=JSONProperty(),
+            nullable=False,
+        ),
+        "propertyMapping": ContainerPropertyDefinition(
+            type=JSONProperty(),
+            nullable=False,
+        ),
+    },
+)
+
+RECORD_SOURCE_CONTAINER = ContainerRequest(
+    space=SPACE.space,
+    external_id="RecordSource",
+    used_for="record",
+    properties={
+        "resourceType": ContainerPropertyDefinition(
+            type=EnumProperty(
+                values={
+                    "timeseries": EnumValue(),
+                    "asset": EnumValue(),
+                    "file": EnumValue(),
+                    "event": EnumValue(),
+                    "sequence": EnumValue(),
+                }
+            ),
+            nullable=False,
+        ),
+        "id": ContainerPropertyDefinition(
+            type=Int64Property(),
+            nullable=False,
+        ),
+        "dataSetId": ContainerPropertyDefinition(
+            type=Int64Property(),
+            nullable=True,
+        ),
+        "classicExternalId": ContainerPropertyDefinition(
+            type=TextProperty(),
+            nullable=True,
+        ),
+        "resourceContainerMapping": ContainerPropertyDefinition(
+            type=DirectNodeRelation(container=RESOURCE_CONTAINER_MAPPING.as_id()), nullable=True
+        ),
+    },
+    indexes={
+        "id": BtreeIndex(properties=["id"], cursorable=True),
+        "resourceType": BtreeIndex(properties=["resourceType", "id"], cursorable=False),
+        "externalId": BtreeIndex(properties=["resourceType", "classicExternalId"], cursorable=False),
+    },
+)
+
+CONTAINERS = [
+    RESOURCE_VIEW_MAPPING,
+    INSTANCE_SOURCE_CONTAINER,
+    CREATED_SOURCE_SYSTEM,
+    SPACE_SOURCE,
+    RESOURCE_CONTAINER_MAPPING,
+    RECORD_SOURCE_CONTAINER,
+]
 
 RESOURCE_VIEW_MAPPING_VIEW = ViewRequest(
     space=SPACE.space,
@@ -228,12 +295,42 @@ SPACE_SOURCE_VIEW = ViewRequest(
     },
 )
 
+RESOURCE_CONTAINER_MAPPING_VIEW = ViewRequest(
+    space=SPACE.space,
+    external_id="ResourceContainerMapping",
+    version="v1",
+    name="ResourceContainerMapping",
+    description="The mapping from asset-centric resources to a data modeling container (for records).",
+    properties={
+        "resourceType": ViewCorePropertyRequest(
+            container=RESOURCE_CONTAINER_MAPPING.as_id(),
+            container_property_identifier="resourceType",
+        ),
+        "containerId": ViewCorePropertyRequest(
+            container=RESOURCE_CONTAINER_MAPPING.as_id(),
+            container_property_identifier="containerId",
+        ),
+        "propertyMapping": ViewCorePropertyRequest(
+            container=RESOURCE_CONTAINER_MAPPING.as_id(),
+            container_property_identifier="propertyMapping",
+        ),
+    },
+)
+
 INSTANCE_SOURCE_VIEW_ID = INSTANCE_SOURCE_VIEW.as_id()
 RESOURCE_VIEW_MAPPING_VIEW_ID = RESOURCE_VIEW_MAPPING_VIEW.as_id()
+RESOURCE_CONTAINER_MAPPING_VIEW_ID = RESOURCE_CONTAINER_MAPPING_VIEW.as_id()
+RECORD_SOURCE_CONTAINER_ID = RECORD_SOURCE_CONTAINER.as_id()
 CREATED_SOURCE_SYSTEM_VIEW_ID = CREATED_SOURCE_SYSTEM_VIEW.as_id()
 SPACE_SOURCE_VIEW_ID = SPACE_SOURCE_VIEW.as_id()
 
-VIEWS = [RESOURCE_VIEW_MAPPING_VIEW, INSTANCE_SOURCE_VIEW, CREATED_SOURCE_SYSTEM_VIEW, SPACE_SOURCE_VIEW]
+VIEWS = [
+    RESOURCE_VIEW_MAPPING_VIEW,
+    INSTANCE_SOURCE_VIEW,
+    CREATED_SOURCE_SYSTEM_VIEW,
+    SPACE_SOURCE_VIEW,
+    RESOURCE_CONTAINER_MAPPING_VIEW,
+]
 
 COGNITE_MIGRATION_MODEL = DataModelRequest(
     space=SPACE.space,
@@ -241,7 +338,13 @@ COGNITE_MIGRATION_MODEL = DataModelRequest(
     version="v1",
     name="CDF Migration Model",
     description="Data model for migrating asset-centric resources to data modeling resources in CDF.",
-    views=[INSTANCE_SOURCE_VIEW_ID, RESOURCE_VIEW_MAPPING_VIEW_ID, CREATED_SOURCE_SYSTEM_VIEW_ID, SPACE_SOURCE_VIEW_ID],
+    views=[
+        INSTANCE_SOURCE_VIEW_ID,
+        RESOURCE_VIEW_MAPPING_VIEW_ID,
+        RESOURCE_CONTAINER_MAPPING_VIEW_ID,
+        CREATED_SOURCE_SYSTEM_VIEW_ID,
+        SPACE_SOURCE_VIEW_ID,
+    ],
 )
 
 MODEL_ID = COGNITE_MIGRATION_MODEL.as_id()

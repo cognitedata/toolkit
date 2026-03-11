@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
+    RecordsMapper,
     ThreeDAssetMapper,
     ThreeDMapper,
 )
@@ -31,6 +32,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
+    RecordsMigrationIO,
     ThreeDAssetMappingMigrationIO,
     ThreeDMigrationIO,
 )
@@ -396,6 +398,8 @@ class MigrateApp(typer.Typer):
         kind: AssetCentricKind,
         resource_type: str,
         container_id: ContainerId,
+        event_type: str | None = None,
+        event_subtype: str | None = None,
     ) -> tuple[AssetCentricMigrationSelector, bool, bool]:
         if data_set_id is not None and mapping_file is not None:
             raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
@@ -420,6 +424,8 @@ class MigrateApp(typer.Typer):
                 kind=kind,
                 ingestion_mapping=ingestion_mapping,
                 preferred_consumer_view=parsed_view,
+                event_type=event_type,
+                event_subtype=event_subtype,
             )
         else:
             # Interactive selection of data set.
@@ -445,6 +451,8 @@ class MigrateApp(typer.Typer):
                 kind=kind,
                 ingestion_mapping=asset_mapping.external_id,
                 preferred_consumer_view=preferred_consumer_view,
+                event_type=event_type,
+                event_subtype=event_subtype,
             )
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
@@ -493,6 +501,36 @@ class MigrateApp(typer.Typer):
                 "CogniteActivity in CogniteCore will be used.",
             ),
         ] = None,
+        target: Annotated[
+            str,
+            typer.Option(
+                "--target",
+                "-t",
+                help="The migration target: 'instances' (default) writes to DM instances, "
+                "'records' writes to a records stream.",
+            ),
+        ] = "instances",
+        stream_id: Annotated[
+            str | None,
+            typer.Option(
+                "--stream-id",
+                help="The external ID of the stream to write records to. Required when --target is 'records'.",
+            ),
+        ] = None,
+        event_type: Annotated[
+            str | None,
+            typer.Option(
+                "--type",
+                help="Filter events by type. Only events matching this type will be migrated.",
+            ),
+        ] = None,
+        event_subtype: Annotated[
+            str | None,
+            typer.Option(
+                "--subtype",
+                help="Filter events by subtype. Only events matching this subtype will be migrated.",
+            ),
+        ] = None,
         log_dir: Annotated[
             Path,
             typer.Option(
@@ -526,7 +564,12 @@ class MigrateApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """Migrate Events to CogniteActivity."""
+        """Migrate Events to CogniteActivity (instances) or to records."""
+        if target not in ("instances", "records"):
+            raise typer.BadParameter(f"Invalid target '{target}'. Must be 'instances' or 'records'.")
+        if target == "records" and stream_id is None:
+            raise typer.BadParameter("--stream-id is required when --target is 'records'.")
+
         client = EnvironmentVariables.create_from_environment().get_client()
         selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
             client=client,
@@ -540,21 +583,37 @@ class MigrateApp(typer.Typer):
             kind="Events",
             resource_type="event",
             container_id=ContainerId(space="cdf_cdm", external_id="CogniteActivity"),
+            event_type=event_type,
+            event_subtype=event_subtype,
         )
 
         cmd = MigrationCommand(client=client)
 
-        cmd.run(
-            lambda: cmd.migrate(
-                selectors=[selected],
-                data=AssetCentricMigrationIO(client),
-                mapper=AssetCentricMapper(client),
-                log_dir=log_dir,
-                dry_run=dry_run,
-                verbose=verbose,
-                user_log_filestem="events",
+        if target == "records":
+            assert stream_id is not None
+            cmd.run(
+                lambda: cmd.migrate(
+                    selectors=[selected],
+                    data=RecordsMigrationIO(client, stream_external_id=stream_id),
+                    mapper=RecordsMapper(client),
+                    log_dir=log_dir,
+                    dry_run=dry_run,
+                    verbose=verbose,
+                    user_log_filestem="events-records",
+                )
             )
-        )
+        else:
+            cmd.run(
+                lambda: cmd.migrate(
+                    selectors=[selected],
+                    data=AssetCentricMigrationIO(client),
+                    mapper=AssetCentricMapper(client),
+                    log_dir=log_dir,
+                    dry_run=dry_run,
+                    verbose=verbose,
+                    user_log_filestem="events",
+                )
+            )
 
     @classmethod
     def timeseries(

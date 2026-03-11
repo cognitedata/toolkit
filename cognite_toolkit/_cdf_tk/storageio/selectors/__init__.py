@@ -9,7 +9,13 @@ from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
-from ._asset_centric import AssetCentricFileSelector, AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
+from ._asset_centric import (
+    AssetCentricFileSelector,
+    AssetCentricSelector,
+    AssetSubtreeSelector,
+    DataSetSelector,
+    EventDataSetSelector,
+)
 from ._base import DataSelector
 from ._canvas import CanvasExternalIdSelector, CanvasSelector
 from ._charts import AllChartsSelector, ChartExternalIdSelector, ChartOwnerSelector, ChartSelector
@@ -112,6 +118,7 @@ __all__ = [
     "DataPointsSelector",
     "DataSelector",
     "DataSetSelector",
+    "EventDataSetSelector",
     "ExternalIdColumn",
     "FileContentSelector",
     "FileDataModelingTemplate",

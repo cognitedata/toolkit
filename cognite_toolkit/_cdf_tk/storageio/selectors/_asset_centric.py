@@ -22,6 +22,13 @@ class DataSetSelector(AssetCentricSelector):
         return self.kind
 
 
+class EventDataSetSelector(DataSetSelector):
+    """Select events associated with a specific data set, with optional type/subtype filtering."""
+
+    event_type: str | None = None
+    event_subtype: str | None = None
+
+
 class AssetSubtreeSelector(AssetCentricSelector):
     """Select data associated with an asset and its subtree."""
 

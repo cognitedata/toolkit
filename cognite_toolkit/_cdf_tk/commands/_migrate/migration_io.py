@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeId, InstanceRequest, NodeId
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
@@ -231,6 +232,114 @@ class AssetCentricMigrationIO(
             pending_instance_id=NodeId(space=item.space, external_id=item.external_id),
             id=id_,
         )
+
+
+class RecordsMigrationIO(
+    UploadableStorageIO[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResource], RecordRequest]
+):
+    """IO class for migrating asset-centric resources to records.
+
+    Reuses the download side from AssetCentricMigrationIO but uploads to a records stream.
+    """
+
+    KIND = "RecordsMigration"
+    SUPPORTED_DOWNLOAD_FORMATS = frozenset({".parquet", ".csv", ".ndjson"})
+    SUPPORTED_COMPRESSIONS = frozenset({".gz"})
+    SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
+    CHUNK_SIZE = 500
+    # The endpoint template; stream_external_id is formatted in at upload time.
+    UPLOAD_ENDPOINT = "/streams/{streamId}/records"
+
+    def __init__(self, client: ToolkitClient, stream_external_id: str) -> None:
+        super().__init__(client)
+        self.stream_external_id = stream_external_id
+        self.hierarchy = HierarchyIO(client)
+
+    def as_id(self, item: AssetCentricMapping) -> str:
+        return str(item.mapping.as_asset_centric_id())
+
+    def stream_data(self, selector: AssetCentricMigrationSelector, limit: int | None = None) -> Iterator[Page]:
+        if isinstance(selector, MigrationCSVFileSelector):
+            iterator = self._stream_from_csv(selector, limit)
+        elif isinstance(selector, MigrateDataSetSelector):
+            iterator = self._stream_given_dataset(selector, limit)
+        else:
+            raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
+        yield from (Page(worker_id="main", items=items) for items in iterator)
+
+    def _stream_from_csv(
+        self, selector: MigrationCSVFileSelector, limit: int | None = None
+    ) -> Iterator[Sequence[AssetCentricMapping[T_AssetCentricResource]]]:
+        items = selector.items
+        if limit is not None:
+            items = MigrationMappingList(items[:limit])
+        chunk: list[AssetCentricMapping[T_AssetCentricResource]] = []
+        for current_batch in chunker_sequence(items, self.CHUNK_SIZE):
+            resources = self.hierarchy.get_resource_io(selector.kind).retrieve(current_batch.get_ids())
+            for mapping, resource in zip(current_batch, resources, strict=True):
+                chunk.append(AssetCentricMapping(mapping=mapping, resource=resource))
+            if chunk:
+                yield chunk
+                chunk = []
+
+    def _stream_given_dataset(
+        self, selector: MigrateDataSetSelector, limit: int | None = None
+    ) -> Iterator[Sequence[AssetCentricMapping[T_AssetCentricResource]]]:
+        asset_centric_selector = selector.as_asset_centric_selector()
+        for data_chunk in self.hierarchy.stream_data(asset_centric_selector, limit):
+            mapping_list = AssetCentricMappingList[T_AssetCentricResource]([])
+            for resource in data_chunk.items:
+                data_set_id = cast(int, resource.data_set_id)
+                space_source = self.client.migration.space_source.retrieve(data_set_id=data_set_id)
+                instance_space = space_source.instance_space if space_source else None
+                if instance_space is None:
+                    instance_space = MISSING_INSTANCE_SPACE
+                external_id = resource.external_id
+                if external_id is None:
+                    external_id = MISSING_EXTERNAL_ID.format(project=self.client.config.project, id=resource.id)
+                mapping = MigrationMapping(
+                    resource_type=AssetCentricMigrationIO._kind_to_resource_type(selector.kind),
+                    instance_id=NodeId(space=instance_space, external_id=external_id),
+                    id=resource.id,
+                    data_set_id=resource.data_set_id,
+                    ingestion_view=selector.ingestion_mapping,
+                    preferred_consumer_view=selector.preferred_consumer_view,
+                )
+                mapping_list.append(AssetCentricMapping(mapping=mapping, resource=resource))
+            yield mapping_list
+
+    def count(self, selector: AssetCentricMigrationSelector) -> int | None:
+        if isinstance(selector, MigrationCSVFileSelector):
+            return len(selector.items)
+        elif isinstance(selector, MigrateDataSetSelector):
+            return self.hierarchy.count(selector.as_asset_centric_selector())
+        else:
+            raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for count")
+
+    def upload_items(
+        self,
+        data_chunk: Sequence[UploadItem[RecordRequest]],
+        http_client: HTTPClient,
+        selector: AssetCentricMigrationSelector | None = None,
+    ) -> ItemsResultList:
+        endpoint = self.UPLOAD_ENDPOINT.format(streamId=self.stream_external_id)
+        return http_client.request_items_retries(
+            message=ItemsRequest(
+                endpoint_url=self.client.config.create_api_url(endpoint),
+                method="POST",
+                items=data_chunk,
+            )
+        )
+
+    def data_to_json_chunk(
+        self,
+        data_chunk: Sequence[AssetCentricMapping[T_AssetCentricResource]],
+        selector: AssetCentricMigrationSelector | None = None,
+    ) -> list[dict[str, JsonVal]]:
+        return [item.dump() for item in data_chunk]
+
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> RecordRequest:
+        raise NotImplementedError()
 
 
 class AnnotationMigrationIO(

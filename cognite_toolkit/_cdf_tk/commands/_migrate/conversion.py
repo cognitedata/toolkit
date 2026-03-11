@@ -31,10 +31,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
     ViewResponseProperty,
 )
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
-from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest, RecordSource
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
+    ResourceContainerMappingRequest,
+    ResourceViewMappingRequest,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
@@ -47,7 +52,7 @@ from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentricTypeExtended
 from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResourceExtended
 
-from .data_model import COGNITE_MIGRATION_SPACE_ID, INSTANCE_SOURCE_VIEW_ID
+from .data_model import COGNITE_MIGRATION_SPACE_ID, INSTANCE_SOURCE_VIEW_ID, RECORD_SOURCE_CONTAINER_ID
 from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
 
 
@@ -296,6 +301,87 @@ def asset_centric_to_dm(
         raise RuntimeError(f"Unexpected instance_id type {type(instance_id)}")
 
     return instance, issue
+
+
+def asset_centric_to_record(
+    resource: AssetCentricResourceExtended,
+    instance_id: NodeId,
+    container_source: ResourceContainerMappingRequest,
+    property_mapping_values: dict[str, str],
+) -> tuple[RecordRequest | None, ConversionIssue]:
+    """Convert an asset-centric resource to a record request.
+
+    Args:
+        resource: The asset-centric resource to convert.
+        instance_id: The target record space and external_id.
+        container_source: The container mapping defining the target container and property mapping.
+        property_mapping_values: The resolved property mapping (event field -> container property).
+
+    Returns:
+        A tuple of the RecordRequest (or None on failure) and any conversion issues.
+    """
+    resource_type = _lookup_resource_type(resource)
+    dumped = resource.dump()
+    try:
+        id_ = dumped.pop("id")
+    except KeyError as e:
+        raise ValueError("Resource must have an 'id' field.") from e
+    if not isinstance(id_, int):
+        raise TypeError(f"Resource 'id' field must be an int, got {type(id_)}.")
+    data_set_id = dumped.pop("dataSetId", None)
+    external_id = dumped.pop("externalId", None)
+
+    issue = ConversionIssue(
+        id=str(AssetCentricId(resource_type=resource_type, id_=id_)),
+        asset_centric_id=AssetCentricId(resource_type=resource_type, id_=id_),
+        instance_id=NodeId(space=instance_id.space, external_id=instance_id.external_id),
+    )
+
+    flat_dump = flatten_dict_json_path(dumped, keep_structured=set(property_mapping_values.keys()))
+    properties: dict[str, JsonValue] = {}
+    for source_key, target_key in property_mapping_values.items():
+        if source_key not in flat_dump:
+            continue
+        value = flat_dump[source_key]
+        if isinstance(value, date) and not isinstance(value, datetime):
+            properties[target_key] = value.isoformat()
+        elif isinstance(value, datetime):
+            properties[target_key] = value.isoformat(timespec="milliseconds")
+        else:
+            properties[target_key] = value
+
+    issue.ignored_asset_centric_properties = sorted(set(flat_dump.keys()) - set(property_mapping_values.keys()))
+    issue.missing_asset_centric_properties = sorted(set(property_mapping_values.keys()) - set(flat_dump.keys()))
+
+    sources: list[RecordSource] = []
+    if properties:
+        sources.append(
+            RecordSource(
+                source=container_source.container_id,
+                properties=properties,
+            )
+        )
+
+    record_source_properties: dict[str, JsonValue] = {
+        "resourceType": resource_type,
+        "id": id_,
+        "dataSetId": data_set_id,
+        "classicExternalId": external_id,
+        "resourceContainerMapping": {"space": COGNITE_MIGRATION_SPACE_ID, "externalId": container_source.external_id},
+    }
+    sources.append(
+        RecordSource(
+            source=RECORD_SOURCE_CONTAINER_ID,
+            properties=record_source_properties,
+        )
+    )
+
+    record = RecordRequest(
+        space=instance_id.space,
+        external_id=instance_id.external_id,
+        sources=sources,
+    )
+    return record, issue
 
 
 def _lookup_resource_type(resource_type: AssetCentricResourceExtended) -> AssetCentricTypeExtended:
