@@ -191,7 +191,7 @@ class BuildLineage(_BaseLineageModel):
         data = self.model_dump(
             by_alias=True,
             exclude_none=False,
-            mode="json",  # ← Add this to trigger @field_serializer with when_used="json"
+            mode="json",
             context={"organization_dir": self.organization_dir},
         )
         return yaml.dump(data, default_flow_style=False, sort_keys=False)
