@@ -877,3 +877,31 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
             source_view_id=view_or_container_id,
             new_id=new_id,
         )
+
+
+class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequest]):
+    """This is a custom case for mapping InField legacy to InField on CDM.
+
+    In legacy, the schedules are modeled with edge connections as follows:
+
+    Template -> TemplateItem -> Schedule.
+
+    This leads to lots of duplicated schedules as it is often just two unique schedules for each template.
+
+    In the new CDM based model, the schedule is connected to the template and template item with direct relations
+    instead of edges.
+
+    Template <- Schedule.template
+    TemplateItems <- Schedule.templateItems (many).
+
+    This mapper assumes that the sequence of InstanceResponses are all schedules connected to a single template,
+    along with all the edges between the template and template items, as well as the template items and schedules.
+    Note there should be no template or template items in the source, only schedules and edges.
+
+    The mapper will then find all duplicated schedules based on their properties and use the edges to determine
+    which direct relations to add to the single unique schedule that is created for each set of duplicated schedules.
+
+    """
+
+    def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
+        raise NotImplementedError()
