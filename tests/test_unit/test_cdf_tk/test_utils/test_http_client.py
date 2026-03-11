@@ -106,26 +106,32 @@ class TestHTTPClient2:
 
     def test_auto_retryable_body_then_success(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
         url = "https://example.com/api/resource"
-        rsps.get(url).mock(side_effect=[
-            httpx.Response(409, json={"error": {"message": "conflict", "code": 409, "isAutoRetryable": True}}),
-            httpx.Response(200, json={"key": "value"}),
-        ])
+        rsps.get(url).mock(
+            side_effect=[
+                httpx.Response(409, json={"error": {"message": "conflict", "code": 409, "isAutoRetryable": True}}),
+                httpx.Response(200, json={"key": "value"}),
+            ]
+        )
         with patch("time.sleep"):
             response = http_client_one_retry.request_single_retries(RequestMessage(endpoint_url=url, method="GET"))
         assert isinstance(response, SuccessResponse)
         assert response.status_code == 200
         assert len(rsps.calls) == 2
 
-    def test_auto_retryable_header_then_success(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
+    def test_auto_retryable_header_then_success(
+        self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter
+    ) -> None:
         url = "https://example.com/api/resource"
-        rsps.get(url).mock(side_effect=[
-            httpx.Response(
-                409,
-                json={"error": {"message": "conflict", "code": 409}},
-                headers={"cdf-is-auto-retryable": "true"},
-            ),
-            httpx.Response(200, json={"key": "value"}),
-        ])
+        rsps.get(url).mock(
+            side_effect=[
+                httpx.Response(
+                    409,
+                    json={"error": {"message": "conflict", "code": 409}},
+                    headers={"cdf-is-auto-retryable": "true"},
+                ),
+                httpx.Response(200, json={"key": "value"}),
+            ]
+        )
         with patch("time.sleep"):
             response = http_client_one_retry.request_single_retries(RequestMessage(endpoint_url=url, method="GET"))
         assert isinstance(response, SuccessResponse)
