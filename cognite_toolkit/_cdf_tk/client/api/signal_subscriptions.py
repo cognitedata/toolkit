@@ -20,6 +20,7 @@ class SignalSubscriptionsAPI(CDFResourceAPI[SignalSubscriptionResponse]):
                 "delete": Endpoint(method="POST", path="/processes/signals/subscriptions/delete", item_limit=100),
                 "list": Endpoint(method="POST", path="/processes/signals/subscriptions/list", item_limit=100),
             },
+            api_version="alpha",
         )
 
     def _validate_page_response(
