@@ -8,6 +8,7 @@ from collections import UserDict, defaultdict
 from collections.abc import Sequence
 from typing import Any
 
+from cognite.client.data_classes.capabilities import UnknownScope
 from pydantic import JsonValue, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
@@ -139,10 +140,19 @@ class InspectResponse(BaseModelObject):
                 scopes_by_acl_action[(type(capability.acl), capability.acl.acl_name, action)].append(
                     capability.acl.scope
                 )
-        scope_by_acl_action: dict[tuple[type[Acl], str, str], Scope] = {
-            key: scope_union(*scopes)  # type: ignore[misc]
-            for key, scopes in scopes_by_acl_action.items()
-        }
+
+        scope_by_acl_action: dict[tuple[type[Acl], str, str], Scope] = {}
+        for key, scopes in scopes_by_acl_action.items():
+            try:
+                union = scope_union(*scopes)
+            except TypeError:
+                if any(isinstance(scope, UnknownScope) for scope in scopes):
+                    # We use this to verify whether we have the required capabilities. We will never check
+                    # for an unknown ACL and unknown scope, thus we can safely ignore the TypeError due to
+                    # an UnknownScope being unhashable.
+                    continue
+                raise
+            scope_by_acl_action[key] = union
         return ProjectCapabilities(
             capabilities=scope_by_acl_action,
             name=project_info.project_url_name,

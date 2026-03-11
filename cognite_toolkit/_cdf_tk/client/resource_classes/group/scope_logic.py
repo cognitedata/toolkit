@@ -4,6 +4,7 @@ from typing import Any
 
 from cognite_toolkit._cdf_tk.client.resource_classes.group.scopes import (
     AllScope,
+    Scope,
     ScopeDefinition,
     TableScope,
     UnknownScope,
@@ -68,7 +69,7 @@ def scope_intersection(*scopes: ScopeDefinition) -> ScopeDefinition | None:
     return type(first)(**merged)
 
 
-def scope_union(*scopes: ScopeDefinition) -> ScopeDefinition:
+def scope_union(*scopes: Scope) -> Scope:
     """Return the union of all given scopes.
 
     Rules:
