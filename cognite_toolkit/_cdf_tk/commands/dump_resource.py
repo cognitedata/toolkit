@@ -15,9 +15,6 @@ from cognite.client.data_classes import (
     filters,
 )
 from cognite.client.data_classes.documents import SourceFileProperty
-from cognite.client.data_classes.functions import (
-    Function,
-)
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils import ms_to_datetime
 from questionary import Choice
@@ -663,7 +660,7 @@ class FunctionFinder(ResourceFinder[tuple[str, ...]]):
         schedules = schedule_loader.iterate(parent_ids=parent_external_ids)
         yield [], list(schedules), schedule_loader, None
 
-    def dump_function_code(self, function: Function, folder: Path) -> None:
+    def dump_function_code(self, function: FunctionResponse, folder: Path) -> None:
         try:
             zip_bytes = self.client.files.download_bytes(id=function.file_id)
         except CogniteAPIError as e:
@@ -946,7 +943,7 @@ class DumpResourceCommand(ToolkitCommand):
                     safe_write(filepath, content, encoding="utf-8")
                     if verbose:
                         self.console(f"Dumped {loader.kind} {name} to {filepath!s}")
-                if isinstance(finder, FunctionFinder) and isinstance(resource, Function):
+                if isinstance(finder, FunctionFinder) and isinstance(resource, FunctionResponse):
                     finder.dump_function_code(resource, resource_folder)
                 if isinstance(finder, StreamlitFinder) and isinstance(resource, StreamlitResponse):
                     finder.dump_code(resource, resource_folder)
