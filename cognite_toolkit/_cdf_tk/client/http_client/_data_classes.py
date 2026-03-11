@@ -89,15 +89,16 @@ class ErrorDetails(BaseModel):
     def from_response(cls, response: httpx.Response) -> "ErrorDetails":
         """Populate the error details from a httpx response."""
         try:
-            res = TypeAdapter(dict[Literal["error"], ErrorDetails]).validate_json(response.text)
-        except ValueError:
+            json_body = response.json()
+            res = TypeAdapter(dict[Literal["error"], ErrorDetails]).validate_python(json_body)
+        except (ValueError, KeyError):
             return cls(code=response.status_code, message=response.text)
         error = res["error"]
         header_value = response.headers.get("cdf-is-auto-retryable", "")
         if header_value:
             error.is_auto_retryable = header_value.lower() == "true"
         else:
-            error.is_auto_retryable = response.json().get("error", {}).get("isAutoRetryable")
+            error.is_auto_retryable = json_body.get("error", {}).get("isAutoRetryable")
         return error
 
 
