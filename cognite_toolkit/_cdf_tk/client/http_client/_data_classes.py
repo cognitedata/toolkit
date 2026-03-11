@@ -91,7 +91,7 @@ class ErrorDetails(BaseModel):
         try:
             json_body = response.json()
             res = TypeAdapter(dict[Literal["error"], ErrorDetails]).validate_python(json_body)
-        except (ValueError, KeyError):
+        except ValueError:
             return cls(code=response.status_code, message=response.text)
         error = res["error"]
         header_value = response.headers.get("cdf-is-auto-retryable", "")
