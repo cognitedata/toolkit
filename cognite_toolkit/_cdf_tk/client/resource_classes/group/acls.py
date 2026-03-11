@@ -570,12 +570,10 @@ class SubscribeSignalsAcl(Acl):
     scope: AllScope | CurrentUserScope
 
 
-class UnknownAcl(BaseModelObject):
+class UnknownAcl(Acl):
     """Fallback for unknown ACL types."""
 
     acl_name: str = Field("unknownAcl", exclude=True)
-    actions: Sequence[str]
-    scope: Scope
 
 
 def _get_acl_name(cls: type[Acl]) -> str | None:
