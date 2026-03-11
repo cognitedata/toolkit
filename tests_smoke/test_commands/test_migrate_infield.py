@@ -1,6 +1,6 @@
 import time
 from collections import defaultdict
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any, cast
 from unittest.mock import MagicMock, patch
@@ -15,7 +15,7 @@ from pytest_regressions.data_regression import DataRegressionFixture
 from cognite_toolkit._cdf_tk.apps._migrate_app import MigrateApp
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import NodeId, SpaceId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeId, SpaceId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
     FeatureConfiguration,
@@ -213,8 +213,6 @@ def infield_legacy(
     #######
 
     #### Create 'migrated' timeseries and files #####
-    # Ensure that the syncer has created the timeseries and files before updating.
-    time.sleep(2)
     # These are technically not migrated, but it is the simplest way is to create CogniteTimeSeries/CogniteFile
     # and update the classic with the externalId.from
     timeseries_updates: list[TimeSeriesUpdate] = []
@@ -231,13 +229,30 @@ def infield_legacy(
             instance_id=dm.NodeId(space=target_space.space, external_id=external_id),
         ).external_id.set(external_id)
         file_updates.append(file_update)
+
+    # Ensure that the syncer has created the timeseries and files before updating.
+    timeseries_ids = [ExternalId(external_id=cast(str, ts.external_id)) for ts in timeseries]
+    wait_for_resources(lambda: client.tool.timeseries.retrieve(timeseries_ids, ignore_unknown_ids=False))
     _ = client.time_series.update(timeseries_updates)
+    file_ids = [ExternalId(external_id=cast(str, file.external_id)) for file in files]
+    wait_for_resources(lambda: client.tool.filemetadata.retrieve(file_ids, ignore_unknown_ids=False))
     _ = client.files.update(file_updates)
 
     yield instances
 
     # Cleanup
     client.tool.instances.delete([item.as_id() for item in instances])
+
+
+def wait_for_resources(api_call: Callable[[], Any], timeout: float = 30) -> None:
+    end_time = time.time() + timeout
+    while time.time() < end_time:
+        try:
+            _ = api_call()
+            return  # Success
+        except ToolkitAPIError:
+            time.sleep(1)
+    raise TimeoutError("Timed out waiting for resources to be synced.")
 
 
 class TestMigrateInfield:

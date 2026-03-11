@@ -1446,5 +1446,6 @@ class MigrateApp(typer.Typer):
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
+                user_log_filestem="infield_data",
             )
         )
