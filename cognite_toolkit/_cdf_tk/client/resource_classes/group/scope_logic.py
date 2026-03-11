@@ -109,7 +109,12 @@ def scope_union(*scopes: ScopeDefinition) -> ScopeDefinition:
 
     merged: dict[str, Any] = {"scope_name": first.scope_name}
     for name in fields:
-        values = [set(getattr(s, name)) for s in scopes]
+        try:
+            values = [set(getattr(s, name)) for s in scopes]
+        except TypeError as e:
+            if isinstance(first, UnknownScope):
+                raise TypeError("Cannot union unknown scopes with unhashable fields.") from e
+            raise
         merged[name] = sorted(set.union(*values))
 
     return type(first)(**merged)
