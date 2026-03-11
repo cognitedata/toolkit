@@ -104,6 +104,44 @@ class TestHTTPClient2:
         assert response.status_code == 503
         assert response.error.message == "service unavailable"
 
+    def test_auto_retryable_body_then_success(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
+        url = "https://example.com/api/resource"
+        rsps.get(url).mock(side_effect=[
+            httpx.Response(409, json={"error": {"message": "conflict", "code": 409, "isAutoRetryable": True}}),
+            httpx.Response(200, json={"key": "value"}),
+        ])
+        with patch("time.sleep"):
+            response = http_client_one_retry.request_single_retries(RequestMessage(endpoint_url=url, method="GET"))
+        assert isinstance(response, SuccessResponse)
+        assert response.status_code == 200
+        assert len(rsps.calls) == 2
+
+    def test_auto_retryable_header_then_success(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
+        url = "https://example.com/api/resource"
+        rsps.get(url).mock(side_effect=[
+            httpx.Response(
+                409,
+                json={"error": {"message": "conflict", "code": 409}},
+                headers={"cdf-is-auto-retryable": "true"},
+            ),
+            httpx.Response(200, json={"key": "value"}),
+        ])
+        with patch("time.sleep"):
+            response = http_client_one_retry.request_single_retries(RequestMessage(endpoint_url=url, method="GET"))
+        assert isinstance(response, SuccessResponse)
+        assert response.status_code == 200
+        assert len(rsps.calls) == 2
+
+    def test_auto_retryable_false_not_retried(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
+        url = "https://example.com/api/resource"
+        rsps.get(url).respond(
+            json={"error": {"message": "conflict", "code": 409, "isAutoRetryable": False}}, status_code=409
+        )
+        response = http_client_one_retry.request_single(RequestMessage(endpoint_url=url, method="GET"))
+        assert isinstance(response, FailedResponse)
+        assert response.status_code == 409
+        assert len(rsps.calls) == 1
+
     def test_connection_error(self, http_client_one_retry: HTTPClient, rsps: respx.MockRouter) -> None:
         http_client = http_client_one_retry
         rsps.get("http://nonexistent.domain/api/resource").mock(
