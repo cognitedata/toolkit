@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
@@ -147,7 +147,7 @@ class DirectRelationCache:
             if missing:
                 source_systems = self._client.migration.created_source_system.retrieve(list(missing))
                 for source_system in source_systems:
-                    source_reference = source_system.as_direct_relation_reference()
+                    source_reference = source_system.as_id()
                     cache[source_system.source] = source_reference
                     if original_str := missing.get(source_system.source):
                         cache[original_str] = source_reference
@@ -226,8 +226,8 @@ def asset_centric_to_dm(
     external_id = dumped.pop("externalId", None)
 
     issue = ConversionIssue(
-        id=str(AssetCentricId(resource_type, id_=id_)),
-        asset_centric_id=AssetCentricId(resource_type, id_=id_),
+        id=str(AssetCentricId(resource_type=resource_type, id_=id_)),
+        asset_centric_id=AssetCentricId(resource_type=resource_type, id_=id_),
         instance_id=NodeId(space=instance_id.space, external_id=instance_id.external_id),
     )
 
@@ -446,7 +446,7 @@ class EdgeOtherSide:
     other_side: NodeId
 
 
-class InstanceToInstanceSpecialMapping(ABC, Generic[T_ID]):
+class CustomConnectionMapping(ABC, Generic[T_ID]):
     """
     This class is used for special mapping cases in the instance to instance conversion.
 
@@ -464,58 +464,6 @@ class InstanceToInstanceSpecialMapping(ABC, Generic[T_ID]):
         raise NotImplementedError()
 
 
-class InFieldAssetMapping(InstanceToInstanceSpecialMapping[NodeId]):
-    """Special cases in the InField data migration
-
-    These are reference to classical assets which are mirrored into FDM. We look up these in the CogniteMigration
-    model.
-
-    """
-
-    VIEW_PROPERTIES = frozenset(
-        {
-            (ViewId(space="cdf_apm", external_id="Activity", version="v2"), "asset"),
-            (ViewId(space="cdf_apm", external_id="Checklist", version="v7"), "rootLocation"),
-            (ViewId(space="cdf_apm", external_id="ChecklistItem", version="v7"), "asset"),
-            (ViewId(space="cdf_apm", external_id="Observation", version="v5"), "asset"),
-            (ViewId(space="cdf_apm", external_id="Observation", version="v5"), "rootLocation"),
-            (ViewId(space="cdf_apm", external_id="Template", version="v8"), "rootLocation"),
-            (ViewId(space="cdf_apm", external_id="TemplateItem", version="v7"), "asset"),
-        }
-    )
-
-    def __init__(self, client: ToolkitClient) -> None:
-        self.client = client
-        # We use None to indicate that we have looked up the reference, but it was not found,
-        # this allows us to distinguish between "not looked up yet" and "looked up but not found",
-        # which is important to avoid repeated lookups for missing references.
-        self._node_id_by_external_id: dict[str, NodeId | None] = {}
-
-    def __getitem__(self, item: NodeId) -> NodeId:
-        # We ignore the space and assume external ID matches
-        # the external ID classic.
-        result = self._node_id_by_external_id[item.external_id]
-        if result is None:
-            raise KeyError(f"No mapping found for {item!r}")
-        return result
-
-    def update(self, items: Iterable[NodeId]) -> None:
-        external_ids = {item.external_id for item in items}
-        missing_external_ids = external_ids - set(self._node_id_by_external_id.keys())
-        if missing_external_ids:
-            results = self.client.migration.instance_source.retrieve(
-                external_ids=AssetCentricExternalId.from_external_ids("asset", missing_external_ids)
-            )
-            for result in results:
-                if result.classic_external_id:
-                    self._node_id_by_external_id[result.classic_external_id] = NodeId(
-                        space=result.space, external_id=result.external_id
-                    )
-            failed_lookups = missing_external_ids - set(self._node_id_by_external_id.keys())
-            for failed in failed_lookups:
-                self._node_id_by_external_id[failed] = None
-
-
 class ConnectionCreator:
     """Used to create connections (edges and direct relations) between migrated instances.
 
@@ -527,7 +475,9 @@ class ConnectionCreator:
     Args:
         client: ToolkitClient to use for lookups when creating connections.
         space_mapping: Mapping from source space IDs to destination space IDs, used to map instance IDs from source to destination space when creating connections.
-        special_cases: Optional mapping for any special cases where the mapping from source to destination instance ID cannot be handled by the space mapping or timeseries/files reference cache. The keys are tuples of (source_view_id, source_prop_id) and the values are mappings from source instance IDs (either external ID or NodeId) to destination NodeIds.
+        custom_mappings: Optional mapping for any custom cases where the mapping from source to destination instance ID cannot be handled by the space mapping or
+        timeseries/files reference cache. The keys are tuples of (source_view_id, source_prop_id) and the values are mappings
+        from source instance IDs (either external ID or NodeId) to destination NodeIds.
 
     """
 
@@ -535,21 +485,21 @@ class ConnectionCreator:
         self,
         client: ToolkitClient,
         space_mapping: Mapping[str, str],
-        special_cases: Sequence[InstanceToInstanceSpecialMapping] | None = None,
+        custom_mappings: Sequence[CustomConnectionMapping] | None = None,
     ) -> None:
         self._client = client
         self.space_mapping = space_mapping
         self.view_by_id: dict[ViewId, ViewResponse] = {}
-        self._special_cases: Sequence[InstanceToInstanceSpecialMapping] = special_cases or []
-        self._special_case_caches = self._create_special_case_caches(special_cases or [])
+        self._custom_mappings: Sequence[CustomConnectionMapping] = custom_mappings or []
+        self._custom_mapping_caches = self._create_custom_case_caches(custom_mappings or [])
         self._timeseries_reference_cache: dict[str, NodeId] = {}
         self._file_reference_cache: dict[str, NodeId] = {}
 
-    def _create_special_case_caches(
-        self, special_cases: Sequence[InstanceToInstanceSpecialMapping]
-    ) -> dict[tuple[ViewId, str], InstanceToInstanceSpecialMapping]:
-        mapping: dict[tuple[ViewId, str], InstanceToInstanceSpecialMapping] = {}
-        for case in special_cases:
+    def _create_custom_case_caches(
+        self, custom_mappings: Sequence[CustomConnectionMapping]
+    ) -> dict[tuple[ViewId, str], CustomConnectionMapping]:
+        mapping: dict[tuple[ViewId, str], CustomConnectionMapping] = {}
+        for case in custom_mappings:
             for view_property in case.VIEW_PROPERTIES:
                 mapping[view_property] = case
         return mapping
@@ -575,13 +525,13 @@ class ConnectionCreator:
     def _update_property_caches(self, instances: Sequence[InstanceResponse]) -> None:
         timeseries_refs: set[str] = set()
         file_refs: set[str] = set()
-        special_cases_keys: dict[tuple[ViewId, str], tuple[InstanceToInstanceSpecialMapping, set[Hashable]]] = {}
-        for special_caches in self._special_cases:
-            # We create the keys for this special case cache here. This is to ensure all
+        custom_cases_keys: dict[tuple[ViewId, str], tuple[CustomConnectionMapping, set[Hashable]]] = {}
+        for custom_caches in self._custom_mappings:
+            # We create the keys for this custom case cache here. This is to ensure all
             # view properties will write to the same set.
             keys: set[Hashable] = set()
-            for view_property in special_caches.VIEW_PROPERTIES:
-                special_cases_keys[view_property] = (special_caches, keys)
+            for view_property in custom_caches.VIEW_PROPERTIES:
+                custom_cases_keys[view_property] = (custom_caches, keys)
         for item in instances:
             for view_id, properties in (item.properties or {}).items():
                 if not isinstance(view_id, ViewId):
@@ -591,8 +541,8 @@ class ConnectionCreator:
                         timeseries_refs.update(self._as_str_iterable(value))
                     elif self._is_file_reference(view_id, prop_id):
                         file_refs.update(self._as_str_iterable(value))
-                    if (view_id, prop_id) in special_cases_keys:
-                        special_cases_keys[(view_id, prop_id)][1].update(self._as_hashable_iterable(value))
+                    if (view_id, prop_id) in custom_cases_keys:
+                        custom_cases_keys[(view_id, prop_id)][1].update(self._as_hashable_iterable(value))
         if timeseries_refs:
             missing_timeseries_refs = timeseries_refs - set(self._timeseries_reference_cache.keys())
             if missing_timeseries_refs:
@@ -611,8 +561,8 @@ class ConnectionCreator:
                 for file in missing_refs:
                     if file.external_id and file.instance_id:
                         self._file_reference_cache[file.external_id] = file.instance_id
-        for special_cache, keys in special_cases_keys.values():
-            special_cache.update(keys)
+        for custom_cache, keys in custom_cases_keys.values():
+            custom_cache.update(keys)
 
     def _as_str_iterable(self, value: Any) -> Iterable[str]:
         if isinstance(value, str):
@@ -663,11 +613,11 @@ class ConnectionCreator:
                 return [], [f"Failed to create target for value {value!s}"]
 
     def _create_target(self, value: Any, source_prop_id: str, source_view_id: ViewId) -> NodeId:
-        if special_case_cache := self._special_case_caches.get((source_view_id, source_prop_id)):
+        if custom_case_cache := self._custom_mapping_caches.get((source_view_id, source_prop_id)):
             # This handles json/direct relations which are represented as dicts in the properties. We convert tem
             # such that they become hashable.
             node_id = self._as_node_id(value)
-            return special_case_cache[node_id] if node_id else special_case_cache[value]
+            return custom_case_cache[node_id] if node_id else custom_case_cache[value]
         elif self._is_timeseries_reference(source_view_id, source_prop_id) and isinstance(value, str):
             return self._timeseries_reference_cache[value]
         elif self._is_file_reference(source_view_id, source_prop_id) and isinstance(value, str):
@@ -838,13 +788,123 @@ class ConversionResult:
     edges: list[EdgeRequest] = field(default_factory=list)
 
 
+@dataclass
+class ConversionContext:
+    """Context for converting properties and edges for instance to instance conversion.
+
+    Args:
+        mapping: The ViewToViewMapping defining how to map properties from the source view to the destination view.
+        destination_properties: Dict of defined properties in the destination view.
+        connection_creator: Helper object to create connections (edges and direct relations) based on property values.
+        source_view_id: The ID of the source view, used for error messages.
+        new_id: The ID of the new instance being created. Used when creating edges.
+    """
+
+    mapping: ViewToViewMapping
+    destination_properties: dict[str, ViewResponseProperty]
+    connection_creator: ConnectionCreator
+    source_view_id: ViewId
+    new_id: NodeId
+
+
+class CustomContainerPropertiesMapping(ABC):
+    """Base class for defining custom mapping of container properties in instance to instance conversion
+
+    ClassVar:
+        VIEW_IDS: Set of view IDs that this mapping applies to. If the source view ID of the instance being converted is in this set,
+        this mapping will be used to convert the container properties.
+
+    ."""
+
+    VIEW_IDS: ClassVar[Set[ViewId]] = frozenset()
+
+    @abstractmethod
+    def convert(self, source_properties: dict[str, JsonValue], context: ConversionContext) -> ConversionResult:
+        raise NotImplementedError()
+
+
+class InFieldConditionMapping(CustomContainerPropertiesMapping):
+    VIEW_IDS: ClassVar[Set[ViewId]] = frozenset({ViewId(space="cdf_apm", external_id="Condition", version="v1")})
+
+    def __init__(self, mappings: Sequence[ViewToViewMapping]) -> None:
+        self._source_view_mapping = {
+            self._as_source_view_format(mapping.source_view): self._as_source_view_format(mapping.destination_view)
+            for mapping in mappings
+        }
+
+    def _as_source_view_format(self, view_id: ViewId) -> str:
+        """The special format used in the sourceView property of InField"""
+        return f"{view_id.space}/{view_id.external_id}/{view_id.version!s}"
+
+    def convert(self, source_properties: dict[str, JsonValue], context: ConversionContext) -> ConversionResult:
+        created_properties: dict[str, JsonValue] = {}
+        issues: list[str] = []
+        if value := source_properties.get("sourceView"):
+            if not isinstance(value, str):
+                issues.append(
+                    f"Invalid sourceView value {value!r} for view {context.source_view_id!s}: expected a string."
+                )
+            elif value not in self._source_view_mapping:
+                issues.append(f"Unexpected sourceView value {value!r} for view {context.source_view_id!s}")
+            else:
+                created_properties["sourceView"] = self._source_view_mapping[value]
+        return ConversionResult(container_properties=created_properties, errors=issues)
+
+
+class InFieldAssetMapping(CustomConnectionMapping[NodeId]):
+    """Custom cases in the InField data migration
+
+    These are reference to classical assets which are mirrored into FDM. We look up these in the CogniteMigration
+    model.
+
+    """
+
+    VIEW_PROPERTIES = frozenset(
+        {
+            (ViewId(space="cdf_apm", external_id="Activity", version="v2"), "asset"),
+            (ViewId(space="cdf_apm", external_id="Checklist", version="v7"), "rootLocation"),
+            (ViewId(space="cdf_apm", external_id="ChecklistItem", version="v7"), "asset"),
+            (ViewId(space="cdf_apm", external_id="Observation", version="v5"), "asset"),
+            (ViewId(space="cdf_apm", external_id="Observation", version="v5"), "rootLocation"),
+            (ViewId(space="cdf_apm", external_id="Template", version="v8"), "rootLocation"),
+            (ViewId(space="cdf_apm", external_id="TemplateItem", version="v7"), "asset"),
+        }
+    )
+
+    def __init__(self, client: ToolkitClient) -> None:
+        self.client = client
+        # We use None to indicate that we have looked up the reference, but it was not found,
+        # this allows us to distinguish between "not looked up yet" and "looked up but not found",
+        # which is important to avoid repeated lookups for missing references.
+        self._node_id_by_external_id: dict[str, NodeId | None] = {}
+
+    def __getitem__(self, item: NodeId) -> NodeId:
+        # We ignore the space and assume external ID matches
+        # the external ID classic.
+        result = self._node_id_by_external_id[item.external_id]
+        if result is None:
+            raise KeyError(f"No mapping found for {item!r}")
+        return result
+
+    def update(self, items: Iterable[NodeId]) -> None:
+        external_ids = {item.external_id for item in items}
+        missing_external_ids = external_ids - set(self._node_id_by_external_id.keys())
+        if missing_external_ids:
+            results = self.client.migration.instance_source.retrieve(
+                external_ids=AssetCentricExternalId.from_external_ids("asset", missing_external_ids)
+            )
+            for result in results:
+                if result.classic_external_id:
+                    self._node_id_by_external_id[result.classic_external_id] = NodeId(
+                        space=result.space, external_id=result.external_id
+                    )
+            failed_lookups = missing_external_ids - set(self._node_id_by_external_id.keys())
+            for failed in failed_lookups:
+                self._node_id_by_external_id[failed] = None
+
+
 def convert_container_properties(
-    source_properties: dict[str, JsonValue],
-    mapping: ViewToViewMapping,
-    destination_properties: dict[str, ViewResponseProperty],
-    connection_creator: ConnectionCreator,
-    source_view_id: ViewId,
-    source_id: NodeId,
+    source_properties: dict[str, JsonValue], context: ConversionContext
 ) -> ConversionResult:
     """
     Create properties for a data model instance from another instance's properties.
@@ -853,37 +913,35 @@ def convert_container_properties(
 
     Args:
         source_properties: Dict of source property IDs to values.
-        mapping: The ViewToViewMapping defining how to map properties from the source view to the destination view.
-        destination_properties: Dict of defined properties in the destination view.
-        connection_creator: Helper object to create connections (edges and direct relations) based on property values.
-        source_view_id: The ID of the source view, used for error messages.
-        source_id: The ID of the source instance used for edge creation and error messages.
+        context: ConversionContext containing the mapping and other necessary information for the conversion.
+    Returns:
+        ConversionResult containing the created properties, edges to create and any errors encountered during conversion.
     """
     created_properties: dict[str, JsonValue] = {}
     edges: list[EdgeRequest] = []
     errors: list[str] = []
     for source_prop_id, value in source_properties.items():
-        dest_prop_id = mapping.get_destination_property(source_prop_id)
+        dest_prop_id = context.mapping.get_destination_property(source_prop_id)
         if not dest_prop_id or (
-            dest_prop_id not in destination_properties and dest_prop_id not in mapping.container_mapping
+            dest_prop_id not in context.destination_properties and dest_prop_id not in context.mapping.container_mapping
         ):
             # We do not warn about the node properties, as they are typically ignored.
             if not source_prop_id.startswith("node."):
                 errors.append(f"Source instance property {source_prop_id!r} is not mapped to any destination property.")
             continue
-        if dest_prop_id not in destination_properties:
+        if dest_prop_id not in context.destination_properties:
             errors.append(f"Destination instance is missing property {dest_prop_id!r}.")
             continue
 
-        dm_prop = destination_properties[dest_prop_id]
+        dm_prop = context.destination_properties[dest_prop_id]
         if isinstance(dm_prop, EdgeProperty):
             try:
-                created_edges, issues = connection_creator.create_edges(
+                created_edges, issues = context.connection_creator.create_edges(
                     value,
                     dm_prop,
                     source_prop_id,
-                    source_view_id,
-                    source_id,
+                    context.source_view_id,
+                    context.new_id,
                 )
             except ValueError as e:
                 errors.append(f"Failed to create edges for property {source_prop_id!r} with value {value!r}: {e!s}")
@@ -892,11 +950,11 @@ def convert_container_properties(
             errors.extend(issues)
         elif isinstance(dm_prop, ViewCorePropertyResponse) and isinstance(dm_prop.type, DirectNodeRelation):
             try:
-                created_connection, issues = connection_creator.create_direct_relation(
+                created_connection, issues = context.connection_creator.create_direct_relation(
                     value,
                     dm_prop.type,
                     source_prop_id,
-                    source_view_id,
+                    context.source_view_id,
                 )
             except ValueError as e:
                 errors.append(
@@ -926,29 +984,33 @@ def convert_container_properties(
 
 
 def convert_edges(
-    edge_targets_by_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]],
-    mapping: ViewToViewMapping,
-    destination_properties: dict[str, ViewResponseProperty],
-    source_id: NodeId,
-    connection_creator: ConnectionCreator,
+    edge_targets_by_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]], context: ConversionContext
 ) -> ConversionResult:
+    """Convert edges from the source instance to the destination instance based on the edge mapping in the context.
+    Args:
+        edge_targets_by_type_and_direction: Dict mapping edge type IDs to lists of EdgeOtherSide, representing the edges connected to the source instance grouped by their type and direction.
+        context: ConversionContext containing the mapping and other necessary information for the conversion.
+
+    Returns:
+        ConversionResult containing the created properties, edges to create and any errors encountered during conversion.
+    """
     created_properties: dict[str, JsonValue] = {}
     new_edges: list[EdgeRequest] = []
     errors: list[str] = []
-    for source_type, dest_prop_id in (mapping.edge_mapping or {}).items():
+    for source_type, dest_prop_id in (context.mapping.edge_mapping or {}).items():
         edge_targets = edge_targets_by_type_and_direction.get(source_type, [])
         if not edge_targets:
             continue
 
-        if dest_prop_id not in destination_properties:
+        if dest_prop_id not in context.destination_properties:
             # Already captured as missing instance property in 'conver_container_properties', so we can just ignore it here.
             continue
 
-        dm_prop = destination_properties[dest_prop_id]
+        dm_prop = context.destination_properties[dest_prop_id]
 
         if isinstance(dm_prop, ViewCorePropertyResponse) and isinstance(dm_prop.type, DirectNodeRelation):
             try:
-                created_connection, issues = connection_creator.create_direct_relation_from_edges(
+                created_connection, issues = context.connection_creator.create_direct_relation_from_edges(
                     edge_targets,
                     dm_prop.type,
                     source_type,
@@ -970,10 +1032,10 @@ def convert_edges(
             errors.append(f"Cannot map edge property {source_type!s} to non-connection property {dm_prop.type.type!s}.")
         elif isinstance(dm_prop, EdgeProperty):
             try:
-                created_edges, issues = connection_creator.create_edges_from_edges(
+                created_edges, issues = context.connection_creator.create_edges_from_edges(
                     edge_targets,
                     dm_prop,
-                    source_id,
+                    context.new_id,
                 )
             except ValueError as e:
                 errors.append(

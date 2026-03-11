@@ -18,6 +18,7 @@ class SignalSinksAPI(CDFResourceAPI[SignalSinkResponse]):
                 "delete": Endpoint(method="POST", path="/processes/signals/sinks/delete", item_limit=100),
                 "list": Endpoint(method="GET", path="/processes/signals/sinks", item_limit=100),
             },
+            api_version="alpha",
         )
 
     def _validate_page_response(

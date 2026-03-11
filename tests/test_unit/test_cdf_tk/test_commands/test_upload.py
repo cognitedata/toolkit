@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.storageio._asset_centric import AssetIO
 from cognite_toolkit._cdf_tk.storageio._base import UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     InstanceFileSelector,
+    InstanceQuerySelector,
     InstanceSelector,
     InstanceSpaceSelector,
     InstanceViewSelector,
@@ -205,7 +206,7 @@ class TestUploadCommand:
 
         # Check that all subclasses of InstanceSelector are part of the test data
         subclasses = set(get_concrete_subclasses(InstanceSelector))
-        exceptions = {InstanceFileSelector}
+        exceptions = {InstanceFileSelector, InstanceQuerySelector}
         missing = subclasses - ({type(selector) for selector in data_files_by_selector.keys()} | exceptions)
         # All instance selector subclasses should do topological sorting, except for the ones in exceptions
         assert not missing, f"Test data is missing selectors for the following InstanceSelector subclasses: {missing}"

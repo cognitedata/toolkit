@@ -38,13 +38,14 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId, CreatedSourceSystem
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId, CreatedSourceSystem
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
+    ConversionContext,
     DirectRelationCache,
     EdgeOtherSide,
     asset_centric_to_dm,
@@ -565,8 +566,8 @@ class TestAssetCentricConversion:
                 },
                 {"assetName": "Test Asset", "assetDescription": "A test asset"},
                 ConversionIssue(
-                    id=str(AssetCentricId("asset", 123)),
-                    asset_centric_id=AssetCentricId("asset", 123),
+                    id=str(AssetCentricId(resource_type="asset", id_=123)),
+                    asset_centric_id=AssetCentricId(resource_type="asset", id_=123),
                     instance_id=INSTANCE_REF,
                     ignored_asset_centric_properties=["createdTime", "lastUpdatedTime", "rootId"],
                 ),
@@ -645,8 +646,8 @@ class TestAssetCentricConversion:
                     "deviceLocation": "room_1",
                 },
                 ConversionIssue(
-                    id=str(AssetCentricId("timeseries", 456)),
-                    asset_centric_id=AssetCentricId("timeseries", id_=456),
+                    id=str(AssetCentricId(resource_type="timeseries", id_=456)),
+                    asset_centric_id=AssetCentricId(resource_type="timeseries", id_=456),
                     instance_id=INSTANCE_REF,
                     ignored_asset_centric_properties=[
                         "createdTime",
@@ -771,8 +772,8 @@ class TestAssetCentricConversion:
                     "assets": [{"space": "test_space", "externalId": "asset_123_instance"}],
                 },
                 ConversionIssue(
-                    id=str(AssetCentricId("event", 789)),
-                    asset_centric_id=AssetCentricId("event", id_=789),
+                    id=str(AssetCentricId(resource_type="event", id_=789)),
+                    asset_centric_id=AssetCentricId(resource_type="event", id_=789),
                     instance_id=INSTANCE_REF,
                     ignored_asset_centric_properties=["createdTime", "description", "lastUpdatedTime"],
                     missing_asset_centric_properties=["metadata.missingMetaProp", "missing_prop"],
@@ -852,8 +853,8 @@ class TestAssetCentricConversion:
                 },
                 {},
                 ConversionIssue(
-                    id=str(AssetCentricId("file", 321)),
-                    asset_centric_id=AssetCentricId("file", id_=321),
+                    id=str(AssetCentricId(resource_type="file", id_=321)),
+                    asset_centric_id=AssetCentricId(resource_type="file", id_=321),
                     instance_id=INSTANCE_REF,
                     ignored_asset_centric_properties=[
                         "createdTime",
@@ -912,8 +913,8 @@ class TestAssetCentricConversion:
                 },
                 {"timeSeriesName": "Test TimeSeries"},
                 ConversionIssue(
-                    id=str(AssetCentricId("timeseries", 654)),
-                    asset_centric_id=AssetCentricId("timeseries", id_=654),
+                    id=str(AssetCentricId(resource_type="timeseries", id_=654)),
+                    asset_centric_id=AssetCentricId(resource_type="timeseries", id_=654),
                     instance_id=INSTANCE_REF,
                     ignored_asset_centric_properties=[
                         "createdTime",
@@ -964,8 +965,8 @@ class TestAssetCentricConversion:
                 },
                 {"assetName": "The name"},
                 ConversionIssue(
-                    id=str(AssetCentricId("asset", 999)),
-                    asset_centric_id=AssetCentricId("asset", id_=999),
+                    id=str(AssetCentricId(resource_type="asset", id_=999)),
+                    asset_centric_id=AssetCentricId(resource_type="asset", id_=999),
                     instance_id=INSTANCE_REF,
                     ignored_asset_centric_properties=["createdTime", "lastUpdatedTime", "rootId"],
                     missing_asset_centric_properties=["description"],
@@ -1016,8 +1017,8 @@ class TestAssetCentricConversion:
                     "category": "MyType",
                 },
                 ConversionIssue(
-                    id=str(AssetCentricId("event", 999)),
-                    asset_centric_id=AssetCentricId("event", id_=999),
+                    id=str(AssetCentricId(resource_type="event", id_=999)),
+                    asset_centric_id=AssetCentricId(resource_type="event", id_=999),
                     instance_id=INSTANCE_REF,
                     ignored_asset_centric_properties=["createdTime", "lastUpdatedTime", "metadata.category"],
                     failed_conversions=[
@@ -1139,8 +1140,8 @@ class TestAssetCentricConversion:
                     ],
                 ),
                 ConversionIssue(
-                    id=str(AssetCentricId("annotation", 37)),
-                    asset_centric_id=AssetCentricId("annotation", id_=37),
+                    id=str(AssetCentricId(resource_type="annotation", id_=37)),
+                    asset_centric_id=AssetCentricId(resource_type="annotation", id_=37),
                     instance_id=NodeId(space="test_space", external_id="annotation_37"),
                     ignored_asset_centric_properties=[
                         "annotatedResourceType",
@@ -1204,8 +1205,8 @@ class TestAssetCentricConversion:
         )
 
         expected_issue = ConversionIssue(
-            id=str(AssetCentricId("annotation", 38)),
-            asset_centric_id=AssetCentricId("annotation", id_=38),
+            id=str(AssetCentricId(resource_type="annotation", id_=38)),
+            asset_centric_id=AssetCentricId(resource_type="annotation", id_=38),
             instance_id=NodeId(space="test_space", external_id="annotation_38"),
             ignored_asset_centric_properties=[
                 "annotatedResourceType",
@@ -1473,16 +1474,15 @@ class TestInstanceToInstanceConversion:
         expected_properties: dict[str, Any],
         expected_errors: list[str],
     ) -> None:
-        connection_creator = self._create_connection_creator()
-
-        results = convert_container_properties(
-            source_properties,
-            self.MAPPING,
-            self.DESTINATION_PROPERTIES,
-            connection_creator,
-            self.SOURCE_VIEW_ID,
-            self.SOURCE_ID,
+        context = ConversionContext(
+            mapping=self.MAPPING,
+            destination_properties=self.DESTINATION_PROPERTIES,
+            connection_creator=self._create_connection_creator(),
+            source_view_id=self.SOURCE_VIEW_ID,
+            new_id=self.NEW_ID,
         )
+
+        results = convert_container_properties(source_properties, context)
 
         assert results.container_properties == expected_properties
         assert results.errors == expected_errors
@@ -1610,15 +1610,15 @@ class TestInstanceToInstanceConversion:
         expected_edges: list[EdgeRequest],
         expected_errors: list[str],
     ) -> None:
-        connection_creator = self._create_connection_creator()
-
-        results = convert_edges(
-            edge_targets,
-            self.MAPPING,
-            self.DESTINATION_PROPERTIES,
-            self.NEW_ID,
-            connection_creator,
+        context = ConversionContext(
+            mapping=self.MAPPING,
+            destination_properties=self.DESTINATION_PROPERTIES,
+            connection_creator=self._create_connection_creator(),
+            source_view_id=self.SOURCE_VIEW_ID,
+            new_id=self.NEW_ID,
         )
+
+        results = convert_edges(edge_targets, context)
 
         assert results.container_properties == expected_relations
         assert [edge.model_dump() for edge in results.edges] == [edge.model_dump() for edge in expected_edges]
