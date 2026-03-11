@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     Scope,
     SpaceIDScope,
     UnknownAcl,
+    UnknownScope,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.token import (
     AllProjects,
@@ -128,13 +129,17 @@ class TestProjectCapability:
                     capabilities=[
                         InspectCapability(
                             acl=UnknownAcl(
-                                actions=["READ", "WRITE"], scope={"unknown_scope": [1, 2, 3]}, acl_name="unknown_acl"
+                                actions=["READ"],
+                                scope=UnknownScope.model_validate({"scopeName": "unknown_cope", "someIds": [1, 2]}),
+                                acl_name="unknown_acl",
                             ),
                             project_scope=AllProjects(all_projects={}),
                         ),
                         InspectCapability(
                             acl=UnknownAcl(
-                                actions=["READ", "WRITE"], scope={"unknown_scope": [1, 2, 3]}, acl_name="unknown_acl"
+                                actions=["READ"],
+                                scope=UnknownScope.model_validate({"scopeName": "unknown_scope", "someIds": [2, 3]}),
+                                acl_name="unknown_acl",
                             ),
                             project_scope=AllProjects(all_projects={}),
                         ),
@@ -142,8 +147,9 @@ class TestProjectCapability:
                 ),
                 ProjectCapabilities(
                     {
-                        (UnknownAcl, "READ"): {"unknown_scope": [1, 2, 3]},
-                        (UnknownAcl, "WRITE"): {"unknown_scope": [1, 2, 3]},
+                        (UnknownAcl, "READ"): UnknownScope.model_validate(
+                            {"scopeName": "unknown_scope", "someIds": [1, 2, 3]}
+                        ),
                     },
                     name="test_project",
                     groups=[],
