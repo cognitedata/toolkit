@@ -8,6 +8,7 @@ import typer
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId
+from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
@@ -25,6 +26,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
+    InFieldLegacyToCDMScheduleMapper,
     ThreeDAssetMapper,
     ThreeDMapper,
 )
@@ -1419,10 +1421,12 @@ class MigrateApp(typer.Typer):
         infield_mappings = create_infield_data_mappings()
         schedule_selector = create_infield_schedule_selector()
         selectors: list[InstanceViewSelector | InstanceQuerySelector] = []
+        schedule_mapping: ViewToViewMapping | None = None
         for mapping in infield_mappings:
             if mapping.source_view.external_id == "Schedule":
                 # Special case for schedules, see create_infield_schedule_query for docs on why.
                 selectors.append(schedule_selector)
+                schedule_mapping = mapping
             else:
                 selectors.append(
                     InstanceViewSelector(
@@ -1435,19 +1439,27 @@ class MigrateApp(typer.Typer):
                         edge_types=tuple(mapping.edge_mapping.keys()) if mapping.edge_mapping else None,
                     )
                 )
+        if schedule_mapping is None:
+            raise ValueError("No mapping for Schedule view found in infield_data_mappings.yaml")
         connection_creator = ConnectionCreator(
             client, space_mapping=space_mapping, custom_mappings=[InFieldAssetMapping(client)]
+        )
+        mapper = FDMtoCDMMapper(
+            client,
+            infield_mappings,
+            connection_creator=connection_creator,
+            custom_properties_mappings=[InFieldConditionMapping(infield_mappings)],
+            custom_instance_mappings={
+                InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: InFieldLegacyToCDMScheduleMapper(
+                    client, connection_creator, schedule_mapping
+                )
+            },
         )
         cmd.run(
             lambda: cmd.migrate(
                 selectors=selectors,
                 data=InstanceIO(client),
-                mapper=FDMtoCDMMapper(
-                    client,
-                    infield_mappings,
-                    connection_creator=connection_creator,
-                    custom_properties_mappings=[InFieldConditionMapping(infield_mappings)],
-                ),
+                mapper=mapper,
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
