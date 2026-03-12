@@ -76,26 +76,33 @@ class RuleSetVersionsAPI(CDFResourceAPI[RuleSetVersionResponse]):
     ) -> list[RuleSetVersionResponse]:
         if not items:
             return []
-        body: dict = {
-            "items": [{"externalId": item.rule_set_external_id, "version": item.version} for item in items],
-            "ignoreUnknownIds": ignore_unknown_ids,
-        }
-        url = self._make_url(self._method_endpoint_map["retrieve"].path)
-        response = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=url,
-                method="POST",
-                body_content=body,
-                api_version=self._api_version,
-            )
-        )
-        page = self._validate_page_response(response.get_success_or_raise())
+        # Group by parent to avoid ambiguity: different rule sets can share
+        # the same version string, so a single batch response can't be
+        # reliably mapped back to the correct parent.
+        by_parent: defaultdict[str, list[str]] = defaultdict(list)
+        for item in items:
+            by_parent[item.rule_set_external_id].append(item.version)
 
-        lookup = {item.version: item.rule_set_external_id for item in items}
-        for ver in page.items:
-            if not ver.rule_set_external_id:
-                ver.rule_set_external_id = lookup.get(ver.version, "")
-        return page.items
+        url = self._make_url(self._method_endpoint_map["retrieve"].path)
+        results: list[RuleSetVersionResponse] = []
+        for rs_ext_id, versions in by_parent.items():
+            body: dict = {
+                "items": [{"externalId": rs_ext_id, "version": v} for v in versions],
+                "ignoreUnknownIds": ignore_unknown_ids,
+            }
+            response = self._http_client.request_single_retries(
+                RequestMessage(
+                    endpoint_url=url,
+                    method="POST",
+                    body_content=body,
+                    api_version=self._api_version,
+                )
+            )
+            page = self._validate_page_response(response.get_success_or_raise())
+            for ver in page.items:
+                ver.rule_set_external_id = rs_ext_id
+            results.extend(page.items)
+        return results
 
     def delete(self, ids: Sequence[RuleSetVersionId]) -> None:
         by_parent: defaultdict[str, list[str]] = defaultdict(list)
