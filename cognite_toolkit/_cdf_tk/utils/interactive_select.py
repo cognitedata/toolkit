@@ -35,6 +35,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope
+from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdminAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
@@ -385,6 +387,8 @@ class InteractiveChartSelect:
         questionary.Choice(title="Selected public Charts", value=ChartFilter(visibility="PUBLIC", select_all=False)),
         questionary.Choice(title="All owned by given user", value=ChartFilter(owned_by="user", select_all=True)),
         questionary.Choice(title="Selected owned by given user", value=ChartFilter(owned_by="user", select_all=False)),
+        questionary.Choice(title="Selected charts", value=ChartFilter(visibility=None, select_all=False)),
+        questionary.Choice(title="All Charts", value=ChartFilter(visibility=None, select_all=True)),
     ]
 
     def __init__(self, client: ToolkitClient) -> None:
@@ -403,7 +407,14 @@ class InteractiveChartSelect:
         return user_response
 
     def _select_external_ids(self, select_filter: ChartFilter) -> list[str]:
-        available_charts = self.client.charts.list(visibility=(select_filter.visibility or "PUBLIC"))
+        if select_filter.visibility != "PUBLIC" and (
+            missing_acls := self.client.tool.token.verify_acls([ChartsAdminAcl(actions=["READ"], scope=AllScope())])
+        ):
+            raise self.client.tool.token.create_error(
+                missing_acls, action="list (including private) charts for interactive selection"
+            )
+
+        available_charts = self.client.charts.list(visibility=select_filter.visibility)
         if select_filter.select_all and select_filter.owned_by is None:
             return [chart.external_id for chart in available_charts]
 
@@ -421,7 +432,7 @@ class InteractiveChartSelect:
                 questionary.Choice(
                     title=f"{chart.data.name} (Created by "
                     f"{display_name_by_user_identifier.get(chart.owner_id, 'missing')!r} "
-                    f"- {ms_to_datetime(chart.last_updated_time)})",
+                    f"- {ms_to_datetime(chart.last_updated_time)}, visibility {chart.visibility})",
                     value=chart.external_id,
                 )
                 for chart in available_charts

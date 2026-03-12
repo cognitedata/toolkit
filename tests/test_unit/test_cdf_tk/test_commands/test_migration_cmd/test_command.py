@@ -509,6 +509,21 @@ class TestMigrationCommand:
                 owner_id="1234",
             )
         ]
+        # Inspect response
+        respx.get(
+            f"{config.base_url}/api/v1/token/inspect",
+        ).respond(
+            json={
+                "subject": "test",
+                "projects": [{"projectUrlName": "pytest-project", "groups": []}],
+                "capabilities": [
+                    {
+                        "chartsAdminAcl": {"actions": ["READ", "UPDATE"], "scope": {"all": {}}},
+                        "projectScope": {"allProjects": {}},
+                    }
+                ],
+            }
+        )
         # Chart list
         respx.post(
             config.create_app_url("/storage/charts/charts/list"),
@@ -584,7 +599,7 @@ class TestMigrationCommand:
         assert actual_results == {"failure": 0, "pending": 0, "success": len(charts), "unchanged": 0}
 
         calls = respx_mock.calls
-        assert len(calls) == 4
+        assert len(calls) == 5
         last_call = calls[-1]
         assert last_call.request.url == config.create_app_url("/storage/charts/charts")
         assert last_call.request.method == "PUT"
