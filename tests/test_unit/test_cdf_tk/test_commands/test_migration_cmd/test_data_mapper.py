@@ -717,6 +717,11 @@ class TestInFieldLegacyToCDMScheduleMapper:
 
     @pytest.fixture
     def schedule_instance_data(self) -> list[InstanceResponse]:
+        """Creates a test case for InField Schedule mapping.
+
+        The consist of 5 schedules, where they are 2 unique schedules (2 + 3).
+        All schedules are connected to a simple template and several template item.
+        """
         template = NodeId(space=self.SOURCE_SPACE, external_id="template_1")
         items = [NodeId(space=self.SOURCE_SPACE, external_id=f"item_{i}") for i in range(1, 6)]
         schedule_external_ids = ["schedule_a1", "schedule_a2", "schedule_b1", "schedule_b2", "schedule_b3"]
@@ -775,6 +780,7 @@ class TestInFieldLegacyToCDMScheduleMapper:
         schedule_instance_data: list[InstanceResponse],
         data_regression: DataRegressionFixture,
     ) -> None:
+        # Mock of the destination Schedlue view.
         dest_view = ViewResponse(
             space=self.DEST_VIEW_ID.space,
             external_id=self.DEST_VIEW_ID.external_id,
