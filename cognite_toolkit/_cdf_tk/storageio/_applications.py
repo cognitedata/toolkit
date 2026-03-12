@@ -50,7 +50,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
         return item.external_id
 
     def stream_data(self, selector: ChartSelector, limit: int | None = None) -> Iterable[Page]:
-        selected_charts = self.client.charts.list(visibility="PUBLIC")
+        selected_charts = self.client.charts.list(visibility=None)
         if isinstance(selector, AllChartsSelector):
             ...
         elif isinstance(selector, ChartOwnerSelector):
