@@ -3,10 +3,12 @@
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 
-from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint
+from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
+    ItemsSuccessResponse,
     RequestMessage,
+    SuccessResponse,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import RuleSetVersionId
 from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import (
@@ -33,7 +35,20 @@ class RuleSetVersionsAPI(CDFResourceAPI[RuleSetVersionResponse]):
             },
             api_version="alpha",
         )
-        self.versions = RuleSetVersionsAPI(http_client)
+
+    def _validate_page_response(
+        self, response: SuccessResponse | ItemsSuccessResponse
+    ) -> PagedResponse[RuleSetVersionResponse]:
+        return PagedResponse[RuleSetVersionResponse].model_validate_json(response.body)
+
+    @staticmethod
+    def _group_by_parent(
+        items: Sequence[RuleSetVersionRequest],
+    ) -> dict[str, list[RuleSetVersionRequest]]:
+        by_parent: dict[str, list[RuleSetVersionRequest]] = {}
+        for item in items:
+            by_parent.setdefault(item.rule_set_external_id, []).append(item)
+        return by_parent
 
     def create(self, items: Sequence[RuleSetVersionRequest]) -> list[RuleSetVersionResponse]:
         results: list[RuleSetVersionResponse] = []
@@ -61,7 +76,10 @@ class RuleSetVersionsAPI(CDFResourceAPI[RuleSetVersionResponse]):
     ) -> list[RuleSetVersionResponse]:
         if not items:
             return []
-        body = {"items": [{"externalId": item.rule_set_external_id, "version": item.version} for item in items]}
+        body: dict = {
+            "items": [{"externalId": item.rule_set_external_id, "version": item.version} for item in items],
+            "ignoreUnknownIds": ignore_unknown_ids,
+        }
         url = self._make_url(self._method_endpoint_map["retrieve"].path)
         response = self._http_client.request_single_retries(
             RequestMessage(
@@ -71,13 +89,9 @@ class RuleSetVersionsAPI(CDFResourceAPI[RuleSetVersionResponse]):
                 api_version=self._api_version,
             )
         )
-        if ignore_unknown_ids:
-            success = response.get_success_or_raise()
-            page = self._validate_page_response(success)
-        else:
-            page = self._validate_page_response(response.get_success_or_raise())
+        page = self._validate_page_response(response.get_success_or_raise())
 
-        lookup = {item.rule_set_external_id: item.rule_set_external_id for item in items}
+        lookup = {item.version: item.rule_set_external_id for item in items}
         for ver in page.items:
             if not ver.rule_set_external_id:
                 ver.rule_set_external_id = lookup.get(ver.version, "")

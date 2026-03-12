@@ -3,7 +3,7 @@
 from collections.abc import Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, Endpoint, PagedResponse
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, SuccessResponse
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.ruleset import RuleSetRequest, RuleSetResponse
 
@@ -37,22 +37,9 @@ class RuleSetsAPI(CDFResourceAPI[RuleSetResponse]):
     def retrieve(self, external_ids: Sequence[ExternalId], ignore_unknown_ids: bool = False) -> list[RuleSetResponse]:
         if not external_ids:
             return []
-        body = {"items": [{"externalId": ext_id.external_id} for ext_id in external_ids]}
-        url = self._make_url(self._method_endpoint_map["retrieve"].path)
-        response = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=url,
-                method="POST",
-                body_content=body,
-                api_version=self._api_version,
-            )
+        return self._request_item_response(
+            external_ids, method="retrieve", extra_body={"ignoreUnknownIds": ignore_unknown_ids}
         )
-        if ignore_unknown_ids:
-            success = response.get_success_or_raise()
-            page = self._validate_page_response(success)
-        else:
-            page = self._validate_page_response(response.get_success_or_raise())
-        return page.items
 
     def delete(self, external_ids: Sequence[ExternalId]) -> None:
         self._request_no_response(external_ids, "delete")
