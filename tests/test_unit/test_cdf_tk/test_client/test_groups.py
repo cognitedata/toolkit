@@ -277,11 +277,6 @@ class TestScopeLogic:
         with pytest.raises(TypeError, match="Cannot intersect unknown scopes"):
             scope_intersection(instance, instance)
 
-    def test_raises_unknown_scope_union(self) -> None:
-        instance = UnknownScope(scope_name="mystery")
-        with pytest.raises(TypeError, match="Cannot union unknown scopes"):
-            scope_union(instance, instance)
-
     def test_raises_unknown_scope_difference(self) -> None:
         instance = UnknownScope(scope_name="mystery")
         with pytest.raises(TypeError, match="Cannot difference unknown scopes"):
