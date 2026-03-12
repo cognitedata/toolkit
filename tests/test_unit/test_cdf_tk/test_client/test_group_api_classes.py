@@ -34,6 +34,7 @@ def all_acls() -> Iterable[tuple]:
                 "scope": {"spaceIdScope": {"spaceIds": ["maintain", "main-data"]}},
             }
         },
+        {"dataProductsAcl": {"actions": ["CREATE", "READ", "UPDATE", "DELETE"], "scope": {"all": {}}}},
         {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"all": {}}}},
         {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"idScope": {"ids": [123]}}}},
         {"diagramParsingAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
