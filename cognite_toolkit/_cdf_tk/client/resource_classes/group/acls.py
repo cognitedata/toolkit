@@ -619,6 +619,7 @@ AclType: TypeAlias = Annotated[
         | AuditlogAcl
         | DataModelInstancesAcl
         | DataModelsAcl
+        | DataProductsAcl
         | DataSetsAcl
         | DiagramParsingAcl
         | DigitalTwinAcl
