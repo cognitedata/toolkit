@@ -4,6 +4,7 @@ from typing import Any
 
 from cognite_toolkit._cdf_tk.client.resource_classes.group.scopes import (
     AllScope,
+    Scope,
     ScopeDefinition,
     TableScope,
     UnknownScope,
@@ -12,7 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group.scopes import (
 
 def _data_fields(scope: ScopeDefinition) -> dict[str, Any]:
     """Return field name-value pairs excluding scope_name."""
-    return {name: getattr(scope, name) for name in type(scope).model_fields if name != "scope_name"}
+    return scope.model_dump(by_alias=False, exclude={"scope_name"})
 
 
 def scope_intersection(*scopes: ScopeDefinition) -> ScopeDefinition | None:
@@ -68,7 +69,7 @@ def scope_intersection(*scopes: ScopeDefinition) -> ScopeDefinition | None:
     return type(first)(**merged)
 
 
-def scope_union(*scopes: ScopeDefinition) -> ScopeDefinition:
+def scope_union(*scopes: Scope) -> Scope:
     """Return the union of all given scopes.
 
     Rules:
@@ -88,8 +89,10 @@ def scope_union(*scopes: ScopeDefinition) -> ScopeDefinition:
     first = scopes[0]
     if any(type(s) is not type(first) for s in scopes[1:]):
         raise ValueError("Cannot union scopes of different types")
-    if isinstance(first, UnknownScope):
-        raise TypeError("Cannot union unknown scopes")
+    if isinstance(first, UnknownScope) and any(
+        first.scope_name != s.scope_name for s in scopes[1:] if isinstance(s, UnknownScope)
+    ):
+        raise ValueError("Cannot union unknown scopes with different scope names")
 
     fields = _data_fields(first)
 
@@ -105,9 +108,14 @@ def scope_union(*scopes: ScopeDefinition) -> ScopeDefinition:
             }
         )
 
-    merged: dict[str, Any] = {}
+    merged: dict[str, Any] = {"scope_name": first.scope_name}
     for name in fields:
-        values = [set(getattr(s, name)) for s in scopes]
+        try:
+            values = [set(getattr(s, name)) for s in scopes]
+        except TypeError as e:
+            if isinstance(first, UnknownScope):
+                raise TypeError("Cannot union unknown scopes with unhashable fields.") from e
+            raise
         merged[name] = sorted(set.union(*values))
 
     return type(first)(**merged)
