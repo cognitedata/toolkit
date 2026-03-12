@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, GroupRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, GroupRequest, ScopeDefinition, UnknownAcl
 from cognite_toolkit._cdf_tk.yaml_classes.capabilities import Capability
 from tests.test_unit.test_cdf_tk.test_tk_warnings.test_warnings_metatest import get_all_subclasses
 
@@ -186,11 +186,16 @@ class TestGroupAPIClasses:
 
     def test_serialize_deserialize_unknown_capability(self) -> None:
         """Test that an unknown ACL type can be handled."""
-        acl_dict = {"unknownAcl": {"actions": ["READ"], "scope": {"all": {}}}}
+        acl_dict = {"myUnknownAcl": {"actions": ["READ"], "scope": {"someScope": {"someField": [1, 2, 3]}}}}
         data = {"name": "test-group", "id": 123, "capabilities": [acl_dict]}
         group = GroupRequest.model_validate(data)
         assert isinstance(group, GroupRequest)
         assert group.dump() == {"name": "test-group", "capabilities": [acl_dict]}
+        assert group.capabilities and len(group.capabilities) == 1
+        acl = group.capabilities[0].acl
+        assert isinstance(acl, UnknownAcl)
+        assert acl.acl_name == "myUnknownAcl"
+        assert isinstance(acl.scope, ScopeDefinition)
 
     def test_capability_in_sync(self) -> None:
         """Checks that the request/response capabilities are in sync with the YAML spec."""
