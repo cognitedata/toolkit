@@ -1,7 +1,7 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities as cap
+from cognite.client.data_classes.capabilities import Capability
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RuleSetVersionId
@@ -45,7 +45,7 @@ class RuleSetCRUD(ResourceCRUD[ExternalId, RuleSetRequest, RuleSetResponse]):
     @classmethod
     def get_required_capability(
         cls, items: Sequence[RuleSetRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
+    ) -> Capability | list[Capability]:
         return []
 
     @classmethod
@@ -114,7 +114,7 @@ class RuleSetVersionCRUD(ResourceCRUD[RuleSetVersionId, RuleSetVersionRequest, R
     @classmethod
     def get_required_capability(
         cls, items: Sequence[RuleSetVersionRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
+    ) -> Capability | list[Capability]:
         return []
 
     @classmethod

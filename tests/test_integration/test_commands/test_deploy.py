@@ -176,8 +176,8 @@ def get_changed_source_files(
             or loader_cls is LocationFilterCRUD
             # SearchConfigLoader is not supported in pull and post that also will require special handling
             or loader_cls is SearchConfigCRUD
-            # Data Products API is not yet available on the test server.
-            or loader_cls in {DataProductCRUD, DataProductVersionCRUD}
+            # Data Products and Rule Sets APIs are not yet available on the test server.
+            or loader_cls in {DataProductCRUD, DataProductVersionCRUD, RuleSetCRUD, RuleSetVersionCRUD}
         ):
             continue
         loader = loader_cls.create_loader(env_vars.get_client(), build_dir)
