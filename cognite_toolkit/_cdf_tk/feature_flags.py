@@ -98,6 +98,7 @@ class Flags(Enum):
         visible=True,
         description="Enables JSON output format for the modules list command",
     )
+
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
 
