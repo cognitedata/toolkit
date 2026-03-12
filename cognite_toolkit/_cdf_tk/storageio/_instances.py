@@ -221,6 +221,7 @@ class InstanceIO(
         self, query: QueryRequest, root_selection: str, sub_selections: list[str], limit: int | None
     ) -> Iterable[Page]:
         total = 0
+        chunk_size = query.with_[root_selection].limit or self.CHUNK_SIZE
         while True:
             response = self._exhaust_sub_selections(query, root_selection, sub_selections)
             nodes = response.items.get(root_selection, [])
@@ -238,7 +239,7 @@ class InstanceIO(
             yield Page(worker_id="main", items=items, next_cursor=next_cursor)
             if next_cursor is None or (limit is not None and total >= limit) or not nodes:
                 break
-            page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
+            page_limit = min(chunk_size, limit - total) if limit is not None else chunk_size
             query.with_[root_selection].limit = page_limit
             query.cursors = {root_selection: next_cursor}
 
