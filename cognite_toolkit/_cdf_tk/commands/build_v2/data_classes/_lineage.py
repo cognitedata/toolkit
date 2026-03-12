@@ -17,6 +17,9 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     ModelSyntaxError,
 )
+from tests.data.complete_org_alpha_flags.modules.my_example_module.functions.fn_multi_file_function.other_module import (
+    to_camel,
+)
 
 from ._types import AbsoluteDirPath, AbsoluteFilePath
 
@@ -24,17 +27,17 @@ from ._types import AbsoluteDirPath, AbsoluteFilePath
 class _BaseLineageModel(BaseModel):
     """Base model for lineage tracking with common configuration."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
 
 
 class ResourceLineageItem(_BaseLineageModel):
     """Tracks a single resource through the build process."""
 
-    source_file: AbsoluteFilePath = Field(alias="sourceFile")
-    source_hash: str = Field(alias="sourceHash")
+    source_file: AbsoluteFilePath
+    source_hash: str
     type_: str = Field(alias="type", description="Resource type folder (e.g., 'spaces', 'containers', 'views')")
     kind: str = Field(description="Resource kind (e.g., 'space', 'container', 'view')")
-    built_file: AbsoluteFilePath = Field(alias="builtFile")
+    built_file: AbsoluteFilePath
 
     @field_serializer("source_file", "built_file", when_used="json")
     def serialize_paths(self, value: Path, info: SerializationInfo) -> str:
@@ -48,13 +51,11 @@ class ResourceLineageItem(_BaseLineageModel):
 class ModuleLineageItem(_BaseLineageModel):
     """Tracks a module through the build process."""
 
-    module_id: str = Field(description="Module identifier (e.g., modules/my_module)", alias="moduleId")
-    module_path: AbsoluteDirPath = Field(description="Absolute path to module source directory", alias="modulePath")
-    insights_summary: dict[str, int] = Field(
-        description="Breakdown of insights by type for this module", alias="insightsSummary"
-    )
+    module_id: str = Field(description="Module identifier (e.g., modules/my_module)")
+    module_path: AbsoluteDirPath = Field(description="Absolute path to module source directory")
+    insights_summary: dict[str, int] = Field(description="Breakdown of insights by type for this module")
     resource_lineage: list[ResourceLineageItem] = Field(
-        default_factory=list, description="List of resource lineage items for this module", alias="resources"
+        default_factory=list, description="List of resource lineage items for this module"
     )
 
     @property
@@ -121,18 +122,15 @@ class ModuleLineageItem(_BaseLineageModel):
 class BuildLineage(_BaseLineageModel):
     """Minimal lineage"""
 
-    timestamp: datetime = Field(default_factory=datetime.now, description="When build started", alias="timestamp")
-    duration: float | None = Field(None, description="Total build duration in seconds", alias="duration")
-    organization_dir: Path = Field(alias="organizationDirectory")
-    build_dir: Path = Field(alias="buildDirectory")
-    modules_summary: dict[str, int] = Field(description="Summary of modules by build status", alias="modulesSummary")
-    insights_summary: dict[str, int] = Field(
-        description="Summary of insights by type across all modules", alias="insightsSummary"
-    )
+    timestamp: datetime = Field(default_factory=datetime.now, description="When build started")
+    duration: float | None = Field(None, description="Total build duration in seconds")
+    organization_dir: Path
+    build_dir: Path
+    modules_summary: dict[str, int] = Field(description="Summary of modules by build status")
+    insights_summary: dict[str, int] = Field(description="Summary of insights by type across all modules")
 
     module_lineage: list[ModuleLineageItem] = Field(
         default_factory=list,
-        alias="moduleLineage",
         description="Lineage for each module, indexed by module path. List because of iterations.",
     )
 
