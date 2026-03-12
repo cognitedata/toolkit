@@ -922,7 +922,6 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
         "freq",
         "exceptionDates",
         "timezone",
-        "status",
         "startTime",
         "endTime",
         "status",
