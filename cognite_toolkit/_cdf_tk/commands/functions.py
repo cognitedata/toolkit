@@ -9,6 +9,7 @@ from questionary import Choice
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.utils.file import validate_safe_path
 
 # Constants
 
@@ -144,14 +145,8 @@ __all__ = ["handle"]
 '''
 
 
-def _validate_safe_path(name: str) -> None:
-    """Reject path traversal sequences in user-provided identifiers."""
-    if ".." in name or "/" in name or "\\" in name:
-        raise ValueError(f"Invalid identifier {name!r}: must not contain path separators or '..'")
-
-
 def _scaffold_basic_function(module_path: Path, external_id: str, cmd: ToolkitCommand) -> None:
-    _validate_safe_path(external_id)
+    validate_safe_path(external_id)
     handler_dir = module_path / "functions" / external_id
     handler_dir.mkdir(parents=True, exist_ok=True)
     for name, content in [("handler.py", _BASIC_HANDLER_PY), ("requirements.txt", "")]:
@@ -160,7 +155,7 @@ def _scaffold_basic_function(module_path: Path, external_id: str, cmd: ToolkitCo
 
 
 def _scaffold_function_app(module_path: Path, external_id: str, cmd: ToolkitCommand) -> None:
-    _validate_safe_path(external_id)
+    validate_safe_path(external_id)
     FunctionsCommand(print_warning=cmd._print_warning, skip_tracking=True, silent=cmd.silent).init(
         module_path=module_path, external_id=external_id
     )
@@ -204,7 +199,7 @@ class FunctionsCommand(ToolkitCommand):
         if prompt_tracing:
             tracing_backend = self._guide_tracing()
 
-        _validate_safe_path(external_id)
+        validate_safe_path(external_id)
         handler_dir = module_path / "functions" / external_id
         handler_dir.mkdir(parents=True, exist_ok=True)
 
