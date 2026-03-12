@@ -83,7 +83,7 @@ class TestProjectCapability:
                 id="SpaceIDScope ACL present regardless of scope content",
             ),
             pytest.param(
-                {(GroupsAcl, "groupsAcl", "READ"): AllScope(), (GroupsAcl, "LIST"): AllScope()},
+                {(GroupsAcl, "groupsAcl", "READ"): AllScope(), (GroupsAcl, "groupsAcl", "LIST"): AllScope()},
                 [GroupsAcl(actions=["READ", "LIST", "CREATE"], scope=AllScope())],
                 [GroupsAcl(actions=["CREATE"], scope=AllScope())],
                 id="Three actions with one missing reports all actions",
