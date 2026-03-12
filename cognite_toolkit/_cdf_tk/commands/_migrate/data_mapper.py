@@ -1030,7 +1030,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
         issue = InstanceConversionIssue(id=str(first.as_id()))
         try:
             new_id = self._connection_creator.map_instance(first)
-        except ValueError as e:
+        except KeyError as e:
             issue.errors.append(f"Failed to map schedule with ID {first.as_id()}: {e!s}")
             return None, issue
         if self._mapping.destination_view not in self._connection_creator.view_by_id:
