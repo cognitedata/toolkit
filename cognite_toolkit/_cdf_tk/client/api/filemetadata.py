@@ -6,6 +6,7 @@ from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedRespo
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
+    HTTPResult,
     ItemsSuccessResponse,
     RequestMessage,
     SuccessResponse,
@@ -177,6 +178,44 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             List of FileMetadataResponse objects.
         """
         return self._list(limit=limit)
+
+    def upload_file_link(
+        self, items: Sequence[ExternalId | InstanceId], ignore_unknown_ids: bool = False
+    ) -> builtins.list[FileMetadataResponse]:
+        """Upload file link to CDF."""
+        results: list[FileMetadataResponse] = []
+        for item in items:
+            response = self._http_client.request_single_retries(
+                RequestMessage(
+                    endpoint_url=self._http_client.config.create_api_url("/files/uploadlink"),
+                    method="POST",
+                    body_content={"items": [item.dump()]},
+                )
+            )
+            if isinstance(response, SuccessResponse):
+                results.extend(ResponseItems[FileMetadataResponse].model_validate_json(response.body).items)
+            elif ignore_unknown_ids:
+                continue
+            else:
+                _ = response.get_success_or_raise()
+        return results
+
+    def upload_content(self, data_content: bytes, upload_url: str, mime_type: str | None = None) -> HTTPResult:
+        """Uploads file content to CDF.
+
+        Args:
+            data_content: Content to be uploaded.
+            upload_url: Upload URL.
+            mime_type: MIME type to upload. None for no MIME type.
+        """
+        return self._http_client.request_single_retries(
+            RequestMessage(
+                endpoint_url=upload_url,
+                method="PUT",
+                content_type=mime_type or "application/octet-stream",
+                data_content=data_content,
+            )
+        )
 
     def set_pending_ids(self, items: Sequence[PendingInstanceId]) -> builtins.list[FileMetadataResponse]:
         """Set pending instance IDs for one or more file metadata entries.

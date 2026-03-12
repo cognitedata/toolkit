@@ -37,6 +37,10 @@ class ItemsFailedResponse(ItemsResultMessage):
     error: ErrorDetails
     body: str
 
+    @property
+    def error_message(self) -> str:
+        return self.error.message
+
 
 def _set_default_tracker(data: dict[str, Any]) -> ItemsRequestTracker:
     if "tracker" not in data or data["tracker"] is None:
