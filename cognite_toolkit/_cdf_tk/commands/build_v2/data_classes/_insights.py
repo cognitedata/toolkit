@@ -1,3 +1,5 @@
+import csv
+import io
 from collections import UserList, defaultdict
 
 from pydantic import BaseModel
@@ -69,3 +71,43 @@ class InsightList(UserList[Insight]):
     def has_model_syntax_errors(self) -> bool:
         """Returns True if there are any model syntax errors in the insights."""
         return any(isinstance(insight, ModelSyntaxError) for insight in self.data)
+
+    @property
+    def has_errors(self) -> bool:
+        """Returns True if there are any errors (model syntax or consistency) in the insights."""
+        return any(isinstance(insight, (ModelSyntaxError, ConsistencyError)) for insight in self.data)
+
+    @property
+    def summary(self) -> dict[str, int]:
+        """Returns a summary dict with breakdown of insights by type.
+
+        Returns:
+            Dict with keys: syntax_errors, consistency_errors, recommendations
+        """
+
+        by_type = self.by_type()
+
+        return {insight_type.__name__: len(insights) for insight_type, insights in by_type.items()}
+
+    def to_csv(self) -> str:
+        """Returns a CSV formatted string representation of the insights.
+
+        Returns:
+            CSV formatted string with columns: insight_type, code, message, fix
+        """
+        output = io.StringIO()
+        fieldnames = ["insight_type", "code", "message", "fix"]
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for insight in self.data:
+            writer.writerow(
+                {
+                    "insight_type": insight.insight_type(),
+                    "code": insight.code or "",
+                    "message": insight.message,
+                    "fix": insight.fix or "",
+                }
+            )
+
+        return output.getvalue()

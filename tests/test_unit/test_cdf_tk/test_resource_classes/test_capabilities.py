@@ -33,6 +33,7 @@ def all_acls() -> Iterable:
                 "scope": {"spaceIdScope": {"spaceIds": ["maintain", "main-data"]}},
             }
         },
+        {"dataProductsAcl": {"actions": ["CREATE", "READ", "UPDATE", "DELETE"], "scope": {"all": {}}}},
         {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"all": {}}}},
         {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"idScope": {"ids": ["my_dataset"]}}}},
         {"diagramParsingAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
@@ -167,6 +168,8 @@ def all_acls() -> Iterable:
         {"streamsAcl": {"actions": ["READ", "CREATE", "DELETE"], "scope": {"all": {}}}},
         {"streamRecordsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"streamRecordsAcl": {"actions": ["READ", "WRITE"], "scope": {"spaceIdScope": {"spaceIds": ["mySpace"]}}}},
+        {"subscribeSignalsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {"subscribeSignalsAcl": {"actions": ["READ"], "scope": {"currentuserscope": {}}}},
     ]
 
     yield from (pytest.param(acl, id=next(iter(acl.keys()))) for acl in acl_list)

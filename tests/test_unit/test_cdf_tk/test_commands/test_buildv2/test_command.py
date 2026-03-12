@@ -151,7 +151,7 @@ class TestBuildCommand:
 
         folder = cmd.build(parameters, tlk_client)
 
-        assert "my_module" in folder.built_modules_by_success[True]
+        assert "my_module" in folder.built_modules_by_success[False]
 
         built_space = list(build_dir.rglob(f"*.{SpaceCRUD.kind}.yaml"))
         assert len(built_space) == 1
@@ -180,6 +180,12 @@ class TestBuildCommand:
             "NEAT-DMS-VIEW-001",
             "MISSING-DEPENDENCY",
         }
+
+        lineage_file = list(build_dir.rglob("lineage.yaml"))
+        insights_file = list(build_dir.rglob("insights.csv"))
+
+        assert len(lineage_file) == 1
+        assert len(insights_file) == 1
 
     def test_end_to_end_failed_build(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
         cmd = BuildV2Command()

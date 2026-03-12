@@ -4,7 +4,8 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import httpx
 from cognite.client import global_config
-from pydantic import BaseModel, Field, JsonValue, TypeAdapter, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, model_validator
+from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIError
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
@@ -13,7 +14,11 @@ if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultMessage
 
 
-class HTTPResult(BaseModel):
+class HTTPBaseModel(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+
+class HTTPResult(HTTPBaseModel):
     def get_success_or_raise(self) -> "SuccessResponse":
         """Raises an exception if any response in the list indicates a failure."""
         if isinstance(self, SuccessResponse):
@@ -76,7 +81,7 @@ class SuccessResponse(HTTPResult):
         return TypeAdapter(dict[str, JsonValue]).validate_json(self.body)
 
 
-class ErrorDetails(BaseModel):
+class ErrorDetails(HTTPBaseModel):
     """This is the expected structure of error details in the CDF API"""
 
     code: int
@@ -89,17 +94,10 @@ class ErrorDetails(BaseModel):
     def from_response(cls, response: httpx.Response) -> "ErrorDetails":
         """Populate the error details from a httpx response."""
         try:
-            json_body = response.json()
-            res = TypeAdapter(dict[Literal["error"], ErrorDetails]).validate_python(json_body)
-        except (ValueError, KeyError):
+            res = TypeAdapter(dict[Literal["error"], ErrorDetails]).validate_json(response.text)
+        except ValueError:
             return cls(code=response.status_code, message=response.text)
-        error = res["error"]
-        header_value = response.headers.get("cdf-is-auto-retryable", "")
-        if header_value:
-            error.is_auto_retryable = header_value.lower() == "true"
-        else:
-            error.is_auto_retryable = json_body.get("error", {}).get("isAutoRetryable")
-        return error
+        return res["error"]
 
 
 class FailedResponse(HTTPResult):
@@ -108,7 +106,7 @@ class FailedResponse(HTTPResult):
     error: ErrorDetails
 
 
-class BaseRequestMessage(BaseModel, ABC):
+class BaseRequestMessage(HTTPBaseModel, ABC):
     endpoint_url: str
     method: Literal["GET", "POST", "PATCH", "DELETE", "PUT"]
     connect_attempt: int = 0

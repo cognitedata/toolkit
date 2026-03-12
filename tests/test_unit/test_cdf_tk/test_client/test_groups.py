@@ -277,11 +277,6 @@ class TestScopeLogic:
         with pytest.raises(TypeError, match="Cannot intersect unknown scopes"):
             scope_intersection(instance, instance)
 
-    def test_raises_unknown_scope_union(self) -> None:
-        instance = UnknownScope(scope_name="mystery")
-        with pytest.raises(TypeError, match="Cannot union unknown scopes"):
-            scope_union(instance, instance)
-
     def test_raises_unknown_scope_difference(self) -> None:
         instance = UnknownScope(scope_name="mystery")
         with pytest.raises(TypeError, match="Cannot difference unknown scopes"):
@@ -364,6 +359,18 @@ class TestScopeLogic:
         assert scope_union(AllScope(), scope) == AllScope()
         assert scope_union(scope, AllScope()) == AllScope()
         assert scope_union(scope, DataSetScope(ids=[1]), AllScope()) == AllScope()
+
+    def test_scope_union_of_unknown_scopes(self) -> None:
+        scope1 = UnknownScope.model_validate(dict(scope_name="mystery", someField=[1, 2]))
+        scope2 = UnknownScope.model_validate(dict(scope_name="mystery", someField=[2, 3]))
+        union = scope_union(scope1, scope2)
+        assert union.dump() == {"someField": [1, 2, 3]}
+
+    def test_scope_union_unknown_unhashable(self) -> None:
+        scope1 = UnknownScope.model_validate(dict(scope_name="mystery", someField=[{"key": [1]}]))
+        scope2 = UnknownScope.model_validate(dict(scope_name="mystery", someField=[{"key": [2]}]))
+        with pytest.raises(TypeError, match="Cannot union unknown scopes with unhashable fields"):
+            scope_union(scope1, scope2)
 
 
 class TestScopes:
