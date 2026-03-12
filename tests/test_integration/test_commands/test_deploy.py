@@ -141,8 +141,8 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
         if loader_cls in {HostedExtractorSourceCRUD, HostedExtractorDestinationCRUD}:
             # These resources we have no way of knowing if they have changed. So they are always redeployed.
             continue
-        if loader_cls in {DataProductCRUD, DataProductVersionCRUD}:
-            # Data Products API is not yet available on the test server.
+        if loader_cls in {DataProductCRUD, DataProductVersionCRUD, RuleSetCRUD, RuleSetVersionCRUD}:
+            # Data Products and Rule Sets APIs are not yet available on the test server.
             continue
         loader = loader_cls.create_loader(client, build_dir)
         worker = ResourceWorker(loader, "deploy")
