@@ -6,7 +6,7 @@ https://api-docs.cognite.com/20230101/tag/Token/operation/inspectToken
 
 from collections import UserDict, defaultdict
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, TypeAlias
 
 from cognite.client.data_classes.capabilities import UnknownScope
 from pydantic import JsonValue, model_validator
@@ -19,6 +19,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group.scope_logic import (
     scope_difference,
     scope_union,
 )
+
+AclName: TypeAlias = str
+AclAction: TypeAlias = str
 
 
 class InspectProjectInfo(BaseModelObject):
@@ -69,13 +72,16 @@ class InspectCapability(BaseModelObject):
         return value_copy
 
 
-class ProjectCapabilities(UserDict[tuple[type[Acl], str, str], Scope]):
+class ProjectCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
     """A helper class to represent the capabilities for a given CDF Project.
 
-    The capabilities are stored as a mapping from (ACL type, action) to scope, which allows for easy verification of ACLs against the capabilities.
+    The capabilities are stored as a mapping from (ACL type, AclName, action) to scope, which allows for easy verification of ACLs against the capabilities.
+    Note that AclName is included to account for UnknownAcls, which may have the same ACL type but different names, and thus different capabilities.
     """
 
-    def __init__(self, capabilities: dict[tuple[type[Acl], str, str], Scope], name: str, groups: list[int]) -> None:
+    def __init__(
+        self, capabilities: dict[tuple[type[Acl], AclName, AclAction], Scope], name: str, groups: list[int]
+    ) -> None:
         super().__init__(capabilities)
         self.name = name
         self.groups = groups
@@ -89,7 +95,9 @@ class ProjectCapabilities(UserDict[tuple[type[Acl], str, str], Scope]):
         Returns:
             The list of ACLs that are not covered by the capabilities in this project.
         """
-        missing_actions_by_type_and_scope: dict[tuple[type[Acl], str, ScopeDefinition], list[str]] = defaultdict(list)
+        missing_actions_by_type_and_scope: dict[tuple[type[Acl], AclName, ScopeDefinition], list[str]] = defaultdict(
+            list
+        )
         for acl in acls:
             for action in acl.actions:
                 key = (type(acl), acl.acl_name, action)
@@ -129,7 +137,7 @@ class InspectResponse(BaseModelObject):
         if project_info is None:
             raise ValueError(f"Project '{project}' not found in inspect response")
 
-        scopes_by_acl_action: dict[tuple[type[Acl], str, str], list[Scope]] = defaultdict(list)
+        scopes_by_acl_action: dict[tuple[type[Acl], AclName, AclAction], list[Scope]] = defaultdict(list)
         for capability in self.capabilities:
             if not (
                 isinstance(capability.project_scope, AllProjects)
@@ -141,14 +149,14 @@ class InspectResponse(BaseModelObject):
                     capability.acl.scope
                 )
 
-        scope_by_acl_action: dict[tuple[type[Acl], str, str], Scope] = {}
+        scope_by_acl_action: dict[tuple[type[Acl], AclName, AclAction], Scope] = {}
         for key, scopes in scopes_by_acl_action.items():
             try:
                 union = scope_union(*scopes)
             except TypeError:
                 if any(isinstance(scope, UnknownScope) for scope in scopes):
-                    # We use this to verify whether we have the required capabilities. We will never check
-                    # for an unknown ACL and unknown scope, thus we can safely ignore the TypeError due to
+                    # We use ProjectCapabilities to verify whether we have a specific set of required capabilities.
+                    # We will never check for an unknown ACL and unknown scope, thus we can safely ignore the TypeError due to
                     # an UnknownScope being unhashable.
                     continue
                 raise
