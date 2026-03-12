@@ -147,7 +147,6 @@ def create_default_record_property_mappings() -> list[RecordPropertyMapping]:
             external_id=EVENT_RECORD_ID,
             resource_type="event",
             container_id=ContainerId(space="cdf_cdm", external_id="CogniteActivity"),
-            stream_external_id="cognite_activity",
             property_mapping={
                 "startTime": "startTime",
                 "endTime": "endTime",

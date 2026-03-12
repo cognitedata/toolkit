@@ -248,13 +248,6 @@ class RecordsMapper(
                 f"The following record property mappings were not found: {humanize_collection(missing_mappings)}"
             )
 
-    @property
-    def stream_external_id(self) -> str:
-        """Return the stream external ID from the first mapping. All mappings for a single run target the same stream."""
-        if not self._record_mapping_by_id:
-            raise ToolkitValueError("No record property mappings loaded. Did you forget to call .prepare()?")
-        return next(iter(self._record_mapping_by_id.values())).stream_external_id
-
     def map(
         self, source: Sequence[AssetCentricMapping[T_AssetCentricResourceExtended]]
     ) -> Sequence[RecordRequest | None]:

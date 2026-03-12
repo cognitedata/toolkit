@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsFailedRequest,
@@ -262,6 +263,15 @@ class MigrationCommand(ToolkitCommand):
             return None
 
         return upload_items
+
+    @staticmethod
+    def validate_stream_exists(client: ToolkitClient, stream_external_id: str) -> None:
+        results = client.streams.retrieve([ExternalId(external_id=stream_external_id)], ignore_unknown_ids=True)
+        if not results:
+            raise ToolkitMigrationError(
+                f"Stream '{stream_external_id}' does not exist. "
+                "Please create the stream before running a records migration."
+            )
 
     @staticmethod
     def validate_migration_model_available(client: ToolkitClient) -> None:
