@@ -311,7 +311,7 @@ class BuildV2Command(ToolkitCommand):
         crud_class = class_by_kind.get(kind.lower())
         if not crud_class:
             error = self._create_failed_read_resource_for_invalid_kind(
-                resource_file, kind, folder_name, class_by_kind.keys()
+                resource_file, kind, folder_name, [c.kind for c in class_by_kind.values()]
             )
             return [FailedReadResource(source_path=resource_file, errors=[error])]
         error_or_string = self._read_resource_file(resource_file)
