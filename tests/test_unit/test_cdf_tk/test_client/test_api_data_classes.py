@@ -406,7 +406,8 @@ class TestDataSetRequest:
         assert dataset_request.dump() == {
             "externalId": "dataset_1",
             "name": "Dataset 1",
-            "metadata": {"archived": "True"},
+            # In addition, we need it to be lowercased.
+            "metadata": {"archived": "true"},
         }
 
 
