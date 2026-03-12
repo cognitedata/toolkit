@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.cruds import (
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.data_product import DataProductCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.data_product_version import DataProductVersionCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.location import LocationFilterCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.rulesets import RuleSetCRUD, RuleSetVersionCRUD
 from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeployResult
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import remove_trailing_newline
@@ -99,10 +100,10 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
     deploy_command = DeployCommand(silent=False, skip_tracking=True)
     client_id = os.environ["IDP_CLIENT_ID"]
     client_secret = os.environ["IDP_CLIENT_SECRET"]
-    # Data Products API is not yet available on the test server.
-    # The alpha flag is turned off in cdf.toml so data products are not built,
-    # but we still exclude the CRUD to be safe.
-    _skip_cruds = {DataProductCRUD, DataProductVersionCRUD}
+    # Data Products and Rule Sets APIs are not yet available on the test server.
+    # The alpha flag is turned off in cdf.toml so these are not built,
+    # but we still exclude the CRUDs to be safe.
+    _skip_cruds = {DataProductCRUD, DataProductVersionCRUD, RuleSetCRUD, RuleSetVersionCRUD}
     with (
         patch.dict(
             os.environ,
