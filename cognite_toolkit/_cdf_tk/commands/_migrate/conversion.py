@@ -31,15 +31,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
     ViewResponseProperty,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest, RecordSource
-from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
-    ResourceContainerMappingRequest,
-    ResourceViewMappingRequest,
-)
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.utils.collection import flatten_dict_json_path
@@ -306,20 +303,19 @@ def asset_centric_to_dm(
 def asset_centric_to_record(
     resource: AssetCentricResourceExtended,
     instance_id: NodeId,
-    container_source: ResourceContainerMappingRequest,
-    property_mapping_values: dict[str, str],
+    record_mapping: RecordPropertyMapping,
 ) -> tuple[RecordRequest | None, ConversionIssue]:
     """Convert an asset-centric resource to a record request.
 
     Args:
         resource: The asset-centric resource to convert.
         instance_id: The target record space and external_id.
-        container_source: The container mapping defining the target container and property mapping.
-        property_mapping_values: The resolved property mapping (event field -> container property).
+        record_mapping: The record property mapping defining the target container and property mapping.
 
     Returns:
         A tuple of the RecordRequest (or None on failure) and any conversion issues.
     """
+    property_mapping_values = record_mapping.property_mapping
     resource_type = _lookup_resource_type(resource)
     dumped = resource.dump()
     try:
@@ -357,7 +353,7 @@ def asset_centric_to_record(
     if properties:
         sources.append(
             RecordSource(
-                source=container_source.container_id,
+                source=record_mapping.container_id,
                 properties=properties,
             )
         )

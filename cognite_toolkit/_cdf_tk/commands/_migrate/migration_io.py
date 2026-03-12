@@ -266,9 +266,9 @@ class RecordsMigrationIO(
     # The endpoint template; stream_external_id is formatted in at upload time.
     UPLOAD_ENDPOINT = "/streams/{streamId}/records"
 
-    def __init__(self, client: ToolkitClient, stream_external_id: str) -> None:
+    def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
-        self.stream_external_id = stream_external_id
+        self.stream_external_id: str | None = None
         self.hierarchy = HierarchyIO(client)
 
     def as_id(self, item: AssetCentricMapping) -> str:
@@ -338,6 +338,8 @@ class RecordsMigrationIO(
         http_client: HTTPClient,
         selector: AssetCentricMigrationSelector | None = None,
     ) -> ItemsResultList:
+        if self.stream_external_id is None:
+            raise ToolkitValueError("stream_external_id must be set before uploading records.")
         endpoint = self.UPLOAD_ENDPOINT.format(streamId=self.stream_external_id)
         return http_client.request_items_retries(
             message=ItemsRequest(

@@ -38,10 +38,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
     ViewResponseProperty,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     RESOURCE_VIEW_MAPPING_SPACE,
-    ResourceContainerMappingRequest,
     ResourceViewMappingRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
@@ -68,8 +68,8 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     ThreeDRevisionMigrationRequest,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
-    create_default_container_mappings,
     create_default_mappings,
+    create_default_record_property_mappings,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     CanvasMigrationIssue,
@@ -235,18 +235,25 @@ class RecordsMapper(
 ):
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
-        self._container_mapping_by_id: dict[str, ResourceContainerMappingRequest] = {}
+        self._record_mapping_by_id: dict[str, RecordPropertyMapping] = {}
 
     def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
         ingestion_mapping_ids = source_selector.get_ingestion_mappings()
-        defaults = {mapping.external_id: mapping for mapping in create_default_container_mappings()}
-        # TODO: Load custom ResourceContainerMapping nodes from CDF (parallel to how view mappings are loaded)
-        self._container_mapping_by_id = defaults
-        missing_mappings = set(ingestion_mapping_ids) - set(self._container_mapping_by_id.keys())
+        defaults = {mapping.external_id: mapping for mapping in create_default_record_property_mappings()}
+        # TODO: Load custom RecordPropertyMapping nodes from CDF (parallel to how view mappings are loaded)
+        self._record_mapping_by_id = defaults
+        missing_mappings = set(ingestion_mapping_ids) - set(self._record_mapping_by_id.keys())
         if missing_mappings:
             raise ToolkitValueError(
-                f"The following container mappings were not found: {humanize_collection(missing_mappings)}"
+                f"The following record property mappings were not found: {humanize_collection(missing_mappings)}"
             )
+
+    @property
+    def stream_external_id(self) -> str:
+        """Return the stream external ID from the first mapping. All mappings for a single run target the same stream."""
+        if not self._record_mapping_by_id:
+            raise ToolkitValueError("No record property mappings loaded. Did you forget to call .prepare()?")
+        return next(iter(self._record_mapping_by_id.values())).stream_external_id
 
     def map(
         self, source: Sequence[AssetCentricMapping[T_AssetCentricResourceExtended]]
@@ -280,16 +287,15 @@ class RecordsMapper(
         mapping = item.mapping
         ingestion_view = mapping.get_ingestion_view()
         try:
-            container_source = self._container_mapping_by_id[ingestion_view]
+            record_mapping = self._record_mapping_by_id[ingestion_view]
         except KeyError as e:
             raise RuntimeError(
-                f"Failed to lookup container mapping '{ingestion_view}'. Did you forget to call .prepare()?"
+                f"Failed to lookup record property mapping '{ingestion_view}'. Did you forget to call .prepare()?"
             ) from e
         record, conversion_issue = asset_centric_to_record(
             item.resource,
             instance_id=NodeId(space=mapping.instance_id.space, external_id=mapping.instance_id.external_id),
-            container_source=container_source,
-            property_mapping_values=container_source.property_mapping,
+            record_mapping=record_mapping,
         )
         if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
             conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {mapping.data_set_id!r}"

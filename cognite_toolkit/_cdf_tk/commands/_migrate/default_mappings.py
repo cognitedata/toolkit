@@ -2,10 +2,8 @@ from functools import lru_cache
 
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
-from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
-    ResourceContainerMappingRequest,
-    ResourceViewMappingRequest,
-)
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
 
 ASSET_ID = "cdf_asset_mapping"
 EVENT_ID = "cdf_event_mapping"
@@ -142,13 +140,14 @@ def create_default_mappings() -> list[ResourceViewMappingRequest]:
 
 
 @lru_cache(maxsize=1)
-def create_default_container_mappings() -> list[ResourceContainerMappingRequest]:
-    """Return the default container mappings for record-based migration."""
+def create_default_record_property_mappings() -> list[RecordPropertyMapping]:
+    """Return the default record property mappings for record-based migration."""
     return [
-        ResourceContainerMappingRequest(
+        RecordPropertyMapping(
             external_id=EVENT_RECORD_ID,
             resource_type="event",
             container_id=ContainerId(space="cdf_cdm", external_id="CogniteActivity"),
+            stream_external_id="cognite_activity",
             property_mapping={
                 "startTime": "startTime",
                 "endTime": "endTime",

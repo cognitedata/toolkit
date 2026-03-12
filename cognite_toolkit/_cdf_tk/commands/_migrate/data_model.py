@@ -143,6 +143,10 @@ RESOURCE_CONTAINER_MAPPING = ContainerRequest(
             type=JSONProperty(),
             nullable=False,
         ),
+        "streamExternalId": ContainerPropertyDefinition(
+            type=TextProperty(max_text_size=255),
+            nullable=False,
+        ),
         "propertyMapping": ContainerPropertyDefinition(
             type=JSONProperty(),
             nullable=False,
@@ -268,6 +272,10 @@ RESOURCE_CONTAINER_MAPPING_VIEW = ViewRequest(
         "containerId": ViewCorePropertyRequest(
             container=RESOURCE_CONTAINER_MAPPING.as_id(),
             container_property_identifier="containerId",
+        ),
+        "streamExternalId": ViewCorePropertyRequest(
+            container=RESOURCE_CONTAINER_MAPPING.as_id(),
+            container_property_identifier="streamExternalId",
         ),
         "propertyMapping": ViewCorePropertyRequest(
             container=RESOURCE_CONTAINER_MAPPING.as_id(),

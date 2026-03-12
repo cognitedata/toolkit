@@ -516,13 +516,6 @@ class MigrateApp(typer.Typer):
                 "'records' writes to a records stream.",
             ),
         ] = "instances",
-        stream_id: Annotated[
-            str | None,
-            typer.Option(
-                "--stream-id",
-                help="The external ID of the stream to write records to. Required when --target is 'records'.",
-            ),
-        ] = None,
         event_type: Annotated[
             str | None,
             typer.Option(
@@ -573,8 +566,6 @@ class MigrateApp(typer.Typer):
         """Migrate Events to CogniteActivity (instances) or to records."""
         if target not in ("instances", "records"):
             raise typer.BadParameter(f"Invalid target '{target}'. Must be 'instances' or 'records'.")
-        if target == "records" and stream_id is None:
-            raise typer.BadParameter("--stream-id is required when --target is 'records'.")
 
         client = EnvironmentVariables.create_from_environment().get_client()
         selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
@@ -596,12 +587,15 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
 
         if target == "records":
-            assert stream_id is not None
+            records_mapper = RecordsMapper(client)
+            records_mapper.prepare(selected)
+            records_io = RecordsMigrationIO(client)
+            records_io.stream_external_id = records_mapper.stream_external_id
             cmd.run(
                 lambda: cmd.migrate(
                     selectors=[selected],
-                    data=RecordsMigrationIO(client, stream_external_id=stream_id),
-                    mapper=RecordsMapper(client),
+                    data=records_io,
+                    mapper=records_mapper,
                     log_dir=log_dir,
                     dry_run=dry_run,
                     verbose=verbose,
