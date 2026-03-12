@@ -4,17 +4,22 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import httpx
 from cognite.client import global_config
-from pydantic import BaseModel, Field, JsonValue, TypeAdapter, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, model_validator
 
 from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.request_classes.base import BaseModelRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
+
+from pydantic.alias_generators import to_camel
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultMessage
 
 
-class HTTPResult(BaseModel):
+class HTTPBaseModel(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+
+class HTTPResult(HTTPBaseModel):
     def get_success_or_raise(self) -> "SuccessResponse":
         """Raises an exception if any response in the list indicates a failure."""
         if isinstance(self, SuccessResponse):
@@ -77,7 +82,7 @@ class SuccessResponse(HTTPResult):
         return TypeAdapter(dict[str, JsonValue]).validate_json(self.body)
 
 
-class ErrorDetails(BaseModelRequest):
+class ErrorDetails(HTTPBaseModel):
     """This is the expected structure of error details in the CDF API"""
 
     code: int
@@ -102,7 +107,7 @@ class FailedResponse(HTTPResult):
     error: ErrorDetails
 
 
-class BaseRequestMessage(BaseModel, ABC):
+class BaseRequestMessage(HTTPBaseModel, ABC):
     endpoint_url: str
     method: Literal["GET", "POST", "PATCH", "DELETE", "PUT"]
     connect_attempt: int = 0
