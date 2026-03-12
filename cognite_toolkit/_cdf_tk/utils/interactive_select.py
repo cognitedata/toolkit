@@ -407,16 +407,7 @@ class InteractiveChartSelect:
         return user_response
 
     def _select_external_ids(self, select_filter: ChartFilter) -> list[str]:
-        if missing_acls := self.client.tool.token.verify_acls(
-            [
-                ChartsAdminAcl(
-                    actions=[
-                        "READ",
-                    ],
-                    scope=AllScope(),
-                )
-            ]
-        ):
+        if missing_acls := self.client.tool.token.verify_acls([ChartsAdminAcl(actions=["READ"], scope=AllScope())]):
             raise self.client.tool.token.create_error(missing_acls, action="list charts for interactive selection")
 
         available_charts = self.client.charts.list(visibility=select_filter.visibility)
