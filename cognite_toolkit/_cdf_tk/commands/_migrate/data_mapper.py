@@ -708,12 +708,18 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
         self._connection_creator.update_view_cache(views)
 
     def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
-        if (
-            self._custom_instance_mappings
-            and (first_view_id := self._get_first_view_id(source)) in self._custom_instance_mappings
-            and first_view_id is not None
+        if self._custom_instance_mappings and (
+            intersecting_view_ids := (self._get_view_ids(source) & set(self._custom_instance_mappings))
         ):
-            return self._custom_instance_mappings[first_view_id].map(source)
+            if len(intersecting_view_ids) == 1:
+                intersection_view_id = next(iter(intersecting_view_ids))
+                return self._custom_instance_mappings[intersection_view_id].map(source)
+            else:
+                # This is caused by the selector used to download the instance responses not matching the expectation in
+                # the mapper.
+                raise NotImplementedError(
+                    "Bug in Toolkit: There should be at most one intersecting view when using custom mapping of instances."
+                )
         self._connection_creator.update_cache(source)
         nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)
         mapped_instances: list[InstanceRequest | None] = []
@@ -739,16 +745,13 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
             self.logger.log(issue_list)
         return mapped_instances
 
-    def _get_first_view_id(self, source: Sequence[InstanceResponse]) -> ViewId | None:
-        if not source:
-            return None
-        first = source[0]
-        if first.properties is None or not first.properties:
-            return None
-        first_view_id = next(iter(first.properties.keys()))
-        if not isinstance(first_view_id, ViewId):
-            return None
-        return first_view_id
+    def _get_view_ids(self, source: Sequence[InstanceResponse]) -> set[ViewId]:
+        return {
+            view_or_container_id
+            for item in source
+            for view_or_container_id in (item.properties or {}).keys()
+            if isinstance(view_or_container_id, ViewId)
+        }
 
     def _as_nodes_and_edges(
         self, source: Sequence[NodeResponse | EdgeResponse]
@@ -908,6 +911,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
     """
 
     SCHEDULE_VIEW = ViewId(space="cdf_apm", external_id="Schedule", version="v4")
+    TEMPLATE_VIEW = ViewId(space="cdf_apm", external_id="Template", version="v8")
     TEMPLATE_EDGE_TYPE = NodeId(space="cdf_apm", external_id="referenceTemplateItems")
     TEMPLATE_ITEM_EDGE_TYPE = NodeId(space="cdf_apm", external_id="referenceSchedules")
     UNIQUE_SCHEDULE_PROPERTIES: ClassVar[tuple[str, ...]] = (
@@ -970,9 +974,14 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
         issues: list[InstanceConversionIssue] = []
         for item in source:
             if isinstance(item, NodeResponse):
-                if schedule_properties := (item.properties or {}).get(self.SCHEDULE_VIEW):
+                item_properties = item.properties or {}
+                if schedule_properties := item_properties.get(self.SCHEDULE_VIEW):
                     schedule_hash = self._calculate_schedule_hash(schedule_properties)
                     schedules[schedule_hash].append(item)
+                elif self.TEMPLATE_VIEW in item_properties:
+                    # The template nodes are included to do pagination correctly (one page per template),
+                    # but we do not need the templates, so we can safely ignore them.
+                    continue
                 else:
                     issues.append(
                         InstanceConversionIssue(
