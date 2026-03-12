@@ -11,14 +11,12 @@ from pydantic import (
     computed_field,
     field_serializer,
 )
+from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuildParameters, BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     ModelSyntaxError,
-)
-from tests.data.complete_org_alpha_flags.modules.my_example_module.functions.fn_multi_file_function.other_module import (
-    to_camel,
 )
 
 from ._types import AbsoluteDirPath, AbsoluteFilePath
