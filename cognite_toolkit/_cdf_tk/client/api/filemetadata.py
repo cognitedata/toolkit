@@ -193,7 +193,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
                 )
             )
             if isinstance(response, SuccessResponse):
-                results.append(FileMetadataResponse.model_validate_json(response.body))
+                results.extend(ResponseItems[FileMetadataResponse].model_validate_json(response.body).items)
             elif ignore_unknown_ids:
                 continue
             else:
