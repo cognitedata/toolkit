@@ -98,11 +98,6 @@ class Flags(Enum):
         visible=True,
         description="Enables JSON output format for the modules list command",
     )
-    DEPENDENCY_ORDERED_DEPLOY = FlagMetadata(
-        visible=True,
-        description="Enables dependency-ordered deployment of views to avoid dependency errors",
-    )
-
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
 
