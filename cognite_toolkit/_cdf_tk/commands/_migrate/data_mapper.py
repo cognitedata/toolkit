@@ -38,6 +38,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
     ViewResponseProperty,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope
+from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdminAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     RESOURCE_VIEW_MAPPING_SPACE,
     ResourceViewMappingRequest,
@@ -225,6 +227,12 @@ class AssetCentricMapper(
 
 
 class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
+    def prepare(self, source_selector: ChartSelector) -> None:
+        if missing_acl := self.client.tool.token.verify_acls(
+            [ChartsAdminAcl(actions=["READ", "UPDATE"], scope=AllScope())]
+        ):
+            raise self.client.tool.token.create_error(missing_acl, action="migrate charts")
+
     def map(self, source: Sequence[ChartResponse]) -> Sequence[ChartRequest | None]:
         self._populate_cache(source)
         output: list[ChartRequest | None] = []
