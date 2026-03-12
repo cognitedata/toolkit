@@ -165,7 +165,8 @@ class PostgresGatewayUsersScope(ScopeDefinition):
 class UnknownScope(ScopeDefinition):
     """Fallback class for unknown scope definitions."""
 
-    scope_name: str
+    model_config = ConfigDict(extra="allow")
+    scope_name: str = Field(exclude=True)
 
 
 def _get_scope_name(cls: type[ScopeDefinition]) -> str | None:
@@ -184,10 +185,11 @@ _KNOWN_SCOPES = {
 
 
 def _handle_unknown_scope(value: Any) -> Any:
-    if isinstance(value, dict) and isinstance(scope_name := value.get(SCOPE_NAME), str):
+    if isinstance(value, dict) and isinstance(scope_name := value.pop(SCOPE_NAME, None), str):
         scope_class = _KNOWN_SCOPES.get(scope_name)
         if scope_class:
             return TypeAdapter(scope_class).validate_python(value)
+        return UnknownScope.model_validate({**value, "scopeName": scope_name})
     return UnknownScope.model_validate(value)
 
 

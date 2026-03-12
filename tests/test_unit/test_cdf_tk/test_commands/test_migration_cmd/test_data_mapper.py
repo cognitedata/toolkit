@@ -7,6 +7,7 @@ import pytest
 import yaml
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes.data_modeling import InstanceApply
+from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, NodeId, ViewDirectId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
@@ -44,6 +45,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.commands._migrate.conversion import ConnectionCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     AssetCentricMapping,
     AssetCentricMappingList,
@@ -53,6 +55,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     AssetCentricMapper,
     CanvasMapper,
     FDMtoCDMMapper,
+    InFieldLegacyToCDMScheduleMapper,
     ThreeDAssetMapper,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
@@ -661,8 +664,175 @@ class TestFDMtoCDMMapper:
             mapping = self.VIEW_MAPPING.model_copy(
                 update={"container_mapping": container_mapping, "edge_mapping": edge_mapping}
             )
-            mapper = FDMtoCDMMapper(client, self.SPACE_MAPPING, [mapping])
+            connection_creator = ConnectionCreator(client, space_mapping=self.SPACE_MAPPING)
+            mapper = FDMtoCDMMapper(client, [mapping], connection_creator)
             mapper.prepare(MagicMock())
 
             actual = mapper.map(instances)
             assert [item.dump() for item in actual] == [item.dump() for item in expected]
+
+
+class TestInFieldLegacyToCDMScheduleMapper:
+    SOURCE_SPACE = "source_space"
+    TARGET_SPACE = "target_space"
+    SCHEDULE_VIEW = ViewId(space="cdf_apm", external_id="Schedule", version="v4")
+    DEST_VIEW_ID = ViewId(
+        space="infield_cdm_source_desc_sche_asset_file_ts",
+        external_id="Schedule",
+        version="v1",
+    )
+    CONTAINER_ID = ContainerId(space="infield_cdm_source_desc_sche_asset_file_ts", external_id="Schedule")
+    TEMPLATE_EDGE_TYPE = NodeId(space="cdf_apm", external_id="referenceTemplateItems")
+    TEMPLATE_ITEM_EDGE_TYPE = NodeId(space="cdf_apm", external_id="referenceSchedules")
+    SPACE_MAPPING: Mapping[str, str] = {SOURCE_SPACE: TARGET_SPACE}
+
+    GROUP_A_PROPS: ClassVar[dict[str, Any]] = {
+        "until": "2026-01-01T00:00:00Z",
+        "freq": "WEEKLY",
+        "interval": "1",
+        "timezone": "UTC",
+        "status": "active",
+        "startTime": "2025-01-01T08:00:00Z",
+        "endTime": "2026-12-31T16:00:00Z",
+    }
+    GROUP_B_PROPS: ClassVar[dict[str, Any]] = {
+        "until": "2027-06-01T00:00:00Z",
+        "freq": "MONTHLY",
+        "interval": "2",
+        "timezone": "Europe/Oslo",
+        "status": "active",
+        "startTime": "2025-06-01T08:00:00Z",
+        "endTime": "2027-05-31T16:00:00Z",
+    }
+
+    DEFAULT_VIEW_ARGS: ClassVar[dict[str, Any]] = dict(
+        created_time=0,
+        last_updated_time=1,
+        writable=True,
+        queryable=True,
+        used_for="node",
+        is_global=False,
+        mapped_containers=[],
+    )
+
+    @pytest.fixture
+    def schedule_instance_data(self) -> list[InstanceResponse]:
+        """Creates a test case for InField Schedule mapping.
+
+        The consist of 5 schedules, where they are 2 unique schedules (2 + 3).
+        All schedules are connected to a simple template and several template item.
+        """
+        template = NodeId(space=self.SOURCE_SPACE, external_id="template_1")
+        items = [NodeId(space=self.SOURCE_SPACE, external_id=f"item_{i}") for i in range(1, 6)]
+        schedule_external_ids = ["schedule_a1", "schedule_a2", "schedule_b1", "schedule_b2", "schedule_b3"]
+        schedule_props = [
+            self.GROUP_A_PROPS,
+            self.GROUP_A_PROPS,
+            self.GROUP_B_PROPS,
+            self.GROUP_B_PROPS,
+            self.GROUP_B_PROPS,
+        ]
+
+        schedules: list[InstanceResponse] = [
+            NodeResponse(
+                space=self.SOURCE_SPACE,
+                external_id=ext_id,
+                created_time=100,
+                last_updated_time=200,
+                version=1,
+                properties={self.SCHEDULE_VIEW: props.copy()},
+            )
+            for ext_id, props in zip(schedule_external_ids, schedule_props)
+        ]
+
+        template_to_item_edges: list[InstanceResponse] = [
+            EdgeResponse(
+                space=self.SOURCE_SPACE,
+                external_id=f"edge_template_item_{i}",
+                created_time=0,
+                last_updated_time=0,
+                version=1,
+                type=self.TEMPLATE_EDGE_TYPE,
+                start_node=template,
+                end_node=items[i - 1],
+            )
+            for i in range(1, 6)
+        ]
+
+        item_to_schedule_edges: list[InstanceResponse] = [
+            EdgeResponse(
+                space=self.SOURCE_SPACE,
+                external_id=f"edge_item_{ext_id}",
+                created_time=0,
+                last_updated_time=0,
+                version=1,
+                type=self.TEMPLATE_ITEM_EDGE_TYPE,
+                start_node=items[i],
+                end_node=NodeId(space=self.SOURCE_SPACE, external_id=ext_id),
+            )
+            for i, ext_id in enumerate(schedule_external_ids)
+        ]
+
+        return schedules + template_to_item_edges + item_to_schedule_edges
+
+    def test_map(
+        self,
+        schedule_instance_data: list[InstanceResponse],
+        data_regression: DataRegressionFixture,
+    ) -> None:
+        # Mock of the destination Schedlue view.
+        dest_view = ViewResponse(
+            space=self.DEST_VIEW_ID.space,
+            external_id=self.DEST_VIEW_ID.external_id,
+            version=self.DEST_VIEW_ID.version,
+            **self.DEFAULT_VIEW_ARGS,
+            properties={
+                **{
+                    prop: ViewCorePropertyResponse(
+                        constraint_state=ConstraintOrIndexState(),
+                        type=TextProperty(),
+                        container_property_identifier=prop,
+                        container=self.CONTAINER_ID,
+                        nullable=True,
+                    )
+                    for prop in ["until", "freq", "interval", "timezone", "status", "startTime", "endTime"]
+                },
+                "template": ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=DirectNodeRelation(),
+                    container_property_identifier="template",
+                    container=self.CONTAINER_ID,
+                ),
+                "templateItems": ViewCorePropertyResponse(
+                    constraint_state=ConstraintOrIndexState(),
+                    type=DirectNodeRelation(list=True),
+                    container_property_identifier="templateItems",
+                    container=self.CONTAINER_ID,
+                ),
+            },
+        )
+
+        mapping = ViewToViewMapping(
+            external_id="InFieldScheduleMapping",
+            source_view=self.SCHEDULE_VIEW,
+            destination_view=self.DEST_VIEW_ID,
+            map_identical_id_properties=True,
+            container_mapping={
+                "node.createdTime": "sourceCreatedTime",
+                "node.lastUpdatedTime": "sourceUpdatedTime",
+            },
+        )
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.views.retrieve.return_value = [dest_view]
+
+            connection_creator = ConnectionCreator(client, space_mapping=self.SPACE_MAPPING)
+            mapper = InFieldLegacyToCDMScheduleMapper(client, connection_creator, mapping)
+            mapper.prepare(MagicMock())
+
+            result = mapper.map(schedule_instance_data)
+
+        mapped_schedules = [r for r in result if r is not None]
+        assert len(mapped_schedules) == 2
+
+        data_regression.check({"schedules": [s.dump() for s in mapped_schedules]})

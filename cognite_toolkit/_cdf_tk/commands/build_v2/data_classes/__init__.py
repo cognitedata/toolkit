@@ -1,6 +1,12 @@
-from ._build import BuildFolder, BuildParameters, BuildSourceFiles, BuiltModule
+from ._build import (
+    BuildFolder,
+    BuildParameters,
+    BuildSourceFiles,
+    BuiltModule,
+)
 from ._config import ConfigYAML
 from ._insights import ConsistencyError, Insight, InsightList, ModelSyntaxError, Recommendation
+from ._lineage import BuildLineage
 from ._module import (
     BuildVariable,
     FailedReadResource,
@@ -15,6 +21,7 @@ from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath, Validati
 __all__ = [
     "AbsoluteDirPath",
     "BuildFolder",
+    "BuildLineage",
     "BuildParameters",
     "BuildSourceFiles",
     "BuildVariable",

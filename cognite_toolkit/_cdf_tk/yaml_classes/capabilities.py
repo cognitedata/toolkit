@@ -204,6 +204,14 @@ class ChartsAdminAcl(Capability):
     scope: AllScope
 
 
+class DataProductsAcl(Capability):
+    """ACL for Data Products resources."""
+
+    _capability_name = "dataProductsAcl"
+    actions: list[Literal["CREATE", "READ", "UPDATE", "DELETE"]]
+    scope: AllScope
+
+
 class DataSetsAcl(Capability):
     _capability_name = "datasetsAcl"
     actions: list[Literal["READ", "WRITE", "OWNER"]]
