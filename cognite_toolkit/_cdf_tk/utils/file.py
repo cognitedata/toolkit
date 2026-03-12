@@ -201,6 +201,12 @@ def sanitize_filename(text: str) -> str:
     return re.sub(r"_+", "_", cleaned)
 
 
+def validate_safe_path(name: str) -> None:
+    """Reject path traversal sequences in user-provided identifiers."""
+    if ".." in name or "/" in name or "\\" in name:
+        raise ValueError(f"Invalid identifier {name!r}: must not contain path separators or '..'")
+
+
 @contextmanager
 def tmp_build_directory() -> typing.Generator[Path, None, None]:
     build_dir = Path(tempfile.mkdtemp(prefix="build.", suffix=".tmp", dir=Path.cwd()))

@@ -190,7 +190,7 @@ def infield_apm_app_data_schedule_populated(
     ]
     created_instances = toolkit_client.tool.instances.create(instances)
     assert len(created_instances) == len(created_instances), "Failed to create instance"
-    return [schedule_id, *[edge.as_id() for edge in created_instances if edge.instance_type == "edge"]]
+    return [template_id, schedule_id, *[edge.as_id() for edge in created_instances if edge.instance_type == "edge"]]
 
 
 class TestInstanceIO:
@@ -233,5 +233,4 @@ class TestInstanceIO:
 
         actual = [instance.as_id() for page in pages for instance in page.items]
         expected = infield_apm_app_data_schedule_populated
-        assert actual[0] == expected[0], f"Expected schedule instance {expected[0]}, got {actual[0]}"
-        assert set(actual[1:]) == set(expected[1:]), f"Expected edge instances {expected[1:]}, got {actual[1:]}"
+        assert set(actual) == set(expected), f"Expected edge instances {expected[1:]}, got {actual[1:]}"

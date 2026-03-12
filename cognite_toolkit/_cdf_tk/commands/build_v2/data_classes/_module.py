@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND, 
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
-from ._insights import ConsistencyError, ModelSyntaxError, Recommendation
+from ._insights import InsightList, ModelSyntaxError
 from ._types import AbsoluteFilePath, RelativeDirPath
 
 
@@ -52,22 +52,26 @@ class FailedReadResource(ReadResource):
 
 
 class SuccessfulReadResource(ReadResource):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     source_hash: str
     resource_type: ResourceType
     resource: ToolkitResource
-    insights: list[Recommendation] = Field(default_factory=list)
+    insights: InsightList = Field(default_factory=InsightList)
 
 
 class Module(BaseModel):
     """Class used to store module in-memory"""
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     source: ModuleSource
     resources: list[ReadResource] = Field(default_factory=list)
-    insights: list[Recommendation | ConsistencyError] = Field(default_factory=list)
+    insights: InsightList = Field(default_factory=InsightList)
 
     @property
     def is_success(self) -> bool:
-        return all(isinstance(resource, SuccessfulReadResource) for resource in self.resources)
+        return not self.insights.has_errors and all(
+            isinstance(resource, SuccessfulReadResource) for resource in self.resources
+        )
 
     @cached_property
     def dependencies(self) -> dict[AbsoluteFilePath, set[tuple[type[ResourceCRUD], Identifier]]]:

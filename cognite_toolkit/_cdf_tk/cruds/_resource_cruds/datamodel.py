@@ -28,7 +28,6 @@ from cognite.client.data_classes import capabilities as cap
 from cognite.client.data_classes import filters
 from rich import print
 from rich.console import Console
-from rich.markup import escape
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk import constants
@@ -99,7 +98,6 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import (
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
@@ -816,27 +814,10 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
-        if Flags.DEPENDENCY_ORDERED_DEPLOY.is_enabled():
-            return self._create_dependency_ordered(items)
-        try:
-            return self.client.tool.views.create(items)
-        except ToolkitAPIError as e1:
-            if e1.is_auto_retryable:
-                # Fallback to creating one by one if the error is auto-retryable.
-                return self._fallback_create_one_by_one(items, e1)
-            raise
-
-    def _create_dependency_ordered(self, items: Sequence[ViewRequest]) -> list[ViewResponse]:
         creation_order = self._compute_deploy_batches(items)
         created: list[ViewResponse] = []
         for batch in creation_order:
-            try:
-                created.extend(self.client.tool.views.create(batch))
-            except ToolkitAPIError as e:
-                if e.is_auto_retryable:
-                    created.extend(self._fallback_create_one_by_one(batch, e))
-                else:
-                    raise
+            created.extend(self.client.tool.views.create(batch))
         return created
 
     def _compute_deploy_batches(self, items: Sequence[ViewRequest]) -> list[list[ViewRequest]]:
@@ -885,23 +866,6 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
         if len(current_batch) > 0:
             batches.append(current_batch)
         return batches
-
-    def _fallback_create_one_by_one(
-        self, items: Sequence[ViewRequest], e1: ToolkitAPIError, warn: bool = True
-    ) -> list[ViewResponse]:
-        if warn:
-            MediumSeverityWarning(
-                f"Failed to create {len(items)} views error:\n{escape(str(e1))}\n\n----------------------------\nTrying to create one by one..."
-            ).print_warning(include_timestamp=True, console=self.console)
-        created_list: list[ViewResponse] = []
-        for no, item in enumerate(items):
-            try:
-                created = self.client.tool.views.create([item])
-            except ToolkitAPIError as e2:
-                raise e2 from e1
-            else:
-                created_list.extend(created)
-        return created_list
 
     def retrieve(self, ids: Sequence[ViewId]) -> list[ViewResponse]:
         return self.client.tool.views.retrieve(list(ids), include_inherited_properties=False)

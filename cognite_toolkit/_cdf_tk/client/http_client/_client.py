@@ -202,17 +202,20 @@ class HTTPClient:
                 body=response.text,
                 content=response.content,
             )
-        if request.retry_status and (retry_request := self._retry_request(response, request)):
+        error_details = ErrorDetails.from_response(response)
+        if request.retry_status and (retry_request := self._retry_request(response, request, error_details)):
             return retry_request
         else:
             # Permanent failure
             return FailedResponse(
                 status_code=response.status_code,
                 body=response.text,
-                error=ErrorDetails.from_response(response),
+                error=error_details,
             )
 
-    def _retry_request(self, response: httpx.Response, request: _T_Request_Message) -> _T_Request_Message | None:
+    def _retry_request(
+        self, response: httpx.Response, request: _T_Request_Message, error_details: ErrorDetails
+    ) -> _T_Request_Message | None:
         retry_after = self._get_retry_after_in_header(response)
         if retry_after is not None and response.status_code == 429 and request.status_attempt < self._max_retries:
             if self._console is not None:
@@ -224,7 +227,8 @@ class HTTPClient:
             time.sleep(retry_after)
             return request
 
-        if request.status_attempt < self._max_retries and response.status_code in self._retry_status_codes:
+        should_retry = response.status_code in self._retry_status_codes or error_details.is_auto_retryable is True
+        if request.status_attempt < self._max_retries and should_retry:
             request.status_attempt += 1
             time.sleep(self._backoff_time(request.total_attempts))
             return request
@@ -338,7 +342,8 @@ class HTTPClient:
                 ]
             return splits
 
-        if retry_request := self._retry_request(response, request):
+        error_details = ErrorDetails.from_response(response)
+        if retry_request := self._retry_request(response, request, error_details):
             return [retry_request]
         else:
             # Permanent failure
@@ -347,7 +352,7 @@ class HTTPClient:
                     ids=[str(item) for item in request.items],
                     status_code=response.status_code,
                     body=response.text,
-                    error=ErrorDetails.from_response(response),
+                    error=error_details,
                 )
             ]
 

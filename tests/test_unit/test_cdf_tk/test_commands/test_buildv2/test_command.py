@@ -151,7 +151,7 @@ class TestBuildCommand:
 
         folder = cmd.build(parameters, tlk_client)
 
-        assert "my_module" in folder.built_modules_by_success[True]
+        assert "my_module" in folder.built_modules_by_success[False]
 
         built_space = list(build_dir.rglob(f"*.{SpaceCRUD.kind}.yaml"))
         assert len(built_space) == 1
@@ -180,6 +180,12 @@ class TestBuildCommand:
             "NEAT-DMS-VIEW-001",
             "MISSING-DEPENDENCY",
         }
+
+        lineage_file = list(build_dir.rglob("lineage.yaml"))
+        insights_file = list(build_dir.rglob("insights.csv"))
+
+        assert len(lineage_file) == 1
+        assert len(insights_file) == 1
 
     def test_end_to_end_failed_build(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
         cmd = BuildV2Command()
@@ -390,56 +396,56 @@ class TestImportResourceFile:
             pytest.param(
                 "resource.yaml",
                 "space: test\n",
-                {"Space": SpaceCRUD},
+                {"space": SpaceCRUD},
                 [],
                 id="no_dot_in_stem",
             ),
             pytest.param(
                 "resource.UnknownKind.yaml",
                 "space: test\n",
-                {"Space": SpaceCRUD},
+                {"space": SpaceCRUD},
                 [FailedReadResource],
                 id="unknown_kind",
             ),
             pytest.param(
                 "nonexistent.Space.yaml",
                 None,
-                {"Space": SpaceCRUD},
+                {"space": SpaceCRUD},
                 [FailedReadResource],
                 id="file_read_error",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 "key: [unclosed",
-                {"Space": SpaceCRUD},
+                {"space": SpaceCRUD},
                 [FailedReadResource],
                 id="yaml_parse_error",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 "space: my_space\nname: My Space\n",
-                {"Space": SpaceCRUD},
+                {"space": SpaceCRUD},
                 [SuccessfulReadResource],
                 id="successful_single_resource",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 'space: ""\n',
-                {"Space": SpaceCRUD},
+                {"space": SpaceCRUD},
                 [FailedReadResource],
                 id="model_validation_error",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 "space: my_space\nextra_field: value\n",
-                {"Space": SpaceCRUD},
+                {"space": SpaceCRUD},
                 [SuccessfulReadResource],
                 id="extra_fields_produces_recommendation",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 "- space: space_one\n- space: space_two\n",
-                {"Space": SpaceCRUD},
+                {"space": SpaceCRUD},
                 [SuccessfulReadResource, SuccessfulReadResource],
                 id="multiple_resources_in_list",
             ),
