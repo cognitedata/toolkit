@@ -14,6 +14,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     UnknownScope,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.token import (
+    AclAction,
+    AclName,
     AllProjects,
     InspectCapability,
     InspectProjectInfo,
@@ -27,7 +29,7 @@ class TestProjectCapability:
         "capabilities, required_acls, expected_missing",
         [
             pytest.param(
-                {(AssetsAcl, "READ"): AllScope()},
+                {(AssetsAcl, "assetsAcl", "READ"): AllScope()},
                 [EventsAcl(actions=["READ"], scope=DataSetScope(ids=[1]))],
                 [EventsAcl(actions=["READ"], scope=DataSetScope(ids=[1]))],
                 id="Missing EventsAcl with DataSetScope",
@@ -39,25 +41,25 @@ class TestProjectCapability:
                 id="Empty required ACLs returns nothing missing",
             ),
             pytest.param(
-                {(AssetsAcl, "READ"): AllScope()},
+                {(AssetsAcl, "assetsAcl", "READ"): AllScope()},
                 [AssetsAcl(actions=["READ"], scope=AllScope())],
                 [],
                 id="Exact match on ACL type and action",
             ),
             pytest.param(
-                {(AssetsAcl, "READ"): AllScope()},
+                {(AssetsAcl, "assetsAcl", "READ"): AllScope()},
                 [AssetsAcl(actions=["READ"], scope=DataSetScope(ids=[42]))],
                 [],
                 id="Matching type and action with all scope satisfies specific scope",
             ),
             pytest.param(
-                {(AssetsAcl, "READ"): DataSetScope(ids=[42])},
+                {(AssetsAcl, "assetsAcl", "READ"): DataSetScope(ids=[42])},
                 [AssetsAcl(actions=["READ"], scope=AllScope())],
                 [AssetsAcl(actions=["READ"], scope=AllScope())],
                 id="Matching type and action but missing scope",
             ),
             pytest.param(
-                {(AssetsAcl, "READ"): AllScope()},
+                {(AssetsAcl, "assetsAcl", "READ"): AllScope()},
                 [AssetsAcl(actions=["WRITE"], scope=AllScope())],
                 [AssetsAcl(actions=["WRITE"], scope=AllScope())],
                 id="Same ACL type but missing action",
@@ -75,13 +77,13 @@ class TestProjectCapability:
                 id="Empty capabilities means all ACLs missing",
             ),
             pytest.param(
-                {(DataModelsAcl, "READ"): SpaceIDScope(space_ids=["my_space"])},
+                {(DataModelsAcl, "dataModelsAcl", "READ"): SpaceIDScope(space_ids=["my_space"])},
                 [DataModelsAcl(actions=["READ"], scope=SpaceIDScope(space_ids=["other_space"]))],
                 [DataModelsAcl(actions=["READ"], scope=SpaceIDScope(space_ids=["other_space"]))],
                 id="SpaceIDScope ACL present regardless of scope content",
             ),
             pytest.param(
-                {(GroupsAcl, "READ"): AllScope(), (GroupsAcl, "LIST"): AllScope()},
+                {(GroupsAcl, "groupsAcl", "READ"): AllScope(), (GroupsAcl, "LIST"): AllScope()},
                 [GroupsAcl(actions=["READ", "LIST", "CREATE"], scope=AllScope())],
                 [GroupsAcl(actions=["CREATE"], scope=AllScope())],
                 id="Three actions with one missing reports all actions",
@@ -90,7 +92,7 @@ class TestProjectCapability:
     )
     def test_verify(
         self,
-        capabilities: dict[tuple[type[Acl], str], Scope],
+        capabilities: dict[tuple[type[Acl], AclName, AclAction], Scope],
         required_acls: list[Acl],
         expected_missing: list[Acl],
     ) -> None:
