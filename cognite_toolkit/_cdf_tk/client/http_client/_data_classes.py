@@ -7,6 +7,7 @@ from cognite.client import global_config
 from pydantic import BaseModel, Field, JsonValue, TypeAdapter, model_validator
 
 from cognite_toolkit._cdf_tk.client.http_client._exception import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.request_classes.base import BaseModelRequest
 from cognite_toolkit._cdf_tk.utils.useful_types import PrimitiveType
 
 if TYPE_CHECKING:
@@ -76,7 +77,7 @@ class SuccessResponse(HTTPResult):
         return TypeAdapter(dict[str, JsonValue]).validate_json(self.body)
 
 
-class ErrorDetails(BaseModel):
+class ErrorDetails(BaseModelRequest):
     """This is the expected structure of error details in the CDF API"""
 
     code: int
@@ -89,17 +90,10 @@ class ErrorDetails(BaseModel):
     def from_response(cls, response: httpx.Response) -> "ErrorDetails":
         """Populate the error details from a httpx response."""
         try:
-            json_body = response.json()
-            res = TypeAdapter(dict[Literal["error"], ErrorDetails]).validate_python(json_body)
+            res = TypeAdapter(dict[Literal["error"], ErrorDetails]).validate_json(response.text)
         except ValueError:
             return cls(code=response.status_code, message=response.text)
-        error = res["error"]
-        header_value = response.headers.get("cdf-is-auto-retryable", "")
-        if header_value:
-            error.is_auto_retryable = header_value.lower() == "true"
-        else:
-            error.is_auto_retryable = json_body.get("error", {}).get("isAutoRetryable")
-        return error
+        return res["error"]
 
 
 class FailedResponse(HTTPResult):
