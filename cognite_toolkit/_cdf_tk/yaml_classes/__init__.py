@@ -39,6 +39,8 @@ from .migration import ResourceViewMappingYAML
 from .raw_database_table import DatabaseYAML, TableYAML
 from .relationship import RelationshipYAML
 from .robotics import RobotCapabilityYAML, RobotDataPostProcessingYAML, RobotFrameYAML, RobotLocationYAML, RobotMapYAML
+from .ruleset import RuleSetYAML
+from .ruleset_version import RuleSetVersionYAML
 from .search_config import SearchConfigYAML
 from .securitycategories import SecurityCategoriesYAML
 from .sequence import SequenceRowYAML, SequenceYAML
@@ -100,6 +102,8 @@ __all__ = [
     "RobotFrameYAML",
     "RobotLocationYAML",
     "RobotMapYAML",
+    "RuleSetVersionYAML",
+    "RuleSetYAML",
     "SearchConfigYAML",
     "SecurityCategoriesYAML",
     "SequenceRowYAML",
