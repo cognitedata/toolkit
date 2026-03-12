@@ -396,19 +396,40 @@ class TestSimulatorRoutineRevision:
 
 
 class TestDataSetRequest:
-    def test_read_non_string_metadata(self) -> None:
-        data = {
-            "externalId": "dataset_1",
-            "name": "Dataset 1",
-            "metadata": {"archived": True},  # Non-string value
-        }
-        dataset_request = DataSetRequest.model_validate(data)
-        assert dataset_request.dump() == {
-            "externalId": "dataset_1",
-            "name": "Dataset 1",
-            # In addition, we need it to be lowercased.
-            "metadata": {"archived": "true"},
-        }
+    @pytest.mark.parametrize(
+        "data,expected",
+        [
+            pytest.param(
+                {
+                    "externalId": "dataset_1",
+                    "name": "Dataset 1",
+                    "metadata": {"archived": True},  # Non-string value
+                },
+                {
+                    "externalId": "dataset_1",
+                    "name": "Dataset 1",
+                    # In addition, we need it to be lowercased.
+                    "metadata": {"archived": "true"},
+                },
+                id="read non string metadata",
+            ),
+            pytest.param(
+                {
+                    "externalId": "dataset_1",
+                    "name": "Dataset 1",
+                    "metadata": None,
+                },
+                {
+                    "externalId": "dataset_1",
+                    "name": "Dataset 1",
+                    "metadata": None,
+                },
+                id="read metadata None",
+            ),
+        ],
+    )
+    def test_read_non_string_metadata(self, data: dict[str, Any], expected: dict[str, Any]) -> None:
+        assert DataSetRequest.model_validate(data).dump() == expected
 
 
 class TestGetAnnotationOrigin:

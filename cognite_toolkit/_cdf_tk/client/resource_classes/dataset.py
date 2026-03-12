@@ -20,7 +20,9 @@ class DataSet(BaseModelObject):
 
     @field_validator("metadata", mode="after")
     def lower_case_bools(cls, value: Metadata) -> Metadata:
-        return {k: (v.lower() if v.lower() in {"true", "false"} else v) for k, v in value.items()}
+        if isinstance(value, dict):
+            return {k: (v.lower() if v.lower() in {"true", "false"} else v) for k, v in value.items()}
+        return value
 
     def as_id(self) -> ExternalId:
         if self.external_id is None:
