@@ -150,53 +150,12 @@ RESOURCE_CONTAINER_MAPPING = ContainerRequest(
     },
 )
 
-RECORD_SOURCE_CONTAINER = ContainerRequest(
-    space=SPACE.space,
-    external_id="RecordSource",
-    used_for="record",
-    properties={
-        "resourceType": ContainerPropertyDefinition(
-            type=EnumProperty(
-                values={
-                    "timeseries": EnumValue(),
-                    "asset": EnumValue(),
-                    "file": EnumValue(),
-                    "event": EnumValue(),
-                    "sequence": EnumValue(),
-                }
-            ),
-            nullable=False,
-        ),
-        "id": ContainerPropertyDefinition(
-            type=Int64Property(),
-            nullable=False,
-        ),
-        "dataSetId": ContainerPropertyDefinition(
-            type=Int64Property(),
-            nullable=True,
-        ),
-        "classicExternalId": ContainerPropertyDefinition(
-            type=TextProperty(),
-            nullable=True,
-        ),
-        "resourceContainerMapping": ContainerPropertyDefinition(
-            type=DirectNodeRelation(container=RESOURCE_CONTAINER_MAPPING.as_id()), nullable=True
-        ),
-    },
-    indexes={
-        "id": BtreeIndex(properties=["id"], cursorable=True),
-        "resourceType": BtreeIndex(properties=["resourceType", "id"], cursorable=False),
-        "externalId": BtreeIndex(properties=["resourceType", "classicExternalId"], cursorable=False),
-    },
-)
-
 CONTAINERS = [
     RESOURCE_VIEW_MAPPING,
     INSTANCE_SOURCE_CONTAINER,
     CREATED_SOURCE_SYSTEM,
     SPACE_SOURCE,
     RESOURCE_CONTAINER_MAPPING,
-    RECORD_SOURCE_CONTAINER,
 ]
 
 RESOURCE_VIEW_MAPPING_VIEW = ViewRequest(
@@ -320,7 +279,6 @@ RESOURCE_CONTAINER_MAPPING_VIEW = ViewRequest(
 INSTANCE_SOURCE_VIEW_ID = INSTANCE_SOURCE_VIEW.as_id()
 RESOURCE_VIEW_MAPPING_VIEW_ID = RESOURCE_VIEW_MAPPING_VIEW.as_id()
 RESOURCE_CONTAINER_MAPPING_VIEW_ID = RESOURCE_CONTAINER_MAPPING_VIEW.as_id()
-RECORD_SOURCE_CONTAINER_ID = RECORD_SOURCE_CONTAINER.as_id()
 CREATED_SOURCE_SYSTEM_VIEW_ID = CREATED_SOURCE_SYSTEM_VIEW.as_id()
 SPACE_SOURCE_VIEW_ID = SPACE_SOURCE_VIEW.as_id()
 

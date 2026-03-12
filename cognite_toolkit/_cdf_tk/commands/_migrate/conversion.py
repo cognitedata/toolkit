@@ -52,7 +52,7 @@ from cognite_toolkit._cdf_tk.utils.text import sanitize_instance_external_id
 from cognite_toolkit._cdf_tk.utils.useful_types import T_ID, AssetCentricTypeExtended
 from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResourceExtended
 
-from .data_model import COGNITE_MIGRATION_SPACE_ID, INSTANCE_SOURCE_VIEW_ID, RECORD_SOURCE_CONTAINER_ID
+from .data_model import COGNITE_MIGRATION_SPACE_ID, INSTANCE_SOURCE_VIEW_ID
 from .issues import ConversionIssue, FailedConversion, InvalidPropertyDataType
 
 
@@ -328,8 +328,8 @@ def asset_centric_to_record(
         raise ValueError("Resource must have an 'id' field.") from e
     if not isinstance(id_, int):
         raise TypeError(f"Resource 'id' field must be an int, got {type(id_)}.")
-    data_set_id = dumped.pop("dataSetId", None)
-    external_id = dumped.pop("externalId", None)
+    dumped.pop("dataSetId", None)
+    dumped.pop("externalId", None)
 
     issue = ConversionIssue(
         id=str(AssetCentricId(resource_type=resource_type, id_=id_)),
@@ -361,20 +361,6 @@ def asset_centric_to_record(
                 properties=properties,
             )
         )
-
-    record_source_properties: dict[str, JsonValue] = {
-        "resourceType": resource_type,
-        "id": id_,
-        "dataSetId": data_set_id,
-        "classicExternalId": external_id,
-        "resourceContainerMapping": {"space": COGNITE_MIGRATION_SPACE_ID, "externalId": container_source.external_id},
-    }
-    sources.append(
-        RecordSource(
-            source=RECORD_SOURCE_CONTAINER_ID,
-            properties=record_source_properties,
-        )
-    )
 
     record = RecordRequest(
         space=instance_id.space,
