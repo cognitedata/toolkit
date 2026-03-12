@@ -97,6 +97,7 @@ from .scopes import (
     ScopeDefinition,
     SpaceIDScope,
     TableScope,
+    UnknownScope,
 )
 
 __all__ = [
@@ -181,6 +182,7 @@ __all__ = [
     "TransformationsAcl",
     "TypesAcl",
     "UnknownAcl",
+    "UnknownScope",
     "UserProfilesAcl",
     "VideoStreamingAcl",
     "VisionModelAcl",
