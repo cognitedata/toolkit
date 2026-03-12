@@ -97,6 +97,7 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
             },
             select={
                 "schedules": QuerySelect(sources=[QuerySelectSource(source=schedule, properties=["*"])]),
+                "template": QuerySelect(sources=[QuerySelectSource(source=template, properties=["*"])]),
                 "templateItemEdges": QuerySelect(),
                 "templateEdges": QuerySelect(),
             },
