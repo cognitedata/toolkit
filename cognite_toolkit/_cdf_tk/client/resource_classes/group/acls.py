@@ -146,6 +146,14 @@ class DataModelsAcl(Acl):
     scope: AllScope | SpaceIDScope
 
 
+class DataProductsAcl(Acl):
+    """ACL for Data Products resources."""
+
+    acl_name: Literal["dataProductsAcl"] = Field("dataProductsAcl", exclude=True)
+    actions: Sequence[Literal["CREATE", "READ", "UPDATE", "DELETE"]]
+    scope: AllScope
+
+
 class DataSetsAcl(Acl):
     """ACL for Data Sets resources."""
 
