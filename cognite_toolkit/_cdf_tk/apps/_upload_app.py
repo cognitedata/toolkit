@@ -54,10 +54,11 @@ class UploadApp(typer.Typer):
                 help="If set, the command will look for resource configuration files in adjacent folders and create them if they do not exist.",
             ),
         ] = False,
-        skip_verify: Annotated[
+        skip_verify_cdf_project: Annotated[
             bool,
             typer.Option(
-                "--skip-verify", help="If set, the command will not ask to verify the CDF project you are upload to."
+                "--skip-verify-cdf-project",
+                help="If set, the command will skip the verification step that checks if the CDF project in the environment variables matches the one provided by the user.",
             ),
         ] = False,
         verbose: Annotated[
@@ -72,7 +73,7 @@ class UploadApp(typer.Typer):
         """Commands to upload data to CDF."""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = UploadCommand(client=client)
-        if not skip_verify:
+        if not skip_verify_cdf_project:
             typed_project = questionary.text(
                 f"Enter the name of CDF project you are uploading to. This must match the CDF_PROJECT={client.config.project!r} in you environment variables.\n",
             ).unsafe_ask()
