@@ -576,7 +576,7 @@ class TestMigrationCommand:
         # Chart update (existing chart goes through per-chart update endpoint)
         respx.put(
             config.create_app_url("/storage/charts/charts/my_chart"),
-        ).mock(return_value=httpx.Response(status_code=200, json=charts[0].dump()))
+        ).mock(return_value=httpx.Response(status_code=200, json={"items": [charts[0].dump()]}))
 
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)

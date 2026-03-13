@@ -84,7 +84,10 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
             yield Page(worker_id="main", items=chunk)
 
     def count(self, selector: ChartSelector) -> int | None:
-        # There is no way to get the count of charts up front.
+        if isinstance(selector, ChartExternalIdSelector):
+            return len(selector.external_ids)
+        elif isinstance(selector, AllChartsSelector):
+            return len(self.existing_charts)
         return None
 
     def data_to_json_chunk(
@@ -166,10 +169,13 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
         to_create: list[UploadItem[ChartRequest]] = []
         to_update: list[UploadItem[ChartRequest]] = []
         for item in data_chunk:
-            if item.item.external_id in self.existing_charts and not self._existing_charts:
+            if item.item.external_id in self.existing_charts and not self._skip_existing:
                 to_update.append(item)
             elif item.item.external_id not in self.existing_charts:
                 to_create.append(item)
+            else:
+                self.logger.tracker.finalize_item(item.source_id, "skipped")
+
         results = ItemsResultList()
         if to_create:
             url = config.create_app_url(self.UPLOAD_ENDPOINT)
