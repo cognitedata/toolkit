@@ -122,7 +122,7 @@ class InstanceFileSelector(InstanceSelector):
 
     @property
     def display_name(self) -> str:
-        return f"{self.kind}s in {self.datafile!s}"
+        return f"{self.kind} in {self.datafile!s}"
 
     def __str__(self) -> str:
         return f"file_{self.datafile.as_posix()}"
