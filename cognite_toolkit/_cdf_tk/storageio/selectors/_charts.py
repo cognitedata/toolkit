@@ -16,6 +16,10 @@ class ChartOwnerSelector(ChartSelector):
     def __str__(self) -> str:
         return self.owner_id
 
+    @property
+    def display_name(self) -> str:
+        return f"{self.kind.lower()} owned by {self.owner_id}"
+
 
 class AllChartsSelector(ChartSelector):
     type: Literal["allCharts"] = "allCharts"
@@ -31,3 +35,7 @@ class ChartExternalIdSelector(ChartSelector):
     def __str__(self) -> str:
         hash_ = hashlib.md5(",".join(sorted(self.external_ids)).encode()).hexdigest()[:8]
         return f"chart_count_{len(self.external_ids)}_hash_{hash_}"
+
+    @property
+    def display_name(self) -> str:
+        return f"{len(self.external_ids)} {self.kind.lower()}s"

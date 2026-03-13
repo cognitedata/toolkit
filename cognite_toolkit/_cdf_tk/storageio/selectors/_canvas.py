@@ -16,3 +16,7 @@ class CanvasExternalIdSelector(CanvasSelector):
     def __str__(self) -> str:
         hash_ = hashlib.md5(",".join(sorted(self.external_ids)).encode()).hexdigest()[:8]
         return f"canvas_count_{len(self.external_ids)}_hash_{hash_}"
+
+    @property
+    def display_name(self) -> str:
+        return f"{len(self.external_ids)} {self.kind}"
