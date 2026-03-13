@@ -2,7 +2,7 @@ import json
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
-from typing import ClassVar, Generic, Literal, cast
+from typing import Any, ClassVar, Generic, Literal, cast
 from uuid import uuid4
 
 from cognite.client import data_modeling as dm
@@ -1020,7 +1020,13 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
         return schedules, template_edges_by_item_id, template_item_edges_by_schedule_id, issues
 
     def _calculate_schedule_hash(self, properties: dict[str, JsonValue]) -> str:
-        relevant_properties = {key: properties.get(key) for key in self.UNIQUE_SCHEDULE_PROPERTIES}
+        relevant_properties: dict[str, Any] = {}
+        for key in self.UNIQUE_SCHEDULE_PROPERTIES:
+            value = properties.get(key)
+            if isinstance(value, list):
+                relevant_properties[key] = sorted([str(item) for item in value])
+            else:
+                relevant_properties[key] = str(value)
         return calculate_hash(json.dumps(relevant_properties, sort_keys=True), shorten=True)
 
     def _create_single_schedule(
