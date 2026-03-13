@@ -33,6 +33,10 @@ class NeatPlugin:
 
         Returns:
             InsightList: A list of insights generated from the validation.
+
+        Note:
+            NEAT should be ran in "rebuild" mode since toolkit is designed to build and deploy artifacts which are
+            defined in Toolkit modules.
         """
 
         from cognite.neat._toolkit_adapter import DMSAPIImporter, DmsDataModelRulesOrchestrator
@@ -41,8 +45,7 @@ class NeatPlugin:
         schema = importer.to_data_model()
 
         orchestrator = DmsDataModelRulesOrchestrator(
-            cdf_snapshot=self.cdf_snapshot,
-            limits=self.cdf_limits,
+            cdf_snapshot=self.cdf_snapshot, limits=self.cdf_limits, modus_operandi="rebuild"
         )
         orchestrator.run(schema)
 
