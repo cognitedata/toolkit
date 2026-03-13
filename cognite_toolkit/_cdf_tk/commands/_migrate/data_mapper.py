@@ -931,7 +931,6 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
         "timezone",
         "startTime",
         "endTime",
-        "status",
     )
 
     def __init__(
