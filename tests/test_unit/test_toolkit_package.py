@@ -49,7 +49,7 @@ def _assert_import_violations(
             all_violations[relative_path] = violations
 
     total = sum(len(v) for v in all_violations.values())
-    if expected_total:
+    if expected_total is not None:
         assert total == expected_total
     elif all_violations:
         lines = [f"Found {total} {description}:", ""]
