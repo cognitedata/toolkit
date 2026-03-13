@@ -194,7 +194,8 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                 chart = item.item
                 url = config.create_app_url(self.UPDATE_ENDPOINT.format(externalId=chart.external_id))
                 dumped = chart.dump()
-                # The endpoint
+                # The endpoint requires that externalId is not part of the body. Note that
+                # it is already set as a path variable.
                 dumped.pop("externalId", None)
                 item_response = http_client.request_single_retries(
                     RequestMessage(

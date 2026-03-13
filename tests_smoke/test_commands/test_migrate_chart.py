@@ -8,7 +8,6 @@ from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.apps import MigrateApp
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.http_client import RequestMessage
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NodeId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -48,20 +47,6 @@ def _replace_uuids(obj: object, uuid_map: dict[str, str]) -> object:
     return obj
 
 
-def _restore_chart(client: ToolkitClient, chart_request: ChartRequest) -> None:
-    """Restore a chart to its original state via the per-chart PUT endpoint."""
-    url = client.config.create_app_url(f"/storage/charts/charts/{chart_request.external_id}")
-    dumped = chart_request.dump()
-    dumped.pop("externalId", None)
-    client.http_client.request_single_retries(
-        RequestMessage(
-            endpoint_url=url,
-            method="PUT",
-            body_content=dumped,
-        )
-    )
-
-
 @pytest.fixture()
 def legacy_chart(
     toolkit_client: ToolkitClient, smoke_space: SpaceResponse, smoke_dataset: DataSetResponse
@@ -89,6 +74,7 @@ def legacy_chart(
 
 
 class TestMigrateChart:
+    @pytest.mark.usefixtures("load_toolkit_client")
     def test_migrate_data(
         self,
         legacy_chart: ChartResponse,
