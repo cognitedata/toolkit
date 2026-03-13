@@ -4,6 +4,7 @@ from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, SPACE_FORMAT_PATTERN
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from ._base import DataSelector, SelectorObject
 
@@ -47,3 +48,12 @@ class RecordContainerSelector(DataSelector):
 
     def __str__(self) -> str:
         return f"{self.container.space}_{self.container.external_id}"
+
+    @property
+    def display_name(self) -> str:
+        message = f"{self.kind} in stream {self.stream} with data in{self.container!s}"
+        if self.instance_spaces:
+            message += f" with {humanize_collection(self.instance_spaces)} instance spaces"
+        if self.initialize_cursor:
+            message += f" and initialize cursor {self.initialize_cursor}"
+        return message
