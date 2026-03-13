@@ -20,7 +20,7 @@ class LogIssue(LogEntry):
     message: str
 
 
-OperationStatus: TypeAlias = Literal["success", "failure", "unchanged", "pending"]
+OperationStatus: TypeAlias = Literal["success", "failure", "unchanged", "pending", "skipped"]
 
 
 class ItemTracker:

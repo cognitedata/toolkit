@@ -116,7 +116,7 @@ class TestMigrateAssetsCommand:
             dry_run=True,
         )
         results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 2, "success": 0, "unchanged": 0}
+        assert results == {"failure": 0, "pending": 2, "success": 0, "unchanged": 0, "skipped": 0}
 
 
 class TestMigrateEventsCommand:
@@ -140,7 +140,7 @@ class TestMigrateEventsCommand:
             dry_run=True,
         )
         results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0}
+        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0, "skipped": 0}
 
 
 class TestMigrateTimeSeriesCommand:
@@ -164,7 +164,7 @@ class TestMigrateTimeSeriesCommand:
             dry_run=True,
         )
         results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0}
+        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0, "skipped": 0}
 
 
 class TestMigrateFileMetadataCommand:
@@ -188,7 +188,7 @@ class TestMigrateFileMetadataCommand:
             dry_run=True,
         )
         results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0}
+        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0, "skipped": 0}
 
 
 class TestMigrateAnnotations:
@@ -211,7 +211,7 @@ class TestMigrateAnnotations:
             verbose=True,
         )
         results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 2, "success": 0, "unchanged": 0}
+        assert results == {"failure": 0, "pending": 2, "success": 0, "unchanged": 0, "skipped": 0}
 
 
 @pytest.fixture()
@@ -275,6 +275,6 @@ class TestMigrateFiles:
         )
         actual_result = {item.status: item.count for item in result[str(selector)]}
 
-        assert actual_result == {"failure": 1, "pending": 0, "success": 0, "unchanged": 0}, (
+        assert actual_result == {"failure": 1, "pending": 0, "success": 0, "unchanged": 0, "skipped": 0}, (
             "Expected failure as the file is already a CDM file."
         )
