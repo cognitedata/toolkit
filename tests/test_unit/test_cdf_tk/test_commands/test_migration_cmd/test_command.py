@@ -285,7 +285,7 @@ class TestMigrationCommand:
         assert actual_instances == expected_instance
         result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
-        assert actual_results == {"failure": 0, "pending": 0, "success": len(assets), "unchanged": 0}
+        assert actual_results == {"failure": 0, "pending": 0, "success": len(assets), "unchanged": 0, "skipped": 0}
 
     @pytest.mark.usefixtures("mock_statistics", "resource_view_mappings")
     def test_migrate_annotations(
@@ -421,7 +421,7 @@ class TestMigrationCommand:
         )
         result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
-        assert actual_results == {"failure": 0, "pending": 0, "success": len(annotations), "unchanged": 0}
+        assert actual_results == {"failure": 0, "pending": 0, "success": len(annotations), "unchanged": 0, "skipped": 0}
 
         # Check that the annotations were uploaded
         last_call = respx_mock.calls[-1]
@@ -596,7 +596,7 @@ class TestMigrationCommand:
             )
         result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
-        assert actual_results == {"failure": 0, "pending": 0, "success": len(charts), "unchanged": 0}
+        assert actual_results == {"failure": 0, "pending": 0, "success": len(charts), "unchanged": 0, "skipped": 0}
 
         calls = respx_mock.calls
         assert len(calls) == 5
@@ -804,7 +804,7 @@ class TestMigrationCommand:
 
         result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
-        assert actual_results == {"failure": 0, "pending": 0, "success": 1, "unchanged": 0}
+        assert actual_results == {"failure": 0, "pending": 0, "success": 1, "unchanged": 0, "skipped": 0}
 
         upsert_calls = [
             c
