@@ -1,13 +1,10 @@
 from functools import lru_cache
 
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
-from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
 
 ASSET_ID = "cdf_asset_mapping"
 EVENT_ID = "cdf_event_mapping"
-EVENT_RECORD_ID = "cdf_event_record_mapping"
 TIME_SERIES_ID = "cdf_time_series_mapping"
 TIME_SERIES_EXTRACTOR_ID = "cdf_time_series_extractor_mapping"
 FILE_METADATA_ID = "cdf_file_metadata_mapping"
@@ -134,26 +131,6 @@ def create_default_mappings() -> list[ResourceViewMappingRequest]:
                 "data.textRegion.yMin": "startNodeYMin",
                 "data.textRegion.yMax": "startNodeYMax",
                 "data.text": "startNodeText",
-            },
-        ),
-    ]
-
-
-@lru_cache(maxsize=1)
-def create_default_record_property_mappings() -> list[RecordPropertyMapping]:
-    """Return the default record property mappings for record-based migration."""
-    return [
-        RecordPropertyMapping(
-            external_id=EVENT_RECORD_ID,
-            resource_type="event",
-            container_id=ContainerId(space="cdf_cdm", external_id="CogniteActivity"),
-            property_mapping={
-                "startTime": "startTime",
-                "endTime": "endTime",
-                "description": "description",
-                "source": "source",
-                "labels": "tags",
-                "assetIds": "assets",
             },
         ),
     ]

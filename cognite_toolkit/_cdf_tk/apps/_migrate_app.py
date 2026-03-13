@@ -520,7 +520,7 @@ class MigrateApp(typer.Typer):
             str | None,
             typer.Option(
                 "--stream-id",
-                help="The external ID of the target stream. Required when --target is 'records'.",
+                help="The external ID of the target stream. Only applicable and required when --target is 'records'.",
             ),
         ] = None,
         event_type: Annotated[
@@ -575,6 +575,8 @@ class MigrateApp(typer.Typer):
             raise typer.BadParameter(f"Invalid target '{target}'. Must be 'instances' or 'records'.")
         if target == "records" and stream_id is None:
             raise typer.BadParameter("--stream-id is required when --target is 'records'.")
+        if target == "records" and ingestion_mapping is None:
+            raise typer.BadParameter("--ingestion-mapping is required when --target is 'records'.")
 
         client = EnvironmentVariables.create_from_environment().get_client()
         selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
