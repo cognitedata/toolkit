@@ -67,10 +67,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     ThreeDMigrationRequest,
     ThreeDRevisionMigrationRequest,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
-    create_default_mappings,
-    create_default_record_property_mappings,
-)
+from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import create_default_mappings
 from cognite_toolkit._cdf_tk.commands._migrate.issues import (
     CanvasMigrationIssue,
     ChartMigrationIssue,
@@ -239,14 +236,18 @@ class RecordsMapper(
 
     def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
         ingestion_mapping_ids = source_selector.get_ingestion_mappings()
-        defaults = {mapping.external_id: mapping for mapping in create_default_record_property_mappings()}
-        # TODO: Load custom RecordPropertyMapping nodes from CDF (parallel to how view mappings are loaded)
-        self._record_mapping_by_id = defaults
-        missing_mappings = set(ingestion_mapping_ids) - set(self._record_mapping_by_id.keys())
-        if missing_mappings:
+        if not ingestion_mapping_ids:
             raise ToolkitValueError(
-                f"The following record property mappings were not found: {humanize_collection(missing_mappings)}"
+                "No ingestion mapping specified. Use --ingestion-mapping to provide a RecordPropertyMapping external ID."
             )
+        # TODO: Load RecordPropertyMapping nodes from CDF by external ID
+        #   node_ids = NodeId.from_str_ids(ingestion_mapping_ids, space=RESOURCE_VIEW_MAPPING_SPACE)
+        #   mappings = self.client.migration.record_property_mapping.retrieve(node_ids)
+        #   self._record_mapping_by_id = {m.external_id: m for m in mappings}
+        raise NotImplementedError(
+            "Loading RecordPropertyMapping from CDF is not yet implemented. "
+            "This requires the YAML/CRUD/API pipeline for RecordPropertyMapping."
+        )
 
     def map(
         self, source: Sequence[AssetCentricMapping[T_AssetCentricResourceExtended]]
