@@ -1,0 +1,26 @@
+chart:
+  data:
+    coreTimeseriesCollection:
+    - color: '#1F91FF'
+      enabled: true
+      id: UUID_0
+      lineStyle: solid
+      lineWeight: 1.0
+      name: Smoke Test Timeseries
+      nodeReference:
+        externalId: smoke_test_chart_ts_1
+        space: toolkit_smoke_test_space
+      type: coreTimeseries
+      viewReference:
+        externalId: CogniteTimeSeries
+        space: cdf_cdm
+        version: v1
+    dateFrom: '2025-01-01T00:00:00.000Z'
+    dateTo: '2025-12-31T23:59:59.999Z'
+    name: Smoke Test Chart
+    sourceCollection:
+    - id: UUID_0
+      type: coreTimeseries
+    version: 1
+  externalId: smoke_test_chart_migration
+  visibility: PUBLIC

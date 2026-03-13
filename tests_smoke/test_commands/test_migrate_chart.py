@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import 
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest, TimeSeriesResponse
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.fileio import NDJsonReader
 
 THIS_DIR = Path(__file__).parent
 TEST_DATA = THIS_DIR / "chart_test_data.yaml"
@@ -109,6 +110,14 @@ class TestMigrateChart:
             dry_run=False,
             verbose=True,
         )
+        log_files = [file for file in tmp_path.rglob("*.ndjson") if file.is_file()]
+        if log_files:
+            print(f"Migration log files found in {tmp_path}: {[file.name for file in log_files]}")
+            for log_file in log_files:
+                for chunk in NDJsonReader(log_file).read_chunks():
+                    print(chunk)
+        else:
+            print("No migration log files found. This means there were no issues.")
 
         migrated_charts = toolkit_client.charts.retrieve([ExternalId(external_id=legacy_chart.external_id)])
         if len(migrated_charts) != 1:
@@ -119,7 +128,7 @@ class TestMigrateChart:
             raise AssertionError(
                 f"Charts migration failed. {humanize_collection(classic_ts)} classical time series is still present"
             )
-        migrated_refs = len(migrated_chart.data.time_series_collection or [])
+        migrated_refs = len(migrated_chart.data.core_timeseries_collection or [])
         classic_refs = len(legacy_chart.data.time_series_collection or [])
         if migrated_refs != classic_refs:
             raise AssertionError(
@@ -176,7 +185,7 @@ def create_migrate_timeseries(
             InstanceSource(
                 source=INSTANCE_SOURCE_VIEW_ID,
                 properties={
-                    "resourceType": "asset",
+                    "resourceType": "timeseries",
                     "dataSetId": data_set_id,
                     "id": retrieved.id,
                     "classicExternalId": external_id,
