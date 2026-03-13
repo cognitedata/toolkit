@@ -13,8 +13,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QueryRequest,
     QuerySelect,
     QuerySelectSource,
+    QuerySortSpec,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
+from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceQuerySelector
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 
@@ -52,8 +54,13 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
     return InstanceQuerySelector(
         query=QueryRequest(
             with_={
-                "template": QueryNodeExpression(limit=1, nodes=QueryNodeTableExpression(filter=template_filter)),
+                "template": QueryNodeExpression(
+                    limit=1,
+                    nodes=QueryNodeTableExpression(filter=template_filter),
+                    sort=[QuerySortSpec(property=["node", "space"]), QuerySortSpec(property=["node", "externalId"])],
+                ),
                 "templateEdges": QueryEdgeExpression(
+                    limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
                     edges=QueryEdgeTableExpression(
                         from_="template",
                         chain_to="source",
@@ -64,17 +71,18 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
                                 "value": {"space": "cdf_apm", "externalId": "referenceTemplateItems"},
                             }
                         },
-                    )
+                    ),
                 ),
                 "templateItem": QueryNodeExpression(
+                    limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
                     nodes=QueryNodeTableExpression(
                         from_="templateEdges",
                         chain_to="destination",
                         filter={"hasData": [item.dump(include_type=True)]},
-                    )
+                    ),
                 ),
                 "templateItemEdges": QueryEdgeExpression(
-                    limit=None,
+                    limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
                     edges=QueryEdgeTableExpression(
                         from_="templateItem",
                         chain_to="source",
@@ -88,11 +96,12 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
                     ),
                 ),
                 "schedules": QueryNodeExpression(
+                    limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
                     nodes=QueryNodeTableExpression(
                         from_="templateItemEdges",
                         chain_to="destination",
                         filter={"hasData": [schedule.dump(include_type=True)]},
-                    )
+                    ),
                 ),
             },
             select={
