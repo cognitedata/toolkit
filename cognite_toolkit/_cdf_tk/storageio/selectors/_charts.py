@@ -18,7 +18,7 @@ class ChartOwnerSelector(ChartSelector):
 
     @property
     def display_name(self) -> str:
-        return f"{self.kind} owned by {self.owner_id}"
+        return f"{self.kind.lower()} owned by {self.owner_id}"
 
 
 class AllChartsSelector(ChartSelector):
@@ -38,4 +38,4 @@ class ChartExternalIdSelector(ChartSelector):
 
     @property
     def display_name(self) -> str:
-        return f"{len(self.external_ids)} {self.kind}"
+        return f"{len(self.external_ids)} {self.kind.lower()}s"

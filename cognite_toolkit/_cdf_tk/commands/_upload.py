@@ -224,7 +224,9 @@ class UploadCommand(ToolkitCommand):
                 reader = MultiFileReader(datafiles)
                 # FileContentIO supports uploading any file format.
                 if reader.is_table and not isinstance(io, TableUploadableStorageIO | FileContentIO):
-                    raise ToolkitValueError(f"{selector!s} does not support {reader.format!r} files.")
+                    raise ToolkitValueError(
+                        f"{selector.type}.{selector.kind} does not support {reader.format!r} files."
+                    )
 
                 item_count = io.count_items(reader, selector)
                 iteration_count = item_count // io.CHUNK_SIZE + (1 if item_count % io.CHUNK_SIZE > 0 else 0)

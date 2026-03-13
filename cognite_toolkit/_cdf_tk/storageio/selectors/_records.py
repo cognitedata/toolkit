@@ -51,7 +51,7 @@ class RecordContainerSelector(DataSelector):
 
     @property
     def display_name(self) -> str:
-        message = f"{self.kind} in stream {self.stream} with data in{self.container!s}"
+        message = f"{self.kind.lower()} in stream {self.stream} with data in {self.container!s}"
         if self.instance_spaces:
             message += f" with {humanize_collection(self.instance_spaces)} instance spaces"
         if self.initialize_cursor:
