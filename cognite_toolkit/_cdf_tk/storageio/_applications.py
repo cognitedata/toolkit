@@ -48,6 +48,10 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
+        # We need to store existing charts as we use different endpoints depending on whether
+        # the chart exist or not. Note this scales O(n) and not O(1) with memory wrt to number of Charts.
+        # However, we know that there are only a few 1000s Charts at most, thus this should not be a problem.
+        # and is cheaper than doing a lookup for each chart we are about to deploy.
         self._existing_charts: set[str] | None = None
 
     @property
