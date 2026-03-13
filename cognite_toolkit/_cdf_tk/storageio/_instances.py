@@ -273,6 +273,8 @@ class InstanceIO(
                 if sub_cursor is not None:
                     next_cursors[prop_id] = sub_cursor
             if not next_cursors or not response.items:
+                result_str = ", ".join(f"{key}: {len(items)}" for key, items in first.items.items())
+                self.client.console.print(f"Finished {result_str}")
                 return first
             # Keep the root cursor to iterate over all subitems.
             next_cursors[root_selection] = (query.cursors or {}).get(root_selection)

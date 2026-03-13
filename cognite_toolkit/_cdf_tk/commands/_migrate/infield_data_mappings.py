@@ -59,6 +59,7 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
                     sort=[QuerySortSpec(property=["node", "space"]), QuerySortSpec(property=["node", "externalId"])],
                 ),
                 "templateEdges": QueryEdgeExpression(
+                    limit=10_000,
                     edges=QueryEdgeTableExpression(
                         from_="template",
                         chain_to="source",
@@ -69,17 +70,18 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
                                 "value": {"space": "cdf_apm", "externalId": "referenceTemplateItems"},
                             }
                         },
-                    )
+                    ),
                 ),
                 "templateItem": QueryNodeExpression(
+                    limit=10_000,
                     nodes=QueryNodeTableExpression(
                         from_="templateEdges",
                         chain_to="destination",
                         filter={"hasData": [item.dump(include_type=True)]},
-                    )
+                    ),
                 ),
                 "templateItemEdges": QueryEdgeExpression(
-                    limit=None,
+                    limit=10_000,
                     edges=QueryEdgeTableExpression(
                         from_="templateItem",
                         chain_to="source",
@@ -93,11 +95,12 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
                     ),
                 ),
                 "schedules": QueryNodeExpression(
+                    limit=10_000,
                     nodes=QueryNodeTableExpression(
                         from_="templateItemEdges",
                         chain_to="destination",
                         filter={"hasData": [schedule.dump(include_type=True)]},
-                    )
+                    ),
                 ),
             },
             select={
