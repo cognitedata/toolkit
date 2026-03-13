@@ -573,10 +573,10 @@ class TestMigrationCommand:
             )
         )
 
-        # Chart upsert
+        # Chart update (existing chart goes through per-chart update endpoint)
         respx.put(
-            config.create_app_url("/storage/charts/charts"),
-        ).mock(return_value=httpx.Response(status_code=200, json={"items": [chart.dump() for chart in charts]}))
+            config.create_app_url("/storage/charts/charts/my_chart"),
+        ).mock(return_value=httpx.Response(status_code=200, json=charts[0].dump()))
 
         client = ToolkitClient(config)
         command = MigrationCommand(silent=True)
@@ -601,51 +601,48 @@ class TestMigrationCommand:
         calls = respx_mock.calls
         assert len(calls) == 5
         last_call = calls[-1]
-        assert last_call.request.url == config.create_app_url("/storage/charts/charts")
+        assert last_call.request.url == config.create_app_url("/storage/charts/charts/my_chart")
         assert last_call.request.method == "PUT"
-        actual_charts = json.loads(last_call.request.content)["items"]
-        expected_charts = [
-            {
-                "externalId": "my_chart",
-                "visibility": "PUBLIC",
-                "data": {
-                    "version": 1,
-                    "name": "My Chart",
-                    "dateFrom": "2025-01-01T00:00:00.000Z",
-                    "dateTo": "2025-12-31T23:59:59.999Z",
-                    "coreTimeseriesCollection": [
-                        {
-                            "type": "coreTimeseries",
-                            "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-                            "nodeReference": {"space": "my_space", "externalId": "node_ts_1"},
-                            "viewReference": {
-                                "space": "my_schema_space",
-                                "externalId": "MyTimeSeries",
-                                "version": "v1",
-                            },
+        actual_chart = json.loads(last_call.request.content)
+        expected_chart = {
+            "visibility": "PUBLIC",
+            "data": {
+                "version": 1,
+                "name": "My Chart",
+                "dateFrom": "2025-01-01T00:00:00.000Z",
+                "dateTo": "2025-12-31T23:59:59.999Z",
+                "coreTimeseriesCollection": [
+                    {
+                        "type": "coreTimeseries",
+                        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                        "nodeReference": {"space": "my_space", "externalId": "node_ts_1"},
+                        "viewReference": {
+                            "space": "my_schema_space",
+                            "externalId": "MyTimeSeries",
+                            "version": "v1",
                         },
-                        {
-                            "type": "coreTimeseries",
-                            "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-                            "nodeReference": {"space": "my_space", "externalId": "node_123"},
-                            "viewReference": {"space": "cdf_cdm", "externalId": "CogniteTimeSeries", "version": "v1"},
-                        },
-                    ],
-                    "sourceCollection": [
-                        {
-                            "type": "coreTimeseries",
-                            "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-                        },
-                        {
-                            "type": "coreTimeseries",
-                            "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-                        },
-                    ],
-                    "timeSeriesCollection": None,
-                },
-            }
-        ]
-        assert actual_charts == expected_charts
+                    },
+                    {
+                        "type": "coreTimeseries",
+                        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                        "nodeReference": {"space": "my_space", "externalId": "node_123"},
+                        "viewReference": {"space": "cdf_cdm", "externalId": "CogniteTimeSeries", "version": "v1"},
+                    },
+                ],
+                "sourceCollection": [
+                    {
+                        "type": "coreTimeseries",
+                        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                    },
+                    {
+                        "type": "coreTimeseries",
+                        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                    },
+                ],
+                "timeSeriesCollection": None,
+            },
+        }
+        assert actual_chart == expected_chart
 
     @pytest.mark.usefixtures("mock_statistics")
     def test_migrate_canvas(
