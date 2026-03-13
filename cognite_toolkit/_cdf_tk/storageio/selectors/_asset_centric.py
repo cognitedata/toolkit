@@ -23,7 +23,7 @@ class DataSetSelector(AssetCentricSelector):
 
     @property
     def display_name(self) -> str:
-        return f"{self.kind} in dataset {self.data_set_external_id}"
+        return f"{self.kind.lower()} in dataset {self.data_set_external_id}"
 
 
 class AssetSubtreeSelector(AssetCentricSelector):
@@ -37,7 +37,7 @@ class AssetSubtreeSelector(AssetCentricSelector):
 
     @property
     def display_name(self) -> str:
-        return f"{self.kind} in asset hierarchy {self.hierarchy}"
+        return f"{self.kind.lower()} in asset hierarchy {self.hierarchy}"
 
 
 class AssetCentricFileSelector(AssetCentricSelector):
@@ -51,4 +51,4 @@ class AssetCentricFileSelector(AssetCentricSelector):
 
     @property
     def display_name(self) -> str:
-        return f"{self.kind} from file {self.datafile.name}"
+        return f"{self.kind.lower()} in file {self.datafile.name}"

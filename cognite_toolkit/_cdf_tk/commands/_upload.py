@@ -249,7 +249,7 @@ class UploadCommand(ToolkitCommand):
                     max_queue_size=self._MAX_QUEUE_SIZE,
                     download_description="Reading files",
                     process_description="Processing",
-                    write_description=f"{action} {selector.display_name!r}",
+                    write_description=f"{action} {selector.display_name}",
                     console=console,
                 )
                 executor.run()
