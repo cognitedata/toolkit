@@ -117,7 +117,7 @@ class InstanceIO(
     def _build_query_filter(selector: InstanceViewSelector, instance_type: Literal["node", "edge"]) -> dict[str, Any]:
         """Build a filter dict for the query endpoint from an InstanceViewSelector."""
         leaf_filters: list[dict[str, Any]] = [
-            {"hasData": [{**selector.view.as_id().dump(), "type": "view"}]},
+            {"hasData": [selector.view.as_id().dump(include_type=True)]},
         ]
         if selector.instance_spaces and len(selector.instance_spaces) == 1:
             leaf_filters.append(
@@ -198,6 +198,7 @@ class InstanceIO(
         for no, edge_type in enumerate(selector.edge_types or [], start=1):
             query_id = f"edge_{no}"
             with_[query_id] = QueryEdgeExpression(
+                limit=10_000,
                 edges=QueryEdgeTableExpression(
                     from_=root,
                     chain_to="source" if edge_type.direction == "outwards" else "destination",
@@ -209,7 +210,6 @@ class InstanceIO(
                         }
                     },
                 ),
-                sort=[QuerySortSpec(property=["edge", "space"]), QuerySortSpec(property=["edge", "externalId"])],
             )
             edge_ids.append(query_id)
             select[query_id] = QuerySelect()
@@ -267,16 +267,15 @@ class InstanceIO(
                         first.items[key] = items
                     else:
                         first.items[key].extend(items)
-            next_cursors: dict[str, str] = {}
+            next_cursors: dict[str, str | None] = {}
             for prop_id in sub_selections:
                 sub_cursor = response.next_cursor.get(prop_id)
                 if sub_cursor is not None:
                     next_cursors[prop_id] = sub_cursor
             if not next_cursors or not response.items:
                 return first
-            node_cursor = response.next_cursor.get(root_selection)
-            if node_cursor is not None:
-                next_cursors[root_selection] = node_cursor
+            # Keep the root cursor to iterate over all subitems.
+            next_cursors[root_selection] = (query.cursors or {}).get(root_selection)
             query = query.model_copy(update={"cursors": next_cursors})
 
     def _instances_with_container_properties(

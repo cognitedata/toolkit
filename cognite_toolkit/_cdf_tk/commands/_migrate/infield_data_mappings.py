@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QueryRequest,
     QuerySelect,
     QuerySelectSource,
+    QuerySortSpec,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceQuerySelector
@@ -52,7 +53,11 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
     return InstanceQuerySelector(
         query=QueryRequest(
             with_={
-                "template": QueryNodeExpression(limit=1, nodes=QueryNodeTableExpression(filter=template_filter)),
+                "template": QueryNodeExpression(
+                    limit=1,
+                    nodes=QueryNodeTableExpression(filter=template_filter),
+                    sort=[QuerySortSpec(property=["node", "space"]), QuerySortSpec(property=["node", "externalId"])],
+                ),
                 "templateEdges": QueryEdgeExpression(
                     edges=QueryEdgeTableExpression(
                         from_="template",
