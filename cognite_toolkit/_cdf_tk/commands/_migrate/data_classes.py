@@ -4,7 +4,6 @@ from typing import Any, Generic, Literal
 
 from cognite.client.data_classes._base import (
     WriteableCogniteResource,
-    WriteableCogniteResourceList,
 )
 from cognite.client.data_classes.data_modeling import InstanceApply
 from cognite.client.utils._text import to_camel_case
@@ -15,7 +14,6 @@ from rich.text import Text
 from cognite_toolkit._cdf_tk.client._resource_base import RequestResource
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeUntypedId, InstanceId, InternalId, NodeUntypedId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     ASSET_ANNOTATIONS_ID,
@@ -259,15 +257,6 @@ class AssetCentricMapping(Generic[T_AssetCentricResourceExtended], WriteableCogn
             "mapping": mapping,
             "resource": self.resource.dump(camel_case=camel_case),
         }
-
-
-class AssetCentricMappingList(
-    WriteableCogniteResourceList[InstanceApply, AssetCentricMapping[T_AssetCentricResourceExtended]]
-):
-    _RESOURCE: type = AssetCentricMapping
-
-    def as_write(self) -> InstanceApplyList:
-        return InstanceApplyList([item.as_write() for item in self])
 
 
 class ThreeDRevisionMigrationRequest(RequestResource):
