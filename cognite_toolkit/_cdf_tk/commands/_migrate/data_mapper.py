@@ -10,7 +10,7 @@ from cognite.client.exceptions import CogniteException
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, InstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     ContainerReferenceItem,
     FdmInstanceContainerReferenceItem,
@@ -62,7 +62,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     convert_edges,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
-    Model,
     ThreeDMigrationRequest,
     ThreeDRevisionMigrationRequest,
 )
@@ -589,7 +588,7 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeD
                 space=instance_space,
                 type=model_type,
                 revision_id=last_revision_id,
-                model=Model(
+                model=InstanceId(
                     instance_id=NodeId(
                         space=instance_space,
                         external_id=f"cog_3d_model_{item.id!s}",

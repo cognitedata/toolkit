@@ -12,8 +12,8 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from rich.panel import Panel
 from rich.text import Text
 
-from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource
-from cognite_toolkit._cdf_tk.client.identifiers import EdgeUntypedId, InternalId, NodeUntypedId
+from cognite_toolkit._cdf_tk.client._resource_base import RequestResource
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeUntypedId, InstanceId, InternalId, NodeUntypedId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
@@ -270,19 +270,11 @@ class AssetCentricMappingList(
         return InstanceApplyList([item.as_write() for item in self])
 
 
-class Model(BaseModelObject):
-    instance_id: NodeUntypedId
-
-
-class Thumbnail(BaseModelObject):
-    instance_id: NodeUntypedId
-
-
 class ThreeDRevisionMigrationRequest(RequestResource):
     space: str
     type: Literal["CAD", "PointCloud", "Image360"]
     revision_id: int
-    model: Model
+    model: InstanceId
 
     def as_id(self) -> InternalId:
         return InternalId(id=self.revision_id)
@@ -292,7 +284,7 @@ class ThreeDMigrationRequest(RequestResource):
     model_id: int
     type: Literal["CAD", "PointCloud", "Image360"]
     space: str
-    thumbnail: Thumbnail | None = None
+    thumbnail: InstanceId | None = None
     revision: ThreeDRevisionMigrationRequest = Field(exclude=True)
 
     def as_id(self) -> InternalId:
