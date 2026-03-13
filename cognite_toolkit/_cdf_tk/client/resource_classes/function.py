@@ -42,10 +42,7 @@ class FunctionRequest(FunctionBase, RequestResource):
 
 
 class FunctionAPIError(BaseModelObject):
-    # this is deviating from the official API spec. However, users of Toolkit has reported
-    # that hte error response from the API does not always follow the spec. The code
-    # field can be missing.
-    code: int | None = None
+    trace: str
     message: str
 
 
