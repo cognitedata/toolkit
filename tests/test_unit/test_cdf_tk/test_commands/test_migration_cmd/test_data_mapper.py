@@ -48,7 +48,6 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import ConnectionCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     AssetCentricMapping,
-    AssetCentricMappingList,
     MigrationMapping,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
@@ -72,28 +71,27 @@ class TestAssetCentricMapper:
         cognite_extractor_views: list[ViewResponse],
     ) -> None:
         asset_count = 10
-        source = AssetCentricMappingList(
-            [
-                AssetCentricMapping(
-                    mapping=MigrationMapping(
-                        resource_type="asset",
-                        instance_id=NodeId(space="my_space", external_id=f"asset_{i}"),
-                        id=1000 + i,
-                        ingestion_view="cdf_asset_mapping",
-                    ),
-                    resource=AssetResponse(
-                        id=1000 + i,
-                        name=f"Asset {i}",
-                        source="SAP",
-                        description=f"Description {i}",
-                        created_time=1,
-                        last_updated_time=1,
-                        root_id=0,
-                    ),
-                )
-                for i in range(asset_count)
-            ]
-        )
+        source = [
+            AssetCentricMapping(
+                mapping=MigrationMapping(
+                    resource_type="asset",
+                    instance_id=NodeId(space="my_space", external_id=f"asset_{i}"),
+                    id=1000 + i,
+                    ingestion_view="cdf_asset_mapping",
+                ),
+                resource=AssetResponse(
+                    id=1000 + i,
+                    name=f"Asset {i}",
+                    source="SAP",
+                    description=f"Description {i}",
+                    created_time=1,
+                    last_updated_time=1,
+                    root_id=0,
+                ),
+            )
+            for i in range(asset_count)
+        ]
+
         mapping_file = tmp_path / "mapping.csv"
         mapping_file.write_text(
             "id,space,externalId,ingestionView\n"
