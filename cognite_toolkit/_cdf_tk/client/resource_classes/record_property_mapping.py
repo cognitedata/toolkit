@@ -8,5 +8,5 @@ class RecordPropertyMapping(BaseModelObject):
     external_id: str
     resource_type: str
     container_id: ContainerId
-    stream_external_id: str | None = None
+    stream_external_id: str
     property_mapping: dict[str, str]

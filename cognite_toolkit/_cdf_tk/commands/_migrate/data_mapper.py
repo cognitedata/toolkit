@@ -230,24 +230,11 @@ class AssetCentricMapper(
 class RecordsMapper(
     DataMapper[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResourceExtended], RecordRequest]
 ):
-    def __init__(self, client: ToolkitClient) -> None:
+    def __init__(self, client: ToolkitClient, record_mappings: Sequence[RecordPropertyMapping]) -> None:
         super().__init__(client)
-        self._record_mapping_by_id: dict[str, RecordPropertyMapping] = {}
-
-    def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
-        ingestion_mapping_ids = source_selector.get_ingestion_mappings()
-        if not ingestion_mapping_ids:
-            raise ToolkitValueError(
-                "No ingestion mapping specified. Use --ingestion-mapping to provide a RecordPropertyMapping external ID."
-            )
-        # TODO: Load RecordPropertyMapping nodes from CDF by external ID
-        #   node_ids = NodeId.from_str_ids(ingestion_mapping_ids, space=RESOURCE_VIEW_MAPPING_SPACE)
-        #   mappings = self.client.migration.record_property_mapping.retrieve(node_ids)
-        #   self._record_mapping_by_id = {m.external_id: m for m in mappings}
-        raise NotImplementedError(
-            "Loading RecordPropertyMapping from CDF is not yet implemented. "
-            "This requires the YAML/CRUD/API pipeline for RecordPropertyMapping."
-        )
+        self._record_mapping_by_id: dict[str, RecordPropertyMapping] = {
+            mapping.external_id: mapping for mapping in record_mappings
+        }
 
     def map(
         self, source: Sequence[AssetCentricMapping[T_AssetCentricResourceExtended]]

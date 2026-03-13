@@ -5,9 +5,12 @@ from typing import Annotated, Any
 import questionary
 import typer
 
+from pydantic import TypeAdapter
+
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
@@ -58,6 +61,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     ThreeDModelIdSelector,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
@@ -74,6 +78,12 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKind
 
 TODAY = date.today()
+
+
+def load_record_property_mappings(filepath: Path) -> list[RecordPropertyMapping]:
+    """Load RecordPropertyMapping definitions from a YAML file."""
+    raw = read_yaml_file(filepath, expected_output="list")
+    return TypeAdapter(list[RecordPropertyMapping]).validate_python(raw)
 
 
 class MigrateApp(typer.Typer):
@@ -516,18 +526,19 @@ class MigrateApp(typer.Typer):
                 " or use 'records' to migrate events to records.",
             ),
         ] = "instances",
-        stream_id: Annotated[
-            str | None,
-            typer.Option(
-                "--stream-id",
-                help="The external ID of the target stream. Only applicable and required when --target is 'records'.",
-            ),
-        ] = None,
         event_type: Annotated[
             str | None,
             typer.Option(
                 "--type",
                 help="Filter events by type. Only events matching this type will be migrated.",
+            ),
+        ] = None,
+        record_mapping_file: Annotated[
+            Path | None,
+            typer.Option(
+                "--record-mapping-file",
+                help="Path to a YAML file defining the RecordPropertyMapping. "
+                "Required when --target is 'records'.",
             ),
         ] = None,
         event_subtype: Annotated[
@@ -573,10 +584,8 @@ class MigrateApp(typer.Typer):
         """Migrate Events to CogniteActivity (instances) or to records."""
         if target not in ("instances", "records"):
             raise typer.BadParameter(f"Invalid target '{target}'. Must be 'instances' or 'records'.")
-        if target == "records" and stream_id is None:
-            raise typer.BadParameter("--stream-id is required when --target is 'records'.")
-        if target == "records" and ingestion_mapping is None:
-            raise typer.BadParameter("--ingestion-mapping is required when --target is 'records'.")
+        if target == "records" and record_mapping_file is None:
+            raise typer.BadParameter("--record-mapping-file is required when --target is 'records'.")
 
         client = EnvironmentVariables.create_from_environment().get_client()
         selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
@@ -598,13 +607,15 @@ class MigrateApp(typer.Typer):
         cmd = MigrationCommand(client=client)
 
         if target == "records":
-            assert stream_id is not None
-            cmd.validate_stream_exists(client, stream_id)
+            assert record_mapping_file is not None
+            record_mappings = load_record_property_mappings(record_mapping_file)
+            stream_external_id = record_mappings[0].stream_external_id
+            cmd.validate_stream_exists(client, stream_external_id)
             cmd.run(
                 lambda: cmd.migrate(
                     selectors=[selected],
-                    data=RecordsMigrationIO(client, stream_external_id=stream_id),
-                    mapper=RecordsMapper(client),
+                    data=RecordsMigrationIO(client, stream_external_id=stream_external_id),
+                    mapper=RecordsMapper(client, record_mappings=record_mappings),
                     log_dir=log_dir,
                     dry_run=dry_run,
                     verbose=verbose,

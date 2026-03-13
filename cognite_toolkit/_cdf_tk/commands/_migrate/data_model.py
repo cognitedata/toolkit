@@ -130,36 +130,11 @@ SPACE_SOURCE = ContainerRequest(
     },
 )
 
-RESOURCE_CONTAINER_MAPPING = ContainerRequest(
-    space=SPACE.space,
-    external_id="ResourceContainerMapping",
-    used_for="node",
-    properties={
-        "resourceType": ContainerPropertyDefinition(
-            type=TextProperty(max_text_size=255),
-            nullable=False,
-        ),
-        "containerId": ContainerPropertyDefinition(
-            type=JSONProperty(),
-            nullable=False,
-        ),
-        "streamExternalId": ContainerPropertyDefinition(
-            type=TextProperty(max_text_size=255),
-            nullable=False,
-        ),
-        "propertyMapping": ContainerPropertyDefinition(
-            type=JSONProperty(),
-            nullable=False,
-        ),
-    },
-)
-
 CONTAINERS = [
     RESOURCE_VIEW_MAPPING,
     INSTANCE_SOURCE_CONTAINER,
     CREATED_SOURCE_SYSTEM,
     SPACE_SOURCE,
-    RESOURCE_CONTAINER_MAPPING,
 ]
 
 RESOURCE_VIEW_MAPPING_VIEW = ViewRequest(
@@ -258,35 +233,8 @@ SPACE_SOURCE_VIEW = ViewRequest(
     },
 )
 
-RESOURCE_CONTAINER_MAPPING_VIEW = ViewRequest(
-    space=SPACE.space,
-    external_id="ResourceContainerMapping",
-    version="v1",
-    name="ResourceContainerMapping",
-    description="The mapping from asset-centric resources to a data modeling container (for records).",
-    properties={
-        "resourceType": ViewCorePropertyRequest(
-            container=RESOURCE_CONTAINER_MAPPING.as_id(),
-            container_property_identifier="resourceType",
-        ),
-        "containerId": ViewCorePropertyRequest(
-            container=RESOURCE_CONTAINER_MAPPING.as_id(),
-            container_property_identifier="containerId",
-        ),
-        "streamExternalId": ViewCorePropertyRequest(
-            container=RESOURCE_CONTAINER_MAPPING.as_id(),
-            container_property_identifier="streamExternalId",
-        ),
-        "propertyMapping": ViewCorePropertyRequest(
-            container=RESOURCE_CONTAINER_MAPPING.as_id(),
-            container_property_identifier="propertyMapping",
-        ),
-    },
-)
-
 INSTANCE_SOURCE_VIEW_ID = INSTANCE_SOURCE_VIEW.as_id()
 RESOURCE_VIEW_MAPPING_VIEW_ID = RESOURCE_VIEW_MAPPING_VIEW.as_id()
-RESOURCE_CONTAINER_MAPPING_VIEW_ID = RESOURCE_CONTAINER_MAPPING_VIEW.as_id()
 CREATED_SOURCE_SYSTEM_VIEW_ID = CREATED_SOURCE_SYSTEM_VIEW.as_id()
 SPACE_SOURCE_VIEW_ID = SPACE_SOURCE_VIEW.as_id()
 
@@ -295,7 +243,6 @@ VIEWS = [
     INSTANCE_SOURCE_VIEW,
     CREATED_SOURCE_SYSTEM_VIEW,
     SPACE_SOURCE_VIEW,
-    RESOURCE_CONTAINER_MAPPING_VIEW,
 ]
 
 COGNITE_MIGRATION_MODEL = DataModelRequest(
@@ -307,7 +254,6 @@ COGNITE_MIGRATION_MODEL = DataModelRequest(
     views=[
         INSTANCE_SOURCE_VIEW_ID,
         RESOURCE_VIEW_MAPPING_VIEW_ID,
-        RESOURCE_CONTAINER_MAPPING_VIEW_ID,
         CREATED_SOURCE_SYSTEM_VIEW_ID,
         SPACE_SOURCE_VIEW_ID,
     ],
