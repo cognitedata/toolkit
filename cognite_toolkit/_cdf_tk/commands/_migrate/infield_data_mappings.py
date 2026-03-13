@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QuerySortSpec,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
+from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceQuerySelector
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 
@@ -59,7 +60,7 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
                     sort=[QuerySortSpec(property=["node", "space"]), QuerySortSpec(property=["node", "externalId"])],
                 ),
                 "templateEdges": QueryEdgeExpression(
-                    limit=10_000,
+                    limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
                     edges=QueryEdgeTableExpression(
                         from_="template",
                         chain_to="source",
@@ -73,7 +74,7 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
                     ),
                 ),
                 "templateItem": QueryNodeExpression(
-                    limit=10_000,
+                    limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
                     nodes=QueryNodeTableExpression(
                         from_="templateEdges",
                         chain_to="destination",
@@ -81,7 +82,7 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
                     ),
                 ),
                 "templateItemEdges": QueryEdgeExpression(
-                    limit=10_000,
+                    limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
                     edges=QueryEdgeTableExpression(
                         from_="templateItem",
                         chain_to="source",
@@ -95,7 +96,7 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
                     ),
                 ),
                 "schedules": QueryNodeExpression(
-                    limit=10_000,
+                    limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
                     nodes=QueryNodeTableExpression(
                         from_="templateItemEdges",
                         chain_to="destination",

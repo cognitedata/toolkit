@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QuerySortSpec,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceRequestAdapter
+from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
@@ -198,7 +199,7 @@ class InstanceIO(
         for no, edge_type in enumerate(selector.edge_types or [], start=1):
             query_id = f"edge_{no}"
             with_[query_id] = QueryEdgeExpression(
-                limit=10_000,
+                limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
                 edges=QueryEdgeTableExpression(
                     from_=root,
                     chain_to="source" if edge_type.direction == "outwards" else "destination",
