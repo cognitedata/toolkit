@@ -35,6 +35,7 @@ _EXCEPTION_MODULES: frozenset[str] = frozenset({"cognite.neat"})
 def _assert_no_import_violations(
     extract_fn: Callable[[Path], list[tuple[str, int, str]]],
     description: str,
+    expected_total: int | None = None,
 ) -> None:
     """Walk all Python files in CDF_TK_PATH and fail if any import violations are found."""
     all_violations: dict[str, list[tuple[str, int, str]]] = {}
@@ -45,8 +46,10 @@ def _assert_no_import_violations(
             relative_path = py_file.relative_to(REPO_ROOT).as_posix()
             all_violations[relative_path] = violations
 
-    if all_violations:
-        total = sum(len(v) for v in all_violations.values())
+    total = sum(len(v) for v in all_violations.values())
+    if expected_total:
+        assert total == expected_total
+    elif all_violations:
         lines = [f"Found {total} {description}:", ""]
         for file_path, imports in sorted(all_violations.items()):
             lines.append(f"  {file_path}:")
@@ -68,15 +71,14 @@ def test_no_private_third_party_imports() -> None:
     _assert_no_import_violations(_extract_private_imports, "private imports from third-party packages")
 
 
-@pytest.mark.xfail(strict=True, reason="Tracking removal of cognite-sdk dependency")
 def test_no_cognite_sdk_imports() -> None:
     """
     Test that checks for any imports from cognite.client (both public and private).
 
-    The goal is to fully remove the cognite-sdk dependency from the toolkit.
+    The goal is to fully remove the cognite-sdk dependency from the toolkit (with the exception of Auth and protobuf files).
     This test tracks progress toward that goal.
     """
-    _assert_no_import_violations(_extract_cognite_sdk_imports, "cognite.client imports")
+    _assert_no_import_violations(_extract_cognite_sdk_imports, "cognite.client imports", 150)
 
 
 def _parse_package_name(dependency: str) -> str:
