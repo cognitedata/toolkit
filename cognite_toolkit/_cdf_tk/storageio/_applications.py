@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     RequestMessage,
 )
-from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultList
+from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
 from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
@@ -45,6 +45,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
     UPLOAD_ENDPOINT_TYPE = "app"
     UPLOAD_ENDPOINT_METHOD = "PUT"
     UPLOAD_ENDPOINT = "/storage/charts/charts"
+    UPDATE_ENDPOINT = "/storage/charts/charts/{externalId}"
 
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
@@ -153,6 +154,50 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                     if ts_id is not None:
                         item["tsId"] = ts_id
         return ChartRequest._load(item_json)
+
+    def upload_items(
+        self,
+        data_chunk: Sequence[UploadItem[ChartRequest]],
+        http_client: HTTPClient,
+        selector: ChartSelector | None = None,
+    ) -> ItemsResultList:
+        config = http_client.config
+        to_create: list[UploadItem[ChartRequest]] = []
+        to_update: list[UploadItem[ChartRequest]] = []
+        for item in data_chunk:
+            if item.item.external_id in self.existing_charts:
+                to_update.append(item)
+            else:
+                to_create.append(item)
+        results = ItemsResultList()
+        if to_create:
+            url = config.create_app_url(self.UPLOAD_ENDPOINT)
+            results.extend(
+                http_client.request_items_retries(
+                    message=ItemsRequest(
+                        endpoint_url=url,
+                        method="PUT",
+                        items=to_create,
+                        extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
+                    )
+                )
+            )
+        if to_update:
+            for item in to_update:
+                chart = item.item
+                url = config.create_app_url(self.UPDATE_ENDPOINT.format(externalId=chart.external_id))
+                dumped = chart.dump()
+                # The endpoint
+                dumped.pop("externalId", None)
+                item_response = http_client.request_single_retries(
+                    RequestMessage(
+                        endpoint_url=url,
+                        method="PUT",
+                        body_content=dumped,
+                    )
+                )
+                results.append(item_response.as_item_response(item.source_id))
+        return results
 
 
 class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, IndustrialCanvasRequest]):
