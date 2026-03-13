@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
 from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceIdCSVList
 from cognite_toolkit._cdf_tk.storageio.selectors._base import DataSelector, SelectorObject
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 
 class SelectedView(SelectorObject):
@@ -76,6 +77,13 @@ class InstanceViewSelector(InstanceSelector):
     def __str__(self) -> str:
         return f"{self.view.external_id}_{self.view.version}_{self.instance_type}"
 
+    @property
+    def display_name(self) -> str:
+        message = f"{self.instance_type}s in view {self.view!s}"
+        if self.instance_spaces:
+            message += f" with {humanize_collection(self.instance_spaces)} instance spaces"
+        return message
+
 
 class InstanceSpaceSelector(InstanceSelector):
     """This is used for purge"""
@@ -91,6 +99,13 @@ class InstanceSpaceSelector(InstanceSelector):
     def get_instance_spaces(self) -> list[str] | None:
         return [self.instance_space]
 
+    @property
+    def display_name(self) -> str:
+        message = f"{self.instance_type}s in {self.instance_space} instance space"
+        if self.view is not None:
+            message += f" with properties in {self.view!s} view"
+        return message
+
     def __str__(self) -> str:
         if self.view is None:
             return self.instance_type
@@ -104,6 +119,10 @@ class InstanceFileSelector(InstanceSelector):
 
     datafile: Path
     validate_instance: bool = True
+
+    @property
+    def display_name(self) -> str:
+        return f"{self.kind} in {self.datafile!s}"
 
     def __str__(self) -> str:
         return f"file_{self.datafile.as_posix()}"

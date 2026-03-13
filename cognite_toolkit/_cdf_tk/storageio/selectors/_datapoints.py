@@ -79,3 +79,12 @@ class DataPointsDataSetSelector(DataPointsSelector):
 
     def __str__(self) -> str:
         return f"datapoints_dataset_{self.data_set_external_id}"
+
+    @property
+    def display_name(self) -> str:
+        message = f"{self.kind} in dataset {self.data_set_external_id}"
+        if self.start:
+            message += f" start={self.start}"
+        if self.end:
+            message += f" end={self.end}"
+        return message
