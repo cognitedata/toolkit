@@ -51,7 +51,6 @@ from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResource
 from .data_classes import (
     AnnotationMapping,
     AssetCentricMapping,
-    AssetCentricMappingList,
     MigrationMapping,
     MigrationMappingList,
 )
@@ -121,7 +120,7 @@ class AssetCentricMigrationIO(
     ) -> Iterator[Sequence[AssetCentricMapping[T_AssetCentricResource]]]:
         asset_centric_selector = selector.as_asset_centric_selector()
         for data_chunk in self.hierarchy.stream_data(asset_centric_selector, limit):
-            mapping_list = AssetCentricMappingList[T_AssetCentricResource]([])
+            mapping_list: list[AssetCentricMapping[T_AssetCentricResource]] = []
             for resource in data_chunk.items:
                 # We got the resource from a dataset selector, so we know it is there
                 data_set_id = cast(int, resource.data_set_id)
@@ -143,7 +142,7 @@ class AssetCentricMigrationIO(
                     ingestion_view=selector.ingestion_mapping,
                     preferred_consumer_view=selector.preferred_consumer_view,
                 )
-                mapping_list.append(AssetCentricMapping(mapping=mapping, resource=resource))
+                mapping_list.append(AssetCentricMapping(mapping=mapping, resource=resource))  # type: ignore[arg-type]
             yield mapping_list
 
     @staticmethod
@@ -310,7 +309,7 @@ class AnnotationMigrationIO(
             raise ToolkitValueError("Instance space must be provided for dataset-based annotation migration.")
         asset_centric_selector = selector.as_asset_centric_selector()
         for data_chunk in self.annotation_io.stream_data(asset_centric_selector, limit):
-            mapping_list = AssetCentricMappingList[AnnotationResponse]([])
+            mapping_list: list[AssetCentricMapping[AnnotationResponse]] = []
             for resource in data_chunk.items:
                 if resource.annotation_type not in self.SUPPORTED_ANNOTATION_TYPES:
                     # This should not happen, as the annotation_io should already filter these out.
