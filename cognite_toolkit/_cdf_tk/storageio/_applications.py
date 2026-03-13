@@ -47,13 +47,14 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
     UPLOAD_ENDPOINT = "/storage/charts/charts"
     UPDATE_ENDPOINT = "/storage/charts/charts/{externalId}"
 
-    def __init__(self, client: ToolkitClient) -> None:
+    def __init__(self, client: ToolkitClient, skip_existing: bool = False) -> None:
         super().__init__(client)
         # We need to store existing charts as we use different endpoints depending on whether
         # the chart exist or not. Note this scales O(n) and not O(1) with memory wrt to number of Charts.
         # However, we know that there are only a few 1000s Charts at most, thus this should not be a problem.
         # and is cheaper than doing a lookup for each chart we are about to deploy.
         self._existing_charts: set[str] | None = None
+        self._skip_existing = skip_existing
 
     @property
     def existing_charts(self) -> set[str]:
@@ -165,9 +166,9 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
         to_create: list[UploadItem[ChartRequest]] = []
         to_update: list[UploadItem[ChartRequest]] = []
         for item in data_chunk:
-            if item.item.external_id in self.existing_charts:
+            if item.item.external_id in self.existing_charts and not self._existing_charts:
                 to_update.append(item)
-            else:
+            elif item.item.external_id not in self.existing_charts:
                 to_create.append(item)
         results = ItemsResultList()
         if to_create:
