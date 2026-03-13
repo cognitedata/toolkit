@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     RequestMessage,
 )
-from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsResultList
+from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
 from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     CANVAS_INSTANCE_SPACE,
@@ -45,12 +45,29 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
     UPLOAD_ENDPOINT_TYPE = "app"
     UPLOAD_ENDPOINT_METHOD = "PUT"
     UPLOAD_ENDPOINT = "/storage/charts/charts"
+    UPDATE_ENDPOINT = "/storage/charts/charts/{externalId}"
+
+    def __init__(self, client: ToolkitClient, skip_existing: bool = False) -> None:
+        super().__init__(client)
+        # We need to store existing charts as we use different endpoints depending on whether
+        # the chart exist or not. Note this scales O(n) and not O(1) with memory wrt to number of Charts.
+        # However, we know that there are only a few 1000s Charts at most, thus this should not be a problem.
+        # and is cheaper than doing a lookup for each chart we are about to deploy.
+        self._existing_charts: set[str] | None = None
+        self._skip_existing = skip_existing
+
+    @property
+    def existing_charts(self) -> set[str]:
+        if self._existing_charts is None:
+            self._existing_charts = {chart.external_id for chart in self.client.charts.list()}
+        return self._existing_charts
 
     def as_id(self, item: ChartResponse) -> str:
         return item.external_id
 
     def stream_data(self, selector: ChartSelector, limit: int | None = None) -> Iterable[Page]:
         selected_charts = self.client.charts.list(visibility=None)
+        self._existing_charts = {chart.external_id for chart in selected_charts}
         if isinstance(selector, AllChartsSelector):
             ...
         elif isinstance(selector, ChartOwnerSelector):
@@ -67,7 +84,10 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
             yield Page(worker_id="main", items=chunk)
 
     def count(self, selector: ChartSelector) -> int | None:
-        # There is no way to get the count of charts up front.
+        if isinstance(selector, ChartExternalIdSelector):
+            return len(selector.external_ids)
+        elif isinstance(selector, AllChartsSelector):
+            return len(self.existing_charts)
         return None
 
     def data_to_json_chunk(
@@ -138,6 +158,54 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                     if ts_id is not None:
                         item["tsId"] = ts_id
         return ChartRequest._load(item_json)
+
+    def upload_items(
+        self,
+        data_chunk: Sequence[UploadItem[ChartRequest]],
+        http_client: HTTPClient,
+        selector: ChartSelector | None = None,
+    ) -> ItemsResultList:
+        config = http_client.config
+        to_create: list[UploadItem[ChartRequest]] = []
+        to_update: list[UploadItem[ChartRequest]] = []
+        for item in data_chunk:
+            if item.item.external_id in self.existing_charts and not self._skip_existing:
+                to_update.append(item)
+            elif item.item.external_id not in self.existing_charts:
+                to_create.append(item)
+            else:
+                self.logger.tracker.finalize_item(item.source_id, "skipped")
+
+        results = ItemsResultList()
+        if to_create:
+            url = config.create_app_url(self.UPLOAD_ENDPOINT)
+            results.extend(
+                http_client.request_items_retries(
+                    message=ItemsRequest(
+                        endpoint_url=url,
+                        method="PUT",
+                        items=to_create,
+                        extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
+                    )
+                )
+            )
+        if to_update:
+            for item in to_update:
+                chart = item.item
+                url = config.create_app_url(self.UPDATE_ENDPOINT.format(externalId=chart.external_id))
+                dumped = chart.dump()
+                # The endpoint requires that externalId is not part of the body. Note that
+                # it is already set as a path variable.
+                dumped.pop("externalId", None)
+                item_response = http_client.request_single_retries(
+                    RequestMessage(
+                        endpoint_url=url,
+                        method="PUT",
+                        body_content=dumped,
+                    )
+                )
+                results.append(item_response.as_item_response(item.source_id))
+        return results
 
 
 class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, IndustrialCanvasRequest]):

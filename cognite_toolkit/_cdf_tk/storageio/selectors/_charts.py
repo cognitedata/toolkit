@@ -38,4 +38,4 @@ class ChartExternalIdSelector(ChartSelector):
 
     @property
     def display_name(self) -> str:
-        return f"{len(self.external_ids)} {self.kind.lower()}s"
+        return f"{len(self.external_ids)} {self.kind.lower()}"

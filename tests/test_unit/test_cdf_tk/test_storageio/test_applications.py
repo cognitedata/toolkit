@@ -97,9 +97,7 @@ class TestChartIO:
                 json={"items": [{"id": 200, "externalId": "ts_1"}, {"id": 201, "externalId": "ts_4"}]},
                 status=200,
             )
-            assert io.count(selector) is None, (
-                "Count should be None since CDF does not provide a way to get the count of charts up front."
-            )
+            assert io.count(selector) == 2
             charts_iterator = io.stream_data(selector=selector)
             json_iterator = (io.data_to_json_chunk(chunk.items) for chunk in charts_iterator)
             chart_data = [io.json_chunk_to_data([("id", item) for item in chunk]) for chunk in json_iterator]
