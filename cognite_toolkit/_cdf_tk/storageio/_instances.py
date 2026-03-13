@@ -261,12 +261,9 @@ class InstanceIO(
             if first is None:
                 first = response
             else:
-                for key, items in response.items.items():
-                    if key not in first.items:
-                        # In practice, this is unreachable. It is just in case.
-                        first.items[key] = items
-                    else:
-                        first.items[key].extend(items)
+                for key in sub_selections:
+                    if key in response.items:
+                        first.items[key].extend(response.items[key])
             next_cursors: dict[str, str | None] = {}
             for prop_id in sub_selections:
                 sub_cursor = response.next_cursor.get(prop_id)
