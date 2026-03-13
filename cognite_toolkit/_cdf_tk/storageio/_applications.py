@@ -46,11 +46,22 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
     UPLOAD_ENDPOINT_METHOD = "PUT"
     UPLOAD_ENDPOINT = "/storage/charts/charts"
 
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._existing_charts: set[str] | None = None
+
+    @property
+    def existing_charts(self) -> set[str]:
+        if self._existing_charts is None:
+            self._existing_charts = {chart.external_id for chart in self.client.charts.list()}
+        return self._existing_charts
+
     def as_id(self, item: ChartResponse) -> str:
         return item.external_id
 
     def stream_data(self, selector: ChartSelector, limit: int | None = None) -> Iterable[Page]:
         selected_charts = self.client.charts.list(visibility=None)
+        self._existing_charts = {chart.external_id for chart in selected_charts}
         if isinstance(selector, AllChartsSelector):
             ...
         elif isinstance(selector, ChartOwnerSelector):
