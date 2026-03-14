@@ -6,12 +6,10 @@ from functools import partial
 from typing import Any, Literal, cast
 
 import questionary
-from cognite.client import data_modeling as dm
 from cognite.client.data_classes import DataSetUpdate
 from cognite.client.data_classes.data_modeling import Edge
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.exceptions import CogniteAPIError
-from cognite.client.utils._identifier import InstanceId
 from pydantic import JsonValue
 from rich import print
 from rich.console import Console
@@ -26,12 +24,10 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 )
 from cognite_toolkit._cdf_tk.client.identifiers import (
     InstanceDefinitionId,
+    InstanceId,
     InternalId,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import (
-    InstanceId as DataModelingInstanceId,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, NodeResponse, SpaceId
 from cognite_toolkit._cdf_tk.cruds import (
     AssetCRUD,
     ContainerCRUD,
@@ -152,31 +148,25 @@ class NodesToDelete(ToDelete):
     def get_process_function(
         self, client: ToolkitClient, console: Console, verbose: bool, process_results: ResourceDeployResult
     ) -> Callable[[list[ResourceResponseProtocol]], list[JsonVal]]:
-        def check_for_data(chunk: list[ResourceResponseProtocol]) -> list[JsonVal]:
-            # We know that all node resources implement as_id
-            node_ids = [
-                dm.NodeId(space=item.space, external_id=item.external_id)  # type: ignore[attr-defined]
-                for item in chunk
-            ]
-            found_ids: set[InstanceId] = set()
+        def check_for_data(chunk: list[NodeResponse]) -> list[JsonVal]:
+            instance_ids = [InstanceId(instance_id=item.as_id()) for item in chunk]
+            found_ids: set[NodeId] = set()
             if not self.delete_datapoints:
-                timeseries = client.time_series.retrieve_multiple(instance_ids=node_ids, ignore_unknown_ids=True)
+                timeseries = client.tool.timeseries.retrieve(instance_ids, ignore_unknown_ids=True)
                 found_ids |= {ts.instance_id for ts in timeseries if ts.instance_id is not None}
             if not self.delete_file_content:
-                files = client.files.retrieve_multiple(instance_ids=node_ids, ignore_unknown_ids=True)
+                files = client.tool.filemetadata.retrieve(instance_ids, ignore_unknown_ids=True)
                 found_ids |= {f.instance_id for f in files if f.instance_id is not None}
             if found_ids and verbose:
                 console.print(f"Skipping {found_ids} nodes as they have datapoints or file content")
             process_results.unchanged += len(found_ids)
             result: list[JsonVal] = []
-            for node_id in (n for n in node_ids if n not in found_ids):
+            for node_id in (n.instance_id for n in instance_ids if n.instance_id not in found_ids):
                 dumped = node_id.dump(include_instance_type=True)
-                # The delete endpoint expects "instanceType" instead of "type"
-                dumped["instanceType"] = dumped.pop("type")
-                result.append(dumped)  # type: ignore[arg-type]
+                result.append(dumped)
             return result
 
-        return check_for_data
+        return check_for_data  # type: ignore[return-value]
 
 
 @dataclass
@@ -609,7 +599,7 @@ class PurgeCommand(ToolkitCommand):
                 if not confirm:
                     return DeleteResults()
 
-        process: Callable[[Sequence[InstanceId]], list[dict[str, JsonVal]]] = self._prepare
+        process: Callable[[Sequence[InstanceDefinitionId]], list[dict[str, JsonVal]]] = self._prepare
         if unlink:
             process = partial(self._unlink_prepare, client=client, dry_run=dry_run, console=console, verbose=verbose)
 
@@ -618,7 +608,7 @@ class PurgeCommand(ToolkitCommand):
             process_str = "Would be unlinking" if dry_run else "Unlinking"
             write_str = "Would be deleting" if dry_run else "Deleting"
             results = DeleteResults()
-            executor = ProducerWorkerExecutor[Sequence[InstanceId], list[dict[str, JsonVal]]](
+            executor = ProducerWorkerExecutor[Sequence[InstanceDefinitionId], list[dict[str, JsonVal]]](
                 download_iterable=io.download_ids(selector),
                 process=process,
                 write=partial(self._delete_instance_ids, dry_run=dry_run, delete_client=delete_client, results=results),
@@ -694,20 +684,17 @@ class PurgeCommand(ToolkitCommand):
         self.warn(LimitedAccessWarning(f"You can only unlink files in the following scopes: {scope_str}."))
 
     @staticmethod
-    def _prepare(instance_ids: Sequence[InstanceId]) -> list[dict[str, JsonVal]]:
+    def _prepare(instance_ids: Sequence[InstanceDefinitionId]) -> list[dict[str, JsonVal]]:
         output: list[dict[str, JsonVal]] = []
         for instance_id in instance_ids:
             dumped = instance_id.dump(include_instance_type=True)
-            # The PySDK uses 'type' instead of 'instanceType' which is required by the delete endpoint
-            dumped["instanceType"] = dumped.pop("type")
-            # MyPy does not understand that InstanceId.dump() returns dict[str, JsonVal]
-            output.append(dumped)  # type: ignore[arg-type]
+            output.append(dumped)
 
         return output
 
     def _unlink_prepare(
         self,
-        instance_ids: Sequence[InstanceId],
+        instance_ids: Sequence[InstanceDefinitionId],
         client: ToolkitClient,
         dry_run: bool,
         console: Console,
@@ -740,15 +727,12 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _unlink_timeseries(
-        instances: Sequence[InstanceId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
-    ) -> list[InstanceId]:
-        node_ids = [instance for instance in instances if isinstance(instance, dm.NodeId)]
+        instances: Sequence[InstanceDefinitionId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
+    ) -> list[InstanceDefinitionId]:
+        node_ids = [instance for instance in instances if isinstance(instance, NodeId)]
         if node_ids:
             timeseries = client.tool.timeseries.retrieve(
-                [
-                    DataModelingInstanceId(instance_id=NodeId(space=node.space, external_id=node.external_id))
-                    for node in node_ids
-                ],
+                [InstanceId(instance_id=NodeId(space=node.space, external_id=node.external_id)) for node in node_ids],
                 ignore_unknown_ids=True,
             )
             migrated_timeseries_ids = [
@@ -764,15 +748,12 @@ class PurgeCommand(ToolkitCommand):
 
     @staticmethod
     def _unlink_files(
-        instances: Sequence[InstanceId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
-    ) -> list[InstanceId]:
-        file_ids = [instance for instance in instances if isinstance(instance, dm.NodeId)]
+        instances: Sequence[InstanceDefinitionId], client: ToolkitClient, dry_run: bool, console: Console, verbose: bool
+    ) -> list[InstanceDefinitionId]:
+        file_ids = [instance for instance in instances if isinstance(instance, NodeId)]
         if file_ids:
             files = client.tool.filemetadata.retrieve(
-                [
-                    DataModelingInstanceId(instance_id=NodeId(space=node.space, external_id=node.external_id))
-                    for node in file_ids
-                ],
+                [InstanceId(instance_id=NodeId(space=node.space, external_id=node.external_id)) for node in file_ids],
                 ignore_unknown_ids=True,
             )
             migrated_file_ids = [

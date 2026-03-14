@@ -89,7 +89,7 @@ def test_no_cognite_sdk_imports() -> None:
     The goal is to fully remove the cognite-sdk dependency from the toolkit (with the exception of Auth and protobuf files).
     This test tracks progress toward that goal.
     """
-    _assert_import_violations(_extract_cognite_sdk_imports, "cognite.client imports", 145)
+    _assert_import_violations(_extract_cognite_sdk_imports, "cognite.client imports", 138)
 
 
 def _parse_package_name(dependency: str) -> str:
