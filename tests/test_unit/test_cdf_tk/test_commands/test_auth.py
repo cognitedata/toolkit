@@ -7,22 +7,39 @@ from unittest.mock import MagicMock
 
 import pytest
 import yaml
-from cognite.client._api.iam import IAMAPI
 from cognite.client.data_classes._base import CogniteResource, CogniteResourceList, CogniteResponse
 from cognite.client.data_classes.capabilities import (
     AllProjectsScope,
-    AllScope,
-    AppConfigAcl,
-    AppConfigScope,
-    AssetsAcl,
     Capability,
     ProjectCapability,
     ProjectCapabilityList,
-    RelationshipsAcl,
-    StreamsAcl,
 )
 from cognite.client.data_classes.iam import Group, GroupList, ProjectSpec, TokenInspection
 
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    AllScope as ToolkitAllScope,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    AppConfigAcl as ToolkitAppConfigAcl,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    AppConfigScope as ToolkitAppConfigScope,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    AssetsAcl as ToolkitAssetsAcl,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    GroupCapability as ToolkitGroupCapability,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    GroupResponse as ToolkitGroupResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    RelationshipsAcl as ToolkitRelationshipsAcl,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    StreamsAcl as ToolkitStreamsAcl,
+)
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import AuthCommand
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
@@ -175,76 +192,75 @@ class TestAuthCommand:
 def test_get_capabilities_by_loader_hybrid_project(toolkit_client_approval: ApprovalToolkitClient):
     client = toolkit_client_approval.client
     caps_hybrid, _ = AuthCommand._get_capabilities_by_loader(client, "HYBRID")
-    cap_types_hybrid = {type(c) for c in caps_hybrid}
-    assert AssetsAcl in cap_types_hybrid
-    assert RelationshipsAcl in cap_types_hybrid
+    acl_types_hybrid = {type(c.acl) for c in caps_hybrid}
+    assert ToolkitAssetsAcl in acl_types_hybrid
+    assert ToolkitRelationshipsAcl in acl_types_hybrid
 
 
 def test_get_capabilities_by_loader_dm_only_project(toolkit_client_approval: ApprovalToolkitClient):
     client = toolkit_client_approval.client
     caps_dm_only, _ = AuthCommand._get_capabilities_by_loader(client, "DATA_MODELING_ONLY")
-    cap_types_dm_only = {type(c) for c in caps_dm_only}
-    assert AssetsAcl not in cap_types_dm_only
-    assert RelationshipsAcl not in cap_types_dm_only
+    acl_types_dm_only = {type(c.acl) for c in caps_dm_only}
+    assert ToolkitAssetsAcl not in acl_types_dm_only
+    assert ToolkitRelationshipsAcl not in acl_types_dm_only
 
 
 def test_update_missing_capabilities_dm_only_project() -> None:
-    missing_caps = [
-        StreamsAcl(actions=[StreamsAcl.Action.Read], scope=StreamsAcl.Scope.All()),
+    missing_acls = [
+        ToolkitStreamsAcl(actions=["READ"], scope=ToolkitAllScope()),
     ]
-    existing = Group(
+    existing = ToolkitGroupResponse(
+        id=42,
+        is_deleted=False,
         name="cognite_toolkit_service_principal",
         source_id="123",
         capabilities=[
-            AssetsAcl(actions=[AssetsAcl.Action.Read], scope=AllScope()),
-            RelationshipsAcl(actions=[RelationshipsAcl.Action.Read], scope=AllScope()),
+            ToolkitGroupCapability(acl=ToolkitAssetsAcl(actions=["READ"], scope=ToolkitAllScope())),
+            ToolkitGroupCapability(acl=ToolkitRelationshipsAcl(actions=["READ"], scope=ToolkitAllScope())),
+        ],
+    )
+    created_response = ToolkitGroupResponse(
+        id=43,
+        is_deleted=False,
+        name="cognite_toolkit_service_principal",
+        source_id="123",
+        capabilities=[
+            ToolkitGroupCapability(acl=ToolkitStreamsAcl(actions=["READ"], scope=ToolkitAllScope())),
         ],
     )
     with monkeypatch_toolkit_client() as client:
-        client.iam.groups.create.return_value = Group(
-            name="cognite_toolkit_service_principal",
-            source_id="123",
-            capabilities=[StreamsAcl(actions=[StreamsAcl.Action.Read], scope=StreamsAcl.Scope.All())],
-        )
-        client.iam.compare_capabilities = IAMAPI.compare_capabilities
+        client.tool.groups.create.return_value = [created_response]
+        client.tool.groups.delete.return_value = None
 
-    _ = AuthCommand()._update_missing_capabilities(
-        client, existing, missing_caps, dry_run=False, data_modeling_status="DATA_MODELING_ONLY"
+    result = AuthCommand()._update_missing_capabilities(
+        client, existing, missing_acls, dry_run=False, data_modeling_status="DATA_MODELING_ONLY"
     )
-    client.iam.groups.create.assert_called_once()
-    created_group = client.iam.groups.create.call_args[0][0]
-    assert len(created_group.capabilities) == 1
-    assert created_group.capabilities[0] == StreamsAcl(actions=[StreamsAcl.Action.Read], scope=StreamsAcl.Scope.All())
+    assert result is True
+    client.tool.groups.create.assert_called_once()
+    created_group_request = client.tool.groups.create.call_args[0][0][0]
+    assert len(created_group_request.capabilities) == 1
+    assert isinstance(created_group_request.capabilities[0].acl, ToolkitStreamsAcl)
 
 
 @pytest.mark.parametrize(
-    "capability_list,expected_result",
+    "acl_list,expected_count",
     [
         pytest.param(
             [
-                AppConfigAcl(
-                    actions=[AppConfigAcl.Action.Read, AppConfigAcl.Action.Write], scope=AppConfigScope(apps=["SEARCH"])
-                ),
-                AppConfigAcl(actions=[AppConfigAcl.Action.Read], scope=AppConfigScope(apps=["SEARCH"])),
-                AppConfigAcl(actions=[AppConfigAcl.Action.Write], scope=AppConfigScope(apps=["SEARCH"])),
-                AssetsAcl(actions=[AssetsAcl.Action.Read, AssetsAcl.Action.Write], scope=AllScope()),
+                ToolkitAppConfigAcl(actions=["READ", "WRITE"], scope=ToolkitAppConfigScope(apps=["SEARCH"])),
+                ToolkitAppConfigAcl(actions=["READ"], scope=ToolkitAppConfigScope(apps=["SEARCH"])),
+                ToolkitAppConfigAcl(actions=["WRITE"], scope=ToolkitAppConfigScope(apps=["SEARCH"])),
+                ToolkitAssetsAcl(actions=["READ", "WRITE"], scope=ToolkitAllScope()),
             ],
-            [
-                AppConfigAcl(
-                    actions=[AppConfigAcl.Action.Read, AppConfigAcl.Action.Write], scope=AppConfigScope(apps=["SEARCH"])
-                ),
-                AssetsAcl(actions=[AssetsAcl.Action.Read, AssetsAcl.Action.Write], scope=AllScope()),
-            ],
-            id="Merge multiple capabilities",
+            2,
+            id="Merge multiple ACLs",
         )
     ],
 )
-def test_merge_capabilities(capability_list: list[Capability], expected_result: list[Capability]):
-    merged_capabilities = AuthCommand.merge_capabilities(capability_list)
-    assert len(merged_capabilities) == len(expected_result)
-    app_config_acl = next(c for c in merged_capabilities if type(c) is AppConfigAcl)
+def test_merge_acls(acl_list: list, expected_count: int):
+    merged = AuthCommand.merge_acls(acl_list)
+    assert len(merged) == expected_count
+    app_config_acl = next(a for a in merged if isinstance(a, ToolkitAppConfigAcl))
     assert app_config_acl is not None
-    assert app_config_acl.scope == expected_result[0].scope
-    assert sorted(app_config_acl.dump()["appConfigAcl"]["actions"]) == sorted(
-        expected_result[0].dump()["appConfigAcl"]["actions"]
-    )
+    assert app_config_acl.scope == ToolkitAppConfigScope(apps=["SEARCH"])
+    assert sorted(app_config_acl.actions) == ["READ", "WRITE"]
