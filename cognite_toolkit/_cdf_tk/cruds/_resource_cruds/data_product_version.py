@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import
     DataProductVersionRequest,
     DataProductVersionResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, ScopeDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, ScopeDefinition
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductVersionYAML
 
@@ -60,7 +60,7 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
     @classmethod

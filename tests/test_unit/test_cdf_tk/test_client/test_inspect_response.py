@@ -17,10 +17,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.token import (
     AclAction,
     AclName,
     AllProjects,
+    FlatCapabilities,
     InspectCapability,
     InspectProjectInfo,
     InspectResponse,
-    FlatCapabilities,
 )
 
 

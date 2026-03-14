@@ -7,23 +7,23 @@ https://api-docs.cognite.com/20230101/tag/Token/operation/inspectToken
 from collections import UserDict, defaultdict
 from collections.abc import Sequence
 from typing import Any, TypeAlias
-import sys
+
 from cognite.client.data_classes.capabilities import UnknownScope
 from pydantic import JsonValue, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.resource_classes.group import Scope, ScopeDefinition, GroupCapability, GroupRequest, \
-    GroupResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    GroupCapability,
+    GroupResponse,
+    Scope,
+    ScopeDefinition,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import ACL_NAME
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import Acl, AclType
 from cognite_toolkit._cdf_tk.client.resource_classes.group.scope_logic import (
     scope_difference,
     scope_union,
 )
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 AclName: TypeAlias = str
 AclAction: TypeAlias = str
@@ -91,7 +91,7 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
         self.name = name
         self.groups = groups
 
-    def verify(self, acls: Sequence[Acl]) -> Sequence[Acl]:
+    def verify(self, acls: Sequence[AclType]) -> Sequence[AclType]:
         """Verify that the provided ACLs are covered by the capabilities in this project.
 
         Args:
@@ -100,8 +100,8 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
         Returns:
             The list of ACLs that are not covered by the capabilities in this project.
         """
-        missing_actions_by_type_and_scope: dict[tuple[type[Acl], AclName, ScopeDefinition], list[str]] = defaultdict(
-            list
+        missing_actions_by_type_and_scope: dict[tuple[type[AclType], AclName, ScopeDefinition], list[str]] = (
+            defaultdict(list)
         )
         for acl in acls:
             for action in acl.actions:
@@ -112,23 +112,37 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
                 if missing_scope := scope_difference(acl.scope, self.data[key]):
                     missing_actions_by_type_and_scope[(type(acl), acl.acl_name, missing_scope)].append(action)
 
-        missing_acls: list[Acl] = []
-        for (acl_type, acl_name, scope), actions in missing_actions_by_type_and_scope.items():
-            missing_acls.append(acl_type(actions=actions, acl_name=acl_name, scope=scope))  # type: ignore[arg-type]
-        return missing_acls
+        return self._merge_als(missing_actions_by_type_and_scope)
 
     @classmethod
-    def from_capabilities(cls, capabilities: list[InspectCapability | GroupCapability] , project: str, groups: list[int]) -> Self:
+    def merge_acls(cls, acls: list[AclType]) -> Sequence[AclType]:
+        actions_by_type_and_scope: dict[tuple[type[AclType], AclName, ScopeDefinition], list[str]] = defaultdict(list)
+        for acl in acls:
+            actions_by_type_and_scope[(type(acl), acl.acl_name, acl.scope)].extend(acl.actions)
+        return cls._merge_als(actions_by_type_and_scope)
+
+    @classmethod
+    def _merge_als(
+        cls, actions_by_type_and_scope: dict[tuple[type[AclType], AclName, ScopeDefinition], list[str]]
+    ) -> Sequence[AclType]:
+        merged_acls: list[AclType] = []
+        for (acl_type, acl_name, scope), actions in actions_by_type_and_scope.items():
+            merged_acls.append(acl_type(actions=actions, acl_name=acl_name, scope=scope))  # type: ignore[arg-type]
+        return merged_acls
+
+    @classmethod
+    def from_capabilities(
+        cls, capabilities: Sequence[InspectCapability | GroupCapability], project: str, groups: list[int]
+    ) -> "FlatCapabilities":
         scopes_by_acl_action: dict[tuple[type[Acl], AclName, AclAction], list[Scope]] = defaultdict(list)
         for capability in capabilities:
             if isinstance(capability, InspectCapability) and not (
-                    isinstance(capability.project_scope, AllProjects)
-                    or (isinstance(capability.project_scope,
-                                   ProjectList) and project in capability.project_scope.projects)
+                isinstance(capability.project_scope, AllProjects)
+                or (isinstance(capability.project_scope, ProjectList) and project in capability.project_scope.projects)
             ):
                 continue
             elif isinstance(capability, GroupCapability) and not (
-                capability.project_url_names is not None and project in capability.project_url_names
+                capability.project_url_names is None or project in capability.project_url_names.url_names
             ):
                 continue
 
@@ -149,15 +163,12 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
                     continue
                 raise
             scope_by_acl_action[key] = union
-        return FlatCapabilities(
-            capabilities=scope_by_acl_action,
-            name=project,
-            groups=groups,
-        )
+        return FlatCapabilities(capabilities=scope_by_acl_action, name=project, groups=groups)
 
     @classmethod
-    def from_group(cls, group: GroupResponse, project: str) -> Self:
+    def from_group(cls, group: GroupResponse, project: str) -> "FlatCapabilities":
         return cls.from_capabilities(group.capabilities or [], project, groups=[group.id])
+
 
 class InspectResponse(BaseModelObject):
     """Response from the ``GET /api/v1/token/inspect`` endpoint."""

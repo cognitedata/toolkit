@@ -5,7 +5,7 @@ from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     ScopeDefinition,
     StreamsAcl,
@@ -64,7 +64,7 @@ class StreamCRUD(ResourceCRUD[ExternalId, StreamRequest, StreamResponse]):
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope):
             acl_actions: list[Literal["READ", "CREATE", "DELETE"]] = []
             if "READ" in actions:

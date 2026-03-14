@@ -39,11 +39,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config 
     ExtractionPipelineConfigResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     DataSetScope,
+    ExtractionConfigsAcl,
     ExtractionPipelinesAcl,
-    ScopeDefinition, ExtractionConfigsAcl,
+    ScopeDefinition,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
@@ -109,7 +110,7 @@ class ExtractionPipelineCRUD(ResourceCRUD[ExternalId, ExtractionPipelineRequest,
         return DataSetScope(ids=list({item.data_set_id for item in items}))
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             yield ExtractionPipelinesAcl(actions=sorted(actions), scope=scope)
 
@@ -254,7 +255,7 @@ class ExtractionPipelineConfigCRUD(
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope):
             yield ExtractionConfigsAcl(actions=["READ", "WRITE"], scope=scope)
 

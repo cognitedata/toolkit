@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
     ThreeDModelRevisionId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     DataSetScope,
     ScopeDefinition,
@@ -99,7 +99,7 @@ class ThreeDModelCRUD(ResourceContainerCRUD[NameId, ThreeDModelClassicRequest, T
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             yield ThreeDAcl(actions=as_read_create_update_delete_actions(actions), scope=scope)
 

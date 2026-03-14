@@ -6,7 +6,7 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SignalSinkId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     CurrentUserScope,
     ScopeDefinition,
@@ -85,7 +85,7 @@ class SignalSubscriptionCRUD(ResourceCRUD[ExternalId, SignalSubscriptionRequest,
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | CurrentUserScope):
             yield SubscribeSignalsAcl(actions=sorted(actions), scope=scope)
 
