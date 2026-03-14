@@ -1,3 +1,8 @@
+"""These are taken from the PySDK
+The reason for not importing them is that they are private dependencies, thus we have no guarantee that they will
+not be moved.
+"""
+
 import numbers
 import re
 import time
