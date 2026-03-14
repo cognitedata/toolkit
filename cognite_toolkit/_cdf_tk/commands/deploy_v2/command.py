@@ -1,13 +1,19 @@
-from collections.abc import Sequence
+from collections import defaultdict
+from collections.abc import Iterable, Sequence, Set
 from dataclasses import dataclass, field
-from graphlib import TopologicalSorter
+from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME, DataCRUD, Loader
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitValidationError
-from cognite_toolkit._cdf_tk.tk_warnings.other import ToolkitDependenciesIncludedWarning
+from cognite_toolkit._cdf_tk.cruds import (
+    RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND,
+    Loader,
+    ResourceCRUD,
+)
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitValidationError, ToolkitValueError
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
+from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
@@ -21,14 +27,37 @@ class DeployOptions:
 
 
 @dataclass
-class DeploymentStep:
-    loader_cls: type[Loader]
-    files: list[Path]
+class ResourceDirectory:
+    directory: Path
+    files_by_crud: dict[type[ResourceCRUD], list[Path]] = field(default_factory=lambda: defaultdict(list))
+    invalid_files: list[Path] = field(default_factory=list)
 
 
 @dataclass
-class DeploymentPlan:
-    steps: list[DeploymentStep] = field(default_factory=list)
+class ReadBuildDirectory:
+    build_dir: Path
+    resource_directories: list[ResourceDirectory]
+    skipped_directories: list[ResourceDirectory]
+    invalid_directories: list[Path]
+    is_strict_validation: bool = False
+
+    def create_warnings(self) -> Iterable[ToolkitWarning]:
+        raise NotImplementedError()
+
+    def skipped_cruds(self) -> set[type[ResourceCRUD]]:
+        return {crud for dir in self.skipped_directories for crud in dir.files_by_crud.keys()}
+
+    def as_files_by_crud(self) -> dict[type[ResourceCRUD], list[Path]]:
+        files_by_crud: dict[type[ResourceCRUD], list[Path]] = {}
+        for dir in self.resource_directories:
+            files_by_crud.update(dir.files_by_crud)
+        return files_by_crud
+
+
+@dataclass
+class DeploymentStep:
+    loader_cls: type[Loader]
+    files: list[Path]
 
 
 @dataclass
@@ -42,9 +71,16 @@ class DeployV2Command(ToolkitCommand):
         build_dir: Path,
         options: DeployOptions | None = None,
     ) -> Any:
-        self._validate_user_input(build_dir, options)
+        read_dir = self._read_build_directory(build_dir, options)
+
+        client = env_vars.get_client(is_strict_validation=read_dir.is_strict_validation)
+
+        for warning in read_dir.create_warnings():
+            self.warn(warning, console=client.console)
+
         options = options or DeployOptions()
-        plan = self._create_deployment_plan(build_dir, options.include)
+
+        plan = self._create_deployment_plan(read_dir)
 
         self._display_plan(plan)
 
@@ -55,65 +91,91 @@ class DeployV2Command(ToolkitCommand):
         return results
 
     @classmethod
-    def _validate_user_input(cls, build_dir: Path, options: DeployOptions | None = None) -> None:
+    def _read_build_directory(cls, build_dir: Path, options: DeployOptions | None = None) -> ReadBuildDirectory:
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(f"Build directory {build_dir!s} does not exist.")
+        available_resource_types = set(RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND.keys())
         if options and options.include:
-            available = set(CRUDS_BY_FOLDER_NAME)
-            if invalid := set(options.include) - available:
+            if invalid := set(options.include) - available_resource_types:
                 raise ToolkitValidationError(
-                    f"Invalid resource types specified: {humanize_collection(invalid)}, available types: {humanize_collection(available)}"
+                    f"Invalid resource types specified: {humanize_collection(invalid)}, available types: {humanize_collection(available_resource_types)}"
                 )
-
-    def _create_deployment_plan(self, build_dir: Path, include: Sequence[str] | None = None) -> DeploymentPlan:
-        selected = self._select_loaders(build_dir, include)
-        ordered = self._topological_sort(selected, build_dir)
-
-        steps: list[DeploymentStep] = []
-        for loader_cls in ordered:
-            resource_dir = build_dir / loader_cls.folder_name
-            if resource_dir.is_dir():
-                files = sorted(f for f in resource_dir.rglob("*") if loader_cls.is_supported_file(f))
+        # Todo: Check linage file.
+        include = set(options.include) if options and options.include else None
+        invalid_resource_dirs: list[Path] = []
+        resource_directories: list[ResourceDirectory] = []
+        skipped_resource_dirs: list[ResourceDirectory] = []
+        for resource_dir in build_dir.iterdir():
+            if not resource_dir.is_dir():
+                continue
+            if resource_dir.name not in RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND:
+                invalid_resource_dirs.append(resource_dir)
+                continue
+            resources = ResourceDirectory(resource_dir)
+            crud_by_kind = RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[resource_dir.name]
+            for yaml_file in resource_dir.glob("*.yaml"):
+                for kind, crud in crud_by_kind.items():
+                    if yaml_file.stem.endswith(kind):
+                        resources.files_by_crud[crud].append(yaml_file)
+                        break
+                else:
+                    resources.invalid_files.append(yaml_file)
+            if include is not None and resource_dir.name not in include:
+                skipped_resource_dirs.append(resources)
             else:
-                files = []
-            steps.append(DeploymentStep(loader_cls=loader_cls, files=files))
+                resource_directories.append(resources)
 
-        return DeploymentPlan(steps=steps)
+        if not resource_directories:
+            raise ToolkitValueError(f"No resources found in {build_dir.as_posix()} directory.")
 
-    @staticmethod
-    def _select_loaders(build_dir: Path, include: Sequence[str] | None) -> dict[type[Loader], frozenset[type[Loader]]]:
-        selected: dict[type[Loader], frozenset[type[Loader]]] = {}
-        for folder_name, loader_classes in CRUDS_BY_FOLDER_NAME.items():
-            if include is not None and folder_name not in include:
+        return ReadBuildDirectory(
+            build_dir=build_dir,
+            resource_directories=resource_directories,
+            invalid_directories=invalid_resource_dirs,
+            skipped_directories=skipped_resource_dirs,
+        )
+
+    def _create_deployment_plan(self, read_dir: ReadBuildDirectory) -> list[DeploymentStep]:
+        files_by_crud = read_dir.as_files_by_crud()
+        skipped_cruds = read_dir.skipped_cruds()
+        dependencies_by_crud: dict[type[ResourceCRUD], Set[type[ResourceCRUD]]] = {}
+        should_not_have_skipped: set[type[ResourceCRUD]] = set()
+        for crud_cls in files_by_crud.keys():
+            dependencies = crud_cls.dependencies
+            if missing := (skipped_cruds.intersection(dependencies)):
+                should_not_have_skipped.update(missing)
+            dependencies_by_crud[crud_cls] = dependencies
+
+        if should_not_have_skipped:
+            self.warn(
+                HighSeverityWarning(
+                    f"You have skipped {humanize_collection({crud_cls.folder_name for crud_cls in should_not_have_skipped})}, which are required dependencies for other included resource types. This may cause the deployment to fail."
+                    f"Run without specifying `--include` to not skip any resource types."
+                )
+            )
+
+        try:
+            ordered = list(TopologicalSorter(dependencies_by_crud).static_order())
+        except CycleError as e:
+            raise RuntimeError("Bug in Toolkit. Cyclic dependencies in support resource types detected.") from e
+
+        plan: list[DeploymentStep] = []
+        for step in ordered:
+            if step not in files_by_crud:
                 continue
-            if not (build_dir / folder_name).is_dir():
-                continue
-            for loader_cls in loader_classes:
-                if loader_cls.any_supported_files(build_dir / folder_name):
-                    selected[loader_cls] = loader_cls.dependencies
-                elif issubclass(loader_cls, DataCRUD):
-                    selected[loader_cls] = loader_cls.dependencies
-        return selected
+            plan.append(
+                DeploymentStep(
+                    loader_cls=step,
+                    files=files_by_crud[step],
+                )
+            )
+        return plan
 
-    def _topological_sort(
-        self, selected: dict[type[Loader], frozenset[type[Loader]]], build_dir: Path
-    ) -> list[type[Loader]]:
-        ordered: list[type[Loader]] = []
-        should_include: list[type[Loader]] = []
-        for loader_cls in TopologicalSorter(selected).static_order():
-            if loader_cls in selected:
-                ordered.append(loader_cls)
-            elif (build_dir / loader_cls.folder_name).is_dir():
-                should_include.append(loader_cls)
-        if should_include:
-            self.warn(ToolkitDependenciesIncludedWarning(list({item.folder_name for item in should_include})))
-        return ordered
-
-    def _display_plan(self, plan: DeploymentPlan) -> None:
+    def _display_plan(self, plan: list[DeploymentStep]) -> None:
         raise NotImplementedError()
 
     def _apply_plan(
-        self, env_vars: EnvironmentVariables, plan: DeploymentPlan, dry_run: bool, force_update: bool
+        self, env_vars: EnvironmentVariables, plan: list[DeploymentStep], dry_run: bool, force_update: bool
     ) -> Sequence[DeploymentResult]:
         raise NotImplementedError()
 

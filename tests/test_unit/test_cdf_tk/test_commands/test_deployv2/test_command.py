@@ -37,7 +37,7 @@ class TestValidateUserInput:
             build_dir.mkdir(parents=True, exist_ok=True)
 
         with pytest.raises(expected):
-            DeployV2Command._validate_user_input(build_dir, options)
+            DeployV2Command._read_build_directory(build_dir, options)
 
 
 class TestCreateDeploymentPlan:
