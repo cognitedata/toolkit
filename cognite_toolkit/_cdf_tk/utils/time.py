@@ -92,3 +92,20 @@ def datetime_to_ms(dt: datetime) -> int:
             "Failed to convert datetime to epoch. This likely because you are using a naive datetime. "
             "Try using a timezone aware datetime instead."
         ) from e
+
+
+def convert_data_modelling_timestamp(timestamp: str) -> datetime:
+    """Converts a timestamp string to a datetime object.
+
+    Args:
+        timestamp (str): A timestamp string.
+
+    Returns:
+        datetime: A datetime object.
+    """
+    try:
+        return datetime.fromisoformat(timestamp)
+    except ValueError:
+        # Typically hits if the timestamp has truncated milliseconds,
+        # For example, "2021-01-01T00:00:00.17+00:00".
+        return datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%f%z")
