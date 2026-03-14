@@ -63,6 +63,8 @@ def validate_data_set_is_set(
     identifier_key: str = "externalId",
 ) -> WarningList:
     warning_list: WarningList = WarningList()
+    if not issubclass(resource_cls, BaseModel):
+        return warning_list
 
     if "data_set_id" not in resource_cls.model_fields.keys():
         return warning_list
