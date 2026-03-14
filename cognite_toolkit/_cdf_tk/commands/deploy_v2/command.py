@@ -147,9 +147,11 @@ class DeployV2Command(ToolkitCommand):
             dependencies_by_crud[crud_cls] = dependencies
 
         if should_not_have_skipped:
+            skipped_str = humanize_collection({crud_cls.folder_name for crud_cls in should_not_have_skipped})
             self.warn(
                 HighSeverityWarning(
-                    f"You have skipped {humanize_collection({crud_cls.folder_name for crud_cls in should_not_have_skipped})}, which are required dependencies for other included resource types. This may cause the deployment to fail."
+                    f"You have skipped {skipped_str}, which are required dependencies for other included resource types. "
+                    f"This may cause the deployment to fail. "
                     f"Run without specifying `--include` to not skip any resource types."
                 )
             )
