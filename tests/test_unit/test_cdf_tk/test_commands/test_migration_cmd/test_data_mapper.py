@@ -337,7 +337,7 @@ class TestCanvasMapper:
             client.migration.lookup.assets.return_value = NodeId(space="my_space", external_id="asset_1")
             client.migration.lookup.events.return_value = NodeId(space="my_space", external_id="event_1")
             client.migration.lookup.files.side_effect = [
-                {1: NodeId(space="my_space", external_id="file_1")},
+                {9005977951852492: NodeId(space="my_space", external_id="file_1")},
                 NodeId(space="my_space", external_id="file_1"),
             ]
             client.migration.lookup.time_series.return_value = NodeId(space="my_space", external_id="timeseries_1")
