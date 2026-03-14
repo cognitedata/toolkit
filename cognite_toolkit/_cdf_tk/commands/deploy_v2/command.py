@@ -1,11 +1,14 @@
+import warnings
 from collections import defaultdict
 from collections.abc import Iterable, Sequence, Set
 from dataclasses import dataclass, field
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any, Generic
+from typing import Any, Generic, Literal
 
+from rich.panel import Panel
 from rich.progress import Progress
+from yaml import YAMLError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
@@ -14,10 +17,16 @@ from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND,
     ResourceCRUD,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitValidationError, ToolkitValueError
-from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitNotADirectoryError,
+    ToolkitValidationError,
+    ToolkitValueError,
+    ToolkitWrongResourceError,
+    ToolkitYAMLFormatError,
+)
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, ToolkitWarning, catch_warnings
 from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
-from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils import humanize_collection, to_diff
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
@@ -65,10 +74,10 @@ class DeploymentStep:
 
 @dataclass
 class ResourceToDeploy(Generic[T_Identifier, T_RequestResource]):
-    to_create: list[T_RequestResource]
-    to_delete: list[T_Identifier]
-    to_update: list[T_RequestResource]
-    unchanged: list[T_Identifier]
+    to_create: list[T_RequestResource] = field(default_factory=list)
+    to_delete: list[T_Identifier] = field(default_factory=list)
+    to_update: list[T_RequestResource] = field(default_factory=list)
+    unchanged: list[T_Identifier] = field(default_factory=list)
 
 
 @dataclass
@@ -201,59 +210,166 @@ class DeployV2Command(ToolkitCommand):
         force_update: bool,
     ) -> Sequence[DeploymentResult]:
         results: list[DeploymentResult] = []
-        missing_write_acls: set[type[ResourceCRUD]] = set()
+        missing_write_acls: set[str] = set()
         with Progress() as progress:
             task_id = progress.add_task("Starting deploying", total=len(plan))
             for step in plan:
                 crud = step.crud_cls.create_loader(client)
                 resource_name = crud.display_name
+                progress.update(task_id, description=f"Reading {resource_name}")
 
-                resources_by_id = self._load_resources(crud, step.files)
+                resources_by_id = self._load_resources(
+                    crud, step.files, is_dry_run=dry_run, environment_variables=env_vars.dump()
+                )
                 resource_count = len(resources_by_id)
 
-                missing_write_acl = self._validate_access(crud, list(resources_by_id.values()))
+                missing_write_acl = self._validate_access(crud, list(resources_by_id.values()), is_dry_run=dry_run)
                 missing_write_acls.update(missing_write_acl)
                 progress.update(task_id, description=f"Comparing {resource_count} {resource_name} to CDF")
                 cdf_resource_by_id = {
                     resource.as_id(): resource for resource in crud.retrieve(list(resources_by_id.keys()))
                 }
+
                 resources_to_deploy = self._categorize_resources(
-                    resources_by_id, cdf_resource_by_id, force_update, dry_run
+                    crud, resources_by_id, cdf_resource_by_id, force_update, dry_run
                 )
-
-                progress.update(task_id, description=f"Deploying {resource_name} to CDF")
-                result = self.deploy_resources(crud, resources_to_deploy)
-
-                progress.update(task_id, description=f"Deployed {resource_name} successfully.", advance=1)
-                results.append(result)
+                if dry_run:
+                    result = self.deploy_dry_run(resources_to_deploy)
+                    results.append(result)
+                else:
+                    progress.update(task_id, description=f"Deploying {resource_name} to CDF")
+                    result = self.deploy_resources(crud, resources_to_deploy)
+                    progress.update(task_id, description=f"Deployed {resource_name} successfully.", advance=1)
+                    results.append(result)
             progress.update(task_id, description="Finished deploying.")
+            # Todo: What about missing write access? - Warn user that they will not be able to deploy.
         return results
 
     def _load_resources(
-        self, crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource], files: list[Path]
+        self,
+        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        filepaths: list[Path],
+        is_dry_run: bool,
+        environment_variables: dict[str, str | None] | None = None,
     ) -> dict[T_Identifier, T_RequestResource]:
-        raise NotImplementedError()
+        """# Load all resources from files, get ids, and remove duplicates."""
+        local_by_id: dict[T_Identifier, T_RequestResource] = {}
+        environment_variables = environment_variables or {}
+        duplicates: set[T_Identifier] = set()
+        for filepath in filepaths:
+            with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
+                try:
+                    resource_list = crud.load_resource_file(filepath, environment_variables)
+                except YAMLError as e:
+                    raise ToolkitYAMLFormatError(f"YAML validation error for {filepath.as_posix()}: {e}")
+            identifiers: list[T_Identifier] = []
+            for resource_dict in resource_list:
+                try:
+                    # The load resource modifies the resource_dict, so we deepcopy it to avoid side effects.
+                    request_resource = crud.load_resource(resource_dict, is_dry_run)
+                except ToolkitWrongResourceError:
+                    # The ToolkitWrongResourceError is a special exception that as of 21/12/24 is used by
+                    # the GroupAllScopedLoader and GroupResourceScopedLoader to signal that the resource
+                    # should be handled by the other loader.
+                    continue
+                identifier = crud.get_id(request_resource)
+                if identifier in local_by_id:
+                    duplicates.add(identifier)
+                else:
+                    local_by_id[identifier] = request_resource
+
+            for warning in warning_list:
+                if isinstance(warning, EnvironmentVariableMissingWarning):
+                    # Warnings are immutable, so we use the below method to override it.
+                    object.__setattr__(warning, "identifiers", frozenset(identifiers))
+                    # Reraise the warning to be caught higher up.
+                    warnings.warn(warning, stacklevel=2)
+                else:
+                    warning.print_warning()
+        # Todo: What to do about duplicates?
+        return local_by_id
 
     def _validate_access(
         self,
         crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: list[T_RequestResource],
-    ) -> Iterable[type[ResourceCRUD]]:
-        raise NotImplementedError()
+        is_dry_run: bool,
+    ) -> Iterable[str]:
+        actions: set[Literal["READ", "WRITE"]] = {"READ"} if is_dry_run else {"READ", "WRITE"}
+        required_acls = list(crud.create_minimum_acl(actions, resources))
+        if missing := crud.client.tool.token.verify_acls(required_acls):
+            raise crud.client.tool.token.create_error(missing, action=f"deploy {crud.display_name}")
+        if is_dry_run and crud.client.tool.token.verify_acls(
+            list(crud.create_minimum_acl({"READ", "WRITE"}, resources))
+        ):
+            yield crud.display_name
 
     def _categorize_resources(
         self,
+        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         local_by_id: dict[T_Identifier, T_RequestResource],
-        cdf_b_id: dict[T_Identifier, T_ResponseResource],
+        cdf_by_id: dict[T_Identifier, T_ResponseResource],
         force_update: bool,
         verbose: bool,
-    ) -> Any:
-        raise NotImplementedError()
+    ) -> ResourceToDeploy:
+        resources = ResourceToDeploy[T_Identifier, T_RequestResource]()
+        for identifier, local_resource in local_by_id.items():
+            cdf_resource = cdf_by_id.get(identifier)
+            if cdf_resource is None:
+                resources.to_create.append(local_resource)
+                continue
+            local_dict = local_resource.model_dump(mode="json", exclude_unset=True)
+            cdf_dict = crud.dump_resource(cdf_resource, local_dict)
+            if not force_update and cdf_dict == local_dict:
+                resources.unchanged.append(identifier)
+                continue
+            if crud.support_update:
+                resources.to_update.append(local_resource)
+            else:
+                resources.to_delete.append(identifier)
+                resources.to_create.append(local_resource)
+            if verbose:
+                diff_str = "\n".join(to_diff(cdf_dict, local_dict))
+                for sensitive in crud.sensitive_strings(local_resource):
+                    diff_str = diff_str.replace(sensitive, "********")
+                print(
+                    Panel(
+                        diff_str,
+                        title=f"{crud.display_name}: {identifier}",
+                        expand=False,
+                    )
+                )
+        return resources
+
+    def deploy_dry_run(self, resources: ResourceToDeploy[T_Identifier, T_RequestResource]) -> DeploymentResult:
+        # Todo: Handle drop and drop-data.
+        return DeploymentResult(
+            is_dry_run=True,
+            created=len(resources.to_create),
+            updated=len(resources.to_update),
+            deleted=len(resources.to_delete),
+            unchanged=len(resources.unchanged),
+        )
 
     def deploy_resources(
-        self, crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource], resources_to_deploy: Any
+        self,
+        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        resources: ResourceToDeploy[T_Identifier, T_RequestResource],
     ) -> DeploymentResult:
-        raise NotImplementedError()
+        deleted, created, updated, unchanged = 0, 0, 0, len(resources.unchanged)
+        if resources.to_delete:
+            deleted = crud.delete(resources.to_delete)
+        if resources.to_create:
+            created = len(crud.create(resources.to_create))
+        if resources.to_update:
+            updated = len(crud.update(resources.to_update))
+        return DeploymentResult(
+            is_dry_run=False,
+            created=created,
+            updated=updated,
+            deleted=deleted,
+            unchanged=unchanged,
+        )
 
     def _display_results(self, results: Sequence[DeploymentResult]) -> None:
         raise NotImplementedError()
