@@ -77,10 +77,12 @@ def test_no_private_third_party_imports() -> None:
     This test identifies all such imports so they can be tracked and potentially refactored.
     """
     # We are not copying over protobuf files, so private imports from cognite.client._proto are currently acceptable.
+    # We also need to look up the version of CogniteSDK as we dynamically create requirement.txt files for
+    # Streamlit apps
     _assert_import_violations(
         _extract_private_imports,
         "private imports from third-party packages",
-        exceptions={"cognite.client._proto"},
+        exceptions={"cognite.client._proto", "cognite.client._version"},
     )
 
 
