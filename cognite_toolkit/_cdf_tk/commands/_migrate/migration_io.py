@@ -75,7 +75,7 @@ class AssetCentricMigrationIO(
         "FileMetadata": "/files/set-pending-instance-ids",
     }
 
-    def __init__(self, client: ToolkitClient, skip_linking: bool = True, skip_existing: bool = True) -> None:
+    def __init__(self, client: ToolkitClient, skip_linking: bool = True, skip_existing: bool = False) -> None:
         super().__init__(client)
         self.hierarchy = HierarchyIO(client)
         self.skip_linking = skip_linking
