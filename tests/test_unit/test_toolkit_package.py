@@ -83,6 +83,7 @@ def test_no_private_third_party_imports() -> None:
         _extract_private_imports,
         "private imports from third-party packages",
         exceptions={"cognite.client._proto", "cognite.client._version"},
+        expected_total=3,
     )
 
 
