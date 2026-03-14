@@ -394,6 +394,8 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
 
             if issue.missing_reference_ids:
                 self.logger.tracker.add_issue(identifier, "Missing reference IDs")
+            if issue.files_missing_content:
+                self.logger.tracker.add_issue(identifier, "File missing content")
 
             if issue.has_issues:
                 issues.append(issue)
