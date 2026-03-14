@@ -56,12 +56,7 @@ class AuthApp(typer.Typer):
         """
         # We do not pass in a client here as this is typically used to create the .env file needed for authentication.
         cmd = AuthCommand()
-        cmd.run(
-            lambda: cmd.init(
-                no_verify=no_verify,
-                dry_run=dry_run,
-            )
-        )
+        cmd.run(lambda: cmd.init())
 
     def verify(
         self,
