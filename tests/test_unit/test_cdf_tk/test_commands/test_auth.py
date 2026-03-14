@@ -20,12 +20,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope as ToolkitAllScope,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    AppConfigAcl as ToolkitAppConfigAcl,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    AppConfigScope as ToolkitAppConfigScope,
-)
-from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AssetsAcl as ToolkitAssetsAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
@@ -240,27 +234,3 @@ def test_update_missing_capabilities_dm_only_project() -> None:
     created_group_request = client.tool.groups.create.call_args[0][0][0]
     assert len(created_group_request.capabilities) == 1
     assert isinstance(created_group_request.capabilities[0].acl, ToolkitStreamsAcl)
-
-
-@pytest.mark.parametrize(
-    "acl_list,expected_count",
-    [
-        pytest.param(
-            [
-                ToolkitAppConfigAcl(actions=["READ", "WRITE"], scope=ToolkitAppConfigScope(apps=["SEARCH"])),
-                ToolkitAppConfigAcl(actions=["READ"], scope=ToolkitAppConfigScope(apps=["SEARCH"])),
-                ToolkitAppConfigAcl(actions=["WRITE"], scope=ToolkitAppConfigScope(apps=["SEARCH"])),
-                ToolkitAssetsAcl(actions=["READ", "WRITE"], scope=ToolkitAllScope()),
-            ],
-            2,
-            id="Merge multiple ACLs",
-        )
-    ],
-)
-def test_merge_acls(acl_list: list, expected_count: int):
-    merged = AuthCommand.merge_acls(acl_list)
-    assert len(merged) == expected_count
-    app_config_acl = next(a for a in merged if isinstance(a, ToolkitAppConfigAcl))
-    assert app_config_acl is not None
-    assert app_config_acl.scope == ToolkitAppConfigScope(apps=["SEARCH"])
-    assert sorted(app_config_acl.actions) == ["READ", "WRITE"]

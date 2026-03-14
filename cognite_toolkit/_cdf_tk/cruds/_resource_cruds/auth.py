@@ -37,7 +37,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     CurrentUserScope,
     GroupRequest,
@@ -142,7 +142,7 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
         return CurrentUserScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | CurrentUserScope):
             acl_actions: list[Literal["CREATE", "DELETE", "READ", "LIST", "UPDATE"]] = []
             if "READ" in actions:
@@ -597,7 +597,7 @@ class SecurityCategoryCRUD(ResourceCRUD[NameId, SecurityCategoryRequest, Securit
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope):
             acl_actions: list[Literal["MEMBEROF", "LIST", "CREATE", "UPDATE", "DELETE"]] = []
             if "READ" in actions:

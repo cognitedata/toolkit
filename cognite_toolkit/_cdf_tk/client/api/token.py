@@ -7,8 +7,8 @@ from cognite.client.data_classes.iam import TokenInspection
 
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
 from cognite_toolkit._cdf_tk.client.resource_classes.capabilities import scope_intersection, scope_union
-from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl
-from cognite_toolkit._cdf_tk.client.resource_classes.token import InspectResponse, FlatCapabilities
+from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, AclType
+from cognite_toolkit._cdf_tk.client.resource_classes.token import FlatCapabilities, InspectResponse
 from cognite_toolkit._cdf_tk.constants import URL
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -138,7 +138,7 @@ class ToolkitTokenAPI:
         result.project = self._http_client.config.project
         return result
 
-    def verify_acls(self, required_acls: Sequence[Acl]) -> Sequence[Acl]:
+    def verify_acls(self, required_acls: Sequence[AclType]) -> Sequence[AclType]:
         """Verify that the current token has the required ACLs, for the current project. Returns the list of missing ACLs."""
         if self._project_capabilities is None:
             self._project_capabilities = self.inspect().to_project_capabilities()
