@@ -99,37 +99,36 @@ class DeployV2Command(ToolkitCommand):
         build_dir: Path,
         options: DeployOptions | None = None,
     ) -> Any:
-        read_dir = self._read_build_directory(build_dir, options)
+        options = options or DeployOptions()
+        read_dir = self._read_build_directory(build_dir, options.include)
 
         client = env_vars.get_client(is_strict_validation=read_dir.is_strict_validation)
 
         for warning in read_dir.create_warnings():
             self.warn(warning, console=client.console)
 
-        options = options or DeployOptions()
-
         plan = self._create_deployment_plan(read_dir)
 
         self._display_plan(client, plan)
 
-        results = self._apply_plan(client, env_vars, plan, options.dry_run, options.force_update)
+        results = self._apply_plan(client, plan, options.dry_run, options.force_update, env_vars.dump())
 
         self._display_results(results)
 
         return results
 
     @classmethod
-    def _read_build_directory(cls, build_dir: Path, options: DeployOptions | None = None) -> ReadBuildDirectory:
+    def _read_build_directory(cls, build_dir: Path, include: Sequence[str] | None = None) -> ReadBuildDirectory:
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(f"Build directory {build_dir!s} does not exist.")
         available_resource_types = set(RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND.keys())
-        if options and options.include:
-            if invalid := set(options.include) - available_resource_types:
+        if include:
+            if invalid := set(include) - available_resource_types:
                 raise ToolkitValidationError(
                     f"Invalid resource types specified: {humanize_collection(invalid)}, available types: {humanize_collection(available_resource_types)}"
                 )
         # Todo: Check linage file.
-        include = set(options.include) if options and options.include else None
+        include_set = set(include) if include else None
         invalid_resource_dirs: list[Path] = []
         resource_directories: list[ResourceDirectory] = []
         skipped_resource_dirs: list[ResourceDirectory] = []
@@ -148,7 +147,7 @@ class DeployV2Command(ToolkitCommand):
                         break
                 else:
                     resources.invalid_files.append(yaml_file)
-            if include is not None and resource_dir.name not in include:
+            if include_set is not None and resource_dir.name not in include_set:
                 skipped_resource_dirs.append(resources)
             else:
                 resource_directories.append(resources)
@@ -210,10 +209,10 @@ class DeployV2Command(ToolkitCommand):
     def _apply_plan(
         cls,
         client: ToolkitClient,
-        env_vars: EnvironmentVariables,
         plan: list[DeploymentStep],
         dry_run: bool,
         force_update: bool,
+        environment_variables: dict[str, str | None] | None,
     ) -> Sequence[DeploymentResult]:
         results: list[DeploymentResult] = []
         missing_write_acls: set[str] = set()
@@ -225,7 +224,7 @@ class DeployV2Command(ToolkitCommand):
                 progress.update(task_id, description=f"Reading {resource_name}")
 
                 resources_by_id = cls._load_resources(
-                    crud, step.files, is_dry_run=dry_run, environment_variables=env_vars.dump()
+                    crud, step.files, is_dry_run=dry_run, environment_variables=environment_variables
                 )
                 resource_count = len(resources_by_id)
 
