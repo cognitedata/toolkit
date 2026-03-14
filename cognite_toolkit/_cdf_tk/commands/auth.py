@@ -23,6 +23,8 @@ from time import sleep
 from typing import Literal
 
 import questionary
+from cognite.client.exceptions import CogniteAPIError
+from cognite_toolkit._cdf_tk.client.resource_classes.group.scope_logic import scope_union
 from rich import print
 from rich.panel import Panel
 from rich.prompt import Prompt
@@ -53,7 +55,8 @@ from cognite_toolkit._cdf_tk.constants import (
     TOOLKIT_DEMO_GROUP_NAME,
     TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME,
 )
-from cognite_toolkit._cdf_tk.cruds import ExtractionPipelineConfigCRUD
+import urllib.parse
+from cognite_toolkit._cdf_tk.cruds import ExtractionPipelineConfigCRUD, AssetCRUD, RelationshipCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
     AuthorizationError,
@@ -167,10 +170,8 @@ class AuthCommand(ToolkitCommand):
             raise AuthorizationError("The current user is not member of any groups in the CDF project.")
 
         data_modeling_status = client.project.status().this_project.data_modeling_status
-        loader_capabilities, loaders_by_capability_tuple = self._get_capabilities_by_loader(
-            client, data_modeling_status
-        )
-        toolkit_group = self._create_toolkit_group(loader_capabilities, demo_principal)
+        required_acls = self._get_required_acls(client, data_modeling_status)
+        toolkit_group = self._create_toolkit_group(required_acls, demo_principal)
 
         if not is_demo:
             print(
@@ -414,52 +415,32 @@ class AuthCommand(ToolkitCommand):
         return True
 
     @staticmethod
-    def _create_toolkit_group(loader_capabilities: list[GroupCapability], demo_user: str | None) -> GroupRequest:
+    def _create_toolkit_group(required_capabilities: list[Acl], demo_user: str | None) -> GroupRequest:
         toolkit_group = GroupRequest(
             name=TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME if demo_user is None else TOOLKIT_DEMO_GROUP_NAME,
-            capabilities=[
-                *loader_capabilities,
-                GroupCapability(
-                    acl=ProjectsAcl(actions=["READ", "LIST", "UPDATE"], scope=AllScope()),
-                ),
-                GroupCapability(
-                    acl=SessionsAcl(actions=["CREATE", "LIST", "DELETE"], scope=AllScope()),
-                ),
-            ],
+            capabilities=[GroupCapability(acl=acl) for acl in required_capabilities],
         )
         if demo_user:
             toolkit_group.members = [demo_user]
         return toolkit_group
 
     @staticmethod
-    def _get_capabilities_by_loader(
+    def _get_required_acls(
         client: ToolkitClient, data_modeling_status: Literal["HYBRID", "DATA_MODELING_ONLY"]
-    ) -> tuple[list[GroupCapability], dict[tuple[str, str, ScopeDefinition], list[str]]]:
-        loaders_by_capability_tuple: dict[tuple[str, str, ScopeDefinition], list[str]] = defaultdict(list)
-        capability_by_id: dict[frozenset[tuple[str, str, ScopeDefinition]], GroupCapability] = {}
+    ) -> list[Acl]:
+        required_acls: list[Acl] = []
         for crud_cls in cruds.RESOURCE_CRUD_LIST:
+            if data_modeling_status == "DATA_MODELING_ONLY" and issubclass(crud_cls, AssetCRUD | RelationshipCRUD):
+                # Assets and relationships are not supported on DATA_MODELING_ONLY projects.
+                continue
+
             crud = crud_cls.create_loader(client)
             if crud.prerequisite_warning() is not None:
                 continue
-            if isinstance(crud, ExtractionPipelineConfigCRUD):
-                toolkit_caps = [
-                    GroupCapability(
-                        acl=ExtractionConfigsAcl(actions=["READ", "WRITE"], scope=AllScope()),
-                    )
-                ]
-            else:
-                raw_capability = crud_cls.get_required_capability(None, read_only=False)
-                raw_caps = raw_capability if isinstance(raw_capability, list) else [raw_capability]
-                toolkit_caps = [_sdk_cap_to_group_capability(c) for c in raw_caps]
-            for cap in toolkit_caps:
-                if data_modeling_status == "DATA_MODELING_ONLY" and isinstance(cap.acl, AssetsAcl | RelationshipsAcl):
-                    continue
-                id_ = frozenset(_acl_tuples(cap.acl))
-                if id_ not in capability_by_id:
-                    capability_by_id[id_] = cap
-                for cap_tuple in _acl_tuples(cap.acl):
-                    loaders_by_capability_tuple[cap_tuple].append(crud.display_name)
-        return list(capability_by_id.values()), loaders_by_capability_tuple
+
+            required_acls.extend(crud_cls.create_acl(actions=["READ", "WRITE"], scope=AllScope()))
+        # Todo; Merge ACLs.
+        return required_acls
 
     def check_has_any_access(self, client: ToolkitClient) -> InspectResponse:
         print("Checking basic project configuration...")
@@ -533,18 +514,22 @@ class AuthCommand(ToolkitCommand):
         if oidc is None or oidc.token_url is None:
             self.warn(MediumSeverityWarning("No OIDC configuration or token URL found for the project"))
             return
-        token_url = oidc.token_url
-        if "https://login.windows.net" in token_url:
-            tenant_id = token_url.split("/")[-3]
-            print(f"  [bold green]OK[/]: Microsoft Entra ID (aka ActiveDirectory) with tenant id ({tenant_id}).")
-        elif "auth0.com" in token_url:
-            tenant_id = token_url.split("/")[2].split(".")[0]
+        token_url = urllib.parse.urlparse(oidc.token_url)
+        if token_url.hostname.endswith("login.windows.net"):
+            # Typical Entra ID token URLs look like:
+            #   https://login.windows.net/{tenant_id}/oauth2/token
+            # We derive tenant_id from the path segments if possible
+            path_parts = [p for p in token_url.path.split("/") if p]
+            tenant_id = path_parts[0] if path_parts else "unknown"
+            print(f"  [bold green]OK[/]: Microsoft Entra I with tenant id ({tenant_id}).")
+        elif token_url.hostname.endswith("auth0.com"):
+            tenant_id = token_url.hostname.split(".")[0]
             print(f"  [bold green]OK[/] - Auth0 with tenant id ({tenant_id}).")
         else:
             self.warn(MediumSeverityWarning(f"Unknown identity provider {token_url}"))
         access_claims = [c.claim_name for c in oidc.access_claims]
         print(
-            f"  Matching on CDF group sourceIds will be done on any of these claims from the identity provider: {access_claims}"
+            f"  Matching on CDF group sourceIds will be done on any of these claims from the identity provider: {humanize_collection(access_claims)}"
         )
 
     def check_count_group_memberships(self, user_group: list[GroupResponse]) -> None:
@@ -629,7 +614,7 @@ class AuthCommand(ToolkitCommand):
             return None
         try:
             function_status = client.functions.status()
-        except Exception as e:
+        except CogniteAPIError as e:
             self.warn(HighSeverityWarning(f"Unable to check function service status.\n{e}"))
             return None
 
@@ -654,7 +639,7 @@ class AuthCommand(ToolkitCommand):
                 return function_status.status
             try:
                 client.functions.activate()
-            except Exception as e:
+            except CogniteAPIError as e:
                 self.warn(HighSeverityWarning(f"Unable to activate function service.\n{e}"))
                 return function_status.status
             print(
@@ -665,12 +650,10 @@ class AuthCommand(ToolkitCommand):
 
         return function_status.status
 
-    def has_function_rights(self, client: ToolkitClient, actions: list[str], has_added_capabilities: bool) -> bool:
+    def has_function_rights(self, client: ToolkitClient, actions: list[Literal["READ", "WRITE"]], has_added_capabilities: bool) -> bool:
         t0 = time.perf_counter()
         while not (
-            has_function_access := not client.tool.token.verify_acls(
-                [FunctionsAcl(actions=actions, scope=AllScope())],
-            )
+            has_function_access := not client.tool.token.verify_acls([FunctionsAcl(actions=actions, scope=AllScope())])
         ):
             if has_added_capabilities and (time.perf_counter() - t0 < 5.0):
                 sleep(1.0)
