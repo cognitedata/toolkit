@@ -6,6 +6,7 @@ from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any, Generic, Literal
 
+from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress
 from yaml import YAMLError
@@ -54,7 +55,8 @@ class ReadBuildDirectory:
     is_strict_validation: bool = False
 
     def create_warnings(self) -> Iterable[ToolkitWarning]:
-        raise NotImplementedError()
+        # Todo: Implement
+        yield from ()
 
     def skipped_cruds(self) -> set[type[ResourceCRUD]]:
         return {crud for dir in self.skipped_directories for crud in dir.files_by_crud.keys()}
@@ -199,7 +201,8 @@ class DeployV2Command(ToolkitCommand):
         return plan
 
     def _display_plan(self, client: ToolkitClient, plan: list[DeploymentStep]) -> None:
-        raise NotImplementedError()
+        # Todo: Implement
+        return
 
     def _apply_plan(
         self,
@@ -211,7 +214,7 @@ class DeployV2Command(ToolkitCommand):
     ) -> Sequence[DeploymentResult]:
         results: list[DeploymentResult] = []
         missing_write_acls: set[str] = set()
-        with Progress() as progress:
+        with Progress(console=client.console) as progress:
             task_id = progress.add_task("Starting deploying", total=len(plan))
             for step in plan:
                 crud = step.crud_cls.create_loader(client)
@@ -226,21 +229,26 @@ class DeployV2Command(ToolkitCommand):
                 missing_write_acl = self._validate_access(crud, list(resources_by_id.values()), is_dry_run=dry_run)
                 missing_write_acls.update(missing_write_acl)
                 progress.update(task_id, description=f"Comparing {resource_count} {resource_name} to CDF")
+
                 cdf_resource_by_id = {
                     resource.as_id(): resource for resource in crud.retrieve(list(resources_by_id.keys()))
                 }
 
                 resources_to_deploy = self._categorize_resources(
-                    crud, resources_by_id, cdf_resource_by_id, force_update, dry_run
+                    crud, resources_by_id, cdf_resource_by_id, force_update, dry_run, client.console
                 )
+
                 if dry_run:
                     result = self.deploy_dry_run(resources_to_deploy)
                     results.append(result)
+                    progress.update(task_id, description=f"Would have deployed {resource_name} to CDF")
                 else:
                     progress.update(task_id, description=f"Deploying {resource_name} to CDF")
                     result = self.deploy_resources(crud, resources_to_deploy)
-                    progress.update(task_id, description=f"Deployed {resource_name} successfully.", advance=1)
+                    progress.update(task_id, description=f"Deployed {resource_name} successfully.")
                     results.append(result)
+
+                progress.update(task_id, advance=1)
             progress.update(task_id, description="Finished deploying.")
             # Todo: What about missing write access? - Warn user that they will not be able to deploy.
         return results
@@ -311,6 +319,7 @@ class DeployV2Command(ToolkitCommand):
         cdf_by_id: dict[T_Identifier, T_ResponseResource],
         force_update: bool,
         verbose: bool,
+        console: Console,
     ) -> ResourceToDeploy:
         resources = ResourceToDeploy[T_Identifier, T_RequestResource]()
         for identifier, local_resource in local_by_id.items():
@@ -318,7 +327,7 @@ class DeployV2Command(ToolkitCommand):
             if cdf_resource is None:
                 resources.to_create.append(local_resource)
                 continue
-            local_dict = local_resource.model_dump(mode="json", exclude_unset=True)
+            local_dict = local_resource.model_dump(mode="json", exclude_unset=True, by_alias=True)
             cdf_dict = crud.dump_resource(cdf_resource, local_dict)
             if not force_update and cdf_dict == local_dict:
                 resources.unchanged.append(identifier)
@@ -332,7 +341,7 @@ class DeployV2Command(ToolkitCommand):
                 diff_str = "\n".join(to_diff(cdf_dict, local_dict))
                 for sensitive in crud.sensitive_strings(local_resource):
                     diff_str = diff_str.replace(sensitive, "********")
-                print(
+                console.print(
                     Panel(
                         diff_str,
                         title=f"{crud.display_name}: {identifier}",
@@ -372,4 +381,5 @@ class DeployV2Command(ToolkitCommand):
         )
 
     def _display_results(self, results: Sequence[DeploymentResult]) -> None:
-        raise NotImplementedError()
+        # Todo: implement
+        return
