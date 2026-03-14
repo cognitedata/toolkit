@@ -201,12 +201,14 @@ class DeployV2Command(ToolkitCommand):
             )
         return plan
 
-    def _display_plan(self, client: ToolkitClient, plan: list[DeploymentStep]) -> None:
+    @classmethod
+    def _display_plan(cls, client: ToolkitClient, plan: list[DeploymentStep]) -> None:
         # Todo: Implement
         return
 
+    @classmethod
     def _apply_plan(
-        self,
+        cls,
         client: ToolkitClient,
         env_vars: EnvironmentVariables,
         plan: list[DeploymentStep],
@@ -222,12 +224,12 @@ class DeployV2Command(ToolkitCommand):
                 resource_name = crud.display_name
                 progress.update(task_id, description=f"Reading {resource_name}")
 
-                resources_by_id = self._load_resources(
+                resources_by_id = cls._load_resources(
                     crud, step.files, is_dry_run=dry_run, environment_variables=env_vars.dump()
                 )
                 resource_count = len(resources_by_id)
 
-                missing_write_acl = self._validate_access(
+                missing_write_acl = cls._validate_access(
                     crud, [resource for _, resource in resources_by_id.values()], is_dry_run=dry_run
                 )
                 missing_write_acls.update(missing_write_acl)
@@ -237,17 +239,17 @@ class DeployV2Command(ToolkitCommand):
                     resource.as_id(): resource for resource in crud.retrieve(list(resources_by_id.keys()))
                 }
 
-                resources_to_deploy = self._categorize_resources(
+                resources_to_deploy = cls._categorize_resources(
                     crud, resources_by_id, cdf_resource_by_id, force_update, dry_run, client.console
                 )
 
                 if dry_run:
-                    result = self.deploy_dry_run(resources_to_deploy)
+                    result = cls.deploy_dry_run(resources_to_deploy)
                     results.append(result)
                     progress.update(task_id, description=f"Would have deployed {resource_name} to CDF")
                 else:
                     progress.update(task_id, description=f"Deploying {resource_name} to CDF")
-                    result = self.deploy_resources(crud, resources_to_deploy)
+                    result = cls.deploy_resources(crud, resources_to_deploy)
                     progress.update(task_id, description=f"Deployed {resource_name} successfully.")
                     results.append(result)
 
@@ -256,8 +258,9 @@ class DeployV2Command(ToolkitCommand):
             # Todo: What about missing write access? - Warn user that they will not be able to deploy.
         return results
 
+    @classmethod
     def _load_resources(
-        self,
+        cls,
         crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         filepaths: list[Path],
         is_dry_run: bool,
@@ -300,8 +303,9 @@ class DeployV2Command(ToolkitCommand):
         # Todo: What to do about duplicates? Count as skipped with reason.
         return local_by_id
 
+    @classmethod
     def _validate_access(
-        self,
+        cls,
         crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: list[T_RequestResource],
         is_dry_run: bool,
@@ -315,8 +319,9 @@ class DeployV2Command(ToolkitCommand):
         ):
             yield crud.display_name
 
+    @classmethod
     def _categorize_resources(
-        self,
+        cls,
         crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         local_by_id: dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]],
         cdf_by_id: dict[T_Identifier, T_ResponseResource],
@@ -352,7 +357,8 @@ class DeployV2Command(ToolkitCommand):
                 )
         return resources
 
-    def deploy_dry_run(self, resources: ResourceToDeploy[T_Identifier, T_RequestResource]) -> DeploymentResult:
+    @classmethod
+    def deploy_dry_run(cls, resources: ResourceToDeploy[T_Identifier, T_RequestResource]) -> DeploymentResult:
         # Todo: Handle drop and drop-data.
         return DeploymentResult(
             is_dry_run=True,
@@ -362,8 +368,9 @@ class DeployV2Command(ToolkitCommand):
             unchanged=len(resources.unchanged),
         )
 
+    @classmethod
     def deploy_resources(
-        self,
+        cls,
         crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
     ) -> DeploymentResult:
@@ -382,6 +389,7 @@ class DeployV2Command(ToolkitCommand):
             unchanged=unchanged,
         )
 
-    def _display_results(self, results: Sequence[DeploymentResult]) -> None:
+    @classmethod
+    def _display_results(cls, results: Sequence[DeploymentResult]) -> None:
         # Todo: implement
         return
