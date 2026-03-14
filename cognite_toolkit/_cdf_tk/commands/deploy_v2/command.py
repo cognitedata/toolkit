@@ -1,11 +1,13 @@
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from graphlib import TopologicalSorter
 from pathlib import Path
 from typing import Any
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME, DataCRUD, Loader
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitValidationError
+from cognite_toolkit._cdf_tk.tk_warnings.other import ToolkitDependenciesIncludedWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
@@ -19,7 +21,14 @@ class DeployOptions:
 
 
 @dataclass
-class DeploymentPlan: ...
+class DeploymentStep:
+    loader_cls: type[Loader]
+    files: list[Path]
+
+
+@dataclass
+class DeploymentPlan:
+    steps: list[DeploymentStep] = field(default_factory=list)
 
 
 @dataclass
@@ -57,7 +66,48 @@ class DeployV2Command(ToolkitCommand):
                 )
 
     def _create_deployment_plan(self, build_dir: Path, include: Sequence[str] | None = None) -> DeploymentPlan:
-        raise NotImplementedError()
+        selected = self._select_loaders(build_dir, include)
+        ordered = self._topological_sort(selected, build_dir)
+
+        steps: list[DeploymentStep] = []
+        for loader_cls in ordered:
+            resource_dir = build_dir / loader_cls.folder_name
+            if resource_dir.is_dir():
+                files = sorted(f for f in resource_dir.rglob("*") if loader_cls.is_supported_file(f))
+            else:
+                files = []
+            steps.append(DeploymentStep(loader_cls=loader_cls, files=files))
+
+        return DeploymentPlan(steps=steps)
+
+    @staticmethod
+    def _select_loaders(build_dir: Path, include: Sequence[str] | None) -> dict[type[Loader], frozenset[type[Loader]]]:
+        selected: dict[type[Loader], frozenset[type[Loader]]] = {}
+        for folder_name, loader_classes in CRUDS_BY_FOLDER_NAME.items():
+            if include is not None and folder_name not in include:
+                continue
+            if not (build_dir / folder_name).is_dir():
+                continue
+            for loader_cls in loader_classes:
+                if loader_cls.any_supported_files(build_dir / folder_name):
+                    selected[loader_cls] = loader_cls.dependencies
+                elif issubclass(loader_cls, DataCRUD):
+                    selected[loader_cls] = loader_cls.dependencies
+        return selected
+
+    def _topological_sort(
+        self, selected: dict[type[Loader], frozenset[type[Loader]]], build_dir: Path
+    ) -> list[type[Loader]]:
+        ordered: list[type[Loader]] = []
+        should_include: list[type[Loader]] = []
+        for loader_cls in TopologicalSorter(selected).static_order():
+            if loader_cls in selected:
+                ordered.append(loader_cls)
+            elif (build_dir / loader_cls.folder_name).is_dir():
+                should_include.append(loader_cls)
+        if should_include:
+            self.warn(ToolkitDependenciesIncludedWarning(list({item.folder_name for item in should_include})))
+        return ordered
 
     def _display_plan(self, plan: DeploymentPlan) -> None:
         raise NotImplementedError()
