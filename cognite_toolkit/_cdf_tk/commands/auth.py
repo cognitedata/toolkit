@@ -20,7 +20,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from time import sleep
-from typing import Any, Literal
+from typing import Literal
 
 import questionary
 from rich import print
@@ -47,7 +47,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     ScopeDefinition,
     SessionsAcl,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.group.scope_logic import scope_difference, scope_union
 from cognite_toolkit._cdf_tk.client.resource_classes.token import InspectResponse
 from cognite_toolkit._cdf_tk.constants import (
     HINT_LEAD_TEXT,
@@ -74,62 +73,6 @@ from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables, prompt_user
 from ._base import ToolkitCommand
 
 
-def _sdk_cap_to_group_capability(cap: Any) -> GroupCapability:
-    """Convert an SDK Capability to a toolkit GroupCapability via its dump format."""
-    return GroupCapability.model_validate(cap.dump(camel_case=True))
-
-
-def _acl_tuples(acl: Acl) -> list[tuple[str, str, ScopeDefinition]]:
-    return [(acl.acl_name, action, acl.scope) for action in acl.actions]
-
-
-def _compare_capabilities(
-    existing: list[GroupCapability] | None,
-    required: list[GroupCapability] | None,
-) -> list[Acl]:
-    """Find capabilities in *required* that are not covered by *existing*."""
-    if not required:
-        return []
-
-    existing_scopes: dict[tuple[type[Acl], str], ScopeDefinition] = {}
-    for cap in existing or []:
-        for action in cap.acl.actions:
-            key = (type(cap.acl), action)
-            if key in existing_scopes:
-                existing_scopes[key] = scope_union(existing_scopes[key], cap.acl.scope)
-            else:
-                existing_scopes[key] = cap.acl.scope
-
-    missing_by_key: dict[tuple[type[Acl], str, ScopeDefinition], list[str]] = defaultdict(list)
-    for cap in required:
-        for action in cap.acl.actions:
-            lookup_key = (type(cap.acl), action)
-            if lookup_key not in existing_scopes:
-                missing_key = (type(cap.acl), cap.acl.acl_name, cap.acl.scope)
-                missing_by_key[missing_key].append(action)
-            else:
-                missing_scope = scope_difference(cap.acl.scope, existing_scopes[lookup_key])
-                if missing_scope is not None:
-                    missing_key = (type(cap.acl), cap.acl.acl_name, missing_scope)
-                    missing_by_key[missing_key].append(action)
-
-    return [
-        acl_cls(actions=list(actions), scope=scope) for (acl_cls, _acl_name, scope), actions in missing_by_key.items()
-    ]
-
-
-def _group_response_to_request(response: GroupResponse) -> GroupRequest:
-    return GroupRequest(
-        id=response.id,
-        name=response.name,
-        capabilities=response.capabilities,
-        metadata=response.metadata,
-        attributes=response.attributes,
-        source_id=response.source_id,
-        members=response.members,
-    )
-
-
 @dataclass
 class VerifyAuthResult:
     toolkit_group_id: int | None = None
@@ -137,7 +80,7 @@ class VerifyAuthResult:
 
 
 class AuthCommand(ToolkitCommand):
-    def init(self, no_verify: bool = False, dry_run: bool = False) -> None:
+    def init(self) -> None:
         env_vars: EnvironmentVariables | None = None
         try:
             env_vars = EnvironmentVariables.create_from_environment()

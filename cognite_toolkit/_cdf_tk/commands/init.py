@@ -196,7 +196,7 @@ class InitCommand(ToolkitCommand):
 
     def _init_auth(self, dry_run: bool = False) -> None:
         auth_command = AuthCommand()
-        auth_command.run(lambda: auth_command.init(no_verify=True, dry_run=dry_run))
+        auth_command.run(lambda: auth_command.init())
 
     def _init_modules(self, dry_run: bool = False) -> None:
         with ModulesCommand() as modules_command:
