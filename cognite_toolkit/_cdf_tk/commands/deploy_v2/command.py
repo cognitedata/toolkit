@@ -4,6 +4,9 @@ from pathlib import Path
 from typing import Any
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.cruds import CRUDS_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitValidationError
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
@@ -42,8 +45,16 @@ class DeployV2Command(ToolkitCommand):
 
         return results
 
-    def _validate_user_input(self, build_dir: Path, options: DeployOptions | None = None) -> None:
-        raise NotImplementedError()
+    @classmethod
+    def _validate_user_input(cls, build_dir: Path, options: DeployOptions | None = None) -> None:
+        if not build_dir.is_dir():
+            raise ToolkitNotADirectoryError(f"Build directory {build_dir!s} does not exist.")
+        if options and options.include:
+            available = set(CRUDS_BY_FOLDER_NAME)
+            if invalid := set(options.include) - available:
+                raise ToolkitValidationError(
+                    f"Invalid resource types specified: {humanize_collection(invalid)}, available types: {humanize_collection(available)}"
+                )
 
     def _create_deployment_plan(self, build_dir: Path, include: Sequence[str] | None = None) -> DeploymentPlan:
         raise NotImplementedError()
