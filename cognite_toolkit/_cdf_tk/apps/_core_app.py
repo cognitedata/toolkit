@@ -12,12 +12,19 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.commands import BuildCommand, BuildV2Command, CleanCommand, DeployCommand
+from cognite_toolkit._cdf_tk.commands import (
+    BuildCommand,
+    BuildV2Command,
+    CleanCommand,
+    DeployCommand,
+    DeployOptions,
+    DeployV2Command,
+)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters
 from cognite_toolkit._cdf_tk.commands.clean import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.utils import get_cicd_environment
+from cognite_toolkit._cdf_tk.utils import get_cicd_environment, humanize_collection
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__ as current_version
 
@@ -43,9 +50,10 @@ class CoreApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.common)
         if Flags.v08.is_enabled():
             self.command("build")(self.build_v2)
+            self.command("deploy")(self.deploy_v2)
         else:
             self.command()(self.build)
-        self.command()(self.deploy)
+            self.command()(self.deploy)
         self.command()(self.clean)
 
     def common(
@@ -374,6 +382,65 @@ class CoreApp(typer.Typer):
                 force_update=force_update,
                 include=include,
                 verbose=verbose,
+            )
+        )
+
+    def deploy_v2(
+        self,
+        ctx: typer.Context,
+        build_dir: Annotated[
+            Path,
+            typer.Argument(
+                help="Where to find the built resource configurations. This is the output of the cdf build command.",
+                allow_dash=True,
+                exists=True,
+            ),
+        ] = Path("./build"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-r",
+                help="Whether to do a dry-run, i.e., do not write to the CDF Project, but simulate the deployment"
+                " and provide a report of the changes that would be made.",
+            ),
+        ] = False,
+        include: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--include",
+                help=f"Specify which resources to deploy, available options: {humanize_collection(AVAILABLE_DATA_TYPES)}.",
+            ),
+        ] = None,
+        force_update: Annotated[
+            bool,
+            typer.Option(
+                "--force-update",
+                help="Whether to force update the resources in the CDF project even if they are considered unchanged.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Deploys the configuration files in the build directory to the CDF project."""
+        env_vars = EnvironmentVariables.create_from_environment()
+        cmd = DeployV2Command(print_warning=True, client=env_vars.get_client())
+        cmd.run(
+            lambda: cmd.deploy(
+                env_vars=env_vars,
+                build_dir=build_dir,
+                options=DeployOptions(
+                    dry_run=dry_run,
+                    include=include,
+                    force_update=force_update,
+                    verbose=verbose,
+                ),
             )
         )
 
