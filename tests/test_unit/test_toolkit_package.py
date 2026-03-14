@@ -36,14 +36,21 @@ def _assert_import_violations(
     extract_fn: Callable[[Path], list[tuple[str, int, str]]],
     description: str,
     expected_total: int | None = None,
+    exceptions: set[str] | None = None,
 ) -> None:
     """Walk all Python files in CDF_TK_PATH and fails if there are any violations or if the
     total number of violations doesn't match expected_total (if provided).
     """
     all_violations: dict[str, list[tuple[str, int, str]]] = {}
-
+    exceptions = exceptions or set()
     for py_file in _get_all_python_files(CDF_TK_PATH):
         violations = extract_fn(py_file)
+        violations = [
+            (module, lineno, reason)
+            for module, lineno, reason in violations
+            if not any(module.startswith(exc) for exc in exceptions)
+        ]
+
         if violations:
             relative_path = py_file.relative_to(REPO_ROOT).as_posix()
             all_violations[relative_path] = violations
@@ -62,7 +69,6 @@ def _assert_import_violations(
         pytest.fail("\n".join(lines))
 
 
-@pytest.mark.xfail(strict=True, reason="Tracking removal of private third-party imports")
 def test_no_private_third_party_imports() -> None:
     """
     Test that checks for imports of private modules/classes/functions from third-party packages.
@@ -70,7 +76,10 @@ def test_no_private_third_party_imports() -> None:
     Private imports are fragile as they may break between minor/patch versions of dependencies.
     This test identifies all such imports so they can be tracked and potentially refactored.
     """
-    _assert_import_violations(_extract_private_imports, "private imports from third-party packages")
+    # We are not copying over protobuf files, so private imports from cognite.client._proto are currently acceptable.
+    _assert_import_violations(
+        _extract_private_imports, "private imports from third-party packages", exceptions={"cognite.client._proto"}
+    )
 
 
 def test_no_cognite_sdk_imports() -> None:
