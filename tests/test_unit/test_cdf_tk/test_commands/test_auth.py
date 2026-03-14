@@ -215,18 +215,18 @@ class TestAuthCommand:
 
 def test_get_capabilities_by_loader_hybrid_project() -> None:
     with monkeypatch_toolkit_client() as client:
-        caps_hybrid, _ = AuthCommand._get_required_acls(client, "HYBRID")
+        acls_hybrid, _ = AuthCommand._get_required_acls(client, "HYBRID")
 
-    acl_types_hybrid = {type(c) for c in caps_hybrid}
+    acl_types_hybrid = {type(c) for c in acls_hybrid}
     assert AssetsAcl in acl_types_hybrid
     assert RelationshipsAcl in acl_types_hybrid
 
 
 def test_get_capabilities_by_loader_dm_only_project() -> None:
     with monkeypatch_toolkit_client() as client:
-        caps_dm_only, _ = AuthCommand._get_required_acls(client, "DATA_MODELING_ONLY")
+        acl_dm_only, _ = AuthCommand._get_required_acls(client, "DATA_MODELING_ONLY")
 
-    acl_types_dm_only = {type(c) for c in caps_dm_only}
+    acl_types_dm_only = {type(c) for c in acl_dm_only}
     assert AssetsAcl not in acl_types_dm_only
     assert RelationshipsAcl not in acl_types_dm_only
 
