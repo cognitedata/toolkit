@@ -8,7 +8,7 @@ from cognite.client.data_classes.iam import TokenInspection
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
 from cognite_toolkit._cdf_tk.client.resource_classes.capabilities import scope_intersection, scope_union
 from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl
-from cognite_toolkit._cdf_tk.client.resource_classes.token import InspectResponse, ProjectCapabilities
+from cognite_toolkit._cdf_tk.client.resource_classes.token import InspectResponse, FlatCapabilities
 from cognite_toolkit._cdf_tk.constants import URL
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -121,7 +121,7 @@ class TokenAPI:
 class ToolkitTokenAPI:
     def __init__(self, http_client: HTTPClient):
         self._http_client = http_client
-        self._project_capabilities: ProjectCapabilities | None = None
+        self._project_capabilities: FlatCapabilities | None = None
 
     @cache
     def inspect(self) -> InspectResponse:
