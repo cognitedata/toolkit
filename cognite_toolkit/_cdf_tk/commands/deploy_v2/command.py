@@ -3,12 +3,15 @@ from collections.abc import Iterable, Sequence, Set
 from dataclasses import dataclass, field
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any
+from typing import Any, Generic
 
+from rich.progress import Progress
+
+from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND,
-    Loader,
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitValidationError, ToolkitValueError
@@ -56,12 +59,25 @@ class ReadBuildDirectory:
 
 @dataclass
 class DeploymentStep:
-    loader_cls: type[Loader]
+    crud_cls: type[ResourceCRUD]
     files: list[Path]
 
 
 @dataclass
-class DeploymentResult: ...
+class ResourceToDeploy(Generic[T_Identifier, T_RequestResource]):
+    to_create: list[T_RequestResource]
+    to_delete: list[T_Identifier]
+    to_update: list[T_RequestResource]
+    unchanged: list[T_Identifier]
+
+
+@dataclass
+class DeploymentResult:
+    is_dry_run: bool
+    created: int
+    deleted: int
+    updated: int
+    unchanged: int
 
 
 class DeployV2Command(ToolkitCommand):
@@ -82,9 +98,9 @@ class DeployV2Command(ToolkitCommand):
 
         plan = self._create_deployment_plan(read_dir)
 
-        self._display_plan(plan)
+        self._display_plan(client, plan)
 
-        results = self._apply_plan(env_vars, plan, options.dry_run, options.force_update)
+        results = self._apply_plan(client, env_vars, plan, options.dry_run, options.force_update)
 
         self._display_results(results)
 
@@ -167,18 +183,76 @@ class DeployV2Command(ToolkitCommand):
                 continue
             plan.append(
                 DeploymentStep(
-                    loader_cls=step,
+                    crud_cls=step,
                     files=files_by_crud[step],
                 )
             )
         return plan
 
-    def _display_plan(self, plan: list[DeploymentStep]) -> None:
+    def _display_plan(self, client: ToolkitClient, plan: list[DeploymentStep]) -> None:
         raise NotImplementedError()
 
     def _apply_plan(
-        self, env_vars: EnvironmentVariables, plan: list[DeploymentStep], dry_run: bool, force_update: bool
+        self,
+        client: ToolkitClient,
+        env_vars: EnvironmentVariables,
+        plan: list[DeploymentStep],
+        dry_run: bool,
+        force_update: bool,
     ) -> Sequence[DeploymentResult]:
+        results: list[DeploymentResult] = []
+        missing_write_acls: set[type[ResourceCRUD]] = set()
+        with Progress() as progress:
+            task_id = progress.add_task("Starting deploying", total=len(plan))
+            for step in plan:
+                crud = step.crud_cls.create_loader(client)
+                resource_name = crud.display_name
+
+                resources_by_id = self._load_resources(crud, step.files)
+                resource_count = len(resources_by_id)
+
+                missing_write_acl = self._validate_access(crud, list(resources_by_id.values()))
+                missing_write_acls.update(missing_write_acl)
+                progress.update(task_id, description=f"Comparing {resource_count} {resource_name} to CDF")
+                cdf_resource_by_id = {
+                    resource.as_id(): resource for resource in crud.retrieve(list(resources_by_id.keys()))
+                }
+                resources_to_deploy = self._categorize_resources(
+                    resources_by_id, cdf_resource_by_id, force_update, dry_run
+                )
+
+                progress.update(task_id, description=f"Deploying {resource_name} to CDF")
+                result = self.deploy_resources(crud, resources_to_deploy)
+
+                progress.update(task_id, description=f"Deployed {resource_name} successfully.", advance=1)
+                results.append(result)
+            progress.update(task_id, description="Finished deploying.")
+        return results
+
+    def _load_resources(
+        self, crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource], files: list[Path]
+    ) -> dict[T_Identifier, T_RequestResource]:
+        raise NotImplementedError()
+
+    def _validate_access(
+        self,
+        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        resources: list[T_RequestResource],
+    ) -> Iterable[type[ResourceCRUD]]:
+        raise NotImplementedError()
+
+    def _categorize_resources(
+        self,
+        local_by_id: dict[T_Identifier, T_RequestResource],
+        cdf_b_id: dict[T_Identifier, T_ResponseResource],
+        force_update: bool,
+        verbose: bool,
+    ) -> Any:
+        raise NotImplementedError()
+
+    def deploy_resources(
+        self, crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource], resources_to_deploy: Any
+    ) -> DeploymentResult:
         raise NotImplementedError()
 
     def _display_results(self, results: Sequence[DeploymentResult]) -> None:
