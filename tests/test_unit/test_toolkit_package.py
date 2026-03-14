@@ -78,7 +78,10 @@ def test_no_private_third_party_imports() -> None:
     """
     # We are not copying over protobuf files, so private imports from cognite.client._proto are currently acceptable.
     _assert_import_violations(
-        _extract_private_imports, "private imports from third-party packages", exceptions={"cognite.client._proto"}
+        _extract_private_imports,
+        "private imports from third-party packages",
+        exceptions={"cognite.client._proto"},
+        expected_total=9,
     )
 
 
@@ -89,7 +92,7 @@ def test_no_cognite_sdk_imports() -> None:
     The goal is to fully remove the cognite-sdk dependency from the toolkit (with the exception of Auth and protobuf files).
     This test tracks progress toward that goal.
     """
-    _assert_import_violations(_extract_cognite_sdk_imports, "cognite.client imports", 138)
+    _assert_import_violations(_extract_cognite_sdk_imports, "cognite.client imports", 136)
 
 
 def _parse_package_name(dependency: str) -> str:
