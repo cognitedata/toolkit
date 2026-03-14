@@ -1,3 +1,4 @@
+import inspect
 import re
 from pathlib import Path
 from typing import Any, TypeVar
@@ -63,7 +64,7 @@ def validate_data_set_is_set(
     identifier_key: str = "externalId",
 ) -> WarningList:
     warning_list: WarningList = WarningList()
-    if not issubclass(resource_cls, BaseModel):
+    if not (inspect.isclass(resource_cls) and issubclass(resource_cls, BaseModel)):
         return warning_list
 
     if "data_set_id" not in resource_cls.model_fields.keys():
