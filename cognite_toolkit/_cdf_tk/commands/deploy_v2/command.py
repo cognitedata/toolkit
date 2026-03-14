@@ -1,6 +1,7 @@
 import warnings
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence, Set
+from copy import deepcopy
 from dataclasses import dataclass, field
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
@@ -226,7 +227,9 @@ class DeployV2Command(ToolkitCommand):
                 )
                 resource_count = len(resources_by_id)
 
-                missing_write_acl = self._validate_access(crud, list(resources_by_id.values()), is_dry_run=dry_run)
+                missing_write_acl = self._validate_access(
+                    crud, [resource for _, resource in resources_by_id.values()], is_dry_run=dry_run
+                )
                 missing_write_acls.update(missing_write_acl)
                 progress.update(task_id, description=f"Comparing {resource_count} {resource_name} to CDF")
 
@@ -259,11 +262,11 @@ class DeployV2Command(ToolkitCommand):
         filepaths: list[Path],
         is_dry_run: bool,
         environment_variables: dict[str, str | None] | None = None,
-    ) -> dict[T_Identifier, T_RequestResource]:
+    ) -> dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]]:
         """# Load all resources from files, get ids, and remove duplicates."""
-        local_by_id: dict[T_Identifier, T_RequestResource] = {}
+        local_by_id: dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]] = {}
         environment_variables = environment_variables or {}
-        duplicates: set[T_Identifier] = set()
+        duplicates: Counter[T_Identifier] = Counter()
         for filepath in filepaths:
             with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
                 try:
@@ -274,7 +277,7 @@ class DeployV2Command(ToolkitCommand):
             for resource_dict in resource_list:
                 try:
                     # The load resource modifies the resource_dict, so we deepcopy it to avoid side effects.
-                    request_resource = crud.load_resource(resource_dict, is_dry_run)
+                    request_resource = crud.load_resource(deepcopy(resource_dict), is_dry_run)
                 except ToolkitWrongResourceError:
                     # The ToolkitWrongResourceError is a special exception that as of 21/12/24 is used by
                     # the GroupAllScopedLoader and GroupResourceScopedLoader to signal that the resource
@@ -282,9 +285,9 @@ class DeployV2Command(ToolkitCommand):
                     continue
                 identifier = crud.get_id(request_resource)
                 if identifier in local_by_id:
-                    duplicates.add(identifier)
+                    duplicates.update([identifier])
                 else:
-                    local_by_id[identifier] = request_resource
+                    local_by_id[identifier] = resource_dict, request_resource
 
             for warning in warning_list:
                 if isinstance(warning, EnvironmentVariableMissingWarning):
@@ -294,7 +297,7 @@ class DeployV2Command(ToolkitCommand):
                     warnings.warn(warning, stacklevel=2)
                 else:
                     warning.print_warning()
-        # Todo: What to do about duplicates?
+        # Todo: What to do about duplicates? Count as skipped with reason.
         return local_by_id
 
     def _validate_access(
@@ -315,19 +318,18 @@ class DeployV2Command(ToolkitCommand):
     def _categorize_resources(
         self,
         crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
-        local_by_id: dict[T_Identifier, T_RequestResource],
+        local_by_id: dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]],
         cdf_by_id: dict[T_Identifier, T_ResponseResource],
         force_update: bool,
         verbose: bool,
         console: Console,
     ) -> ResourceToDeploy:
         resources = ResourceToDeploy[T_Identifier, T_RequestResource]()
-        for identifier, local_resource in local_by_id.items():
+        for identifier, (local_dict, local_resource) in local_by_id.items():
             cdf_resource = cdf_by_id.get(identifier)
             if cdf_resource is None:
                 resources.to_create.append(local_resource)
                 continue
-            local_dict = local_resource.model_dump(mode="json", exclude_unset=True, by_alias=True)
             cdf_dict = crud.dump_resource(cdf_resource, local_dict)
             if not force_update and cdf_dict == local_dict:
                 resources.unchanged.append(identifier)
