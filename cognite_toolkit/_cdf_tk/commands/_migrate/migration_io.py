@@ -203,10 +203,11 @@ class AssetCentricMigrationIO(
         existing_ids = {item.as_id() for item in self.client.tool.instances.retrieve(list(data_by_instance_id.keys()))}
         to_create: list[UploadItem[InstanceRequest]] = []
         for instance_id, data in data_by_instance_id.items():
-            if instance_id not in existing_ids:
-                to_create.append(data)
-            else:
+            if instance_id in existing_ids:
                 self.logger.tracker.finalize_item(data.source_id, "skipped")
+            else:
+                to_create.append(data)
+
         return to_create
 
     def link_asset_centric(
