@@ -191,7 +191,7 @@ class TestAuthCommand:
 
 def test_get_capabilities_by_loader_hybrid_project(toolkit_client_approval: ApprovalToolkitClient):
     client = toolkit_client_approval.client
-    caps_hybrid, _ = AuthCommand._get_capabilities_by_loader(client, "HYBRID")
+    caps_hybrid, _ = AuthCommand._get_required_acls(client, "HYBRID")
     acl_types_hybrid = {type(c.acl) for c in caps_hybrid}
     assert ToolkitAssetsAcl in acl_types_hybrid
     assert ToolkitRelationshipsAcl in acl_types_hybrid
@@ -199,7 +199,7 @@ def test_get_capabilities_by_loader_hybrid_project(toolkit_client_approval: Appr
 
 def test_get_capabilities_by_loader_dm_only_project(toolkit_client_approval: ApprovalToolkitClient):
     client = toolkit_client_approval.client
-    caps_dm_only, _ = AuthCommand._get_capabilities_by_loader(client, "DATA_MODELING_ONLY")
+    caps_dm_only, _ = AuthCommand._get_required_acls(client, "DATA_MODELING_ONLY")
     acl_types_dm_only = {type(c.acl) for c in caps_dm_only}
     assert ToolkitAssetsAcl not in acl_types_dm_only
     assert ToolkitRelationshipsAcl not in acl_types_dm_only

@@ -43,7 +43,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
     DataSetScope,
     ExtractionPipelinesAcl,
-    ScopeDefinition,
+    ScopeDefinition, ExtractionConfigsAcl,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
@@ -255,7 +255,8 @@ class ExtractionPipelineConfigCRUD(
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
-        yield from ()
+        if isinstance(scope, AllScope):
+            yield ExtractionConfigsAcl(actions=["READ", "WRITE"], scope=scope)
 
     @classmethod
     def get_id(cls, item: ExtractionPipelineConfigRequest | ExtractionPipelineConfigResponse | dict) -> ExternalId:
