@@ -4,7 +4,6 @@ from collections.abc import Hashable, Iterable, Sequence, Sized
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 
-from cognite.client.data_classes.capabilities import Capability
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -166,13 +165,6 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
     @abstractmethod
     def dump_id(cls, id: T_Identifier) -> dict[str, Any]:
         raise NotImplementedError()
-
-    @classmethod
-    @abstractmethod
-    def get_required_capability(
-        cls, items: Sequence[T_RequestResource] | None, read_only: bool
-    ) -> Capability | list[Capability]:
-        raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
 
     @classmethod
     def create_minimum_acl(

@@ -1,8 +1,6 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities as cap
-
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import AgentRequest, AgentResponse
@@ -57,17 +55,6 @@ class AgentCRUD(ResourceCRUD[ExternalId, AgentRequest, AgentResponse]):
         for tool in resource.tools or []:
             if isinstance(tool, CallFunction):
                 yield FunctionCRUD, ExternalId(external_id=tool.configuration.external_id)
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[AgentRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = [cap.AgentsAcl.Action.READ] if read_only else [cap.AgentsAcl.Action.READ, cap.AgentsAcl.Action.WRITE]
-
-        return cap.AgentsAcl(actions, cap.AgentsAcl.Scope.All())
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[AgentRequest]) -> ScopeDefinition:

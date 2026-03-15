@@ -17,8 +17,6 @@ import json
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities as cap
-
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
@@ -58,24 +56,6 @@ class DataSetsCRUD(ResourceCRUD[ExternalId, DataSetRequest, DataSetResponse]):
     @property
     def display_name(self) -> str:
         return "data sets"
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[DataSetRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.DataSetsAcl.Action.Read]
-            if read_only
-            else [cap.DataSetsAcl.Action.Read, cap.DataSetsAcl.Action.Write, cap.DataSetsAcl.Action.Owner]
-        )
-
-        return cap.DataSetsAcl(
-            actions,
-            cap.DataSetsAcl.Scope.All(),
-        )
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[DataSetRequest]) -> ScopeDefinition:
@@ -178,23 +158,6 @@ class LabelCRUD(ResourceCRUD[ExternalId, LabelRequest, LabelResponse]):
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[LabelRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-        scope: cap.LabelsAcl.Scope.All | cap.LabelsAcl.Scope.DataSet = (  # type: ignore[valid-type]
-            cap.LabelsAcl.Scope.All()
-        )
-        if items:
-            if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = cap.LabelsAcl.Scope.DataSet(list(data_set_ids))
-
-        actions = [cap.LabelsAcl.Action.Read] if read_only else [cap.LabelsAcl.Action.Read, cap.LabelsAcl.Action.Write]
-
-        return cap.LabelsAcl(actions, scope)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[LabelRequest]) -> ScopeDefinition:

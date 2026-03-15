@@ -1,8 +1,6 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, Literal, final
 
-from cognite.client.data_classes.capabilities import Capability
-
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SignalSinkId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
@@ -73,12 +71,6 @@ class SignalSubscriptionCRUD(ResourceCRUD[ExternalId, SignalSubscriptionRequest,
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[SignalSubscriptionRequest] | None, read_only: bool
-    ) -> Capability | list[Capability]:
-        return []
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[SignalSubscriptionRequest]) -> ScopeDefinition:

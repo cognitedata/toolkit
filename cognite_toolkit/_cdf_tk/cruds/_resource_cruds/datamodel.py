@@ -24,7 +24,6 @@ from time import sleep
 from typing import Any, Literal, final
 
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import capabilities as cap
 from cognite.client.data_classes import filters
 from rich import print
 from rich.console import Console
@@ -155,21 +154,6 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceId, SpaceRequest, SpaceResponse]):
     @property
     def display_name(self) -> str:
         return "spaces"
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[SpaceRequest] | None, read_only: bool
-    ) -> list[cap.Capability] | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.DataModelsAcl.Action.Read]
-            if read_only
-            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
-        )
-
-        return [cap.DataModelsAcl(actions, cap.DataModelsAcl.Scope.All())]
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[SpaceRequest]) -> ScopeDefinition:
@@ -306,27 +290,6 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerRequest, Contain
     @property
     def display_name(self) -> str:
         return "containers"
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[ContainerRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.DataModelsAcl.Action.Read]
-            if read_only
-            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
-        )
-
-        scope = (
-            cap.DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else cap.DataModelsAcl.Scope.All()
-        )
-
-        return cap.DataModelsAcl(actions, scope)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[ContainerRequest]) -> ScopeDefinition:
@@ -630,27 +593,6 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
     @property
     def display_name(self) -> str:
         return "views"
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[ViewRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.DataModelsAcl.Action.Read]
-            if read_only
-            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
-        )
-
-        scope = (
-            cap.DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else cap.DataModelsAcl.Scope.All()
-        )
-
-        return cap.DataModelsAcl(actions, scope)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[ViewRequest]) -> ScopeDefinition:
@@ -1055,27 +997,6 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelRequest, DataModelRespons
         return "data models"
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[DataModelRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.DataModelsAcl.Action.Read]
-            if read_only
-            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
-        )
-
-        scope = (
-            cap.DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else cap.DataModelsAcl.Scope.All()
-        )
-
-        return cap.DataModelsAcl(actions, scope)
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[DataModelRequest]) -> ScopeDefinition:
         return space_scoped_resource(items)
 
@@ -1234,26 +1155,6 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeRequest, NodeResponse]):
     @property
     def display_name(self) -> str:
         return "nodes"
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[NodeRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.DataModelInstancesAcl.Action.Read]
-            if read_only
-            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
-        )
-
-        return cap.DataModelInstancesAcl(
-            actions,
-            cap.DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else cap.DataModelInstancesAcl.Scope.All(),
-        )
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[NodeRequest]) -> ScopeDefinition:
@@ -1435,24 +1336,6 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, Gr
     @classmethod
     def dump_id(cls, id: DataModelId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[GraphQLDataModelRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-        actions = (
-            [cap.DataModelsAcl.Action.Read]
-            if read_only
-            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
-        )
-        return cap.DataModelsAcl(
-            actions,
-            cap.DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else cap.DataModelsAcl.Scope.All(),
-        )
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[GraphQLDataModelRequest]) -> ScopeDefinition:
@@ -1641,26 +1524,6 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeRequest, EdgeResponse]):
     @property
     def display_name(self) -> str:
         return "edges"
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[EdgeRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.DataModelInstancesAcl.Action.Read]
-            if read_only
-            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
-        )
-
-        return cap.DataModelInstancesAcl(
-            actions,
-            cap.DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else cap.DataModelInstancesAcl.Scope.All(),
-        )
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[EdgeRequest]) -> ScopeDefinition:

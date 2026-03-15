@@ -19,7 +19,6 @@ from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities as cap
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
 from rich.console import Console
@@ -67,29 +66,6 @@ class RawDatabaseCRUD(ResourceContainerCRUD[RawDatabaseId, RAWDatabaseRequest, R
     @property
     def display_name(self) -> str:
         return "raw databases"
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[RAWDatabaseRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.RawAcl.Action.Read, cap.RawAcl.Action.List]
-            if read_only
-            else [cap.RawAcl.Action.Read, cap.RawAcl.Action.Write, cap.RawAcl.Action.List]
-        )
-
-        scope: cap.RawAcl.Scope.All | cap.RawAcl.Scope.Table = cap.RawAcl.Scope.All()  # type: ignore[valid-type]
-        if items:
-            tables_by_database: dict[str, list[str]] = {}
-            for item in items:
-                tables_by_database[item.name] = []
-
-            scope = cap.RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else cap.RawAcl.Scope.All()
-
-        return cap.RawAcl(actions, scope)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[RAWDatabaseRequest]) -> ScopeDefinition:
@@ -191,29 +167,6 @@ class RawTableCRUD(ResourceContainerCRUD[RawTableId, RAWTableRequest, RAWTableRe
     @property
     def display_name(self) -> str:
         return "raw tables"
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[RAWTableRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.RawAcl.Action.Read, cap.RawAcl.Action.List]
-            if read_only
-            else [cap.RawAcl.Action.Read, cap.RawAcl.Action.Write, cap.RawAcl.Action.List]
-        )
-
-        scope: cap.RawAcl.Scope.All | cap.RawAcl.Scope.Table = cap.RawAcl.Scope.All()  # type: ignore[valid-type]
-        if items:
-            tables_by_database = defaultdict(list)
-            for item in items:
-                tables_by_database[item.db_name].append(item.name)
-
-            scope = cap.RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else cap.RawAcl.Scope.All()
-
-        return cap.RawAcl(actions, scope)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[RAWTableRequest]) -> ScopeDefinition:

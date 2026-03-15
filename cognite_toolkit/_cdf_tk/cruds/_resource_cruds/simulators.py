@@ -1,8 +1,6 @@
 from collections.abc import Hashable, Iterable, Sequence, Sized
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities as cap
-
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
@@ -81,14 +79,6 @@ class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, Simulat
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[SimulatorModelRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        # Simulator ACLs is not yet implemented in the PySDK, which means
-        # that we cannot check for specific capabilities.
-        return []
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[SimulatorModelRequest]) -> ScopeDefinition | None:
@@ -212,12 +202,6 @@ class SimulatorModelRevisionCRUD(
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[SimulatorModelRevisionRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        return []
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[SimulatorModelRevisionRequest]) -> ScopeDefinition | None:
         return None
 
@@ -323,12 +307,6 @@ class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, Sim
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[SimulatorRoutineRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        return []
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[SimulatorRoutineRequest]) -> ScopeDefinition | None:
         return None
 
@@ -421,12 +399,6 @@ class SimulatorRoutineRevisionCRUD(
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[SimulatorRoutineRevisionRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        return []
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[SimulatorRoutineRevisionRequest]) -> ScopeDefinition | None:
