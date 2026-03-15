@@ -285,14 +285,15 @@ class DeployV2Command(ToolkitCommand):
         """
 
         results: list[DeploymentResult] = []
-        with Progress(console=client.console) as progress:
+        console = client.console
+        with Progress(console=console) as progress:
             task_id = progress.add_task("Starting deploying", total=len(plan))
             for step in plan:
                 crud = step.crud_cls.create_loader(client)
                 resource_name = crud.display_name
                 progress.update(task_id, description=f"Reading {resource_name}")
 
-                resources_by_id, source_files = cls._read_resource_files(crud, step.files, options)
+                resources_by_id, source_files = cls._read_resource_files(crud, step.files, console, options)
                 resource_count = len(resources_by_id)
                 request_resources = [resource for _, resource in resources_by_id.values()]
 
@@ -307,7 +308,7 @@ class DeployV2Command(ToolkitCommand):
                     resources_by_id,
                     cdf_resource_by_id,
                     source_files,
-                    client.console,
+                    console,
                     options,
                 )
 
@@ -330,6 +331,7 @@ class DeployV2Command(ToolkitCommand):
         cls,
         crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         filepaths: list[Path],
+        console: Console,
         options: DeployOptions,
     ) -> tuple[dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]], dict[T_Identifier, list[Path]]]:
         """# Load all resources from files, get ids, and remove duplicates."""
@@ -365,7 +367,7 @@ class DeployV2Command(ToolkitCommand):
                     # Reraise the warning to be caught higher up.
                     warnings.warn(warning, stacklevel=2)
                 else:
-                    warning.print_warning()
+                    warning.print_warning(console=console)
         return local_by_id, source_file_by_ids
 
     @classmethod

@@ -136,7 +136,7 @@ class HostedExtractorSourceCRUD(
     ) -> dict[str, Any]:
         HighSeverityWarning(
             "Sources will always be considered different, and thus will always be redeployed."
-        ).print_warning()
+        ).print_warning(console=self.client.console)
         return self.dump_id(self.get_id(resource))
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> HostedExtractorSourceRequestUnion:
@@ -277,7 +277,7 @@ class HostedExtractorDestinationCRUD(
     ) -> dict[str, Any]:
         HighSeverityWarning(
             "Destinations will always be considered different, and thus will always be redeployed."
-        ).print_warning()
+        ).print_warning(console=self.client.console)
         return self.dump_id(self.get_id(resource))
 
     @classmethod
