@@ -1,5 +1,5 @@
 import warnings
-from collections import Counter, defaultdict
+from collections import defaultdict
 from collections.abc import Iterable, Sequence, Set
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -102,11 +102,19 @@ class DeploymentStep:
 
 
 @dataclass
+class Skipped(Generic[T_Identifier]):
+    id: T_Identifier
+    source_file: Path
+    reason: str
+
+
+@dataclass
 class ResourceToDeploy(Generic[T_Identifier, T_RequestResource]):
     to_create: list[T_RequestResource] = field(default_factory=list)
     to_delete: list[T_Identifier] = field(default_factory=list)
     to_update: list[T_RequestResource] = field(default_factory=list)
     unchanged: list[T_Identifier] = field(default_factory=list)
+    skipped: list[Skipped[T_Identifier]] = field(default_factory=list)
 
 
 @dataclass
@@ -117,6 +125,7 @@ class DeploymentResult:
     deleted: int
     updated: int
     unchanged: int
+    skipped: int
 
 
 class DeployV2Command(ToolkitCommand):
@@ -283,23 +292,22 @@ class DeployV2Command(ToolkitCommand):
                 resource_name = crud.display_name
                 progress.update(task_id, description=f"Reading {resource_name}")
 
-                resources_by_id = cls._read_resource_files(crud, step.files, options)
+                resources_by_id, source_files = cls._read_resource_files(crud, step.files, options)
                 resource_count = len(resources_by_id)
+                request_resources = [resource for _, resource in resources_by_id.values()]
 
-                missing_write_acl = cls._validate_access(
-                    crud, [resource for _, resource in resources_by_id.values()], is_dry_run=options.dry_run
-                )
+                missing_write_acl = cls._validate_access(crud, request_resources, is_dry_run=options.dry_run)
                 missing_write_acls.update(missing_write_acl)
-                progress.update(task_id, description=f"Comparing {resource_count} {resource_name} to CDF")
 
+                progress.update(task_id, description=f"Comparing {resource_count} {resource_name} to CDF")
                 cdf_resource_by_id = {
                     crud.get_id(resource): resource for resource in crud.retrieve(list(resources_by_id.keys()))
                 }
-
                 resources_to_deploy = cls._categorize_resources(
                     crud,
                     resources_by_id,
                     cdf_resource_by_id,
+                    source_files,
                     client.console,
                     options,
                 )
@@ -325,11 +333,11 @@ class DeployV2Command(ToolkitCommand):
         crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         filepaths: list[Path],
         options: DeployOptions,
-    ) -> dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]]:
+    ) -> tuple[dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]], dict[T_Identifier, list[Path]]]:
         """# Load all resources from files, get ids, and remove duplicates."""
         local_by_id: dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]] = {}
         environment_variables = options.environment_variables or {}
-        duplicates: Counter[T_Identifier] = Counter()
+        source_file_by_ids: dict[T_Identifier, list[Path]] = defaultdict(list)
         for filepath in filepaths:
             with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
                 try:
@@ -347,9 +355,9 @@ class DeployV2Command(ToolkitCommand):
                     # should be handled by the other loader.
                     continue
                 identifier = crud.get_id(request_resource)
-                if identifier in local_by_id:
-                    duplicates.update([identifier])
-                else:
+
+                source_file_by_ids[identifier].append(filepath)
+                if identifier not in local_by_id:
                     local_by_id[identifier] = resource_dict, request_resource
 
             for warning in warning_list:
@@ -360,8 +368,7 @@ class DeployV2Command(ToolkitCommand):
                     warnings.warn(warning, stacklevel=2)
                 else:
                     warning.print_warning()
-        # Todo: What to do about duplicates? Count as skipped with reason.
-        return local_by_id
+        return local_by_id, source_file_by_ids
 
     @classmethod
     def _validate_access(
@@ -392,11 +399,21 @@ class DeployV2Command(ToolkitCommand):
         crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         local_by_id: dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]],
         cdf_by_id: dict[T_Identifier, T_ResponseResource],
+        source_files: dict[T_Identifier, list[Path]],
         console: Console,
         options: DeployOptions,
     ) -> ResourceToDeploy:
         resources = ResourceToDeploy[T_Identifier, T_RequestResource]()
         for identifier, (local_dict, local_resource) in local_by_id.items():
+            if len(source_files[identifier]) > 1:
+                first_file = source_files[identifier][0]
+                for filepath in source_files[identifier][1:]:
+                    resources.skipped.append(
+                        Skipped(
+                            identifier, filepath, f"Duplicated resource. Will use definition in {first_file.as_posix()}"
+                        )
+                    )
+
             cdf_resource = cdf_by_id.get(identifier)
             if cdf_resource is None:
                 resources.to_create.append(local_resource)
@@ -450,6 +467,7 @@ class DeployV2Command(ToolkitCommand):
             updated=updated,
             deleted=deleted,
             unchanged=unchanged,
+            skipped=len(resources.skipped),
         )
 
     @classmethod
@@ -473,6 +491,7 @@ class DeployV2Command(ToolkitCommand):
             updated=updated,
             deleted=deleted,
             unchanged=len(resources.unchanged),
+            skipped=len(resources.skipped),
         )
 
     @classmethod
