@@ -4,6 +4,7 @@ import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
@@ -27,6 +28,7 @@ class AuthApp(typer.Typer):
                 "--no-verify",
                 "-nv",
                 help="Whether to skip the verification of the capabilities after the initialization.",
+                hidden=Flags.v08.is_enabled(),
             ),
         ] = False,
         dry_run: Annotated[
@@ -35,6 +37,7 @@ class AuthApp(typer.Typer):
                 "--dry-run",
                 "-r",
                 help="If you verify, and you pass this flag no changes to CDF will be made.",
+                hidden=Flags.v08.is_enabled(),
             ),
         ] = False,
         verbose: Annotated[
