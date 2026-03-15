@@ -14,6 +14,13 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, Toolki
 
 
 class TestReadBuildDirectory:
+    DATA_SET_PATH = "build/data_sets/my.DataSet.yaml"
+    DATA_SET_DIR = ResourceDirectory(
+        directory=Path("build/data_sets"), files_by_crud={DataSetsCRUD: [Path(DATA_SET_PATH)]}
+    )
+    LABEL_PATH = "build/classic/my.Label.yaml"
+    LABEL_DIR = ResourceDirectory(directory=Path("build/classic"), files_by_crud={LabelCRUD: [Path(LABEL_PATH)]})
+
     @pytest.mark.parametrize(
         "build_files_and_dir, include, expected",
         [
@@ -24,92 +31,81 @@ class TestReadBuildDirectory:
                 id="build_dir_does_not_exist",
             ),
             pytest.param(
-                ["build/auth/my.DataSet.yaml"],
+                ["build/auth/my.Group.yaml"],
                 ["not_a_real_folder", "also_invalid"],
                 ToolkitValidationError,
                 id="include_contains_invalid_folders",
+            ),
+            pytest.param(
+                ["build/"],
+                None,
+                ToolkitValueError,
+                id="raises_if_no_resources_found",
+            ),
+            pytest.param(
+                [DATA_SET_PATH, LABEL_PATH],
+                ["data_sets"],
+                ReadBuildDirectory(
+                    build_dir=Path("build"),
+                    resource_directories=[DATA_SET_DIR],
+                    skipped_directories=[LABEL_DIR],
+                ),
+                id="include_filters_to_skipped",
+            ),
+            pytest.param(
+                [DATA_SET_PATH, LABEL_PATH, "build/not_a_valid_resource_type/"],
+                None,
+                ReadBuildDirectory(
+                    build_dir=Path("build"),
+                    resource_directories=[LABEL_DIR, DATA_SET_DIR],
+                    invalid_directories=[Path("build/not_a_valid_resource_type/")],
+                ),
+                id="invalid_directories_tracked",
+            ),
+            pytest.param(
+                [DATA_SET_PATH, "build/data_sets/unrelated.yaml", "build/data_sets/ignored_markdown.md"],
+                None,
+                ReadBuildDirectory(
+                    build_dir=Path("build"),
+                    resource_directories=[
+                        ResourceDirectory(
+                            directory=Path("build/data_sets"),
+                            files_by_crud={DataSetsCRUD: [Path(DATA_SET_PATH)]},
+                            invalid_files=[Path("build/data_sets/unrelated.yaml")],
+                        )
+                    ],
+                ),
+                id="unmatched_yaml_files_are_invalid",
             ),
         ],
     )
     def test_read_build_directory(
         self,
         build_files_and_dir: list[str],
-        include: list[str] | None,
+        include: DeployOptions | list[str] | None,
         expected: type[Exception] | ReadBuildDirectory,
         tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        build_dir = tmp_path / "build"
+        cwd = tmp_path
         for relative_path in build_files_and_dir:
-            path = build_dir / relative_path
-            path.mkdir(parents=True, exist_ok=True)
-            if path.suffix == ".yaml":
+            path = cwd / relative_path
+            if relative_path.endswith("/"):
+                path.mkdir(parents=True, exist_ok=True)
+            else:
+                path.parent.mkdir(parents=True, exist_ok=True)
                 path.touch()
 
-        actual: ReadBuildDirectory | type[Exception]
+        # Patch the current working directory to tmp_path
+        monkeypatch.chdir(tmp_path)
+
+        actual: type[Exception] | ReadBuildDirectory
         try:
-            actual = DeployV2Command._read_build_directory(build_dir, include)
+            actual = DeployV2Command._read_build_directory(Path("build"), include)
         except Exception as e:
             actual = type(e)
 
         assert actual == expected
-
-    def test_raises_if_no_resources_found(self, tmp_path: Path) -> None:
-        build_dir = tmp_path / "build"
-        build_dir.mkdir()
-
-        with pytest.raises(ToolkitValueError):
-            DeployV2Command._read_build_directory(build_dir)
-
-    def test_single_resource_folder(self, tmp_path: Path) -> None:
-        build_dir = tmp_path / "build"
-        ds_dir = build_dir / "data_sets"
-        ds_dir.mkdir(parents=True)
-        (ds_dir / "my.DataSet.yaml").write_text("externalId: ds1")
-
-        result = DeployV2Command._read_build_directory(build_dir)
-
-        assert len(result.resource_directories) == 1
-        assert result.resource_directories[0].directory == ds_dir
-        cruds = result.resource_directories[0].files_by_crud
-        assert DataSetsCRUD in cruds
-        assert cruds[DataSetsCRUD] == [ds_dir / "my.DataSet.yaml"]
-
-    def test_include_filters_to_skipped(self, tmp_path: Path) -> None:
-        build_dir = tmp_path / "build"
-        (build_dir / "data_sets").mkdir(parents=True)
-        (build_dir / "data_sets" / "my.DataSet.yaml").write_text("externalId: ds1")
-        (build_dir / "classic").mkdir(parents=True)
-        (build_dir / "classic" / "my.Label.yaml").write_text("externalId: lbl1")
-
-        result = DeployV2Command._read_build_directory(build_dir, DeployOptions(include=["classic"]))
-
-        included_cruds = result.as_files_by_crud()
-        assert LabelCRUD in included_cruds
-        assert DataSetsCRUD not in included_cruds
-        assert len(result.skipped_directories) == 1
-
-    def test_invalid_directories_tracked(self, tmp_path: Path) -> None:
-        build_dir = tmp_path / "build"
-        (build_dir / "data_sets").mkdir(parents=True)
-        (build_dir / "data_sets" / "my.DataSet.yaml").write_text("externalId: ds1")
-        (build_dir / "not_a_valid_resource_type").mkdir(parents=True)
-
-        result = DeployV2Command._read_build_directory(build_dir)
-
-        assert len(result.invalid_directories) == 1
-        assert result.invalid_directories[0].name == "not_a_valid_resource_type"
-
-    def test_unmatched_yaml_files_are_invalid(self, tmp_path: Path) -> None:
-        build_dir = tmp_path / "build"
-        ds_dir = build_dir / "data_sets"
-        ds_dir.mkdir(parents=True)
-        (ds_dir / "my.DataSet.yaml").write_text("externalId: ds1")
-        (ds_dir / "unrelated.yaml").write_text("externalId: other")
-
-        result = DeployV2Command._read_build_directory(build_dir)
-
-        resource_dir = result.resource_directories[0]
-        assert resource_dir.invalid_files == [ds_dir / "unrelated.yaml"]
 
 
 class TestCreateDeploymentPlan:
@@ -228,43 +224,3 @@ class TestDeployDryRun:
             updated=0,
             unchanged=0,
         )
-
-
-class TestReadBuildDirectoryDataClasses:
-    def test_as_files_by_crud_merges_directories(self, tmp_path: Path) -> None:
-        file_a = tmp_path / "a.DataSet.yaml"
-        file_b = tmp_path / "b.Label.yaml"
-        read_dir = ReadBuildDirectory(
-            build_dir=tmp_path,
-            resource_directories=[
-                ResourceDirectory(
-                    directory=tmp_path / "data_sets",
-                    files_by_crud={DataSetsCRUD: [file_a]},
-                ),
-                ResourceDirectory(
-                    directory=tmp_path / "classic",
-                    files_by_crud={LabelCRUD: [file_b]},
-                ),
-            ],
-            skipped_directories=[],
-            invalid_directories=[],
-        )
-
-        merged = read_dir.as_files_by_crud()
-
-        assert merged == {DataSetsCRUD: [file_a], LabelCRUD: [file_b]}
-
-    def test_skipped_cruds(self, tmp_path: Path) -> None:
-        read_dir = ReadBuildDirectory(
-            build_dir=tmp_path,
-            resource_directories=[],
-            skipped_directories=[
-                ResourceDirectory(
-                    directory=tmp_path / "auth",
-                    files_by_crud={GroupAllScopedCRUD: [tmp_path / "my.Group.yaml"]},
-                ),
-            ],
-            invalid_directories=[],
-        )
-
-        assert read_dir.skipped_cruds() == {GroupAllScopedCRUD}

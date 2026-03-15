@@ -50,9 +50,9 @@ class ResourceDirectory:
 @dataclass
 class ReadBuildDirectory:
     build_dir: Path
-    resource_directories: list[ResourceDirectory]
-    skipped_directories: list[ResourceDirectory]
-    invalid_directories: list[Path]
+    resource_directories: list[ResourceDirectory] = field(default_factory=list)
+    skipped_directories: list[ResourceDirectory] = field(default_factory=list)
+    invalid_directories: list[Path] = field(default_factory=list)
     is_strict_validation: bool = False
 
     def create_warnings(self) -> Iterable[ToolkitWarning]:
