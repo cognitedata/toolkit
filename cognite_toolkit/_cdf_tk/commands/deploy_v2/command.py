@@ -37,6 +37,7 @@ class DeployOptions:
     include: Sequence[str] | None = None
     force_update: bool = False
     verbose: bool = False
+    environment_variables: dict[str, str | None] | None = None
 
 
 @dataclass
@@ -110,7 +111,7 @@ class DeployV2Command(ToolkitCommand):
         build_dir: Path,
         options: DeployOptions | None = None,
     ) -> Any:
-        options = options or DeployOptions()
+        options = options or DeployOptions(environment_variables=env_vars.dump())
         read_dir = self._read_build_directory(build_dir, options.include)
 
         client = env_vars.get_client(is_strict_validation=read_dir.is_strict_validation)
@@ -122,7 +123,7 @@ class DeployV2Command(ToolkitCommand):
 
         self._display_plan(client, plan)
 
-        results = self._apply_plan(client, plan, options.dry_run, options.force_update, env_vars.dump())
+        results = self._apply_plan(client, plan, options)
 
         self._display_results(results)
 
@@ -209,12 +210,7 @@ class DeployV2Command(ToolkitCommand):
 
     @classmethod
     def _apply_plan(
-        cls,
-        client: ToolkitClient,
-        plan: list[DeploymentStep],
-        dry_run: bool,
-        force_update: bool,
-        environment_variables: dict[str, str | None] | None,
+        cls, client: ToolkitClient, plan: list[DeploymentStep], options: DeployOptions
     ) -> Sequence[DeploymentResult]:
         results: list[DeploymentResult] = []
         missing_write_acls: set[str] = set()
@@ -225,13 +221,11 @@ class DeployV2Command(ToolkitCommand):
                 resource_name = crud.display_name
                 progress.update(task_id, description=f"Reading {resource_name}")
 
-                resources_by_id = cls._load_resources(
-                    crud, step.files, is_dry_run=dry_run, environment_variables=environment_variables
-                )
+                resources_by_id = cls._read_resource_files(crud, step.files, options)
                 resource_count = len(resources_by_id)
 
                 missing_write_acl = cls._validate_access(
-                    crud, [resource for _, resource in resources_by_id.values()], is_dry_run=dry_run
+                    crud, [resource for _, resource in resources_by_id.values()], is_dry_run=options.dry_run
                 )
                 missing_write_acls.update(missing_write_acl)
                 progress.update(task_id, description=f"Comparing {resource_count} {resource_name} to CDF")
@@ -241,10 +235,14 @@ class DeployV2Command(ToolkitCommand):
                 }
 
                 resources_to_deploy = cls._categorize_resources(
-                    crud, resources_by_id, cdf_resource_by_id, force_update, dry_run, client.console
+                    crud,
+                    resources_by_id,
+                    cdf_resource_by_id,
+                    client.console,
+                    options,
                 )
 
-                if dry_run:
+                if options.dry_run:
                     result = cls.deploy_dry_run(resources_to_deploy)
                     results.append(result)
                     progress.update(task_id, description=f"Would have deployed {resource_name} to CDF")
@@ -260,16 +258,15 @@ class DeployV2Command(ToolkitCommand):
         return results
 
     @classmethod
-    def _load_resources(
+    def _read_resource_files(
         cls,
         crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         filepaths: list[Path],
-        is_dry_run: bool,
-        environment_variables: dict[str, str | None] | None = None,
+        options: DeployOptions,
     ) -> dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]]:
         """# Load all resources from files, get ids, and remove duplicates."""
         local_by_id: dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]] = {}
-        environment_variables = environment_variables or {}
+        environment_variables = options.environment_variables or {}
         duplicates: Counter[T_Identifier] = Counter()
         for filepath in filepaths:
             with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
@@ -281,7 +278,7 @@ class DeployV2Command(ToolkitCommand):
             for resource_dict in resource_list:
                 try:
                     # The load resource modifies the resource_dict, so we deepcopy it to avoid side effects.
-                    request_resource = crud.load_resource(deepcopy(resource_dict), is_dry_run)
+                    request_resource = crud.load_resource(deepcopy(resource_dict), options.dry_run)
                 except ToolkitWrongResourceError:
                     # The ToolkitWrongResourceError is a special exception that as of 21/12/24 is used by
                     # the GroupAllScopedLoader and GroupResourceScopedLoader to signal that the resource
@@ -326,9 +323,8 @@ class DeployV2Command(ToolkitCommand):
         crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         local_by_id: dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]],
         cdf_by_id: dict[T_Identifier, T_ResponseResource],
-        force_update: bool,
-        verbose: bool,
         console: Console,
+        options: DeployOptions,
     ) -> ResourceToDeploy:
         resources = ResourceToDeploy[T_Identifier, T_RequestResource]()
         for identifier, (local_dict, local_resource) in local_by_id.items():
@@ -337,7 +333,7 @@ class DeployV2Command(ToolkitCommand):
                 resources.to_create.append(local_resource)
                 continue
             cdf_dict = crud.dump_resource(cdf_resource, local_dict)
-            if not force_update and cdf_dict == local_dict:
+            if not options.force_update and cdf_dict == local_dict:
                 resources.unchanged.append(identifier)
                 continue
             if crud.support_update:
@@ -345,7 +341,7 @@ class DeployV2Command(ToolkitCommand):
             else:
                 resources.to_delete.append(identifier)
                 resources.to_create.append(local_resource)
-            if verbose:
+            if options.verbose:
                 diff_str = "\n".join(to_diff(cdf_dict, local_dict))
                 for sensitive in crud.sensitive_strings(local_resource):
                     diff_str = diff_str.replace(sensitive, "********")
