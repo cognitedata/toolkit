@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     LocationFiltersAcl,
     ScopeDefinition,
@@ -90,7 +90,7 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope):
             yield LocationFiltersAcl(actions=sorted(actions), scope=scope)
 

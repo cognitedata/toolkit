@@ -15,7 +15,8 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     T_ResponseResource,
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, ScopeDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.group import ScopeDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, YAML_SUFFIX
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
@@ -176,7 +177,7 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
     @classmethod
     def create_minimum_acl(
         cls, actions: set[Literal["READ", "WRITE"]], items: Sequence[T_RequestResource]
-    ) -> Iterable[Acl]:
+    ) -> Iterable[AclType]:
         if minimum_scope := cls.get_minimum_scope(items):
             yield from cls.create_acl(actions, minimum_scope)
 
@@ -187,7 +188,7 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
 
     @classmethod
     @abstractmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         raise NotImplementedError(f"create_acl must be implemented for {cls.__name__} ")
 
     @abstractmethod
