@@ -70,8 +70,19 @@ class ReadBuildDirectory:
 
 @dataclass
 class DeploymentStep:
+    """A deployment step
+
+    Args:
+        crud_cls: The CRUD class to use for this step.
+        files: The files to deploy in this step, all of which should be of the same structure.
+        skipped_cruds: Resource types that this step depends on but are skipped due to the include filter.
+            This is used to warn the user about potential issues with the deployment.
+
+    """
+
     crud_cls: type[ResourceCRUD]
     files: list[Path]
+    # Todo: Warn about skipped CRUDs. Maybe only if deployment fails?
     skipped_cruds: Set[type[ResourceCRUD]] = field(default_factory=set)
 
 
