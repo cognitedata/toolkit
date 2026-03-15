@@ -122,12 +122,15 @@ class DeployV2Command(ToolkitCommand):
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(f"Build directory {build_dir!s} does not exist.")
         available_resource_types = set(RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND.keys())
-        if include:
-            if invalid := set(include) - available_resource_types:
-                raise ToolkitValidationError(
-                    f"Invalid resource types specified: {humanize_collection(invalid)}, available types: {humanize_collection(available_resource_types)}"
-                )
+        if include and (invalid := set(include) - available_resource_types):
+            raise ToolkitValidationError(
+                f"Invalid resource types specified: {humanize_collection(invalid)}, available types: {humanize_collection(available_resource_types)}"
+            )
         # Todo: Check linage file.
+        #   - Check source hash are unchanged
+        #   - Check that CDF Project matches env.
+        #   - If linage file is missing, ask user to type in the CDF Project they are
+        #     writing to.
         include_set = set(include) if include else None
         invalid_resource_dirs: list[Path] = []
         resource_directories: list[ResourceDirectory] = []

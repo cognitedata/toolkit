@@ -15,35 +15,43 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, Toolki
 
 class TestReadBuildDirectory:
     @pytest.mark.parametrize(
-        "create_build_dir, options, expected",
+        "build_files_and_dir, include, expected",
         [
             pytest.param(
-                False,
+                [],
                 None,
                 ToolkitNotADirectoryError,
                 id="build_dir_does_not_exist",
             ),
             pytest.param(
-                True,
-                DeployOptions(include=["not_a_real_folder", "also_invalid"]),
+                ["build/auth/my.DataSet.yaml"],
+                ["not_a_real_folder", "also_invalid"],
                 ToolkitValidationError,
                 id="include_contains_invalid_folders",
             ),
         ],
     )
-    def test_raises_on_invalid_input(
+    def test_read_build_directory(
         self,
-        create_build_dir: bool,
-        options: DeployOptions | None,
-        expected: type[Exception],
+        build_files_and_dir: list[str],
+        include: list[str] | None,
+        expected: type[Exception] | ReadBuildDirectory,
         tmp_path: Path,
     ) -> None:
         build_dir = tmp_path / "build"
-        if create_build_dir:
-            build_dir.mkdir(parents=True, exist_ok=True)
+        for relative_path in build_files_and_dir:
+            path = build_dir / relative_path
+            path.mkdir(parents=True, exist_ok=True)
+            if path.suffix == ".yaml":
+                path.touch()
 
-        with pytest.raises(expected):
-            DeployV2Command._read_build_directory(build_dir, options)
+        actual: ReadBuildDirectory | type[Exception]
+        try:
+            actual = DeployV2Command._read_build_directory(build_dir, include)
+        except Exception as e:
+            actual = type(e)
+
+        assert actual == expected
 
     def test_raises_if_no_resources_found(self, tmp_path: Path) -> None:
         build_dir = tmp_path / "build"
