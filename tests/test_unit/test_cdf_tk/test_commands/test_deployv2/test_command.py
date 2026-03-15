@@ -63,7 +63,12 @@ class TestReadBuildDirectory:
                 id="invalid_directories_tracked",
             ),
             pytest.param(
-                [DATA_SET_PATH, "build/data_sets/unrelated.yaml", "build/data_sets/ignored_markdown.md"],
+                [
+                    DATA_SET_PATH,
+                    "build/data_sets/unrelated.yaml",
+                    "build/data_sets/ignored_markdown.md",
+                    "build/another_ignored_file.txt",
+                ],
                 None,
                 ReadBuildDirectory(
                     build_dir=Path("build"),
