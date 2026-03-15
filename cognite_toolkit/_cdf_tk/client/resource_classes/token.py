@@ -100,41 +100,41 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
         Returns:
             The list of ACLs that are not covered by the capabilities in this project.
         """
-        missing_actions_by_type_and_scope: dict[tuple[type[AclType], AclName, ScopeDefinition], list[str]] = (
-            defaultdict(list)
+        missing_actions_by_type_and_scope: dict[tuple[type[AclType], AclName, ScopeDefinition], set[str]] = defaultdict(
+            set
         )
         for acl in acls:
             for action in acl.actions:
                 key = (type(acl), acl.acl_name, action)
                 if key not in self.data:
-                    missing_actions_by_type_and_scope[(type(acl), acl.acl_name, acl.scope)].append(action)
+                    missing_actions_by_type_and_scope[(type(acl), acl.acl_name, acl.scope)].add(action)
                     continue
                 if missing_scope := scope_difference(acl.scope, self.data[key]):
-                    missing_actions_by_type_and_scope[(type(acl), acl.acl_name, missing_scope)].append(action)
+                    missing_actions_by_type_and_scope[(type(acl), acl.acl_name, missing_scope)].add(action)
 
         return self._merge_als(missing_actions_by_type_and_scope)
 
     @classmethod
     def merge_acls(cls, acls: list[AclType]) -> Sequence[AclType]:
-        actions_by_type_and_scope: dict[tuple[type[AclType], AclName, ScopeDefinition], list[str]] = defaultdict(list)
+        actions_by_type_and_scope: dict[tuple[type[AclType], AclName, ScopeDefinition], set[str]] = defaultdict(set)
         for acl in acls:
-            actions_by_type_and_scope[(type(acl), acl.acl_name, acl.scope)].extend(acl.actions)
+            actions_by_type_and_scope[(type(acl), acl.acl_name, acl.scope)].update(acl.actions)
         return cls._merge_als(actions_by_type_and_scope)
 
     @classmethod
     def _merge_als(
-        cls, actions_by_type_and_scope: dict[tuple[type[AclType], AclName, ScopeDefinition], list[str]]
+        cls, actions_by_type_and_scope: dict[tuple[type[AclType], AclName, ScopeDefinition], set[str]]
     ) -> Sequence[AclType]:
         merged_acls: list[AclType] = []
         for (acl_type, acl_name, scope), actions in actions_by_type_and_scope.items():
-            merged_acls.append(acl_type(actions=actions, acl_name=acl_name, scope=scope))  # type: ignore[arg-type]
+            merged_acls.append(acl_type(actions=sorted(actions), acl_name=acl_name, scope=scope))  # type: ignore[arg-type]
         return merged_acls
 
     @classmethod
     def from_capabilities(
         cls, capabilities: Sequence[InspectCapability | GroupCapability], project: str, groups: list[int]
     ) -> "FlatCapabilities":
-        scopes_by_acl_action: dict[tuple[type[Acl], AclName, AclAction], list[Scope]] = defaultdict(list)
+        scopes_by_acl_action: dict[tuple[type[Acl], AclName, AclAction], set[Scope]] = defaultdict(set)
         for capability in capabilities:
             if isinstance(capability, InspectCapability) and not (
                 isinstance(capability.project_scope, AllProjects)
@@ -147,9 +147,7 @@ class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
                 continue
 
             for action in capability.acl.actions:
-                scopes_by_acl_action[(type(capability.acl), capability.acl.acl_name, action)].append(
-                    capability.acl.scope
-                )
+                scopes_by_acl_action[(type(capability.acl), capability.acl.acl_name, action)].add(capability.acl.scope)
 
         scope_by_acl_action: dict[tuple[type[Acl], AclName, AclAction], Scope] = {}
         for key, scopes in scopes_by_acl_action.items():
