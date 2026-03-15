@@ -7,7 +7,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._space import SpaceResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.group.group import GroupResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployOptions, DeployV2Command
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
@@ -20,7 +21,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     CogniteFileCRUD,
     ContainerCRUD,
     DataSetsCRUD,
-    GroupAllScopedCRUD,
+    FunctionScheduleCRUD,
     LabelCRUD,
     ResourceCRUD,
     SpaceCRUD,
@@ -251,14 +252,25 @@ class TestApplyPlan:
             ),
             pytest.param(
                 ApplyPlanTestCase(
-                    yaml_files={"auth/my.Group.yaml": "name: my_group\nsourceId: '99999'\n"},
-                    crud_cls=GroupAllScopedCRUD,
-                    cdf_resources=[GroupResponse(name="my_group", source_id="12345", id=1, is_deleted=False)],
+                    yaml_files={
+                        "functions/my.Schedule.yaml": "cronExpression: '* * * * *'\nname: my schedule\nfunctionExternalId: 'my_function'\n"
+                    },
+                    crud_cls=FunctionScheduleCRUD,
+                    cdf_resources=[
+                        FunctionScheduleResponse(
+                            id=1,
+                            cron_expression="* 2 * * *",
+                            when="tomorrow",
+                            name="my schedule",
+                            function_id=37,
+                            created_time=1,
+                        )
+                    ],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
-                    expected=[DeploymentResult(is_dry_run=True, created=0, deleted=0, updated=1, unchanged=0)],
+                    expected=[DeploymentResult(is_dry_run=True, created=1, deleted=1, updated=0, unchanged=0)],
                 ),
-                id="changed_group_requires_delete_and_update",
+                id="changed_function_schedule_requires_delete_and_update",
             ),
             pytest.param(
                 ApplyPlanTestCase(
@@ -318,8 +330,15 @@ class TestApplyPlan:
 
             if issubclass(case.crud_cls, SpaceCRUD):
                 client.tool.spaces.retrieve.return_value = case.cdf_resources
-            elif issubclass(case.crud_cls, GroupAllScopedCRUD):
-                client.tool.groups.list.return_value = case.cdf_resources
+            elif issubclass(case.crud_cls, FunctionScheduleCRUD):
+                function_ids = {
+                    resource.function_id for resource in case.cdf_resources if hasattr(resource, "function_id")
+                }
+                client.tool.functions.retrieve = [
+                    FunctionResponse(id=function_id, name="myfunction", created_time=1, file_id=37)
+                    for function_id in function_ids
+                ]
+                client.tool.functions.schedules.list.return_value = case.cdf_resources
             else:
                 pytest.fail(f"Test case for unsupported CRUD class: {case.crud_cls}")
 
