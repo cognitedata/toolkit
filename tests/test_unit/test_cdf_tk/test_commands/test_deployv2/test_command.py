@@ -186,7 +186,7 @@ class TestCreateDeploymentPlan:
 
 class TestApplyPlan:
     @pytest.mark.parametrize("plan, options, expected", [])
-    def test_create_deployment_plan(
+    def test_apply_plan(
         self, plan: list[DeploymentStep], options: DeployOptions, expected: Sequence[DeploymentResult]
     ) -> None:
         with monkeypatch_toolkit_client() as client:
