@@ -114,7 +114,7 @@ class TestReadBuildDirectory:
 
         actual: type[Exception] | ReadBuildDirectory
         try:
-            actual = DeployV2Command._read_build_directory(Path("build"), include)
+            actual = DeployV2Command.read_build_directory(Path("build"), include)
         except Exception as e:
             actual = type(e)
 
@@ -179,7 +179,7 @@ class TestCreateDeploymentPlan:
         ],
     )
     def test_create_deployment_plan(self, read_dir: ReadBuildDirectory, expected_plan: list[DeploymentStep]) -> None:
-        actual_plan = DeployV2Command._create_deployment_plan(read_dir)
+        actual_plan = DeployV2Command.create_deployment_plan(read_dir)
 
         assert actual_plan == expected_plan
 
@@ -189,6 +189,6 @@ class TestApplyPlan:
         self, plan: list[DeploymentStep], options: DeployOptions, expected: Sequence[DeploymentResult]
     ) -> None:
         with monkeypatch_toolkit_client() as client:
-            actual = DeployV2Command._apply_plan(client, plan, options)
+            actual = DeployV2Command.apply_plan(client, plan, options)
 
         assert actual == expected

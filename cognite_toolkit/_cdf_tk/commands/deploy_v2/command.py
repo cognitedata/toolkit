@@ -112,25 +112,35 @@ class DeployV2Command(ToolkitCommand):
         options: DeployOptions | None = None,
     ) -> Sequence[DeploymentResult]:
         options = options or DeployOptions(environment_variables=env_vars.dump())
-        read_dir = self._read_build_directory(build_dir, options.include)
+        read_dir = self.read_build_directory(build_dir, options.include)
 
         client = env_vars.get_client(is_strict_validation=read_dir.is_strict_validation)
 
         for warning in read_dir.create_warnings():
             self.warn(warning, console=client.console)
 
-        plan = self._create_deployment_plan(read_dir)
+        plan = self.create_deployment_plan(read_dir)
 
         self._display_plan(client, plan)
 
-        results = self._apply_plan(client, plan, options)
+        results = self.apply_plan(client, plan, options)
 
         self._display_results(results)
 
         return results
 
     @classmethod
-    def _read_build_directory(cls, build_dir: Path, include: Sequence[str] | None = None) -> ReadBuildDirectory:
+    def read_build_directory(cls, build_dir: Path, include: Sequence[str] | None = None) -> ReadBuildDirectory:
+        """Reads the build directory and returns a structured representation of the resources to be deployed.
+
+        Args
+            build_dir: The build directory to read.
+            include: The include filter to apply to the resources to deploy
+
+        Return
+            A ReadBuildDirectory object containing the structured representation of the resources to be deployed,
+            as well as any warnings or errors encountered during the reading process.
+        """
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(f"Build directory {build_dir!s} does not exist.")
         available_resource_types = set(RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND.keys())
@@ -178,7 +188,17 @@ class DeployV2Command(ToolkitCommand):
         )
 
     @classmethod
-    def _create_deployment_plan(cls, read_dir: ReadBuildDirectory) -> list[DeploymentStep]:
+    def create_deployment_plan(cls, read_dir: ReadBuildDirectory) -> list[DeploymentStep]:
+        """Creates the deployment plan for the build directory.
+
+        This function topological sorts the resource types based on their dependencies on each other.
+
+        Args:
+            read_dir: The structured representation of the build directory.
+
+        Returns:
+            A list of DeploymentStep objects representing the deployment plan.
+        """
         files_by_crud = read_dir.as_files_by_crud()
         skipped_cruds = read_dir.skipped_cruds()
         dependencies_by_crud: dict[type[ResourceCRUD], Set[type[ResourceCRUD]]] = {}
@@ -209,9 +229,20 @@ class DeployV2Command(ToolkitCommand):
         return
 
     @classmethod
-    def _apply_plan(
+    def apply_plan(
         cls, client: ToolkitClient, plan: list[DeploymentStep], options: DeployOptions
     ) -> Sequence[DeploymentResult]:
+        """Applies the given plan using the given client.
+
+        Args:
+            client: The client to use to apply the plan.
+            plan: The plan to apply.
+            options: The options to use when applying the plan.
+
+        Returns:
+            A list of DeploymentResult objects matching the given plan.
+        """
+
         results: list[DeploymentResult] = []
         missing_write_acls: set[str] = set()
         with Progress(console=client.console) as progress:
