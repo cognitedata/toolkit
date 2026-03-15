@@ -129,7 +129,7 @@ class TestReadBuildDirectory:
 
         actual: type[Exception] | ReadBuildDirectory
         try:
-            actual = DeployV2Command.read_build_directory(Path("build"), include)
+            actual = DeployV2Command.read_build_directory(Path("build"), "test_project", include)
         except Exception as e:
             actual = type(e)
 
@@ -223,7 +223,14 @@ class TestApplyPlan:
                     options=DeployOptions(dry_run=True),
                     expected=[
                         DeploymentResult(
-                            resource_name="spaces", is_dry_run=True, created=1, deleted=0, updated=0, unchanged=0
+                            resource_name="spaces",
+                            is_dry_run=True,
+                            created=1,
+                            deleted=0,
+                            updated=0,
+                            unchanged=0,
+                            skipped=0,
+                            is_missing_write_acl=False,
                         )
                     ],
                     expected_warning=EnvironmentVariableMissingWarning,
@@ -265,7 +272,14 @@ class TestApplyPlan:
                     options=DeployOptions(dry_run=True),
                     expected=[
                         DeploymentResult(
-                            resource_name="spaces", is_dry_run=True, created=1, deleted=0, updated=0, unchanged=0
+                            resource_name="spaces",
+                            is_dry_run=True,
+                            created=1,
+                            deleted=0,
+                            updated=0,
+                            unchanged=0,
+                            skipped=0,
+                            is_missing_write_acl=False,
                         )
                     ],
                 ),
@@ -298,6 +312,8 @@ class TestApplyPlan:
                             deleted=1,
                             updated=0,
                             unchanged=0,
+                            skipped=0,
+                            is_missing_write_acl=False,
                         )
                     ],
                 ),
@@ -316,7 +332,14 @@ class TestApplyPlan:
                     options=DeployOptions(dry_run=True),
                     expected=[
                         DeploymentResult(
-                            resource_name="spaces", is_dry_run=True, created=0, deleted=0, updated=1, unchanged=0
+                            resource_name="spaces",
+                            is_dry_run=True,
+                            created=0,
+                            deleted=0,
+                            updated=1,
+                            unchanged=0,
+                            skipped=0,
+                            is_missing_write_acl=False,
                         )
                     ],
                 ),
@@ -331,7 +354,14 @@ class TestApplyPlan:
                     options=DeployOptions(dry_run=True),
                     expected=[
                         DeploymentResult(
-                            resource_name="spaces", is_dry_run=True, created=1, deleted=0, updated=0, unchanged=0
+                            resource_name="spaces",
+                            is_dry_run=True,
+                            created=1,
+                            deleted=0,
+                            updated=0,
+                            unchanged=0,
+                            skipped=0,
+                            is_missing_write_acl=False,
                         )
                     ],
                 ),
@@ -348,7 +378,14 @@ class TestApplyPlan:
                     options=DeployOptions(dry_run=True),
                     expected=[
                         DeploymentResult(
-                            resource_name="spaces", is_dry_run=True, created=0, deleted=0, updated=0, unchanged=1
+                            resource_name="spaces",
+                            is_dry_run=True,
+                            created=0,
+                            deleted=0,
+                            updated=0,
+                            unchanged=1,
+                            skipped=0,
+                            is_missing_write_acl=False,
                         )
                     ],
                 ),
