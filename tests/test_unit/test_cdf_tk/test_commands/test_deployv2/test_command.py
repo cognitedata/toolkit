@@ -1,8 +1,13 @@
 from collections.abc import Sequence
+from contextlib import nullcontext
+from dataclasses import dataclass
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._space import SpaceResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group.group import GroupResponse
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployOptions, DeployV2Command
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
@@ -15,10 +20,18 @@ from cognite_toolkit._cdf_tk.cruds import (
     CogniteFileCRUD,
     ContainerCRUD,
     DataSetsCRUD,
+    GroupAllScopedCRUD,
     LabelCRUD,
+    ResourceCRUD,
     SpaceCRUD,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitValidationError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import (
+    AuthorizationError,
+    ToolkitNotADirectoryError,
+    ToolkitValidationError,
+    ToolkitValueError,
+)
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 
 
 class TestReadBuildDirectory:
@@ -184,12 +197,138 @@ class TestCreateDeploymentPlan:
         assert actual_plan == expected_plan
 
 
-class TestApplyPlan:
-    @pytest.mark.parametrize("plan, options, expected", [])
-    def test_apply_plan(
-        self, plan: list[DeploymentStep], options: DeployOptions, expected: Sequence[DeploymentResult]
-    ) -> None:
-        with monkeypatch_toolkit_client() as client:
-            actual = DeployV2Command.apply_plan(client, plan, options)
+@dataclass
+class ApplyPlanTestCase:
+    yaml_files: dict[str, str]
+    crud_cls: type[ResourceCRUD]
+    cdf_resources: list
+    acls_missing: bool
+    options: DeployOptions
+    expected: Sequence[DeploymentResult] | type[Exception]
+    expected_warning: type[Warning] | None = None
 
-        assert actual == expected
+
+class TestApplyPlan:
+    @pytest.mark.parametrize(
+        "case",
+        [
+            pytest.param(
+                ApplyPlanTestCase(
+                    yaml_files={"data_modeling/env.Space.yaml": "space: ${MY_VAR}\n"},
+                    crud_cls=SpaceCRUD,
+                    cdf_resources=[],
+                    acls_missing=False,
+                    options=DeployOptions(dry_run=True),
+                    expected=[DeploymentResult(is_dry_run=True, created=1, deleted=0, updated=0, unchanged=0)],
+                    expected_warning=EnvironmentVariableMissingWarning,
+                ),
+                id="missing_env_var",
+            ),
+            pytest.param(
+                ApplyPlanTestCase(
+                    yaml_files={"data_modeling/my.Space.yaml": "space: my_space\n"},
+                    crud_cls=SpaceCRUD,
+                    cdf_resources=[],
+                    acls_missing=True,
+                    options=DeployOptions(dry_run=False),
+                    expected=AuthorizationError,
+                ),
+                id="missing_acl_raises",
+            ),
+            pytest.param(
+                ApplyPlanTestCase(
+                    yaml_files={
+                        "data_modeling/a.Space.yaml": "space: my_space\n",
+                        "data_modeling/b.Space.yaml": "space: my_space\n",
+                    },
+                    crud_cls=SpaceCRUD,
+                    cdf_resources=[],
+                    acls_missing=False,
+                    options=DeployOptions(dry_run=True),
+                    expected=[DeploymentResult(is_dry_run=True, created=1, deleted=0, updated=0, unchanged=0)],
+                ),
+                id="duplicated_resource_in_two_files",
+            ),
+            pytest.param(
+                ApplyPlanTestCase(
+                    yaml_files={"auth/my.Group.yaml": "name: my_group\nsourceId: '99999'\n"},
+                    crud_cls=GroupAllScopedCRUD,
+                    cdf_resources=[GroupResponse(name="my_group", source_id="12345", id=1, is_deleted=False)],
+                    acls_missing=False,
+                    options=DeployOptions(dry_run=True),
+                    expected=[DeploymentResult(is_dry_run=True, created=0, deleted=0, updated=1, unchanged=0)],
+                ),
+                id="changed_group_requires_delete_and_update",
+            ),
+            pytest.param(
+                ApplyPlanTestCase(
+                    yaml_files={"data_modeling/my.Space.yaml": "space: my_space\nname: Updated Name\n"},
+                    crud_cls=SpaceCRUD,
+                    cdf_resources=[
+                        SpaceResponse(
+                            space="my_space", name="Original Name", created_time=0, last_updated_time=0, is_global=False
+                        )
+                    ],
+                    acls_missing=False,
+                    options=DeployOptions(dry_run=True),
+                    expected=[DeploymentResult(is_dry_run=True, created=0, deleted=0, updated=1, unchanged=0)],
+                ),
+                id="changed_space_requires_update",
+            ),
+            pytest.param(
+                ApplyPlanTestCase(
+                    yaml_files={"data_modeling/my.Space.yaml": "space: new_space\n"},
+                    crud_cls=SpaceCRUD,
+                    cdf_resources=[],
+                    acls_missing=False,
+                    options=DeployOptions(dry_run=True),
+                    expected=[DeploymentResult(is_dry_run=True, created=1, deleted=0, updated=0, unchanged=0)],
+                ),
+                id="create_space",
+            ),
+            pytest.param(
+                ApplyPlanTestCase(
+                    yaml_files={"data_modeling/my.Space.yaml": "space: my_space\n"},
+                    crud_cls=SpaceCRUD,
+                    cdf_resources=[
+                        SpaceResponse(space="my_space", created_time=0, last_updated_time=0, is_global=False)
+                    ],
+                    acls_missing=False,
+                    options=DeployOptions(dry_run=True),
+                    expected=[DeploymentResult(is_dry_run=True, created=0, deleted=0, updated=0, unchanged=1)],
+                ),
+                id="unchanged_space",
+            ),
+        ],
+    )
+    def test_apply_plan(self, case: ApplyPlanTestCase, tmp_path: Path) -> None:
+        for rel_path, content in case.yaml_files.items():
+            path = tmp_path / rel_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content)
+
+        plan = [DeploymentStep(case.crud_cls, [tmp_path / p for p in case.yaml_files])]
+
+        with monkeypatch_toolkit_client() as client:
+            if case.acls_missing:
+                client.tool.token.verify_acls.return_value = [MagicMock()]
+                client.tool.token.create_error.return_value = AuthorizationError("Missing capabilities")
+            else:
+                client.tool.token.verify_acls.return_value = []
+
+            if issubclass(case.crud_cls, SpaceCRUD):
+                client.tool.spaces.retrieve.return_value = case.cdf_resources
+            elif issubclass(case.crud_cls, GroupAllScopedCRUD):
+                client.tool.groups.list.return_value = case.cdf_resources
+            else:
+                pytest.fail(f"Test case for unsupported CRUD class: {case.crud_cls}")
+
+            ctx = pytest.warns(case.expected_warning) if case.expected_warning else nullcontext()
+            actual: Sequence[DeploymentResult] | type[Exception]
+            with ctx:
+                try:
+                    actual = DeployV2Command.apply_plan(client, plan, case.options)
+                except Exception as e:
+                    actual = type(e)
+
+        assert actual == case.expected

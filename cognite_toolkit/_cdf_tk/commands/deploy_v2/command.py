@@ -265,7 +265,7 @@ class DeployV2Command(ToolkitCommand):
                 progress.update(task_id, description=f"Comparing {resource_count} {resource_name} to CDF")
 
                 cdf_resource_by_id = {
-                    resource.as_id(): resource for resource in crud.retrieve(list(resources_by_id.keys()))
+                    crud.get_id(resource): resource for resource in crud.retrieve(list(resources_by_id.keys()))
                 }
 
                 resources_to_deploy = cls._categorize_resources(
