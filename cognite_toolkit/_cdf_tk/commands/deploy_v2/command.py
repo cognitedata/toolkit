@@ -124,7 +124,7 @@ class DeployV2Command(ToolkitCommand):
 
         results = self.apply_plan(client, plan, options)
 
-        self._display_results(results)
+        self._display_results(client, results)
 
         return results
 
@@ -132,11 +132,11 @@ class DeployV2Command(ToolkitCommand):
     def read_build_directory(cls, build_dir: Path, include: Sequence[str] | None = None) -> ReadBuildDirectory:
         """Reads the build directory and returns a structured representation of the resources to be deployed.
 
-        Args
+        Args:
             build_dir: The build directory to read.
             include: The include filter to apply to the resources to deploy
 
-        Return
+        Returns:
             A ReadBuildDirectory object containing the structured representation of the resources to be deployed,
             as well as any warnings or errors encountered during the reading process.
         """
@@ -187,6 +187,7 @@ class DeployV2Command(ToolkitCommand):
         )
 
     def _display_read_dir(self, read_dir: ReadBuildDirectory, console: Console) -> None:
+        console.print(f"Read {read_dir.build_dir.as_posix()} complete")
         for warning in read_dir.create_warnings():
             self.warn(warning, console=console)
 
@@ -228,6 +229,7 @@ class DeployV2Command(ToolkitCommand):
 
     @classmethod
     def _display_plan(cls, client: ToolkitClient, plan: list[DeploymentStep]) -> None:
+        client.console.print("Deployment plan created.")
         # Todo: Implement
         return
 
@@ -430,6 +432,7 @@ class DeployV2Command(ToolkitCommand):
         )
 
     @classmethod
-    def _display_results(cls, results: Sequence[DeploymentResult]) -> None:
-        # Todo: implement
+    def _display_results(cls, client: ToolkitClient, results: Sequence[DeploymentResult]) -> None:
+        # Todo: Implement
+        client.console.print("Deployment completed.")
         return
