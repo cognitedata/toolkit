@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.commands import ResourcesCommand
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
+from ._dev_function_app import DevFunctionApp
 from ._run import RunApp
 
 CDF_TOML = CDFToml.load(Path.cwd())
@@ -21,6 +22,7 @@ class DevApp(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.main)
         self.add_typer(RunApp(*args, **kwargs), name="run")
+        self.add_typer(DevFunctionApp(*args, **kwargs), name="function")
         if FeatureFlag.is_enabled(Flags.CREATE):
             self.command("create")(self.create)
 
