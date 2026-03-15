@@ -27,7 +27,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, ToolkitWarning, catch_warnings
-from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, to_diff
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
@@ -73,6 +72,7 @@ class ReadBuildDirectory:
 class DeploymentStep:
     crud_cls: type[ResourceCRUD]
     files: list[Path]
+    skipped_cruds: Set[type[ResourceCRUD]] = field(default_factory=set)
 
 
 @dataclass
@@ -165,26 +165,17 @@ class DeployV2Command(ToolkitCommand):
             skipped_directories=skipped_resource_dirs,
         )
 
-    def _create_deployment_plan(self, read_dir: ReadBuildDirectory) -> list[DeploymentStep]:
+    @classmethod
+    def _create_deployment_plan(cls, read_dir: ReadBuildDirectory) -> list[DeploymentStep]:
         files_by_crud = read_dir.as_files_by_crud()
         skipped_cruds = read_dir.skipped_cruds()
         dependencies_by_crud: dict[type[ResourceCRUD], Set[type[ResourceCRUD]]] = {}
-        should_not_have_skipped: set[type[ResourceCRUD]] = set()
+        skipped_by_crud: dict[type[ResourceCRUD], Set[type[ResourceCRUD]]] = {}
         for crud_cls in files_by_crud.keys():
             dependencies = crud_cls.dependencies
             if missing := (skipped_cruds.intersection(dependencies)):
-                should_not_have_skipped.update(missing)
+                skipped_by_crud[crud_cls] = missing
             dependencies_by_crud[crud_cls] = dependencies
-
-        if should_not_have_skipped:
-            skipped_str = humanize_collection({crud_cls.folder_name for crud_cls in should_not_have_skipped})
-            self.warn(
-                HighSeverityWarning(
-                    f"You have skipped {skipped_str}, which are required dependencies for other included resource types. "
-                    f"This may cause the deployment to fail. "
-                    f"Run without specifying `--include` to not skip any resource types."
-                )
-            )
 
         try:
             ordered = list(TopologicalSorter(dependencies_by_crud).static_order())
@@ -196,10 +187,7 @@ class DeployV2Command(ToolkitCommand):
             if step not in files_by_crud:
                 continue
             plan.append(
-                DeploymentStep(
-                    crud_cls=step,
-                    files=files_by_crud[step],
-                )
+                DeploymentStep(crud_cls=step, files=files_by_crud[step], skipped_cruds=skipped_by_crud.get(step, set()))
             )
         return plan
 

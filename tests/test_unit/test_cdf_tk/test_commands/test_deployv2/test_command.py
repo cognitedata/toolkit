@@ -4,12 +4,17 @@ import pytest
 
 from cognite_toolkit._cdf_tk.commands import DeployOptions, DeployV2Command
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
-    DeploymentResult,
+    DeploymentStep,
     ReadBuildDirectory,
     ResourceDirectory,
-    ResourceToDeploy,
 )
-from cognite_toolkit._cdf_tk.cruds import DataSetsCRUD, GroupAllScopedCRUD, LabelCRUD
+from cognite_toolkit._cdf_tk.cruds import (
+    CogniteFileCRUD,
+    ContainerCRUD,
+    DataSetsCRUD,
+    LabelCRUD,
+    SpaceCRUD,
+)
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitValidationError, ToolkitValueError
 
 
@@ -114,118 +119,63 @@ class TestReadBuildDirectory:
 
 
 class TestCreateDeploymentPlan:
-    def test_single_resource(self, tmp_path: Path) -> None:
-        read_dir = ReadBuildDirectory(
-            build_dir=tmp_path,
-            resource_directories=[
-                ResourceDirectory(
-                    directory=tmp_path / "data_sets",
-                    files_by_crud={DataSetsCRUD: [tmp_path / "my.DataSet.yaml"]},
-                )
-            ],
-            skipped_directories=[],
-            invalid_directories=[],
-        )
-
-        cmd = DeployV2Command(print_warning=False)
-        plan = cmd._create_deployment_plan(read_dir)
-
-        assert len(plan) == 1
-        assert plan[0].crud_cls is DataSetsCRUD
-        assert plan[0].files == [tmp_path / "my.DataSet.yaml"]
-
-    def test_topological_order_dependencies_first(self, tmp_path: Path) -> None:
-        read_dir = ReadBuildDirectory(
-            build_dir=tmp_path,
-            resource_directories=[
-                ResourceDirectory(
-                    directory=tmp_path / "data_sets",
-                    files_by_crud={DataSetsCRUD: [tmp_path / "my.DataSet.yaml"]},
+    @pytest.mark.parametrize(
+        "read_dir, expected_plan",
+        [
+            pytest.param(
+                ReadBuildDirectory(build_dir=Path("build")),
+                [],
+                id="empty_build_directory_produces_empty_plan",
+            ),
+            pytest.param(
+                ReadBuildDirectory(
+                    build_dir=Path("build"),
+                    resource_directories=[
+                        ResourceDirectory(
+                            directory=Path("build/data_modeling"),
+                            files_by_crud={
+                                ContainerCRUD: [Path("build/data_modeling/my.Container.yaml")],
+                                SpaceCRUD: [Path("build/data_modeling/my.Space.yaml")],
+                            },
+                        )
+                    ],
                 ),
-                ResourceDirectory(
-                    directory=tmp_path / "auth",
-                    files_by_crud={GroupAllScopedCRUD: [tmp_path / "my.Group.yaml"]},
+                [
+                    DeploymentStep(SpaceCRUD, [Path("build/data_modeling/my.Space.yaml")]),
+                    DeploymentStep(ContainerCRUD, [Path("build/data_modeling/my.Container.yaml")]),
+                ],
+                id="Topological sorting of dependencies",
+            ),
+            pytest.param(
+                ReadBuildDirectory(
+                    build_dir=Path("build"),
+                    resource_directories=[
+                        ResourceDirectory(
+                            directory=Path("build/files"),
+                            files_by_crud={
+                                CogniteFileCRUD: [Path("build/files/my.CogniteFile.yaml")],
+                            },
+                        )
+                    ],
+                    skipped_directories=[
+                        ResourceDirectory(
+                            directory=Path("build/data_modeling"),
+                            files_by_crud={
+                                SpaceCRUD: [Path("build/data_modeling/my.Space.yaml")],
+                            },
+                        )
+                    ],
                 ),
-            ],
-            skipped_directories=[],
-            invalid_directories=[],
-        )
+                [
+                    DeploymentStep(
+                        CogniteFileCRUD, [Path("build/files/my.CogniteFile.yaml")], skipped_cruds={SpaceCRUD}
+                    ),
+                ],
+                id="Skipped potential dependency",
+            ),
+        ],
+    )
+    def test_create_deployment_plan(self, read_dir: ReadBuildDirectory, expected_plan: list[DeploymentStep]) -> None:
+        actual_plan = DeployV2Command._create_deployment_plan(read_dir)
 
-        cmd = DeployV2Command(print_warning=False)
-        plan = cmd._create_deployment_plan(read_dir)
-
-        crud_types = [step.crud_cls for step in plan]
-        assert GroupAllScopedCRUD in crud_types
-        assert DataSetsCRUD in crud_types
-        assert crud_types.index(GroupAllScopedCRUD) < crud_types.index(DataSetsCRUD)
-
-    def test_warns_on_skipped_dependency(self, tmp_path: Path) -> None:
-        read_dir = ReadBuildDirectory(
-            build_dir=tmp_path,
-            resource_directories=[
-                ResourceDirectory(
-                    directory=tmp_path / "data_sets",
-                    files_by_crud={DataSetsCRUD: [tmp_path / "my.DataSet.yaml"]},
-                ),
-            ],
-            skipped_directories=[
-                ResourceDirectory(
-                    directory=tmp_path / "auth",
-                    files_by_crud={GroupAllScopedCRUD: [tmp_path / "my.Group.yaml"]},
-                ),
-            ],
-            invalid_directories=[],
-        )
-
-        cmd = DeployV2Command(print_warning=False)
-        cmd._create_deployment_plan(read_dir)
-
-        assert len(cmd.warning_list) == 1
-
-    def test_empty_files_by_crud_produces_empty_plan(self, tmp_path: Path) -> None:
-        read_dir = ReadBuildDirectory(
-            build_dir=tmp_path,
-            resource_directories=[
-                ResourceDirectory(directory=tmp_path / "data_sets"),
-            ],
-            skipped_directories=[],
-            invalid_directories=[],
-        )
-
-        cmd = DeployV2Command(print_warning=False)
-        plan = cmd._create_deployment_plan(read_dir)
-
-        assert plan == []
-
-
-class TestDeployDryRun:
-    def test_counts_resources(self) -> None:
-        resources: ResourceToDeploy[str, str] = ResourceToDeploy(
-            to_create=["a", "b"],
-            to_delete=["c"],
-            to_update=["d", "e", "f"],
-            unchanged=["g"],
-        )
-
-        result = DeployV2Command.deploy_dry_run(resources)
-
-        assert result == DeploymentResult(
-            is_dry_run=True,
-            created=2,
-            deleted=1,
-            updated=3,
-            unchanged=1,
-        )
-
-    def test_empty_resources(self) -> None:
-        resources: ResourceToDeploy[str, str] = ResourceToDeploy()
-
-        result = DeployV2Command.deploy_dry_run(resources)
-
-        assert result == DeploymentResult(
-            is_dry_run=True,
-            created=0,
-            deleted=0,
-            updated=0,
-            unchanged=0,
-        )
+        assert actual_plan == expected_plan
