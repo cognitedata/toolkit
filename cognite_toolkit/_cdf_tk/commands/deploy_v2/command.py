@@ -1,9 +1,33 @@
-from collections.abc import Sequence
-from dataclasses import dataclass
+import warnings
+from collections import Counter, defaultdict
+from collections.abc import Iterable, Sequence, Set
+from copy import deepcopy
+from dataclasses import dataclass, field
+from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any
+from typing import Any, Generic
 
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import Progress
+from yaml import YAMLError
+
+from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.cruds import (
+    RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND,
+    ResourceCRUD,
+)
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitNotADirectoryError,
+    ToolkitValidationError,
+    ToolkitValueError,
+    ToolkitWrongResourceError,
+    ToolkitYAMLFormatError,
+)
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, ToolkitWarning, catch_warnings
+from cognite_toolkit._cdf_tk.utils import humanize_collection, to_diff
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
@@ -13,14 +37,71 @@ class DeployOptions:
     include: Sequence[str] | None = None
     force_update: bool = False
     verbose: bool = False
+    environment_variables: dict[str, str | None] | None = None
 
 
 @dataclass
-class DeploymentPlan: ...
+class ResourceDirectory:
+    directory: Path
+    files_by_crud: dict[type[ResourceCRUD], list[Path]] = field(default_factory=lambda: defaultdict(list))
+    invalid_files: list[Path] = field(default_factory=list)
 
 
 @dataclass
-class DeploymentResult: ...
+class ReadBuildDirectory:
+    build_dir: Path
+    resource_directories: list[ResourceDirectory] = field(default_factory=list)
+    skipped_directories: list[ResourceDirectory] = field(default_factory=list)
+    invalid_directories: list[Path] = field(default_factory=list)
+    is_strict_validation: bool = False
+
+    def create_warnings(self) -> Iterable[ToolkitWarning]:
+        # Todo: Implement
+        yield from ()
+
+    def skipped_cruds(self) -> set[type[ResourceCRUD]]:
+        return {crud for dir in self.skipped_directories for crud in dir.files_by_crud.keys()}
+
+    def as_files_by_crud(self) -> dict[type[ResourceCRUD], list[Path]]:
+        files_by_crud: dict[type[ResourceCRUD], list[Path]] = {}
+        for dir in self.resource_directories:
+            files_by_crud.update(dir.files_by_crud)
+        return files_by_crud
+
+
+@dataclass
+class DeploymentStep:
+    """A deployment step
+
+    Args:
+        crud_cls: The CRUD class to use for this step.
+        files: The files to deploy in this step, all of which should be of the same structure.
+        skipped_cruds: Resource types that this step depends on but are skipped due to the include filter.
+            This is used to warn the user about potential issues with the deployment.
+
+    """
+
+    crud_cls: type[ResourceCRUD]
+    files: list[Path]
+    # Todo: Warn about skipped CRUDs. Maybe only if deployment fails?
+    skipped_cruds: Set[type[ResourceCRUD]] = field(default_factory=set)
+
+
+@dataclass
+class ResourceToDeploy(Generic[T_Identifier, T_RequestResource]):
+    to_create: list[T_RequestResource] = field(default_factory=list)
+    to_delete: list[T_Identifier] = field(default_factory=list)
+    to_update: list[T_RequestResource] = field(default_factory=list)
+    unchanged: list[T_Identifier] = field(default_factory=list)
+
+
+@dataclass
+class DeploymentResult:
+    is_dry_run: bool
+    created: int
+    deleted: int
+    updated: int
+    unchanged: int
 
 
 class DeployV2Command(ToolkitCommand):
@@ -29,32 +110,326 @@ class DeployV2Command(ToolkitCommand):
         env_vars: EnvironmentVariables,
         build_dir: Path,
         options: DeployOptions | None = None,
-    ) -> Any:
-        self._validate_user_input(build_dir, options)
-        options = options or DeployOptions()
-        plan = self._create_deployment_plan(build_dir, options.include)
+    ) -> Sequence[DeploymentResult]:
+        options = options or DeployOptions(environment_variables=env_vars.dump())
+        read_dir = self.read_build_directory(build_dir, options.include)
 
-        self._display_plan(plan)
+        client = env_vars.get_client(is_strict_validation=read_dir.is_strict_validation)
 
-        results = self._apply_plan(env_vars, plan, options.dry_run, options.force_update)
+        self._display_read_dir(read_dir, client.console)
+
+        plan = self.create_deployment_plan(read_dir)
+
+        self._display_plan(client, plan)
+
+        results = self.apply_plan(client, plan, options)
 
         self._display_results(results)
 
         return results
 
-    def _validate_user_input(self, build_dir: Path, options: DeployOptions | None = None) -> None:
-        raise NotImplementedError()
+    @classmethod
+    def read_build_directory(cls, build_dir: Path, include: Sequence[str] | None = None) -> ReadBuildDirectory:
+        """Reads the build directory and returns a structured representation of the resources to be deployed.
 
-    def _create_deployment_plan(self, build_dir: Path, include: Sequence[str] | None = None) -> DeploymentPlan:
-        raise NotImplementedError()
+        Args
+            build_dir: The build directory to read.
+            include: The include filter to apply to the resources to deploy
 
-    def _display_plan(self, plan: DeploymentPlan) -> None:
-        raise NotImplementedError()
+        Return
+            A ReadBuildDirectory object containing the structured representation of the resources to be deployed,
+            as well as any warnings or errors encountered during the reading process.
+        """
+        if not build_dir.is_dir():
+            raise ToolkitNotADirectoryError(f"Build directory {build_dir!s} does not exist.")
+        available_resource_types = set(RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND.keys())
+        if include and (invalid := set(include) - available_resource_types):
+            raise ToolkitValidationError(
+                f"Invalid resource types specified: {humanize_collection(invalid)}, available types: {humanize_collection(available_resource_types)}"
+            )
+        # Todo: Check linage file.
+        #   - Check source hash are unchanged
+        #   - Check that CDF Project matches env.
+        #   - If linage file is missing, ask user to type in the CDF Project they are
+        #     writing to.
+        include_set = set(include) if include else None
+        invalid_resource_dirs: list[Path] = []
+        resource_directories: list[ResourceDirectory] = []
+        skipped_resource_dirs: list[ResourceDirectory] = []
+        for resource_dir in build_dir.iterdir():
+            if not resource_dir.is_dir():
+                continue
+            if resource_dir.name not in RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND:
+                invalid_resource_dirs.append(resource_dir)
+                continue
+            resources = ResourceDirectory(resource_dir)
+            crud_by_kind = RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[resource_dir.name]
+            for yaml_file in resource_dir.glob("*.yaml"):
+                for kind, crud in crud_by_kind.items():
+                    if yaml_file.stem.endswith(kind):
+                        resources.files_by_crud[crud].append(yaml_file)
+                        break
+                else:
+                    resources.invalid_files.append(yaml_file)
+            if include_set is not None and resource_dir.name not in include_set:
+                skipped_resource_dirs.append(resources)
+            else:
+                resource_directories.append(resources)
 
-    def _apply_plan(
-        self, env_vars: EnvironmentVariables, plan: DeploymentPlan, dry_run: bool, force_update: bool
+        if not resource_directories:
+            raise ToolkitValueError(f"No resources found in {build_dir.as_posix()} directory.")
+
+        return ReadBuildDirectory(
+            build_dir=build_dir,
+            resource_directories=resource_directories,
+            invalid_directories=invalid_resource_dirs,
+            skipped_directories=skipped_resource_dirs,
+        )
+
+    def _display_read_dir(self, read_dir: ReadBuildDirectory, console: Console) -> None:
+        for warning in read_dir.create_warnings():
+            self.warn(warning, console=console)
+
+    @classmethod
+    def create_deployment_plan(cls, read_dir: ReadBuildDirectory) -> list[DeploymentStep]:
+        """Creates the deployment plan for the build directory.
+
+        This function topological sorts the resource types based on their dependencies on each other.
+
+        Args:
+            read_dir: The structured representation of the build directory.
+
+        Returns:
+            A list of DeploymentStep objects representing the deployment plan.
+        """
+        files_by_crud = read_dir.as_files_by_crud()
+        skipped_cruds = read_dir.skipped_cruds()
+        dependencies_by_crud: dict[type[ResourceCRUD], Set[type[ResourceCRUD]]] = {}
+        skipped_by_crud: dict[type[ResourceCRUD], Set[type[ResourceCRUD]]] = {}
+        for crud_cls in files_by_crud.keys():
+            dependencies = crud_cls.dependencies
+            if missing := (skipped_cruds.intersection(dependencies)):
+                skipped_by_crud[crud_cls] = missing
+            dependencies_by_crud[crud_cls] = dependencies
+
+        try:
+            ordered = list(TopologicalSorter(dependencies_by_crud).static_order())
+        except CycleError as e:
+            raise RuntimeError("Bug in Toolkit. Cyclic dependencies in support resource types detected.") from e
+
+        plan: list[DeploymentStep] = []
+        for step in ordered:
+            if step not in files_by_crud:
+                continue
+            plan.append(
+                DeploymentStep(crud_cls=step, files=files_by_crud[step], skipped_cruds=skipped_by_crud.get(step, set()))
+            )
+        return plan
+
+    @classmethod
+    def _display_plan(cls, client: ToolkitClient, plan: list[DeploymentStep]) -> None:
+        # Todo: Implement
+        return
+
+    @classmethod
+    def apply_plan(
+        cls, client: ToolkitClient, plan: list[DeploymentStep], options: DeployOptions
     ) -> Sequence[DeploymentResult]:
-        raise NotImplementedError()
+        """Applies the given plan using the given client.
 
-    def _display_results(self, results: Sequence[DeploymentResult]) -> None:
-        raise NotImplementedError()
+        Args:
+            client: The client to use to apply the plan.
+            plan: The plan to apply.
+            options: The options to use when applying the plan.
+
+        Returns:
+            A list of DeploymentResult objects matching the given plan.
+        """
+
+        results: list[DeploymentResult] = []
+        missing_write_acls: set[str] = set()
+        with Progress(console=client.console) as progress:
+            task_id = progress.add_task("Starting deploying", total=len(plan))
+            for step in plan:
+                crud = step.crud_cls.create_loader(client)
+                resource_name = crud.display_name
+                progress.update(task_id, description=f"Reading {resource_name}")
+
+                resources_by_id = cls._read_resource_files(crud, step.files, options)
+                resource_count = len(resources_by_id)
+
+                missing_write_acl = cls._validate_access(
+                    crud, [resource for _, resource in resources_by_id.values()], is_dry_run=options.dry_run
+                )
+                missing_write_acls.update(missing_write_acl)
+                progress.update(task_id, description=f"Comparing {resource_count} {resource_name} to CDF")
+
+                cdf_resource_by_id = {
+                    crud.get_id(resource): resource for resource in crud.retrieve(list(resources_by_id.keys()))
+                }
+
+                resources_to_deploy = cls._categorize_resources(
+                    crud,
+                    resources_by_id,
+                    cdf_resource_by_id,
+                    client.console,
+                    options,
+                )
+
+                if options.dry_run:
+                    result = cls.deploy_dry_run(resources_to_deploy)
+                    results.append(result)
+                    progress.update(task_id, description=f"Would have deployed {resource_name} to CDF")
+                else:
+                    progress.update(task_id, description=f"Deploying {resource_name} to CDF")
+                    result = cls.deploy_resources(crud, resources_to_deploy)
+                    progress.update(task_id, description=f"Deployed {resource_name} successfully.")
+                    results.append(result)
+
+                progress.update(task_id, advance=1)
+            progress.update(task_id, description="Finished deploying.")
+            # Todo: What about missing write access? - Warn user that they will not be able to deploy.
+        return results
+
+    @classmethod
+    def _read_resource_files(
+        cls,
+        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        filepaths: list[Path],
+        options: DeployOptions,
+    ) -> dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]]:
+        """# Load all resources from files, get ids, and remove duplicates."""
+        local_by_id: dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]] = {}
+        environment_variables = options.environment_variables or {}
+        duplicates: Counter[T_Identifier] = Counter()
+        for filepath in filepaths:
+            with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
+                try:
+                    resource_list = crud.load_resource_file(filepath, environment_variables)
+                except YAMLError as e:
+                    raise ToolkitYAMLFormatError(f"YAML validation error for {filepath.as_posix()}: {e}")
+            identifiers: list[T_Identifier] = []
+            for resource_dict in resource_list:
+                try:
+                    # The load resource modifies the resource_dict, so we deepcopy it to avoid side effects.
+                    request_resource = crud.load_resource(deepcopy(resource_dict), options.dry_run)
+                except ToolkitWrongResourceError:
+                    # The ToolkitWrongResourceError is a special exception that as of 21/12/24 is used by
+                    # the GroupAllScopedLoader and GroupResourceScopedLoader to signal that the resource
+                    # should be handled by the other loader.
+                    continue
+                identifier = crud.get_id(request_resource)
+                if identifier in local_by_id:
+                    duplicates.update([identifier])
+                else:
+                    local_by_id[identifier] = resource_dict, request_resource
+
+            for warning in warning_list:
+                if isinstance(warning, EnvironmentVariableMissingWarning):
+                    # Warnings are immutable, so we use the below method to override it.
+                    object.__setattr__(warning, "identifiers", frozenset(identifiers))
+                    # Reraise the warning to be caught higher up.
+                    warnings.warn(warning, stacklevel=2)
+                else:
+                    warning.print_warning()
+        # Todo: What to do about duplicates? Count as skipped with reason.
+        return local_by_id
+
+    @classmethod
+    def _validate_access(
+        cls,
+        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        resources: list[T_RequestResource],
+        is_dry_run: bool,
+    ) -> Iterable[str]:
+        minimum_scope = crud.get_minimum_scope(resources)
+        if minimum_scope is None:
+            # Todo: check has any scope for resource type.
+            return
+        if is_dry_run:
+            required_acls = list(crud.create_acl({"READ"}, minimum_scope))
+            optional_acls = list(crud.create_acl({"WRITE"}, minimum_scope))
+        else:
+            required_acls = list(crud.create_acl({"READ", "WRITE"}, minimum_scope))
+            optional_acls = []
+
+        if missing := crud.client.tool.token.verify_acls(required_acls):
+            raise crud.client.tool.token.create_error(missing, action=f"deploy {crud.display_name}")
+
+        if crud.client.tool.token.verify_acls(optional_acls):
+            yield crud.display_name
+
+    @classmethod
+    def _categorize_resources(
+        cls,
+        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        local_by_id: dict[T_Identifier, tuple[dict[str, Any], T_RequestResource]],
+        cdf_by_id: dict[T_Identifier, T_ResponseResource],
+        console: Console,
+        options: DeployOptions,
+    ) -> ResourceToDeploy:
+        resources = ResourceToDeploy[T_Identifier, T_RequestResource]()
+        for identifier, (local_dict, local_resource) in local_by_id.items():
+            cdf_resource = cdf_by_id.get(identifier)
+            if cdf_resource is None:
+                resources.to_create.append(local_resource)
+                continue
+            cdf_dict = crud.dump_resource(cdf_resource, local_dict)
+            if not options.force_update and cdf_dict == local_dict:
+                resources.unchanged.append(identifier)
+                continue
+            if crud.support_update:
+                resources.to_update.append(local_resource)
+            else:
+                resources.to_delete.append(identifier)
+                resources.to_create.append(local_resource)
+            if options.verbose:
+                diff_str = "\n".join(to_diff(cdf_dict, local_dict))
+                for sensitive in crud.sensitive_strings(local_resource):
+                    diff_str = diff_str.replace(sensitive, "********")
+                console.print(
+                    Panel(
+                        diff_str,
+                        title=f"{crud.display_name}: {identifier}",
+                        expand=False,
+                    )
+                )
+        return resources
+
+    @classmethod
+    def deploy_dry_run(cls, resources: ResourceToDeploy[T_Identifier, T_RequestResource]) -> DeploymentResult:
+        # Todo: Handle drop and drop-data.
+        return DeploymentResult(
+            is_dry_run=True,
+            created=len(resources.to_create),
+            updated=len(resources.to_update),
+            deleted=len(resources.to_delete),
+            unchanged=len(resources.unchanged),
+        )
+
+    @classmethod
+    def deploy_resources(
+        cls,
+        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        resources: ResourceToDeploy[T_Identifier, T_RequestResource],
+    ) -> DeploymentResult:
+        deleted, created, updated = 0, 0, 0
+        # Todo: Handle API errors.
+        if resources.to_delete:
+            deleted = crud.delete(resources.to_delete)
+        if resources.to_create:
+            created = len(crud.create(resources.to_create))
+        if resources.to_update:
+            updated = len(crud.update(resources.to_update))
+        return DeploymentResult(
+            is_dry_run=False,
+            created=created,
+            updated=updated,
+            deleted=deleted,
+            unchanged=len(resources.unchanged),
+        )
+
+    @classmethod
+    def _display_results(cls, results: Sequence[DeploymentResult]) -> None:
+        # Todo: implement
+        return
