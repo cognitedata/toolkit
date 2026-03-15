@@ -65,7 +65,14 @@ class InstanceIO(
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     CHUNK_SIZE = 1000
     UPLOAD_ENDPOINT = "/models/instances"
-    UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = MappingProxyType({"autoCreateDirectRelations": True})
+    UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = MappingProxyType(
+        {
+            "autoCreateDirectRelations": True,
+            "autoCreateStartNodes": True,
+            "autoCreateEndNodes": True,
+            "skipOnVersionConflict": True,
+        }
+    )
     BASE_SELECTOR = InstanceSelector
 
     def __init__(self, client: ToolkitClient, remove_existing_version: bool = True) -> None:
