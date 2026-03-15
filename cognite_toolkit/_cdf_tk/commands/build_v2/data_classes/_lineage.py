@@ -9,6 +9,7 @@ from pydantic import (
     ConfigDict,
     Field,
     SerializationInfo,
+    ValidationError,
     computed_field,
     field_serializer,
 )
@@ -19,6 +20,10 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     ModelSyntaxError,
 )
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.utils import read_yaml_content
+from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
 from ._types import AbsoluteDirPath, AbsoluteFilePath
 
@@ -198,7 +203,16 @@ class BuildLineage(_BaseLineageModel):
     @classmethod
     def from_yaml_file(cls, yaml_file: Path) -> "BuildLineage":
         """Load BuildLineage from a YAML file."""
-        raise NotImplementedError()
+        try:
+            # The lineage file should always be located in a build folder.
+            content = read_yaml_content(yaml_file.read_text(encoding=BUILD_FOLDER_ENCODING))
+        except yaml.YAMLError as e:
+            raise ToolkitYAMLFormatError(f"Invalid YAML in {yaml_file.as_posix()}: {e}") from e
+        try:
+            return cls.model_validate(content, extra="ignore")
+        except ValidationError as e:
+            errors = " - ".join(humanize_validation_error(e))
+            raise ToolkitValidationError(f"Invalid lineage format in {yaml_file.as_posix()}:\n{errors}") from e
 
     def validate_source_files_unchanged(self) -> None:
         """Validate source files unchanged."""
