@@ -278,7 +278,7 @@ class TestApplyPlan:
                             deleted=0,
                             updated=0,
                             unchanged=0,
-                            skipped=0,
+                            skipped=1,
                             is_missing_write_acl=False,
                         )
                     ],
