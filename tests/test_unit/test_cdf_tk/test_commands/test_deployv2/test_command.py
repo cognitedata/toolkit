@@ -129,7 +129,7 @@ class TestReadBuildDirectory:
 
         actual: type[Exception] | ReadBuildDirectory
         try:
-            actual = DeployV2Command.read_build_directory(Path("build"), include)
+            actual = DeployV2Command.read_build_directory(Path("build"), "test_project", include)
         except Exception as e:
             actual = type(e)
 
@@ -221,7 +221,18 @@ class TestApplyPlan:
                     cdf_resources=[],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
-                    expected=[DeploymentResult(is_dry_run=True, created=1, deleted=0, updated=0, unchanged=0)],
+                    expected=[
+                        DeploymentResult(
+                            resource_name="spaces",
+                            is_dry_run=True,
+                            created=1,
+                            deleted=0,
+                            updated=0,
+                            unchanged=0,
+                            skipped=0,
+                            is_missing_write_acl=False,
+                        )
+                    ],
                     expected_warning=EnvironmentVariableMissingWarning,
                 ),
                 id="missing_env_var",
@@ -259,7 +270,18 @@ class TestApplyPlan:
                     cdf_resources=[],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
-                    expected=[DeploymentResult(is_dry_run=True, created=1, deleted=0, updated=0, unchanged=0)],
+                    expected=[
+                        DeploymentResult(
+                            resource_name="spaces",
+                            is_dry_run=True,
+                            created=1,
+                            deleted=0,
+                            updated=0,
+                            unchanged=0,
+                            skipped=1,
+                            is_missing_write_acl=False,
+                        )
+                    ],
                 ),
                 id="duplicated_resource_in_two_files",
             ),
@@ -282,7 +304,18 @@ class TestApplyPlan:
                     ],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
-                    expected=[DeploymentResult(is_dry_run=True, created=1, deleted=1, updated=0, unchanged=0)],
+                    expected=[
+                        DeploymentResult(
+                            resource_name="function schedules",
+                            is_dry_run=True,
+                            created=1,
+                            deleted=1,
+                            updated=0,
+                            unchanged=0,
+                            skipped=0,
+                            is_missing_write_acl=False,
+                        )
+                    ],
                 ),
                 id="changed_function_schedule_requires_delete_and_update",
             ),
@@ -297,7 +330,18 @@ class TestApplyPlan:
                     ],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
-                    expected=[DeploymentResult(is_dry_run=True, created=0, deleted=0, updated=1, unchanged=0)],
+                    expected=[
+                        DeploymentResult(
+                            resource_name="spaces",
+                            is_dry_run=True,
+                            created=0,
+                            deleted=0,
+                            updated=1,
+                            unchanged=0,
+                            skipped=0,
+                            is_missing_write_acl=False,
+                        )
+                    ],
                 ),
                 id="changed_space_requires_update",
             ),
@@ -308,7 +352,18 @@ class TestApplyPlan:
                     cdf_resources=[],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
-                    expected=[DeploymentResult(is_dry_run=True, created=1, deleted=0, updated=0, unchanged=0)],
+                    expected=[
+                        DeploymentResult(
+                            resource_name="spaces",
+                            is_dry_run=True,
+                            created=1,
+                            deleted=0,
+                            updated=0,
+                            unchanged=0,
+                            skipped=0,
+                            is_missing_write_acl=False,
+                        )
+                    ],
                 ),
                 id="create_space",
             ),
@@ -321,7 +376,18 @@ class TestApplyPlan:
                     ],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
-                    expected=[DeploymentResult(is_dry_run=True, created=0, deleted=0, updated=0, unchanged=1)],
+                    expected=[
+                        DeploymentResult(
+                            resource_name="spaces",
+                            is_dry_run=True,
+                            created=0,
+                            deleted=0,
+                            updated=0,
+                            unchanged=1,
+                            skipped=0,
+                            is_missing_write_acl=False,
+                        )
+                    ],
                 ),
                 id="unchanged_space",
             ),
