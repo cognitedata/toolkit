@@ -16,6 +16,7 @@ from yaml import YAMLError
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
 from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND,
     ResourceContainerCRUD,
@@ -40,6 +41,7 @@ from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 @dataclass
 class DeployOptions:
+    cdf_project: str | None = None
     dry_run: bool = False
     include: Sequence[str] | None = None
     force_update: bool = False
@@ -63,6 +65,7 @@ class ReadBuildDirectory:
     skipped_directories: list[ResourceDirectory] = field(default_factory=list)
     invalid_directories: list[Path] = field(default_factory=list)
     is_strict_validation: bool = False
+    has_validated_cdf_project: bool = False
 
     def create_warnings(self) -> Iterable[ToolkitWarning]:
         for invalid_dir in self.invalid_directories:
@@ -137,7 +140,7 @@ class DeployV2Command(ToolkitCommand):
         options: DeployOptions | None = None,
     ) -> Sequence[DeploymentResult]:
         options = options or DeployOptions(environment_variables=env_vars.dump())
-        read_dir = self.read_build_directory(build_dir, options.include)
+        read_dir = self.read_build_directory(build_dir, env_vars.CDF_PROJECT, options.include)
 
         client = env_vars.get_client(is_strict_validation=read_dir.is_strict_validation)
 
@@ -149,12 +152,15 @@ class DeployV2Command(ToolkitCommand):
 
         results = self.apply_plan(client, plan, options)
 
+        # Todo: Some mixpanel tracking??
         self._display_results(client, results)
 
         return results
 
     @classmethod
-    def read_build_directory(cls, build_dir: Path, include: Sequence[str] | None = None) -> ReadBuildDirectory:
+    def read_build_directory(
+        cls, build_dir: Path, cdf_project: str, include: Sequence[str] | None = None
+    ) -> ReadBuildDirectory:
         """Reads the build directory and returns a structured representation of the resources to be deployed.
 
         Args:
@@ -172,11 +178,20 @@ class DeployV2Command(ToolkitCommand):
             raise ToolkitValidationError(
                 f"Invalid resource types specified: {humanize_collection(invalid)}, available types: {humanize_collection(available_resource_types)}"
             )
-        # Todo: Check linage file.
-        #   - Check source hash are unchanged
-        #   - Check that CDF Project matches env.
-        #   - If linage file is missing, ask user to type in the CDF Project they are
-        #     writing to.
+        # Note we support running without linage. This is for example used when deploying resources
+        # with the upload command.from
+        has_validated_cdf_project = False
+        if (lineage_path := (build_dir / BuildLineage.filename)).exists():
+            lineage = BuildLineage.from_yaml_file(lineage_path)
+            lineage.validate_source_files_unchanged()
+            if lineage.cdf_project is not None:
+                if lineage.cdf_project != cdf_project:
+                    raise ToolkitValidationError(
+                        f"CDF project in {lineage_path.as_posix()} ≠ {cdf_project} in "
+                        f"your credentials. Please ensure you have built your resources "
+                        f"for the {cdf_project!r} project."
+                    )
+                has_validated_cdf_project = True
         include_set = set(include) if include else None
         invalid_resource_dirs: list[Path] = []
         resource_directories: list[ResourceDirectory] = []
@@ -209,6 +224,7 @@ class DeployV2Command(ToolkitCommand):
             resource_directories=resource_directories,
             invalid_directories=invalid_resource_dirs,
             skipped_directories=skipped_resource_dirs,
+            has_validated_cdf_project=has_validated_cdf_project,
         )
 
     def _display_read_dir(self, read_dir: ReadBuildDirectory, console: Console) -> None:

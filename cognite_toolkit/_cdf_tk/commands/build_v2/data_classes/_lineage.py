@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
+from typing import ClassVar
 
 import yaml
 from pydantic import (
@@ -120,10 +121,12 @@ class ModuleLineageItem(_BaseLineageModel):
 class BuildLineage(_BaseLineageModel):
     """Minimal lineage"""
 
+    filename: ClassVar[str] = "lineage.yaml"
     timestamp: datetime = Field(default_factory=datetime.now, description="When build started")
     duration: float | None = Field(None, description="Total build duration in seconds")
     organization_dir: Path
     build_dir: Path
+    cdf_project: str | None = None
     modules_summary: dict[str, int] = Field(description="Summary of modules by build status")
     insights_summary: dict[str, int] = Field(description="Summary of insights by type across all modules")
 
@@ -191,3 +194,12 @@ class BuildLineage(_BaseLineageModel):
             context={"organization_dir": self.organization_dir},
         )
         return yaml.dump(data, default_flow_style=False, sort_keys=False)
+
+    @classmethod
+    def from_yaml_file(cls, yaml_file: Path) -> "BuildLineage":
+        """Load BuildLineage from a YAML file."""
+        raise NotImplementedError()
+
+    def validate_source_files_unchanged(self) -> None:
+        """Validate source files unchanged."""
+        raise NotImplementedError()
