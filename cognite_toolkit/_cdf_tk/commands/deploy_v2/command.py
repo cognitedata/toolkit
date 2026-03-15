@@ -116,8 +116,7 @@ class DeployV2Command(ToolkitCommand):
 
         client = env_vars.get_client(is_strict_validation=read_dir.is_strict_validation)
 
-        for warning in read_dir.create_warnings():
-            self.warn(warning, console=client.console)
+        self._display_read_dir(read_dir, client.console)
 
         plan = self.create_deployment_plan(read_dir)
 
@@ -186,6 +185,10 @@ class DeployV2Command(ToolkitCommand):
             invalid_directories=invalid_resource_dirs,
             skipped_directories=skipped_resource_dirs,
         )
+
+    def _display_read_dir(self, read_dir: ReadBuildDirectory, console: Console) -> None:
+        for warning in read_dir.create_warnings():
+            self.warn(warning, console=console)
 
     @classmethod
     def create_deployment_plan(cls, read_dir: ReadBuildDirectory) -> list[DeploymentStep]:
