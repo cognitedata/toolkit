@@ -126,6 +126,7 @@ class DeploymentResult:
     updated: int
     unchanged: int
     skipped: int
+    is_missing_write_acl: bool
 
 
 class DeployV2Command(ToolkitCommand):
@@ -284,7 +285,6 @@ class DeployV2Command(ToolkitCommand):
         """
 
         results: list[DeploymentResult] = []
-        missing_write_acls: set[str] = set()
         with Progress(console=client.console) as progress:
             task_id = progress.add_task("Starting deploying", total=len(plan))
             for step in plan:
@@ -296,8 +296,7 @@ class DeployV2Command(ToolkitCommand):
                 resource_count = len(resources_by_id)
                 request_resources = [resource for _, resource in resources_by_id.values()]
 
-                missing_write_acl = cls._validate_access(crud, request_resources, is_dry_run=options.dry_run)
-                missing_write_acls.update(missing_write_acl)
+                is_missing_write = cls._validate_access(crud, request_resources, is_dry_run=options.dry_run)
 
                 progress.update(task_id, description=f"Comparing {resource_count} {resource_name} to CDF")
                 cdf_resource_by_id = {
@@ -313,18 +312,17 @@ class DeployV2Command(ToolkitCommand):
                 )
 
                 if options.dry_run:
-                    result = cls.deploy_dry_run(crud, resources_to_deploy, options)
-                    results.append(result)
+                    result = cls.deploy_dry_run(crud, resources_to_deploy, is_missing_write, options)
                     progress.update(task_id, description=f"Would have deployed {resource_name} to CDF")
                 else:
                     progress.update(task_id, description=f"Deploying {resource_name} to CDF")
                     result = cls.deploy_resources(crud, resources_to_deploy)
                     progress.update(task_id, description=f"Deployed {resource_name} successfully.")
-                    results.append(result)
+
+                results.append(result)
 
                 progress.update(task_id, advance=1)
             progress.update(task_id, description="Finished deploying.")
-            # Todo: What about missing write access? - Warn user that they will not be able to deploy.
         return results
 
     @classmethod
@@ -376,10 +374,10 @@ class DeployV2Command(ToolkitCommand):
         crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: list[T_RequestResource],
         is_dry_run: bool,
-    ) -> Iterable[str]:
+    ) -> bool:
         minimum_scope = crud.get_minimum_scope(resources)
         if minimum_scope is None:
-            return
+            return False
         if is_dry_run:
             required_acls = list(crud.create_acl({"READ"}, minimum_scope))
             optional_acls = list(crud.create_acl({"WRITE"}, minimum_scope))
@@ -390,8 +388,7 @@ class DeployV2Command(ToolkitCommand):
         if missing := crud.client.tool.token.verify_acls(required_acls):
             raise crud.client.tool.token.create_error(missing, action=f"deploy {crud.display_name}")
 
-        if crud.client.tool.token.verify_acls(optional_acls):
-            yield crud.display_name
+        return bool(crud.client.tool.token.verify_acls(optional_acls))
 
     @classmethod
     def _categorize_resources(
@@ -445,6 +442,7 @@ class DeployV2Command(ToolkitCommand):
         cls,
         crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
+        is_missing_write_acl: bool,
         options: DeployOptions,
     ) -> DeploymentResult:
         created = len(resources.to_create)
@@ -468,6 +466,7 @@ class DeployV2Command(ToolkitCommand):
             deleted=deleted,
             unchanged=unchanged,
             skipped=len(resources.skipped),
+            is_missing_write_acl=is_missing_write_acl,
         )
 
     @classmethod
@@ -492,6 +491,7 @@ class DeployV2Command(ToolkitCommand):
             deleted=deleted,
             unchanged=len(resources.unchanged),
             skipped=len(resources.skipped),
+            is_missing_write_acl=False,
         )
 
     @classmethod
