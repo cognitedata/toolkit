@@ -9,7 +9,7 @@ import pytest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._space import SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
-from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployOptions, DeployV2Command
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     DeploymentResult,
@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotADirectoryError,
     ToolkitValidationError,
     ToolkitValueError,
+    ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 
@@ -227,6 +228,18 @@ class TestApplyPlan:
             ),
             pytest.param(
                 ApplyPlanTestCase(
+                    yaml_files={"data_modeling/env.Space.yaml": "name: hello: world"},
+                    crud_cls=SpaceCRUD,
+                    cdf_resources=[],
+                    acls_missing=False,
+                    options=DeployOptions(dry_run=True),
+                    expected=ToolkitYAMLFormatError,
+                    expected_warning=None,
+                ),
+                id="invalid_yaml",
+            ),
+            pytest.param(
+                ApplyPlanTestCase(
                     yaml_files={"data_modeling/my.Space.yaml": "space: my_space\n"},
                     crud_cls=SpaceCRUD,
                     cdf_resources=[],
@@ -323,32 +336,7 @@ class TestApplyPlan:
         plan = [DeploymentStep(case.crud_cls, [tmp_path / p for p in case.yaml_files])]
 
         with monkeypatch_toolkit_client() as client:
-            if case.acls_missing:
-                client.tool.token.verify_acls.return_value = [MagicMock()]
-                client.tool.token.create_error.return_value = AuthorizationError("Missing capabilities")
-            else:
-                client.tool.token.verify_acls.return_value = []
-
-            if issubclass(case.crud_cls, SpaceCRUD):
-                client.tool.spaces.retrieve.return_value = case.cdf_resources
-            elif issubclass(case.crud_cls, FunctionScheduleCRUD):
-                client.functions.status.return_value.status = "activated"
-                function_responses = []
-                for resource in case.cdf_resources:
-                    if hasattr(resource, "function_id") and resource.function_id is not None:
-                        function_responses.append(
-                            FunctionResponse(
-                                id=resource.function_id,
-                                external_id=resource.function_external_id,
-                                name="myfunction",
-                                created_time=1,
-                                file_id=37,
-                            )
-                        )
-                client.tool.functions.retrieve.return_value = function_responses
-                client.tool.functions.schedules.list.return_value = case.cdf_resources
-            else:
-                pytest.fail(f"Test case for unsupported CRUD class: {case.crud_cls}")
+            self._set_up_mock_client(case, client)
 
             ctx = pytest.warns(case.expected_warning) if case.expected_warning else nullcontext()
             actual: Sequence[DeploymentResult] | type[Exception]
@@ -359,3 +347,31 @@ class TestApplyPlan:
                     actual = type(e)
 
         assert actual == case.expected
+
+    def _set_up_mock_client(self, case: ApplyPlanTestCase, client: ToolkitClientMock):
+        if case.acls_missing:
+            client.tool.token.verify_acls.return_value = [MagicMock()]
+            client.tool.token.create_error.return_value = AuthorizationError("Missing capabilities")
+        else:
+            client.tool.token.verify_acls.return_value = []
+
+        if issubclass(case.crud_cls, SpaceCRUD):
+            client.tool.spaces.retrieve.return_value = case.cdf_resources
+        elif issubclass(case.crud_cls, FunctionScheduleCRUD):
+            client.functions.status.return_value.status = "activated"
+            function_responses = []
+            for resource in case.cdf_resources:
+                if hasattr(resource, "function_id") and resource.function_id is not None:
+                    function_responses.append(
+                        FunctionResponse(
+                            id=resource.function_id,
+                            external_id=resource.function_external_id,
+                            name="myfunction",
+                            created_time=1,
+                            file_id=37,
+                        )
+                    )
+            client.tool.functions.retrieve.return_value = function_responses
+            client.tool.functions.schedules.list.return_value = case.cdf_resources
+        else:
+            pytest.fail(f"Test case for unsupported CRUD class: {case.crud_cls}")
