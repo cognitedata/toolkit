@@ -512,16 +512,16 @@ class AuthCommand(ToolkitCommand):
             self.warn(MediumSeverityWarning("No OIDC configuration or token URL found for the project"))
             return
         token_url = urllib.parse.urlparse(oidc.token_url)
-
-        if token_url.hostname and token_url.hostname.endswith("login.windows.net"):
+        hostname = token_url.hostname or ""
+        if hostname.endswith(".login.windows.net") or hostname == "login.windows.net":
             # Typical Entra ID token URLs look like:
             #   https://login.windows.net/{tenant_id}/oauth2/token
             # We derive tenant_id from the path segments if possible
             path_parts = [p for p in token_url.path.split("/") if p]
             tenant_id = path_parts[0] if path_parts else "unknown"
             print(f"  [bold green]OK[/]: Microsoft Entra I with tenant id ({tenant_id}).")
-        elif token_url.hostname and token_url.hostname.endswith("auth0.com"):
-            tenant_id = token_url.hostname.split(".")[0]
+        elif hostname.endswith(".auth0.com") or hostname == "auth0.com":
+            tenant_id = hostname.split(".")[0]
             print(f"  [bold green]OK[/] - Auth0 with tenant id ({tenant_id}).")
         else:
             self.warn(MediumSeverityWarning(f"Unknown identity provider {token_url}"))
