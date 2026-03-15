@@ -435,13 +435,13 @@ class DeployV2Command(ToolkitCommand):
         deleted = len(resources.to_delete)
         unchanged = len(resources.unchanged)
 
-        if options.drop and crud.support_drop:
-            is_container = isinstance(crud, ResourceContainerCRUD)
-            if not is_container or options.drop_data:
-                created += unchanged + updated
-                deleted += unchanged + updated
-                unchanged = 0
-                updated = 0
+        is_container = isinstance(crud, ResourceContainerCRUD)
+        if options.drop and crud.support_drop and (not is_container or options.drop_data):
+            # If drop/drop_data arguments are passed, then we will delete and recreate resources.
+            created += unchanged + updated
+            deleted += unchanged + updated
+            unchanged = 0
+            updated = 0
 
         return DeploymentResult(
             resource_name=crud.display_name,
