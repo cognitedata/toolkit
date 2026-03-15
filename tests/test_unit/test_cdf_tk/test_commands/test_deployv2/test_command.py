@@ -1,9 +1,12 @@
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DeployOptions, DeployV2Command
 from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
+    DeploymentResult,
     DeploymentStep,
     ReadBuildDirectory,
     ResourceDirectory,
@@ -179,3 +182,13 @@ class TestCreateDeploymentPlan:
         actual_plan = DeployV2Command._create_deployment_plan(read_dir)
 
         assert actual_plan == expected_plan
+
+
+class TestApplyPlan:
+    def test_create_deployment_plan(
+        self, plan: list[DeploymentStep], options: DeployOptions, expected: Sequence[DeploymentResult]
+    ) -> None:
+        with monkeypatch_toolkit_client() as client:
+            actual = DeployV2Command._apply_plan(client, plan, options)
+
+        assert actual == expected

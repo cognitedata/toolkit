@@ -5,7 +5,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any, Generic, Literal
+from typing import Any, Generic
 
 from rich.console import Console
 from rich.panel import Panel
@@ -110,7 +110,7 @@ class DeployV2Command(ToolkitCommand):
         env_vars: EnvironmentVariables,
         build_dir: Path,
         options: DeployOptions | None = None,
-    ) -> Any:
+    ) -> Sequence[DeploymentResult]:
         options = options or DeployOptions(environment_variables=env_vars.dump())
         read_dir = self._read_build_directory(build_dir, options.include)
 
@@ -308,13 +308,21 @@ class DeployV2Command(ToolkitCommand):
         resources: list[T_RequestResource],
         is_dry_run: bool,
     ) -> Iterable[str]:
-        actions: set[Literal["READ", "WRITE"]] = {"READ"} if is_dry_run else {"READ", "WRITE"}
-        required_acls = list(crud.create_minimum_acl(actions, resources))
+        minimum_scope = crud.get_minimum_scope(resources)
+        if minimum_scope is None:
+            # Todo: check has any scope for resource type.
+            return
+        if is_dry_run:
+            required_acls = list(crud.create_acl({"READ"}, minimum_scope))
+            optional_acls = list(crud.create_acl({"WRITE"}, minimum_scope))
+        else:
+            required_acls = list(crud.create_acl({"READ", "WRITE"}, minimum_scope))
+            optional_acls = []
+
         if missing := crud.client.tool.token.verify_acls(required_acls):
             raise crud.client.tool.token.create_error(missing, action=f"deploy {crud.display_name}")
-        if is_dry_run and crud.client.tool.token.verify_acls(
-            list(crud.create_minimum_acl({"READ", "WRITE"}, resources))
-        ):
+
+        if crud.client.tool.token.verify_acls(optional_acls):
             yield crud.display_name
 
     @classmethod
