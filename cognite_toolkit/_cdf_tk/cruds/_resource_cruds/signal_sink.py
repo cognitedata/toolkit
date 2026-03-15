@@ -2,7 +2,6 @@ from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities as cap
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -49,13 +48,6 @@ class SignalSinkCRUD(ResourceCRUD[SignalSinkId, SignalSinkRequest, SignalSinkRes
     @classmethod
     def dump_id(cls, id: SignalSinkId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[SignalSinkRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        # subscribeSignalsAcl is not yet in the Cognite Python SDK — return empty to skip capability verification.
-        return []
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[SignalSinkRequest]) -> ScopeDefinition:

@@ -4,8 +4,6 @@ from itertools import zip_longest
 from pathlib import Path
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities as cap
-
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import (
     DatapointSubscriptionTimeSeriesId,
@@ -64,26 +62,6 @@ class TimeSeriesCRUD(ResourceContainerCRUD[ExternalId, TimeSeriesRequest, TimeSe
     @property
     def display_name(self) -> str:
         return "time series"
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[TimeSeriesRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.TimeSeriesAcl.Action.Read]
-            if read_only
-            else [cap.TimeSeriesAcl.Action.Read, cap.TimeSeriesAcl.Action.Write]
-        )
-
-        scope: cap.TimeSeriesAcl.Scope.All | cap.TimeSeriesAcl.Scope.DataSet = cap.TimeSeriesAcl.Scope.All()  # type: ignore[valid-type]
-        if items:
-            if dataset_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = cap.TimeSeriesAcl.Scope.DataSet(list(dataset_ids))
-
-        return cap.TimeSeriesAcl(actions, scope)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[TimeSeriesRequest]) -> ScopeDefinition:
@@ -260,28 +238,6 @@ class DatapointSubscriptionCRUD(
             yield TimeSeriesCRUD, ExternalId(external_id=timeseries_id)
         for instance_id in resource.instance_ids or []:
             yield NodeCRUD, NodeId(space=instance_id.space, external_id=instance_id.external_id)
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[DatapointSubscriptionRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.TimeSeriesSubscriptionsAcl.Action.Read]
-            if read_only
-            else [cap.TimeSeriesSubscriptionsAcl.Action.Read, cap.TimeSeriesSubscriptionsAcl.Action.Write]
-        )
-
-        scope: cap.TimeSeriesSubscriptionsAcl.Scope.All | cap.TimeSeriesSubscriptionsAcl.Scope.DataSet = (  # type: ignore[valid-type]
-            cap.TimeSeriesSubscriptionsAcl.Scope.All()
-        )
-        if items:
-            if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = cap.TimeSeriesSubscriptionsAcl.Scope.DataSet(list(data_set_ids))
-
-        return cap.TimeSeriesSubscriptionsAcl(actions, scope)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[DatapointSubscriptionRequest]) -> ScopeDefinition:

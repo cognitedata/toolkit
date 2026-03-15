@@ -97,27 +97,6 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         return "functions"
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[FunctionRequest] | None, read_only: bool
-    ) -> list[cap.Capability] | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        function_actions = (
-            [cap.FunctionsAcl.Action.Read]
-            if read_only
-            else [cap.FunctionsAcl.Action.Read, cap.FunctionsAcl.Action.Write]
-        )
-        file_actions = (
-            [cap.FilesAcl.Action.Read] if read_only else [cap.FilesAcl.Action.Read, cap.FilesAcl.Action.Write]
-        )
-
-        return [
-            cap.FunctionsAcl(function_actions, cap.FunctionsAcl.Scope.All()),
-            cap.FilesAcl(file_actions, cap.FilesAcl.Scope.All()),  # Needed for uploading function artifacts
-        ]
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[FunctionRequest]) -> ScopeDefinition:
         return dataset_scoped_resource(items)
 
@@ -507,25 +486,6 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
     @property
     def display_name(self) -> str:
         return "function schedules"
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[FunctionScheduleRequest] | None, read_only: bool
-    ) -> list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        function_actions = (
-            [cap.FunctionsAcl.Action.Read]
-            if read_only
-            else [cap.FunctionsAcl.Action.Read, cap.FunctionsAcl.Action.Write]
-        )
-        required_capabilities: list[cap.Capability] = [
-            cap.FunctionsAcl(function_actions, cap.FunctionsAcl.Scope.All()),
-        ]
-        if not read_only:
-            required_capabilities.append(cap.SessionsAcl([cap.SessionsAcl.Action.Create], cap.SessionsAcl.Scope.All()))
-        return required_capabilities
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[FunctionScheduleRequest]) -> ScopeDefinition | None:

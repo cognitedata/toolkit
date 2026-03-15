@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Any, Literal, final
 
 from cognite.client.data_classes import ClientCredentials
-from cognite.client.data_classes import capabilities as cap
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -79,24 +78,6 @@ class HostedExtractorSourceCRUD(
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[HostedExtractorSourceRequestUnion] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.HostedExtractorsAcl.Action.Read]
-            if read_only
-            else [cap.HostedExtractorsAcl.Action.Read, cap.HostedExtractorsAcl.Action.Write]
-        )
-
-        return cap.HostedExtractorsAcl(
-            actions,
-            cap.HostedExtractorsAcl.Scope.All(),
-        )
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[HostedExtractorSourceRequestUnion]) -> ScopeDefinition:
@@ -209,24 +190,6 @@ class HostedExtractorDestinationCRUD(
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[HostedExtractorDestinationRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.HostedExtractorsAcl.Action.Read]
-            if read_only
-            else [cap.HostedExtractorsAcl.Action.Read, cap.HostedExtractorsAcl.Action.Write]
-        )
-
-        return cap.HostedExtractorsAcl(
-            actions,
-            cap.HostedExtractorsAcl.Scope.All(),
-        )
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[HostedExtractorDestinationRequest]) -> ScopeDefinition:
         return AllScope()
 
@@ -326,24 +289,6 @@ class HostedExtractorJobCRUD(ResourceCRUD[ExternalId, HostedExtractorJobRequest,
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[HostedExtractorJobRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.HostedExtractorsAcl.Action.Read]
-            if read_only
-            else [cap.HostedExtractorsAcl.Action.Read, cap.HostedExtractorsAcl.Action.Write]
-        )
-
-        return cap.HostedExtractorsAcl(
-            actions,
-            cap.HostedExtractorsAcl.Scope.All(),
-        )
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[HostedExtractorJobRequest]) -> ScopeDefinition:
         return AllScope()
 
@@ -427,24 +372,6 @@ class HostedExtractorMappingCRUD(
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
         return id.dump()
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[HostedExtractorMappingRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.HostedExtractorsAcl.Action.Read]
-            if read_only
-            else [cap.HostedExtractorsAcl.Action.Read, cap.HostedExtractorsAcl.Action.Write]
-        )
-
-        return cap.HostedExtractorsAcl(
-            actions,
-            cap.HostedExtractorsAcl.Scope.All(),
-        )
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[HostedExtractorMappingRequest]) -> ScopeDefinition:

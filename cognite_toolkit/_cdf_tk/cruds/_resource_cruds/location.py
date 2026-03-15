@@ -3,8 +3,6 @@ from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities as cap
-
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -64,26 +62,6 @@ class LocationFilterCRUD(ResourceCRUD[ExternalId, LocationFilterRequest, Locatio
     @property
     def display_name(self) -> str:
         return "location filters"
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[LocationFilterRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-        # Todo: Specify space ID scopes:
-
-        actions = (
-            [cap.LocationFiltersAcl.Action.Read]
-            if read_only
-            else [cap.LocationFiltersAcl.Action.Read, cap.LocationFiltersAcl.Action.Write]
-        )
-
-        return cap.LocationFiltersAcl(
-            actions=actions,
-            scope=cap.LocationFiltersAcl.Scope.All(),
-            allow_unknown=True,
-        )
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[LocationFilterRequest]) -> ScopeDefinition:
