@@ -10,6 +10,7 @@ from typing import Any, Generic
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress
+from rich.table import Table
 from yaml import YAMLError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -17,6 +18,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_Reques
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND,
+    ResourceContainerCRUD,
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -26,7 +28,12 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitWrongResourceError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, ToolkitWarning, catch_warnings
+from cognite_toolkit._cdf_tk.tk_warnings import (
+    EnvironmentVariableMissingWarning,
+    LowSeverityWarning,
+    ToolkitWarning,
+    catch_warnings,
+)
 from cognite_toolkit._cdf_tk.utils import humanize_collection, to_diff
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
@@ -37,6 +44,8 @@ class DeployOptions:
     include: Sequence[str] | None = None
     force_update: bool = False
     verbose: bool = False
+    drop: bool = False
+    drop_data: bool = False
     environment_variables: dict[str, str | None] | None = None
 
 
@@ -56,8 +65,13 @@ class ReadBuildDirectory:
     is_strict_validation: bool = False
 
     def create_warnings(self) -> Iterable[ToolkitWarning]:
-        # Todo: Implement
-        yield from ()
+        for invalid_dir in self.invalid_directories:
+            yield LowSeverityWarning(f"Unrecognized resource directory {invalid_dir.name!r} in build output, skipping.")
+        for resource_dir in self.resource_directories:
+            for invalid_file in resource_dir.invalid_files:
+                yield LowSeverityWarning(
+                    f"File {invalid_file.name!r} in {resource_dir.directory.name!r} does not match any known resource kind, skipping."
+                )
 
     def skipped_cruds(self) -> set[type[ResourceCRUD]]:
         return {crud for dir in self.skipped_directories for crud in dir.files_by_crud.keys()}
@@ -97,6 +111,7 @@ class ResourceToDeploy(Generic[T_Identifier, T_RequestResource]):
 
 @dataclass
 class DeploymentResult:
+    resource_name: str
     is_dry_run: bool
     created: int
     deleted: int
@@ -188,8 +203,11 @@ class DeployV2Command(ToolkitCommand):
 
     def _display_read_dir(self, read_dir: ReadBuildDirectory, console: Console) -> None:
         console.print(f"Read {read_dir.build_dir.as_posix()} complete")
-        for warning in read_dir.create_warnings():
-            self.warn(warning, console=console)
+        warnings = list(read_dir.create_warnings())
+        if warnings:
+            console.print(f"Found {len(warnings)} warnings")
+            for warning in read_dir.create_warnings():
+                self.warn(warning, console=console)
 
     @classmethod
     def create_deployment_plan(cls, read_dir: ReadBuildDirectory) -> list[DeploymentStep]:
@@ -229,9 +247,17 @@ class DeployV2Command(ToolkitCommand):
 
     @classmethod
     def _display_plan(cls, client: ToolkitClient, plan: list[DeploymentStep]) -> None:
-        client.console.print("Deployment plan created.")
-        # Todo: Implement
-        return
+        if not plan:
+            client.console.print("[bold yellow]No resources to deploy.[/]")
+            return
+        table = Table(title="Deployment Plan", show_lines=False)
+        table.add_column("#", style="dim", width=4)
+        table.add_column("Resource Type", style="cyan")
+        table.add_column("Files", justify="right")
+        for i, step in enumerate(plan, 1):
+            crud_name = step.crud_cls.folder_name
+            table.add_row(str(i), crud_name, str(len(step.files)))
+        client.console.print(table)
 
     @classmethod
     def apply_plan(
@@ -279,7 +305,7 @@ class DeployV2Command(ToolkitCommand):
                 )
 
                 if options.dry_run:
-                    result = cls.deploy_dry_run(resources_to_deploy)
+                    result = cls.deploy_dry_run(crud, resources_to_deploy, options)
                     results.append(result)
                     progress.update(task_id, description=f"Would have deployed {resource_name} to CDF")
                 else:
@@ -346,7 +372,6 @@ class DeployV2Command(ToolkitCommand):
     ) -> Iterable[str]:
         minimum_scope = crud.get_minimum_scope(resources)
         if minimum_scope is None:
-            # Todo: check has any scope for resource type.
             return
         if is_dry_run:
             required_acls = list(crud.create_acl({"READ"}, minimum_scope))
@@ -399,14 +424,32 @@ class DeployV2Command(ToolkitCommand):
         return resources
 
     @classmethod
-    def deploy_dry_run(cls, resources: ResourceToDeploy[T_Identifier, T_RequestResource]) -> DeploymentResult:
-        # Todo: Handle drop and drop-data.
+    def deploy_dry_run(
+        cls,
+        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        resources: ResourceToDeploy[T_Identifier, T_RequestResource],
+        options: DeployOptions,
+    ) -> DeploymentResult:
+        created = len(resources.to_create)
+        updated = len(resources.to_update)
+        deleted = len(resources.to_delete)
+        unchanged = len(resources.unchanged)
+
+        if options.drop and crud.support_drop:
+            is_container = isinstance(crud, ResourceContainerCRUD)
+            if not is_container or options.drop_data:
+                created += unchanged + updated
+                deleted += unchanged + updated
+                unchanged = 0
+                updated = 0
+
         return DeploymentResult(
+            resource_name=crud.display_name,
             is_dry_run=True,
-            created=len(resources.to_create),
-            updated=len(resources.to_update),
-            deleted=len(resources.to_delete),
-            unchanged=len(resources.unchanged),
+            created=created,
+            updated=updated,
+            deleted=deleted,
+            unchanged=unchanged,
         )
 
     @classmethod
@@ -424,6 +467,7 @@ class DeployV2Command(ToolkitCommand):
         if resources.to_update:
             updated = len(crud.update(resources.to_update))
         return DeploymentResult(
+            resource_name=crud.display_name,
             is_dry_run=False,
             created=created,
             updated=updated,
@@ -433,6 +477,41 @@ class DeployV2Command(ToolkitCommand):
 
     @classmethod
     def _display_results(cls, client: ToolkitClient, results: Sequence[DeploymentResult]) -> None:
-        # Todo: Implement
-        client.console.print("Deployment completed.")
-        return
+        if not results:
+            client.console.print("No resources were deployed.")
+            return
+
+        is_dry_run = results[0].is_dry_run
+        title = "Deployment Summary (dry run)" if is_dry_run else "Deployment Summary"
+        table = Table(title=title, show_lines=False)
+        table.add_column("Resource", style="cyan")
+        table.add_column("Created", justify="right", style="green")
+        table.add_column("Updated", justify="right", style="yellow")
+        table.add_column("Deleted", justify="right", style="red")
+        table.add_column("Unchanged", justify="right", style="dim")
+
+        total_created, total_updated, total_deleted, total_unchanged = 0, 0, 0, 0
+        for result in results:
+            table.add_row(
+                result.resource_name,
+                str(result.created),
+                str(result.updated),
+                str(result.deleted),
+                str(result.unchanged),
+            )
+            total_created += result.created
+            total_updated += result.updated
+            total_deleted += result.deleted
+            total_unchanged += result.unchanged
+
+        if len(results) > 1:
+            table.add_section()
+            table.add_row(
+                "[bold]Total[/]",
+                f"[bold]{total_created}[/]",
+                f"[bold]{total_updated}[/]",
+                f"[bold]{total_deleted}[/]",
+                f"[bold]{total_unchanged}[/]",
+            )
+
+        client.console.print(table)
