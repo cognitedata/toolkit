@@ -156,7 +156,7 @@ class AuthCommand(ToolkitCommand):
 
         self.check_has_group_access(client)
 
-        self.check_identity_provider(client, cdf_project)
+        self.check_identity_provider(client)
 
         try:
             user_groups = client.tool.groups.list(all_groups=False)
@@ -504,7 +504,7 @@ class AuthCommand(ToolkitCommand):
             " have the basic read group access rights."
         )
 
-    def check_identity_provider(self, client: ToolkitClient, cdf_project: str) -> None:
+    def check_identity_provider(self, client: ToolkitClient) -> None:
         print("Checking identity provider settings...")
         org = client.project.organization()
         oidc = org.oidc_configuration
