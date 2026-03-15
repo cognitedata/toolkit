@@ -375,7 +375,8 @@ class DeployV2Command(ToolkitCommand):
         crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
     ) -> DeploymentResult:
-        deleted, created, updated, unchanged = 0, 0, 0, len(resources.unchanged)
+        deleted, created, updated = 0, 0, 0
+        # Todo: Handle API errors.
         if resources.to_delete:
             deleted = crud.delete(resources.to_delete)
         if resources.to_create:
@@ -387,7 +388,7 @@ class DeployV2Command(ToolkitCommand):
             created=created,
             updated=updated,
             deleted=deleted,
-            unchanged=unchanged,
+            unchanged=len(resources.unchanged),
         )
 
     @classmethod
