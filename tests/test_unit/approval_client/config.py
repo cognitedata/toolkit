@@ -211,6 +211,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.robotics import (
     RobotMapRequest,
     RobotMapResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.ruleset import RuleSetRequest, RuleSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import (
+    RuleSetVersionRequest,
+    RuleSetVersionResponse,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import (
     SearchConfigResponse,
 )
@@ -1385,6 +1390,32 @@ API_RESOURCES = [
         api_name="tool.data_products.versions",
         resource_cls=DataProductVersionResponse,
         _write_cls=DataProductVersionRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+                Method(api_class_method="iterate", mock_class_method="iterate"),
+                Method(api_class_method="list", mock_class_method="list"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.rulesets",
+        resource_cls=RuleSetResponse,
+        _write_cls=RuleSetRequest,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="retrieve"),
+                Method(api_class_method="iterate", mock_class_method="iterate"),
+                Method(api_class_method="list", mock_class_method="list"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="tool.rulesets.versions",
+        resource_cls=RuleSetVersionResponse,
+        _write_cls=RuleSetVersionRequest,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
