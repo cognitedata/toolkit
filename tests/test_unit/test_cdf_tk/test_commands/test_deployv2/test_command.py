@@ -253,7 +253,7 @@ class TestApplyPlan:
             pytest.param(
                 ApplyPlanTestCase(
                     yaml_files={
-                        "functions/my.Schedule.yaml": "cronExpression: '* * * * *'\nname: my schedule\nfunctionExternalId: 'my_function'\n"
+                        "functions/my.Schedule.yaml": "cronExpression: '* * * * *'\nname: my schedule\nfunctionExternalId: 'my_function'\nauthentication:\n  clientId: test_id\n  clientSecret: test_secret\n"
                     },
                     crud_cls=FunctionScheduleCRUD,
                     cdf_resources=[
@@ -263,6 +263,7 @@ class TestApplyPlan:
                             when="tomorrow",
                             name="my schedule",
                             function_id=37,
+                            function_external_id="my_function",
                             created_time=1,
                         )
                     ],
@@ -331,13 +332,20 @@ class TestApplyPlan:
             if issubclass(case.crud_cls, SpaceCRUD):
                 client.tool.spaces.retrieve.return_value = case.cdf_resources
             elif issubclass(case.crud_cls, FunctionScheduleCRUD):
-                function_ids = {
-                    resource.function_id for resource in case.cdf_resources if hasattr(resource, "function_id")
-                }
-                client.tool.functions.retrieve = [
-                    FunctionResponse(id=function_id, name="myfunction", created_time=1, file_id=37)
-                    for function_id in function_ids
-                ]
+                client.functions.status.return_value.status = "activated"
+                function_responses = []
+                for resource in case.cdf_resources:
+                    if hasattr(resource, "function_id") and resource.function_id is not None:
+                        function_responses.append(
+                            FunctionResponse(
+                                id=resource.function_id,
+                                external_id=resource.function_external_id,
+                                name="myfunction",
+                                created_time=1,
+                                file_id=37,
+                            )
+                        )
+                client.tool.functions.retrieve.return_value = function_responses
                 client.tool.functions.schedules.list.return_value = case.cdf_resources
             else:
                 pytest.fail(f"Test case for unsupported CRUD class: {case.crud_cls}")
