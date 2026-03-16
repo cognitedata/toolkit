@@ -315,7 +315,6 @@ def asset_centric_to_record(
     Returns:
         A tuple of the RecordRequest (or None on failure) and any conversion issues.
     """
-    property_mapping_values = record_mapping.property_mapping
     resource_type = _lookup_resource_type(resource)
     dumped = resource.dump()
     try:
@@ -333,9 +332,9 @@ def asset_centric_to_record(
         instance_id=NodeId(space=instance_id.space, external_id=instance_id.external_id),
     )
 
-    flat_dump = flatten_dict_json_path(dumped, keep_structured=set(property_mapping_values.keys()))
+    flat_dump = flatten_dict_json_path(dumped, keep_structured=set(record_mapping.property_mapping.keys()))
     properties: dict[str, JsonValue] = {}
-    for source_key, target_key in property_mapping_values.items():
+    for source_key, target_key in record_mapping.property_mapping.items():
         if source_key not in flat_dump:
             continue
         value = flat_dump[source_key]
@@ -346,8 +345,8 @@ def asset_centric_to_record(
         else:
             properties[target_key] = value
 
-    issue.ignored_asset_centric_properties = sorted(set(flat_dump.keys()) - set(property_mapping_values.keys()))
-    issue.missing_asset_centric_properties = sorted(set(property_mapping_values.keys()) - set(flat_dump.keys()))
+    issue.ignored_asset_centric_properties = sorted(set(flat_dump.keys()) - set(record_mapping.property_mapping.keys()))
+    issue.missing_asset_centric_properties = sorted(set(record_mapping.property_mapping.keys()) - set(flat_dump.keys()))
 
     sources: list[RecordSource] = []
     if properties:
