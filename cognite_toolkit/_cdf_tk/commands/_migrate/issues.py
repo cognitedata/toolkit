@@ -67,11 +67,12 @@ class CanvasMigrationIssue(MigrationIssue):
     canvas_external_id: str
     canvas_name: str
     missing_reference_ids: list[AssetCentricId] = Field(default_factory=list)
+    files_missing_content: list[NodeUntypedId] = Field(default_factory=list)
 
     @property
     def has_issues(self) -> bool:
         """Check if there are any issues recorded in this CanvasMigrationIssue."""
-        return bool(self.missing_reference_ids)
+        return bool(self.missing_reference_ids or self.files_missing_content)
 
 
 class ReadIssue(MigrationIssue):
