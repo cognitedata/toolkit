@@ -10,6 +10,7 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsFailedRequest,
@@ -63,7 +64,12 @@ class MigrationCommand(ToolkitCommand):
         verbose: bool = False,
         user_log_filestem: str | None = None,
     ) -> dict[str, list[MigrationStatusResult]]:
-        self.validate_migration_model_available(data.client)
+        stream_external_id: str | None = getattr(data, "stream_external_id", None)
+        stream: StreamResponse | None = None
+        if stream_external_id is not None:
+            stream = self.validate_stream_exists(data.client, stream_external_id)
+        else:
+            self.validate_migration_model_available(data.client)
 
         log_dir.mkdir(parents=True, exist_ok=True)
         log_filestem = self._create_logfile_stem(log_dir, user_log_filestem, data.KIND)
@@ -72,8 +78,10 @@ class MigrationCommand(ToolkitCommand):
         counts_by_selector, total_all_items = self._print_overview(data, selectors, console)
 
         if total_all_items and not isinstance(data, ChartIO):
-            # Chart are not creating any new nodes.
-            self.validate_available_capacity(data.client, total_all_items)
+            if stream is not None:
+                self.validate_stream_capacity(data.client, stream, total_all_items)
+            else:
+                self.validate_available_capacity(data.client, total_all_items)
 
         results_by_selector: dict[str, list[MigrationStatusResult]] = {}
         with (
@@ -120,7 +128,8 @@ class MigrationCommand(ToolkitCommand):
                 self._print_txt(results, log_dir, f"{selected!s}Items", console)
                 executor.raise_on_error()
                 action = "Would migrate" if dry_run else "Migrating"
-                console.print(f"{action} {total:,} {selected.display_name} to instances.")
+                target = "records" if stream_external_id is not None else "instances"
+                console.print(f"{action} {total:,} {selected.display_name} to {target}.")
 
         return results_by_selector
 
@@ -266,13 +275,38 @@ class MigrationCommand(ToolkitCommand):
         return upload_items
 
     @staticmethod
-    def validate_stream_exists(client: ToolkitClient, stream_external_id: str) -> None:
-        results = client.streams.retrieve([ExternalId(external_id=stream_external_id)], ignore_unknown_ids=True)
+    def validate_stream_exists(client: ToolkitClient, stream_external_id: str) -> StreamResponse:
+        results = client.streams.retrieve(
+            [ExternalId(external_id=stream_external_id)], include_statistics=True, ignore_unknown_ids=True
+        )
         if not results:
             raise ToolkitMigrationError(
                 f"Stream '{stream_external_id}' does not exist. "
                 "Please create the stream before running a records migration."
             )
+        return results[0]
+
+    def validate_stream_capacity(self, client: ToolkitClient, stream: StreamResponse, record_count: int) -> None:
+        limits = stream.settings.limits if stream.settings else None
+        if limits is None:
+            self.console(f"Unable to check stream capacity for '{stream.external_id}' (no settings returned).")
+            return
+
+        usage = limits.max_records_total
+        consumed = usage.consumed or 0
+        available = usage.provisioned - consumed
+
+        if available < record_count:
+            raise ToolkitValueError(
+                f"Stream '{stream.external_id}' does not have enough capacity. "
+                f"Provisioned: {usage.provisioned:,}, consumed: {consumed:,}, "
+                f"available: {available:,}, needed: {record_count:,}."
+            )
+        total_after = consumed + record_count
+        self.console(
+            f"Stream '{stream.external_id}' has enough capacity. "
+            f"Total records after migration: {total_after:,} / {usage.provisioned:,}."
+        )
 
     @staticmethod
     def validate_migration_model_available(client: ToolkitClient) -> None:

@@ -685,7 +685,6 @@ class MigrateApp(typer.Typer):
         )
 
         cmd = MigrationCommand(client=client)
-        cmd.validate_stream_exists(client, stream_external_id)
         cmd.run(
             lambda: cmd.migrate(
                 selectors=[selected],
