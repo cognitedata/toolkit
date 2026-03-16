@@ -21,6 +21,10 @@ class DataSetSelector(AssetCentricSelector):
     def __str__(self) -> str:
         return self.kind
 
+    @property
+    def display_name(self) -> str:
+        return f"{self.kind.lower()} in dataset {self.data_set_external_id}"
+
 
 class EventDataSetSelector(DataSetSelector):
     """Select events associated with a specific data set, with optional type/subtype filtering."""
@@ -38,6 +42,10 @@ class AssetSubtreeSelector(AssetCentricSelector):
     def __str__(self) -> str:
         return self.kind
 
+    @property
+    def display_name(self) -> str:
+        return f"{self.kind.lower()} in asset hierarchy {self.hierarchy}"
+
 
 class AssetCentricFileSelector(AssetCentricSelector):
     """Select data from a specific file."""
@@ -47,3 +55,7 @@ class AssetCentricFileSelector(AssetCentricSelector):
 
     def __str__(self) -> str:
         return f"file_{self.datafile.name}"
+
+    @property
+    def display_name(self) -> str:
+        return f"{self.kind.lower()} in file {self.datafile.name}"

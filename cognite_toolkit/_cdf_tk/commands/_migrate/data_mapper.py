@@ -2,7 +2,7 @@ import json
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
-from typing import ClassVar, Generic, Literal, cast
+from typing import Any, ClassVar, Generic, Literal, cast
 from uuid import uuid4
 
 from cognite.client import data_modeling as dm
@@ -10,7 +10,7 @@ from cognite.client.exceptions import CogniteException
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, InstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     ContainerReferenceItem,
     FdmInstanceContainerReferenceItem,
@@ -38,6 +38,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
     ViewResponseProperty,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope
+from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdminAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
@@ -63,7 +65,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     convert_edges,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
-    Model,
     ThreeDMigrationRequest,
     ThreeDRevisionMigrationRequest,
 )
@@ -284,6 +285,12 @@ class RecordsMapper(
 
 
 class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
+    def prepare(self, source_selector: ChartSelector) -> None:
+        if missing_acl := self.client.tool.token.verify_acls(
+            [ChartsAdminAcl(actions=["READ", "UPDATE"], scope=AllScope())]
+        ):
+            raise self.client.tool.token.create_error(missing_acl, action="migrate charts")
+
     def map(self, source: Sequence[ChartResponse]) -> Sequence[ChartRequest | None]:
         self._populate_cache(source)
         output: list[ChartRequest | None] = []
@@ -640,7 +647,7 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeD
                 space=instance_space,
                 type=model_type,
                 revision_id=last_revision_id,
-                model=Model(
+                model=InstanceId(
                     instance_id=NodeId(
                         space=instance_space,
                         external_id=f"cog_3d_model_{item.id!s}",
@@ -983,7 +990,6 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
         "timezone",
         "startTime",
         "endTime",
-        "status",
     )
 
     def __init__(
@@ -1073,7 +1079,13 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
         return schedules, template_edges_by_item_id, template_item_edges_by_schedule_id, issues
 
     def _calculate_schedule_hash(self, properties: dict[str, JsonValue]) -> str:
-        relevant_properties = {key: properties.get(key) for key in self.UNIQUE_SCHEDULE_PROPERTIES}
+        relevant_properties: dict[str, Any] = {}
+        for key in self.UNIQUE_SCHEDULE_PROPERTIES:
+            value = properties.get(key)
+            if isinstance(value, list):
+                relevant_properties[key] = sorted([str(item) for item in value])
+            else:
+                relevant_properties[key] = str(value)
         return calculate_hash(json.dumps(relevant_properties, sort_keys=True), shorten=True)
 
     def _create_single_schedule(

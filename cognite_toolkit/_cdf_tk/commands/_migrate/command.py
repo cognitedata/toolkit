@@ -28,7 +28,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
-from cognite_toolkit._cdf_tk.storageio import T_Selector, UploadableStorageIO, UploadItem
+from cognite_toolkit._cdf_tk.storageio import ChartIO, T_Selector, UploadableStorageIO, UploadItem
 from cognite_toolkit._cdf_tk.storageio.logger import FileDataLogger, OperationStatus
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
@@ -71,7 +71,8 @@ class MigrationCommand(ToolkitCommand):
         console = data.client.console
         counts_by_selector, total_all_items = self._print_overview(data, selectors, console)
 
-        if total_all_items:
+        if total_all_items and not isinstance(data, ChartIO):
+            # Chart are not creating any new nodes.
             self.validate_available_capacity(data.client, total_all_items)
 
         results_by_selector: dict[str, list[MigrationStatusResult]] = {}
