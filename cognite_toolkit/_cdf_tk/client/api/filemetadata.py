@@ -268,6 +268,6 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
                 return set(), elapsed_time
             elapsed_time = time.perf_counter() - t0
             to_sleep = min(sleep_time, timeout_seconds - elapsed_time)
-            time.sleep(to_sleep)
+            time.sleep(max(0, to_sleep))
             sleep_time *= 2
         return to_check, elapsed_time
