@@ -364,7 +364,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
                 )
 
             # Create a copy with the file_id set
-            item_to_create = FunctionRequest.model_validate({**item.dump(), "fileId": file_id})
+            item_to_create = FunctionRequest.model_validate({**item.dump(), "fileId": file_id.id})
             result = self.client.tool.functions.create([item_to_create])
             if result:
                 created_item = result[0]
