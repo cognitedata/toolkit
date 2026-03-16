@@ -169,7 +169,7 @@ class TestResourcesCreateCommand:
         assert (modules_dir / "data_modeling" / "my_Space.Space.yaml").exists()
 
     def test_yaml_content_ordering_and_comments(self) -> None:
-        """Required fields first, then optional with value, then optional null. Each field has an inline comment."""
+        """Required fields first, then optional with value. Null fields are commented out."""
         cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
         content = cmd._get_resource_yaml_content(_StubCRUD)  # type: ignore[arg-type]
 
@@ -177,32 +177,23 @@ class TestResourcesCreateCommand:
         yaml_lines = [line for line in lines if not line.startswith("#") and line.strip()]
         parsed = yaml.safe_load("\n".join(line.split("  #")[0] for line in yaml_lines))
 
-        # Required fields use placeholder strings
+        # Required fields use placeholder strings; null-default fields are excluded
         assert parsed == {
             "externalId": "<externalId>",
             "name": "<name>",
             "runtime": "py311",
-            "metadata": None,
-            "description": None,
         }
 
-        # Every field's first YAML line has an inline comment
+        # Every active field's first YAML line has an inline comment
         first_lines = [line for line in lines if not line.startswith("#") and line.strip() and not line.startswith(" ")]
         missing_inline_comments = [line for line in first_lines if "  #" not in line]
         assert not missing_inline_comments, f"Missing inline comment on lines: {missing_inline_comments}"
 
-        # Multi-line values (e.g. dict) have the comment only on the first line
-        metadata_lines_without_comment = [line for line in lines if "metadata" in line and "  #" not in line]
-        assert not metadata_lines_without_comment, "metadata key line should have a comment"
-
-        continuation_lines_with_comment = [
-            line for line in lines if "metadata" in line and line.startswith(" ") and "  #" in line
-        ]
-        assert not continuation_lines_with_comment, "continuation lines should not have comments"
-
-        # Ordering: required → optional with value → optional null
-        field_names = [line.split(":")[0].strip() for line in first_lines]
-        assert field_names.index("externalId") < field_names.index("runtime") < field_names.index("description")
+        # Null-default fields appear as commented-out hints
+        commented_fields = [line for line in lines if line.startswith("# ") and ":  #" in line]
+        commented_names = [line.lstrip("# ").split(":")[0] for line in commented_fields]
+        assert "description" in commented_names
+        assert "metadata" in commented_names
 
     def test_create_interactive_kind_selection_abort(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Test interactive kind selection when kind is not provided and user aborts."""

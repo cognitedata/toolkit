@@ -1,0 +1,53 @@
+schedules:
+- externalId: schedule_a1
+  instanceType: node
+  sources:
+  - properties:
+      endTime: '2026-12-31T16:00:00Z'
+      freq: WEEKLY
+      interval: '1'
+      startTime: '2025-01-01T08:00:00Z'
+      status: active
+      template:
+        externalId: template_1
+        space: target_space
+      templateItems:
+      - externalId: item_1
+        space: target_space
+      - externalId: item_2
+        space: target_space
+      timezone: UTC
+      until: '2026-01-01T00:00:00Z'
+    source:
+      externalId: Schedule
+      space: infield_cdm_source_desc_sche_asset_file_ts
+      type: view
+      version: v1
+  space: target_space
+- externalId: schedule_b1
+  instanceType: node
+  sources:
+  - properties:
+      endTime: '2027-05-31T16:00:00Z'
+      freq: MONTHLY
+      interval: '2'
+      startTime: '2025-06-01T08:00:00Z'
+      status: active
+      template:
+        externalId: template_1
+        space: target_space
+      templateItems:
+      - externalId: item_3
+        space: target_space
+      - externalId: item_4
+        space: target_space
+      - externalId: item_5
+        space: target_space
+      timezone: Europe/Oslo
+      until: '2027-06-01T00:00:00Z'
+    source:
+      externalId: Schedule
+      space: infield_cdm_source_desc_sche_asset_file_ts
+      type: view
+      version: v1
+  space: target_space

@@ -8,6 +8,7 @@ from cognite_toolkit._cdf_tk.client.http_client import (
     ToolkitAPIError,
 )
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
+    ItemsFailedRequest,
     ItemsFailedResponse,
     ItemsRequest,
     ItemsResultList,
@@ -50,12 +51,12 @@ from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResource
 from .data_classes import (
     AnnotationMapping,
     AssetCentricMapping,
-    AssetCentricMappingList,
     MigrationMapping,
     MigrationMappingList,
 )
 from .data_model import INSTANCE_SOURCE_VIEW_ID
 from .default_mappings import ASSET_ANNOTATIONS_ID, FILE_ANNOTATIONS_ID
+from .issues import WriteIssue
 from .selectors import AssetCentricMigrationSelector, MigrateDataSetSelector, MigrationCSVFileSelector
 
 
@@ -119,7 +120,7 @@ class AssetCentricMigrationIO(
     ) -> Iterator[Sequence[AssetCentricMapping[T_AssetCentricResource]]]:
         asset_centric_selector = selector.as_asset_centric_selector()
         for data_chunk in self.hierarchy.stream_data(asset_centric_selector, limit):
-            mapping_list = AssetCentricMappingList[T_AssetCentricResource]([])
+            mapping_list: list[AssetCentricMapping[T_AssetCentricResource]] = []
             for resource in data_chunk.items:
                 # We got the resource from a dataset selector, so we know it is there
                 data_set_id = cast(int, resource.data_set_id)
@@ -141,7 +142,7 @@ class AssetCentricMigrationIO(
                     ingestion_view=selector.ingestion_mapping,
                     preferred_consumer_view=selector.preferred_consumer_view,
                 )
-                mapping_list.append(AssetCentricMapping(mapping=mapping, resource=resource))
+                mapping_list.append(AssetCentricMapping(mapping=mapping, resource=resource))  # type: ignore[arg-type]
             yield mapping_list
 
     @staticmethod
@@ -188,9 +189,8 @@ class AssetCentricMigrationIO(
             results.extend(super().upload_items(to_upload, http_client, None))
         return results
 
-    @classmethod
     def link_asset_centric(
-        cls,
+        self,
         data_chunk: Sequence[UploadItem[InstanceRequest]],
         http_client: HTTPClient,
         pending_instance_id_endpoint: str,
@@ -198,14 +198,15 @@ class AssetCentricMigrationIO(
         """Links asset-centric resources to their (uncreated) instances using the pending-instance-ids endpoint."""
         config = http_client.config
         successful_linked: set[str] = set()
-        for batch in chunker_sequence(data_chunk, cls.CHUNK_SIZE):
+        failure_issues: list[WriteIssue] = []
+        for batch in chunker_sequence(data_chunk, self.CHUNK_SIZE):
             batch_results = http_client.request_items_retries(
                 message=ItemsRequest(
                     endpoint_url=config.create_api_url(pending_instance_id_endpoint),
                     method="POST",
                     api_version="alpha",
                     items=[
-                        UploadItem(source_id=item.source_id, item=cls.as_pending_instance_id(item.item))
+                        UploadItem(source_id=item.source_id, item=self.as_pending_instance_id(item.item))
                         for item in batch
                     ],
                 )
@@ -213,6 +214,20 @@ class AssetCentricMigrationIO(
             for res in batch_results:
                 if isinstance(res, ItemsSuccessResponse):
                     successful_linked.update(res.ids)
+                    continue
+                for id in res.ids:
+                    self.logger.tracker.finalize_item(id, "failure")
+                    failure_issues.append(
+                        WriteIssue(
+                            id=id,
+                            status_code=res.status_code if isinstance(res, ItemsFailedResponse) else -1,
+                            message=res.error_message
+                            if isinstance(res, ItemsFailedResponse | ItemsFailedRequest)
+                            else "<unknown>",
+                        )
+                    )
+        if failure_issues:
+            self.logger.log(failure_issues)
         to_upload = [item for item in data_chunk if item.source_id in successful_linked]
         return to_upload
 
@@ -294,7 +309,7 @@ class AnnotationMigrationIO(
             raise ToolkitValueError("Instance space must be provided for dataset-based annotation migration.")
         asset_centric_selector = selector.as_asset_centric_selector()
         for data_chunk in self.annotation_io.stream_data(asset_centric_selector, limit):
-            mapping_list = AssetCentricMappingList[AnnotationResponse]([])
+            mapping_list: list[AssetCentricMapping[AnnotationResponse]] = []
             for resource in data_chunk.items:
                 if resource.annotation_type not in self.SUPPORTED_ANNOTATION_TYPES:
                     # This should not happen, as the annotation_io should already filter these out.

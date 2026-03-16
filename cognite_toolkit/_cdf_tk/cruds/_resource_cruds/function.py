@@ -707,10 +707,15 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
             external_ids = [parent_id.external_id for parent_id in parent_ids if isinstance(parent_id, ExternalId)]
             if not external_ids:
                 return
-            internal_ids = self.client.lookup.functions.id(external_ids)
-            for function_id in internal_ids:
+            _ = self.client.lookup.functions.id(external_ids)
+            for external_id in external_ids:
+                function_id = self.client.lookup.functions.id(external_id)
+                if function_id is None:
+                    continue
                 for schedules in self.client.tool.functions.schedules.iterate(function_id=function_id, limit=None):
-                    yield from schedules
+                    for schedule in schedules:
+                        schedule.function_external_id = external_id
+                        yield schedule
 
     def sensitive_strings(self, item: FunctionScheduleRequest) -> Iterable[str]:
         id_ = self.get_id(item)

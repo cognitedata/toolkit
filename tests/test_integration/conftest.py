@@ -43,11 +43,17 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.http_client import HTTPResult, RequestMessage, SuccessResponse
-from cognite_toolkit._cdf_tk.client.identifiers import RawDatabaseId, RawTableId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawDatabaseId, RawTableId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, SpaceRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.raw import (
     RAWDatabaseRequest,
     RAWTableRequest,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
+    StreamRequest,
+    StreamRequestSettings,
+    StreamResponse,
+    StreamTemplate,
 )
 from cognite_toolkit._cdf_tk.commands import CollectCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
@@ -77,6 +83,7 @@ from tests.test_integration.constants import (
     TIMESERIES_DATASET,
     TIMESERIES_TABLE,
     TIMESERIES_TRANSFORMATION,
+    TOOLKIT_TEST_STREAM,
 )
 
 THIS_FOLDER = Path(__file__).resolve().parent
@@ -138,6 +145,23 @@ def env_vars(toolkit_client: ToolkitClient) -> EnvironmentVariables:
 @pytest.fixture(scope="session")
 def toolkit_space(cognite_client: CogniteClient) -> Space:
     return cognite_client.data_modeling.spaces.apply(SpaceApply(space="toolkit_test_space"))
+
+
+@pytest.fixture(scope="session")
+def toolkit_stream(toolkit_client: ToolkitClient) -> StreamResponse:
+    """BasicLiveData stream, created if it doesn't exist."""
+    retrieved = toolkit_client.streams.retrieve([ExternalId(external_id=TOOLKIT_TEST_STREAM)], ignore_unknown_ids=True)
+    if retrieved:
+        return retrieved[0]
+    created = toolkit_client.streams.create(
+        [
+            StreamRequest(
+                external_id=TOOLKIT_TEST_STREAM,
+                settings=StreamRequestSettings(template=StreamTemplate(name="BasicLiveData")),
+            )
+        ]
+    )
+    return created[0]
 
 
 @pytest.fixture(scope="session")

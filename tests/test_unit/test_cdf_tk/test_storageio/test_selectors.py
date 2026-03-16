@@ -35,6 +35,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     FileIdentifierSelector,
     FileMetadataTemplateSelector,
     InstanceFileSelector,
+    InstanceQuerySelector,
     InstanceSpaceSelector,
     InstanceViewSelector,
     RawTableSelector,
@@ -313,6 +314,19 @@ def example_selector_data() -> Iterable[tuple]:
         None,
         "3D",
         id="ThreeDModelIdSelector",
+    )
+    yield pytest.param(
+        {
+            "type": "instanceQuery",
+            "kind": "Instances",
+            "query": '{"with_":{"nodes":{"limit":1}}}',
+            "root": "nodes",
+            "subselections": [],
+        },
+        InstanceQuerySelector,
+        InstanceIO,
+        InstanceIO.KIND,
+        id="InstanceQuerySelector",
     )
 
 

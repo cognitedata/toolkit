@@ -38,6 +38,7 @@ from .api.search_config import SearchConfigurationsAPI
 from .api.security_categories import SecurityCategoriesAPI
 from .api.sequences import SequencesAPI
 from .api.signal_sinks import SignalSinksAPI
+from .api.signal_subscriptions import SignalSubscriptionsAPI
 from .api.simulators import SimulatorsAPI
 from .api.spaces import SpacesAPI
 from .api.streamlit_ import StreamlitAPI
@@ -92,6 +93,7 @@ class ToolAPI:
         self.workflows = WorkflowsAPI(http_client)
         self.data_products = DataProductsAPI(http_client)
         self.signal_sinks = SignalSinksAPI(http_client)
+        self.signal_subscriptions = SignalSubscriptionsAPI(http_client)
         self.streamlit = StreamlitAPI(http_client)
 
 
@@ -110,7 +112,7 @@ class ToolkitClient(CogniteClient):
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self, self.console)
         self.canvas = IndustrialCanvasAPI(http_client)
-        self.migration = MigrationAPI(self.data_modeling.instances, http_client)
+        self.migration = MigrationAPI(self.tool.instances, http_client)
         self.token = TokenAPI(self)
         self.charts = ChartsAPI(http_client)
         self.project = ProjectAPI(http_client)

@@ -1,6 +1,6 @@
 import time
 from collections import defaultdict
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any, cast
 from unittest.mock import MagicMock, patch
@@ -15,7 +15,7 @@ from pytest_regressions.data_regression import DataRegressionFixture
 from cognite_toolkit._cdf_tk.apps._migrate_app import MigrateApp
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
-from cognite_toolkit._cdf_tk.client.identifiers import NodeId, SpaceId, ViewId
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceId, NodeId, SpaceId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
     FeatureConfiguration,
@@ -33,7 +33,9 @@ from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMet
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import DataStorage, InFieldCDMLocationConfigRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesRequest
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import INSTANCE_SOURCE_VIEW_ID
-from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import create_infield_data_mappings
+from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
+    create_infield_data_mappings,
+)
 from cognite_toolkit._cdf_tk.cruds import ViewCRUD
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonReader
@@ -216,26 +218,50 @@ def infield_legacy(
     # These are technically not migrated, but it is the simplest way is to create CogniteTimeSeries/CogniteFile
     # and update the classic with the externalId.from
     timeseries_updates: list[TimeSeriesUpdate] = []
+    timeseries_nodes_ids: list[InstanceId] = []
     for ts in timeseries:
         external_id = cast(str, ts.external_id)
+        node_id = dm.NodeId(space=target_space.space, external_id=external_id)
         ts_update = TimeSeriesUpdate(
-            instance_id=dm.NodeId(space=target_space.space, external_id=external_id),
+            instance_id=node_id,
         ).external_id.set(external_id)
         timeseries_updates.append(ts_update)
+        timeseries_nodes_ids.append(InstanceId(instance_id=NodeId(space=target_space.space, external_id=external_id)))
     file_updates: list[FileMetadataUpdate] = []
+    file_nodes_ids: list[InstanceId] = []
     for file in files:
         external_id = cast(str, file.external_id)
         file_update = FileMetadataUpdate(
             instance_id=dm.NodeId(space=target_space.space, external_id=external_id),
         ).external_id.set(external_id)
         file_updates.append(file_update)
+        file_nodes_ids.append(InstanceId(instance_id=NodeId(space=target_space.space, external_id=external_id)))
+
+    # Ensure that the syncer has created the timeseries and files before updating.
+    wait_for_resources(
+        lambda: client.tool.timeseries.retrieve(timeseries_nodes_ids, ignore_unknown_ids=False), "timeseries"
+    )
     _ = client.time_series.update(timeseries_updates)
+    wait_for_resources(
+        lambda: client.tool.filemetadata.retrieve(file_nodes_ids, ignore_unknown_ids=False), "filemetadata"
+    )
     _ = client.files.update(file_updates)
 
     yield instances
 
     # Cleanup
     client.tool.instances.delete([item.as_id() for item in instances])
+
+
+def wait_for_resources(api_call: Callable[[], Any], resource_name: str, timeout: float = 30) -> None:
+    end_time = time.time() + timeout
+    while time.time() < end_time:
+        try:
+            _ = api_call()
+            return  # Success
+        except ToolkitAPIError:
+            time.sleep(1)
+    raise AssertionError(f"Timed out waiting for {resource_name} to be synced.")
 
 
 class TestMigrateInfield:

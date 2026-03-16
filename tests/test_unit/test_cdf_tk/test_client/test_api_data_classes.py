@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
     SimulatorRoutineRevisionRequest,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from tests.test_unit.test_cdf_tk.test_client.data import (
     CDFResource,
@@ -396,18 +396,40 @@ class TestSimulatorRoutineRevision:
 
 
 class TestDataSetRequest:
-    def test_read_non_string_metadata(self) -> None:
-        data = {
-            "externalId": "dataset_1",
-            "name": "Dataset 1",
-            "metadata": {"archived": True},  # Non-string value
-        }
-        dataset_request = DataSetRequest.model_validate(data)
-        assert dataset_request.dump() == {
-            "externalId": "dataset_1",
-            "name": "Dataset 1",
-            "metadata": {"archived": "True"},
-        }
+    @pytest.mark.parametrize(
+        "data,expected",
+        [
+            pytest.param(
+                {
+                    "externalId": "dataset_1",
+                    "name": "Dataset 1",
+                    "metadata": {"archived": True},  # Non-string value
+                },
+                {
+                    "externalId": "dataset_1",
+                    "name": "Dataset 1",
+                    # In addition, we need it to be lowercased.
+                    "metadata": {"archived": "true"},
+                },
+                id="read non string metadata",
+            ),
+            pytest.param(
+                {
+                    "externalId": "dataset_1",
+                    "name": "Dataset 1",
+                    "metadata": None,
+                },
+                {
+                    "externalId": "dataset_1",
+                    "name": "Dataset 1",
+                    "metadata": None,
+                },
+                id="read metadata None",
+            ),
+        ],
+    )
+    def test_read_non_string_metadata(self, data: dict[str, Any], expected: dict[str, Any]) -> None:
+        assert DataSetRequest.model_validate(data).dump() == expected
 
 
 class TestGetAnnotationOrigin:
@@ -482,8 +504,8 @@ class TestNodeRequest:
         assert my_node_request.type == my_node_type
 
 
-class TestStreamsRequest:
-    def test_stream_with_unknown_template(self) -> None:
+class TestStreams:
+    def test_stream_request_with_unknown_template(self) -> None:
         data = {
             "externalId": "stream_1",
             "settings": {
@@ -495,3 +517,13 @@ class TestStreamsRequest:
         }
         stream_request = StreamRequest.model_validate(data)
         assert stream_request.dump() == data
+
+    def test_stream_response_with_unknown_template(self) -> None:
+        data = {
+            "externalId": "stream_1",
+            "createdFromTemplate": "unknown_template",
+            "type": "Mutable",
+            "createdTime": 1731844296876,
+        }
+        stream_response = StreamResponse.model_validate(data)
+        assert stream_response.dump() == data

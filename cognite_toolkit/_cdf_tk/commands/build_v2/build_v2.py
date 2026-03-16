@@ -1,6 +1,7 @@
 import os
 import sys
 from collections.abc import Iterable, Sequence
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,7 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2._module_source_parser import ModuleSourceParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     BuildFolder,
+    BuildLineage,
     BuildParameters,
     BuildSourceFiles,
     BuiltModule,
@@ -26,6 +28,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
+    InsightList,
     ModelSyntaxError,
     Recommendation,
 )
@@ -55,6 +58,9 @@ class BuildV2Command(ToolkitCommand):
     def build(self, parameters: BuildParameters, client: ToolkitClient | None = None) -> BuildFolder:
         console = client.console if client else Console()
 
+        # Track build duration
+        build_start_time = datetime.now(timezone.utc)
+
         self._validate_build_parameters(parameters, console, sys.argv)
         build_files = self._read_file_system(parameters)
         module_sources = self._parse_module_sources(build_files)
@@ -68,7 +74,10 @@ class BuildV2Command(ToolkitCommand):
         # Neat is done inside the global validation.
         self._global_validation(build_folder, client)
 
-        self._write_results(build_folder)
+        # Calculate build duration
+        build_duration_seconds = round((datetime.now(timezone.utc) - build_start_time).total_seconds(), 2)
+
+        self._write_results(parameters, build_folder, build_start_time, build_duration_seconds)
         return build_folder
 
     @classmethod
@@ -253,7 +262,7 @@ class BuildV2Command(ToolkitCommand):
             if module.is_success:
                 self._local_validation(module)
 
-                built_module.built_files = self._export_module(module, build_dir)
+                built_module.built_files_by_source = self._export_module(module, build_dir)
                 built_module.built_resources_identifiers = [
                     resource.resource.as_id()
                     for resource in module.resources
@@ -276,12 +285,11 @@ class BuildV2Command(ToolkitCommand):
             if not crud_classes:
                 # This is handled in the module parsing phase.
                 continue
-            class_by_kind = {crud_class.kind: crud_class for crud_class in crud_classes}
+            class_by_kind = {crud_class.kind.lower(): crud_class for crud_class in crud_classes}
             for resource_file in resource_files:
                 resources.extend(
                     self._import_resource_file(resource_file, class_by_kind, source.variables, resource_folder)
                 )
-
         return Module(source=source, resources=resources)
 
     def _import_resource_file(
@@ -300,10 +308,10 @@ class BuildV2Command(ToolkitCommand):
             #   for example transformation schedules.
             return []
         kind = resource_file.stem.rsplit(".", maxsplit=1)[-1]
-        crud_class = class_by_kind.get(kind)
+        crud_class = class_by_kind.get(kind.lower())
         if not crud_class:
             error = self._create_failed_read_resource_for_invalid_kind(
-                resource_file, kind, folder_name, class_by_kind.keys()
+                resource_file, kind, folder_name, [c.kind for c in class_by_kind.values()]
             )
             return [FailedReadResource(source_path=resource_file, errors=[error])]
         error_or_string = self._read_resource_file(resource_file)
@@ -334,7 +342,7 @@ class BuildV2Command(ToolkitCommand):
                         resource=resource,
                         source_hash=file_hash,
                         resource_type=resource_type,
-                        insights=recommendations,
+                        insights=InsightList(recommendations),
                     )
                 )
         return resources
@@ -428,22 +436,22 @@ class BuildV2Command(ToolkitCommand):
             fix="Make sure the resource YAML content is valid and follows the expected structure.",
         )
 
-    def _export_module(self, module: Module, build_dir: Path) -> list[Path]:
+    def _export_module(self, module: Module, build_dir: Path) -> dict[Path, Path]:
         build_dir.mkdir(parents=True, exist_ok=True)
 
-        built_files: list[Path] = []
+        built_files: dict[Path, Path] = {}
         for resource in module.resources:
             if not isinstance(resource, SuccessfulReadResource):
                 continue
             folder = build_dir / resource.resource_type.resource_folder
             folder.mkdir(parents=True, exist_ok=True)
-            resource_file = (
+            built_file = (
                 folder
                 / f"resource_{sanitize_filename(str(resource.resource.as_id()))}.{resource.resource_type.kind}.yaml"
             )
             # Todo Move into Toolkit resource.
-            safe_write(resource_file, yaml_safe_dump(resource.resource.model_dump(by_alias=True, exclude_unset=True)))
-            built_files.append(resource_file)
+            safe_write(built_file, yaml_safe_dump(resource.resource.model_dump(by_alias=True, exclude_unset=True)))
+            built_files[built_file] = resource.source_path
 
         # Todo: Store source path, source hash, ID, and so on for build_linage
         return built_files
@@ -492,10 +500,10 @@ class BuildV2Command(ToolkitCommand):
 
         # Can be parallelized if needed
         for built_module in build_folder.built_modules:
-            if not built_module.is_success:
+            if not built_module.files_built:
                 continue
 
-            if files_by_resource_type := built_module.resource_by_type.get(DataModelCRUD.folder_name):
+            if files_by_resource_type := built_module.resource_by_type_by_kind.get(DataModelCRUD.folder_name):
                 if NeatPlugin.installed() and client and DataModelCRUD.kind in files_by_resource_type:
                     neat = NeatPlugin(client)
                     for data_model_file in files_by_resource_type[DataModelCRUD.kind]:
@@ -503,5 +511,25 @@ class BuildV2Command(ToolkitCommand):
                             if insight not in built_module.insights:
                                 built_module.insights.append(insight)
 
-    def _write_results(self, build_folder: BuildFolder) -> None:
-        return None
+    def _write_results(
+        self,
+        parameters: BuildParameters,
+        build_folder: BuildFolder,
+        timestamp: datetime | None = None,
+        duration: float | None = None,
+    ) -> None:
+        """Write build results including lineage information and insights to the build folder."""
+
+        insight_file = build_folder.path / "insights.csv"
+        insight_file.parent.mkdir(parents=True, exist_ok=True)
+
+        insight_file_content = build_folder.insights.to_csv()
+        if insight_file_content.strip():
+            safe_write(insight_file, insight_file_content)
+
+        lineage_file = build_folder.path / "lineage.yaml"
+        lineage_file.parent.mkdir(parents=True, exist_ok=True)
+        lineage = BuildLineage.from_build_parameters_and_results(
+            parameters, build_folder, timestamp, duration
+        ).to_yaml()
+        safe_write(lineage_file, lineage)

@@ -1,5 +1,7 @@
 from typing import ClassVar
 
+from pydantic import field_validator
+
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
     ResponseResource,
@@ -15,6 +17,12 @@ class DataSet(BaseModelObject):
     description: str | None = None
     metadata: Metadata | None = None
     write_protected: bool | None = None
+
+    @field_validator("metadata", mode="after")
+    def lower_case_bools(cls, value: Metadata) -> Metadata:
+        if isinstance(value, dict):
+            return {k: (v.lower() if v.lower() in {"true", "false"} else v) for k, v in value.items()}
+        return value
 
     def as_id(self) -> ExternalId:
         if self.external_id is None:

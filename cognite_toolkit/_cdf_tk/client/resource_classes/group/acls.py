@@ -7,7 +7,7 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BeforeValidator, Field, JsonValue, TypeAdapter, model_serializer, model_validator
+from pydantic import BeforeValidator, Field, TypeAdapter, model_serializer, model_validator
 from pydantic_core.core_schema import FieldSerializationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
@@ -144,6 +144,14 @@ class DataModelsAcl(Acl):
     acl_name: Literal["dataModelsAcl"] = Field("dataModelsAcl", exclude=True)
     actions: Sequence[Literal["READ", "WRITE"]]
     scope: AllScope | SpaceIDScope
+
+
+class DataProductsAcl(Acl):
+    """ACL for Data Products resources."""
+
+    acl_name: Literal["dataProductsAcl"] = Field("dataProductsAcl", exclude=True)
+    actions: Sequence[Literal["CREATE", "READ", "UPDATE", "DELETE"]]
+    scope: AllScope
 
 
 class DataSetsAcl(Acl):
@@ -570,12 +578,10 @@ class SubscribeSignalsAcl(Acl):
     scope: AllScope | CurrentUserScope
 
 
-class UnknownAcl(BaseModelObject):
+class UnknownAcl(Acl):
     """Fallback for unknown ACL types."""
 
     acl_name: str = Field("unknownAcl", exclude=True)
-    actions: Sequence[str]
-    scope: dict[str, JsonValue]
 
 
 def _get_acl_name(cls: type[Acl]) -> str | None:
@@ -611,8 +617,10 @@ AclType: TypeAlias = Annotated[
         | AppConfigAcl
         | AssetsAcl
         | AuditlogAcl
+        | ChartsAdminAcl
         | DataModelInstancesAcl
         | DataModelsAcl
+        | DataProductsAcl
         | DataSetsAcl
         | DiagramParsingAcl
         | DigitalTwinAcl

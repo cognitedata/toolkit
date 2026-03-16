@@ -1,14 +1,16 @@
+import json
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
-from typing import Generic, Literal, cast
+from typing import Any, ClassVar, Generic, Literal, cast
 from uuid import uuid4
 
 from cognite.client import data_modeling as dm
 from cognite.client.exceptions import CogniteException
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, InstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     ContainerReferenceItem,
     FdmInstanceContainerReferenceItem,
@@ -22,6 +24,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartTimeseries,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    DirectNodeRelation,
     EdgeRequest,
     EdgeResponse,
     InstanceRequest,
@@ -30,9 +33,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     NodeId,
     NodeRequest,
     NodeResponse,
+    ViewCorePropertyResponse,
     ViewId,
     ViewResponse,
+    ViewResponseProperty,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope
+from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdminAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     RESOURCE_VIEW_MAPPING_SPACE,
     ResourceViewMappingRequest,
@@ -46,15 +53,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
+    ConversionContext,
+    CustomContainerPropertiesMapping,
     DirectRelationCache,
     EdgeOtherSide,
-    InstanceToInstanceSpecialMapping,
     asset_centric_to_dm,
     convert_container_properties,
     convert_edges,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
-    Model,
     ThreeDMigrationRequest,
     ThreeDRevisionMigrationRequest,
 )
@@ -74,10 +81,10 @@ from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, NoOpLogger
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasSelector,
     ChartSelector,
-    InstanceViewSelector,
+    InstanceSelector,
     ThreeDSelector,
 )
-from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection
 from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
 
 from .data_classes import AssetCentricMapping
@@ -219,6 +226,12 @@ class AssetCentricMapper(
 
 
 class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
+    def prepare(self, source_selector: ChartSelector) -> None:
+        if missing_acl := self.client.tool.token.verify_acls(
+            [ChartsAdminAcl(actions=["READ", "UPDATE"], scope=AllScope())]
+        ):
+            raise self.client.tool.token.create_error(missing_acl, action="migrate charts")
+
     def map(self, source: Sequence[ChartResponse]) -> Sequence[ChartRequest | None]:
         self._populate_cache(source)
         output: list[ChartRequest | None] = []
@@ -575,7 +588,7 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeD
                 space=instance_space,
                 type=model_type,
                 revision_id=last_revision_id,
-                model=Model(
+                model=InstanceId(
                     instance_id=NodeId(
                         space=instance_space,
                         external_id=f"cog_3d_model_{item.id!s}",
@@ -653,7 +666,7 @@ class ThreeDAssetMapper(DataMapper[ThreeDSelector, AssetMappingClassicResponse, 
         return mapped_request, issue
 
 
-class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, InstanceRequest]):
+class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequest]):
     """This mapper maps instances to instances accounting for the difference between older data models
     (back when they were called Flexible Data Models) and newer data models (backed by Cognite Core Data Model).
 
@@ -663,22 +676,38 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
     - Supports converting timeseries/files references to direct relation pointing to the CogniteTimeSeries/CogniteFile
         views.
 
+    Args:
+        client: The ToolkitClient to use for lookups and caching.
+        mappings: A sequence of ViewToViewMappings defining how to map source views to target views and how to convert properties and edges.
+        connection_creator: A ConnectionCreator instance to handle the creation of connections
+            (edges and direct/reverse direct relations) based on the provided mappings.
+        custom_properties_mappings: Optional sequence of ContainerPropertiesMappings defining special cases for mapping container
+            properties that cannot be handled by the general ViewToViewMappings.
+        custom_instance_mappings: Optional mapping of view IDs to custom DataMappers for handling special cases of
+        instance mapping that cannot be handled by the general ViewToViewMappings and ConnectionCreator.
+
     """
 
     def __init__(
         self,
         client: ToolkitClient,
-        space_mapping: Mapping[str, str],
         mappings: Sequence[ViewToViewMapping],
-        special_cases: Sequence[InstanceToInstanceSpecialMapping] | None = None,
+        connection_creator: ConnectionCreator,
+        custom_properties_mappings: Sequence[CustomContainerPropertiesMapping] | None = None,
+        custom_instance_mappings: Mapping[ViewId, DataMapper[InstanceSelector, InstanceResponse, InstanceRequest]]
+        | None = None,
     ) -> None:
         super().__init__(client)
-        self._connection_creator = ConnectionCreator(client, space_mapping, special_cases)
+        self._connection_creator = connection_creator
         self._mappings_by_source_view: dict[ViewId, ViewToViewMapping] = {
             mapping.source_view: mapping for mapping in mappings
         }
+        self._custom_properties_mapping: dict[ViewId, CustomContainerPropertiesMapping] = {
+            view_id: mapping for mapping in (custom_properties_mappings or []) for view_id in mapping.VIEW_IDS
+        }
+        self._custom_instance_mappings = custom_instance_mappings
 
-    def prepare(self, source_selector: InstanceViewSelector) -> None:
+    def prepare(self, source_selector: InstanceSelector) -> None:
         view_ids = set(mapping.source_view for mapping in self._mappings_by_source_view.values()) | set(
             mapping.destination_view for mapping in self._mappings_by_source_view.values()
         )
@@ -686,6 +715,18 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         self._connection_creator.update_view_cache(views)
 
     def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
+        if self._custom_instance_mappings and (
+            intersecting_view_ids := (self._get_view_ids(source) & set(self._custom_instance_mappings))
+        ):
+            if len(intersecting_view_ids) == 1:
+                intersection_view_id = next(iter(intersecting_view_ids))
+                return self._custom_instance_mappings[intersection_view_id].map(source)
+            else:
+                # This is caused by the selector used to download the instance responses not matching the expectation in
+                # the mapper.
+                raise NotImplementedError(
+                    "Bug in Toolkit: There should be at most one intersecting view when using custom mapping of instances."
+                )
         self._connection_creator.update_cache(source)
         nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)
         mapped_instances: list[InstanceRequest | None] = []
@@ -710,6 +751,14 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         if issue_list:
             self.logger.log(issue_list)
         return mapped_instances
+
+    def _get_view_ids(self, source: Sequence[InstanceResponse]) -> set[ViewId]:
+        return {
+            view_or_container_id
+            for item in source
+            for view_or_container_id in (item.properties or {}).keys()
+            if isinstance(view_or_container_id, ViewId)
+        }
 
     def _as_nodes_and_edges(
         self, source: Sequence[NodeResponse | EdgeResponse]
@@ -758,25 +807,10 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
         sources: list[InstanceSource] = []
         new_edges: list[EdgeRequest] = []
         issue = InstanceConversionIssue(id=str(new_id))
-        for view_id, source_properties in (node.properties or {}).items():
-            if not isinstance(view_id, ViewId):
-                issue.errors.append(
-                    f"Migration of ContainerReferenced properties is not supported. Found property with non-view ID '{view_id}' on node '{node.as_id()}'."
-                )
+        for view_or_container_id, source_properties in (node.properties or {}).items():
+            if not (context := self._create_context(view_or_container_id, issue, node.as_id(), new_id)):
                 continue
-            mapping = self._mappings_by_source_view.get(view_id)
-            if mapping is None:
-                issue.errors.append(f"No mapping found for view '{view_id}'")
-                continue
-            destination_view = self._connection_creator.view_by_id.get(mapping.destination_view)
-            if destination_view is None:
-                issue.errors.append(
-                    f"Invalid mapping {mapping.external_id}': destination view {mapping.destination_view} not found."
-                )
-                continue
-            if view_id not in self._connection_creator.view_by_id:
-                issue.errors.append(f"Invalid mapping {mapping.external_id}': source view {view_id} not found.")
-                continue
+
             source_properties.update(
                 {
                     "node.createdTime": node.created_time,
@@ -784,27 +818,330 @@ class FDMtoCDMMapper(DataMapper[InstanceViewSelector, InstanceResponse, Instance
                     "node.version": node.version,
                 }
             )
-            container_results = convert_container_properties(
-                source_properties, mapping, destination_view.properties, self._connection_creator, view_id, new_id
-            )
-            issue.errors.extend(container_results.errors)
-            edge_results = convert_edges(
-                other_side_by_edge_type_and_direction,
-                mapping,
-                destination_view.properties,
-                new_id,
-                self._connection_creator,
-            )
-            issue.errors.extend(edge_results.errors)
+            special_properties: dict[str, JsonValue] = {}
+            if context.mapping.source_view in self._custom_properties_mapping:
+                special_results = self._custom_properties_mapping[context.mapping.source_view].convert(
+                    source_properties, context
+                )
+                issue.errors.extend(special_results.errors)
+                new_edges.extend(special_results.edges)
+                special_properties = special_results.container_properties
 
-            # Todo: Merge conflicting?
-            created_container_properties = {
-                **container_results.container_properties,
-                **edge_results.container_properties,
-            }
-            if created_container_properties:
-                sources.append(InstanceSource(source=destination_view.as_id(), properties=created_container_properties))
+            container_results = convert_container_properties(source_properties, context)
+            edge_results = convert_edges(other_side_by_edge_type_and_direction, context)
+            issue.errors.extend(container_results.errors)
+            issue.errors.extend(edge_results.errors)
             new_edges.extend(container_results.edges)
             new_edges.extend(edge_results.edges)
 
+            if overwritten := set(container_results.container_properties) & set(edge_results.container_properties):
+                issue.errors.append(
+                    f"Conflicting mapping. When converting container properties and edge for view "
+                    f"'{context.mapping.source_view}' on node '{node.as_id()}' there were conflicting"
+                    " destination properties. The properties from the edge will be prioritized for the "
+                    f"conflicting properties: {humanize_collection(overwritten)}"
+                )
+
+            created_container_properties = {
+                **container_results.container_properties,
+                **edge_results.container_properties,
+                # We overwrite the special properties.
+                **special_properties,
+            }
+
+            if created_container_properties:
+                sources.append(
+                    InstanceSource(source=context.mapping.destination_view, properties=created_container_properties)
+                )
+
         return sources, new_edges, issue
+
+    def _create_context(
+        self,
+        view_or_container_id: ViewId | ContainerId,
+        issue: InstanceConversionIssue,
+        source_id: NodeId,
+        new_id: NodeId,
+    ) -> ConversionContext | None:
+        if not isinstance(view_or_container_id, ViewId):
+            issue.errors.append(
+                f"Migration of ContainerReferenced properties is not supported. Found property with non-view ID '{view_or_container_id}' on node '{source_id}'."
+            )
+            return None
+        mapping = self._mappings_by_source_view.get(view_or_container_id)
+        if mapping is None:
+            issue.errors.append(f"No mapping found for view '{view_or_container_id}'")
+            return None
+        destination_view = self._connection_creator.view_by_id.get(mapping.destination_view)
+        if destination_view is None:
+            issue.errors.append(
+                f"Invalid mapping {mapping.external_id}': destination view {mapping.destination_view} not found."
+            )
+            return None
+        if view_or_container_id not in self._connection_creator.view_by_id:
+            issue.errors.append(
+                f"View '{view_or_container_id}' not found in source data. This likely indicates that the view is missing from the cache. Did you forget to call .prepare()?"
+            )
+            return None
+
+        return ConversionContext(
+            mapping=mapping,
+            destination_properties=destination_view.properties,
+            connection_creator=self._connection_creator,
+            source_view_id=view_or_container_id,
+            new_id=new_id,
+        )
+
+
+class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequest]):
+    """This is a custom case for mapping InField legacy to InField on CDM.
+
+    In legacy, the schedules are modeled with edge connections as follows:
+
+    Template -> TemplateItem -> Schedule.
+
+    This leads to lots of duplicated schedules as it is often just two unique schedules for each template.
+
+    In the new CDM based model, the schedule is connected to the template and template item with direct relations
+    instead of edges.
+
+    Template <- Schedule.template
+    TemplateItems <- Schedule.templateItems (many).
+
+    This mapper assumes that the sequence of InstanceResponses are all schedules connected to a single template,
+    along with all the edges between the template and template items, as well as the template items and schedules.
+    Note there should be no template or template items in the source, only schedules and edges.
+
+    The mapper will then find all duplicated schedules based on their properties and use the edges to determine
+    which direct relations to add to the single unique schedule that is created for each set of duplicated schedules.
+
+    """
+
+    SCHEDULE_VIEW = ViewId(space="cdf_apm", external_id="Schedule", version="v4")
+    TEMPLATE_VIEW = ViewId(space="cdf_apm", external_id="Template", version="v8")
+    TEMPLATE_EDGE_TYPE = NodeId(space="cdf_apm", external_id="referenceTemplateItems")
+    TEMPLATE_ITEM_EDGE_TYPE = NodeId(space="cdf_apm", external_id="referenceSchedules")
+    UNIQUE_SCHEDULE_PROPERTIES: ClassVar[tuple[str, ...]] = (
+        "until",
+        "byMonth",
+        "byDay",
+        "interval",
+        "freq",
+        "exceptionDates",
+        "timezone",
+        "startTime",
+        "endTime",
+    )
+
+    def __init__(
+        self, client: ToolkitClient, connection_creator: ConnectionCreator, mapping: ViewToViewMapping
+    ) -> None:
+        super().__init__(client)
+        self._connection_creator = connection_creator
+        self._mapping = mapping
+        if self._mapping.source_view != self.SCHEDULE_VIEW:
+            raise ValueError(
+                f"Invalid mapping for InFieldLegacyToCDMScheduleMapper. Expected source view {self.SCHEDULE_VIEW}, got {self._mapping.source_view}"
+            )
+
+    def prepare(self, source_selector: InstanceSelector) -> None:
+        # We need to have the view cache ready to be able to create the direct relations.
+        retrieved = self.client.tool.views.retrieve([self._mapping.destination_view])
+        self._connection_creator.update_view_cache(retrieved)
+
+    def map(self, source: Sequence[InstanceResponse]) -> Sequence[InstanceRequest | None]:
+        schedules, template_edges, template_id_edges, issues = self._as_schedules_and_edges(source)
+        output: list[InstanceRequest | None] = []
+        for duplicated_schedules in schedules.values():
+            # Sort for deterministic output.
+            duplicated_schedules.sort(key=lambda item: item.external_id)
+            mapped_item, issue = self._create_single_schedule(duplicated_schedules, template_edges, template_id_edges)
+            if issue.has_issues:
+                issues.append(issue)
+            if mapped_item is None:
+                self.logger.tracker.finalize_item(str(duplicated_schedules[0].as_id()), "failure")
+            output.append(mapped_item)
+        if issues:
+            self.logger.log(issues)
+        return output
+
+    def _as_schedules_and_edges(
+        self, source: Sequence[InstanceResponse]
+    ) -> tuple[
+        dict[str, list[NodeResponse]],
+        dict[NodeId, list[EdgeOtherSide]],
+        dict[NodeId, list[EdgeOtherSide]],
+        list[InstanceConversionIssue],
+    ]:
+        schedules: dict[str, list[NodeResponse]] = defaultdict(list)
+        template_edges_by_item_id: dict[NodeId, list[EdgeOtherSide]] = defaultdict(list)
+        template_item_edges_by_schedule_id: dict[NodeId, list[EdgeOtherSide]] = defaultdict(list)
+        issues: list[InstanceConversionIssue] = []
+        for item in source:
+            if isinstance(item, NodeResponse):
+                item_properties = item.properties or {}
+                if schedule_properties := item_properties.get(self.SCHEDULE_VIEW):
+                    schedule_hash = self._calculate_schedule_hash(schedule_properties)
+                    schedules[schedule_hash].append(item)
+                elif self.TEMPLATE_VIEW in item_properties:
+                    # The template nodes are included to do pagination correctly (one page per template),
+                    # but we do not need the templates, so we can safely ignore them.
+                    continue
+                else:
+                    issues.append(
+                        InstanceConversionIssue(
+                            id=str(item.as_id()),
+                            errors=[
+                                f"Unexpected node with ID {item.as_id()} found in source that does not have the Schedule view."
+                            ],
+                        )
+                    )
+
+                    self.logger.tracker.finalize_item(str(item.as_id()), "failure")
+            elif isinstance(item, EdgeResponse):
+                if item.type == self.TEMPLATE_EDGE_TYPE:
+                    template_edges_by_item_id[item.end_node].append(
+                        EdgeOtherSide(edge_id=item.as_id(), other_side=item.start_node)
+                    )
+                elif item.type == self.TEMPLATE_ITEM_EDGE_TYPE:
+                    template_item_edges_by_schedule_id[item.end_node].append(
+                        EdgeOtherSide(edge_id=item.as_id(), other_side=item.start_node)
+                    )
+                else:
+                    issues.append(
+                        InstanceConversionIssue(
+                            id=str(item.as_id()),
+                            errors=[
+                                f"Unexpected edge with ID {item.as_id()} and type {item.type} found in source. Expected edge types are {self.TEMPLATE_EDGE_TYPE} and {self.TEMPLATE_ITEM_EDGE_TYPE}."
+                            ],
+                        )
+                    )
+                    self.logger.tracker.finalize_item(str(item.as_id()), "failure")
+        return schedules, template_edges_by_item_id, template_item_edges_by_schedule_id, issues
+
+    def _calculate_schedule_hash(self, properties: dict[str, JsonValue]) -> str:
+        relevant_properties: dict[str, Any] = {}
+        for key in self.UNIQUE_SCHEDULE_PROPERTIES:
+            value = properties.get(key)
+            if isinstance(value, list):
+                relevant_properties[key] = sorted([str(item) for item in value])
+            else:
+                relevant_properties[key] = str(value)
+        return calculate_hash(json.dumps(relevant_properties, sort_keys=True), shorten=True)
+
+    def _create_single_schedule(
+        self,
+        duplicated_schedules: list[NodeResponse],
+        template_edges_by_item_id: dict[NodeId, list[EdgeOtherSide]],
+        template_item_edges_by_schedule_id: dict[NodeId, list[EdgeOtherSide]],
+    ) -> tuple[InstanceRequest | None, InstanceConversionIssue]:
+        if not duplicated_schedules:
+            raise ValueError("At least one schedule is required to create a schedule mapping.")
+        first = duplicated_schedules[0]
+        issue = InstanceConversionIssue(id=str(first.as_id()))
+        try:
+            new_id = self._connection_creator.map_instance(first)
+        except KeyError as e:
+            issue.errors.append(f"Failed to map schedule with ID {first.as_id()}: {e!s}")
+            return None, issue
+        if self._mapping.destination_view not in self._connection_creator.view_by_id:
+            issue.errors.append(
+                f"Destination view '{self._mapping.destination_view}' not found in view cache. This likely indicates that the view is missing from the cache. Did you forget to call .prepare()?"
+            )
+            return None, issue
+        destination_view = self._connection_creator.view_by_id[self._mapping.destination_view]
+        source_properties = (first.properties or {}).get(self.SCHEDULE_VIEW, {})
+
+        context = ConversionContext(
+            mapping=self._mapping,
+            destination_properties=destination_view.properties,
+            connection_creator=self._connection_creator,
+            source_view_id=self._mapping.source_view,
+            new_id=new_id,
+        )
+        result = convert_container_properties(source_properties, context)
+        created_properties = result.container_properties
+
+        template_edges, template_item_edges = self._find_schedule_edges(
+            duplicated_schedules, template_edges_by_item_id, template_item_edges_by_schedule_id
+        )
+        template_and_template_item_properties = self._create_template_relations(
+            template_edges, template_item_edges, destination_view.properties, issue
+        )
+        created_properties.update(template_and_template_item_properties)
+
+        return NodeRequest(
+            space=new_id.space,
+            external_id=new_id.external_id,
+            sources=[InstanceSource(source=self._mapping.destination_view, properties=created_properties)],
+        ), issue
+
+    def _find_schedule_edges(
+        self,
+        duplicated_schedules: list[NodeResponse],
+        template_edges_by_item_id: dict[NodeId, list[EdgeOtherSide]],
+        template_item_edges_by_schedule_id: dict[NodeId, list[EdgeOtherSide]],
+    ) -> tuple[list[EdgeOtherSide], list[EdgeOtherSide]]:
+        template_item_edges: list[EdgeOtherSide] = []
+        template_edges: list[EdgeOtherSide] = []
+        for schedule in duplicated_schedules:
+            for template_item_edge in template_item_edges_by_schedule_id.get(schedule.as_id(), []):
+                template_item_edges.append(template_item_edge)
+                for template_edge in template_edges_by_item_id.get(template_item_edge.other_side, []):
+                    template_edges.append(template_edge)
+        return template_edges, template_item_edges
+
+    def _create_template_relations(
+        self,
+        template_edges: list[EdgeOtherSide],
+        template_item_edges: list[EdgeOtherSide],
+        destination_properties: dict[str, ViewResponseProperty],
+        issue: InstanceConversionIssue,
+    ) -> dict[str, JsonValue]:
+        created_properties: dict[str, JsonValue] = {}
+        if template_relation := self._create_direct_relation(
+            template_edges,
+            "template",
+            destination_properties,
+            EdgeTypeId(type=self.TEMPLATE_EDGE_TYPE, direction="inwards"),
+            issue,
+        ):
+            created_properties["template"] = template_relation
+        if template_item_relations := self._create_direct_relation(
+            template_item_edges,
+            "templateItems",
+            destination_properties,
+            EdgeTypeId(type=self.TEMPLATE_ITEM_EDGE_TYPE, direction="inwards"),
+            issue,
+        ):
+            created_properties["templateItems"] = template_item_relations
+        return created_properties
+
+    def _create_direct_relation(
+        self,
+        edges: list[EdgeOtherSide],
+        prop_id: str,
+        destination_properties: dict[str, ViewResponseProperty],
+        source_edge_type: EdgeTypeId,
+        issue: InstanceConversionIssue,
+    ) -> JsonValue | None:
+        if not edges:
+            return None
+        if isinstance(dm_prop := destination_properties.get(prop_id), ViewCorePropertyResponse) and isinstance(
+            dm_prop.type, DirectNodeRelation
+        ):
+            node_id, creation_issues = self._connection_creator.create_direct_relation_from_edges(
+                edges=edges,
+                dm_prop=dm_prop.type,
+                source_edge_type=source_edge_type,
+            )
+            issue.errors.extend(creation_issues)
+            if isinstance(node_id, NodeId):
+                return node_id.dump(include_instance_type=False)
+            elif isinstance(node_id, list):
+                return [n.dump(include_instance_type=False) for n in node_id]
+        else:
+            issue.errors.append(
+                f"Cannot create direct relation for property '{prop_id}' as it is not a DirectNodeRelation property in the destination view."
+            )
+        return None

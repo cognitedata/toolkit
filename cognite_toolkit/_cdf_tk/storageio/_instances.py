@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QuerySortSpec,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceRequestAdapter
+from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
@@ -39,6 +40,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from . import StorageIOConfig
 from ._base import ConfigurableStorageIO, Page, UploadableStorageIO
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector, SelectedView
+from .selectors._instances import InstanceQuerySelector
 
 
 class InstanceIO(
@@ -116,7 +118,7 @@ class InstanceIO(
     def _build_query_filter(selector: InstanceViewSelector, instance_type: Literal["node", "edge"]) -> dict[str, Any]:
         """Build a filter dict for the query endpoint from an InstanceViewSelector."""
         leaf_filters: list[dict[str, Any]] = [
-            {"hasData": [{**selector.view.as_id().dump(), "type": "view"}]},
+            {"hasData": [selector.view.as_id().dump(include_type=True)]},
         ]
         if selector.instance_spaces and len(selector.instance_spaces) == 1:
             leaf_filters.append(
@@ -166,6 +168,10 @@ class InstanceIO(
         elif isinstance(selector, InstanceFileSelector):
             for chunk in chunker_sequence(selector.ids, self.CHUNK_SIZE):
                 yield Page(worker_id="main", items=self.client.tool.instances.retrieve(chunk))
+        elif isinstance(selector, InstanceQuerySelector):
+            yield from self._instance_by_query(
+                QueryRequest.model_validate_json(selector.query), selector.root, list(selector.subselections), limit
+            )
         else:
             raise NotImplementedError()
 
@@ -176,8 +182,9 @@ class InstanceIO(
         view_id = selector.view.as_id()
         if not isinstance(view_id, ViewId):
             raise ToolkitValueError("ViewId is required for InstanceViewSelector")
+        root = "nodes"
         with_: dict[str, QueryNodeExpression | QueryEdgeExpression] = {
-            "nodes": QueryNodeExpression(
+            root: QueryNodeExpression(
                 limit=min(self.CHUNK_SIZE, limit) if limit is not None else self.CHUNK_SIZE,
                 nodes=QueryNodeTableExpression(filter=instance_filter),
                 # Sort to ensure performance. f you do not sort, you get the internal index,
@@ -186,14 +193,15 @@ class InstanceIO(
             )
         }
         select: dict[str, QuerySelect] = {
-            "nodes": QuerySelect(sources=[QuerySelectSource(source=view_id, properties=["*"])])
+            root: QuerySelect(sources=[QuerySelectSource(source=view_id, properties=["*"])])
         }
         edge_ids: list[str] = []
         for no, edge_type in enumerate(selector.edge_types or [], start=1):
             query_id = f"edge_{no}"
             with_[query_id] = QueryEdgeExpression(
+                limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
                 edges=QueryEdgeTableExpression(
-                    from_="nodes",
+                    from_=root,
                     chain_to="source" if edge_type.direction == "outwards" else "destination",
                     direction=edge_type.direction,
                     filter={
@@ -203,46 +211,50 @@ class InstanceIO(
                         }
                     },
                 ),
-                sort=[QuerySortSpec(property=["edge", "space"]), QuerySortSpec(property=["edge", "externalId"])],
             )
             edge_ids.append(query_id)
             select[query_id] = QuerySelect()
 
         query = QueryRequest(with_=with_, select=select)
+        yield from self._instance_by_query(query, root, edge_ids, limit)
+
+    def _instance_by_query(
+        self, query: QueryRequest, root_selection: str, sub_selections: list[str], limit: int | None
+    ) -> Iterable[Page]:
         total = 0
+        chunk_size = query.with_[root_selection].limit or self.CHUNK_SIZE
         while True:
-            response = self._exhaust_edge_queries(query, edge_ids)
-            nodes = response.items.get("nodes", [])
+            response = self._exhaust_sub_selections(query, root_selection, sub_selections)
+            nodes = response.items.get(root_selection, [])
             # De-duplicate edges across properties, as the same edge can be returned for multiple
             # properties if it connects two nodes that are in the result set.
-            edges: dict[NodeId | EdgeId, InstanceResponse] = {}
-            for prop_id in edge_ids:
+            sub_responses: dict[NodeId | EdgeId, InstanceResponse] = {}
+            for prop_id in sub_selections:
                 for edge in response.items.get(prop_id, []):
                     ref = edge.as_id()
-                    if ref not in edges:
-                        edges[ref] = edge
-            items = nodes + list(edges.values())
+                    if ref not in sub_responses:
+                        sub_responses[ref] = edge
+            items = nodes + list(sub_responses.values())
             total += len(nodes)
-            next_cursor = response.next_cursor.get("nodes")
+            next_cursor = response.next_cursor.get(root_selection)
             yield Page(worker_id="main", items=items, next_cursor=next_cursor)
             if next_cursor is None or (limit is not None and total >= limit) or not nodes:
                 break
-            page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
-            query.with_["nodes"].limit = page_limit
-            query.cursors = {"nodes": next_cursor}
+            page_limit = min(chunk_size, limit - total) if limit is not None else chunk_size
+            query.with_[root_selection].limit = page_limit
+            query.cursors = {root_selection: next_cursor}
 
-    def _exhaust_edge_queries(self, query: QueryRequest, edge_properties: list[str]) -> QueryResponseTyped:
-        """Exhausts the edge queries in the with_ clause of the query until all cursors are None.
-
-        This is necessary to ensure that we get all edges for the nodes in the result set, as edges can be returned
-        on multiple properties if they connect two nodes that are in the result set.
+    def _exhaust_sub_selections(
+        self, query: QueryRequest, root_selection: str, sub_selections: list[str]
+    ) -> QueryResponseTyped:
+        """Exhaust a query with sub-selections by following the cursors for the sub-selections until they are all exhausted.
 
         Args:
-            query: The query to execute.
-            edge_properties: The list of edge properties to exhaust.
+            query: The query to exhaust. It is assumed that the query has sub-selections with the ids in sub_selections.
+            sub_selections:  The ids of the sub-selections to exhaust.
 
         Returns:
-            The final QueryResponse with all edge queries exhausted.
+            A QueryResponseTyped with all items from the initial query and the sub-selections.
         """
         first: QueryResponseTyped | None = None
         while True:
@@ -250,22 +262,18 @@ class InstanceIO(
             if first is None:
                 first = response
             else:
-                for key, items in response.items.items():
-                    if key not in first.items:
-                        # In practice, this is unreachable. It is just in case.
-                        first.items[key] = items
-                    else:
-                        first.items[key].extend(items)
-            next_cursors: dict[str, str] = {}
-            for prop_id in edge_properties:
-                edge_cursor = response.next_cursor.get(prop_id)
-                if edge_cursor is not None:
-                    next_cursors[prop_id] = edge_cursor
+                for key in sub_selections:
+                    if key in response.items:
+                        first.items[key].extend(response.items[key])
+            next_cursors: dict[str, str | None] = {}
+            for prop_id in sub_selections:
+                sub_cursor = response.next_cursor.get(prop_id)
+                if sub_cursor is not None:
+                    next_cursors[prop_id] = sub_cursor
             if not next_cursors or not response.items:
                 return first
-            node_cursor = response.next_cursor.get("nodes")
-            if node_cursor is not None:
-                next_cursors["nodes"] = node_cursor
+            # Keep the root cursor to iterate over all subitems.
+            next_cursors[root_selection] = (query.cursors or {}).get(root_selection)
             query = query.model_copy(update={"cursors": next_cursors})
 
     def _instances_with_container_properties(
@@ -326,6 +334,8 @@ class InstanceIO(
             raise ValueError(f"Unknown instance type {selector.instance_type!r}")
         elif isinstance(selector, InstanceFileSelector):
             return len(selector.items)
+        elif isinstance(selector, InstanceQuerySelector):
+            return None
         raise NotImplementedError()
 
     def data_to_json_chunk(

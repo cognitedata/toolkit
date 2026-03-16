@@ -51,7 +51,12 @@ instances:
         freq: DAILY
         interval: '1'
         startTime: '2025-02-20T08:30:00+00:00'
-        templateItems: []
+        template:
+          externalId: 87f1ce17-c510-4359-9bbe-2ec7477b2cfe
+          space: smoke_infield_migration_target_space
+        templateItems:
+        - externalId: 0083e7c3-946f-4d5d-958b-133963108ad9
+          space: smoke_infield_migration_target_space
         timezone: Asia/Colombo
   space: smoke_infield_migration_target_space
 - createdTime: 1772711570808
@@ -201,6 +206,6 @@ instances:
         source:
           externalId: -3Z4iakG1YSFRAfVlazYMA
           space: smoke_infield_migration_target_space
-        sourceView: cdf_apm/ChecklistItem/v7
+        sourceView: infield_cdm_source_desc_sche_asset_file_ts/ChecklistItem/v1
         value: Not applicable
   space: smoke_infield_migration_target_space

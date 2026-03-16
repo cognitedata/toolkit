@@ -20,12 +20,13 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RawTableId
-from cognite_toolkit._cdf_tk.client.request_classes.filters import DataModelFilter, ViewFilter
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ContainerFilter, DataModelFilter, ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import IndustrialCanvasResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse, Visibility
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerId,
+    ContainerResponse,
     DataModelId,
     DataModelResponse,
     DataModelResponseWithViews,
@@ -34,7 +35,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope
+from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdminAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
@@ -383,6 +387,8 @@ class InteractiveChartSelect:
         questionary.Choice(title="Selected public Charts", value=ChartFilter(visibility="PUBLIC", select_all=False)),
         questionary.Choice(title="All owned by given user", value=ChartFilter(owned_by="user", select_all=True)),
         questionary.Choice(title="Selected owned by given user", value=ChartFilter(owned_by="user", select_all=False)),
+        questionary.Choice(title="Selected charts", value=ChartFilter(visibility=None, select_all=False)),
+        questionary.Choice(title="All Charts", value=ChartFilter(visibility=None, select_all=True)),
     ]
 
     def __init__(self, client: ToolkitClient) -> None:
@@ -401,7 +407,14 @@ class InteractiveChartSelect:
         return user_response
 
     def _select_external_ids(self, select_filter: ChartFilter) -> list[str]:
-        available_charts = self.client.charts.list(visibility=(select_filter.visibility or "PUBLIC"))
+        if select_filter.visibility != "PUBLIC" and (
+            missing_acls := self.client.tool.token.verify_acls([ChartsAdminAcl(actions=["READ"], scope=AllScope())])
+        ):
+            raise self.client.tool.token.create_error(
+                missing_acls, action="list (including private) charts for interactive selection"
+            )
+
+        available_charts = self.client.charts.list(visibility=select_filter.visibility)
         if select_filter.select_all and select_filter.owned_by is None:
             return [chart.external_id for chart in available_charts]
 
@@ -419,7 +432,7 @@ class InteractiveChartSelect:
                 questionary.Choice(
                     title=f"{chart.data.name} (Created by "
                     f"{display_name_by_user_identifier.get(chart.owner_id, 'missing')!r} "
-                    f"- {ms_to_datetime(chart.last_updated_time)})",
+                    f"- {ms_to_datetime(chart.last_updated_time)}, visibility {chart.visibility})",
                     value=chart.external_id,
                 )
                 for chart in available_charts
@@ -1039,3 +1052,48 @@ class APMConfigInteractiveSelect:
         if not isinstance(selected_config, APMConfigResponse):
             raise ToolkitValueError(f"Selected APM config is not a valid APMConfigResponse object: {selected_config!r}")
         return selected_config
+
+
+class RecordInteractiveSelect:
+    def __init__(self, client: ToolkitClient) -> None:
+        self.client = client
+
+    def select_stream(self) -> StreamResponse:
+        available_streams = self.client.streams.list()
+        if not available_streams:
+            raise ToolkitValueError("No streams found in the project.")
+        selected_stream = questionary.select(
+            "Select the stream to download records from:",
+            choices=[Choice(title=f"{s.external_id} ({s.type})", value=s) for s in available_streams],
+        ).unsafe_ask()
+        if not isinstance(selected_stream, StreamResponse):
+            raise ToolkitValueError(f"Selected stream is not a valid StreamResponse object: {selected_stream!r}")
+        return selected_stream
+
+    def select_containers(self) -> list[ContainerResponse]:
+        record_containers = self.client.tool.containers.list(filter=ContainerFilter(used_for="record"))
+        if not record_containers:
+            raise ToolkitValueError("No record containers found in the project.")
+        selected_containers = questionary.checkbox(
+            "Select containers to download record properties from:",
+            choices=[Choice(title=f"{c.space}:{c.external_id}", value=c) for c in record_containers],
+            validate=lambda choices: True if choices else "You must select at least one container.",
+        ).unsafe_ask()
+        return selected_containers
+
+    def select_initialize_cursor(self, default: str = "365d-ago") -> str:
+        return questionary.text(
+            "How far back should we read changes from? (e.g. '30d-ago', '12h-ago'):",
+            default=default,
+        ).unsafe_ask()
+
+    def select_instance_spaces(self) -> list[str]:
+        available_spaces = self.client.tool.spaces.list(include_global=False)
+        if not available_spaces:
+            raise ToolkitValueError("No spaces found in the project.")
+        selected_spaces = questionary.checkbox(
+            "Select spaces to filter records by:",
+            choices=[Choice(title=space.space, value=space.space) for space in available_spaces],
+            validate=lambda choices: True if choices else "You must select at least one space.",
+        ).unsafe_ask()
+        return selected_spaces

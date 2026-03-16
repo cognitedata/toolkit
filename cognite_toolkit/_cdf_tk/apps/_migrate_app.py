@@ -8,9 +8,14 @@ import typer
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerId
+from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
-from cognite_toolkit._cdf_tk.commands._migrate.conversion import InFieldAssetMapping
+from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
+    ConnectionCreator,
+    InFieldAssetMapping,
+    InFieldConditionMapping,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.creators import (
     InfieldV2ConfigCreator,
     InstanceSpaceCreator,
@@ -21,10 +26,14 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
+    InFieldLegacyToCDMScheduleMapper,
     ThreeDAssetMapper,
     ThreeDMapper,
 )
-from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import create_infield_data_mappings
+from cognite_toolkit._cdf_tk.commands._migrate.infield_data_mappings import (
+    create_infield_data_mappings,
+    create_infield_schedule_selector,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
@@ -41,6 +50,7 @@ from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO, InstanceIO
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
+    InstanceQuerySelector,
     InstanceViewSelector,
     SelectedView,
     ThreeDModelIdSelector,
@@ -82,8 +92,7 @@ class MigrateApp(typer.Typer):
         self.command("3d-mappings")(self.three_d_asset_mapping)
         if Flags.INFIELD_MIGRATE.is_enabled():
             self.command("infield-configs")(self.infield_configs)
-            # Uncomment when the infield data migration is ready.
-            # self.command("infield-data")(self.infield_data)
+            self.command("infield-data")(self.infield_data)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
@@ -1409,26 +1418,47 @@ class MigrateApp(typer.Typer):
             "cognite_app_data": "cognite_app_data",
         }
         infield_mappings = create_infield_data_mappings()
-        selectors = [
-            InstanceViewSelector(
-                view=SelectedView(
-                    space=mapping.source_view.space,
-                    external_id=mapping.source_view.external_id,
-                    version=mapping.source_view.version,
-                ),
-                instance_spaces=(source_space,),
-                edge_types=tuple(mapping.edge_mapping.keys()) if mapping.edge_mapping else None,
-            )
-            for mapping in infield_mappings
-        ]
-
+        schedule_selector = create_infield_schedule_selector()
+        selectors: list[InstanceViewSelector | InstanceQuerySelector] = []
+        schedule_mapping: ViewToViewMapping | None = None
+        for mapping in infield_mappings:
+            if mapping.source_view.external_id == "Schedule":
+                # Special case for schedules, see create_infield_schedule_query for docs on why.
+                selectors.append(schedule_selector)
+                schedule_mapping = mapping
+            else:
+                selectors.append(
+                    InstanceViewSelector(
+                        view=SelectedView(
+                            space=mapping.source_view.space,
+                            external_id=mapping.source_view.external_id,
+                            version=mapping.source_view.version,
+                        ),
+                        instance_spaces=(source_space,),
+                        edge_types=tuple(mapping.edge_mapping.keys()) if mapping.edge_mapping else None,
+                    )
+                )
+        if schedule_mapping is None:
+            raise ValueError("No mapping for Schedule view found in infield_data_mappings.yaml")
+        connection_creator = ConnectionCreator(
+            client, space_mapping=space_mapping, custom_mappings=[InFieldAssetMapping(client)]
+        )
+        mapper = FDMtoCDMMapper(
+            client,
+            infield_mappings,
+            connection_creator=connection_creator,
+            custom_properties_mappings=[InFieldConditionMapping(infield_mappings)],
+            custom_instance_mappings={
+                InFieldLegacyToCDMScheduleMapper.SCHEDULE_VIEW: InFieldLegacyToCDMScheduleMapper(
+                    client, connection_creator, schedule_mapping
+                )
+            },
+        )
         cmd.run(
-            lambda: cmd.migrate(  # type: ignore[misc]
+            lambda: cmd.migrate(
                 selectors=selectors,
                 data=InstanceIO(client),
-                mapper=FDMtoCDMMapper(
-                    client, space_mapping, infield_mappings, special_cases=[InFieldAssetMapping(client)]
-                ),
+                mapper=mapper,
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,

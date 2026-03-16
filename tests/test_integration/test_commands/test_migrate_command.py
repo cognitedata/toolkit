@@ -13,7 +13,11 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.cdf_client import ResponseItems
+from cognite_toolkit._cdf_tk.client.http_client import RequestMessage
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
@@ -112,7 +116,7 @@ class TestMigrateAssetsCommand:
             dry_run=True,
         )
         results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 2, "success": 0, "unchanged": 0}
+        assert results == {"failure": 0, "pending": 2, "success": 0, "unchanged": 0, "skipped": 0}
 
 
 class TestMigrateEventsCommand:
@@ -136,7 +140,7 @@ class TestMigrateEventsCommand:
             dry_run=True,
         )
         results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0}
+        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0, "skipped": 0}
 
 
 class TestMigrateTimeSeriesCommand:
@@ -160,7 +164,7 @@ class TestMigrateTimeSeriesCommand:
             dry_run=True,
         )
         results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0}
+        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0, "skipped": 0}
 
 
 class TestMigrateFileMetadataCommand:
@@ -184,7 +188,7 @@ class TestMigrateFileMetadataCommand:
             dry_run=True,
         )
         results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0}
+        assert results == {"failure": 0, "pending": 1, "success": 0, "unchanged": 0, "skipped": 0}
 
 
 class TestMigrateAnnotations:
@@ -207,4 +211,70 @@ class TestMigrateAnnotations:
             verbose=True,
         )
         results = {item.status: item.count for item in result[str(selector)]}
-        assert results == {"failure": 0, "pending": 2, "success": 0, "unchanged": 0}
+        assert results == {"failure": 0, "pending": 2, "success": 0, "unchanged": 0, "skipped": 0}
+
+
+@pytest.fixture()
+def cdm_file(
+    toolkit_client: ToolkitClient,
+    toolkit_space: Space,
+) -> FileMetadataResponse:
+    client = toolkit_client
+    space = toolkit_space.space
+    node = CogniteFileRequest(
+        space=space,
+        external_id="cdm_file_testing_migrate_linked_file",
+        name="CDM file testing migrate linked file",
+    )
+    exiting = client.tool.cognite_files.retrieve([node.as_id()])
+    instance_id = node.as_instance_id()
+    if len(exiting) == 1 and exiting[0].is_uploaded:
+        return client.tool.filemetadata.retrieve([instance_id])[0]
+
+    _ = client.tool.cognite_files.create([node])
+
+    file = client.tool.filemetadata.upload_file_link([node.as_instance_id()])[0]
+    _ = client.tool.filemetadata.upload_content(
+        b"This is the CDM file content", file.upload_url, mime_type="text/plain"
+    )
+
+    response = client.http_client.request_single_retries(
+        RequestMessage(
+            endpoint_url=client.config.create_api_url("/files/update"),
+            method="POST",
+            body_content={"items": [{**instance_id.dump(), "update": {"externalId": {"set": node.external_id}}}]},
+        )
+    ).get_success_or_raise()
+    return ResponseItems[FileMetadataResponse].model_valide_json(response.body).items[0]
+
+
+class TestMigrateFiles:
+    def test_migrate_linked_file(
+        self, toolkit_client: ToolkitClient, cdm_file: FileMetadataResponse, toolkit_space: Space, tmp_path: Path
+    ) -> None:
+        client = toolkit_client
+        space = toolkit_space.space
+
+        input_file = tmp_path / "file_migration.csv"
+
+        with input_file.open("w", encoding="utf-8") as f:
+            f.write(
+                "id,dataSetId,space,externalId\n"
+                + "\n".join(f"{f.id},{f.data_set_id or ''},{space},{f.external_id}" for f in [cdm_file])
+                + "\n"
+            )
+
+        cmd = MigrationCommand(skip_tracking=True, silent=True)
+        selector = MigrationCSVFileSelector(datafile=input_file, kind="FileMetadata")
+        result = cmd.migrate(
+            selectors=[selector],
+            data=AssetCentricMigrationIO(client, skip_linking=False),
+            mapper=AssetCentricMapper(client),
+            log_dir=tmp_path,
+            dry_run=False,
+        )
+        actual_result = {item.status: item.count for item in result[str(selector)]}
+
+        assert actual_result == {"failure": 1, "pending": 0, "success": 0, "unchanged": 0, "skipped": 0}, (
+            "Expected failure as the file is already a CDM file."
+        )

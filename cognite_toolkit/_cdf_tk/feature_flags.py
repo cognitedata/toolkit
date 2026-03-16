@@ -68,7 +68,7 @@ class Flags(Enum):
     )
     EXTEND_DOWNLOAD = FlagMetadata(
         visible=True,
-        description="Enables extended download to support downloading file content and datapoints",
+        description="Enables extended download to support downloading file content, datapoints and records",
     )
     EXTEND_UPLOAD = FlagMetadata(
         visible=True,
@@ -97,10 +97,6 @@ class Flags(Enum):
     MODULES_LIST_JSON = FlagMetadata(
         visible=True,
         description="Enables JSON output format for the modules list command",
-    )
-    DEPENDENCY_ORDERED_DEPLOY = FlagMetadata(
-        visible=True,
-        description="Enables dependency-ordered deployment of views to avoid dependency errors",
     )
 
     def is_enabled(self) -> bool:

@@ -1,6 +1,7 @@
 import ast
 import re
 import sys
+from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
 
@@ -31,9 +32,37 @@ _PACKAGE_TO_IMPORT_NAME: dict[str, str] = {
 _EXCEPTION_MODULES: frozenset[str] = frozenset({"cognite.neat"})
 
 
-@pytest.mark.xfail(
-    reason="This test is currently expected to fail as there are known private imports that need to be refactored."
-)
+def _assert_import_violations(
+    extract_fn: Callable[[Path], list[tuple[str, int, str]]],
+    description: str,
+    expected_total: int | None = None,
+) -> None:
+    """Walk all Python files in CDF_TK_PATH and fails if there are any violations or if the
+    total number of violations doesn't match expected_total (if provided).
+    """
+    all_violations: dict[str, list[tuple[str, int, str]]] = {}
+
+    for py_file in _get_all_python_files(CDF_TK_PATH):
+        violations = extract_fn(py_file)
+        if violations:
+            relative_path = py_file.relative_to(REPO_ROOT).as_posix()
+            all_violations[relative_path] = violations
+
+    total = sum(len(v) for v in all_violations.values())
+    if expected_total is not None:
+        assert total == expected_total
+    elif all_violations:
+        lines = [f"Found {total} {description}:", ""]
+        for file_path, imports in sorted(all_violations.items()):
+            lines.append(f"  {file_path}:")
+            for module, lineno, reason in imports:
+                lines.append(f"    Line {lineno}: {reason}")
+            lines.append("")
+
+        pytest.fail("\n".join(lines))
+
+
+@pytest.mark.xfail(strict=True, reason="Tracking removal of private third-party imports")
 def test_no_private_third_party_imports() -> None:
     """
     Test that checks for imports of private modules/classes/functions from third-party packages.
@@ -41,24 +70,17 @@ def test_no_private_third_party_imports() -> None:
     Private imports are fragile as they may break between minor/patch versions of dependencies.
     This test identifies all such imports so they can be tracked and potentially refactored.
     """
-    all_private_imports: dict[str, list[tuple[str, int, str]]] = {}
+    _assert_import_violations(_extract_private_imports, "private imports from third-party packages")
 
-    for py_file in _get_all_python_files(CDF_TK_PATH):
-        private_imports = _extract_private_imports(py_file)
-        if private_imports:
-            relative_path = py_file.relative_to(REPO_ROOT).as_posix()
-            all_private_imports[relative_path] = private_imports
 
-    if all_private_imports:
-        # Format the error message
-        lines = [f"Found {len(all_private_imports)} private imports from third-party packages:", ""]
-        for file_path, imports in sorted(all_private_imports.items()):
-            lines.append(f"  {file_path}:")
-            for module, lineno, reason in imports:
-                lines.append(f"    Line {lineno}: {reason}")
-            lines.append("")
+def test_no_cognite_sdk_imports() -> None:
+    """
+    Test that checks for any imports from cognite.client (both public and private).
 
-        pytest.fail("\n".join(lines))
+    The goal is to fully remove the cognite-sdk dependency from the toolkit (with the exception of Auth and protobuf files).
+    This test tracks progress toward that goal.
+    """
+    _assert_import_violations(_extract_cognite_sdk_imports, "cognite.client imports", 145)
 
 
 def _parse_package_name(dependency: str) -> str:
@@ -189,3 +211,35 @@ def _extract_private_imports(file_path: Path) -> list[tuple[str, int, str]]:
                         break
 
     return private_imports
+
+
+def _extract_cognite_sdk_imports(file_path: Path) -> list[tuple[str, int, str]]:
+    """
+    Extract all cognite.client imports (both public and private) from a Python file.
+
+    Returns a list of tuples: (module_path, line_number, reason)
+    """
+    cognite_imports: list[tuple[str, int, str]] = []
+
+    try:
+        source = file_path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+    except (SyntaxError, UnicodeDecodeError):
+        return cognite_imports
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            if node.module is None:
+                continue
+            if node.module == "cognite.client" or node.module.startswith("cognite.client."):
+                names = ", ".join(a.name for a in node.names)
+                reason = f"from {node.module} import {names}"
+                cognite_imports.append((node.module, node.lineno, reason))
+
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "cognite.client" or alias.name.startswith("cognite.client."):
+                    reason = f"import {alias.name}"
+                    cognite_imports.append((alias.name, node.lineno, reason))
+
+    return cognite_imports

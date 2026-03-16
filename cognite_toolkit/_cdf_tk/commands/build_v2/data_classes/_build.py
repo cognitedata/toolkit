@@ -51,31 +51,36 @@ class BuiltModule(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     source: ModuleSource
-    built_files: list[Path] = Field(default_factory=list)
+    built_files_by_source: dict[Path, Path] = Field(
+        default_factory=dict, description="Mapping of built file paths to their corresponding source file paths"
+    )
     built_resources_identifiers: list[Identifier] = Field(default_factory=list)
     dependencies: dict[AbsoluteFilePath, set[tuple[type[ResourceCRUD], Identifier]]] = Field(default_factory=dict)
     insights: InsightList = Field(default_factory=InsightList)
 
     @property
-    def resource_by_type(self) -> dict[str, dict[str, list[Path]]]:
-        """Organizes built files by their resource type."""
-        resource_by_type: dict[str, dict[str, list[Path]]] = {}
-        for file in self.built_files:
-            resource_type = file.stem.split(".")[-1]
-            resource_type_folder = file.parent.name
-            resource_by_type.setdefault(resource_type_folder, {}).setdefault(resource_type, []).append(file)
+    def resource_by_type_by_kind(self) -> dict[str, dict[str, list[Path]]]:
+        """Organizes built files by their resource type and kind."""
+        resource_by: dict[str, dict[str, list[Path]]] = {}
+        for file in self.built_files_by_source.keys():
+            kind = file.stem.split(".")[-1]
+            resource_type = file.parent.name
+            resource_by.setdefault(resource_type, {}).setdefault(kind, []).append(file)
 
-        return resource_by_type
+        return resource_by
+
+    @property
+    def files_built(self) -> bool:
+        """Indicates whether any files were built for this module."""
+        return len(self.built_files_by_source) > 0
 
     @property
     def is_success(self) -> bool:
-        return True if self.built_files else False
+        """Determines if the module build was successful based on the presence of built file and validation errors."""
+        return not self.insights.has_errors and self.files_built
 
     def __hash__(self) -> int:
         return hash(self.source.path)
-
-
-class BuildLineage(BaseModel): ...
 
 
 class BuildFolder(BaseModel):
@@ -92,11 +97,6 @@ class BuildFolder(BaseModel):
         for module in self.built_modules:
             insights.extend(module.insights)
         return insights
-
-    @property
-    def lineage(self) -> BuildLineage:
-        """Lineage should be generated based on the built modules, but for now it is just a placeholder."""
-        return BuildLineage()
 
     @property
     def built_modules_by_success(self) -> dict[bool, list[str]]:

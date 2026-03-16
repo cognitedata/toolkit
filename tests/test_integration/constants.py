@@ -32,6 +32,9 @@ FILE_DATASET = "toolkit_aggregators_test_dataset_2"
 TIMESERIES_DATASET = "toolkit_aggregators_test_dataset_2"
 SEQUENCE_DATASET = "toolkit_aggregators_test_dataset_2"
 
+TOOLKIT_TEST_STREAM = "toolkit_test_stream"
+
+RECORD_COUNT = 5
 ASSET_COUNT = 6
 EVENT_COUNT = 10
 FILE_COUNT = 3
