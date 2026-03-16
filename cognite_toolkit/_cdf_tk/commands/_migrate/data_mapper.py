@@ -260,8 +260,12 @@ class RecordsMapper(
 
             if conversion_issue.missing_instance_space:
                 self.logger.tracker.add_issue(identifier, "Missing instance space")
+            if conversion_issue.failed_conversions:
+                self.logger.tracker.add_issue(identifier, "Failed conversions")
             if conversion_issue.missing_asset_centric_properties:
                 self.logger.tracker.add_issue(identifier, "Missing asset-centric properties")
+            if conversion_issue.missing_instance_properties:
+                self.logger.tracker.add_issue(identifier, "Missing instance properties")
             if conversion_issue.ignored_asset_centric_properties:
                 self.logger.tracker.add_issue(identifier, "Ignored asset-centric properties")
 
