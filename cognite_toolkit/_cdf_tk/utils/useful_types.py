@@ -1,11 +1,6 @@
 from collections.abc import Hashable
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypeVar, get_args
-
-from cognite.client.data_classes._base import CogniteObject, WriteableCogniteResourceList
-
-if TYPE_CHECKING:
-    pass
+from typing import Any, Literal, TypeAlias, TypeVar, get_args
 
 JsonVal: TypeAlias = None | str | int | float | bool | dict[str, "JsonVal"] | list["JsonVal"]
 
@@ -21,8 +16,5 @@ PythonTypes: TypeAlias = str | int | float | bool | datetime | date | dict[str, 
 AVAILABLE_DATA_TYPES: set[DataType] = set(get_args(DataType))
 
 T_ID = TypeVar("T_ID", bound=Hashable)
-T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
 T_Value = TypeVar("T_Value")
 PrimitiveType: TypeAlias = str | int | float | bool
-
-T_WriteCogniteResource = TypeVar("T_WriteCogniteResource", bound=CogniteObject)
