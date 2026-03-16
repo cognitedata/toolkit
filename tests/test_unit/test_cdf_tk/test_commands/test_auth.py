@@ -1,250 +1,274 @@
-from __future__ import annotations
-
-import json
-from pathlib import Path
-from typing import Union
 from unittest.mock import MagicMock
 
 import pytest
-import yaml
-from cognite.client._api.iam import IAMAPI
-from cognite.client.data_classes._base import CogniteResource, CogniteResourceList, CogniteResponse
-from cognite.client.data_classes.capabilities import (
-    AllProjectsScope,
+
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AllScope,
-    AppConfigAcl,
-    AppConfigScope,
     AssetsAcl,
-    Capability,
-    ProjectCapability,
-    ProjectCapabilityList,
+    GroupCapability,
+    GroupResponse,
     RelationshipsAcl,
     StreamsAcl,
 )
-from cognite.client.data_classes.iam import Group, GroupList, ProjectSpec, TokenInspection
-
+from cognite_toolkit._cdf_tk.client.resource_classes.project import (
+    Claim,
+    OidcConfiguration,
+    OrganizationResponse,
+    UserProfilesConfiguration,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.token import (
+    AllProjects,
+    InspectCapability,
+    InspectProjectInfo,
+    InspectResponse,
+)
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import AuthCommand
+from cognite_toolkit._cdf_tk.constants import TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     LowSeverityWarning,
     MissingCapabilityWarning,
-    ToolkitWarning,
-    WarningList,
 )
-from tests.data import AUTH_DATA
-from tests.test_unit.conftest import ApprovalToolkitClient
+from tests.test_unit.utils import MockQuestionary
+
+CDF_PROJECT = "pytest-project"
 
 
-@pytest.fixture
-def cdf_resources() -> dict[type[CogniteResource] | type[CogniteResponse], CogniteResource | CogniteResourceList]:
-    # Load the rw-group and add it to the mock client as an existing resource
-    group = Group.load(yaml.safe_load((AUTH_DATA / "rw-group.yaml").read_text()))
-    project_capabilities: ProjectCapabilityList = ProjectCapabilityList([])
-    for cap in group.capabilities:
-        project_capabilities.append(ProjectCapability(capability=cap, project_scope=AllProjectsScope()))
-    inspect_result = TokenInspection(
-        subject="test@test.com",
-        projects=[ProjectSpec("pytest-project", groups=[1234567890])],
-        capabilities=ProjectCapabilityList(project_capabilities),
+def _create_organization_response() -> OrganizationResponse:
+    return OrganizationResponse(
+        name=CDF_PROJECT,
+        url_name=CDF_PROJECT,
+        organization="test-org",
+        user_profiles_configuration=UserProfilesConfiguration(enabled=True),
+        oidc_configuration=OidcConfiguration(
+            jwks_url="https://login.windows.net/common/discovery/keys",
+            token_url="https://login.windows.net/dummy/oauth2/token",
+            issuer="https://sts.windows.net/dummy/",
+            audience="https://test.cognitedata.com",
+            access_claims=[Claim(claim_name="groups")],
+            scope_claims=[Claim(claim_name="scp")],
+            log_claims=[Claim(claim_name="appid")],
+        ),
     )
-    return {
-        TokenInspection: inspect_result,
-        Group: GroupList([group]),
-        # NOTE! If you add more resources to be pre-loaded in the CDF project, add them here.
-    }
 
 
-@pytest.fixture
-def auth_cognite_approval_client(
-    toolkit_client_approval: ApprovalToolkitClient,
-) -> ApprovalToolkitClient:
-    # Mock the get call to return the project info
-    def mock_get_json(*args, **kwargs):
-        mock = MagicMock()
-        mock.json.return_value = json.loads(Path(AUTH_DATA / "project_info.json").read_text())
-        return mock
-
-    # Set the mock get call to return the project info
-    toolkit_client_approval.client.get.side_effect = mock_get_json
-    # Returning empty list means no capabilities are missing
-    toolkit_client_approval.client.iam.verify_capabilities.return_value = []
-    return toolkit_client_approval
+def _create_inspect_response() -> InspectResponse:
+    return InspectResponse(
+        subject="test@test.com",
+        projects=[InspectProjectInfo(project_url_name=CDF_PROJECT, groups=[123])],
+        capabilities=[
+            InspectCapability(
+                acl=AssetsAcl(actions=["READ"], scope=AllScope()),
+                project_scope=AllProjects(all_projects={}),
+            )
+        ],
+        project=CDF_PROJECT,
+    )
 
 
-@pytest.mark.skip("Needs to be rewritten to support interactive")
+def _setup_verify_mocks(
+    client: MagicMock,
+    user_groups: list[GroupResponse],
+    all_cdf_groups: list[GroupResponse] | None = None,
+    data_modeling_status: str = "HYBRID",
+) -> None:
+    if all_cdf_groups is None:
+        all_cdf_groups = list(user_groups)
+
+    client.config.project = CDF_PROJECT
+    client.config.is_private_link = False
+
+    client.tool.token.inspect.return_value = _create_inspect_response()
+    client.tool.token.verify_acls.return_value = []
+
+    _user = user_groups
+    _all = all_cdf_groups
+
+    def groups_list(all_groups: bool = False) -> list[GroupResponse]:
+        return _all if all_groups else _user
+
+    client.tool.groups.list.side_effect = groups_list
+
+    status_mock = MagicMock()
+    status_mock.this_project.data_modeling_status = data_modeling_status
+    client.project.status.return_value = status_mock
+
+    client.project.organization.return_value = _create_organization_response()
+
+    func_status = MagicMock()
+    func_status.status = "activated"
+    client.functions.status.return_value = func_status
+
+
 class TestAuthCommand:
-    def test_auth_verify_happy_path(
-        self,
-        auth_cognite_approval_client: ApprovalToolkitClient,
-        cdf_resources: dict[type[CogniteResource], CogniteResource | CogniteResourceList],
-    ):
-        # First, add the pre-loaded data to the approval_client
-        for resource, data in cdf_resources.items():
-            auth_cognite_approval_client.append(resource, data)
-        # Then make sure that the CogniteClient used is the one mocked by
-        # the approval_client
-        cmd = AuthCommand(print_warning=False)
-
-        cmd.verify(auth_cognite_approval_client.mock_client, False, no_prompt=True)
-
-        assert list(cmd.warning_list) == []
-
-    def test_auth_verify_wrong_capabilities(
-        self,
-        auth_cognite_approval_client: ApprovalToolkitClient,
-        cdf_resources: dict[type[CogniteResource], CogniteResource | CogniteResourceList],
-    ):
-        expected_warnings = WarningList[ToolkitWarning]()
-        # Remove the last 3 capabilities from the inspect result to make a test case
-        # with wrong capabilities in the current CDF group.
-        for _ in range(1, 4):
-            capability = cdf_resources[TokenInspection].capabilities.pop()
-            for cap in capability.capability.as_tuples():
-                expected_warnings.append(MissingCapabilityWarning(str(Capability.from_tuple(cap))))
-        # Add the pre-loaded data to the approval_client
-        for resource, data in cdf_resources.items():
-            auth_cognite_approval_client.append(resource, data)
-        # Then make sure that the CogniteClient used is the one mocked by
-        # the approval_client
-        cmd = AuthCommand(print_warning=False)
-
-        cmd.verify(auth_cognite_approval_client.mock_client, False, no_prompt=True)
-
-        assert len(cmd.warning_list) == len(expected_warnings)
-        assert set(cmd.warning_list) == set(expected_warnings)
-
-    def test_auth_verify_two_groups(
-        self,
-        auth_cognite_approval_client: ApprovalToolkitClient,
-        cdf_resources: dict[CogniteResource, Union[CogniteResource, CogniteResourceList]],
-    ):
-        # Add another group
-        cdf_resources[Group].append(Group.load(yaml.safe_load((AUTH_DATA / "rw-group.yaml").read_text())))
-        cdf_resources[Group][1].name = "2nd group"
-
-        # Add the pre-loaded data to the approval_client
-        for resource, data in cdf_resources.items():
-            auth_cognite_approval_client.append(resource, data)
-        # Then make sure that the CogniteClient used is the one mocked by
-        # the approval_client
-        cmd = AuthCommand(print_warning=False)
-        cmd.verify(auth_cognite_approval_client.mock_client, False, no_prompt=True)
-
-        assert len(cmd.warning_list) == 1
-        assert set(cmd.warning_list) == {
-            LowSeverityWarning(
-                "This service principal/application gets its "
-                "access rights from more than one CDF "
-                "group.           This is not recommended. The "
-                "group matching the group config file is "
-                "marked in bold above if it is present."
+    def test_auth_verify_happy_path(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            required_acls, _ = AuthCommand._get_required_acls(client, "HYBRID")
+            group = GroupResponse(
+                id=123,
+                is_deleted=False,
+                name=TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME,
+                source_id="test-source-id",
+                capabilities=[GroupCapability(acl=acl) for acl in required_acls],
             )
-        }
+            _setup_verify_mocks(client, user_groups=[group])
 
-    def test_auth_verify_no_capabilities(
-        self,
-        auth_cognite_approval_client: ApprovalToolkitClient,
-        cdf_resources: dict[type[CogniteResource], Union[CogniteResource, CogniteResourceList]],
-    ):
-        # Add the pre-loaded data to the approval_client
-        for resource, data in cdf_resources.items():
-            auth_cognite_approval_client.append(resource, data)
+            cmd = AuthCommand(print_warning=False)
+            cmd.verify(client, False, no_prompt=True)
 
-        def mock_verify_client(*args, **kwargs):
-            raise Exception("No capabilities")
+            assert list(cmd.warning_list) == []
 
-        cmd = AuthCommand(print_warning=False)
-        with pytest.raises(AuthorizationError) as e:
-            cmd.verify(auth_cognite_approval_client.mock_client, False, no_prompt=True)
-
-        assert len(cmd.warning_list) == 1
-        assert set(cmd.warning_list) == {
-            HighSeverityWarning(
-                "The service principal/application configured for this client "
-                "does not have the basic group write access rights."
+    def test_auth_verify_wrong_capabilities(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            required_acls, _ = AuthCommand._get_required_acls(client, "HYBRID")
+            group = GroupResponse(
+                id=123,
+                is_deleted=False,
+                name=TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME,
+                source_id="test-source-id",
+                capabilities=[GroupCapability(acl=acl) for acl in required_acls[:-3]],
             )
-        }
-        assert str(e.value) == (
-            "Unable to continue, the service principal/application configured for this "
-            "client does not have the basic read group access rights."
-        )
+            _setup_verify_mocks(client, user_groups=[group])
+
+            cmd = AuthCommand(print_warning=False)
+            with pytest.raises(AuthorizationError):
+                cmd.verify(client, False, no_prompt=True)
+
+            missing_warnings = [w for w in cmd.warning_list if isinstance(w, MissingCapabilityWarning)]
+            assert len(missing_warnings) > 0
+
+    def test_auth_verify_two_groups(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            required_acls, _ = AuthCommand._get_required_acls(client, "HYBRID")
+            toolkit_group = GroupResponse(
+                id=123,
+                is_deleted=False,
+                name=TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME,
+                source_id="test-source-id",
+                capabilities=[GroupCapability(acl=acl) for acl in required_acls],
+            )
+            second_group = GroupResponse(
+                id=456,
+                is_deleted=False,
+                name="second_group",
+                source_id="other-source-id",
+                capabilities=[],
+            )
+            _setup_verify_mocks(client, user_groups=[toolkit_group, second_group])
+
+            cmd = AuthCommand(print_warning=False)
+            cmd.verify(client, False, no_prompt=True)
+
+            low_warnings = [w for w in cmd.warning_list if isinstance(w, LowSeverityWarning)]
+            assert len(low_warnings) == 1
+
+    def test_auth_verify_no_group_access(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.config.project = CDF_PROJECT
+            client.tool.token.inspect.return_value = _create_inspect_response()
+            client.tool.token.verify_acls.return_value = [AssetsAcl(actions=["READ"], scope=AllScope())]
+
+            cmd = AuthCommand(print_warning=False)
+            with pytest.raises(AuthorizationError) as exc_info:
+                cmd.verify(client, False, no_prompt=True)
+
+            assert "basic read group access rights" in str(exc_info.value)
+            assert len(cmd.warning_list) == 1
+            assert isinstance(cmd.warning_list[0], HighSeverityWarning)
+
+    def test_auth_verify_interactive_update_capabilities(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        with monkeypatch_toolkit_client() as client:
+            required_acls, _ = AuthCommand._get_required_acls(client, "HYBRID")
+            group = GroupResponse(
+                id=123,
+                is_deleted=False,
+                name=TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME,
+                source_id="test-source-id",
+                capabilities=[GroupCapability(acl=acl) for acl in required_acls[:-3]],
+            )
+            _setup_verify_mocks(client, user_groups=[group])
+
+            updated_group = GroupResponse(
+                id=456,
+                is_deleted=False,
+                name=TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME,
+                source_id="test-source-id",
+                capabilities=[GroupCapability(acl=acl) for acl in required_acls],
+            )
+            client.tool.groups.create.return_value = [updated_group]
+            client.tool.groups.delete.return_value = None
+
+            monkeypatch.setattr("cognite_toolkit._cdf_tk.commands.auth.Prompt.ask", lambda *a, **k: None)
+            with MockQuestionary(
+                "cognite_toolkit._cdf_tk.commands.auth",
+                monkeypatch,
+                answers=[True],
+            ):
+                cmd = AuthCommand(print_warning=False)
+                result = cmd.verify(client, dry_run=False, no_prompt=False)
+
+            assert result.toolkit_group_id is not None
+            client.tool.groups.create.assert_called_once()
 
 
-def test_get_capabilities_by_loader_hybrid_project(toolkit_client_approval: ApprovalToolkitClient):
-    client = toolkit_client_approval.client
-    caps_hybrid, _ = AuthCommand._get_capabilities_by_loader(client, "HYBRID")
-    cap_types_hybrid = {type(c) for c in caps_hybrid}
-    assert AssetsAcl in cap_types_hybrid
-    assert RelationshipsAcl in cap_types_hybrid
+def test_get_capabilities_by_loader_hybrid_project() -> None:
+    with monkeypatch_toolkit_client() as client:
+        acls_hybrid, _ = AuthCommand._get_required_acls(client, "HYBRID")
+
+    acl_types_hybrid = {type(c) for c in acls_hybrid}
+    assert AssetsAcl in acl_types_hybrid
+    assert RelationshipsAcl in acl_types_hybrid
 
 
-def test_get_capabilities_by_loader_dm_only_project(toolkit_client_approval: ApprovalToolkitClient):
-    client = toolkit_client_approval.client
-    caps_dm_only, _ = AuthCommand._get_capabilities_by_loader(client, "DATA_MODELING_ONLY")
-    cap_types_dm_only = {type(c) for c in caps_dm_only}
-    assert AssetsAcl not in cap_types_dm_only
-    assert RelationshipsAcl not in cap_types_dm_only
+def test_get_capabilities_by_loader_dm_only_project() -> None:
+    with monkeypatch_toolkit_client() as client:
+        acl_dm_only, _ = AuthCommand._get_required_acls(client, "DATA_MODELING_ONLY")
+
+    acl_types_dm_only = {type(c) for c in acl_dm_only}
+    assert AssetsAcl not in acl_types_dm_only
+    assert RelationshipsAcl not in acl_types_dm_only
 
 
 def test_update_missing_capabilities_dm_only_project() -> None:
-    missing_caps = [
-        StreamsAcl(actions=[StreamsAcl.Action.Read], scope=StreamsAcl.Scope.All()),
+    missing_acls = [
+        StreamsAcl(actions=["READ"], scope=AllScope()),
     ]
-    existing = Group(
-        name="cognite_toolkit_service_principal",
+    existing = GroupResponse(
+        id=42,
+        is_deleted=False,
+        name=TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME,
         source_id="123",
         capabilities=[
-            AssetsAcl(actions=[AssetsAcl.Action.Read], scope=AllScope()),
-            RelationshipsAcl(actions=[RelationshipsAcl.Action.Read], scope=AllScope()),
+            GroupCapability(acl=AssetsAcl(actions=["READ"], scope=AllScope())),
+            GroupCapability(acl=RelationshipsAcl(actions=["READ"], scope=AllScope())),
+        ],
+    )
+    created_response = GroupResponse(
+        id=43,
+        is_deleted=False,
+        name=TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME,
+        source_id="123",
+        capabilities=[
+            GroupCapability(acl=StreamsAcl(actions=["READ"], scope=AllScope())),
         ],
     )
     with monkeypatch_toolkit_client() as client:
-        client.iam.groups.create.return_value = Group(
-            name="cognite_toolkit_service_principal",
-            source_id="123",
-            capabilities=[StreamsAcl(actions=[StreamsAcl.Action.Read], scope=StreamsAcl.Scope.All())],
+        client.tool.groups.create.return_value = [created_response]
+        client.tool.groups.delete.return_value = None
+
+        result = AuthCommand()._update_missing_capabilities(
+            client,
+            existing,
+            missing_acls,
+            dry_run=False,
+            project=CDF_PROJECT,
+            data_modeling_status="DATA_MODELING_ONLY",
         )
-        client.iam.compare_capabilities = IAMAPI.compare_capabilities
 
-    _ = AuthCommand()._update_missing_capabilities(
-        client, existing, missing_caps, dry_run=False, data_modeling_status="DATA_MODELING_ONLY"
-    )
-    client.iam.groups.create.assert_called_once()
-    created_group = client.iam.groups.create.call_args[0][0]
-    assert len(created_group.capabilities) == 1
-    assert created_group.capabilities[0] == StreamsAcl(actions=[StreamsAcl.Action.Read], scope=StreamsAcl.Scope.All())
-
-
-@pytest.mark.parametrize(
-    "capability_list,expected_result",
-    [
-        pytest.param(
-            [
-                AppConfigAcl(
-                    actions=[AppConfigAcl.Action.Read, AppConfigAcl.Action.Write], scope=AppConfigScope(apps=["SEARCH"])
-                ),
-                AppConfigAcl(actions=[AppConfigAcl.Action.Read], scope=AppConfigScope(apps=["SEARCH"])),
-                AppConfigAcl(actions=[AppConfigAcl.Action.Write], scope=AppConfigScope(apps=["SEARCH"])),
-                AssetsAcl(actions=[AssetsAcl.Action.Read, AssetsAcl.Action.Write], scope=AllScope()),
-            ],
-            [
-                AppConfigAcl(
-                    actions=[AppConfigAcl.Action.Read, AppConfigAcl.Action.Write], scope=AppConfigScope(apps=["SEARCH"])
-                ),
-                AssetsAcl(actions=[AssetsAcl.Action.Read, AssetsAcl.Action.Write], scope=AllScope()),
-            ],
-            id="Merge multiple capabilities",
-        )
-    ],
-)
-def test_merge_capabilities(capability_list: list[Capability], expected_result: list[Capability]):
-    merged_capabilities = AuthCommand.merge_capabilities(capability_list)
-    assert len(merged_capabilities) == len(expected_result)
-    app_config_acl = next(c for c in merged_capabilities if type(c) is AppConfigAcl)
-    assert app_config_acl is not None
-    assert app_config_acl.scope == expected_result[0].scope
-    assert sorted(app_config_acl.dump()["appConfigAcl"]["actions"]) == sorted(
-        expected_result[0].dump()["appConfigAcl"]["actions"]
-    )
+    assert result is True
+    client.tool.groups.create.assert_called_once()
+    created_group_request = client.tool.groups.create.call_args[0][0][0]
+    assert len(created_group_request.capabilities) == 1
+    assert isinstance(created_group_request.capabilities[0].acl, StreamsAcl)
