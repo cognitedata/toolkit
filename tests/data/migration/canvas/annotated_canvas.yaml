@@ -174,7 +174,7 @@ containerReferences:
   properties:
     cdf_industrial_canvas:
       ContainerReference/v2:
-        containerReferenceType: event
+        containerReferenceType: file
         resourceId: 9005977951852492
         id: 321fa42e-0ad3-4b4e-9df4-7e0989cd538b
         resourceSubId: null

@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     DataSetScope,
     FilesAcl,
@@ -79,7 +79,7 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             yield FilesAcl(actions=sorted(actions), scope=scope)
 

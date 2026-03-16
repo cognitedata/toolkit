@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     SimulatorModelRoutineRevisionFilter,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     DataSetScope,
     ScopeDefinition,
@@ -100,7 +100,7 @@ class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, Simulat
         return DataSetScope(ids=list({item.data_set_id for item in items}))
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             acl_actions: list[Literal["READ", "WRITE", "DELETE", "RUN", "MANAGE"]] = []
             if "READ" in actions:
@@ -237,7 +237,7 @@ class SimulatorModelRevisionCRUD(
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
     def create(self, items: Sequence[SimulatorModelRevisionRequest]) -> list[SimulatorModelRevisionResponse]:
@@ -362,7 +362,7 @@ class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, Sim
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
     def create(self, items: Sequence[SimulatorRoutineRequest]) -> list[SimulatorRoutineResponse]:
@@ -462,7 +462,7 @@ class SimulatorRoutineRevisionCRUD(
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
     def create(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> list[SimulatorRoutineRevisionResponse]:

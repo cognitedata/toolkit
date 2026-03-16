@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     AssetsAcl,
     DataSetScope,
@@ -122,7 +122,7 @@ class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             yield AssetsAcl(actions=sorted(actions), scope=scope)
 
@@ -309,7 +309,7 @@ class SequenceCRUD(ResourceCRUD[ExternalId, SequenceRequest, SequenceResponse]):
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             yield SequencesAcl(actions=sorted(actions), scope=scope)
 
@@ -442,7 +442,7 @@ class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRows
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
     def create(self, items: Sequence[SequenceRowsRequest]) -> Sequence[SequenceRowsRequest]:
@@ -593,7 +593,7 @@ class EventCRUD(ResourceCRUD[ExternalId, EventRequest, EventResponse]):
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             yield EventsAcl(actions=sorted(actions), scope=scope)
 
