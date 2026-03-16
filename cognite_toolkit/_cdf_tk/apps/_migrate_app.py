@@ -102,6 +102,8 @@ class MigrateApp(typer.Typer):
         self.command("charts")(self.charts)
         self.command("3d")(self.three_d)
         self.command("3d-mappings")(self.three_d_asset_mapping)
+        if Flags.RECORDS_MIGRATE.is_enabled():
+            self.command("events-to-records")(self.events_to_records)
         if Flags.INFIELD_MIGRATE.is_enabled():
             self.command("infield-configs")(self.infield_configs)
             # Uncomment when the infield data migration is ready.
@@ -517,28 +519,11 @@ class MigrateApp(typer.Typer):
                 "CogniteActivity in CogniteCore will be used.",
             ),
         ] = None,
-        target: Annotated[
-            str,
-            typer.Option(
-                "--target",
-                "-t",
-                help="Use 'instances' (default) to migrate events to CogniteActivity"
-                " or use 'records' to migrate events to records.",
-            ),
-        ] = "instances",
         event_type: Annotated[
             str | None,
             typer.Option(
                 "--type",
                 help="Filter events by type. Only events matching this type will be migrated.",
-            ),
-        ] = None,
-        record_mapping_file: Annotated[
-            Path | None,
-            typer.Option(
-                "--record-mapping-file",
-                help="Path to a YAML file defining the RecordPropertyMapping. "
-                "Required when --target is 'records'.",
             ),
         ] = None,
         event_subtype: Annotated[
@@ -581,12 +566,7 @@ class MigrateApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """Migrate Events to CogniteActivity (instances) or to records."""
-        if target not in ("instances", "records"):
-            raise typer.BadParameter(f"Invalid target '{target}'. Must be 'instances' or 'records'.")
-        if target == "records" and record_mapping_file is None:
-            raise typer.BadParameter("--record-mapping-file is required when --target is 'records'.")
-
+        """Migrate Events to CogniteActivity instances."""
         client = EnvironmentVariables.create_from_environment().get_client()
         selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
             client=client,
@@ -605,35 +585,119 @@ class MigrateApp(typer.Typer):
         )
 
         cmd = MigrationCommand(client=client)
+        cmd.run(
+            lambda: cmd.migrate(
+                selectors=[selected],
+                data=AssetCentricMigrationIO(client),
+                mapper=AssetCentricMapper(client),
+                log_dir=log_dir,
+                dry_run=dry_run,
+                verbose=verbose,
+                user_log_filestem="events",
+            )
+        )
 
-        if target == "records":
-            assert record_mapping_file is not None
-            record_mappings = load_record_property_mappings(record_mapping_file)
-            stream_external_id = record_mappings[0].stream_external_id
-            cmd.validate_stream_exists(client, stream_external_id)
-            cmd.run(
-                lambda: cmd.migrate(
-                    selectors=[selected],
-                    data=RecordsMigrationIO(client, stream_external_id=stream_external_id),
-                    mapper=RecordsMapper(client, record_mappings=record_mappings),
-                    log_dir=log_dir,
-                    dry_run=dry_run,
-                    verbose=verbose,
-                    user_log_filestem="events-records",
-                )
+    @classmethod
+    def events_to_records(
+        cls,
+        ctx: typer.Context,
+        record_mapping_file: Annotated[
+            Path,
+            typer.Option(
+                "--record-mapping-file",
+                help="Path to a YAML file defining the record property mappings. "
+                "Must include stream_external_id, container_id, and property_mapping.",
+            ),
+        ],
+        data_set_id: Annotated[
+            str | None,
+            typer.Option(
+                "--data-set-id",
+                "-s",
+                help="The data set ID to filter source events by. If not provided, all events are migrated.",
+            ),
+        ] = None,
+        event_type: Annotated[
+            str | None,
+            typer.Option(
+                "--type",
+                help="Filter events by type. Only events matching this type will be migrated.",
+            ),
+        ] = None,
+        event_subtype: Annotated[
+            str | None,
+            typer.Option(
+                "--subtype",
+                help="Filter events by subtype. Only events matching this subtype will be migrated.",
+            ),
+        ] = None,
+        log_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
+            ),
+        ] = Path(f"migration_logs_{TODAY!s}"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="If set, no confirmation prompt will be shown before proceeding with the migration.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrate Events to records (Streams API)."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        record_mappings = load_record_property_mappings(record_mapping_file)
+        stream_external_id = record_mappings[0].stream_external_id
+
+        selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
+            client=client,
+            mapping_file=None,
+            data_set_id=data_set_id,
+            consumption_view=None,
+            ingestion_mapping=record_mappings[0].external_id,
+            dry_run=dry_run,
+            auto_yes=auto_yes,
+            verbose=verbose,
+            kind="Events",
+            resource_type="event",
+            container_id=ContainerId(space="cdf_cdm", external_id="CogniteActivity"),
+            event_type=event_type,
+            event_subtype=event_subtype,
+        )
+
+        cmd = MigrationCommand(client=client)
+        cmd.validate_stream_exists(client, stream_external_id)
+        cmd.run(
+            lambda: cmd.migrate(
+                selectors=[selected],
+                data=RecordsMigrationIO(client, stream_external_id=stream_external_id),
+                mapper=RecordsMapper(client, record_mappings=record_mappings),
+                log_dir=log_dir,
+                dry_run=dry_run,
+                verbose=verbose,
+                user_log_filestem="events-records",
             )
-        else:
-            cmd.run(
-                lambda: cmd.migrate(
-                    selectors=[selected],
-                    data=AssetCentricMigrationIO(client),
-                    mapper=AssetCentricMapper(client),
-                    log_dir=log_dir,
-                    dry_run=dry_run,
-                    verbose=verbose,
-                    user_log_filestem="events",
-                )
-            )
+        )
 
     @classmethod
     def timeseries(
