@@ -223,6 +223,9 @@ class TableReader(FileReader, ABC):
             for column in schema:
                 if column.type in {"date", "timestamp"}:
                     raise ToolkitValueError("CSVReader does not support 'date' or 'timestamp' types.")
+                if column.is_array:
+                    # Array columns in CSV are JSON-encoded; default inference handles them correctly.
+                    continue
                 parse_function_by_column[column.name] = partial(  # type: ignore[assignment]
                     convert_str_to_data_type, type_=column.type, nullable=True, is_array=False
                 )
