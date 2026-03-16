@@ -1561,7 +1561,7 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, Gr
             if "--verbose" in sys.argv:
                 print(f"Deploying GraphQL schema {item_id}")
 
-            item_with_dml = item.model_copy(update={"dml": graphql_file_content})
+            item_with_dml = item.model_copy(update={"graph_ql_dml": graphql_file_content})
             created = self.client.tool.graphql_data_models.create([item_with_dml])
             created_list.extend(created)
         return created_list

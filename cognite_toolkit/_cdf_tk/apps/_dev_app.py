@@ -36,7 +36,7 @@ class DevApp(typer.Typer):
         kind: Annotated[
             list[str] | None,
             typer.Argument(
-                help="The kind of resource to create. eg. container, space, view, datamodel, etc.",
+                help="The kind of resource to create. eg. Space, Container, or data_modeling.View, functions.Schedule.",
                 callback=lambda ctx, param, value: [
                     s.strip() for item in value or [] for s in item.split(",") if s.strip()
                 ],
