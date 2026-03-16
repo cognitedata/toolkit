@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Any, Literal, final
 
 import yaml
-from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -82,28 +81,6 @@ class ExtractionPipelineCRUD(ResourceCRUD[ExternalId, ExtractionPipelineRequest,
     @property
     def display_name(self) -> str:
         return "extraction pipelines"
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[ExtractionPipelineRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.ExtractionPipelinesAcl.Action.Read]
-            if read_only
-            else [cap.ExtractionPipelinesAcl.Action.Read, cap.ExtractionPipelinesAcl.Action.Write]
-        )
-
-        scope: cap.ExtractionPipelinesAcl.Scope.All | cap.ExtractionPipelinesAcl.Scope.DataSet = (  # type: ignore[valid-type]
-            cap.ExtractionPipelinesAcl.Scope.All()
-        )
-        if items is not None:
-            if data_set_id := {item.data_set_id for item in items if item.data_set_id}:
-                scope = cap.ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
-
-        return cap.ExtractionPipelinesAcl(actions, scope)
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[ExtractionPipelineRequest]) -> ScopeDefinition:
@@ -242,13 +219,6 @@ class ExtractionPipelineConfigCRUD(
     @property
     def display_name(self) -> str:
         return "extraction pipeline configs"
-
-    @classmethod
-    def get_required_capability(
-        cls, items: Sequence[ExtractionPipelineConfigRequest] | None, read_only: bool
-    ) -> list[cap.Capability]:
-        # We check the parent extraction pipeline permissions instead
-        return []
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[ExtractionPipelineConfigRequest]) -> ScopeDefinition | None:

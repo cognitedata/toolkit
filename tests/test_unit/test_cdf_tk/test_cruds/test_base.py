@@ -429,14 +429,6 @@ authentication:
 
 
 class TestResourceCRUDs:
-    @pytest.mark.parametrize("loader_cls", RESOURCE_CRUD_LIST)
-    def test_empty_required_capabilities_when_no_items(
-        self, loader_cls: type[ResourceCRUD], env_vars_with_client: EnvironmentVariables
-    ):
-        actual = loader_cls.get_required_capability([], read_only=False)
-
-        assert actual == []
-
     def test_unique_kind_by_folder(self):
         kind = defaultdict(list)
         for crud in RESOURCE_CRUD_LIST:
