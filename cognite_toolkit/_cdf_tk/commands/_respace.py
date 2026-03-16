@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from cognite.client.utils._text import to_camel_case
 from pydantic import BaseModel, model_validator
+from pydantic.alias_generators import to_camel
 from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.storageio._data_classes import ModelList
 from ._base import ToolkitCommand
 
 
-class RespaceMapping(BaseModel, alias_generator=to_camel_case, populate_by_name=True):
+class RespaceMapping(BaseModel, alias_generator=to_camel, populate_by_name=True):
     """A single node respace mapping from source to target.
 
     The external ID is preserved — only the space changes.

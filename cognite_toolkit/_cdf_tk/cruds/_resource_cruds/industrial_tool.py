@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, final
 
-from cognite.client import _version as CogniteSDKVersion
+from cognite.client._version import __version__ as CogniteSDKVersion
 from packaging.requirements import Requirement
 from rich.console import Console
 
@@ -51,7 +51,7 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
 
     @classmethod
     def recommended_packages(cls) -> list[Requirement]:
-        return [Requirement("pyodide-http==0.2.1"), Requirement(f"cognite-sdk=={CogniteSDKVersion.__version__}")]
+        return [Requirement("pyodide-http==0.2.1"), Requirement(f"cognite-sdk=={CogniteSDKVersion}")]
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
         super().__init__(client, build_dir, console)

@@ -5,8 +5,8 @@ from collections.abc import Collection
 from pathlib import Path
 from typing import Literal, TypeVar
 
-from cognite.client.utils._text import to_camel_case
 from pydantic import BaseModel
+from pydantic.alias_generators import to_camel
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
@@ -82,7 +82,7 @@ class ModelList(UserList[T_BaseModel], ABC):
 T_ModelList = TypeVar("T_ModelList", bound=ModelList)
 
 
-class InstanceIdRow(BaseModel, alias_generator=to_camel_case):
+class InstanceIdRow(BaseModel, alias_generator=to_camel):
     space: str
     external_id: str
     instance_type: Literal["node", "edge"] = "node"

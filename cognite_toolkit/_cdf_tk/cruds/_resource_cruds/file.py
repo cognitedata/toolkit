@@ -17,8 +17,6 @@ from collections.abc import Hashable, Iterable, Sequence
 from datetime import date, datetime
 from typing import Any, Literal, final
 
-from cognite.client.utils._time import convert_data_modelling_timestamp
-
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
@@ -53,6 +51,7 @@ from cognite_toolkit._cdf_tk.utils.acl_helper import (
     space_scoped_resource,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.utils.time import convert_data_modelling_timestamp
 from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML
 
 from .auth import GroupAllScopedCRUD, SecurityCategoryCRUD

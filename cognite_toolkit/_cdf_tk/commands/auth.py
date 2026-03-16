@@ -445,13 +445,13 @@ class AuthCommand(ToolkitCommand):
             inspect_response = client.tool.token.inspect()
             if inspect_response is None or len(inspect_response.capabilities) == 0:
                 raise AuthorizationError(
-                    "Valid authentication token, but it does not give any access rights."
+                    "The authentication token is valid but does not provide any access rights to the given project."
                     " Check credentials (IDP_CLIENT_ID/IDP_CLIENT_SECRET or CDF_TOKEN)."
                 )
             print("  [bold green]OK[/]")
         except ToolkitAPIError as e:
             raise AuthorizationError(
-                "Not a valid authentication token. Check credentials (IDP_CLIENT_ID/IDP_CLIENT_SECRET or CDF_TOKEN)."
+                "The authentication token is invalid. Check credentials (IDP_CLIENT_ID/IDP_CLIENT_SECRET or CDF_TOKEN)."
                 "This could also be due to the service principal/application not having access to any Groups."
                 f"\n{e}"
             )
