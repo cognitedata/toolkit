@@ -248,33 +248,58 @@ def cdm_file(
     return ResponseItems[FileMetadataResponse].model_valide_json(response.body).items[0]
 
 
+@pytest.fixture
+def selected_cdm_file(cdm_file: FileMetadataResponse, toolkit_space: Space, tmp_path: Path) -> MigrationCSVFileSelector:
+    space = toolkit_space.space
+
+    input_file = tmp_path / "file_migration.csv"
+
+    with input_file.open("w", encoding="utf-8") as f:
+        f.write(
+            "id,dataSetId,space,externalId\n"
+            + "\n".join(f"{f.id},{f.data_set_id or ''},{space},{f.external_id}" for f in [cdm_file])
+            + "\n"
+        )
+    return MigrationCSVFileSelector(datafile=input_file, kind="FileMetadata")
+
+
 class TestMigrateFiles:
     def test_migrate_linked_file(
-        self, toolkit_client: ToolkitClient, cdm_file: FileMetadataResponse, toolkit_space: Space, tmp_path: Path
+        self, toolkit_client: ToolkitClient, selected_cdm_file: MigrationCSVFileSelector, tmp_path: Path
     ) -> None:
         client = toolkit_client
-        space = toolkit_space.space
-
-        input_file = tmp_path / "file_migration.csv"
-
-        with input_file.open("w", encoding="utf-8") as f:
-            f.write(
-                "id,dataSetId,space,externalId\n"
-                + "\n".join(f"{f.id},{f.data_set_id or ''},{space},{f.external_id}" for f in [cdm_file])
-                + "\n"
-            )
 
         cmd = MigrationCommand(skip_tracking=True, silent=True)
-        selector = MigrationCSVFileSelector(datafile=input_file, kind="FileMetadata")
+
         result = cmd.migrate(
-            selectors=[selector],
+            selectors=[selected_cdm_file],
             data=AssetCentricMigrationIO(client, skip_linking=False),
             mapper=AssetCentricMapper(client),
             log_dir=tmp_path,
             dry_run=False,
         )
-        actual_result = {item.status: item.count for item in result[str(selector)]}
+        actual_result = {item.status: item.count for item in result[str(selected_cdm_file)]}
 
         assert actual_result == {"failure": 1, "pending": 0, "success": 0, "unchanged": 0, "skipped": 0}, (
             "Expected failure as the file is already a CDM file."
+        )
+
+    def test_skip_linked_file(
+        self, toolkit_client: ToolkitClient, selected_cdm_file: MigrationCSVFileSelector, tmp_path: Path
+    ) -> None:
+        client = toolkit_client
+        cmd = MigrationCommand(skip_tracking=True, silent=True)
+
+        result = cmd.migrate(
+            selectors=[selected_cdm_file],
+            data=AssetCentricMigrationIO(client, skip_existing=True),
+            mapper=AssetCentricMapper(client),
+            log_dir=tmp_path,
+            dry_run=False,
+        )
+
+        actual_result = {item.status: item.count for item in result[str(selected_cdm_file)]}
+
+        assert actual_result == {"failure": 0, "pending": 0, "success": 0, "unchanged": 0, "skipped": 1}, (
+            "File already exists."
         )
