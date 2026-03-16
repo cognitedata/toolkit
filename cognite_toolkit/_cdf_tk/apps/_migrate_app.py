@@ -331,7 +331,7 @@ class MigrateApp(typer.Typer):
             typer.Option(
                 "--skip-existing",
                 help="If set, Toolkit will check and skip nodes if they already exist. Note that this "
-                "increases the request done by the command with 50%",
+                "increases the number of requests done by the command with 50%",
             ),
         ] = False,
         log_dir: Annotated[
@@ -516,7 +516,7 @@ class MigrateApp(typer.Typer):
             typer.Option(
                 "--skip-existing",
                 help="If set, Toolkit will check and skip nodes if they already exist. Note that this "
-                "increases the request done by the command with 50%",
+                "increases the number of requests done by the command with 50%",
             ),
         ] = False,
         log_dir: Annotated[
@@ -630,7 +630,7 @@ class MigrateApp(typer.Typer):
             typer.Option(
                 "--skip-existing",
                 help="If set, Toolkit will check and skip nodes if they already exist. Note that this "
-                "increases the request done by the command with 50%",
+                "increases the number of requests done by the command with 50%",
             ),
         ] = False,
         log_dir: Annotated[
@@ -756,7 +756,7 @@ class MigrateApp(typer.Typer):
             typer.Option(
                 "--skip-existing",
                 help="If set, Toolkit will check and skip nodes if they already exist. Note that this "
-                "increases the request done by the command with 50%",
+                "increases the number of requests done by the command with 50%",
             ),
         ] = False,
         log_dir: Annotated[
