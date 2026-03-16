@@ -14,6 +14,7 @@ from .build_v2.build_v2 import BuildV2Command
 from .clean import CleanCommand
 from .collect import CollectCommand
 from .deploy import DeployCommand
+from .deploy_v2.command import DeployOptions, DeployV2Command
 from .dump_resource import DumpResourceCommand
 from .functions import FunctionsCommand
 from .init import InitCommand
@@ -31,6 +32,8 @@ __all__ = [
     "CleanCommand",
     "CollectCommand",
     "DeployCommand",
+    "DeployOptions",
+    "DeployV2Command",
     "DownloadCommand",
     "DumpResourceCommand",
     "FunctionsCommand",

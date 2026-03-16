@@ -58,6 +58,9 @@ class CogniteFileResponse(WrappedInstanceResponse[CogniteFileRequest], CogniteFi
     is_uploaded: bool | None = None
     uploaded_time: datetime | None = None
 
+    def as_id(self) -> NodeId:
+        return NodeId(space=self.space, external_id=self.external_id)
+
     @classmethod
     def request_cls(cls) -> builtins.type[CogniteFileRequest]:
         return CogniteFileRequest
