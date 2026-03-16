@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartTimeseries,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerPropertyDefinition,
     DirectNodeRelation,
     EdgeRequest,
     EdgeResponse,
@@ -236,6 +237,17 @@ class RecordsMapper(
         self._record_mapping_by_id: dict[str, RecordPropertyMapping] = {
             mapping.external_id: mapping for mapping in record_mappings
         }
+        self._container_properties_by_id: dict[ContainerId, dict[str, ContainerPropertyDefinition]] = {}
+
+    def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
+        container_ids = list({mapping.container_id for mapping in self._record_mapping_by_id.values()})
+        containers = self.client.tool.containers.retrieve(container_ids)
+        self._container_properties_by_id = {container.as_id(): container.properties for container in containers}
+        missing = set(container_ids) - set(self._container_properties_by_id.keys())
+        if missing:
+            raise ToolkitValueError(
+                f"The following containers were not found in CDF: {humanize_collection(missing)}"
+            )
 
     def map(
         self, source: Sequence[AssetCentricMapping[T_AssetCentricResourceExtended]]
@@ -274,10 +286,12 @@ class RecordsMapper(
             raise RuntimeError(
                 f"Failed to lookup record property mapping '{ingestion_view}'. Did you forget to call .prepare()?"
             ) from e
+        container_properties = self._container_properties_by_id[record_mapping.container_id]
         record, conversion_issue = asset_centric_to_record(
             item.resource,
             instance_id=NodeId(space=mapping.instance_id.space, external_id=mapping.instance_id.external_id),
             record_mapping=record_mapping,
+            container_properties=container_properties,
         )
         if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
             conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {mapping.data_set_id!r}"

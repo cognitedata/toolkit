@@ -8,10 +8,17 @@ from typing import Any, ClassVar, Generic, cast
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import AssetCentricExternalId, EdgeTypeId, ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import (
+    AssetCentricExternalId,
+    ContainerId,
+    EdgeTypeId,
+    ExternalId,
+    InternalId,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse, AssetLinkData, FileLinkData
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerPropertyDefinition,
     DirectNodeRelation,
     EdgeId,
     EdgeProperty,
@@ -304,6 +311,7 @@ def asset_centric_to_record(
     resource: AssetCentricResourceExtended,
     instance_id: NodeId,
     record_mapping: RecordPropertyMapping,
+    container_properties: dict[str, ContainerPropertyDefinition],
 ) -> tuple[RecordRequest | None, ConversionIssue]:
     """Convert an asset-centric resource to a record request.
 
@@ -311,6 +319,7 @@ def asset_centric_to_record(
         resource: The asset-centric resource to convert.
         instance_id: The target record space and external_id.
         record_mapping: The record property mapping defining the target container and property mapping.
+        container_properties: Property definitions from the target container (for type validation/coercion).
 
     Returns:
         A tuple of the RecordRequest (or None on failure) and any conversion issues.
@@ -332,21 +341,14 @@ def asset_centric_to_record(
         instance_id=NodeId(space=instance_id.space, external_id=instance_id.external_id),
     )
 
-    flat_dump = flatten_dict_json_path(dumped, keep_structured=set(record_mapping.property_mapping.keys()))
-    properties: dict[str, JsonValue] = {}
-    for source_key, target_key in record_mapping.property_mapping.items():
-        if source_key not in flat_dump:
-            continue
-        value = flat_dump[source_key]
-        if isinstance(value, date) and not isinstance(value, datetime):
-            properties[target_key] = value.isoformat()
-        elif isinstance(value, datetime):
-            properties[target_key] = value.isoformat(timespec="milliseconds")
-        else:
-            properties[target_key] = value
-
-    issue.ignored_asset_centric_properties = sorted(set(flat_dump.keys()) - set(record_mapping.property_mapping.keys()))
-    issue.missing_asset_centric_properties = sorted(set(record_mapping.property_mapping.keys()) - set(flat_dump.keys()))
+    properties = create_container_properties(
+        dumped,
+        container_properties,
+        record_mapping.property_mapping,
+        resource_type,
+        issue=issue,
+        container_id=record_mapping.container_id,
+    )
 
     sources: list[RecordSource] = []
     if properties:
@@ -438,11 +440,7 @@ def create_properties(
             )
             continue
         if isinstance(value, date):
-            # Convert date to ISO format string, as the data model expects dates as strings in ISO format.
             properties[prop_id] = value.isoformat()
-        elif isinstance(value, datetime):
-            # Convert datetime to ISO format string, as the data model expects datetimes as strings in ISO format.
-            properties[prop_id] = value.isoformat(timespec="milliseconds")
         else:
             properties[prop_id] = value
 
@@ -459,6 +457,47 @@ def create_properties(
         }
         - set(view_properties.keys())
     )
+    return properties
+
+
+def create_container_properties(
+    dumped: dict[str, Any],
+    container_properties: dict[str, ContainerPropertyDefinition],
+    property_mapping: dict[str, str],
+    resource_type: AssetCentricTypeExtended,
+    issue: ConversionIssue,
+    container_id: ContainerId,
+) -> dict[str, JsonValue]:
+    """Create properties for a record from an asset-centric resource using container property definitions."""
+    flatten_dump = flatten_dict_json_path(dumped, keep_structured=set(property_mapping.keys()))
+    properties: dict[str, JsonValue] = {}
+    for prop_json_path, prop_id in property_mapping.items():
+        if prop_json_path not in flatten_dump:
+            continue
+        if prop_id not in container_properties:
+            continue
+        prop_def = container_properties[prop_id]
+        try:
+            value = asset_centric_convert_to_primary_property(
+                flatten_dump[prop_json_path],
+                prop_def.type,
+                prop_def.nullable or False,
+                destination_container_property=(container_id, prop_id),
+                source_property=(resource_type, prop_json_path),
+            )
+        except (ValueError, TypeError, NotImplementedError) as e:
+            issue.failed_conversions.append(
+                FailedConversion(property_id=prop_json_path, value=flatten_dump[prop_json_path], error=str(e))
+            )
+            continue
+        if isinstance(value, date):
+            properties[prop_id] = value.isoformat()
+        else:
+            properties[prop_id] = value
+
+    issue.ignored_asset_centric_properties = sorted(set(flatten_dump.keys()) - set(property_mapping.keys()))
+    issue.missing_asset_centric_properties = sorted(set(property_mapping.keys()) - set(flatten_dump.keys()))
+    issue.missing_instance_properties = sorted(set(property_mapping.values()) - set(container_properties.keys()))
     return properties
 
 
