@@ -600,10 +600,10 @@ class MigrateApp(typer.Typer):
     def events_to_records(
         cls,
         ctx: typer.Context,
-        record_mapping_file: Annotated[
+        ingestion_mapping_path: Annotated[
             Path,
             typer.Option(
-                "--record-mapping-file",
+                "--ingestion-mapping-path",
                 help="Path to a YAML file defining the record property mappings. "
                 "Must include stream_external_id, container_id, and property_mapping.",
             ),
@@ -665,7 +665,7 @@ class MigrateApp(typer.Typer):
     ) -> None:
         """Migrate Events to records (Streams API)."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        record_mappings = load_record_property_mappings(record_mapping_file)
+        record_mappings = load_record_property_mappings(ingestion_mapping_path)
         stream_external_id = record_mappings[0].stream_external_id
 
         selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
