@@ -1,4 +1,5 @@
 import builtins
+import time
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal
 
@@ -245,3 +246,28 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             List of updated FileMetadataResponse objects.
         """
         return self._request_item_response(items, method="retrieve", endpoint="/files/unlink-instance-ids")
+
+    def await_file_uploaded(self, items: Sequence[InternalId], timeout_seconds: float) -> tuple[set[InternalId], float]:
+        """Wait for files to be uploaded, polling their status until they are marked as uploaded or a timeout is reached.
+
+        Args:
+            items: Sequence of InternalId identifying the files to upload.
+            timeout_seconds: Timeout in seconds.
+
+        Returns:
+            The identifiers of the files that were not marked as uploaded within the timeout, and the elapsed time in seconds.
+
+        """
+        to_check = set(items)
+        t0 = time.perf_counter()
+        sleep_time = 1.0  # seconds
+        while (elapsed_time := (time.perf_counter() - t0)) < timeout_seconds:
+            files = self.retrieve(list(to_check))
+            to_check = {InternalId(id=file.id) for file in files if not file.uploaded}
+            if not to_check:
+                return set(), elapsed_time
+            elapsed_time = time.perf_counter() - t0
+            to_sleep = min(sleep_time, timeout_seconds - elapsed_time)
+            time.sleep(max(0, to_sleep))
+            sleep_time *= 2
+        return to_check, elapsed_time
