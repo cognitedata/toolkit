@@ -18,8 +18,6 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.data_classes.data_modeling import NodeList, Space
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, CogniteTimeSeries
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
-from cognite.client.data_classes.files import FileMetadata
-from cognite.client.data_classes.time_series import TimeSeries
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import NodeId
@@ -340,10 +338,10 @@ class TestPurgeSpace:
             nodes = node_items
             retrieve_calls: list[tuple[str, type, int, list[NodeResponse]]] = []
             if not delete_datapoints:
-                retrieve_calls.append(("/timeseries/byids", TimeSeries, ts_count, nodes[:ts_count]))
+                retrieve_calls.append(("/timeseries/byids", TimeSeriesResponse, ts_count, nodes[:ts_count]))
             if not delete_file_content:
                 retrieve_calls.append(
-                    ("/files/byids", FileMetadata, file_count, nodes[ts_count : ts_count + file_count])
+                    ("/files/byids", FileMetadataResponse, file_count, nodes[ts_count : ts_count + file_count])
                 )
 
             for url, cls_, count, resource_nodes in retrieve_calls:
@@ -353,11 +351,7 @@ class TestPurgeSpace:
                         ts["instanceId"] = node.as_id().dump(include_type=False)
                     except TypeError:
                         ts["instanceId"] = node.as_id().dump(camel_case=True)
-                rsps.add(
-                    method=responses.POST,
-                    url=config.create_api_url(url),
-                    json={"items": resource_list},
-                )
+                respx_mock.post(config.create_api_url(url)).respond(json={"items": resource_list})
 
         cmd = PurgeCommand(silent=True)
         results = cmd.space(

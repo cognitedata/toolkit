@@ -16,25 +16,15 @@
 import itertools
 import shutil
 import time
-import warnings
+import urllib.parse
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from time import sleep
 from typing import Literal
 
 import questionary
-from cognite.client.data_classes.capabilities import (
-    AssetsAcl,
-    Capability,
-    ExtractionConfigsAcl,
-    FunctionsAcl,
-    GroupsAcl,
-    ProjectsAcl,
-    RelationshipsAcl,
-    SessionsAcl,
-)
-from cognite.client.data_classes.iam import Group, GroupList, GroupWrite, TokenInspection
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
 from rich.panel import Panel
@@ -43,12 +33,27 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk import cruds
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    AllScope,
+    AssetsAcl,
+    FunctionsAcl,
+    GroupCapability,
+    GroupRequest,
+    GroupResponse,
+    GroupsAcl,
+    ProjectsAcl,
+    RelationshipsAcl,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import AclType
+from cognite_toolkit._cdf_tk.client.resource_classes.token import FlatCapabilities, InspectResponse
 from cognite_toolkit._cdf_tk.constants import (
     HINT_LEAD_TEXT,
     TOOLKIT_DEMO_GROUP_NAME,
     TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME,
 )
-from cognite_toolkit._cdf_tk.cruds import ExtractionPipelineConfigCRUD
+from cognite_toolkit._cdf_tk.cruds import AssetCRUD, RelationshipCRUD
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
     AuthorizationError,
@@ -75,7 +80,7 @@ class VerifyAuthResult:
 
 
 class AuthCommand(ToolkitCommand):
-    def init(self, no_verify: bool = False, dry_run: bool = False) -> None:
+    def init(self) -> None:
         env_vars: EnvironmentVariables | None = None
         try:
             env_vars = EnvironmentVariables.create_from_environment()
@@ -93,8 +98,8 @@ class AuthCommand(ToolkitCommand):
 
         client = env_vars.get_client()
         try:
-            client.iam.token.inspect()
-        except CogniteAPIError as e:
+            client.tool.token.inspect()
+        except ToolkitAPIError as e:
             raise AuthenticationError(f"Unable to verify the credentials.\n{e}")
 
         print("[green]The credentials are valid.[/green]")
@@ -143,29 +148,27 @@ class AuthCommand(ToolkitCommand):
         if client.config.project is None:
             raise AuthorizationError("CDF_PROJECT is not set.")
         cdf_project = client.config.project
-        token_inspection = self.check_has_any_access(client)
+        inspect_response = self.check_has_any_access(client)
 
-        self.check_has_project_access(token_inspection, cdf_project)
+        self.check_has_project_access(inspect_response, cdf_project)
 
         print(f"[italic]Focusing on current project {cdf_project} only from here on.[/]")
 
         self.check_has_group_access(client)
 
-        self.check_identity_provider(client, cdf_project)
+        self.check_identity_provider(client)
 
         try:
-            user_groups = client.iam.groups.list()
-        except CogniteAPIError as e:
+            user_groups = client.tool.groups.list(all_groups=False)
+        except ToolkitAPIError as e:
             raise AuthorizationError(f"Unable to retrieve CDF groups.\n{e}")
 
         if not user_groups:
             raise AuthorizationError("The current user is not member of any groups in the CDF project.")
 
         data_modeling_status = client.project.status().this_project.data_modeling_status
-        loader_capabilities, loaders_by_capability_tuple = self._get_capabilities_by_loader(
-            client, data_modeling_status
-        )
-        toolkit_group = self._create_toolkit_group(loader_capabilities, demo_principal)
+        required_acls, resource_names_by_acl_type = self._get_required_acls(client, data_modeling_status)
+        toolkit_group = self._create_toolkit_group(required_acls, demo_principal)
 
         if not is_demo:
             print(
@@ -184,19 +187,20 @@ class AuthCommand(ToolkitCommand):
             if is_interactive:
                 Prompt.ask("Press enter key to continue...")
 
-        all_groups = client.iam.groups.list(all=True)
+        all_groups = client.tool.groups.list(all_groups=True)
 
         is_user_in_toolkit_group = any(group.name == toolkit_group.name for group in user_groups)
         is_toolkit_group_existing = any(group.name == toolkit_group.name for group in all_groups)
 
         print(f"Checking current client is member of the {toolkit_group.name!r} group...")
         has_added_capabilities = False
-        cdf_toolkit_group: Group | None
+        cdf_toolkit_group: GroupResponse | None
         if is_user_in_toolkit_group:
             print(f"  [bold green]OK[/] - The current client is member of the {toolkit_group.name!r} group.")
             cdf_toolkit_group = next(group for group in user_groups if group.name == toolkit_group.name)
+
             missing_capabilities = self._check_missing_capabilities(
-                client, cdf_toolkit_group, toolkit_group, loaders_by_capability_tuple, is_interactive
+                cdf_toolkit_group, toolkit_group, resource_names_by_acl_type, cdf_project, is_interactive
             )
             if (
                 is_interactive
@@ -204,15 +208,14 @@ class AuthCommand(ToolkitCommand):
                 and questionary.confirm("Do you want to update the group with the missing capabilities?").unsafe_ask()
             ) or is_demo:
                 has_added_capabilities = self._update_missing_capabilities(
-                    client, cdf_toolkit_group, missing_capabilities, dry_run, data_modeling_status
+                    client, cdf_toolkit_group, missing_capabilities, dry_run, cdf_project, data_modeling_status
                 )
         elif is_toolkit_group_existing:  # and not is_user_in_toolkit_group
             self.warn(MediumSeverityWarning(f"The current client is not member of the {toolkit_group.name!r} group."))
             print(f"Checking if the group {toolkit_group.name!r} has the required capabilities...")
-            # Update the group with the missing capabilities
             cdf_toolkit_group = next(group for group in all_groups if group.name == toolkit_group.name)
             missing_capabilities = self._check_missing_capabilities(
-                client, cdf_toolkit_group, toolkit_group, loaders_by_capability_tuple, is_interactive
+                cdf_toolkit_group, toolkit_group, resource_names_by_acl_type, cdf_project, is_interactive
             )
             if (
                 is_interactive
@@ -220,10 +223,9 @@ class AuthCommand(ToolkitCommand):
                 and questionary.confirm("Do you want to update the group with the missing capabilities?").unsafe_ask()
             ):
                 self._update_missing_capabilities(
-                    client, cdf_toolkit_group, missing_capabilities, dry_run, data_modeling_status
+                    client, cdf_toolkit_group, missing_capabilities, dry_run, cdf_project, data_modeling_status
                 )
         elif is_demo:
-            # We create the group for the demo user
             cdf_toolkit_group = self._create_toolkit_group_in_cdf(client, toolkit_group)
         else:
             print(f"Group {toolkit_group.name!r} does not exist in the CDF project.")
@@ -255,8 +257,8 @@ class AuthCommand(ToolkitCommand):
                     and questionary.confirm("Do you want to delete the extra groups?", default=True).unsafe_ask()
                 ):
                     try:
-                        client.iam.groups.delete(extra.as_ids())
-                    except CogniteAPIError as e:
+                        client.tool.groups.delete([InternalId(id=g.id) for g in extra])
+                    except ToolkitAPIError as e:
                         raise ResourceDeleteError(f"Unable to delete the extra groups.\n{e}")
                     print(f"  [bold green]OK[/] - Deleted {len(extra)} duplicated groups.")
 
@@ -266,11 +268,11 @@ class AuthCommand(ToolkitCommand):
     def _create_toolkit_group_in_cdf_interactive(
         self,
         client: ToolkitClient,
-        toolkit_group: GroupWrite,
-        all_groups: GroupList,
+        toolkit_group: GroupRequest,
+        all_groups: list[GroupResponse],
         is_interactive: bool,
         dry_run: bool,
-    ) -> Group | None:
+    ) -> GroupResponse | None:
         if not is_interactive:
             raise AuthorizationError(
                 f"Group {toolkit_group.name!r} does not exist in the CDF project. "
@@ -309,9 +311,9 @@ class AuthCommand(ToolkitCommand):
     @staticmethod
     def _create_toolkit_group_in_cdf(
         client: ToolkitClient,
-        toolkit_group: GroupWrite,
-    ) -> Group:
-        created = client.iam.groups.create(toolkit_group)
+        toolkit_group: GroupRequest,
+    ) -> GroupResponse:
+        created = client.tool.groups.create([toolkit_group])[0]
         print(
             f"  [bold green]OK[/] - Created new group {created.name}. It now has {len(created.capabilities or [])} capabilities."
         )
@@ -319,36 +321,26 @@ class AuthCommand(ToolkitCommand):
 
     def _check_missing_capabilities(
         self,
-        client: ToolkitClient,
-        existing_group: Group,
-        toolkit_group: GroupWrite,
-        loaders_by_capability_id: dict[tuple, list[str]],
+        existing_group: GroupResponse,
+        toolkit_group: GroupRequest,
+        resource_name_by_acl_type: dict[type[AclType], list[str]],
+        project: str,
         is_interactive: bool,
-    ) -> list[Capability]:
+    ) -> Sequence[AclType]:
         print(f"\nChecking if the {existing_group.name} has the all required capabilities...")
-        with warnings.catch_warnings():
-            # If the user has unknown capabilities, we don't want the user to see the warning:
-            # "UserWarning: Unknown capability '<unknown warning>' will be ignored in comparison"
-            # This is irrelevant for the user as we are only checking the capabilities below
-            # (triggered by the verify_authorization calls)
-            warnings.simplefilter("ignore")
-            missing_capabilities = client.iam.compare_capabilities(
-                existing_group.capabilities or [],
-                toolkit_group.capabilities or [],
-                project=client.config.project,
-            )
+        missing_capabilities = FlatCapabilities.from_group(existing_group, project).verify(
+            [cap.acl for cap in toolkit_group.capabilities or []]
+        )
         if not missing_capabilities:
             print(f"  [bold green]OK[/] - The {existing_group.name} has all the required capabilities.")
             return []
 
-        missing_capabilities = self.merge_capabilities(missing_capabilities)
         for s in sorted(map(str, missing_capabilities)):
             self.warn(MissingCapabilityWarning(s))
 
         resource_names: set[str] = set()
-        for cap in missing_capabilities:
-            for cap_tuple in cap.as_tuples():
-                resource_names.update(loaders_by_capability_id[cap_tuple])
+        for acl in missing_capabilities:
+            resource_names.update(resource_name_by_acl_type.get(type(acl), []))
         if resource_names:
             print("[bold yellow]INFO:[/] The missing capabilities are required for the following resources:")
             for resource_name in resource_names:
@@ -363,25 +355,25 @@ class AuthCommand(ToolkitCommand):
     def _update_missing_capabilities(
         self,
         client: ToolkitClient,
-        existing_group: Group,
-        missing_capabilities: list[Capability],
+        existing_group: GroupResponse,
+        missing_capabilities: Sequence[AclType],
         dry_run: bool,
+        project: str,
         data_modeling_status: Literal["HYBRID", "DATA_MODELING_ONLY"],
     ) -> bool:
         """Updates the missing capabilities. This assumes interactive mode."""
-        updated_toolkit_group = GroupWrite.load(existing_group.dump())
-        if updated_toolkit_group.capabilities is None:
-            updated_toolkit_group.capabilities = missing_capabilities
+        updated_group = existing_group.as_request_resource()
+        missing_group_caps = [GroupCapability(acl=acl) for acl in missing_capabilities]
+        if updated_group.capabilities is None:
+            updated_group.capabilities = list(missing_group_caps)
         else:
-            updated_toolkit_group.capabilities.extend(missing_capabilities)
+            updated_group.capabilities.extend(missing_group_caps)
 
         if data_modeling_status == "DATA_MODELING_ONLY":
-            # Remove any AssetsAcl and RelationshipsAcl capabilities as these
-            # are not allowed in DATA_MODELING_ONLY projects.
-            filtered_capabilities: list[Capability] = []
+            filtered_capabilities: list[GroupCapability] = []
             removed: list[str] = []
-            for cap in updated_toolkit_group.capabilities:
-                if isinstance(cap, AssetsAcl | RelationshipsAcl):
+            for cap in updated_group.capabilities:
+                if isinstance(cap.acl, AssetsAcl | RelationshipsAcl):
                     removed.append(str(cap))
                 else:
                     filtered_capabilities.append(cap)
@@ -391,32 +383,23 @@ class AuthCommand(ToolkitCommand):
                     f"These capabilities are not allowed in DATA_MODELING_ONLY projects.",
                     prefix="  [bold yellow]INFO[/] - ",
                 )
-            updated_toolkit_group.capabilities = filtered_capabilities
+            updated_group.capabilities = filtered_capabilities
 
-        with warnings.catch_warnings():
-            # If the user has unknown capabilities, we don't want the user to see the warning:
-            # "UserWarning: Unknown capability '<unknown warning>' will be ignored in comparison"
-            # This is irrelevant for the user as we are only checking the capabilities below
-            # (triggered by the verify_authorization calls)
-            warnings.simplefilter("ignore")
-            adding = client.iam.compare_capabilities(
-                existing_group.capabilities or [],
-                updated_toolkit_group.capabilities or [],
-                project=client.config.project,
-            )
-        adding = self.merge_capabilities(adding)
+        adding = FlatCapabilities.from_group(existing_group, project).verify(
+            [cap.acl for cap in updated_group.capabilities]
+        )
         capability_str = "capabilities" if len(adding) > 1 else "capability"
         if dry_run:
-            print(f"Would have updated group {updated_toolkit_group.name} with {len(adding)} new {capability_str}.")
+            print(f"Would have updated group {updated_group.name} with {len(adding)} new {capability_str}.")
             return False
 
         try:
-            created = client.iam.groups.create(updated_toolkit_group)
-        except CogniteAPIError as e:
-            raise ResourceCreationError(f"Unable to create group {updated_toolkit_group.name}.\n{e}")
+            created = client.tool.groups.create([updated_group])[0]
+        except ToolkitAPIError as e:
+            raise ResourceCreationError(f"Unable to create group {updated_group.name}.\n{e}")
         try:
-            client.iam.groups.delete(existing_group.id)
-        except CogniteAPIError as e:
+            client.tool.groups.delete([InternalId(id=existing_group.id)])
+        except ToolkitAPIError as e:
             raise ResourceDeleteError(
                 f"Failed to cleanup old version of the {existing_group.name}.\n{e}\n"
                 f"It is recommended that you manually delete the Group with ID {existing_group.id},"
@@ -426,116 +409,75 @@ class AuthCommand(ToolkitCommand):
         return True
 
     @staticmethod
-    def _create_toolkit_group(loader_capabilities: list[Capability], demo_user: str | None) -> GroupWrite:
-        toolkit_group = GroupWrite(
+    def _create_toolkit_group(required_capabilities: list[AclType], demo_user: str | None) -> GroupRequest:
+        toolkit_group = GroupRequest(
             name=TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME if demo_user is None else TOOLKIT_DEMO_GROUP_NAME,
-            capabilities=[
-                *loader_capabilities,
-                # Add project ACL to be able to list and read projects, as the Toolkit needs to know the project id.
-                ProjectsAcl(
-                    [ProjectsAcl.Action.Read, ProjectsAcl.Action.List, ProjectsAcl.Action.Update],
-                    ProjectsAcl.Scope.All(),
-                ),
-                # Added Session ACL as this is required by CogIDP service principal
-                SessionsAcl(
-                    [SessionsAcl.Action.Create, SessionsAcl.Action.List, SessionsAcl.Action.Delete],
-                    SessionsAcl.Scope.All(),
-                ),
-            ],
+            capabilities=[GroupCapability(acl=acl) for acl in required_capabilities],
         )
         if demo_user:
             toolkit_group.members = [demo_user]
         return toolkit_group
 
     @staticmethod
-    def _get_capabilities_by_loader(
+    def _get_required_acls(
         client: ToolkitClient, data_modeling_status: Literal["HYBRID", "DATA_MODELING_ONLY"]
-    ) -> tuple[list[Capability], dict[tuple, list[str]]]:
-        loaders_by_capability_tuple: dict[tuple, list[str]] = defaultdict(list)
-        capability_by_id: dict[frozenset[tuple], Capability] = {}
+    ) -> tuple[list[AclType], dict[type[AclType], list[str]]]:
+        required_acls: list[AclType] = []
+        io_name_by_acl_type: dict[type[AclType], list[str]] = defaultdict(list)
         for crud_cls in cruds.RESOURCE_CRUD_LIST:
+            if data_modeling_status == "DATA_MODELING_ONLY" and issubclass(crud_cls, AssetCRUD | RelationshipCRUD):
+                # Assets and relationships are not supported on DATA_MODELING_ONLY projects.
+                continue
+
             crud = crud_cls.create_loader(client)
             if crud.prerequisite_warning() is not None:
                 continue
-            if isinstance(crud, ExtractionPipelineConfigCRUD):
-                # The Extraction Pipeline Config CRUD requires special handling.
-                # The .get_required_capability is used in the DeployCommand as well. Since, there is no way to no
-                # the extraction pipeline ID or dataSetId from an ExtractionPipelineConfigWrite object, we do not
-                # check those there. If we returned the full capability, it would always have to be all scoped.
-                # That is too restrictive in the deploy command, so we return an empty list, essentially not checking
-                # anything there. Here, we want to add the all scoped capability, so that the Toolkit group gets the
-                # correct capability.
-                capabilities: list[Capability] = [
-                    ExtractionConfigsAcl(
-                        [ExtractionConfigsAcl.Action.Read, ExtractionConfigsAcl.Action.Write],
-                        ExtractionConfigsAcl.Scope.All(),
-                    )
-                ]
-            else:
-                capability = crud_cls.get_required_capability(None, read_only=False)
-                capabilities = capability if isinstance(capability, list) else [capability]
-            for cap in capabilities:
-                if data_modeling_status == "DATA_MODELING_ONLY" and isinstance(cap, AssetsAcl | RelationshipsAcl):
-                    continue
-                id_ = frozenset(cap.as_tuples())
-                if id_ not in capability_by_id:
-                    capability_by_id[id_] = cap
-                for cap_tuple in cap.as_tuples():
-                    loaders_by_capability_tuple[cap_tuple].append(crud.display_name)
-        return list(capability_by_id.values()), loaders_by_capability_tuple
+            for acl in crud.create_acl({"READ", "WRITE"}, AllScope()):
+                required_acls.append(acl)
+                io_name_by_acl_type[type(acl)].append(crud.display_name)
 
-    def check_has_any_access(self, client: ToolkitClient) -> TokenInspection:
+        required_acls = list(FlatCapabilities.merge_acls(required_acls))
+        return required_acls, io_name_by_acl_type
+
+    def check_has_any_access(self, client: ToolkitClient) -> InspectResponse:
         print("Checking basic project configuration...")
         try:
-            # Using the token/inspect endpoint to check if the client has access to the project.
-            # The response also includes access rights, which can be used to check if the client has the
-            # correct access for what you want to do.
-            token_inspection = client.iam.token.inspect()
-            if token_inspection is None or len(token_inspection.capabilities) == 0:
+            inspect_response = client.tool.token.inspect()
+            if inspect_response is None or len(inspect_response.capabilities) == 0:
                 raise AuthorizationError(
-                    "Valid authentication token, but it does not give any access rights."
+                    "The authentication token is valid but does not provide any access rights to the given project."
                     " Check credentials (IDP_CLIENT_ID/IDP_CLIENT_SECRET or CDF_TOKEN)."
                 )
             print("  [bold green]OK[/]")
-        except CogniteAPIError as e:
+        except ToolkitAPIError as e:
             raise AuthorizationError(
-                "Not a valid authentication token. Check credentials (IDP_CLIENT_ID/IDP_CLIENT_SECRET or CDF_TOKEN)."
+                "The authentication token is invalid. Check credentials (IDP_CLIENT_ID/IDP_CLIENT_SECRET or CDF_TOKEN)."
                 "This could also be due to the service principal/application not having access to any Groups."
                 f"\n{e}"
             )
-        return token_inspection
+        return inspect_response
 
-    def check_has_project_access(self, token_inspection: TokenInspection, cdf_project: str) -> None:
+    def check_has_project_access(self, inspect_response: InspectResponse, cdf_project: str) -> None:
         print("Checking projects that the service principal/application has access to...")
-        if len(token_inspection.projects) == 0:
+        if len(inspect_response.projects) == 0:
             raise AuthorizationError(
                 "The service principal/application configured for this client does not have access to any projects."
             )
-        print("\n".join(f"  - {p.url_name}" for p in token_inspection.projects))
-        if cdf_project not in {p.url_name for p in token_inspection.projects}:
+        print("\n".join(f"  - {p.project_url_name}" for p in inspect_response.projects))
+        if cdf_project not in {p.project_url_name for p in inspect_response.projects}:
             raise AuthorizationError(
                 f"The service principal/application configured for this client does not have access to the CDF_PROJECT={cdf_project!r}."
             )
 
     def check_has_group_access(self, client: ToolkitClient) -> None:
-        # Todo rewrite to use the token inspection instead.
         print(
             "Checking basic project and group manipulation access rights "
             "(projectsAcl: LIST, READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)..."
         )
-        missing_capabilities = client.verify.authorization(
+        missing_capabilities = client.tool.token.verify_acls(
             [
-                ProjectsAcl([ProjectsAcl.Action.List, ProjectsAcl.Action.Read], ProjectsAcl.Scope.All()),
-                GroupsAcl(
-                    [
-                        GroupsAcl.Action.Read,
-                        GroupsAcl.Action.List,
-                        GroupsAcl.Action.Create,
-                        GroupsAcl.Action.Update,
-                        GroupsAcl.Action.Delete,
-                    ],
-                    GroupsAcl.Scope.All(),
-                ),
+                ProjectsAcl(actions=["LIST", "READ"], scope=AllScope()),
+                GroupsAcl(actions=["READ", "LIST", "CREATE", "UPDATE", "DELETE"], scope=AllScope()),
             ]
         )
         if not missing_capabilities:
@@ -548,10 +490,10 @@ class AuthCommand(ToolkitCommand):
             )
         )
         print("Checking basic group read access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ)...")
-        missing = client.verify.authorization(
+        missing = client.tool.token.verify_acls(
             [
-                ProjectsAcl([ProjectsAcl.Action.List, ProjectsAcl.Action.Read], ProjectsAcl.Scope.All()),
-                GroupsAcl([GroupsAcl.Action.Read, GroupsAcl.Action.List], GroupsAcl.Scope.All()),
+                ProjectsAcl(actions=["LIST", "READ"], scope=AllScope()),
+                GroupsAcl(actions=["READ", "LIST"], scope=AllScope()),
             ]
         )
         if not missing:
@@ -562,24 +504,33 @@ class AuthCommand(ToolkitCommand):
             " have the basic read group access rights."
         )
 
-    def check_identity_provider(self, client: ToolkitClient, cdf_project: str) -> None:
+    def check_identity_provider(self, client: ToolkitClient) -> None:
         print("Checking identity provider settings...")
-        project_info = client.get(f"/api/v1/projects/{cdf_project}").json()
-        oidc = project_info.get("oidcConfiguration", {})
-        if "https://login.windows.net" in oidc.get("tokenUrl"):
-            tenant_id = oidc.get("tokenUrl").split("/")[-3]
-            print(f"  [bold green]OK[/]: Microsoft Entra ID (aka ActiveDirectory) with tenant id ({tenant_id}).")
-        elif "auth0.com" in oidc.get("tokenUrl"):
-            tenant_id = oidc.get("tokenUrl").split("/")[2].split(".")[0]
+        org = client.project.organization()
+        oidc = org.oidc_configuration
+        if oidc is None or oidc.token_url is None:
+            self.warn(MediumSeverityWarning("No OIDC configuration or token URL found for the project"))
+            return
+        token_url = urllib.parse.urlparse(oidc.token_url)
+        hostname = token_url.hostname or ""
+        if hostname.endswith(".login.windows.net") or hostname == "login.windows.net":
+            # Typical Entra ID token URLs look like:
+            #   https://login.windows.net/{tenant_id}/oauth2/token
+            # We derive tenant_id from the path segments if possible
+            path_parts = [p for p in token_url.path.split("/") if p]
+            tenant_id = path_parts[0] if path_parts else "unknown"
+            print(f"  [bold green]OK[/]: Microsoft Entra I with tenant id ({tenant_id}).")
+        elif hostname.endswith(".auth0.com") or hostname == "auth0.com":
+            tenant_id = hostname.split(".")[0]
             print(f"  [bold green]OK[/] - Auth0 with tenant id ({tenant_id}).")
         else:
-            self.warn(MediumSeverityWarning(f"Unknown identity provider {oidc.get('tokenUrl')}"))
-        access_claims = [c.get("claimName") for c in oidc.get("accessClaims", {})]
+            self.warn(MediumSeverityWarning(f"Unknown identity provider {token_url}"))
+        access_claims = [c.claim_name for c in oidc.access_claims]
         print(
-            f"  Matching on CDF group sourceIds will be done on any of these claims from the identity provider: {access_claims}"
+            f"  Matching on CDF group sourceIds will be done on any of these claims from the identity provider: {humanize_collection(access_claims)}"
         )
 
-    def check_count_group_memberships(self, user_group: GroupList) -> None:
+    def check_count_group_memberships(self, user_group: list[GroupResponse]) -> None:
         print("Checking CDF group memberships for the current client configured...")
 
         table = Table(title="CDF Group ids, Names, and Source Ids")
@@ -604,7 +555,7 @@ class AuthCommand(ToolkitCommand):
         else:
             print("  [bold green]OK[/] - Only one group is used for this service principal/application.")
 
-    def check_source_id_usage(self, all_groups: GroupList, cdf_toolkit_group: Group) -> None:
+    def check_source_id_usage(self, all_groups: list[GroupResponse], cdf_toolkit_group: GroupResponse) -> None:
         reuse_source_id = [
             group.name
             for group in all_groups
@@ -620,10 +571,12 @@ class AuthCommand(ToolkitCommand):
                 )
             )
 
-    def check_duplicated_names(self, all_groups: GroupList, cdf_toolkit_group: Group) -> GroupList:
-        extra = GroupList(
-            [group for group in all_groups if group.name == cdf_toolkit_group.name and group.id != cdf_toolkit_group.id]
-        )
+    def check_duplicated_names(
+        self, all_groups: list[GroupResponse], cdf_toolkit_group: GroupResponse
+    ) -> list[GroupResponse]:
+        extra = [
+            group for group in all_groups if group.name == cdf_toolkit_group.name and group.id != cdf_toolkit_group.id
+        ]
         if extra:
             self.warn(
                 MediumSeverityWarning(
@@ -636,30 +589,11 @@ class AuthCommand(ToolkitCommand):
 
         return extra
 
-    @staticmethod
-    def merge_capabilities(capability_list: list[Capability]) -> list[Capability]:
-        """Merges capabilities that have the same ACL and Scope"""
-        actions_by_scope_and_cls: dict[tuple[type[Capability], frozenset[tuple]], set[Capability.Action]] = defaultdict(
-            set
-        )
-        for capability in capability_list:
-            scope_key = frozenset(capability.scope.as_tuples())
-            actions_by_scope_and_cls[(type(capability), scope_key)].update(capability.actions)
-
-        scope_map: dict[tuple[type[Capability], frozenset[tuple]], Capability.Scope] = {
-            (type(cap), frozenset(cap.scope.as_tuples())): cap.scope for cap in capability_list
-        }
-
-        return [
-            cap_cls(actions=list(actions), scope=scope_map[(cap_cls, scope)], allow_unknown=False)
-            for (cap_cls, scope), actions in actions_by_scope_and_cls.items()
-        ]
-
     def check_function_service_status(
         self, client: ToolkitClient, dry_run: bool, has_added_capabilities: bool
     ) -> str | None:
         print("Checking function service status...")
-        has_function_read_access = self.has_function_rights(client, [FunctionsAcl.Action.Read], has_added_capabilities)
+        has_function_read_access = self.has_function_rights(client, ["READ"], has_added_capabilities)
         if not has_function_read_access:
             self.warn(HighSeverityWarning("Cannot check function service status, missing function read access."))
             return None
@@ -677,9 +611,7 @@ class AuthCommand(ToolkitCommand):
                 "would have activated (will take up to 2 hours)..."
             )
         elif not dry_run and function_status.status != "activated":
-            has_function_write_access = self.has_function_rights(
-                client, [FunctionsAcl.Action.Write], has_added_capabilities
-            )
+            has_function_write_access = self.has_function_rights(client, ["WRITE"], has_added_capabilities)
             if not has_function_write_access:
                 self.warn(HighSeverityWarning("Cannot activate function service, missing function write access."))
                 return function_status.status
@@ -704,16 +636,13 @@ class AuthCommand(ToolkitCommand):
         return function_status.status
 
     def has_function_rights(
-        self, client: ToolkitClient, actions: list[FunctionsAcl.Action], has_added_capabilities: bool
+        self, client: ToolkitClient, actions: list[Literal["READ", "WRITE"]], has_added_capabilities: bool
     ) -> bool:
         t0 = time.perf_counter()
         while not (
-            has_function_access := not client.iam.verify_capabilities(
-                FunctionsAcl(actions, FunctionsAcl.Scope.All()),
-            )
+            has_function_access := not client.tool.token.verify_acls([FunctionsAcl(actions=actions, scope=AllScope())])
         ):
             if has_added_capabilities and (time.perf_counter() - t0 < 5.0):
-                # Wait for the IAM service to update the capabilities
                 sleep(1.0)
             else:
                 break

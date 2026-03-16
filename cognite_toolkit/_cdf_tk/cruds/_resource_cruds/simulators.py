@@ -1,17 +1,19 @@
 from collections.abc import Hashable, Iterable, Sequence, Sized
+from pathlib import Path
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities as cap
+from rich.console import Console
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId, InternalOrExternalId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     SimulatorModelRevisionFilter,
     SimulatorModelRoutineFilter,
     SimulatorModelRoutineRevisionFilter,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     DataSetScope,
     ScopeDefinition,
@@ -34,7 +36,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
     SimulatorRoutineRevisionResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
-from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
+from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError, ToolkitNotSupported
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.yaml_classes import SimulatorModelYAML
 from cognite_toolkit._cdf_tk.yaml_classes.simulator_model_revision import SimulatorModelRevisionYAML
@@ -45,6 +48,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.simulator_routine_revision import (
 
 from .data_organization import DataSetsCRUD
 from .file import FileMetadataCRUD
+from .function import CDF_TOML
 from .timeseries import TimeSeriesCRUD
 
 
@@ -83,19 +87,11 @@ class SimulatorModelCRUD(ResourceCRUD[ExternalId, SimulatorModelRequest, Simulat
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[SimulatorModelRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        # Simulator ACLs is not yet implemented in the PySDK, which means
-        # that we cannot check for specific capabilities.
-        return []
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[SimulatorModelRequest]) -> ScopeDefinition | None:
         return DataSetScope(ids=list({item.data_set_id for item in items}))
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             acl_actions: list[Literal["READ", "WRITE", "DELETE", "RUN", "MANAGE"]] = []
             if "READ" in actions:
@@ -187,6 +183,16 @@ class SimulatorModelRevisionCRUD(
     parent_resource = frozenset({SimulatorModelCRUD})
     _doc_url = "Simulator-Models/operation/create_simulator_model_revision_simulators_models_revisions_post"
 
+    def __init__(
+        self,
+        client: ToolkitClient,
+        build_path: Path | None,
+        console: Console | None,
+        file_upload_timeout_seconds: float = CDF_TOML.cdf.file_upload_timeout_seconds,
+    ):
+        super().__init__(client, build_path, console)
+        self._file_upload_timeout_seconds = file_upload_timeout_seconds
+
     @property
     def display_name(self) -> str:
         return "simulator model revisions"
@@ -212,20 +218,28 @@ class SimulatorModelRevisionCRUD(
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[SimulatorModelRevisionRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        return []
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[SimulatorModelRevisionRequest]) -> ScopeDefinition | None:
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
     def create(self, items: Sequence[SimulatorModelRevisionRequest]) -> list[SimulatorModelRevisionResponse]:
+        file_ids = {InternalId(id=item.file_id): item for item in items}
+        failed_upload, elapsed_time = self.client.tool.filemetadata.await_file_uploaded(
+            list(file_ids), timeout_seconds=self._file_upload_timeout_seconds
+        )
+        if failed_upload:
+            failed_revisions = [file_ids[file].external_id for file in failed_upload]
+            raise ResourceCreationError(
+                f"Failed to create simulator revisions {humanize_collection(failed_revisions)}. CDF API timed "
+                f"out after {elapsed_time:.0f} seconds while waiting for the revision file to be uploaded. "
+                f"Wait and try again.\nIf the problem persists, please contact Cognite support.\n"
+                "You can increase the timeout by setting the 'file_upload_timeout_seconds' parameter in "
+                f"the CDF TOML configuration file. Current value: {self._file_upload_timeout_seconds} seconds."
+            )
+
         return self.client.tool.simulators.model_revisions.create(items)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[SimulatorModelRevisionResponse]:
@@ -323,17 +337,11 @@ class SimulatorRoutineCRUD(ResourceCRUD[ExternalId, SimulatorRoutineRequest, Sim
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[SimulatorRoutineRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        return []
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[SimulatorRoutineRequest]) -> ScopeDefinition | None:
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
     def create(self, items: Sequence[SimulatorRoutineRequest]) -> list[SimulatorRoutineResponse]:
@@ -423,17 +431,11 @@ class SimulatorRoutineRevisionCRUD(
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[SimulatorRoutineRevisionRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        return []
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[SimulatorRoutineRevisionRequest]) -> ScopeDefinition | None:
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
     def create(self, items: Sequence[SimulatorRoutineRevisionRequest]) -> list[SimulatorRoutineRevisionResponse]:

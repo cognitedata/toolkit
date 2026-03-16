@@ -39,9 +39,6 @@ from cognite.client.data_classes import (
     ClientCredentials,
     OidcCredentials,
 )
-from cognite.client.data_classes import (
-    capabilities as cap,
-)
 from rich import print
 from rich.console import Console
 
@@ -65,7 +62,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewId,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     DataSetScope,
     ScopeDefinition,
@@ -165,32 +162,11 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
         return "transformations"
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[TransformationRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.TransformationsAcl.Action.Read]
-            if read_only
-            else [cap.TransformationsAcl.Action.Read, cap.TransformationsAcl.Action.Write]
-        )
-        scope: cap.TransformationsAcl.Scope.All | cap.TransformationsAcl.Scope.DataSet = (  # type: ignore[valid-type]
-            cap.TransformationsAcl.Scope.All()
-        )
-        if items is not None:
-            if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = cap.TransformationsAcl.Scope.DataSet(list(data_set_ids))
-
-        return cap.TransformationsAcl(actions, scope)
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[TransformationRequest]) -> ScopeDefinition:
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             yield TransformationsAcl(actions=sorted(actions), scope=scope)
 
@@ -632,19 +608,11 @@ class TransformationScheduleCRUD(
         return "transformation schedules"
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[TransformationScheduleRequest] | None, read_only: bool
-    ) -> list[cap.Capability]:
-        # Access for transformations schedules is checked by the transformation that is deployed
-        # first, so we don't need to check for any capabilities here.
-        return []
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[TransformationScheduleRequest]) -> ScopeDefinition | None:
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
     @classmethod
@@ -759,19 +727,11 @@ class TransformationNotificationCRUD(
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[TransformationNotificationRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        # Access for transformation notification is checked by the transformation that is deployed
-        # first, so we don't need to check for any capabilities here.
-        return []
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[TransformationNotificationRequest]) -> ScopeDefinition | None:
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
     def dump_resource(

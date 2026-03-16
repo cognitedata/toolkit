@@ -2,14 +2,13 @@ from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities as cap
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import SignalSinkId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     CurrentUserScope,
     ScopeDefinition,
@@ -51,18 +50,11 @@ class SignalSinkCRUD(ResourceCRUD[SignalSinkId, SignalSinkRequest, SignalSinkRes
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[SignalSinkRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        # subscribeSignalsAcl is not yet in the Cognite Python SDK — return empty to skip capability verification.
-        return []
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[SignalSinkRequest]) -> ScopeDefinition:
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | CurrentUserScope):
             yield SubscribeSignalsAcl(actions=sorted(actions), scope=scope)
 

@@ -1,13 +1,11 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities as cap
-
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product import DataProductRequest, DataProductResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, AllScope, ScopeDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, AllScope, ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import DataProductsAcl
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.auth import GroupAllScopedCRUD
@@ -55,21 +53,11 @@ class DataProductCRUD(ResourceCRUD[ExternalId, DataProductRequest, DataProductRe
             yield SpaceCRUD, SpaceId(space=resource.schema_space)
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[DataProductRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-
-        # TODO: dataproductsAcl is not yet in the SDK — return empty to skip capability verification.
-        # Cannot use UnknownACL due to bug in the SDK.
-        # Once available, require: CREATE, READ, UPDATE, DELETE (all four actions).
-        return []
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[DataProductRequest]) -> ScopeDefinition | None:
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope):
             yield DataProductsAcl(
                 actions=as_read_create_update_delete_actions(actions),
