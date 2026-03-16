@@ -245,8 +245,8 @@ class SimulatorModelRevisionCRUD(
         failed_upload, elapsed_time = self.client.tool.filemetadata.await_file_uploaded(
             list(file_ids), timeout_seconds=self._file_upload_timeout_seconds
         )
-        if missing_file_content := set(file_ids.keys()) - set(failed_upload):
-            failed_revisions = [file_ids[file].external_id for file in missing_file_content]
+        if failed_upload:
+            failed_revisions = [file_ids[file].external_id for file in failed_upload]
             raise ResourceCreationError(
                 f"Failed to create simulator revisions {humanize_collection(failed_revisions)}. CDF API timed "
                 f"out after {elapsed_time:.0f} seconds while waiting for the revision file to be uploaded. "
