@@ -250,7 +250,7 @@ class SimulatorModelRevisionCRUD(
             raise ResourceCreationError(
                 f"Failed to create simulator revisions {humanize_collection(failed_revisions)}. CDF API timed "
                 f"out after {elapsed_time:.0f} seconds while waiting for the revision file to be uploaded. "
-                f"Wait and try again.\nIf the problem persists, please contact Cognite support."
+                f"Wait and try again.\nIf the problem persists, please contact Cognite support.\n"
                 "You can increase the timeout by setting the 'file_upload_timeout_seconds' parameter in "
                 f"the CDF TOML configuration file. Current value: {self._file_upload_timeout_seconds} seconds."
             )
