@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     UploadableStorageIO,
     get_upload_io,
 )
-from cognite_toolkit._cdf_tk.storageio._base import TableUploadableStorageIO, UploadItem
+from cognite_toolkit._cdf_tk.storageio._base import TableStorageIO, TableUploadableStorageIO, UploadItem
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, load_selector
 from cognite_toolkit._cdf_tk.storageio.selectors._instances import InstanceSpaceSelector, InstanceViewSelector
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
@@ -221,7 +221,8 @@ class UploadCommand(ToolkitCommand):
                 io = self._create_selected_io(selector, datafiles[0], client)
                 if io is None:
                     continue
-                reader = MultiFileReader(datafiles)
+                schema = io.get_schema(selector) if isinstance(io, TableStorageIO) else None
+                reader = MultiFileReader(datafiles, schema=schema)
                 # FileContentIO supports uploading any file format.
                 if reader.is_table and not isinstance(io, TableUploadableStorageIO | FileContentIO):
                     raise ToolkitValueError(
