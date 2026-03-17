@@ -109,9 +109,9 @@ class StorageIO(ABC, Generic[T_Selector, T_DataResponse]):
         """Download items from the storage given the selection criteria.
 
         Args:
-            init_cursor:
             selector: The selection criteria to filter the items to download.
             limit: Optional limit on the number of items to download.
+            init_cursor: Optional initial cursor to start downloading.
 
         Returns:
             An iterable of writable Cognite resource lists.
