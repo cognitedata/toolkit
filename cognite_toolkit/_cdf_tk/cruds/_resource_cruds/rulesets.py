@@ -6,7 +6,7 @@ from cognite.client.data_classes.capabilities import Capability
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RuleSetVersionId
-from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, AllScope, ScopeDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, AllScope, ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.ruleset import RuleSetRequest, RuleSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import (
     RuleSetVersionRequest,
@@ -57,7 +57,7 @@ class RuleSetCRUD(ResourceCRUD[ExternalId, RuleSetRequest, RuleSetResponse]):
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
     def create(self, items: Sequence[RuleSetRequest]) -> list[RuleSetResponse]:
@@ -136,7 +136,7 @@ class RuleSetVersionCRUD(ResourceCRUD[RuleSetVersionId, RuleSetVersionRequest, R
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
     @classmethod
