@@ -201,10 +201,10 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
     @property
     def result(self) -> typing.Literal["completed", "failed", "stopped"]:
         """The result of the execution."""
-        if self._stop_event.is_set():
-            return "stopped"
-        elif self._error_event.is_set():
+        if self._error_event.is_set():
             return "failed"
+        elif self._stop_event.is_set():
+            return "stopped"
         else:
             return "completed"
 
