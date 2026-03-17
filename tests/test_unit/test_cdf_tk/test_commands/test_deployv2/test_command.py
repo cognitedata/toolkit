@@ -208,6 +208,7 @@ class ApplyPlanTestCase:
     options: DeployOptions
     expected: Sequence[DeploymentResult] | type[Exception]
     expected_warning: type[Warning] | None = None
+    expected_skipped_count: int = 0
 
 
 class TestApplyPlan:
@@ -225,11 +226,10 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="spaces",
                             is_dry_run=True,
-                            created=1,
-                            deleted=0,
-                            updated=0,
-                            unchanged=0,
-                            skipped=0,
+                            created_count=1,
+                            deleted_count=0,
+                            updated_count=0,
+                            unchanged_count=0,
                             is_missing_write_acl=False,
                         )
                     ],
@@ -274,14 +274,14 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="spaces",
                             is_dry_run=True,
-                            created=1,
-                            deleted=0,
-                            updated=0,
-                            unchanged=0,
-                            skipped=1,
+                            created_count=1,
+                            deleted_count=0,
+                            updated_count=0,
+                            unchanged_count=0,
                             is_missing_write_acl=False,
                         )
                     ],
+                    expected_skipped_count=1,
                 ),
                 id="duplicated_resource_in_two_files",
             ),
@@ -308,11 +308,10 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="function schedules",
                             is_dry_run=True,
-                            created=1,
-                            deleted=1,
-                            updated=0,
-                            unchanged=0,
-                            skipped=0,
+                            created_count=1,
+                            deleted_count=1,
+                            updated_count=0,
+                            unchanged_count=0,
                             is_missing_write_acl=False,
                         )
                     ],
@@ -334,11 +333,10 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="spaces",
                             is_dry_run=True,
-                            created=0,
-                            deleted=0,
-                            updated=1,
-                            unchanged=0,
-                            skipped=0,
+                            created_count=0,
+                            deleted_count=0,
+                            updated_count=1,
+                            unchanged_count=0,
                             is_missing_write_acl=False,
                         )
                     ],
@@ -356,11 +354,10 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="spaces",
                             is_dry_run=True,
-                            created=1,
-                            deleted=0,
-                            updated=0,
-                            unchanged=0,
-                            skipped=0,
+                            created_count=1,
+                            deleted_count=0,
+                            updated_count=0,
+                            unchanged_count=0,
                             is_missing_write_acl=False,
                         )
                     ],
@@ -380,11 +377,10 @@ class TestApplyPlan:
                         DeploymentResult(
                             resource_name="spaces",
                             is_dry_run=True,
-                            created=0,
-                            deleted=0,
-                            updated=0,
-                            unchanged=1,
-                            skipped=0,
+                            created_count=0,
+                            deleted_count=0,
+                            updated_count=0,
+                            unchanged_count=1,
                             is_missing_write_acl=False,
                         )
                     ],
