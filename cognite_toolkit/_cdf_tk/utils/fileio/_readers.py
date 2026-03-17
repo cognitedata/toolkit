@@ -73,13 +73,16 @@ class MultiFileReader(FileReader):
 
     Args:
         input_files (Sequence[Path]): The list of file paths to read.
+        schema (Sequence[SchemaColumn] | None): Optional schema passed to TableReader subclasses
+            to ensure correct type parsing (e.g., CSV columns that look numeric but are strings).
     """
 
     PART_PATTERN = re.compile(r"part-(\d{4})$")
 
-    def __init__(self, input_files: Sequence[Path]) -> None:
+    def __init__(self, input_files: Sequence[Path], schema: Sequence[SchemaColumn] | None = None) -> None:
         super().__init__(input_file=input_files[0])
         self.input_files = input_files
+        self.schema = schema
 
     @cached_property
     def reader_class(self) -> type[FileReader]:
@@ -104,9 +107,15 @@ class MultiFileReader(FileReader):
     def format(self) -> str:
         return self.reader_class.FORMAT
 
+    def _create_reader(self, input_file: Path) -> FileReader:
+        reader_cls = self.reader_class
+        if self.schema is not None and issubclass(reader_cls, TableReader):
+            return reader_cls(input_file, schema=self.schema)
+        return reader_cls(input_file)
+
     def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
         for input_file in sorted(self.input_files, key=self._part_no):
-            yield from self.reader_class(input_file).read_chunks()
+            yield from self._create_reader(input_file).read_chunks()
 
     def _part_no(self, path: Path) -> int:
         match = self.PART_PATTERN.search(path.stem)
@@ -121,8 +130,7 @@ class MultiFileReader(FileReader):
         """Count the total number of chunks in all files."""
         total_count = 0
         for input_file in self.input_files:
-            reader = self.reader_class(input_file)
-            total_count += reader.count()
+            total_count += self._create_reader(input_file).count()
         return total_count
 
 
@@ -215,6 +223,9 @@ class TableReader(FileReader, ABC):
             for column in schema:
                 if column.type in {"date", "timestamp"}:
                     raise ToolkitValueError("CSVReader does not support 'date' or 'timestamp' types.")
+                if column.is_array:
+                    # Array columns in CSV are JSON-encoded; default inference handles them correctly.
+                    continue
                 parse_function_by_column[column.name] = partial(  # type: ignore[assignment]
                     convert_str_to_data_type, type_=column.type, nullable=True, is_array=False
                 )

@@ -16,7 +16,7 @@ from cognite.client.data_classes.capabilities import FilesAcl, FunctionsAcl
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
+from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
@@ -203,15 +203,11 @@ secrets:
 
     def test_create_succeeds_when_file_uploaded_within_timeout(self, tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
+            client.tool.filemetadata.await_file_uploaded.return_value = set(), 3.0
             loader = FunctionCRUD(client, tmp_path, None, file_upload_timeout_seconds=30.0)
             loader.function_dir_by_external_id["my_func"] = tmp_path / "my_func"
             (tmp_path / "my_func").mkdir()
             (tmp_path / "my_func" / "handler.py").write_text("def handle(data): pass")
-
-            uploaded_file = FileMetadataResponse(
-                id=42, uploaded=True, name="my_func.zip", created_time=1, last_updated_time=0
-            )
-            client.tool.filemetadata.retrieve.return_value = [uploaded_file]
 
             created_response = FunctionResponse(
                 id=1, name="my_func", external_id="my_func", file_id=42, created_time=0, status="Ready"
@@ -222,8 +218,7 @@ secrets:
 
             with (
                 patch.object(loader, "_is_activated", return_value=True),
-                patch.object(loader, "_upload_function_code", return_value=42),
-                patch("cognite_toolkit._cdf_tk.cruds._resource_cruds.function.time.sleep"),
+                patch.object(loader, "_upload_function_code", return_value=InternalId(id=42)),
             ):
                 result = loader.create([item])
 
@@ -231,6 +226,8 @@ secrets:
 
     def test_create_raises_timeout_when_file_not_uploaded(self, tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
+            file_id = InternalId(id=42)
+            client.tool.filemetadata.await_file_uploaded.return_value = {file_id}, 0.0
             loader = FunctionCRUD(client, tmp_path, None, file_upload_timeout_seconds=0)
             loader.function_dir_by_external_id["my_func"] = tmp_path / "my_func"
             (tmp_path / "my_func").mkdir()
@@ -240,7 +237,7 @@ secrets:
 
             with (
                 patch.object(loader, "_is_activated", return_value=True),
-                patch.object(loader, "_upload_function_code", return_value=42),
+                patch.object(loader, "_upload_function_code", return_value=file_id),
                 pytest.raises(ResourceCreationError, match="timed out"),
             ):
                 loader.create([item])

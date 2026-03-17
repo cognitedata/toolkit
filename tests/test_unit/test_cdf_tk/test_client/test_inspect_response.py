@@ -17,10 +17,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.token import (
     AclAction,
     AclName,
     AllProjects,
+    FlatCapabilities,
     InspectCapability,
     InspectProjectInfo,
     InspectResponse,
-    ProjectCapabilities,
 )
 
 
@@ -96,7 +96,7 @@ class TestProjectCapability:
         required_acls: list[Acl],
         expected_missing: list[Acl],
     ) -> None:
-        project = ProjectCapabilities(capabilities=capabilities, name="MyProject", groups=[37])
+        project = FlatCapabilities(capabilities=capabilities, name="MyProject", groups=[37])
         actual = project.verify(required_acls)
 
         assert actual == expected_missing
@@ -120,7 +120,7 @@ class TestProjectCapability:
                         ),
                     ],
                 ),
-                ProjectCapabilities({(AssetsAcl, "assetsAcl", "READ"): AllScope()}, name="test_project", groups=[]),
+                FlatCapabilities({(AssetsAcl, "assetsAcl", "READ"): AllScope()}, name="test_project", groups=[]),
                 id="Union of scopes with same action should result in the most permissive scope (AllScope in this case)",
             ),
             pytest.param(
@@ -147,7 +147,7 @@ class TestProjectCapability:
                         ),
                     ],
                 ),
-                ProjectCapabilities(
+                FlatCapabilities(
                     {
                         (UnknownAcl, "unknown_acl", "READ"): UnknownScope.model_validate(
                             {"scopeName": "unknown_scope", "someIds": [1, 2, 3]}
@@ -160,5 +160,5 @@ class TestProjectCapability:
             ),
         ],
     )
-    def test_to_project_capabilities(self, token: InspectResponse, expected_capabilities: ProjectCapabilities) -> None:
+    def test_to_project_capabilities(self, token: InspectResponse, expected_capabilities: FlatCapabilities) -> None:
         assert token.to_project_capabilities() == expected_capabilities

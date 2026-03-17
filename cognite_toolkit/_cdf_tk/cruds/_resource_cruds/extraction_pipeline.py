@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Any, Literal, final
 
 import yaml
-from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
@@ -39,9 +38,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.extraction_pipeline_config 
     ExtractionPipelineConfigResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     DataSetScope,
+    ExtractionConfigsAcl,
     ExtractionPipelinesAcl,
     ScopeDefinition,
 )
@@ -83,33 +83,11 @@ class ExtractionPipelineCRUD(ResourceCRUD[ExternalId, ExtractionPipelineRequest,
         return "extraction pipelines"
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[ExtractionPipelineRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.ExtractionPipelinesAcl.Action.Read]
-            if read_only
-            else [cap.ExtractionPipelinesAcl.Action.Read, cap.ExtractionPipelinesAcl.Action.Write]
-        )
-
-        scope: cap.ExtractionPipelinesAcl.Scope.All | cap.ExtractionPipelinesAcl.Scope.DataSet = (  # type: ignore[valid-type]
-            cap.ExtractionPipelinesAcl.Scope.All()
-        )
-        if items is not None:
-            if data_set_id := {item.data_set_id for item in items if item.data_set_id}:
-                scope = cap.ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
-
-        return cap.ExtractionPipelinesAcl(actions, scope)
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[ExtractionPipelineRequest]) -> ScopeDefinition:
         return DataSetScope(ids=list({item.data_set_id for item in items}))
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             yield ExtractionPipelinesAcl(actions=sorted(actions), scope=scope)
 
@@ -243,19 +221,13 @@ class ExtractionPipelineConfigCRUD(
         return "extraction pipeline configs"
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[ExtractionPipelineConfigRequest] | None, read_only: bool
-    ) -> list[cap.Capability]:
-        # We check the parent extraction pipeline permissions instead
-        return []
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[ExtractionPipelineConfigRequest]) -> ScopeDefinition | None:
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
-        yield from ()
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
+        if isinstance(scope, AllScope):
+            yield ExtractionConfigsAcl(actions=["READ", "WRITE"], scope=scope)
 
     @classmethod
     def get_id(cls, item: ExtractionPipelineConfigRequest | ExtractionPipelineConfigResponse | dict) -> ExternalId:

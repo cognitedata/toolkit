@@ -194,6 +194,9 @@ class ApprovalToolkitClient:
         # Set functions to be activated
         self.mock_client.functions.status.return_value = FunctionsStatus(status="activated")
 
+        # All files are uploaded successfully
+        self.mock_client.tool.filemetadata.await_file_uploaded.return_value = set(), 0.0
+
         # Use Hybrid project
         return_list = ProjectStatusList([ProjectStatus(url_name=project, data_modeling_status="HYBRID")])
         return_list._project = project

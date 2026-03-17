@@ -3,14 +3,13 @@ from pathlib import Path
 from typing import Any, Literal, final
 
 from cognite.client.data_classes import ClientCredentials
-from cognite.client.data_classes import capabilities as cap
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     HostedExtractorsAcl,
     ScopeDefinition,
@@ -81,29 +80,11 @@ class HostedExtractorSourceCRUD(
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[HostedExtractorSourceRequestUnion] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.HostedExtractorsAcl.Action.Read]
-            if read_only
-            else [cap.HostedExtractorsAcl.Action.Read, cap.HostedExtractorsAcl.Action.Write]
-        )
-
-        return cap.HostedExtractorsAcl(
-            actions,
-            cap.HostedExtractorsAcl.Scope.All(),
-        )
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[HostedExtractorSourceRequestUnion]) -> ScopeDefinition:
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope):
             yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
 
@@ -209,29 +190,11 @@ class HostedExtractorDestinationCRUD(
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[HostedExtractorDestinationRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.HostedExtractorsAcl.Action.Read]
-            if read_only
-            else [cap.HostedExtractorsAcl.Action.Read, cap.HostedExtractorsAcl.Action.Write]
-        )
-
-        return cap.HostedExtractorsAcl(
-            actions,
-            cap.HostedExtractorsAcl.Scope.All(),
-        )
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[HostedExtractorDestinationRequest]) -> ScopeDefinition:
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope):
             yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
 
@@ -326,29 +289,11 @@ class HostedExtractorJobCRUD(ResourceCRUD[ExternalId, HostedExtractorJobRequest,
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[HostedExtractorJobRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.HostedExtractorsAcl.Action.Read]
-            if read_only
-            else [cap.HostedExtractorsAcl.Action.Read, cap.HostedExtractorsAcl.Action.Write]
-        )
-
-        return cap.HostedExtractorsAcl(
-            actions,
-            cap.HostedExtractorsAcl.Scope.All(),
-        )
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[HostedExtractorJobRequest]) -> ScopeDefinition:
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope):
             yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
 
@@ -429,29 +374,11 @@ class HostedExtractorMappingCRUD(
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[HostedExtractorMappingRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.HostedExtractorsAcl.Action.Read]
-            if read_only
-            else [cap.HostedExtractorsAcl.Action.Read, cap.HostedExtractorsAcl.Action.Write]
-        )
-
-        return cap.HostedExtractorsAcl(
-            actions,
-            cap.HostedExtractorsAcl.Scope.All(),
-        )
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[HostedExtractorMappingRequest]) -> ScopeDefinition:
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope):
             yield HostedExtractorsAcl(actions=sorted(actions), scope=scope)
 

@@ -17,9 +17,6 @@ from collections.abc import Hashable, Iterable, Sequence
 from datetime import date, datetime
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities as cap
-from cognite.client.utils._time import convert_data_modelling_timestamp
-
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
@@ -33,7 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import Cognite
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     DataModelInstancesAcl,
     DataSetScope,
@@ -54,6 +51,7 @@ from cognite_toolkit._cdf_tk.utils.acl_helper import (
     space_scoped_resource,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.utils.time import convert_data_modelling_timestamp
 from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML
 
 from .auth import GroupAllScopedCRUD, SecurityCategoryCRUD
@@ -79,27 +77,11 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         return "file metadata"
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[FileMetadataRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = [cap.FilesAcl.Action.Read] if read_only else [cap.FilesAcl.Action.Read, cap.FilesAcl.Action.Write]
-
-        scope: cap.FilesAcl.Scope.All | cap.FilesAcl.Scope.DataSet = cap.FilesAcl.Scope.All()  # type: ignore[valid-type]
-        if items:
-            if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = cap.FilesAcl.Scope.DataSet(list(data_set_ids))
-
-        return cap.FilesAcl(actions, scope)
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[FileMetadataRequest]) -> ScopeDefinition:
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             yield FilesAcl(actions=sorted(actions), scope=scope)
 
@@ -240,38 +222,11 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[CogniteFileRequest] | None, read_only: bool
-    ) -> list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        file_actions = (
-            [cap.FilesAcl.Action.Read] if read_only else [cap.FilesAcl.Action.Read, cap.FilesAcl.Action.Write]
-        )
-        instance_actions = (
-            [cap.DataModelInstancesAcl.Action.Read]
-            if read_only
-            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
-        )
-
-        scope: cap.DataModelInstancesAcl.Scope.All | cap.DataModelInstancesAcl.Scope.SpaceID = (  # type: ignore[valid-type]
-            cap.DataModelInstancesAcl.Scope.All()
-        )
-        if items:
-            if spaces := {item.space for item in items}:
-                scope = cap.DataModelInstancesAcl.Scope.SpaceID(list(spaces))
-        return [
-            cap.FilesAcl(file_actions, cap.FilesAcl.Scope.All()),
-            cap.DataModelInstancesAcl(instance_actions, scope),
-        ]
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[CogniteFileRequest]) -> ScopeDefinition:
         return space_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield FilesAcl(actions=sorted(actions), scope=AllScope())
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)

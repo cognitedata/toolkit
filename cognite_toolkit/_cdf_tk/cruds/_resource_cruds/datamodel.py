@@ -24,7 +24,6 @@ from time import sleep
 from typing import Any, Literal, final
 
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import capabilities as cap
 from cognite.client.data_classes import filters
 from rich import print
 from rich.console import Console
@@ -81,7 +80,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import (
     GraphQLDataModelResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     DataModelInstancesAcl,
     DataModelsAcl,
@@ -157,26 +156,11 @@ class SpaceCRUD(ResourceContainerCRUD[SpaceId, SpaceRequest, SpaceResponse]):
         return "spaces"
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[SpaceRequest] | None, read_only: bool
-    ) -> list[cap.Capability] | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.DataModelsAcl.Action.Read]
-            if read_only
-            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
-        )
-
-        return [cap.DataModelsAcl(actions, cap.DataModelsAcl.Scope.All())]
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[SpaceRequest]) -> ScopeDefinition:
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
@@ -308,32 +292,11 @@ class ContainerCRUD(ResourceContainerCRUD[ContainerId, ContainerRequest, Contain
         return "containers"
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[ContainerRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.DataModelsAcl.Action.Read]
-            if read_only
-            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
-        )
-
-        scope = (
-            cap.DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else cap.DataModelsAcl.Scope.All()
-        )
-
-        return cap.DataModelsAcl(actions, scope)
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[ContainerRequest]) -> ScopeDefinition:
         return space_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
@@ -632,32 +595,11 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
         return "views"
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[ViewRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.DataModelsAcl.Action.Read]
-            if read_only
-            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
-        )
-
-        scope = (
-            cap.DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else cap.DataModelsAcl.Scope.All()
-        )
-
-        return cap.DataModelsAcl(actions, scope)
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[ViewRequest]) -> ScopeDefinition:
         return space_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
@@ -1055,32 +997,11 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelRequest, DataModelRespons
         return "data models"
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[DataModelRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.DataModelsAcl.Action.Read]
-            if read_only
-            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
-        )
-
-        scope = (
-            cap.DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else cap.DataModelsAcl.Scope.All()
-        )
-
-        return cap.DataModelsAcl(actions, scope)
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[DataModelRequest]) -> ScopeDefinition:
         return space_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
@@ -1236,31 +1157,11 @@ class NodeCRUD(ResourceContainerCRUD[NodeId, NodeRequest, NodeResponse]):
         return "nodes"
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[NodeRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.DataModelInstancesAcl.Action.Read]
-            if read_only
-            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
-        )
-
-        return cap.DataModelInstancesAcl(
-            actions,
-            cap.DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else cap.DataModelInstancesAcl.Scope.All(),
-        )
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[NodeRequest]) -> ScopeDefinition:
         return space_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
@@ -1437,29 +1338,11 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, Gr
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[GraphQLDataModelRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-        actions = (
-            [cap.DataModelsAcl.Action.Read]
-            if read_only
-            else [cap.DataModelsAcl.Action.Read, cap.DataModelsAcl.Action.Write]
-        )
-        return cap.DataModelsAcl(
-            actions,
-            cap.DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else cap.DataModelsAcl.Scope.All(),
-        )
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[GraphQLDataModelRequest]) -> ScopeDefinition:
         return space_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelsAcl(actions=sorted(actions), scope=scope)
 
@@ -1561,7 +1444,7 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, Gr
             if "--verbose" in sys.argv:
                 print(f"Deploying GraphQL schema {item_id}")
 
-            item_with_dml = item.model_copy(update={"dml": graphql_file_content})
+            item_with_dml = item.model_copy(update={"graph_ql_dml": graphql_file_content})
             created = self.client.tool.graphql_data_models.create([item_with_dml])
             created_list.extend(created)
         return created_list
@@ -1643,31 +1526,11 @@ class EdgeCRUD(ResourceContainerCRUD[EdgeId, EdgeRequest, EdgeResponse]):
         return "edges"
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[EdgeRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.DataModelInstancesAcl.Action.Read]
-            if read_only
-            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
-        )
-
-        return cap.DataModelInstancesAcl(
-            actions,
-            cap.DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items}))
-            if items is not None
-            else cap.DataModelInstancesAcl.Scope.All(),
-        )
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[EdgeRequest]) -> ScopeDefinition:
         return space_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 

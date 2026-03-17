@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any, cast
 
 import questionary
-from cognite.client._api.functions import ALLOWED_HANDLE_ARGS
 from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive, Token
 from cognite.client.data_classes import ClientCredentials, WorkflowTriggerUpsert
 from cognite.client.data_classes.transformations import TransformationList
@@ -52,6 +51,8 @@ from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME, EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write
 
 from ._base import ToolkitCommand
+
+ALLOWED_HANDLE_ARGS = frozenset({"data", "client", "secrets", "function_call_info"})
 
 
 @dataclass

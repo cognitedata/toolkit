@@ -4,7 +4,6 @@ from collections.abc import Iterable, Sequence
 from datetime import timedelta
 from typing import ClassVar
 
-from cognite.client.utils._time import timestamp_to_ms
 from pydantic import Field, TypeAdapter
 
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
@@ -16,6 +15,7 @@ from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import ContainerCRU
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.streams import StreamCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
+from cognite_toolkit._cdf_tk.utils.time import timestamp_to_ms
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig

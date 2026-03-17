@@ -4,8 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, final
 
-from cognite.client import _version as CogniteSDKVersion
-from cognite.client.data_classes import capabilities as cap
+from cognite.client._version import __version__ as CogniteSDKVersion
 from packaging.requirements import Requirement
 from rich.console import Console
 
@@ -14,7 +13,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.http_client import RequestMessage
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     DataSetScope,
     FilesAcl,
@@ -52,34 +51,18 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
 
     @classmethod
     def recommended_packages(cls) -> list[Requirement]:
-        return [Requirement("pyodide-http==0.2.1"), Requirement(f"cognite-sdk=={CogniteSDKVersion.__version__}")]
+        return [Requirement("pyodide-http==0.2.1"), Requirement(f"cognite-sdk=={CogniteSDKVersion}")]
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
         super().__init__(client, build_dir, console)
         self._source_file_by_external_id: dict[str, Path] = {}
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[StreamlitRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = [cap.FilesAcl.Action.Read] if read_only else [cap.FilesAcl.Action.Read, cap.FilesAcl.Action.Write]
-
-        scope: cap.FilesAcl.Scope.All | cap.FilesAcl.Scope.DataSet = cap.FilesAcl.Scope.All()  # type: ignore[valid-type]
-        if items:
-            if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = cap.FilesAcl.Scope.DataSet(list(data_set_ids))
-
-        return cap.FilesAcl(actions, scope)
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[StreamlitRequest]) -> ScopeDefinition:
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             yield FilesAcl(actions=sorted(actions), scope=scope)
 

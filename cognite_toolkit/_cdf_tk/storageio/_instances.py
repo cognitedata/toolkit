@@ -4,13 +4,13 @@ from typing import Any, ClassVar, Literal, cast
 
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes.aggregations import Count
-from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ContainerId,
     EdgeId,
+    InstanceDefinitionId,
     NodeId,
     SpaceId,
     ViewId,
@@ -65,7 +65,14 @@ class InstanceIO(
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     CHUNK_SIZE = 1000
     UPLOAD_ENDPOINT = "/models/instances"
-    UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = MappingProxyType({"autoCreateDirectRelations": True})
+    UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = MappingProxyType(
+        {
+            "autoCreateDirectRelations": True,
+            "autoCreateStartNodes": True,
+            "autoCreateEndNodes": True,
+            "skipOnVersionConflict": True,
+        }
+    )
     BASE_SELECTOR = InstanceSelector
 
     def __init__(self, client: ToolkitClient, remove_existing_version: bool = True) -> None:
@@ -292,23 +299,16 @@ class InstanceIO(
                 break
             cursor = page.next_cursor
 
-    def download_ids(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[Sequence[InstanceId]]:
-        # Todo: Switch to use pydantic classes once purge has been updated.
+    def download_ids(
+        self, selector: InstanceSelector, limit: int | None = None
+    ) -> Iterable[Sequence[InstanceDefinitionId]]:
         if isinstance(selector, InstanceFileSelector) and selector.validate_instance is False:
             instances_to_yield = selector.instance_ids
             if limit is not None:
                 instances_to_yield = instances_to_yield[:limit]
             yield from chunker_sequence(instances_to_yield, self.CHUNK_SIZE)
         else:
-            yield from (
-                [
-                    dm.NodeId(space=instance.space, external_id=instance.external_id)
-                    if instance.instance_type == "node"
-                    else dm.EdgeId(space=instance.space, external_id=instance.external_id)
-                    for instance in chunk.items
-                ]
-                for chunk in self.stream_data(selector, limit)
-            )
+            yield from ([instance.as_id() for instance in chunk.items] for chunk in self.stream_data(selector, limit))
 
     def count(self, selector: InstanceSelector) -> int | None:
         if isinstance(selector, InstanceViewSelector) or (

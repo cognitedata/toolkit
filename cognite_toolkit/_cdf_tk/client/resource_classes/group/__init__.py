@@ -6,6 +6,7 @@ https://api-docs.cognite.com/20230101/tag/Groups/operation/createGroups
 
 from .acls import (
     Acl,
+    AclType,
     AgentsAcl,
     AnalyticsAcl,
     AnnotationsAcl,
@@ -102,6 +103,7 @@ from .scopes import (
 
 __all__ = [
     "Acl",
+    "AclType",
     "AgentsAcl",
     "AllScope",
     "AnalyticsAcl",

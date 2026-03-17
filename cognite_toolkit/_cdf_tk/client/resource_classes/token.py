@@ -12,7 +12,12 @@ from cognite.client.data_classes.capabilities import UnknownScope
 from pydantic import JsonValue, model_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
-from cognite_toolkit._cdf_tk.client.resource_classes.group import Scope, ScopeDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.group import (
+    GroupCapability,
+    GroupResponse,
+    Scope,
+    ScopeDefinition,
+)
 from cognite_toolkit._cdf_tk.client.resource_classes.group._constants import ACL_NAME
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import Acl, AclType
 from cognite_toolkit._cdf_tk.client.resource_classes.group.scope_logic import (
@@ -72,8 +77,8 @@ class InspectCapability(BaseModelObject):
         return value_copy
 
 
-class ProjectCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
-    """A helper class to represent the capabilities for a given CDF Project.
+class FlatCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope]):
+    """A helper class to represent the capabilities for a project and group(s)
 
     The capabilities are stored as a mapping from (ACL type, AclName, action) to scope, which allows for easy verification of ACLs against the capabilities.
     Note that AclName is included to account for UnknownAcls, which may have the same ACL type but different names, and thus different capabilities.
@@ -86,7 +91,7 @@ class ProjectCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope])
         self.name = name
         self.groups = groups
 
-    def verify(self, acls: Sequence[Acl]) -> Sequence[Acl]:
+    def verify(self, acls: Sequence[AclType]) -> Sequence[AclType]:
         """Verify that the provided ACLs are covered by the capabilities in this project.
 
         Args:
@@ -95,59 +100,54 @@ class ProjectCapabilities(UserDict[tuple[type[Acl], AclName, AclAction], Scope])
         Returns:
             The list of ACLs that are not covered by the capabilities in this project.
         """
-        missing_actions_by_type_and_scope: dict[tuple[type[Acl], AclName, ScopeDefinition], list[str]] = defaultdict(
-            list
+        missing_actions_by_type_and_scope: dict[tuple[type[AclType], AclName, ScopeDefinition], set[str]] = defaultdict(
+            set
         )
         for acl in acls:
             for action in acl.actions:
                 key = (type(acl), acl.acl_name, action)
                 if key not in self.data:
-                    missing_actions_by_type_and_scope[(type(acl), acl.acl_name, acl.scope)].append(action)
+                    missing_actions_by_type_and_scope[(type(acl), acl.acl_name, acl.scope)].add(action)
                     continue
                 if missing_scope := scope_difference(acl.scope, self.data[key]):
-                    missing_actions_by_type_and_scope[(type(acl), acl.acl_name, missing_scope)].append(action)
+                    missing_actions_by_type_and_scope[(type(acl), acl.acl_name, missing_scope)].add(action)
 
-        missing_acls: list[Acl] = []
-        for (acl_type, acl_name, scope), actions in missing_actions_by_type_and_scope.items():
-            missing_acls.append(acl_type(actions=actions, acl_name=acl_name, scope=scope))  # type: ignore[arg-type]
-        return missing_acls
+        return self._merge_als(missing_actions_by_type_and_scope)
 
+    @classmethod
+    def merge_acls(cls, acls: list[AclType]) -> Sequence[AclType]:
+        actions_by_type_and_scope: dict[tuple[type[AclType], AclName, ScopeDefinition], set[str]] = defaultdict(set)
+        for acl in acls:
+            actions_by_type_and_scope[(type(acl), acl.acl_name, acl.scope)].update(acl.actions)
+        return cls._merge_als(actions_by_type_and_scope)
 
-class InspectResponse(BaseModelObject):
-    """Response from the ``GET /api/v1/token/inspect`` endpoint."""
+    @classmethod
+    def _merge_als(
+        cls, actions_by_type_and_scope: dict[tuple[type[AclType], AclName, ScopeDefinition], set[str]]
+    ) -> Sequence[AclType]:
+        merged_acls: list[AclType] = []
+        for (acl_type, acl_name, scope), actions in actions_by_type_and_scope.items():
+            merged_acls.append(acl_type(actions=sorted(actions), acl_name=acl_name, scope=scope))  # type: ignore[arg-type]
+        return merged_acls
 
-    subject: str
-    projects: list[InspectProjectInfo]
-    capabilities: list[InspectCapability]
-    # This is not part of the API response, but we manually set it to the current project as it is very useful
-    project: str = ""
-
-    def to_project_capabilities(self, project: str | None = None) -> ProjectCapabilities:
-        """Convert the inspect response to a ProjectCapabilities object for easier access to ACLs by project.
-
-        Args:
-            project: The project to filter capabilities for. If None, uses the project set in the response
-                (which is the current project).
-
-        Returns:
-            A ProjectCapabilities object containing the capabilities for the specified project.
-        """
-        project = project or self.project
-        project_info = next((p for p in self.projects if p.project_url_name == project), None)
-        if project_info is None:
-            raise ValueError(f"Project '{project}' not found in inspect response")
-
-        scopes_by_acl_action: dict[tuple[type[Acl], AclName, AclAction], list[Scope]] = defaultdict(list)
-        for capability in self.capabilities:
-            if not (
+    @classmethod
+    def from_capabilities(
+        cls, capabilities: Sequence[InspectCapability | GroupCapability], project: str, groups: list[int]
+    ) -> "FlatCapabilities":
+        scopes_by_acl_action: dict[tuple[type[Acl], AclName, AclAction], set[Scope]] = defaultdict(set)
+        for capability in capabilities:
+            if isinstance(capability, InspectCapability) and not (
                 isinstance(capability.project_scope, AllProjects)
                 or (isinstance(capability.project_scope, ProjectList) and project in capability.project_scope.projects)
             ):
                 continue
+            elif isinstance(capability, GroupCapability) and not (
+                capability.project_url_names is None or project in capability.project_url_names.url_names
+            ):
+                continue
+
             for action in capability.acl.actions:
-                scopes_by_acl_action[(type(capability.acl), capability.acl.acl_name, action)].append(
-                    capability.acl.scope
-                )
+                scopes_by_acl_action[(type(capability.acl), capability.acl.acl_name, action)].add(capability.acl.scope)
 
         scope_by_acl_action: dict[tuple[type[Acl], AclName, AclAction], Scope] = {}
         for key, scopes in scopes_by_acl_action.items():
@@ -161,8 +161,36 @@ class InspectResponse(BaseModelObject):
                     continue
                 raise
             scope_by_acl_action[key] = union
-        return ProjectCapabilities(
-            capabilities=scope_by_acl_action,
-            name=project_info.project_url_name,
-            groups=project_info.groups,
+        return FlatCapabilities(capabilities=scope_by_acl_action, name=project, groups=groups)
+
+    @classmethod
+    def from_group(cls, group: GroupResponse, project: str) -> "FlatCapabilities":
+        return cls.from_capabilities(group.capabilities or [], project, groups=[group.id])
+
+
+class InspectResponse(BaseModelObject):
+    """Response from the ``GET /api/v1/token/inspect`` endpoint."""
+
+    subject: str
+    projects: list[InspectProjectInfo]
+    capabilities: list[InspectCapability]
+    # This is not part of the API response, but we manually set it to the current project as it is very useful
+    project: str = ""
+
+    def to_project_capabilities(self, project: str | None = None) -> FlatCapabilities:
+        """Convert the inspect response to a ProjectCapabilities object for easier access to ACLs by project.
+
+        Args:
+            project: The project to filter capabilities for. If None, uses the project set in the response
+                (which is the current project).
+
+        Returns:
+            A ProjectCapabilities object containing the capabilities for the specified project.
+        """
+        project = project or self.project
+        project_info = next((p for p in self.projects if p.project_url_name == project), None)
+        if project_info is None:
+            raise ValueError(f"Project '{project}' not found in inspect response")
+        return FlatCapabilities.from_capabilities(
+            capabilities=self.capabilities, project=project, groups=project_info.groups
         )
