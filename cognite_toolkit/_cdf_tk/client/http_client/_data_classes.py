@@ -19,7 +19,7 @@ class HTTPBaseModel(BaseModel):
 
 
 class HTTPResult(HTTPBaseModel):
-    def get_success_or_raise(self, request: "RequestMessage | None" = None) -> "SuccessResponse":
+    def get_success_or_raise(self, request: "RequestMessage") -> "SuccessResponse":
         """Raises an exception if any response in the list indicates a failure."""
         if isinstance(self, SuccessResponse):
             return self
@@ -32,7 +32,7 @@ class HTTPResult(HTTPBaseModel):
                 request=request,
             )
         elif isinstance(self, FailedRequest):
-            raise ToolkitAPIError(f"Request failed with error: {self.error}")
+            raise ToolkitAPIError(f"Request failed with error: {self.error}", request=request)
         else:
             raise ToolkitAPIError("Unknown HTTPResult2 type")
 

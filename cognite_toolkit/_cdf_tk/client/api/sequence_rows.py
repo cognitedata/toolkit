@@ -51,7 +51,7 @@ class SequenceRowsAPI(CDFResourceAPI[SequenceRowsResponse]):
             body_content=body,
         )
         result = self._http_client.request_single_retries(request)
-        return result.get_success_or_raise().body
+        return result.get_success_or_raise(request).body
 
     def create(self, items: Sequence[SequenceRowsRequest]) -> None:
         """Insert rows into one or more sequences.
@@ -92,16 +92,15 @@ class SequenceRowsAPI(CDFResourceAPI[SequenceRowsResponse]):
         if before is not None:
             body["before"] = before
 
-        result = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=self._make_url(self._latest_endpoint.path),
-                method=self._latest_endpoint.method,
-                body_content=body,
-                disable_gzip=self._disable_gzip,
-                api_version=self._api_version,
-            )
+        request = RequestMessage(
+            endpoint_url=self._make_url(self._latest_endpoint.path),
+            method=self._latest_endpoint.method,
+            body_content=body,
+            disable_gzip=self._disable_gzip,
+            api_version=self._api_version,
         )
-        response = result.get_success_or_raise()
+        result = self._http_client.request_single_retries(request)
+        response = result.get_success_or_raise(request)
         return SequenceRowsResponse.model_validate_json(response.body)
 
     # Overridden form of the _paginate method to handle the unique pagination structure of sequence rows endpoints
@@ -147,7 +146,7 @@ class SequenceRowsAPI(CDFResourceAPI[SequenceRowsResponse]):
             api_version=self._api_version,
         )
         result = self._http_client.request_single_retries(request)
-        response = result.get_success_or_raise()
+        response = result.get_success_or_raise(request)
 
         parsed = SequenceRowsResponse.model_validate_json(response.body)
         return PagedResponse(items=[parsed], nextCursor=parsed.next_cursor)

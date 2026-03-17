@@ -68,7 +68,7 @@ class StreamlitAPI(CDFResourceAPI[StreamlitResponse]):
                 parameters={"overwrite": overwrite},
             )
             response = self._http_client.request_single_retries(request)
-            result = response.get_success_or_raise()
+            result = response.get_success_or_raise(request)
             results.append(StreamlitResponse.model_validate_json(result.body))
         return results
 

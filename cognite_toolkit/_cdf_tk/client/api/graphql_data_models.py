@@ -78,7 +78,7 @@ class GraphQLDataModelsAPI(CDFResourceAPI[GraphQLDataModelResponse]):
             body_content=payload,
         )
         result = self._http_client.request_single_retries(request)
-        response = result.get_success_or_raise()
+        response = result.get_success_or_raise(request)
         parsed = GraphQLResponse.model_validate_json(response.body)
         if errors := parsed.errors:
             raise ToolkitAPIError(

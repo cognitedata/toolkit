@@ -44,12 +44,11 @@ class UserProfilesAPI(CDFResourceAPI[UserProfile]):
         Returns:
             The UserProfile of the requesting principal.
         """
-        response = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=self._make_url(self._me_endpoint.path),
-                method=self._me_endpoint.method,
-            )
-        ).get_success_or_raise()
+        request = RequestMessage(
+            endpoint_url=self._make_url(self._me_endpoint.path),
+            method=self._me_endpoint.method,
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
         return UserProfile.model_validate_json(response.body)
 
     def retrieve(self, items: Sequence[UserProfileId]) -> list[UserProfile]:
@@ -72,13 +71,12 @@ class UserProfilesAPI(CDFResourceAPI[UserProfile]):
         """
         if limit < 1 or limit > self._search_endpoint.item_limit:
             raise ValueError(f"Limit must be between 1 and {self._search_endpoint.item_limit}")
-        response = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=self._make_url(self._search_endpoint.path),
-                method=self._search_endpoint.method,
-                body_content={"search": {"name": name}, "limit": limit},
-            )
-        ).get_success_or_raise()
+        request = RequestMessage(
+            endpoint_url=self._make_url(self._search_endpoint.path),
+            method=self._search_endpoint.method,
+            body_content={"search": {"name": name}, "limit": limit},
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
         return self._validate_page_response(response).items
 
     def paginate(

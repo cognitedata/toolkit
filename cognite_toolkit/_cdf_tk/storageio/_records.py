@@ -87,14 +87,13 @@ class RecordIO(
                 "lastUpdatedTime": {"gte": window_start, "lt": window_end},
                 "aggregates": {"total": {"count": {}}},
             }
-            result = self.client.http_client.request_single_retries(
-                RequestMessage(
-                    endpoint_url=self.client.config.create_api_url(url),
-                    method="POST",
-                    body_content=body,  # type: ignore[arg-type]
-                )
+            request = RequestMessage(
+                endpoint_url=self.client.config.create_api_url(url),
+                method="POST",
+                body_content=body,  # type: ignore[arg-type]
             )
-            response = result.get_success_or_raise()
+            result = self.client.http_client.request_single_retries(request)
+            response = result.get_success_or_raise(request)
             data = json.loads(response.body)
             total += int(data["aggregates"]["total"]["count"])
             window_start = window_end
@@ -187,15 +186,13 @@ class RecordIO(
             if page_limit <= 0:
                 break
             body["limit"] = page_limit
-
-            result = self.client.http_client.request_single_retries(
-                RequestMessage(
-                    endpoint_url=self.client.config.create_api_url(url),
-                    method="POST",
-                    body_content=body,  # type: ignore[arg-type]
-                )
+            request = RequestMessage(
+                endpoint_url=self.client.config.create_api_url(url),
+                method="POST",
+                body_content=body,  # type: ignore[arg-type]
             )
-            response = result.get_success_or_raise()
+            result = self.client.http_client.request_single_retries(request)
+            response = result.get_success_or_raise(request)
 
             sync_response = RecordSyncResponse.model_validate_json(response.body)
             total += len(sync_response.items)
