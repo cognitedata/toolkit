@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartSource,
     ChartTimeseries,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerPropertyDefinition,
     DirectNodeRelation,
@@ -460,15 +461,18 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
         self.skip_on_missing_ref = skip_on_missing_ref
 
     def map(self, source: Sequence[IndustrialCanvasResponse]) -> Sequence[IndustrialCanvasRequest | None]:
-        self._populate_cache(source)
+        file_node_ids = self._populate_cache(source)
+        cognite_file_by_id = {file.as_id(): file for file in self.client.tool.cognite_files.retrieve(file_node_ids)}
         output: list[IndustrialCanvasRequest | None] = []
         issues: list[CanvasMigrationIssue] = []
         for item in source:
-            mapped_item, issue = self._map_single_item(item)
+            mapped_item, issue = self._map_single_item(item, cognite_file_by_id)
             identifier = item.name
 
             if issue.missing_reference_ids:
                 self.logger.tracker.add_issue(identifier, "Missing reference IDs")
+            if issue.files_missing_content:
+                self.logger.tracker.add_issue(identifier, "File missing content")
 
             if issue.has_issues:
                 issues.append(issue)
@@ -490,21 +494,29 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
             "file": self.client.migration.lookup.files,
         }
 
-    def _populate_cache(self, source: Sequence[IndustrialCanvasResponse]) -> None:
+    def _populate_cache(self, source: Sequence[IndustrialCanvasResponse]) -> list[NodeId]:
         """Populate the internal cache with references from the source canvases.
 
         Note that the consumption views are also cached as part of the timeseries lookup.
+
+        Returns:
+            list[NodeId]: A list of node IDs for file references, which are used later for
+                to check whether they have content.
+
         """
         ids_by_type: dict[str, set[int]] = defaultdict(set)
         for canvas in source:
             for ref in canvas.container_references or []:
                 if ref.container_reference_type in self.asset_centric_resource_types:
                     ids_by_type[ref.container_reference_type].add(ref.resource_id)
-
+        file_node_ids: list[NodeId] = []
         for resource_type, lookup_method in self.lookup_methods.items():
             ids = ids_by_type.get(resource_type)
             if ids:
-                lookup_method(list(ids))
+                results = lookup_method(list(ids))
+                if resource_type == "file":
+                    file_node_ids.extend(results.values())
+        return file_node_ids
 
     def _get_node_id(self, resource_id: int, resource_type: str) -> NodeId | None:
         """Look up the node ID for a given resource ID and type."""
@@ -528,7 +540,7 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
         raise ToolkitValueError(f"Unsupported resource type '{resource_type}' for container reference migration.")
 
     def _map_single_item(
-        self, canvas: IndustrialCanvasResponse
+        self, canvas: IndustrialCanvasResponse, cognite_file_by_id: dict[NodeId, CogniteFileResponse]
     ) -> tuple[IndustrialCanvasRequest | None, CanvasMigrationIssue]:
         update = canvas.as_write()
         issue = CanvasMigrationIssue(canvas_external_id=canvas.external_id, canvas_name=canvas.name, id=canvas.name)
@@ -543,12 +555,14 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
             node_id = self._get_node_id(ref.resource_id, ref.container_reference_type)
             if node_id is None:
                 issue.missing_reference_ids.append(ref.as_asset_centric_id())
-            else:
-                consumer_view = self._get_consumer_view_id(ref.resource_id, ref.container_reference_type)
-                fdm_ref = self.migrate_container_reference(
-                    ref, canvas.external_id, node_id, consumer_view, uuid_generator
-                )
-                new_fdm_references.append(fdm_ref)
+                continue
+            if ref.container_reference_type == "file" and node_id in cognite_file_by_id:
+                if not cognite_file_by_id[node_id].is_uploaded:
+                    issue.files_missing_content.append(node_id)
+
+            consumer_view = self._get_consumer_view_id(ref.resource_id, ref.container_reference_type)
+            fdm_ref = self.migrate_container_reference(ref, canvas.external_id, node_id, consumer_view, uuid_generator)
+            new_fdm_references.append(fdm_ref)
         if issue.missing_reference_ids and self.skip_on_missing_ref:
             return None, issue
 

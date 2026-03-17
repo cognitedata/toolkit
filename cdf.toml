@@ -19,6 +19,7 @@ extend-upload = true
 simulators = true
 v08 = false
 data-products = true
+
 [plugins]
 run = true
 dump = true

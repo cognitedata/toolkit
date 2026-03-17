@@ -4,7 +4,6 @@ from typing import Annotated, Any
 
 import questionary
 import typer
-
 from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -61,9 +60,9 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     ThreeDModelIdSelector,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
+from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     APMConfigInteractiveSelect,
     AssetInteractiveSelect,
@@ -340,6 +339,14 @@ class MigrateApp(typer.Typer):
                 "CogniteAsset in CogniteCore will be used.",
             ),
         ] = None,
+        skip_existing: Annotated[
+            bool,
+            typer.Option(
+                "--skip-existing",
+                help="If set, Toolkit will check and skip nodes if they already exist. Note that this "
+                "increases the number of requests done by the command with 50%",
+            ),
+        ] = False,
         log_dir: Annotated[
             Path,
             typer.Option(
@@ -375,7 +382,7 @@ class MigrateApp(typer.Typer):
     ) -> None:
         """Migrate Assets to CogniteAssets."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
+        selected, dry_run, verbose, skip_existing = cls._prepare_asset_centric_arguments(
             client=client,
             mapping_file=mapping_file,
             data_set_id=data_set_id,
@@ -384,6 +391,7 @@ class MigrateApp(typer.Typer):
             dry_run=dry_run,
             auto_yes=auto_yes,
             verbose=verbose,
+            skip_existing=skip_existing,
             kind="Assets",
             resource_type="asset",
             container_id=ContainerId(space="cdf_cdm", external_id="CogniteAsset"),
@@ -393,7 +401,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate(
                 selectors=[selected],
-                data=AssetCentricMigrationIO(client),
+                data=AssetCentricMigrationIO(client, skip_existing=skip_existing),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,
@@ -412,12 +420,13 @@ class MigrateApp(typer.Typer):
         auto_yes: bool,
         dry_run: bool,
         verbose: bool,
+        skip_existing: bool,
         kind: AssetCentricKind,
         resource_type: str,
         container_id: ContainerId,
         event_type: str | None = None,
         event_subtype: str | None = None,
-    ) -> tuple[AssetCentricMigrationSelector, bool, bool]:
+    ) -> tuple[AssetCentricMigrationSelector, bool, bool, bool]:
         if data_set_id is not None and mapping_file is not None:
             raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
         elif mapping_file is not None:
@@ -471,10 +480,13 @@ class MigrateApp(typer.Typer):
                 event_type=event_type,
                 event_subtype=event_subtype,
             )
+            skip_existing = questionary.confirm(
+                "Do you want to check for and skip existing nodes?", default=skip_existing
+            ).unsafe_ask()
             dry_run = questionary.confirm("Do you want to perform a dry run?", default=dry_run).unsafe_ask()
             verbose = questionary.confirm("Do you want verbose output?", default=verbose).unsafe_ask()
 
-        return selected, dry_run, verbose
+        return selected, dry_run, verbose, skip_existing
 
     @classmethod
     def events(
@@ -532,6 +544,14 @@ class MigrateApp(typer.Typer):
                 help="Filter events by subtype. Only events matching this subtype will be migrated.",
             ),
         ] = None,
+        skip_existing: Annotated[
+            bool,
+            typer.Option(
+                "--skip-existing",
+                help="If set, Toolkit will check and skip nodes if they already exist. Note that this "
+                "increases the number of requests done by the command with 50%",
+            ),
+        ] = False,
         log_dir: Annotated[
             Path,
             typer.Option(
@@ -567,7 +587,7 @@ class MigrateApp(typer.Typer):
     ) -> None:
         """Migrate Events to CogniteActivity instances."""
         client = EnvironmentVariables.create_from_environment().get_client()
-        selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
+        selected, dry_run, verbose, skip_existing = cls._prepare_asset_centric_arguments(
             client=client,
             mapping_file=mapping_file,
             data_set_id=data_set_id,
@@ -576,6 +596,7 @@ class MigrateApp(typer.Typer):
             dry_run=dry_run,
             auto_yes=auto_yes,
             verbose=verbose,
+            skip_existing=skip_existing,
             kind="Events",
             resource_type="event",
             container_id=ContainerId(space="cdf_cdm", external_id="CogniteActivity"),
@@ -587,7 +608,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate(
                 selectors=[selected],
-                data=AssetCentricMigrationIO(client),
+                data=AssetCentricMigrationIO(client, skip_existing=skip_existing),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,
@@ -739,6 +760,14 @@ class MigrateApp(typer.Typer):
                 "CogniteTimeSeries in CogniteCore will be used.",
             ),
         ] = None,
+        skip_existing: Annotated[
+            bool,
+            typer.Option(
+                "--skip-existing",
+                help="If set, Toolkit will check and skip nodes if they already exist. Note that this "
+                "increases the number of requests done by the command with 50%",
+            ),
+        ] = False,
         log_dir: Annotated[
             Path,
             typer.Option(
@@ -783,7 +812,7 @@ class MigrateApp(typer.Typer):
         """Migrate TimeSeries to CogniteTimeSeries."""
         client = EnvironmentVariables.create_from_environment().get_client()
 
-        selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
+        selected, dry_run, verbose, skip_existing = cls._prepare_asset_centric_arguments(
             client=client,
             mapping_file=mapping_file,
             data_set_id=data_set_id,
@@ -792,6 +821,7 @@ class MigrateApp(typer.Typer):
             dry_run=dry_run,
             auto_yes=auto_yes,
             verbose=verbose,
+            skip_existing=skip_existing,
             kind="TimeSeries",
             resource_type="timeseries",
             container_id=ContainerId(space="cdf_cdm", external_id="CogniteTimeSeries"),
@@ -805,7 +835,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate(
                 selectors=[selected],
-                data=AssetCentricMigrationIO(client, skip_linking=skip_linking),
+                data=AssetCentricMigrationIO(client, skip_linking=skip_linking, skip_existing=skip_existing),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,
@@ -856,6 +886,14 @@ class MigrateApp(typer.Typer):
                 "CogniteFile in CogniteCore will be used.",
             ),
         ] = None,
+        skip_existing: Annotated[
+            bool,
+            typer.Option(
+                "--skip-existing",
+                help="If set, Toolkit will check and skip nodes if they already exist. Note that this "
+                "increases the number of requests done by the command with 50%",
+            ),
+        ] = False,
         log_dir: Annotated[
             Path,
             typer.Option(
@@ -900,7 +938,7 @@ class MigrateApp(typer.Typer):
         """Migrate Files to CogniteFiles."""
         client = EnvironmentVariables.create_from_environment().get_client()
 
-        selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
+        selected, dry_run, verbose, skip_existing = cls._prepare_asset_centric_arguments(
             client=client,
             mapping_file=mapping_file,
             data_set_id=data_set_id,
@@ -909,6 +947,7 @@ class MigrateApp(typer.Typer):
             dry_run=dry_run,
             auto_yes=auto_yes,
             verbose=verbose,
+            skip_existing=skip_existing,
             kind="FileMetadata",
             resource_type="file",
             container_id=ContainerId(space="cdf_cdm", external_id="CogniteFile"),
@@ -923,7 +962,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate(
                 selectors=[selected],
-                data=AssetCentricMigrationIO(client, skip_linking=skip_linking),
+                data=AssetCentricMigrationIO(client, skip_linking=skip_linking, skip_existing=skip_existing),
                 mapper=AssetCentricMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,

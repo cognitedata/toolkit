@@ -1,15 +1,13 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities as cap
-
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import DataProductVersionId, ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_product_version import (
     DataProductVersionRequest,
     DataProductVersionResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.group import Acl, ScopeDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, ScopeDefinition
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.yaml_classes import DataProductVersionYAML
 
@@ -48,19 +46,11 @@ class DataProductVersionCRUD(ResourceCRUD[DataProductVersionId, DataProductVersi
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[DataProductVersionRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        # TODO: dataproductsAcl is not yet in the SDK — return empty to skip capability verification.
-        # Once available, require: READ + UPDATE (all version mutations use dataproductsAcl:UPDATE).
-        return []
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[DataProductVersionRequest]) -> ScopeDefinition | None:
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
     @classmethod

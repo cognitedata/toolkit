@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import ClassVar, Literal, cast
+from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -76,10 +76,11 @@ class AssetCentricMigrationIO(
         "FileMetadata": "/files/set-pending-instance-ids",
     }
 
-    def __init__(self, client: ToolkitClient, skip_linking: bool = True) -> None:
+    def __init__(self, client: ToolkitClient, skip_linking: bool = True, skip_existing: bool = False) -> None:
         super().__init__(client)
         self.hierarchy = HierarchyIO(client)
         self.skip_linking = skip_linking
+        self.skip_existing = skip_existing
 
     def as_id(self, item: AssetCentricMapping) -> str:
         return str(item.mapping.as_asset_centric_id())
@@ -120,15 +121,11 @@ class AssetCentricMigrationIO(
         self, selector: MigrateDataSetSelector, limit: int | None = None
     ) -> Iterator[Sequence[AssetCentricMapping[T_AssetCentricResource]]]:
         asset_centric_selector = selector.as_asset_centric_selector()
+        space_source = self.client.migration.space_source.retrieve(data_set_external_id=selector.data_set_external_id)
+        instance_space = space_source.instance_space if space_source else MISSING_INSTANCE_SPACE
         for data_chunk in self.hierarchy.stream_data(asset_centric_selector, limit):
             mapping_list: list[AssetCentricMapping[T_AssetCentricResource]] = []
             for resource in data_chunk.items:
-                # We got the resource from a dataset selector, so we know it is there
-                data_set_id = cast(int, resource.data_set_id)
-                space_source = self.client.migration.space_source.retrieve(data_set_id=data_set_id)
-                instance_space = space_source.instance_space if space_source else None
-                if instance_space is None:
-                    instance_space = MISSING_INSTANCE_SPACE
                 external_id = resource.external_id
                 if external_id is None:
                     external_id = MISSING_EXTERNAL_ID.format(project=self.client.config.project, id=resource.id)
@@ -176,6 +173,11 @@ class AssetCentricMigrationIO(
         selector: AssetCentricMigrationSelector | None = None,
     ) -> ItemsResultList:
         """Upload items by first linking them using files/set-pending-instance-ids and then uploading the instances."""
+        if self.skip_existing:
+            data_chunk = self._remove_existing(data_chunk)
+            if not data_chunk:
+                return ItemsResultList()
+
         if self.skip_linking:
             return super().upload_items(data_chunk, http_client, None)
         elif selector is None:
@@ -189,6 +191,21 @@ class AssetCentricMigrationIO(
         if to_upload:
             results.extend(super().upload_items(to_upload, http_client, None))
         return results
+
+    def _remove_existing(
+        self, data_chunk: Sequence[UploadItem[InstanceRequest]]
+    ) -> Sequence[UploadItem[InstanceRequest]]:
+        """Remove items from the chunk that already exist in CDF to avoid upload failures."""
+        data_by_instance_id = {item.item.as_id(): item for item in data_chunk}
+        existing_ids = {item.as_id() for item in self.client.tool.instances.retrieve(list(data_by_instance_id.keys()))}
+        to_create: list[UploadItem[InstanceRequest]] = []
+        for instance_id, data in data_by_instance_id.items():
+            if instance_id in existing_ids:
+                self.logger.tracker.finalize_item(data.source_id, "skipped")
+            else:
+                to_create.append(data)
+
+        return to_create
 
     def link_asset_centric(
         self,

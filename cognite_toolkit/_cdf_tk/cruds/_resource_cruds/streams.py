@@ -1,11 +1,9 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, Literal, final
 
-from cognite.client.data_classes import capabilities as cap
-
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     ScopeDefinition,
     StreamsAcl,
@@ -46,25 +44,11 @@ class StreamCRUD(ResourceCRUD[ExternalId, StreamRequest, StreamResponse]):
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[StreamRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.StreamsAcl.Action.Read]
-            if read_only
-            else [cap.StreamsAcl.Action.Read, cap.StreamsAcl.Action.Create, cap.StreamsAcl.Action.Delete]
-        )
-        return cap.StreamsAcl(actions, cap.StreamsAcl.Scope.All())
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[StreamRequest]) -> ScopeDefinition:
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope):
             acl_actions: list[Literal["READ", "CREATE", "DELETE"]] = []
             if "READ" in actions:

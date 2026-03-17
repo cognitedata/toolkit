@@ -1,4 +1,3 @@
-import time
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from functools import cached_property
@@ -25,7 +24,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     DataSetScope,
     FilesAcl,
@@ -97,32 +96,11 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         return "functions"
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[FunctionRequest] | None, read_only: bool
-    ) -> list[cap.Capability] | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        function_actions = (
-            [cap.FunctionsAcl.Action.Read]
-            if read_only
-            else [cap.FunctionsAcl.Action.Read, cap.FunctionsAcl.Action.Write]
-        )
-        file_actions = (
-            [cap.FilesAcl.Action.Read] if read_only else [cap.FilesAcl.Action.Read, cap.FilesAcl.Action.Write]
-        )
-
-        return [
-            cap.FunctionsAcl(function_actions, cap.FunctionsAcl.Scope.All()),
-            cap.FilesAcl(file_actions, cap.FilesAcl.Scope.All()),  # Needed for uploading function artifacts
-        ]
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[FunctionRequest]) -> ScopeDefinition:
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             # Functions ACLs do not support dataset scoping, so we always create them with AllScope.
             yield FunctionsAcl(actions=sorted(actions), scope=AllScope())
@@ -352,18 +330,10 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         for item in items:
             external_id = item.external_id or item.name
             file_id = self._upload_function_code(external_id, item)
-            # Wait until the files is available
-            t0 = time.perf_counter()
-            sleep_time = 1.0  # seconds
-            while (elapsed_time := (time.perf_counter() - t0)) < self._file_upload_timeout_seconds:
-                file = self.client.tool.filemetadata.retrieve([InternalId(id=file_id)])
-                if file and file[0].uploaded:
-                    break
-                elapsed_time = time.perf_counter() - t0
-                to_sleep = min(sleep_time, self._file_upload_timeout_seconds - elapsed_time)
-                time.sleep(to_sleep)
-                sleep_time *= 2
-            else:
+            failed_upload, elapsed_time = self.client.tool.filemetadata.await_file_uploaded(
+                [file_id], timeout_seconds=self._file_upload_timeout_seconds
+            )
+            if file_id in failed_upload:
                 raise ResourceCreationError(
                     f"Failed to create function {external_id}. CDF API timed out after {elapsed_time:.0f} "
                     "seconds while waiting for the function code to be uploaded. Wait and try again.\nIf the"
@@ -371,8 +341,9 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
                     "You can increase the timeout by setting the 'file_upload_timeout_seconds' parameter in "
                     f"the CDF TOML configuration file. Current value: {self._file_upload_timeout_seconds} seconds."
                 )
+
             # Create a copy with the file_id set
-            item_to_create = FunctionRequest.model_validate({**item.dump(), "fileId": file_id})
+            item_to_create = FunctionRequest.model_validate({**item.dump(), "fileId": file_id.id})
             result = self.client.tool.functions.create([item_to_create])
             if result:
                 created_item = result[0]
@@ -380,7 +351,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
                 created.append(created_item)
         return created
 
-    def _upload_function_code(self, external_id: str, item: FunctionRequest) -> int:
+    def _upload_function_code(self, external_id: str, item: FunctionRequest) -> InternalId:
         """Uploads the function code to CDF.
 
         It will either upload the code to a CogniteFile if a space is provided and the feature flag is enabled,
@@ -422,7 +393,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
                     overwrite=True,
                     data_set_id=data_set_id,
                 )
-        return upload_file.id
+        return InternalId(id=upload_file.id)
 
     @staticmethod
     def _warn_if_cpu_or_memory_changed(created_item: FunctionResponse, item: FunctionRequest) -> None:
@@ -509,30 +480,11 @@ class FunctionScheduleCRUD(ResourceCRUD[FunctionScheduleId, FunctionScheduleRequ
         return "function schedules"
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[FunctionScheduleRequest] | None, read_only: bool
-    ) -> list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        function_actions = (
-            [cap.FunctionsAcl.Action.Read]
-            if read_only
-            else [cap.FunctionsAcl.Action.Read, cap.FunctionsAcl.Action.Write]
-        )
-        required_capabilities: list[cap.Capability] = [
-            cap.FunctionsAcl(function_actions, cap.FunctionsAcl.Scope.All()),
-        ]
-        if not read_only:
-            required_capabilities.append(cap.SessionsAcl([cap.SessionsAcl.Action.Create], cap.SessionsAcl.Scope.All()))
-        return required_capabilities
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[FunctionScheduleRequest]) -> ScopeDefinition | None:
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
     @classmethod

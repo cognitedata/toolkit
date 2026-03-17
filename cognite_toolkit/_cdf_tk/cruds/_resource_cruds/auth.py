@@ -37,7 +37,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     CurrentUserScope,
     GroupRequest,
@@ -111,38 +111,11 @@ class GroupCRUD(ResourceCRUD[NameId, GroupRequest, GroupResponse]):
         return f"groups({self.target_scopes.removesuffix('_only')})"
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[GroupRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [
-                cap.GroupsAcl.Action.Read,
-                cap.GroupsAcl.Action.List,
-            ]
-            if read_only
-            else [
-                cap.GroupsAcl.Action.Read,
-                cap.GroupsAcl.Action.List,
-                cap.GroupsAcl.Action.Create,
-                cap.GroupsAcl.Action.Delete,
-                cap.GroupsAcl.Action.Update,
-            ]
-        )
-
-        return cap.GroupsAcl(
-            actions,
-            cap.GroupsAcl.Scope.All(),
-        )
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[GroupRequest]) -> ScopeDefinition:
         return CurrentUserScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | CurrentUserScope):
             acl_actions: list[Literal["CREATE", "DELETE", "READ", "LIST", "UPDATE"]] = []
             if "READ" in actions:
@@ -566,38 +539,11 @@ class SecurityCategoryCRUD(ResourceCRUD[NameId, SecurityCategoryRequest, Securit
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[SecurityCategoryRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [
-                cap.SecurityCategoriesAcl.Action.List,
-                cap.SecurityCategoriesAcl.Action.MemberOf,
-            ]
-            if read_only
-            else [
-                cap.SecurityCategoriesAcl.Action.Create,
-                cap.SecurityCategoriesAcl.Action.Update,
-                cap.SecurityCategoriesAcl.Action.MemberOf,
-                cap.SecurityCategoriesAcl.Action.List,
-                cap.SecurityCategoriesAcl.Action.Delete,
-            ]
-        )
-
-        return cap.SecurityCategoriesAcl(
-            actions,
-            cap.SecurityCategoriesAcl.Scope.All(),
-        )
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[SecurityCategoryRequest]) -> ScopeDefinition:
         return AllScope()
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope):
             acl_actions: list[Literal["MEMBEROF", "LIST", "CREATE", "UPDATE", "DELETE"]] = []
             if "READ" in actions:

@@ -4,13 +4,13 @@ from typing import Any, ClassVar, Literal, cast
 
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes.aggregations import Count
-from cognite.client.utils._identifier import InstanceId
 
 from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ContainerId,
     EdgeId,
+    InstanceDefinitionId,
     NodeId,
     SpaceId,
     ViewId,
@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QuerySortSpec,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceRequestAdapter
+from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
 from cognite_toolkit._cdf_tk.cruds import ContainerCRUD, SpaceCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import sanitize_filename
@@ -64,7 +65,14 @@ class InstanceIO(
     SUPPORTED_READ_FORMATS = frozenset({".parquet", ".csv", ".ndjson", ".yaml", ".yml"})
     CHUNK_SIZE = 1000
     UPLOAD_ENDPOINT = "/models/instances"
-    UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = MappingProxyType({"autoCreateDirectRelations": True})
+    UPLOAD_EXTRA_ARGS: ClassVar[Mapping[str, JsonVal] | None] = MappingProxyType(
+        {
+            "autoCreateDirectRelations": True,
+            "autoCreateStartNodes": True,
+            "autoCreateEndNodes": True,
+            "skipOnVersionConflict": True,
+        }
+    )
     BASE_SELECTOR = InstanceSelector
 
     def __init__(self, client: ToolkitClient, remove_existing_version: bool = True) -> None:
@@ -117,7 +125,7 @@ class InstanceIO(
     def _build_query_filter(selector: InstanceViewSelector, instance_type: Literal["node", "edge"]) -> dict[str, Any]:
         """Build a filter dict for the query endpoint from an InstanceViewSelector."""
         leaf_filters: list[dict[str, Any]] = [
-            {"hasData": [{**selector.view.as_id().dump(), "type": "view"}]},
+            {"hasData": [selector.view.as_id().dump(include_type=True)]},
         ]
         if selector.instance_spaces and len(selector.instance_spaces) == 1:
             leaf_filters.append(
@@ -198,6 +206,7 @@ class InstanceIO(
         for no, edge_type in enumerate(selector.edge_types or [], start=1):
             query_id = f"edge_{no}"
             with_[query_id] = QueryEdgeExpression(
+                limit=SUBSELECTION_LIMIT_QUERY_ENDPOINT,
                 edges=QueryEdgeTableExpression(
                     from_=root,
                     chain_to="source" if edge_type.direction == "outwards" else "destination",
@@ -209,7 +218,6 @@ class InstanceIO(
                         }
                     },
                 ),
-                sort=[QuerySortSpec(property=["edge", "space"]), QuerySortSpec(property=["edge", "externalId"])],
             )
             edge_ids.append(query_id)
             select[query_id] = QuerySelect()
@@ -261,22 +269,18 @@ class InstanceIO(
             if first is None:
                 first = response
             else:
-                for key, items in response.items.items():
-                    if key not in first.items:
-                        # In practice, this is unreachable. It is just in case.
-                        first.items[key] = items
-                    else:
-                        first.items[key].extend(items)
-            next_cursors: dict[str, str] = {}
+                for key in sub_selections:
+                    if key in response.items:
+                        first.items[key].extend(response.items[key])
+            next_cursors: dict[str, str | None] = {}
             for prop_id in sub_selections:
                 sub_cursor = response.next_cursor.get(prop_id)
                 if sub_cursor is not None:
                     next_cursors[prop_id] = sub_cursor
             if not next_cursors or not response.items:
                 return first
-            node_cursor = response.next_cursor.get(root_selection)
-            if node_cursor is not None:
-                next_cursors[root_selection] = node_cursor
+            # Keep the root cursor to iterate over all subitems.
+            next_cursors[root_selection] = (query.cursors or {}).get(root_selection)
             query = query.model_copy(update={"cursors": next_cursors})
 
     def _instances_with_container_properties(
@@ -295,23 +299,16 @@ class InstanceIO(
                 break
             cursor = page.next_cursor
 
-    def download_ids(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[Sequence[InstanceId]]:
-        # Todo: Switch to use pydantic classes once purge has been updated.
+    def download_ids(
+        self, selector: InstanceSelector, limit: int | None = None
+    ) -> Iterable[Sequence[InstanceDefinitionId]]:
         if isinstance(selector, InstanceFileSelector) and selector.validate_instance is False:
             instances_to_yield = selector.instance_ids
             if limit is not None:
                 instances_to_yield = instances_to_yield[:limit]
             yield from chunker_sequence(instances_to_yield, self.CHUNK_SIZE)
         else:
-            yield from (
-                [
-                    dm.NodeId(space=instance.space, external_id=instance.external_id)
-                    if instance.instance_type == "node"
-                    else dm.EdgeId(space=instance.space, external_id=instance.external_id)
-                    for instance in chunk.items
-                ]
-                for chunk in self.stream_data(selector, limit)
-            )
+            yield from ([instance.as_id() for instance in chunk.items] for chunk in self.stream_data(selector, limit))
 
     def count(self, selector: InstanceSelector) -> int | None:
         if isinstance(selector, InstanceViewSelector) or (

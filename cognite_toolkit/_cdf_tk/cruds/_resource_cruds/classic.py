@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Literal, final
 
 import pandas as pd
-from cognite.client.data_classes import capabilities as cap
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -20,7 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     AssetsAcl,
     DataSetScope,
@@ -100,29 +99,11 @@ class AssetCRUD(ResourceCRUD[ExternalId, AssetRequest, AssetResponse]):
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: collections.abc.Sequence[AssetRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-        scope: cap.AssetsAcl.Scope.All | cap.AssetsAcl.Scope.DataSet = (  # type: ignore[valid-type]
-            cap.AssetsAcl.Scope.All()
-        )
-
-        actions = [cap.AssetsAcl.Action.Read] if read_only else [cap.AssetsAcl.Action.Read, cap.AssetsAcl.Action.Write]
-
-        if items:
-            if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = cap.AssetsAcl.Scope.DataSet(list(data_set_ids))
-
-        return cap.AssetsAcl(actions, scope)
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[AssetRequest]) -> ScopeDefinition:
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             yield AssetsAcl(actions=sorted(actions), scope=scope)
 
@@ -286,30 +267,11 @@ class SequenceCRUD(ResourceCRUD[ExternalId, SequenceRequest, SequenceResponse]):
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: collections.abc.Sequence[SequenceRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-        scope: Any = cap.SequencesAcl.Scope.All()
-        if items:
-            if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = cap.SequencesAcl.Scope.DataSet(list(data_set_ids))
-
-        actions = (
-            [cap.SequencesAcl.Action.Read]
-            if read_only
-            else [cap.SequencesAcl.Action.Read, cap.SequencesAcl.Action.Write]
-        )
-
-        return cap.SequencesAcl(actions, scope)
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[SequenceRequest]) -> ScopeDefinition:
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             yield SequencesAcl(actions=sorted(actions), scope=scope)
 
@@ -431,18 +393,11 @@ class SequenceRowCRUD(ResourceCRUD[ExternalId, SequenceRowsRequest, SequenceRows
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: collections.abc.Sequence[SequenceRowsRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        # We don't have any capabilities for SequenceRows, that is already handled by the Sequence
-        return []
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[SequenceRowsRequest]) -> ScopeDefinition | None:
         return None
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         yield from ()
 
     def create(self, items: Sequence[SequenceRowsRequest]) -> Sequence[SequenceRowsRequest]:
@@ -571,29 +526,11 @@ class EventCRUD(ResourceCRUD[ExternalId, EventRequest, EventResponse]):
         return id.dump()
 
     @classmethod
-    def get_required_capability(
-        cls, items: collections.abc.Sequence[EventRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-        scope: cap.EventsAcl.Scope.All | cap.EventsAcl.Scope.DataSet = (  # type: ignore[valid-type]
-            cap.EventsAcl.Scope.All()
-        )
-
-        actions = [cap.EventsAcl.Action.Read] if read_only else [cap.EventsAcl.Action.Read, cap.EventsAcl.Action.Write]
-
-        if items:
-            if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
-                scope = cap.EventsAcl.Scope.DataSet(list(data_set_ids))
-
-        return cap.EventsAcl(actions, scope)
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[EventRequest]) -> ScopeDefinition:
         return dataset_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | DataSetScope):
             yield EventsAcl(actions=sorted(actions), scope=scope)
 

@@ -6,8 +6,8 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResource,
 )
 from cognite.client.data_classes.data_modeling import InstanceApply
-from cognite.client.utils._text import to_camel_case
 from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic.alias_generators import to_camel
 from rich.panel import Panel
 from rich.text import Text
 
@@ -30,7 +30,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
 from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
 
 
-class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore", populate_by_name=True):
+class MigrationMapping(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_name=True):
     """The mapping between an asset-centric ID and a data modeling instance ID.
     Args
         resource_type (str): The asset-centric type of the resource (e.g., "asset", "event", "timeseries").
