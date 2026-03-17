@@ -27,7 +27,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.storageio import (
-    Bookmark,
     ChartIO,
     Page,
     T_DataRequest,
@@ -37,7 +36,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     UploadItem,
 )
 from cognite_toolkit._cdf_tk.storageio.logger import FileDataLogger, OperationStatus
-from cognite_toolkit._cdf_tk.storageio.progress import CDFProgressYAML, FileProgressYAML, Progress
+from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
@@ -104,23 +103,10 @@ class MigrationCommand(ToolkitCommand):
                     iteration_count = (total_items // data.CHUNK_SIZE) + (1 if total_items % data.CHUNK_SIZE > 0 else 0)
 
                 init_bookmark: Bookmark | None = None
-                progress = Progress.try_load(log_dir, filestem=str(selected))
-                if progress is not None:
-                    if isinstance(progress, CDFProgressYAML) and len(progress.cursors) == 1:
-                        init_cursor = next(iter(progress.cursors.values()))
-                        init_bookmark = Bookmark(cursor=init_cursor)
-                        console.print(f"Resuming migration for {selected.display_name} from cursor {init_cursor!r}.")
-                    elif isinstance(progress, FileProgressYAML) and len(progress.locations) == 1:
-                        init_file_location = next(iter(progress.locations.values()))
-                        init_bookmark = Bookmark(file_location=init_file_location)
-                        console.print(
-                            f"Resuming migration for {selected.display_name} from"
-                            f" lineno {init_file_location.lineno:,} in {init_file_location.filepath.as_posix()!r}."
-                        )
-                    else:
-                        console.print(
-                            f"Found progress file but failed to load cursor for {selected.display_name}. Starting migration from the beginning."
-                        )
+                progress = ProgressYAML.try_load(log_dir, filestem=f"migrate_{selected!s}")
+                if progress is not None and iteration_count is not None:
+                    init_bookmark = progress.bookmarks[0]
+                    console.print(f"Resuming migration from {init_bookmark!s}...")
 
                 executor = ProducerWorkerExecutor[Page[T_DataResponse], Page[UploadItem[T_DataRequest]]](
                     download_iterable=data.stream_data(selected, bookmark=init_bookmark),
@@ -143,10 +129,10 @@ class MigrationCommand(ToolkitCommand):
 
                 self._print_rich_tables(results, console)
                 self._print_txt(results, log_dir, f"{selected!s}Items", console)
-                progress = Progress.try_load(log_dir, filestem=str(selected))
+                progress = ProgressYAML.try_load(log_dir, filestem=f"migrate_{selected!s}")
                 if progress is not None:
                     progress.status = executor.result
-                    progress.dump_to_file(log_dir, filestem=str(selected))
+                    progress.dump_to_file(log_dir, filestem=f"migrate_{selected!s}")
                 executor.raise_on_error()
 
                 action = "Would migrate" if dry_run else "Migrating"
@@ -297,17 +283,10 @@ class MigrationCommand(ToolkitCommand):
             if issues:
                 target.logger.log(issues)
 
-            # Remove false check, when feature is ready.
-            if False and page.bookmark.cursor is not None:
-                CDFProgressYAML(
-                    status="in-progress",
-                    cursors={page.worker_id: page.bookmark.cursor},
-                ).dump_to_file(log_dir, filestem=str(selected))
-            if False and page.bookmark.file_location is not None:
-                FileProgressYAML(
-                    status="in-progress",
-                    locations={page.worker_id: page.bookmark.file_location},
-                ).dump_to_file(log_dir, filestem=str(selected))
+            ProgressYAML(status="in-progress", bookmarks=[page.bookmark]).dump_to_file(
+                log_dir, filestem=f"migrate_{selected!s}"
+            )
+
             return None
 
         return upload_items

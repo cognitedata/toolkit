@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.storageio.progress import FileLocation
+from cognite_toolkit._cdf_tk.storageio.progress import Bookmark
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -36,18 +36,11 @@ class StorageIOConfig:
     filename: str | None = None
 
 
-@dataclass
-class Bookmark:
-    cursor: str | None = None
-    file_location: FileLocation | None = None
-
-
 T_Selector = TypeVar("T_Selector", bound=DataSelector)
 
 
 @dataclass
 class Page(Generic[T_DataResponse], Sized):
-    worker_id: str
     items: Sequence[T_DataResponse]
     bookmark: Bookmark
 
@@ -214,9 +207,7 @@ class UploadableStorageIO(
             )
         )
 
-    def json_chunk_to_data(
-        self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
-    ) -> Sequence[UploadItem[T_DataRequest]]:
+    def json_chunk_to_data(self, data_chunk: Page[tuple[str, dict[str, JsonVal]]]) -> Page[UploadItem[T_DataRequest]]:
         """Convert a JSON-compatible chunk of data back to a writable Cognite resource list.
 
         Args:
@@ -244,8 +235,8 @@ class UploadableStorageIO(
 
     @classmethod
     def read_chunks(
-        cls, reader: MultiFileReader, selector: T_Selector
-    ) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+        cls, reader: MultiFileReader, selector: T_Selector, bookmark: Bookmark | None = None
+    ) -> Iterable[Page[tuple[str, dict[str, JsonVal]]]]:
         """Read data from a MultiFileReader in chunks.
 
         This method yields chunks of data, where each chunk is a list of tuples. Each tuple contains a source ID
@@ -255,6 +246,7 @@ class UploadableStorageIO(
         Args:
             reader: An instance of MultiFileReader to read data from.
             selector: The selection criteria to identify the data.
+            bookmark: The bookmark to read data from.
         """
         data_name = "row" if reader.is_table else "line"
         # Include name of line for better error messages
@@ -281,8 +273,8 @@ class TableUploadableStorageIO(UploadableStorageIO[T_Selector, T_DataResponse, T
     """A base class for storage items that support uploading data with table schemas."""
 
     def rows_to_data(
-        self, rows: list[tuple[str, dict[str, JsonVal]]], selector: T_Selector | None = None
-    ) -> Sequence[UploadItem[T_DataRequest]]:
+        self, rows: Page[tuple[str, dict[str, JsonVal]]], selector: T_Selector | None = None
+    ) -> Page[UploadItem[T_DataRequest]]:
         """Convert a row-based JSON-compatible chunk of data back to a writable Cognite resource list.
 
         Args:

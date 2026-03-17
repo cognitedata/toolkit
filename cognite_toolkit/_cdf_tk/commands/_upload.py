@@ -1,5 +1,4 @@
 from collections import Counter
-from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
 
@@ -18,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_SUFFIX, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.cruds import ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError, ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio import (
     FileContentIO,
@@ -25,7 +25,8 @@ from cognite_toolkit._cdf_tk.storageio import (
     UploadableStorageIO,
     get_upload_io,
 )
-from cognite_toolkit._cdf_tk.storageio._base import TableStorageIO, TableUploadableStorageIO, UploadItem
+from cognite_toolkit._cdf_tk.storageio._base import Page, TableStorageIO, TableUploadableStorageIO, UploadItem
+from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, load_selector
 from cognite_toolkit._cdf_tk.storageio.selectors._instances import InstanceSpaceSelector, InstanceViewSelector
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
@@ -232,9 +233,14 @@ class UploadCommand(ToolkitCommand):
                 item_count = io.count_items(reader, selector)
                 iteration_count = item_count // io.CHUNK_SIZE + (1 if item_count % io.CHUNK_SIZE > 0 else 0)
 
+                init_bookmark: Bookmark | None = None
+                progress = ProgressYAML.try_load(input_dir, filestem=f"upload_{selector!s}")
+                if Flags.EXTEND_UPLOAD.is_enabled() and progress is not None and progress.bookmarks:
+                    init_bookmark = progress.bookmarks[0]
+
                 tracker = ProgressTracker[str]([self._UPLOAD])
-                executor = ProducerWorkerExecutor[list[tuple[str, dict[str, JsonVal]]], Sequence[UploadItem]](
-                    download_iterable=io.read_chunks(reader, selector),
+                executor = ProducerWorkerExecutor[Page[tuple[str, dict[str, JsonVal]]], Page[UploadItem]](
+                    download_iterable=io.read_chunks(reader, selector, bookmark=init_bookmark),
                     process=partial(io.rows_to_data, selector=selector)
                     if reader.is_table and isinstance(io, TableUploadableStorageIO)
                     else io.json_chunk_to_data,
@@ -247,6 +253,7 @@ class UploadCommand(ToolkitCommand):
                         tracker=tracker,
                         console=console,
                         verbose=verbose,
+                        input_dir=input_dir,
                     ),
                     iteration_count=iteration_count,
                     max_queue_size=self._MAX_QUEUE_SIZE,
@@ -257,6 +264,11 @@ class UploadCommand(ToolkitCommand):
                 )
                 executor.run()
                 file_count += len(datafiles)
+
+                progress = ProgressYAML.try_load(input_dir, filestem=f"upload_{selector!s}")
+                if progress is not None:
+                    progress.status = executor.result
+                    progress.dump_to_file(input_dir, filestem=f"upload_{selector!s}")
                 executor.raise_on_error()
                 final_action = "Uploaded" if not dry_run else "Would upload"
                 suffix = " successfully" if not dry_run else ""
@@ -289,7 +301,7 @@ class UploadCommand(ToolkitCommand):
     @classmethod
     def _upload_items(
         cls,
-        data_chunk: Sequence[UploadItem[T_ResourceRequest]],
+        data_chunk: Page[UploadItem[T_ResourceRequest]],
         upload_client: HTTPClient,
         io: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
         selector: T_Selector,
@@ -297,12 +309,19 @@ class UploadCommand(ToolkitCommand):
         tracker: ProgressTracker[str],
         console: Console,
         verbose: bool,
+        input_dir: Path,
     ) -> None:
         if dry_run:
-            for item in data_chunk:
-                tracker.set_progress(item.source_id, cls._UPLOAD, "success")
+            for item in data_chunk.items:
+                tracker.set_progress(item.source_id, cls._UPLOAD, "pending")
             return
-        results = io.upload_items(data_chunk, upload_client, selector)
+        results = io.upload_items(data_chunk.items, upload_client, selector)
+
+        if Flags.EXTEND_UPLOAD.is_enabled():
+            ProgressYAML(status="in-progress", bookmarks=[data_chunk.bookmark]).dump_to_file(
+                input_dir, f"upload_{selector!s}"
+            )
+
         all_failed = True
         # Group failed ids by error description for cleaner output
         failures_by_error: dict[str, list[str]] = {}

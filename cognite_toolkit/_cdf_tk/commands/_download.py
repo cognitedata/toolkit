@@ -1,11 +1,11 @@
 from collections.abc import Callable, Sequence
-from functools import partial
 from pathlib import Path
 
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.protocols import T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio import (
     ConfigurableStorageIO,
@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     T_Selector,
     TableStorageIO,
 )
+from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import (
@@ -94,13 +95,18 @@ class DownloadCommand(ToolkitCommand):
                     f"Cannot download {selector.kind} in {file_format!r} format. The {selector.kind!r} storage type does not support table schemas."
                 )
 
+            init_bookmark: Bookmark | None = None
+            progress = ProgressYAML.try_load(target_dir, filestem=f"download_{filestem!s}")
+            if Flags.EXTEND_DOWNLOAD.is_enabled() and progress is not None and progress.bookmarks:
+                init_bookmark = progress.bookmarks[0]
+
             with FileWriter.create_from_format(
                 file_format, target_dir, selector.kind, compression_cls, columns=columns
             ) as writer:
-                executor = ProducerWorkerExecutor[Page[T_ResourceResponse], list[dict[str, JsonVal]]](
-                    download_iterable=io.stream_data(selector, limit),
+                executor = ProducerWorkerExecutor[Page[T_ResourceResponse], Page[dict[str, JsonVal]]](
+                    download_iterable=io.stream_data(selector, limit, bookmark=init_bookmark),
                     process=self.create_data_process(io=io, selector=selector, is_table=is_table),
-                    write=partial(writer.write_chunks, filestem=filestem),
+                    write=self.create_writer(writer, filestem=filestem, target_dir=target_dir),
                     iteration_count=iteration_count,
                     # Limit queue size to avoid filling up memory before the workers can write to disk.
                     max_queue_size=8 * 10,  # 8 workers, 10 items per worker
@@ -110,6 +116,10 @@ class DownloadCommand(ToolkitCommand):
                     console=console,
                 )
                 executor.run()
+                progress = ProgressYAML.try_load(target_dir, filestem=f"download_{filestem!s}")
+                if progress is not None:
+                    progress.status = executor.result
+                    progress.dump_to_file(target_dir, filestem=f"download_{filestem!s}")
                 executor.raise_on_error()
                 file_count = writer.file_count
 
@@ -157,16 +167,40 @@ class DownloadCommand(ToolkitCommand):
         io: StorageIO[T_Selector, T_ResourceResponse],
         selector: T_Selector,
         is_table: bool,
-    ) -> Callable[[Page[T_ResourceResponse]], list[dict[str, JsonVal]]]:
+    ) -> Callable[[Page[T_ResourceResponse]], Page[dict[str, JsonVal]]]:
         """Creates a data processing function based on the IO type and whether the output is a table."""
         if is_table and isinstance(io, TableStorageIO):
 
-            def row_data_process(chunk: Page[T_ResourceResponse]) -> list[dict[str, JsonVal]]:
-                return io.data_to_row(chunk.items, selector)
+            def row_data_process(chunk: Page[T_ResourceResponse]) -> Page[dict[str, JsonVal]]:
+                return Page(
+                    items=io.data_to_row(chunk.items, selector), bookmark=chunk.bookmark, worker_id=chunk.worker_id
+                )
 
             return row_data_process
 
-        def chunk_data_process(data_page: Page[T_ResourceResponse]) -> list[dict[str, JsonVal]]:
-            return io.data_to_json_chunk(data_page.items, selector)
+        def chunk_data_process(data_page: Page[T_ResourceResponse]) -> Page[dict[str, JsonVal]]:
+            return Page(
+                items=io.data_to_json_chunk(data_page.items, selector),
+                bookmark=data_page.bookmark,
+                worker_id=data_page.worker_id,
+            )
 
         return chunk_data_process
+
+    @staticmethod
+    def create_writer(
+        writer: FileWriter,
+        filestem: str,
+        target_dir: Path,
+    ) -> Callable[[Page[dict[str, JsonVal]]], None]:
+        """Creates a writer function that writes data pages to files using the provided writer function."""
+
+        def write(page: Page[dict[str, JsonVal]]) -> None:
+            writer.write_chunks(page.items, filestem=filestem)
+
+            if Flags.EXTEND_DOWNLOAD.is_enabled():
+                ProgressYAML(status="in-progress", bookmarks=[page.bookmark]).dump_to_file(
+                    target_dir, f"download_{filestem!s}"
+                )
+
+        return write
