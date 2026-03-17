@@ -97,7 +97,7 @@ class StorageIO(ABC, Generic[T_Selector, T_ResourceResponse]):
     @abstractmethod
     def stream_data(
         self, selector: T_Selector, limit: int | None = None, init_cursor: str | None = None
-    ) -> Iterable[Page]:
+    ) -> Iterable[Page[T_ResourceResponse]]:
         """Download items from the storage given the selection criteria.
 
         Args:
