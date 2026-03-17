@@ -261,7 +261,8 @@ class BuildV2Command(ToolkitCommand):
 
             if module.is_success:
                 self._local_validation(module)
-
+                # Todo: Information about results is lost here as we creating
+                #   builtModule from the ModuleSource but not the Module object.
                 built_module.built_files_by_source = self._export_module(module, build_dir)
                 built_module.built_resources_identifiers = [
                     resource.resource.as_id()
@@ -453,7 +454,6 @@ class BuildV2Command(ToolkitCommand):
             safe_write(built_file, yaml_safe_dump(resource.resource.model_dump(by_alias=True, exclude_unset=True)))
             built_files[built_file] = resource.source_path
 
-        # Todo: Store source path, source hash, ID, and so on for build_linage
         return built_files
 
     @classmethod
@@ -492,6 +492,8 @@ class BuildV2Command(ToolkitCommand):
                                         fix="Make sure the resource exists in CDF or remove the reference to it.",
                                     )
                                 )
+        # Todo: Add recommendation if client missing and there dependencies for the user to supply a
+        #   client.
 
     def _global_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
         """This validation is performed per resource type and not per individual resource and against CDF

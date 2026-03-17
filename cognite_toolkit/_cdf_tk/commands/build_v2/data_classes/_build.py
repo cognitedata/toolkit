@@ -49,6 +49,7 @@ class BuildSourceFiles(BaseModel):
 
 class BuiltModule(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
+    # Todo: Store the source hashes.
 
     source: ModuleSource
     built_files_by_source: dict[Path, Path] = Field(
