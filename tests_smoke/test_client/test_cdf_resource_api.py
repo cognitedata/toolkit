@@ -2001,6 +2001,7 @@ class TestCDFResourceAPI:
 
         try:
             # Clean up stale resources from previous runs
+            # TODO: Remove when signal subscription delete API bug is fixed (ignoreUnknownIds returns 404).
             client.tool.signal_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
             client.tool.signal_sinks.delete([sink_id], ignore_unknown_ids=True)
 
