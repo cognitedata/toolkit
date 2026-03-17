@@ -167,7 +167,9 @@ class InstanceIO(
                 continue
             source.properties = {k: v for k, v in source.properties.items() if k not in readonly_properties}
 
-    def stream_data(self, selector: InstanceSelector, limit: int | None = None) -> Iterable[Page]:
+    def stream_data(
+        self, selector: InstanceSelector, limit: int | None = None, init_cursor: str | None = None
+    ) -> Iterable[Page]:
         if isinstance(selector, InstanceViewSelector) and selector.edge_types and selector.instance_type == "node":
             yield from self._instances_with_container_and_edge_properties(selector, limit)
         elif isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):

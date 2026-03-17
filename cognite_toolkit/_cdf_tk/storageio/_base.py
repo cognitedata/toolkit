@@ -95,10 +95,13 @@ class StorageIO(ABC, Generic[T_Selector, T_ResourceResponse]):
         raise NotImplementedError()
 
     @abstractmethod
-    def stream_data(self, selector: T_Selector, limit: int | None = None) -> Iterable[Page]:
+    def stream_data(
+        self, selector: T_Selector, limit: int | None = None, init_cursor: str | None = None
+    ) -> Iterable[Page]:
         """Download items from the storage given the selection criteria.
 
         Args:
+            init_cursor:
             selector: The selection criteria to filter the items to download.
             limit: Optional limit on the number of items to download.
 

@@ -309,7 +309,9 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         ]
         return asset_schema + metadata_schema
 
-    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page]:
+    def stream_data(
+        self, selector: AssetCentricSelector, limit: int | None = None, init_cursor: str | None = None
+    ) -> Iterable[Page]:
         filter_ = self._get_classic_filter(selector)
         cursor: str | None = None
         total_count = 0
@@ -436,7 +438,7 @@ class FileMetadataIO(AssetCentricIO[FileMetadataResponse]):
         return file_schema + metadata_schema
 
     def stream_data(
-        self, selector: AssetCentricSelector, limit: int | None = None
+        self, selector: AssetCentricSelector, limit: int | None = None, init_cursor: str | None = None
     ) -> Iterable[Page[FileMetadataResponse]]:
         filter_ = self._get_classic_filter(selector)
         cursor: str | None = None
@@ -490,7 +492,9 @@ class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesReques
     def retrieve(self, ids: Sequence[int]) -> list[TimeSeriesResponse]:
         return self.client.tool.timeseries.retrieve(InternalId.from_ids(ids))
 
-    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page]:
+    def stream_data(
+        self, selector: AssetCentricSelector, limit: int | None = None, init_cursor: str | None = None
+    ) -> Iterable[Page]:
         filter_ = self._get_classic_filter(selector)
         cursor: str | None = None
         total_count = 0
@@ -623,7 +627,9 @@ class EventIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
         ]
         return event_schema + metadata_schema
 
-    def stream_data(self, selector: AssetCentricSelector, limit: int | None = None) -> Iterable[Page]:
+    def stream_data(
+        self, selector: AssetCentricSelector, limit: int | None = None, init_cursor: str | None = None
+    ) -> Iterable[Page]:
         filter_ = self._get_classic_filter(selector)
         cursor: str | None = None
         total_count = 0
@@ -687,7 +693,7 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResour
         return item.external_id or AssetCentricIO.create_internal_identifier(item.id, self.client.config.project)
 
     def stream_data(
-        self, selector: AssetCentricSelector, limit: int | None = None
+        self, selector: AssetCentricSelector, limit: int | None = None, init_cursor: str | None = None
     ) -> Iterable[Page[AssetCentricResource]]:
         yield from self.get_resource_io(selector.kind).stream_data(selector, limit)
 

@@ -84,7 +84,9 @@ class AssetCentricMigrationIO(
     def as_id(self, item: AssetCentricMapping) -> str:
         return str(item.mapping.as_asset_centric_id())
 
-    def stream_data(self, selector: AssetCentricMigrationSelector, limit: int | None = None) -> Iterator[Page]:
+    def stream_data(
+        self, selector: AssetCentricMigrationSelector, limit: int | None = None, init_cursor: str | None = None
+    ) -> Iterator[Page]:
         if isinstance(selector, MigrationCSVFileSelector):
             iterator = self._stream_from_csv(selector, limit)
         elif isinstance(selector, MigrateDataSetSelector):
@@ -314,7 +316,9 @@ class AnnotationMigrationIO(
             # There is no efficient way to count annotations in CDF.
             return None
 
-    def stream_data(self, selector: AssetCentricMigrationSelector, limit: int | None = None) -> Iterable[Page]:
+    def stream_data(
+        self, selector: AssetCentricMigrationSelector, limit: int | None = None, init_cursor: str | None = None
+    ) -> Iterable[Page]:
         if isinstance(selector, MigrateDataSetSelector):
             iterator = self._stream_from_dataset(selector, limit)
         elif isinstance(selector, MigrationCSVFileSelector):
@@ -442,7 +446,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
             return item.space is not None
 
     def stream_data(
-        self, selector: ThreeDSelector, limit: int | None = None
+        self, selector: ThreeDSelector, limit: int | None = None, init_cursor: str | None = None
     ) -> Iterable[Page[ThreeDModelClassicResponse]]:
         published: bool | None = None
         if isinstance(selector, ThreeDModelFilteredSelector):
@@ -538,7 +542,7 @@ class ThreeDAssetMappingMigrationIO(
         return f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.asset_id!s}"
 
     def stream_data(
-        self, selector: ThreeDSelector, limit: int | None = None
+        self, selector: ThreeDSelector, limit: int | None = None, init_cursor: str | None = None
     ) -> Iterable[Page[AssetMappingClassicResponse]]:
         total = 0
         for three_d_page in self._3D_io.stream_data(selector, None):

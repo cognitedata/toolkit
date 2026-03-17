@@ -65,7 +65,9 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
     def as_id(self, item: ChartResponse) -> str:
         return item.external_id
 
-    def stream_data(self, selector: ChartSelector, limit: int | None = None) -> Iterable[Page]:
+    def stream_data(
+        self, selector: ChartSelector, limit: int | None = None, init_cursor: str | None = None
+    ) -> Iterable[Page]:
         selected_charts = self.client.charts.list(visibility=None)
         self._existing_charts = {chart.external_id for chart in selected_charts}
         if isinstance(selector, AllChartsSelector):
@@ -235,7 +237,9 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
     def as_id(self, item: IndustrialCanvasResponse) -> str:
         return item.external_id
 
-    def stream_data(self, selector: CanvasSelector, limit: int | None = None) -> Iterable[Page]:
+    def stream_data(
+        self, selector: CanvasSelector, limit: int | None = None, init_cursor: str | None = None
+    ) -> Iterable[Page]:
         if not isinstance(selector, CanvasExternalIdSelector):
             raise ToolkitNotImplementedError(f"Unsupported selector type {type(selector).__name__!r} for CanvasIO")
         canvas_ids = selector.external_ids

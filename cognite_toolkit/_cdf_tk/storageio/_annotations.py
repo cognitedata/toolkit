@@ -30,7 +30,7 @@ class AnnotationIO(StorageIO[AssetCentricSelector, AnnotationResponse]):
         return f"INTERNAL_ID_project_{project}_{item.id!s}"
 
     def stream_data(
-        self, selector: AssetCentricSelector, limit: int | None = None
+        self, selector: AssetCentricSelector, limit: int | None = None, init_cursor: str | None = None
     ) -> Iterable[Page[AnnotationResponse]]:
         total = 0
         annotation_types: list[AnnotationType] = ["diagrams.AssetLink", "diagrams.FileLink"]

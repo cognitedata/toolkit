@@ -93,7 +93,7 @@ class DatapointsIO(
         ]
 
     def stream_data(
-        self, selector: DataPointsSelector, limit: int | None = None
+        self, selector: DataPointsSelector, limit: int | None = None, init_cursor: str | None = None
     ) -> Iterable[Page[DataPointListResponse]]:
         if not isinstance(selector, DataPointsDataSetSelector):
             raise RuntimeError(

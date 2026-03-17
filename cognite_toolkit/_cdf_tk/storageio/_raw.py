@@ -44,7 +44,9 @@ class RawIO(
         # up front.
         return None
 
-    def stream_data(self, selector: RawTableSelector, limit: int | None = None) -> Iterable[Page]:
+    def stream_data(
+        self, selector: RawTableSelector, limit: int | None = None, init_cursor: str | None = None
+    ) -> Iterable[Page]:
         for chunk in self.client.raw.rows(
             db_name=selector.table.db_name,
             table_name=selector.table.table_name,

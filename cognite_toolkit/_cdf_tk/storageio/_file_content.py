@@ -84,7 +84,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         return item.metadata.external_id or str(item.metadata.id)
 
     def stream_data(
-        self, selector: FileContentSelector, limit: int | None = None
+        self, selector: FileContentSelector, limit: int | None = None, init_cursor: str | None = None
     ) -> Iterable[Page[MetadataWithFilePath]]:
         if not isinstance(selector, FileIdentifierSelector):
             raise ToolkitNotImplementedError(
