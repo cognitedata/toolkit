@@ -440,6 +440,7 @@ class CoreApp(typer.Typer):
                     include=include,
                     force_update=force_update,
                     verbose=verbose,
+                    environment_variables=env_vars.dump(),
                 ),
             )
         )
