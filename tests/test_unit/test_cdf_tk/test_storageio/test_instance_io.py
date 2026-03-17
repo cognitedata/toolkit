@@ -416,7 +416,7 @@ class TestInstanceIO:
         first_edge_ids = {item.external_id for item in first_page.items if item.instance_type == "edge"}
         assert first_node_ids == {"node_0", "node_1"}
         assert first_edge_ids == {"edge_0", "edge_1", "edge_2"}
-        assert first_page.next_cursor == "node_cursor_1"
+        assert first_page.bookmark.cursor == "node_cursor_1"
 
         second_page = pages[1]
         second_node_ids = {item.external_id for item in second_page.items if item.instance_type == "node"}

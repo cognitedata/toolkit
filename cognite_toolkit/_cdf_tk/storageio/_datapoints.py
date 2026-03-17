@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.fileio._readers import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import Page, TableStorageIO, TableUploadableStorageIO, UploadItem
+from ._base import Bookmark, Page, TableStorageIO, TableUploadableStorageIO, UploadItem
 from .selectors import DataPointsDataSetSelector, DataPointsFileSelector, DataPointsSelector
 
 
@@ -93,7 +93,10 @@ class DatapointsIO(
         ]
 
     def stream_data(
-        self, selector: DataPointsSelector, limit: int | None = None
+        self,
+        selector: DataPointsSelector,
+        limit: int | None = None,
+        bookmark: Bookmark | None = None,
     ) -> Iterable[Page[DataPointListResponse]]:
         if not isinstance(selector, DataPointsDataSetSelector):
             raise RuntimeError(
@@ -202,7 +205,7 @@ class DatapointsIO(
         if not isinstance(response, SuccessResponse):
             return None
         data_response: DataPointListResponse = DataPointListResponse.FromString(response.content)
-        return Page("Main", [data_response])
+        return Page("Main", [data_response], Bookmark())
 
     def count(self, selector: DataPointsSelector) -> int | None:
         if isinstance(selector, DataPointsDataSetSelector):
