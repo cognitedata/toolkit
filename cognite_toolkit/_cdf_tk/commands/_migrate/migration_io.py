@@ -454,7 +454,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
         included_models: set[int] | None = None
         if isinstance(selector, ThreeDModelIdSelector):
             included_models = set(selector.ids)
-        cursor: str | None = None
+        cursor: str | None = init_cursor
         total = 0
         while True:
             request_limit = min(self.DOWNLOAD_LIMIT, limit - total) if limit is not None else self.DOWNLOAD_LIMIT

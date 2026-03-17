@@ -171,21 +171,25 @@ class InstanceIO(
         self, selector: InstanceSelector, limit: int | None = None, init_cursor: str | None = None
     ) -> Iterable[Page]:
         if isinstance(selector, InstanceViewSelector) and selector.edge_types and selector.instance_type == "node":
-            yield from self._instances_with_container_and_edge_properties(selector, limit)
+            yield from self._instances_with_container_and_edge_properties(selector, limit, init_cursor)
         elif isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
-            yield from self._instances_with_container_properties(selector, limit)
+            yield from self._instances_with_container_properties(selector, limit, init_cursor)
         elif isinstance(selector, InstanceFileSelector):
             for chunk in chunker_sequence(selector.ids, self.CHUNK_SIZE):
                 yield Page(worker_id="main", items=self.client.tool.instances.retrieve(chunk))
         elif isinstance(selector, InstanceQuerySelector):
             yield from self._instance_by_query(
-                QueryRequest.model_validate_json(selector.query), selector.root, list(selector.subselections), limit
+                QueryRequest.model_validate_json(selector.query),
+                selector.root,
+                list(selector.subselections),
+                limit,
+                init_cursor,
             )
         else:
             raise NotImplementedError()
 
     def _instances_with_container_and_edge_properties(
-        self, selector: InstanceViewSelector, limit: int | None
+        self, selector: InstanceViewSelector, limit: int | None, init_cursor: str | None = None
     ) -> Iterable[Page]:
         instance_filter = self._build_query_filter(selector, "node")
         view_id = selector.view.as_id()
@@ -225,13 +229,20 @@ class InstanceIO(
             select[query_id] = QuerySelect()
 
         query = QueryRequest(with_=with_, select=select)
-        yield from self._instance_by_query(query, root, edge_ids, limit)
+        yield from self._instance_by_query(query, root, edge_ids, limit, init_cursor)
 
     def _instance_by_query(
-        self, query: QueryRequest, root_selection: str, sub_selections: list[str], limit: int | None
+        self,
+        query: QueryRequest,
+        root_selection: str,
+        sub_selections: list[str],
+        limit: int | None,
+        init_cursor: str | None = None,
     ) -> Iterable[Page]:
         total = 0
         chunk_size = query.with_[root_selection].limit or self.CHUNK_SIZE
+        if init_cursor is not None:
+            query.cursors = {root_selection: init_cursor}
         while True:
             response = self._exhaust_sub_selections(query, root_selection, sub_selections)
             nodes = response.items.get(root_selection, [])
@@ -286,11 +297,14 @@ class InstanceIO(
             query = query.model_copy(update={"cursors": next_cursors})
 
     def _instances_with_container_properties(
-        self, selector: InstanceViewSelector | InstanceSpaceSelector, limit: int | None
+        self,
+        selector: InstanceViewSelector | InstanceSpaceSelector,
+        limit: int | None,
+        init_cursor: str | None = None,
     ) -> Iterable[Page]:
         instance_filter = self._build_list_filter(selector)
         total = 0
-        cursor: str | None = None
+        cursor: str | None = init_cursor
         while cursor is not None or total == 0:
             page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
             page = self.client.tool.instances.paginate(instance_filter, limit=page_limit, cursor=cursor)

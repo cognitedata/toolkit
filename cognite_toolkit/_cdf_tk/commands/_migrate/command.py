@@ -36,6 +36,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     UploadItem,
 )
 from cognite_toolkit._cdf_tk.storageio.logger import FileDataLogger, OperationStatus
+from cognite_toolkit._cdf_tk.storageio.progress import CDFProgressYAML, Progress
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
@@ -101,10 +102,21 @@ class MigrationCommand(ToolkitCommand):
                 if total_items is not None:
                     iteration_count = (total_items // data.CHUNK_SIZE) + (1 if total_items % data.CHUNK_SIZE > 0 else 0)
 
+                init_cursor: str | None = None
+                progress = Progress.try_load(log_dir, filestem=str(selected))
+                if progress is not None:
+                    if isinstance(progress, CDFProgressYAML) and len(progress.cursors) == 1:
+                        init_cursor = next(iter(progress.cursors.values()))
+                        console.print(f"Resuming migration for {selected.display_name} from cursor {init_cursor!r}.")
+                    else:
+                        console.print(
+                            f"Found progress file but failed to load cursor for {selected.display_name}. Starting migration from the beginning."
+                        )
+
                 executor = ProducerWorkerExecutor[Page[T_DataResponse], Page[UploadItem[T_DataRequest]]](
-                    download_iterable=data.stream_data(selected),
+                    download_iterable=data.stream_data(selected, init_cursor=init_cursor),
                     process=self._convert(mapper, data),
-                    write=self._upload(selected, write_client, data, dry_run),
+                    write=self._upload(selected, write_client, data, dry_run, log_dir),
                     iteration_count=iteration_count,
                     max_queue_size=10,
                     download_description=f"Downloading {selected.display_name}",
@@ -239,15 +251,16 @@ class MigrationCommand(ToolkitCommand):
         write_client: HTTPClient,
         target: UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest],
         dry_run: bool,
+        log_dir: Path,
     ) -> Callable[[Page[UploadItem[T_DataRequest]]], None]:
-        def upload_items(data_item: Page[UploadItem[T_DataRequest]]) -> None:
-            if not data_item:
+        def upload_items(page: Page[UploadItem[T_DataRequest]]) -> None:
+            if not page:
                 return None
             if dry_run:
-                target.logger.tracker.finalize_item([item.source_id for item in data_item.items], "pending")
+                target.logger.tracker.finalize_item([item.source_id for item in page.items], "pending")
                 return None
 
-            responses = target.upload_items(data_chunk=data_item.items, http_client=write_client, selector=selected)
+            responses = target.upload_items(data_chunk=page.items, http_client=write_client, selector=selected)
 
             # Todo: Move logging into the UploadableStorageIO class
             issues: list[WriteIssue] = []
@@ -270,7 +283,11 @@ class MigrationCommand(ToolkitCommand):
             if issues:
                 target.logger.log(issues)
 
-            # Todo: Dump progress.
+            if page.next_cursor is not None:
+                CDFProgressYAML(
+                    status="in-progress",
+                    cursors={page.worker_id: page.next_cursor},
+                ).dump_to_file(log_dir, filestem=str(selected))
 
             return None
 

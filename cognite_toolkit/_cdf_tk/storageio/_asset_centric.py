@@ -313,7 +313,7 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         self, selector: AssetCentricSelector, limit: int | None = None, init_cursor: str | None = None
     ) -> Iterable[Page]:
         filter_ = self._get_classic_filter(selector)
-        cursor: str | None = None
+        cursor: str | None = init_cursor
         total_count = 0
         while True:
             page = self.client.tool.assets.paginate(
@@ -441,7 +441,7 @@ class FileMetadataIO(AssetCentricIO[FileMetadataResponse]):
         self, selector: AssetCentricSelector, limit: int | None = None, init_cursor: str | None = None
     ) -> Iterable[Page[FileMetadataResponse]]:
         filter_ = self._get_classic_filter(selector)
-        cursor: str | None = None
+        cursor: str | None = init_cursor
         total_count = 0
         while True:
             page = self.client.tool.filemetadata.paginate(
@@ -496,7 +496,7 @@ class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesReques
         self, selector: AssetCentricSelector, limit: int | None = None, init_cursor: str | None = None
     ) -> Iterable[Page]:
         filter_ = self._get_classic_filter(selector)
-        cursor: str | None = None
+        cursor: str | None = init_cursor
         total_count = 0
         while True:
             page = self.client.tool.timeseries.paginate(
@@ -631,7 +631,7 @@ class EventIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
         self, selector: AssetCentricSelector, limit: int | None = None, init_cursor: str | None = None
     ) -> Iterable[Page]:
         filter_ = self._get_classic_filter(selector)
-        cursor: str | None = None
+        cursor: str | None = init_cursor
         total_count = 0
         while True:
             page = self.client.tool.events.paginate(
@@ -695,7 +695,7 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResour
     def stream_data(
         self, selector: AssetCentricSelector, limit: int | None = None, init_cursor: str | None = None
     ) -> Iterable[Page[AssetCentricResource]]:
-        yield from self.get_resource_io(selector.kind).stream_data(selector, limit)
+        yield from self.get_resource_io(selector.kind).stream_data(selector, limit, init_cursor)
 
     def count(self, selector: AssetCentricSelector) -> int | None:
         return self.get_resource_io(selector.kind).count(selector)
