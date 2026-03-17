@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import Page, UploadableStorageIO, UploadItem
+from ._base import Bookmark, Page, UploadableStorageIO, UploadItem
 from .logger import LogIssue
 from .selectors import (
     AllChartsSelector,
@@ -65,7 +65,12 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
     def as_id(self, item: ChartResponse) -> str:
         return item.external_id
 
-    def stream_data(self, selector: ChartSelector, limit: int | None = None) -> Iterable[Page]:
+    def stream_data(
+        self,
+        selector: ChartSelector,
+        limit: int | None = None,
+        bookmark: Bookmark | None = None,
+    ) -> Iterable[Page]:
         selected_charts = self.client.charts.list(visibility=None)
         self._existing_charts = {chart.external_id for chart in selected_charts}
         if isinstance(selector, AllChartsSelector):
@@ -81,7 +86,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
         if limit is not None:
             selected_charts = selected_charts[:limit]
         for chunk in chunker_sequence(selected_charts, self.CHUNK_SIZE):
-            yield Page(worker_id="main", items=chunk)
+            yield Page(worker_id="main", items=chunk, bookmark=Bookmark())
 
     def count(self, selector: ChartSelector) -> int | None:
         if isinstance(selector, ChartExternalIdSelector):
@@ -235,7 +240,12 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
     def as_id(self, item: IndustrialCanvasResponse) -> str:
         return item.external_id
 
-    def stream_data(self, selector: CanvasSelector, limit: int | None = None) -> Iterable[Page]:
+    def stream_data(
+        self,
+        selector: CanvasSelector,
+        limit: int | None = None,
+        bookmark: Bookmark | None = None,
+    ) -> Iterable[Page]:
         if not isinstance(selector, CanvasExternalIdSelector):
             raise ToolkitNotImplementedError(f"Unsupported selector type {type(selector).__name__!r} for CanvasIO")
         canvas_ids = selector.external_ids
@@ -245,7 +255,7 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
         for chunk in chunker_sequence(canvas_ids, self.CHUNK_SIZE):
             items = self.client.canvas.retrieve(NodeId.from_str_ids(chunk, space=CANVAS_INSTANCE_SPACE))
             self._log_retrieve_issues(chunk, items)
-            yield Page(worker_id="main", items=items)
+            yield Page(worker_id="main", items=items, bookmark=Bookmark())
 
     def _log_retrieve_issues(self, chunk: tuple[str, ...], items: list[IndustrialCanvasResponse]) -> None:
         found = {item.external_id for item in items}
