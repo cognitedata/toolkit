@@ -1,6 +1,6 @@
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, Literal, cast, final
+from typing import Any, Literal, final
 
 from cognite.client.data_classes.capabilities import Capability
 
@@ -15,8 +15,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import (
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.auth import GroupAllScopedCRUD
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitYAMLFormatError
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import RuleSetVersionYAML, RuleSetYAML
 
@@ -160,28 +159,22 @@ class RuleSetVersionCRUD(ResourceCRUD[RuleSetVersionId, RuleSetVersionRequest, R
         raw_list = resources if isinstance(resources, list) else [resources]
 
         for item in raw_list:
-            rules_file: Path | None = None
-            if "rulesFile" in item:
-                rules_file = filepath.parent / Path(item.pop("rulesFile"))
-
             rule_set_id = item.get("ruleSetExternalId", item.get("rule_set_external_id", filepath.stem))
-            if rules_file is None and "rules" not in item:
-                warning = HighSeverityWarning(
-                    f"'rules' property is missing in {filepath.as_posix()!r}. "
-                    f"It can be inline or a separate file named {filepath.stem}.ttl or {rule_set_id}.ttl",
-                )
-                warning.print_warning(console=self.console)
-            elif rules_file and not rules_file.exists():
-                raise ToolkitFileNotFoundError(f"Rules file {rules_file.as_posix()} not found", filepath)
-            elif rules_file and "rules" in item:
-                raise ToolkitYAMLFormatError(
-                    f"'rules' is defined in both the YAML and an external file {rules_file}.\n"
-                    f"Please remove one: either the inline 'rules' in {filepath} or the file {rules_file}",
+            if "rules" in item:
+                continue
+            # Look for .ttl by convention: {stem}.ttl or {rule_set_external_id}.ttl
+            ttl_candidates = [
+                filepath.parent / f"{filepath.stem}.ttl",
+                filepath.parent / f"{rule_set_id}.ttl",
+            ]
+            ttl_path = next((p for p in ttl_candidates if p.exists()), None)
+            if ttl_path is None:
+                raise ToolkitFileNotFoundError(
+                    f"'rules' is missing and no .ttl file found. Expected one of: {[str(p) for p in ttl_candidates]}",
                     filepath,
                 )
-            elif rules_file:
-                content = safe_read(rules_file, encoding=BUILD_FOLDER_ENCODING)
-                item["rules"] = [content]
+            content = safe_read(ttl_path, encoding=BUILD_FOLDER_ENCODING)
+            item["rules"] = [content]
 
         return raw_list
 
@@ -195,8 +188,7 @@ class RuleSetVersionCRUD(ResourceCRUD[RuleSetVersionId, RuleSetVersionRequest, R
             if ttl_path.exists():
                 resource["rules"] = rules
             else:
-                yield ttl_path, cast(str, "\n\n".join(rules))
-                resource["rulesFile"] = ttl_path.name
+                yield ttl_path, "\n\n".join(rules)
         yield base_filepath, resource
 
     def create(self, items: Sequence[RuleSetVersionRequest]) -> list[RuleSetVersionResponse]:

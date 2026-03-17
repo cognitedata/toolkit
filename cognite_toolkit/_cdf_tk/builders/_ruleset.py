@@ -11,8 +11,8 @@ from cognite_toolkit._cdf_tk.data_classes import (
     ModuleLocation,
     SourceLocation,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, ToolkitWarning
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import safe_write
 
 
@@ -78,20 +78,15 @@ class RuleSetBuilder(Builder):
                     f"'rules' is defined in both the YAML and a separate file named {ttl_file.source.path}\n"
                     f"Please remove one: either the inline 'rules' in {filepath} or the file {ttl_file.source.path}",
                 )
-            elif "rules" not in entry and "rulesFile" not in entry and ttl_file is None:
-                warning = HighSeverityWarning(
-                    f"'rules' property is missing in {filepath.as_posix()!r}. "
-                    f"It can be inline or a separate file named {filepath.stem}.ttl or {id_.rule_set_external_id}.ttl",
+            if "rules" not in entry and ttl_file is None:
+                raise ToolkitFileNotFoundError(
+                    f"'rules' is missing and no .ttl file found. Expected {filepath.stem}.ttl or {id_.rule_set_external_id}.ttl next to {filepath}",
+                    filepath,
                 )
-                if self.warn:
-                    self.warn(warning)
-                else:
-                    warning.print_warning()
-            elif ttl_file is not None:
+            if ttl_file is not None:
                 destination_path = self._create_destination_path(ttl_file.source.path, "Rules")
                 safe_write(destination_path, ttl_file.content, encoding=BUILD_FOLDER_ENCODING)
-                relative = destination_path.relative_to(ruleset_destination_path.parent)
-                entry["rulesFile"] = relative.as_posix()
+                entry["rules"] = [ttl_file.content]
                 extra_sources.append(ttl_file.source)
 
         return extra_sources

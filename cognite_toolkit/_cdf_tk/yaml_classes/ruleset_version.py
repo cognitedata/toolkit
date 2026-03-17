@@ -17,14 +17,9 @@ class RuleSetVersionYAML(ToolkitResource):
     )
     rules: list[str] | None = Field(
         default=None,
-        description="Inline SHACL rules in Turtle format. Mutually exclusive with rulesFile.",
+        description="Inline SHACL rules in Turtle format. If omitted, a .ttl file is looked up by convention ({stem}.ttl or {rule_set_external_id}.ttl).",
         min_length=1,
         max_length=100,
-    )
-    rules_file: str | None = Field(
-        default=None,
-        alias="rulesFile",
-        description="Used by Toolkit: path to a .ttl file containing SHACL rules in Turtle format. Mutually exclusive with rules.",
     )
 
     def as_id(self) -> RuleSetVersionId:

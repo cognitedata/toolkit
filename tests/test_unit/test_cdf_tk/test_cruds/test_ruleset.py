@@ -9,7 +9,7 @@ import yaml
 from cognite_toolkit._cdf_tk.client.identifiers import RuleSetVersionId
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.rulesets import RuleSetVersionCRUD
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.yaml_classes.ruleset_version import RuleSetVersionYAML
 
 _TURTLE_CONTENT = """@prefix ex: <http://example.org/industrial/> .
@@ -53,7 +53,8 @@ class TestRuleSetVersionCRUDLoadResourceFile:
             assert items[0]["rules"] == [_TURTLE_CONTENT]
             assert "rulesFile" not in items[0]
 
-    def test_load_rules_from_file(self) -> None:
+    def test_load_rules_from_ttl_by_convention(self) -> None:
+        """When rules is missing, look for .ttl by convention ({stem}.ttl or {rule_set_external_id}.ttl)."""
         client = ToolkitClientMock()
         crud = RuleSetVersionCRUD(client, None)
 
@@ -67,7 +68,6 @@ class TestRuleSetVersionCRUDLoadResourceFile:
                     {
                         "rule_set_external_id": "my_rules",
                         "version": "1.0.0",
-                        "rulesFile": "my_rules.ttl",
                     }
                 )
             )
@@ -75,9 +75,23 @@ class TestRuleSetVersionCRUDLoadResourceFile:
             items = crud.load_resource_file(yaml_path)
             assert len(items) == 1
             assert items[0]["rules"] == [_TURTLE_CONTENT]
-            assert "rulesFile" not in items[0]
 
-    def test_load_rules_file_not_found_raises(self) -> None:
+    def test_load_ttl_by_stem_convention(self) -> None:
+        """Prefer {stem}.ttl when both conventions match."""
+        client = ToolkitClientMock()
+        crud = RuleSetVersionCRUD(client, None)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            yaml_path = Path(tmp) / "my_rules.RuleSetVersion.yaml"
+            stem_ttl = Path(tmp) / "my_rules.RuleSetVersion.ttl"
+            stem_ttl.write_text("from stem")
+
+            yaml_path.write_text(yaml.dump({"rule_set_external_id": "my_rules", "version": "1.0.0"}))
+
+            items = crud.load_resource_file(yaml_path)
+            assert items[0]["rules"] == ["from stem"]
+
+    def test_load_no_rules_no_ttl_raises(self) -> None:
         client = ToolkitClientMock()
         crud = RuleSetVersionCRUD(client, None)
 
@@ -88,35 +102,11 @@ class TestRuleSetVersionCRUDLoadResourceFile:
                     {
                         "rule_set_external_id": "my_rules",
                         "version": "1.0.0",
-                        "rulesFile": "missing.ttl",
                     }
                 )
             )
 
             with pytest.raises(ToolkitFileNotFoundError):
-                crud.load_resource_file(yaml_path)
-
-    def test_load_both_rules_and_rules_file_raises(self) -> None:
-        client = ToolkitClientMock()
-        crud = RuleSetVersionCRUD(client, None)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            yaml_path = Path(tmp) / "my_rules.RuleSetVersion.yaml"
-            ttl_path = Path(tmp) / "my_rules.ttl"
-            ttl_path.write_text(_TURTLE_CONTENT)
-
-            yaml_path.write_text(
-                yaml.dump(
-                    {
-                        "rule_set_external_id": "my_rules",
-                        "version": "1.0.0",
-                        "rules": ["inline"],
-                        "rulesFile": "my_rules.ttl",
-                    }
-                )
-            )
-
-            with pytest.raises(ToolkitYAMLFormatError):
                 crud.load_resource_file(yaml_path)
 
 
@@ -137,7 +127,7 @@ class TestRuleSetVersionCRUDSplitResource:
             assert len(out) == 2
             paths = [p for p, _ in out]
             assert base.with_suffix(".ttl") in paths
-            assert resource.get("rulesFile") == "my_rules.ttl"
+            assert "rulesFile" not in resource
             assert "rules" not in resource
 
     def test_split_keeps_inline_when_ttl_exists(self) -> None:
@@ -174,9 +164,3 @@ class TestRuleSetVersionYAML:
             {"ruleSetExternalId": "my_rules", "version": "1.0.0", "rules": ["a"]}
         )
         assert yaml_obj.as_id() == RuleSetVersionId(rule_set_external_id="my_rules", version="1.0.0")
-
-    def test_rules_file_alias(self) -> None:
-        yaml_obj = RuleSetVersionYAML.model_validate(
-            {"ruleSetExternalId": "my_rules", "version": "1.0.0", "rulesFile": "x.ttl"}
-        )
-        assert yaml_obj.rules_file == "x.ttl"
