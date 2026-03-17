@@ -134,7 +134,12 @@ class MigrationCommand(ToolkitCommand):
 
                 self._print_rich_tables(results, console)
                 self._print_txt(results, log_dir, f"{selected!s}Items", console)
+                progress = CDFProgressYAML.try_load(log_dir, filestem=str(selected))
+                if progress is not None:
+                    progress.status = executor.result
+                    progress.dump_to_file(log_dir, filestem=str(selected))
                 executor.raise_on_error()
+
                 action = "Would migrate" if dry_run else "Migrating"
                 console.print(f"{action} {total:,} {selected.display_name} to instances.")
 

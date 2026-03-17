@@ -198,6 +198,16 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         if self._stop_event.is_set():
             raise ToolkitRuntimeError("Execution was stopped by the user.")
 
+    @property
+    def result(self) -> typing.Literal["completed", "failed", "stopped"]:
+        """The result of the execution."""
+        if self._stop_event.is_set():
+            return "stopped"
+        elif self._error_event.is_set():
+            return "failed"
+        else:
+            return "completed"
+
     def print_traceback(self) -> None:
         """Prints the traceback if an error occurred during execution."""
         if self.error_traceback:

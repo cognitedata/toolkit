@@ -15,7 +15,7 @@ class ProgressObject(BaseModel):
 class Progress(ProgressObject):
     file_suffix: ClassVar[Literal["Progress"]] = "Progress"
     type: str
-    status: Literal["in-progress", "completed", "failed"]
+    status: Literal["in-progress", "completed", "failed", "stopped"]
 
     @classmethod
     def try_load(cls, directory: Path, filestem: str) -> "ProgressYAML | None":
