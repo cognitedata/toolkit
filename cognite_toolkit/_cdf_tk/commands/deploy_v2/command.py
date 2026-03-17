@@ -347,7 +347,7 @@ class DeployV2Command(ToolkitCommand):
 
                 resource_by_id = cls._read_resource_files(crud, step.files, options)
                 resource_count = len(resource_by_id)
-                request_resources = [resource.request for _, resource in resource_by_id.values()]  # type: ignore[misc]
+                request_resources = [resource.request for resource in resource_by_id.values()]
 
                 is_missing_write = cls._validate_access(crud, request_resources, is_dry_run=options.dry_run)
 
