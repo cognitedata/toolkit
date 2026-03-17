@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.utils.time import timestamp_to_ms
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
-from ._base import ConfigurableStorageIO, Page, UploadableStorageIO, UploadItem
+from ._base import Bookmark, ConfigurableStorageIO, Page, UploadableStorageIO, UploadItem
 from .selectors import RecordContainerSelector
 
 
@@ -156,7 +156,12 @@ class RecordIO(
         }
         return {"and": [has_data_filter, space_filter]}
 
-    def stream_data(self, selector: RecordContainerSelector, limit: int | None = None) -> Iterable[Page]:
+    def stream_data(
+        self,
+        selector: RecordContainerSelector,
+        limit: int | None = None,
+        bookmark: Bookmark | None = None,
+    ) -> Iterable[Page]:
         if selector.initialize_cursor is None:
             # This should never happen as we always set initialize_cursor on the selector for download operations.
             raise ToolkitValueError("initialize_cursor must be set on the selector for download operations")
@@ -197,7 +202,9 @@ class RecordIO(
             sync_response = RecordSyncResponse.model_validate_json(response.body)
             total += len(sync_response.items)
             if sync_response.items:
-                yield Page(worker_id="main", items=sync_response.items, next_cursor=sync_response.next_cursor)  # pyright: ignore[reportArgumentType]
+                yield Page(
+                    worker_id="main", items=sync_response.items, bookmark=Bookmark(cursor=sync_response.next_cursor)
+                )  # pyright: ignore[reportArgumentType]
             if not sync_response.has_next or total >= effective_limit:
                 break
 

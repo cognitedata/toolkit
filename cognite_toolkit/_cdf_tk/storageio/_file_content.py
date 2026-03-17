@@ -30,7 +30,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker, chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import Page, UploadableStorageIO, UploadItem
+from ._base import Bookmark, Page, UploadableStorageIO, UploadItem
 from .selectors import FileContentSelector, FileIdentifierSelector, FileMetadataTemplateSelector
 from .selectors._file_content import (
     FILEPATH,
@@ -84,7 +84,10 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         return item.metadata.external_id or str(item.metadata.id)
 
     def stream_data(
-        self, selector: FileContentSelector, limit: int | None = None
+        self,
+        selector: FileContentSelector,
+        limit: int | None = None,
+        bookmark: Bookmark | None = None,
     ) -> Iterable[Page[MetadataWithFilePath]]:
         if not isinstance(selector, FileIdentifierSelector):
             raise ToolkitNotImplementedError(
@@ -121,7 +124,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                         file_path=filepath.relative_to(self._target_dir),
                     )
                 )
-            yield Page(items=downloaded_files, worker_id="Main")
+            yield Page(items=downloaded_files, worker_id="Main", bookmark=Bookmark())
 
     def _retrieve_metadata(self, identifiers: Sequence[FileIdentifier]) -> Sequence[FileMetadataResponse] | None:
         config = self.client.config
