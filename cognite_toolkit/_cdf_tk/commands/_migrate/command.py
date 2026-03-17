@@ -307,7 +307,7 @@ class MigrationCommand(ToolkitCommand):
                 FileProgressYAML(
                     status="in-progress",
                     locations={page.worker_id: page.bookmark.file_location},
-                )
+                ).dump_to_file(log_dir, filestem=str(selected))
             return None
 
         return upload_items
