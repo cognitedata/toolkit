@@ -1982,6 +1982,8 @@ class TestCDFResourceAPI:
             # Clean up
             client.tool.annotations.delete([annotation_request.as_id()])
 
+    # TODO: Reinstate when signal subscription delete API bug is fixed (ignoreUnknownIds returns 404).
+    @pytest.mark.skip(reason="Signal subscription delete ignores ignoreUnknownIds (CDF bug, reported)")
     def test_signal_subscriptions_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
 
