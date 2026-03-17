@@ -73,7 +73,7 @@ jobs:
         run: uv run twine upload --skip-existing --verbose dist/*
       - name: Add entry to CHANGELOG
         if: env.version != '0.0.0'
-        uses: ncipollo/release-action@b7eabc95ff50cbeeedec83973935c8f306dfcd0b # v1
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
         with:
             token: ${{ secrets.GITHUB_TOKEN }}
             prerelease: false
@@ -94,7 +94,7 @@ jobs:
 
       - name: Build and push
         if: env.version != '0.0.0'
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         with:
           context: .
           file: ./Dockerfile

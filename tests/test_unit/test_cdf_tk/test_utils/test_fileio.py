@@ -684,6 +684,23 @@ value3,789,"{""key"": ""value3""}",true,1.41
             FailedParsing(row=5, column="boolean", value="text", error="Cannot convert text to boolean."),
         ]
 
+    def test_multi_file_reader_passes_schema_to_csv(self, tmp_path: Path) -> None:
+        csv_content = "externalId,subtype\nEVT_1,16696509\nEVT_2,\n"
+        csv_path = tmp_path / "part-0000.events.csv"
+        csv_path.write_text(csv_content, encoding="utf-8")
+
+        without_schema = list(MultiFileReader([csv_path]).read_chunks())
+        assert isinstance(without_schema[0]["subtype"], int)
+
+        schema = [
+            SchemaColumn(name="externalId", type="string"),
+            SchemaColumn(name="subtype", type="string"),
+        ]
+        with_schema = list(MultiFileReader([csv_path], schema=schema).read_chunks())
+        assert with_schema[0]["subtype"] == "16696509"
+        assert isinstance(with_schema[0]["subtype"], str)
+        assert with_schema[1]["subtype"] is None
+
     def test_read_unprocessed_csv(self, tmp_path: Path) -> None:
         csv_content = "id,space,externalId,number\n1,space1,id1,1.30\n2,space2,id2,42.0\n"
         csv_file = tmp_path / "test.csv"

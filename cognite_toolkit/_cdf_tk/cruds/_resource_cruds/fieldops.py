@@ -1,10 +1,7 @@
-import collections.abc
 from collections.abc import Hashable, Iterable, Sequence, Sized
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Literal, final
-
-from cognite.client.data_classes import capabilities as cap
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, NameId
@@ -16,7 +13,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeId, SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
-    Acl,
+    AclType,
     AllScope,
     DataModelInstancesAcl,
     ScopeDefinition,
@@ -76,26 +73,11 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
         return {"externalId": id.external_id}
 
     @classmethod
-    def get_required_capability(
-        cls, items: collections.abc.Sequence[APMConfigRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [cap.DataModelInstancesAcl.Action.Read]
-            if read_only
-            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
-        )
-
-        return cap.DataModelInstancesAcl(actions, cap.DataModelInstancesAcl.Scope.SpaceID([APM_CONFIG_SPACE]))
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[APMConfigRequest]) -> ScopeDefinition:
         return SpaceIDScope(space_ids=[APM_CONFIG_SPACE])
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
@@ -314,27 +296,11 @@ class InFieldLocationConfigCRUD(ResourceCRUD[NodeId, InFieldLocationConfigReques
         }
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[InFieldLocationConfigRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items or items is None:
-            return []
-
-        actions = (
-            [cap.DataModelInstancesAcl.Action.Read]
-            if read_only
-            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
-        )
-        instance_spaces = sorted({item.space for item in items})
-
-        return cap.DataModelInstancesAcl(actions, cap.DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[InFieldLocationConfigRequest]) -> ScopeDefinition:
         return space_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 
@@ -420,27 +386,11 @@ class InFieldCDMLocationConfigCRUD(
         }
 
     @classmethod
-    def get_required_capability(
-        cls, items: Sequence[InFieldCDMLocationConfigRequest] | None, read_only: bool
-    ) -> cap.Capability | list[cap.Capability]:
-        if not items or items is None:
-            return []
-
-        actions = (
-            [cap.DataModelInstancesAcl.Action.Read]
-            if read_only
-            else [cap.DataModelInstancesAcl.Action.Read, cap.DataModelInstancesAcl.Action.Write]
-        )
-        instance_spaces = sorted({item.space for item in items})
-
-        return cap.DataModelInstancesAcl(actions, cap.DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
-
-    @classmethod
     def get_minimum_scope(cls, items: Sequence[InFieldCDMLocationConfigRequest]) -> ScopeDefinition:
         return space_scoped_resource(items)
 
     @classmethod
-    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[Acl]:
+    def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
 

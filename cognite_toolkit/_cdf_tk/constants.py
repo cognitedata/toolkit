@@ -192,3 +192,5 @@ MISSING_EXTERNAL_ID = "INTERNAL_ID_project_{project}_id_{id}"
 # Stream Template names
 STREAM_IMMUTABLE_TEMPLATE_NAME = frozenset(("ImmutableTestStream", "BasicArchive"))
 STREAM_MUTABLE_TEMPLATE_NAME = frozenset(("BasicLiveData",))
+
+SUBSELECTION_LIMIT_QUERY_ENDPOINT = 10_000

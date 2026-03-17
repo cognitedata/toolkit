@@ -285,7 +285,7 @@ class BuildV2Command(ToolkitCommand):
             if not crud_classes:
                 # This is handled in the module parsing phase.
                 continue
-            class_by_kind = {crud_class.kind: crud_class for crud_class in crud_classes}
+            class_by_kind = {crud_class.kind.lower(): crud_class for crud_class in crud_classes}
             for resource_file in resource_files:
                 resources.extend(
                     self._import_resource_file(resource_file, class_by_kind, source.variables, resource_folder)
@@ -308,10 +308,10 @@ class BuildV2Command(ToolkitCommand):
             #   for example transformation schedules.
             return []
         kind = resource_file.stem.rsplit(".", maxsplit=1)[-1]
-        crud_class = class_by_kind.get(kind)
+        crud_class = class_by_kind.get(kind.lower())
         if not crud_class:
             error = self._create_failed_read_resource_for_invalid_kind(
-                resource_file, kind, folder_name, class_by_kind.keys()
+                resource_file, kind, folder_name, [c.kind for c in class_by_kind.values()]
             )
             return [FailedReadResource(source_path=resource_file, errors=[error])]
         error_or_string = self._read_resource_file(resource_file)

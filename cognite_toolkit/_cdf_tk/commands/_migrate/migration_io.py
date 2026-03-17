@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import ClassVar, Literal, cast
+from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -33,7 +33,8 @@ from cognite_toolkit._cdf_tk.storageio import (
     T_Selector,
     UploadableStorageIO,
 )
-from cognite_toolkit._cdf_tk.storageio._base import Page, UploadItem
+from cognite_toolkit._cdf_tk.storageio._base import Bookmark, Page, UploadItem
+from cognite_toolkit._cdf_tk.storageio.progress import FileLocation
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     ThreeDModelFilteredSelector,
     ThreeDModelIdSelector,
@@ -51,7 +52,6 @@ from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResource
 from .data_classes import (
     AnnotationMapping,
     AssetCentricMapping,
-    AssetCentricMappingList,
     MigrationMapping,
     MigrationMappingList,
 )
@@ -76,27 +76,39 @@ class AssetCentricMigrationIO(
         "FileMetadata": "/files/set-pending-instance-ids",
     }
 
-    def __init__(self, client: ToolkitClient, skip_linking: bool = True) -> None:
+    def __init__(self, client: ToolkitClient, skip_linking: bool = True, skip_existing: bool = False) -> None:
         super().__init__(client)
         self.hierarchy = HierarchyIO(client)
         self.skip_linking = skip_linking
+        self.skip_existing = skip_existing
 
     def as_id(self, item: AssetCentricMapping) -> str:
         return str(item.mapping.as_asset_centric_id())
 
-    def stream_data(self, selector: AssetCentricMigrationSelector, limit: int | None = None) -> Iterator[Page]:
+    def stream_data(
+        self,
+        selector: AssetCentricMigrationSelector,
+        limit: int | None = None,
+        bookmark: Bookmark | None = None,
+    ) -> Iterator[Page]:
+        file_location = bookmark.file_location if bookmark else None
         if isinstance(selector, MigrationCSVFileSelector):
-            iterator = self._stream_from_csv(selector, limit)
+            iterator = self._stream_from_csv(selector, limit, file_location)
         elif isinstance(selector, MigrateDataSetSelector):
             iterator = self._stream_given_dataset(selector, limit)
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
-        yield from (Page(worker_id="main", items=items) for items in iterator)
+        yield from (Page(worker_id="main", items=items, bookmark=Bookmark()) for items in iterator)
 
     def _stream_from_csv(
-        self, selector: MigrationCSVFileSelector, limit: int | None = None
+        self,
+        selector: MigrationCSVFileSelector,
+        limit: int | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterator[Sequence[AssetCentricMapping[T_AssetCentricResource]]]:
         items = selector.items
+        if file_location is not None:
+            items = MigrationMappingList(items[file_location.lineno :])
         if limit is not None:
             items = MigrationMappingList(items[:limit])
         chunk: list[AssetCentricMapping[T_AssetCentricResource]] = []
@@ -120,15 +132,11 @@ class AssetCentricMigrationIO(
         self, selector: MigrateDataSetSelector, limit: int | None = None
     ) -> Iterator[Sequence[AssetCentricMapping[T_AssetCentricResource]]]:
         asset_centric_selector = selector.as_asset_centric_selector()
+        space_source = self.client.migration.space_source.retrieve(data_set_external_id=selector.data_set_external_id)
+        instance_space = space_source.instance_space if space_source else MISSING_INSTANCE_SPACE
         for data_chunk in self.hierarchy.stream_data(asset_centric_selector, limit):
-            mapping_list = AssetCentricMappingList[T_AssetCentricResource]([])
+            mapping_list: list[AssetCentricMapping[T_AssetCentricResource]] = []
             for resource in data_chunk.items:
-                # We got the resource from a dataset selector, so we know it is there
-                data_set_id = cast(int, resource.data_set_id)
-                space_source = self.client.migration.space_source.retrieve(data_set_id=data_set_id)
-                instance_space = space_source.instance_space if space_source else None
-                if instance_space is None:
-                    instance_space = MISSING_INSTANCE_SPACE
                 external_id = resource.external_id
                 if external_id is None:
                     external_id = MISSING_EXTERNAL_ID.format(project=self.client.config.project, id=resource.id)
@@ -143,7 +151,7 @@ class AssetCentricMigrationIO(
                     ingestion_view=selector.ingestion_mapping,
                     preferred_consumer_view=selector.preferred_consumer_view,
                 )
-                mapping_list.append(AssetCentricMapping(mapping=mapping, resource=resource))
+                mapping_list.append(AssetCentricMapping(mapping=mapping, resource=resource))  # type: ignore[arg-type]
             yield mapping_list
 
     @staticmethod
@@ -176,6 +184,11 @@ class AssetCentricMigrationIO(
         selector: AssetCentricMigrationSelector | None = None,
     ) -> ItemsResultList:
         """Upload items by first linking them using files/set-pending-instance-ids and then uploading the instances."""
+        if self.skip_existing:
+            data_chunk = self._remove_existing(data_chunk)
+            if not data_chunk:
+                return ItemsResultList()
+
         if self.skip_linking:
             return super().upload_items(data_chunk, http_client, None)
         elif selector is None:
@@ -189,6 +202,21 @@ class AssetCentricMigrationIO(
         if to_upload:
             results.extend(super().upload_items(to_upload, http_client, None))
         return results
+
+    def _remove_existing(
+        self, data_chunk: Sequence[UploadItem[InstanceRequest]]
+    ) -> Sequence[UploadItem[InstanceRequest]]:
+        """Remove items from the chunk that already exist in CDF to avoid upload failures."""
+        data_by_instance_id = {item.item.as_id(): item for item in data_chunk}
+        existing_ids = {item.as_id() for item in self.client.tool.instances.retrieve(list(data_by_instance_id.keys()))}
+        to_create: list[UploadItem[InstanceRequest]] = []
+        for instance_id, data in data_by_instance_id.items():
+            if instance_id in existing_ids:
+                self.logger.tracker.finalize_item(data.source_id, "skipped")
+            else:
+                to_create.append(data)
+
+        return to_create
 
     def link_asset_centric(
         self,
@@ -294,14 +322,20 @@ class AnnotationMigrationIO(
             # There is no efficient way to count annotations in CDF.
             return None
 
-    def stream_data(self, selector: AssetCentricMigrationSelector, limit: int | None = None) -> Iterable[Page]:
+    def stream_data(
+        self,
+        selector: AssetCentricMigrationSelector,
+        limit: int | None = None,
+        bookmark: Bookmark | None = None,
+    ) -> Iterable[Page]:
+        file_location = bookmark.file_location if bookmark else None
         if isinstance(selector, MigrateDataSetSelector):
             iterator = self._stream_from_dataset(selector, limit)
         elif isinstance(selector, MigrationCSVFileSelector):
-            iterator = self._stream_from_csv(selector, limit)
+            iterator = self._stream_from_csv(selector, limit, file_location)
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
-        yield from (Page(worker_id="main", items=items) for items in iterator)
+        yield from (Page(worker_id="main", items=items, bookmark=Bookmark()) for items in iterator)
 
     def _stream_from_dataset(
         self, selector: MigrateDataSetSelector, limit: int | None = None
@@ -310,7 +344,7 @@ class AnnotationMigrationIO(
             raise ToolkitValueError("Instance space must be provided for dataset-based annotation migration.")
         asset_centric_selector = selector.as_asset_centric_selector()
         for data_chunk in self.annotation_io.stream_data(asset_centric_selector, limit):
-            mapping_list = AssetCentricMappingList[AnnotationResponse]([])
+            mapping_list: list[AssetCentricMapping[AnnotationResponse]] = []
             for resource in data_chunk.items:
                 if resource.annotation_type not in self.SUPPORTED_ANNOTATION_TYPES:
                     # This should not happen, as the annotation_io should already filter these out.
@@ -327,9 +361,14 @@ class AnnotationMigrationIO(
             yield mapping_list
 
     def _stream_from_csv(
-        self, selector: MigrationCSVFileSelector, limit: int | None = None
+        self,
+        selector: MigrationCSVFileSelector,
+        limit: int | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterator[Sequence[AssetCentricMapping[AnnotationResponse]]]:
         items = selector.items
+        if file_location is not None:
+            items = MigrationMappingList(items[file_location.lineno :])
         if limit is not None:
             items = MigrationMappingList(items[:limit])
         chunk: list[AssetCentricMapping[AnnotationResponse]] = []
@@ -422,7 +461,10 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
             return item.space is not None
 
     def stream_data(
-        self, selector: ThreeDSelector, limit: int | None = None
+        self,
+        selector: ThreeDSelector,
+        limit: int | None = None,
+        bookmark: Bookmark | None = None,
     ) -> Iterable[Page[ThreeDModelClassicResponse]]:
         published: bool | None = None
         if isinstance(selector, ThreeDModelFilteredSelector):
@@ -430,7 +472,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
         included_models: set[int] | None = None
         if isinstance(selector, ThreeDModelIdSelector):
             included_models = set(selector.ids)
-        cursor: str | None = None
+        cursor: str | None = bookmark.cursor if bookmark else None
         total = 0
         while True:
             request_limit = min(self.DOWNLOAD_LIMIT, limit - total) if limit is not None else self.DOWNLOAD_LIMIT
@@ -440,7 +482,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
             items = [item for item in response.items if self._is_selected(item, included_models)]
             total += len(items)
             if items:
-                yield Page(worker_id="main", items=items, next_cursor=response.next_cursor)
+                yield Page(worker_id="main", items=items, bookmark=Bookmark(cursor=response.next_cursor))
             if response.next_cursor is None:
                 break
             cursor = response.next_cursor
@@ -518,7 +560,10 @@ class ThreeDAssetMappingMigrationIO(
         return f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.asset_id!s}"
 
     def stream_data(
-        self, selector: ThreeDSelector, limit: int | None = None
+        self,
+        selector: ThreeDSelector,
+        limit: int | None = None,
+        bookmark: Bookmark | None = None,
     ) -> Iterable[Page[AssetMappingClassicResponse]]:
         total = 0
         for three_d_page in self._3D_io.stream_data(selector, None):
@@ -542,7 +587,7 @@ class ThreeDAssetMappingMigrationIO(
                     items = response.items
                     total += len(items)
                     if items:
-                        yield Page(worker_id="main", items=items, next_cursor=response.next_cursor)
+                        yield Page(worker_id="main", items=items, bookmark=Bookmark(cursor=response.next_cursor))
                     if response.next_cursor is None:
                         break
                     cursor = response.next_cursor

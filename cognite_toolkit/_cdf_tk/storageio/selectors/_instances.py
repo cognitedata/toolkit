@@ -3,15 +3,14 @@ from functools import cached_property
 from pathlib import Path
 from typing import Literal
 
-from cognite.client import data_modeling as dm
-from cognite.client.utils._identifier import InstanceId
 from pydantic import Field
 
-from cognite_toolkit._cdf_tk.client.identifiers import EdgeTypeId, InstanceDefinitionId
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeId, EdgeTypeId, InstanceDefinitionId, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
 from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceIdCSVList
 from cognite_toolkit._cdf_tk.storageio.selectors._base import DataSelector, SelectorObject
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 
 class SelectedView(SelectorObject):
@@ -76,6 +75,13 @@ class InstanceViewSelector(InstanceSelector):
     def __str__(self) -> str:
         return f"{self.view.external_id}_{self.view.version}_{self.instance_type}"
 
+    @property
+    def display_name(self) -> str:
+        message = f"{self.instance_type}s in view {self.view!s}"
+        if self.instance_spaces:
+            message += f" with {humanize_collection(self.instance_spaces)} instance spaces"
+        return message
+
 
 class InstanceSpaceSelector(InstanceSelector):
     """This is used for purge"""
@@ -91,6 +97,13 @@ class InstanceSpaceSelector(InstanceSelector):
     def get_instance_spaces(self) -> list[str] | None:
         return [self.instance_space]
 
+    @property
+    def display_name(self) -> str:
+        message = f"{self.instance_type}s in {self.instance_space} instance space"
+        if self.view is not None:
+            message += f" with properties in {self.view!s} view"
+        return message
+
     def __str__(self) -> str:
         if self.view is None:
             return self.instance_type
@@ -104,6 +117,10 @@ class InstanceFileSelector(InstanceSelector):
 
     datafile: Path
     validate_instance: bool = True
+
+    @property
+    def display_name(self) -> str:
+        return f"{self.kind} in {self.datafile!s}"
 
     def __str__(self) -> str:
         return f"file_{self.datafile.as_posix()}"
@@ -120,27 +137,26 @@ class InstanceFileSelector(InstanceSelector):
         ]
 
     @cached_property
-    def _ids_by_type(self) -> tuple[list[dm.NodeId], list[dm.EdgeId]]:
-        node_ids: list[dm.NodeId] = []
-        edge_ids: list[dm.EdgeId] = []
+    def _ids_by_type(self) -> tuple[list[NodeId], list[EdgeId]]:
+        node_ids: list[NodeId] = []
+        edge_ids: list[EdgeId] = []
         for instance in self.items:
             if instance.instance_type == "node":
-                node_ids.append(dm.NodeId(instance.space, instance.external_id))
+                node_ids.append(NodeId(space=instance.space, external_id=instance.external_id))
             else:
-                edge_ids.append(dm.EdgeId(instance.space, instance.external_id))
+                edge_ids.append(EdgeId(space=instance.space, external_id=instance.external_id))
         return node_ids, edge_ids
 
     @property
-    def instance_ids(self) -> list[InstanceId]:
-        node_ids, edge_ids = self._ids_by_type
-        return [*node_ids, *edge_ids]
+    def instance_ids(self) -> list[InstanceDefinitionId]:
+        return self.ids
 
     @property
-    def node_ids(self) -> list[dm.NodeId]:
+    def node_ids(self) -> list[NodeId]:
         return self._ids_by_type[0]
 
     @property
-    def edge_ids(self) -> list[dm.EdgeId]:
+    def edge_ids(self) -> list[EdgeId]:
         return self._ids_by_type[1]
 
     def get_schema_spaces(self) -> list[str] | None:

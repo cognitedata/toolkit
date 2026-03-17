@@ -599,6 +599,7 @@ class TestInteractiveChartSelect:
             MockQuestionary(InteractiveChartSelect.__module__, monkeypatch, answers),
         ):
             # Only include charts whose external_id is in selected_cdf
+            client.tool.token.verify_acls.return_value = []
             client.charts.list.return_value = [chart for chart in cdf_charts if chart.external_id in selected_cdf]
             client.iam.user_profiles.list.return_value = UserProfileList(
                 [

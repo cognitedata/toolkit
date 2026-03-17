@@ -3,12 +3,11 @@ import re
 from pathlib import Path
 from typing import Any, TypeVar
 
-from cognite.client.data_classes._base import CogniteObject
-from cognite.client.utils._text import to_snake_case
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic_core import ErrorDetails
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.client._resource_base import ResponseResource
 from cognite_toolkit._cdf_tk.constants import DEV_ONLY_MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, BuildVariables, ModuleDirectories
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -60,13 +59,15 @@ def validate_modules_variables(variables: BuildVariables, filepath: Path) -> War
 
 def validate_data_set_is_set(
     raw: dict[str, Any] | list[dict[str, Any]],
-    resource_cls: type[CogniteObject],
+    resource_cls: type[ResponseResource],
     filepath: Path,
     identifier_key: str = "externalId",
 ) -> WarningList:
     warning_list: WarningList = WarningList()
-    signature = inspect.signature(resource_cls.__init__)
-    if "data_set_id" not in set(signature.parameters.keys()):
+    if not (inspect.isclass(resource_cls) and issubclass(resource_cls, BaseModel)):
+        return warning_list
+
+    if "data_set_id" not in resource_cls.model_fields.keys():
         return warning_list
 
     if isinstance(raw, list):
@@ -77,8 +78,10 @@ def validate_data_set_is_set(
     if "dataSetExternalId" in raw or "dataSetId" in raw:
         return warning_list
 
-    value = raw.get(identifier_key, raw.get(to_snake_case(identifier_key), f"No identifier {identifier_key}"))
-    warning_list.append(DataSetMissingWarning(filepath, value, identifier_key, resource_cls.__name__))
+    value = raw.get(identifier_key, f"No identifier {identifier_key}")
+    warning_list.append(
+        DataSetMissingWarning(filepath, value, identifier_key, resource_cls.__name__.removesuffix("Response"))
+    )
     return warning_list
 
 

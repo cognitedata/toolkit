@@ -2,7 +2,7 @@ import json
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
-from typing import ClassVar, Generic, Literal, cast
+from typing import Any, ClassVar, Generic, Literal, cast
 from uuid import uuid4
 
 from cognite.client import data_modeling as dm
@@ -10,7 +10,7 @@ from cognite.client.exceptions import CogniteException
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, InstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     ContainerReferenceItem,
     FdmInstanceContainerReferenceItem,
@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartSource,
     ChartTimeseries,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     DirectNodeRelation,
     EdgeRequest,
@@ -38,6 +39,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewResponse,
     ViewResponseProperty,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope
+from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdminAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     RESOURCE_VIEW_MAPPING_SPACE,
     ResourceViewMappingRequest,
@@ -60,7 +63,6 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     convert_edges,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
-    Model,
     ThreeDMigrationRequest,
     ThreeDRevisionMigrationRequest,
 )
@@ -74,8 +76,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
-from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
-from cognite_toolkit._cdf_tk.storageio._base import T_Selector
+from cognite_toolkit._cdf_tk.storageio import T_DataRequest, T_DataResponse, T_Selector
 from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, NoOpLogger
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasSelector,
@@ -90,7 +91,7 @@ from .data_classes import AssetCentricMapping
 from .selectors import AssetCentricMigrationSelector
 
 
-class DataMapper(Generic[T_Selector, T_ResourceResponse, T_ResourceRequest], ABC):
+class DataMapper(Generic[T_Selector, T_DataResponse, T_DataRequest], ABC):
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
         self.logger: DataLogger = NoOpLogger()
@@ -106,7 +107,7 @@ class DataMapper(Generic[T_Selector, T_ResourceResponse, T_ResourceRequest], ABC
         pass
 
     @abstractmethod
-    def map(self, source: Sequence[T_ResourceResponse]) -> Sequence[T_ResourceRequest | None]:
+    def map(self, source: Sequence[T_DataResponse]) -> Sequence[T_DataRequest | None]:
         """Map a chunk of source data to the target format.
 
         Args:
@@ -225,6 +226,12 @@ class AssetCentricMapper(
 
 
 class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
+    def prepare(self, source_selector: ChartSelector) -> None:
+        if missing_acl := self.client.tool.token.verify_acls(
+            [ChartsAdminAcl(actions=["READ", "UPDATE"], scope=AllScope())]
+        ):
+            raise self.client.tool.token.create_error(missing_acl, action="migrate charts")
+
     def map(self, source: Sequence[ChartResponse]) -> Sequence[ChartRequest | None]:
         self._populate_cache(source)
         output: list[ChartRequest | None] = []
@@ -376,15 +383,18 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
         self.skip_on_missing_ref = skip_on_missing_ref
 
     def map(self, source: Sequence[IndustrialCanvasResponse]) -> Sequence[IndustrialCanvasRequest | None]:
-        self._populate_cache(source)
+        file_node_ids = self._populate_cache(source)
+        cognite_file_by_id = {file.as_id(): file for file in self.client.tool.cognite_files.retrieve(file_node_ids)}
         output: list[IndustrialCanvasRequest | None] = []
         issues: list[CanvasMigrationIssue] = []
         for item in source:
-            mapped_item, issue = self._map_single_item(item)
+            mapped_item, issue = self._map_single_item(item, cognite_file_by_id)
             identifier = item.name
 
             if issue.missing_reference_ids:
                 self.logger.tracker.add_issue(identifier, "Missing reference IDs")
+            if issue.files_missing_content:
+                self.logger.tracker.add_issue(identifier, "File missing content")
 
             if issue.has_issues:
                 issues.append(issue)
@@ -406,21 +416,29 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
             "file": self.client.migration.lookup.files,
         }
 
-    def _populate_cache(self, source: Sequence[IndustrialCanvasResponse]) -> None:
+    def _populate_cache(self, source: Sequence[IndustrialCanvasResponse]) -> list[NodeId]:
         """Populate the internal cache with references from the source canvases.
 
         Note that the consumption views are also cached as part of the timeseries lookup.
+
+        Returns:
+            list[NodeId]: A list of node IDs for file references, which are used later for
+                to check whether they have content.
+
         """
         ids_by_type: dict[str, set[int]] = defaultdict(set)
         for canvas in source:
             for ref in canvas.container_references or []:
                 if ref.container_reference_type in self.asset_centric_resource_types:
                     ids_by_type[ref.container_reference_type].add(ref.resource_id)
-
+        file_node_ids: list[NodeId] = []
         for resource_type, lookup_method in self.lookup_methods.items():
             ids = ids_by_type.get(resource_type)
             if ids:
-                lookup_method(list(ids))
+                results = lookup_method(list(ids))
+                if resource_type == "file":
+                    file_node_ids.extend(results.values())
+        return file_node_ids
 
     def _get_node_id(self, resource_id: int, resource_type: str) -> NodeId | None:
         """Look up the node ID for a given resource ID and type."""
@@ -444,7 +462,7 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
         raise ToolkitValueError(f"Unsupported resource type '{resource_type}' for container reference migration.")
 
     def _map_single_item(
-        self, canvas: IndustrialCanvasResponse
+        self, canvas: IndustrialCanvasResponse, cognite_file_by_id: dict[NodeId, CogniteFileResponse]
     ) -> tuple[IndustrialCanvasRequest | None, CanvasMigrationIssue]:
         update = canvas.as_write()
         issue = CanvasMigrationIssue(canvas_external_id=canvas.external_id, canvas_name=canvas.name, id=canvas.name)
@@ -459,12 +477,14 @@ class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, Industri
             node_id = self._get_node_id(ref.resource_id, ref.container_reference_type)
             if node_id is None:
                 issue.missing_reference_ids.append(ref.as_asset_centric_id())
-            else:
-                consumer_view = self._get_consumer_view_id(ref.resource_id, ref.container_reference_type)
-                fdm_ref = self.migrate_container_reference(
-                    ref, canvas.external_id, node_id, consumer_view, uuid_generator
-                )
-                new_fdm_references.append(fdm_ref)
+                continue
+            if ref.container_reference_type == "file" and node_id in cognite_file_by_id:
+                if not cognite_file_by_id[node_id].is_uploaded:
+                    issue.files_missing_content.append(node_id)
+
+            consumer_view = self._get_consumer_view_id(ref.resource_id, ref.container_reference_type)
+            fdm_ref = self.migrate_container_reference(ref, canvas.external_id, node_id, consumer_view, uuid_generator)
+            new_fdm_references.append(fdm_ref)
         if issue.missing_reference_ids and self.skip_on_missing_ref:
             return None, issue
 
@@ -581,7 +601,7 @@ class ThreeDMapper(DataMapper[ThreeDSelector, ThreeDModelClassicResponse, ThreeD
                 space=instance_space,
                 type=model_type,
                 revision_id=last_revision_id,
-                model=Model(
+                model=InstanceId(
                     instance_id=NodeId(
                         space=instance_space,
                         external_id=f"cog_3d_model_{item.id!s}",
@@ -924,7 +944,6 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
         "timezone",
         "startTime",
         "endTime",
-        "status",
     )
 
     def __init__(
@@ -1014,7 +1033,13 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
         return schedules, template_edges_by_item_id, template_item_edges_by_schedule_id, issues
 
     def _calculate_schedule_hash(self, properties: dict[str, JsonValue]) -> str:
-        relevant_properties = {key: properties.get(key) for key in self.UNIQUE_SCHEDULE_PROPERTIES}
+        relevant_properties: dict[str, Any] = {}
+        for key in self.UNIQUE_SCHEDULE_PROPERTIES:
+            value = properties.get(key)
+            if isinstance(value, list):
+                relevant_properties[key] = sorted([str(item) for item in value])
+            else:
+                relevant_properties[key] = str(value)
         return calculate_hash(json.dumps(relevant_properties, sort_keys=True), shorten=True)
 
     def _create_single_schedule(

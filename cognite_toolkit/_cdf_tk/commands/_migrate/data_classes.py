@@ -4,18 +4,16 @@ from typing import Any, Generic, Literal
 
 from cognite.client.data_classes._base import (
     WriteableCogniteResource,
-    WriteableCogniteResourceList,
 )
 from cognite.client.data_classes.data_modeling import InstanceApply
-from cognite.client.utils._text import to_camel_case
 from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic.alias_generators import to_camel
 from rich.panel import Panel
 from rich.text import Text
 
-from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject, RequestResource
-from cognite_toolkit._cdf_tk.client.identifiers import EdgeUntypedId, InternalId, NodeUntypedId
+from cognite_toolkit._cdf_tk.client._resource_base import RequestResource
+from cognite_toolkit._cdf_tk.client.identifiers import EdgeUntypedId, InstanceId, InternalId, NodeUntypedId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.instances import InstanceApplyList
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     ASSET_ANNOTATIONS_ID,
@@ -32,7 +30,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
 from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
 
 
-class MigrationMapping(BaseModel, alias_generator=to_camel_case, extra="ignore", populate_by_name=True):
+class MigrationMapping(BaseModel, alias_generator=to_camel, extra="ignore", populate_by_name=True):
     """The mapping between an asset-centric ID and a data modeling instance ID.
     Args
         resource_type (str): The asset-centric type of the resource (e.g., "asset", "event", "timeseries").
@@ -261,28 +259,11 @@ class AssetCentricMapping(Generic[T_AssetCentricResourceExtended], WriteableCogn
         }
 
 
-class AssetCentricMappingList(
-    WriteableCogniteResourceList[InstanceApply, AssetCentricMapping[T_AssetCentricResourceExtended]]
-):
-    _RESOURCE: type = AssetCentricMapping
-
-    def as_write(self) -> InstanceApplyList:
-        return InstanceApplyList([item.as_write() for item in self])
-
-
-class Model(BaseModelObject):
-    instance_id: NodeUntypedId
-
-
-class Thumbnail(BaseModelObject):
-    instance_id: NodeUntypedId
-
-
 class ThreeDRevisionMigrationRequest(RequestResource):
     space: str
     type: Literal["CAD", "PointCloud", "Image360"]
     revision_id: int
-    model: Model
+    model: InstanceId
 
     def as_id(self) -> InternalId:
         return InternalId(id=self.revision_id)
@@ -292,7 +273,7 @@ class ThreeDMigrationRequest(RequestResource):
     model_id: int
     type: Literal["CAD", "PointCloud", "Image360"]
     space: str
-    thumbnail: Thumbnail | None = None
+    thumbnail: InstanceId | None = None
     revision: ThreeDRevisionMigrationRequest = Field(exclude=True)
 
     def as_id(self) -> InternalId:

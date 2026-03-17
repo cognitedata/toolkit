@@ -210,3 +210,80 @@ class TestResourcesCreateCommand:
                 kind=None,
                 verbose=False,
             )
+
+    def test_create_with_qualified_name(self, tmp_path: Path) -> None:
+        """Test that qualified names like 'functions.Schedule' resolve correctly."""
+        cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
+        organization_dir = tmp_path / "my_org"
+        modules_dir = organization_dir / MODULES / "test_module"
+        modules_dir.mkdir(parents=True, exist_ok=True)
+        (modules_dir / "functions").mkdir(parents=True, exist_ok=True)
+
+        cmd.create(
+            organization_dir=organization_dir,
+            module_name="test_module",
+            kind=["functions.Schedule"],
+            prefix="my",
+            verbose=False,
+        )
+        assert (modules_dir / "functions" / "my.Schedule.yaml").exists()
+
+    def test_create_ambiguous_kind_exits(self, tmp_path: Path) -> None:
+        """Test that ambiguous kind names like 'Schedule' exit with a helpful message."""
+        cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
+        organization_dir = tmp_path / "my_org"
+        modules_dir = organization_dir / MODULES / "test_module"
+        modules_dir.mkdir(parents=True, exist_ok=True)
+        (modules_dir / "data_modeling").mkdir(parents=True, exist_ok=True)
+
+        with pytest.raises(typer.Exit):
+            cmd.create(
+                organization_dir=organization_dir,
+                module_name="test_module",
+                kind=["Schedule"],
+                verbose=False,
+            )
+
+    def test_interactive_choices_are_qualified(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        """Test that interactive selection shows folder_name.kind format."""
+        cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
+
+        def capture_and_select(choices):
+            titles = [c.title for c in choices]
+            assert all("." in t for t in titles), f"Expected qualified names, got: {titles}"
+            return SpaceCRUD
+
+        organization_dir = tmp_path / "my_org"
+        modules_dir = organization_dir / MODULES / "test_module"
+        modules_dir.mkdir(parents=True, exist_ok=True)
+        (modules_dir / "data_modeling").mkdir(parents=True, exist_ok=True)
+
+        with MockQuestionary(ResourcesCommand.__module__, monkeypatch, [capture_and_select]):
+            cmd.create(
+                organization_dir=organization_dir,
+                module_name="test_module",
+                kind=None,
+                verbose=False,
+            )
+
+    def test_interactive_choices_are_deduplicated(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        """Test that interactive selection contains no duplicate entries."""
+        cmd = ResourcesCommand(print_warning=False, skip_tracking=True, silent=True)
+
+        def capture_and_select(choices):
+            titles = [c.title for c in choices]
+            assert len(titles) == len(set(titles)), f"Duplicate choices found: {titles}"
+            return SpaceCRUD
+
+        organization_dir = tmp_path / "my_org"
+        modules_dir = organization_dir / MODULES / "test_module"
+        modules_dir.mkdir(parents=True, exist_ok=True)
+        (modules_dir / "data_modeling").mkdir(parents=True, exist_ok=True)
+
+        with MockQuestionary(ResourcesCommand.__module__, monkeypatch, [capture_and_select]):
+            cmd.create(
+                organization_dir=organization_dir,
+                module_name="test_module",
+                kind=None,
+                verbose=False,
+            )

@@ -617,6 +617,7 @@ AclType: TypeAlias = Annotated[
         | AppConfigAcl
         | AssetsAcl
         | AuditlogAcl
+        | ChartsAdminAcl
         | DataModelInstancesAcl
         | DataModelsAcl
         | DataProductsAcl

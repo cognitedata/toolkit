@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     IndustrialCanvasResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
     DataModelResponseWithViews,
@@ -48,7 +49,6 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import ConnectionCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     AssetCentricMapping,
-    AssetCentricMappingList,
     MigrationMapping,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
@@ -58,6 +58,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
     InFieldLegacyToCDMScheduleMapper,
     ThreeDAssetMapper,
 )
+from cognite_toolkit._cdf_tk.commands._migrate.issues import CanvasMigrationIssue
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, OperationTracker
@@ -72,28 +73,27 @@ class TestAssetCentricMapper:
         cognite_extractor_views: list[ViewResponse],
     ) -> None:
         asset_count = 10
-        source = AssetCentricMappingList(
-            [
-                AssetCentricMapping(
-                    mapping=MigrationMapping(
-                        resource_type="asset",
-                        instance_id=NodeId(space="my_space", external_id=f"asset_{i}"),
-                        id=1000 + i,
-                        ingestion_view="cdf_asset_mapping",
-                    ),
-                    resource=AssetResponse(
-                        id=1000 + i,
-                        name=f"Asset {i}",
-                        source="SAP",
-                        description=f"Description {i}",
-                        created_time=1,
-                        last_updated_time=1,
-                        root_id=0,
-                    ),
-                )
-                for i in range(asset_count)
-            ]
-        )
+        source = [
+            AssetCentricMapping(
+                mapping=MigrationMapping(
+                    resource_type="asset",
+                    instance_id=NodeId(space="my_space", external_id=f"asset_{i}"),
+                    id=1000 + i,
+                    ingestion_view="cdf_asset_mapping",
+                ),
+                resource=AssetResponse(
+                    id=1000 + i,
+                    name=f"Asset {i}",
+                    source="SAP",
+                    description=f"Description {i}",
+                    created_time=1,
+                    last_updated_time=1,
+                    root_id=0,
+                ),
+            )
+            for i in range(asset_count)
+        ]
+
         mapping_file = tmp_path / "mapping.csv"
         mapping_file.write_text(
             "id,space,externalId,ingestionView\n"
@@ -334,24 +334,40 @@ class TestCanvasMapper:
         input_canvas_path = MIGRATION_DIR / "canvas" / "annotated_canvas.yaml"
         input_canvas = IndustrialCanvasResponse._load(yaml.safe_load(input_canvas_path.read_text(encoding="utf-8")))
         with monkeypatch_toolkit_client() as client:
-            client.migration.lookup.assets.return_value = dm.NodeId(space="my_space", external_id="asset_1")
-            client.migration.lookup.events.return_value = dm.NodeId(space="my_space", external_id="event_1")
-            client.migration.lookup.files.return_value = dm.NodeId(space="my_space", external_id="file_1")
-            client.migration.lookup.time_series.return_value = dm.NodeId(space="my_space", external_id="timeseries_1")
-            client.migration.lookup.assets.consumer_view.return_value = dm.ViewId(
+            client.migration.lookup.assets.return_value = NodeId(space="my_space", external_id="asset_1")
+            client.migration.lookup.events.return_value = NodeId(space="my_space", external_id="event_1")
+            client.migration.lookup.files.side_effect = [
+                {9005977951852492: NodeId(space="my_space", external_id="file_1")},
+                NodeId(space="my_space", external_id="file_1"),
+            ]
+            client.migration.lookup.time_series.return_value = NodeId(space="my_space", external_id="timeseries_1")
+            client.tool.cognite_files.retrieve.return_value = [
+                CogniteFileResponse(
+                    space="my_space",
+                    external_id="file_1",
+                    is_uploaded=False,
+                    last_updated_time=1,
+                    created_time=0,
+                    version=37,
+                ),
+            ]
+            client.migration.lookup.assets.consumer_view.return_value = ViewId(
                 space="cdm_cdm", external_id="CogniteAsset", version="v1"
             )
-            client.migration.lookup.events.consumer_view.return_value = dm.ViewId(
+            client.migration.lookup.events.consumer_view.return_value = ViewId(
                 space="cdf_cdm", external_id="CogniteActivity", version="v1"
             )
-            client.migration.lookup.files.consumer_view.return_value = dm.ViewId(
+            client.migration.lookup.files.consumer_view.return_value = ViewId(
                 space="cdf_cdm", external_id="CogniteFile", version="v1"
             )
-            client.migration.lookup.time_series.consumer_view.return_value = dm.ViewId(
+            client.migration.lookup.time_series.consumer_view.return_value = ViewId(
                 space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
             )
 
             mapper = CanvasMapper(client, dry_run=False, skip_on_missing_ref=False)
+            logger = MagicMock(spec=DataLogger)
+            logger.tracker = MagicMock(spec_set=OperationTracker)
+            mapper.logger = logger
 
             actual = mapper.map([input_canvas])[0]
 
@@ -366,6 +382,14 @@ class TestCanvasMapper:
                 unexpected_uuid.append(item.id_)
         # After the migration, there should be no references to the original components of the Canvas.
         assert not unexpected_uuid, f"Found unexpected user data in migrated canvas: {unexpected_uuid}"
+
+        # Check log is written
+        logger.log.assert_called_once()
+        entry = logger.log.call_args[0][0]
+        assert isinstance(entry, list)
+        first = entry[0]
+        assert isinstance(first, CanvasMigrationIssue)
+        assert first.files_missing_content == [NodeId(space="my_space", external_id="file_1")]
 
 
 class TestFDMtoCDMMapper:

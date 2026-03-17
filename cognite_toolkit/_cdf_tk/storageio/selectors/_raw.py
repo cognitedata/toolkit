@@ -9,6 +9,9 @@ class SelectedTable(SelectorObject):
     db_name: str
     table_name: str
 
+    def __str__(self) -> str:
+        return f"{self.db_name}.{self.table_name}"
+
 
 class RawTableSelector(DataSelector):
     type: Literal["rawTable"] = "rawTable"
@@ -18,3 +21,10 @@ class RawTableSelector(DataSelector):
 
     def __str__(self) -> str:
         return self.table.table_name
+
+    @property
+    def display_name(self) -> str:
+        message = f"{self.table!s}"
+        if self.key:
+            message += f" (key={self.key})"
+        return message
