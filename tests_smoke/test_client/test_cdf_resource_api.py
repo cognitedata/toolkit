@@ -33,6 +33,7 @@ from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.sequence_rows import SequenceRowsAPI
+from cognite_toolkit._cdf_tk.client.api.signal_sinks import SignalSinksAPI
 from cognite_toolkit._cdf_tk.client.api.signal_subscriptions import SignalSubscriptionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
@@ -275,6 +276,8 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         AnnotationsAPI,
         # Subscriptions depend on existing sinks and have no retrieve method.
         SignalSubscriptionsAPI,
+        # Sinks are tested as part of test_signal_subscriptions_crudl; generic test is flaky due to 409 conflicts.
+        SignalSinksAPI,
     }
 )
 
@@ -496,7 +499,7 @@ def get_examples_minimum_requests(request_cls: type[ResponseResource]) -> list[d
             {
                 "externalId": "smoke-test-signal-subscription",
                 "sink": {"type": "email", "externalId": "smoke-test-signal-sink"},
-                "filter": {"topic": "cognite_workflows"},
+                "filter": {"topic": "cognite_workflows", "resource": "smoke-test-workflow"},
             }
         ],
         SequenceResponse: [
@@ -1994,6 +1997,10 @@ class TestCDFResourceAPI:
         subscription_id = subscription_request.as_id()
 
         try:
+            # Clean up stale resources from previous runs
+            client.tool.signal_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
+            client.tool.signal_sinks.delete([sink_id], ignore_unknown_ids=True)
+
             # Create sink (subscription depends on it)
             sink_endpoints = client.tool.signal_sinks._method_endpoint_map
             self.assert_endpoint_method(
