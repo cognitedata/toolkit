@@ -41,6 +41,7 @@ class Bookmark:
     cursor: str | None = None
     file_location: FileLocation | None = None
 
+
 T_Selector = TypeVar("T_Selector", bound=DataSelector)
 
 
@@ -120,8 +121,7 @@ class StorageIO(ABC, Generic[T_Selector, T_DataResponse]):
         Args:
             selector: The selection criteria to filter the items to download.
             limit: Optional limit on the number of items to download.
-            init_cursor: Optional initial cursor to start downloading.
-            file_location: Optional file location to download the items from.
+            bookmark: Optional bookmark to resume downloading from a previous position.
 
         Returns:
             An iterable of writable Cognite resource lists.

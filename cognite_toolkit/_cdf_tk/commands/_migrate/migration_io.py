@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     T_Selector,
     UploadableStorageIO,
 )
-from cognite_toolkit._cdf_tk.storageio._base import Page, UploadItem
+from cognite_toolkit._cdf_tk.storageio._base import Bookmark, Page, UploadItem
 from cognite_toolkit._cdf_tk.storageio.progress import FileLocation
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     ThreeDModelFilteredSelector,
@@ -89,16 +89,16 @@ class AssetCentricMigrationIO(
         self,
         selector: AssetCentricMigrationSelector,
         limit: int | None = None,
-        init_cursor: str | None = None,
-        file_location: FileLocation | None = None,
+        bookmark: Bookmark | None = None,
     ) -> Iterator[Page]:
+        file_location = bookmark.file_location if bookmark else None
         if isinstance(selector, MigrationCSVFileSelector):
             iterator = self._stream_from_csv(selector, limit, file_location)
         elif isinstance(selector, MigrateDataSetSelector):
             iterator = self._stream_given_dataset(selector, limit)
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
-        yield from (Page(worker_id="main", items=items) for items in iterator)
+        yield from (Page(worker_id="main", items=items, bookmark=Bookmark()) for items in iterator)
 
     def _stream_from_csv(
         self,
@@ -129,10 +129,10 @@ class AssetCentricMigrationIO(
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for count")
 
     def _stream_given_dataset(
-        self, selector: MigrateDataSetSelector, limit: int | None = None, init_cursor: str | None = None
+        self, selector: MigrateDataSetSelector, limit: int | None = None
     ) -> Iterator[Sequence[AssetCentricMapping[T_AssetCentricResource]]]:
         asset_centric_selector = selector.as_asset_centric_selector()
-        for data_chunk in self.hierarchy.stream_data(asset_centric_selector, limit, init_cursor):
+        for data_chunk in self.hierarchy.stream_data(asset_centric_selector, limit):
             mapping_list: list[AssetCentricMapping[T_AssetCentricResource]] = []
             for resource in data_chunk.items:
                 # We got the resource from a dataset selector, so we know it is there
@@ -330,16 +330,16 @@ class AnnotationMigrationIO(
         self,
         selector: AssetCentricMigrationSelector,
         limit: int | None = None,
-        init_cursor: str | None = None,
-        file_location: FileLocation | None = None,
+        bookmark: Bookmark | None = None,
     ) -> Iterable[Page]:
+        file_location = bookmark.file_location if bookmark else None
         if isinstance(selector, MigrateDataSetSelector):
             iterator = self._stream_from_dataset(selector, limit)
         elif isinstance(selector, MigrationCSVFileSelector):
             iterator = self._stream_from_csv(selector, limit, file_location)
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
-        yield from (Page(worker_id="main", items=items) for items in iterator)
+        yield from (Page(worker_id="main", items=items, bookmark=Bookmark()) for items in iterator)
 
     def _stream_from_dataset(
         self, selector: MigrateDataSetSelector, limit: int | None = None
@@ -468,8 +468,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
         self,
         selector: ThreeDSelector,
         limit: int | None = None,
-        init_cursor: str | None = None,
-        file_location: FileLocation | None = None,
+        bookmark: Bookmark | None = None,
     ) -> Iterable[Page[ThreeDModelClassicResponse]]:
         published: bool | None = None
         if isinstance(selector, ThreeDModelFilteredSelector):
@@ -477,7 +476,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
         included_models: set[int] | None = None
         if isinstance(selector, ThreeDModelIdSelector):
             included_models = set(selector.ids)
-        cursor: str | None = init_cursor
+        cursor: str | None = bookmark.cursor if bookmark else None
         total = 0
         while True:
             request_limit = min(self.DOWNLOAD_LIMIT, limit - total) if limit is not None else self.DOWNLOAD_LIMIT
@@ -487,7 +486,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
             items = [item for item in response.items if self._is_selected(item, included_models)]
             total += len(items)
             if items:
-                yield Page(worker_id="main", items=items, next_cursor=response.next_cursor)
+                yield Page(worker_id="main", items=items, bookmark=Bookmark(cursor=response.next_cursor))
             if response.next_cursor is None:
                 break
             cursor = response.next_cursor
@@ -568,8 +567,7 @@ class ThreeDAssetMappingMigrationIO(
         self,
         selector: ThreeDSelector,
         limit: int | None = None,
-        init_cursor: str | None = None,
-        file_location: FileLocation | None = None,
+        bookmark: Bookmark | None = None,
     ) -> Iterable[Page[AssetMappingClassicResponse]]:
         total = 0
         for three_d_page in self._3D_io.stream_data(selector, None):
@@ -593,7 +591,7 @@ class ThreeDAssetMappingMigrationIO(
                     items = response.items
                     total += len(items)
                     if items:
-                        yield Page(worker_id="main", items=items, next_cursor=response.next_cursor)
+                        yield Page(worker_id="main", items=items, bookmark=Bookmark(cursor=response.next_cursor))
                     if response.next_cursor is None:
                         break
                     cursor = response.next_cursor

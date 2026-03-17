@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.storageio import (
+    Bookmark,
     ChartIO,
     Page,
     T_DataRequest,
@@ -36,7 +37,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     UploadItem,
 )
 from cognite_toolkit._cdf_tk.storageio.logger import FileDataLogger, OperationStatus
-from cognite_toolkit._cdf_tk.storageio.progress import CDFProgressYAML, FileLocation, FileProgressYAML, Progress
+from cognite_toolkit._cdf_tk.storageio.progress import CDFProgressYAML, FileProgressYAML, Progress
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
@@ -102,15 +103,16 @@ class MigrationCommand(ToolkitCommand):
                 if total_items is not None:
                     iteration_count = (total_items // data.CHUNK_SIZE) + (1 if total_items % data.CHUNK_SIZE > 0 else 0)
 
-                init_cursor: str | None = None
-                init_file_location: FileLocation | None = None
+                init_bookmark: Bookmark | None = None
                 progress = Progress.try_load(log_dir, filestem=str(selected))
                 if progress is not None:
                     if isinstance(progress, CDFProgressYAML) and len(progress.cursors) == 1:
                         init_cursor = next(iter(progress.cursors.values()))
+                        init_bookmark = Bookmark(cursor=init_cursor)
                         console.print(f"Resuming migration for {selected.display_name} from cursor {init_cursor!r}.")
                     elif isinstance(progress, FileProgressYAML) and len(progress.locations) == 1:
-                        init_file_location = progress.locations[0]
+                        init_file_location = next(iter(progress.locations.values()))
+                        init_bookmark = Bookmark(file_location=init_file_location)
                         console.print(
                             f"Resuming migration for {selected.display_name} from"
                             f" lineno {init_file_location.lineno:,} in {init_file_location.filepath.as_posix()!r}."
@@ -121,9 +123,7 @@ class MigrationCommand(ToolkitCommand):
                         )
 
                 executor = ProducerWorkerExecutor[Page[T_DataResponse], Page[UploadItem[T_DataRequest]]](
-                    download_iterable=data.stream_data(
-                        selected, init_cursor=init_cursor, file_location=init_file_location
-                    ),
+                    download_iterable=data.stream_data(selected, bookmark=init_bookmark),
                     process=self._convert(mapper, data),
                     write=self._upload(selected, write_client, data, dry_run, log_dir),
                     iteration_count=iteration_count,
@@ -254,7 +254,7 @@ class MigrationCommand(ToolkitCommand):
                     for target, item in zip(mapped, source.items)
                     if target is not None
                 ],
-                next_cursor=source.next_cursor,
+                bookmark=source.bookmark,
             )
 
         return track_mapping
@@ -298,15 +298,15 @@ class MigrationCommand(ToolkitCommand):
                 target.logger.log(issues)
 
             # Remove false check, when feature is ready.
-            if False and page.next_cursor is not None:
+            if False and page.bookmark.cursor is not None:
                 CDFProgressYAML(
                     status="in-progress",
-                    cursors={page.worker_id: page.next_cursor},
+                    cursors={page.worker_id: page.bookmark.cursor},
                 ).dump_to_file(log_dir, filestem=str(selected))
-            if False and page.file_location is not None:
+            if False and page.bookmark.file_location is not None:
                 FileProgressYAML(
                     status="in-progress",
-                    locations={page.worker_id: page.file_location},
+                    locations={page.worker_id: page.bookmark.file_location},
                 )
             return None
 

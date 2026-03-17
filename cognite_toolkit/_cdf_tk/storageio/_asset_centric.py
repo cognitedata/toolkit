@@ -39,6 +39,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
 from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResource
 
 from ._base import (
+    Bookmark,
     ConfigurableStorageIO,
     Page,
     StorageIOConfig,
@@ -46,7 +47,6 @@ from ._base import (
     TableUploadableStorageIO,
     UploadItem,
 )
-from .progress import FileLocation
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
@@ -314,11 +314,10 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         self,
         selector: AssetCentricSelector,
         limit: int | None = None,
-        init_cursor: str | None = None,
-        file_location: FileLocation | None = None,
+        bookmark: Bookmark | None = None,
     ) -> Iterable[Page]:
         filter_ = self._get_classic_filter(selector)
-        cursor: str | None = init_cursor
+        cursor: str | None = bookmark.cursor if bookmark else None
         total_count = 0
         while True:
             page = self.client.tool.assets.paginate(
@@ -328,7 +327,7 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
                 cursor=cursor,
             )
             self._collect_dependencies(page.items, selector)
-            yield Page(worker_id="main", items=page.items)
+            yield Page(worker_id="main", items=page.items, bookmark=Bookmark(cursor=page.next_cursor))
             total_count += len(page.items)
             if page.next_cursor is None or (limit is not None and total_count >= limit):
                 break
@@ -446,11 +445,10 @@ class FileMetadataIO(AssetCentricIO[FileMetadataResponse]):
         self,
         selector: AssetCentricSelector,
         limit: int | None = None,
-        init_cursor: str | None = None,
-        file_location: FileLocation | None = None,
+        bookmark: Bookmark | None = None,
     ) -> Iterable[Page[FileMetadataResponse]]:
         filter_ = self._get_classic_filter(selector)
-        cursor: str | None = init_cursor
+        cursor: str | None = bookmark.cursor if bookmark else None
         total_count = 0
         while True:
             page = self.client.tool.filemetadata.paginate(
@@ -459,7 +457,7 @@ class FileMetadataIO(AssetCentricIO[FileMetadataResponse]):
                 cursor=cursor,
             )
             self._collect_dependencies(page.items, selector)
-            yield Page(worker_id="main", items=page.items)
+            yield Page(worker_id="main", items=page.items, bookmark=Bookmark(cursor=page.next_cursor))
             total_count += len(page.items)
             if page.next_cursor is None or (limit is not None and total_count >= limit):
                 break
@@ -505,11 +503,10 @@ class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesReques
         self,
         selector: AssetCentricSelector,
         limit: int | None = None,
-        init_cursor: str | None = None,
-        file_location: FileLocation | None = None,
+        bookmark: Bookmark | None = None,
     ) -> Iterable[Page]:
         filter_ = self._get_classic_filter(selector)
-        cursor: str | None = init_cursor
+        cursor: str | None = bookmark.cursor if bookmark else None
         total_count = 0
         while True:
             page = self.client.tool.timeseries.paginate(
@@ -518,7 +515,7 @@ class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesReques
                 cursor=cursor,
             )
             self._collect_dependencies(page.items, selector)
-            yield Page(worker_id="main", items=page.items)
+            yield Page(worker_id="main", items=page.items, bookmark=Bookmark(cursor=page.next_cursor))
             total_count += len(page.items)
             if page.next_cursor is None or (limit is not None and total_count >= limit):
                 break
@@ -644,11 +641,10 @@ class EventIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
         self,
         selector: AssetCentricSelector,
         limit: int | None = None,
-        init_cursor: str | None = None,
-        file_location: FileLocation | None = None,
+        bookmark: Bookmark | None = None,
     ) -> Iterable[Page]:
         filter_ = self._get_classic_filter(selector)
-        cursor: str | None = init_cursor
+        cursor: str | None = bookmark.cursor if bookmark else None
         total_count = 0
         while True:
             page = self.client.tool.events.paginate(
@@ -657,7 +653,7 @@ class EventIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
                 cursor=cursor,
             )
             self._collect_dependencies(page.items, selector)
-            yield Page(worker_id="main", items=page.items)
+            yield Page(worker_id="main", items=page.items, bookmark=Bookmark(cursor=page.next_cursor))
             total_count += len(page.items)
             if page.next_cursor is None or (limit is not None and total_count >= limit):
                 break
@@ -713,10 +709,9 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResour
         self,
         selector: AssetCentricSelector,
         limit: int | None = None,
-        init_cursor: str | None = None,
-        file_location: FileLocation | None = None,
+        bookmark: Bookmark | None = None,
     ) -> Iterable[Page[AssetCentricResource]]:
-        yield from self.get_resource_io(selector.kind).stream_data(selector, limit, init_cursor, file_location)
+        yield from self.get_resource_io(selector.kind).stream_data(selector, limit, bookmark=bookmark)
 
     def count(self, selector: AssetCentricSelector) -> int | None:
         return self.get_resource_io(selector.kind).count(selector)

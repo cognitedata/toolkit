@@ -11,6 +11,7 @@ from ._asset_centric import (
     TimeSeriesIO,
 )
 from ._base import (
+    Bookmark,
     ConfigurableStorageIO,
     Page,
     StorageIO,
@@ -47,6 +48,7 @@ __all__ = [
     "AnnotationIO",
     "AssetCentricIO",
     "AssetIO",
+    "Bookmark",
     "CanvasIO",
     "ChartIO",
     "ConfigurableStorageIO",

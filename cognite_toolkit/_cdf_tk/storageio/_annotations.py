@@ -13,8 +13,7 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._asset_centric import FileMetadataIO
-from ._base import Page, StorageIO
-from .progress import FileLocation
+from ._base import Bookmark, Page, StorageIO
 from .selectors import AssetCentricSelector
 
 
@@ -34,8 +33,7 @@ class AnnotationIO(StorageIO[AssetCentricSelector, AnnotationResponse]):
         self,
         selector: AssetCentricSelector,
         limit: int | None = None,
-        init_cursor: str | None = None,
-        file_location: FileLocation | None = None,
+        bookmark: Bookmark | None = None,
     ) -> Iterable[Page[AnnotationResponse]]:
         total = 0
         annotation_types: list[AnnotationType] = ["diagrams.AssetLink", "diagrams.FileLink"]
@@ -49,7 +47,7 @@ class AnnotationIO(StorageIO[AssetCentricSelector, AnnotationResponse]):
                 remaining = limit - total if limit is not None else None
                 for page_items in self.client.tool.annotations.iterate(filter=annotation_filter, limit=remaining):
                     for chunk in chunker_sequence(page_items, self.CHUNK_SIZE):
-                        yield Page(worker_id="main", items=chunk)
+                        yield Page(worker_id="main", items=chunk, bookmark=Bookmark())
                         total += len(chunk)
                         if limit is not None and total >= limit:
                             return
