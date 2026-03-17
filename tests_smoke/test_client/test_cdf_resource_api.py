@@ -1996,10 +1996,19 @@ class TestCDFResourceAPI:
         subscription_request = SignalSubscriptionRequest.model_validate(subscription_example)
         subscription_id = subscription_request.as_id()
 
+        def _safe_delete_signals() -> None:
+            """Best-effort cleanup; the alpha signals API may return 404 even with ignoreUnknownIds."""
+            try:
+                client.tool.signal_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
+            except ToolkitAPIError:
+                pass
+            try:
+                client.tool.signal_sinks.delete([sink_id], ignore_unknown_ids=True)
+            except ToolkitAPIError:
+                pass
+
         try:
-            # Clean up stale resources from previous runs
-            client.tool.signal_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
-            client.tool.signal_sinks.delete([sink_id], ignore_unknown_ids=True)
+            _safe_delete_signals()
 
             # Create sink (subscription depends on it)
             sink_endpoints = client.tool.signal_sinks._method_endpoint_map
@@ -2033,5 +2042,4 @@ class TestCDFResourceAPI:
             if len(listed) == 0:
                 raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed subscription, got 0")
         finally:
-            client.tool.signal_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
-            client.tool.signal_sinks.delete([sink_id], ignore_unknown_ids=True)
+            _safe_delete_signals()
