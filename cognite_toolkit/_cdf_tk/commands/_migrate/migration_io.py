@@ -119,10 +119,10 @@ class AssetCentricMigrationIO(
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for count")
 
     def _stream_given_dataset(
-        self, selector: MigrateDataSetSelector, limit: int | None = None
+        self, selector: MigrateDataSetSelector, limit: int | None = None, init_cursor: str | None = None
     ) -> Iterator[Sequence[AssetCentricMapping[T_AssetCentricResource]]]:
         asset_centric_selector = selector.as_asset_centric_selector()
-        for data_chunk in self.hierarchy.stream_data(asset_centric_selector, limit):
+        for data_chunk in self.hierarchy.stream_data(asset_centric_selector, limit, init_cursor):
             mapping_list: list[AssetCentricMapping[T_AssetCentricResource]] = []
             for resource in data_chunk.items:
                 # We got the resource from a dataset selector, so we know it is there
