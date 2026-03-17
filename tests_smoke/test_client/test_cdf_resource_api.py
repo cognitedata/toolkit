@@ -496,7 +496,7 @@ def get_examples_minimum_requests(request_cls: type[ResponseResource]) -> list[d
             {
                 "externalId": "smoke-test-signal-subscription",
                 "sink": {"type": "email", "externalId": "smoke-test-signal-sink"},
-                "filter": {"topic": "cognite_integrations"},
+                "filter": {"topic": "cognite_extractors"},
             }
         ],
         SequenceResponse: [
