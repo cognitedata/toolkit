@@ -311,7 +311,8 @@ class DeployV2Command(ToolkitCommand):
         results: list[DeploymentResult] = []
         console = client.console
         with Progress(console=console) as progress:
-            task_id = progress.add_task("Starting deploying", total=len(plan))
+            total_files = sum(len(step.files) for step in plan)
+            task_id = progress.add_task("Starting deploying", total=total_files)
             for step in plan:
                 crud = step.crud_cls.create_loader(client)
                 resource_name = crud.display_name
@@ -345,7 +346,7 @@ class DeployV2Command(ToolkitCommand):
 
                 results.append(result)
 
-                progress.update(task_id, advance=1)
+                progress.update(task_id, advance=len(step.files))
             progress.update(task_id, description="Finished deploying.")
         return results
 
