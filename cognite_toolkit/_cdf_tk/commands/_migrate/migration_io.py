@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     UploadableStorageIO,
 )
 from cognite_toolkit._cdf_tk.storageio._base import Page, UploadItem
+from cognite_toolkit._cdf_tk.storageio.progress import FileLocation
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     ThreeDModelFilteredSelector,
     ThreeDModelIdSelector,
@@ -85,10 +86,14 @@ class AssetCentricMigrationIO(
         return str(item.mapping.as_asset_centric_id())
 
     def stream_data(
-        self, selector: AssetCentricMigrationSelector, limit: int | None = None, init_cursor: str | None = None
+        self,
+        selector: AssetCentricMigrationSelector,
+        limit: int | None = None,
+        init_cursor: str | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterator[Page]:
         if isinstance(selector, MigrationCSVFileSelector):
-            iterator = self._stream_from_csv(selector, limit)
+            iterator = self._stream_from_csv(selector, limit, file_location)
         elif isinstance(selector, MigrateDataSetSelector):
             iterator = self._stream_given_dataset(selector, limit)
         else:
@@ -96,9 +101,14 @@ class AssetCentricMigrationIO(
         yield from (Page(worker_id="main", items=items) for items in iterator)
 
     def _stream_from_csv(
-        self, selector: MigrationCSVFileSelector, limit: int | None = None
+        self,
+        selector: MigrationCSVFileSelector,
+        limit: int | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterator[Sequence[AssetCentricMapping[T_AssetCentricResource]]]:
         items = selector.items
+        if file_location is not None:
+            items = MigrationMappingList(items[file_location.lineno :])
         if limit is not None:
             items = MigrationMappingList(items[:limit])
         chunk: list[AssetCentricMapping[T_AssetCentricResource]] = []
@@ -317,12 +327,16 @@ class AnnotationMigrationIO(
             return None
 
     def stream_data(
-        self, selector: AssetCentricMigrationSelector, limit: int | None = None, init_cursor: str | None = None
+        self,
+        selector: AssetCentricMigrationSelector,
+        limit: int | None = None,
+        init_cursor: str | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterable[Page]:
         if isinstance(selector, MigrateDataSetSelector):
             iterator = self._stream_from_dataset(selector, limit)
         elif isinstance(selector, MigrationCSVFileSelector):
-            iterator = self._stream_from_csv(selector, limit)
+            iterator = self._stream_from_csv(selector, limit, file_location)
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
         yield from (Page(worker_id="main", items=items) for items in iterator)
@@ -351,9 +365,14 @@ class AnnotationMigrationIO(
             yield mapping_list
 
     def _stream_from_csv(
-        self, selector: MigrationCSVFileSelector, limit: int | None = None
+        self,
+        selector: MigrationCSVFileSelector,
+        limit: int | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterator[Sequence[AssetCentricMapping[AnnotationResponse]]]:
         items = selector.items
+        if file_location is not None:
+            items = MigrationMappingList(items[file_location.lineno :])
         if limit is not None:
             items = MigrationMappingList(items[:limit])
         chunk: list[AssetCentricMapping[AnnotationResponse]] = []
@@ -446,7 +465,11 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
             return item.space is not None
 
     def stream_data(
-        self, selector: ThreeDSelector, limit: int | None = None, init_cursor: str | None = None
+        self,
+        selector: ThreeDSelector,
+        limit: int | None = None,
+        init_cursor: str | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterable[Page[ThreeDModelClassicResponse]]:
         published: bool | None = None
         if isinstance(selector, ThreeDModelFilteredSelector):
@@ -542,7 +565,11 @@ class ThreeDAssetMappingMigrationIO(
         return f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.asset_id!s}"
 
     def stream_data(
-        self, selector: ThreeDSelector, limit: int | None = None, init_cursor: str | None = None
+        self,
+        selector: ThreeDSelector,
+        limit: int | None = None,
+        init_cursor: str | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterable[Page[AssetMappingClassicResponse]]:
         total = 0
         for three_d_page in self._3D_io.stream_data(selector, None):

@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
+from cognite_toolkit._cdf_tk.storageio.progress import FileLocation
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -35,6 +36,11 @@ class StorageIOConfig:
     filename: str | None = None
 
 
+@dataclass
+class Bookmark:
+    cursor: str | None = None
+    file_location: FileLocation | None = None
+
 T_Selector = TypeVar("T_Selector", bound=DataSelector)
 
 
@@ -42,7 +48,7 @@ T_Selector = TypeVar("T_Selector", bound=DataSelector)
 class Page(Generic[T_DataResponse], Sized):
     worker_id: str
     items: Sequence[T_DataResponse]
-    next_cursor: str | None = None
+    bookmark: Bookmark
 
     def __len__(self) -> int:
         return len(self.items)
@@ -104,7 +110,10 @@ class StorageIO(ABC, Generic[T_Selector, T_DataResponse]):
 
     @abstractmethod
     def stream_data(
-        self, selector: T_Selector, limit: int | None = None, init_cursor: str | None = None
+        self,
+        selector: T_Selector,
+        limit: int | None = None,
+        bookmark: Bookmark | None = None,
     ) -> Iterable[Page[T_DataResponse]]:
         """Download items from the storage given the selection criteria.
 
@@ -112,6 +121,7 @@ class StorageIO(ABC, Generic[T_Selector, T_DataResponse]):
             selector: The selection criteria to filter the items to download.
             limit: Optional limit on the number of items to download.
             init_cursor: Optional initial cursor to start downloading.
+            file_location: Optional file location to download the items from.
 
         Returns:
             An iterable of writable Cognite resource lists.

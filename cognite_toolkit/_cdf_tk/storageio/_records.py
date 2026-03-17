@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
 from ._base import ConfigurableStorageIO, Page, UploadableStorageIO, UploadItem
+from .progress import FileLocation
 from .selectors import RecordContainerSelector
 
 
@@ -158,7 +159,11 @@ class RecordIO(
         return {"and": [has_data_filter, space_filter]}
 
     def stream_data(
-        self, selector: RecordContainerSelector, limit: int | None = None, init_cursor: str | None = None
+        self,
+        selector: RecordContainerSelector,
+        limit: int | None = None,
+        init_cursor: str | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterable[Page]:
         if selector.initialize_cursor is None:
             # This should never happen as we always set initialize_cursor on the selector for download operations.

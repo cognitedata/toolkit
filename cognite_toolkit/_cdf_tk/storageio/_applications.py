@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Page, UploadableStorageIO, UploadItem
 from .logger import LogIssue
+from .progress import FileLocation
 from .selectors import (
     AllChartsSelector,
     CanvasExternalIdSelector,
@@ -66,7 +67,11 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
         return item.external_id
 
     def stream_data(
-        self, selector: ChartSelector, limit: int | None = None, init_cursor: str | None = None
+        self,
+        selector: ChartSelector,
+        limit: int | None = None,
+        init_cursor: str | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterable[Page]:
         selected_charts = self.client.charts.list(visibility=None)
         self._existing_charts = {chart.external_id for chart in selected_charts}
@@ -238,7 +243,11 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
         return item.external_id
 
     def stream_data(
-        self, selector: CanvasSelector, limit: int | None = None, init_cursor: str | None = None
+        self,
+        selector: CanvasSelector,
+        limit: int | None = None,
+        init_cursor: str | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterable[Page]:
         if not isinstance(selector, CanvasExternalIdSelector):
             raise ToolkitNotImplementedError(f"Unsupported selector type {type(selector).__name__!r} for CanvasIO")

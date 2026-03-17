@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import Page, UploadableStorageIO, UploadItem
+from .progress import FileLocation
 from .selectors import FileContentSelector, FileIdentifierSelector, FileMetadataTemplateSelector
 from .selectors._file_content import (
     FILEPATH,
@@ -84,7 +85,11 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         return item.metadata.external_id or str(item.metadata.id)
 
     def stream_data(
-        self, selector: FileContentSelector, limit: int | None = None, init_cursor: str | None = None
+        self,
+        selector: FileContentSelector,
+        limit: int | None = None,
+        init_cursor: str | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterable[Page[MetadataWithFilePath]]:
         if not isinstance(selector, FileIdentifierSelector):
             raise ToolkitNotImplementedError(

@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._asset_centric import FileMetadataIO
 from ._base import Page, StorageIO
+from .progress import FileLocation
 from .selectors import AssetCentricSelector
 
 
@@ -30,7 +31,11 @@ class AnnotationIO(StorageIO[AssetCentricSelector, AnnotationResponse]):
         return f"INTERNAL_ID_project_{project}_{item.id!s}"
 
     def stream_data(
-        self, selector: AssetCentricSelector, limit: int | None = None, init_cursor: str | None = None
+        self,
+        selector: AssetCentricSelector,
+        limit: int | None = None,
+        init_cursor: str | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterable[Page[AnnotationResponse]]:
         total = 0
         annotation_types: list[AnnotationType] = ["diagrams.AssetLink", "diagrams.FileLink"]

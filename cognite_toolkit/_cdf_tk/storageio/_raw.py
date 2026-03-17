@@ -20,6 +20,7 @@ from ._base import (
     TableUploadableStorageIO,
     UploadItem,
 )
+from .progress import FileLocation
 from .selectors import RawTableSelector
 
 
@@ -45,7 +46,11 @@ class RawIO(
         return None
 
     def stream_data(
-        self, selector: RawTableSelector, limit: int | None = None, init_cursor: str | None = None
+        self,
+        selector: RawTableSelector,
+        limit: int | None = None,
+        init_cursor: str | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterable[Page]:
         for chunk in self.client.raw.rows(
             db_name=selector.table.db_name,

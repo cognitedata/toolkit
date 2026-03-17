@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     UploadItem,
 )
 from cognite_toolkit._cdf_tk.storageio.logger import FileDataLogger, OperationStatus
-from cognite_toolkit._cdf_tk.storageio.progress import CDFProgressYAML, Progress
+from cognite_toolkit._cdf_tk.storageio.progress import CDFProgressYAML, FileLocation, FileProgressYAML, Progress
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
@@ -103,18 +103,27 @@ class MigrationCommand(ToolkitCommand):
                     iteration_count = (total_items // data.CHUNK_SIZE) + (1 if total_items % data.CHUNK_SIZE > 0 else 0)
 
                 init_cursor: str | None = None
+                init_file_location: FileLocation | None = None
                 progress = Progress.try_load(log_dir, filestem=str(selected))
                 if progress is not None:
                     if isinstance(progress, CDFProgressYAML) and len(progress.cursors) == 1:
                         init_cursor = next(iter(progress.cursors.values()))
                         console.print(f"Resuming migration for {selected.display_name} from cursor {init_cursor!r}.")
+                    elif isinstance(progress, FileProgressYAML) and len(progress.locations) == 1:
+                        init_file_location = progress.locations[0]
+                        console.print(
+                            f"Resuming migration for {selected.display_name} from"
+                            f" lineno {init_file_location.lineno:,} in {init_file_location.filepath.as_posix()!r}."
+                        )
                     else:
                         console.print(
                             f"Found progress file but failed to load cursor for {selected.display_name}. Starting migration from the beginning."
                         )
 
                 executor = ProducerWorkerExecutor[Page[T_DataResponse], Page[UploadItem[T_DataRequest]]](
-                    download_iterable=data.stream_data(selected, init_cursor=init_cursor),
+                    download_iterable=data.stream_data(
+                        selected, init_cursor=init_cursor, file_location=init_file_location
+                    ),
                     process=self._convert(mapper, data),
                     write=self._upload(selected, write_client, data, dry_run, log_dir),
                     iteration_count=iteration_count,
@@ -134,7 +143,7 @@ class MigrationCommand(ToolkitCommand):
 
                 self._print_rich_tables(results, console)
                 self._print_txt(results, log_dir, f"{selected!s}Items", console)
-                progress = CDFProgressYAML.try_load(log_dir, filestem=str(selected))
+                progress = Progress.try_load(log_dir, filestem=str(selected))
                 if progress is not None:
                     progress.status = executor.result
                     progress.dump_to_file(log_dir, filestem=str(selected))
@@ -294,7 +303,11 @@ class MigrationCommand(ToolkitCommand):
                     status="in-progress",
                     cursors={page.worker_id: page.next_cursor},
                 ).dump_to_file(log_dir, filestem=str(selected))
-
+            if False and page.file_location is not None:
+                FileProgressYAML(
+                    status="in-progress",
+                    locations={page.worker_id: page.file_location},
+                )
             return None
 
         return upload_items

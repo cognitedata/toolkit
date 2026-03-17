@@ -46,6 +46,7 @@ from ._base import (
     TableUploadableStorageIO,
     UploadItem,
 )
+from .progress import FileLocation
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
@@ -310,7 +311,11 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         return asset_schema + metadata_schema
 
     def stream_data(
-        self, selector: AssetCentricSelector, limit: int | None = None, init_cursor: str | None = None
+        self,
+        selector: AssetCentricSelector,
+        limit: int | None = None,
+        init_cursor: str | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterable[Page]:
         filter_ = self._get_classic_filter(selector)
         cursor: str | None = init_cursor
@@ -438,7 +443,11 @@ class FileMetadataIO(AssetCentricIO[FileMetadataResponse]):
         return file_schema + metadata_schema
 
     def stream_data(
-        self, selector: AssetCentricSelector, limit: int | None = None, init_cursor: str | None = None
+        self,
+        selector: AssetCentricSelector,
+        limit: int | None = None,
+        init_cursor: str | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterable[Page[FileMetadataResponse]]:
         filter_ = self._get_classic_filter(selector)
         cursor: str | None = init_cursor
@@ -493,7 +502,11 @@ class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesReques
         return self.client.tool.timeseries.retrieve(InternalId.from_ids(ids))
 
     def stream_data(
-        self, selector: AssetCentricSelector, limit: int | None = None, init_cursor: str | None = None
+        self,
+        selector: AssetCentricSelector,
+        limit: int | None = None,
+        init_cursor: str | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterable[Page]:
         filter_ = self._get_classic_filter(selector)
         cursor: str | None = init_cursor
@@ -628,7 +641,11 @@ class EventIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
         return event_schema + metadata_schema
 
     def stream_data(
-        self, selector: AssetCentricSelector, limit: int | None = None, init_cursor: str | None = None
+        self,
+        selector: AssetCentricSelector,
+        limit: int | None = None,
+        init_cursor: str | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterable[Page]:
         filter_ = self._get_classic_filter(selector)
         cursor: str | None = init_cursor
@@ -693,9 +710,13 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResour
         return item.external_id or AssetCentricIO.create_internal_identifier(item.id, self.client.config.project)
 
     def stream_data(
-        self, selector: AssetCentricSelector, limit: int | None = None, init_cursor: str | None = None
+        self,
+        selector: AssetCentricSelector,
+        limit: int | None = None,
+        init_cursor: str | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterable[Page[AssetCentricResource]]:
-        yield from self.get_resource_io(selector.kind).stream_data(selector, limit, init_cursor)
+        yield from self.get_resource_io(selector.kind).stream_data(selector, limit, init_cursor, file_location)
 
     def count(self, selector: AssetCentricSelector) -> int | None:
         return self.get_resource_io(selector.kind).count(selector)

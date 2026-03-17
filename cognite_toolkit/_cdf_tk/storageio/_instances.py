@@ -39,6 +39,7 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
 from ._base import ConfigurableStorageIO, Page, UploadableStorageIO
+from .progress import FileLocation
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector, SelectedView
 from .selectors._instances import InstanceQuerySelector
 
@@ -168,7 +169,11 @@ class InstanceIO(
             source.properties = {k: v for k, v in source.properties.items() if k not in readonly_properties}
 
     def stream_data(
-        self, selector: InstanceSelector, limit: int | None = None, init_cursor: str | None = None
+        self,
+        selector: InstanceSelector,
+        limit: int | None = None,
+        init_cursor: str | None = None,
+        file_location: FileLocation | None = None,
     ) -> Iterable[Page]:
         if isinstance(selector, InstanceViewSelector) and selector.edge_types and selector.instance_type == "node":
             yield from self._instances_with_container_and_edge_properties(selector, limit, init_cursor)
