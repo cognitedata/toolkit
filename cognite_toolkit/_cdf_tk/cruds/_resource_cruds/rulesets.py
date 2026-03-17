@@ -1,5 +1,6 @@
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Any, Literal, final
+from pathlib import Path
+from typing import Any, Literal, cast, final
 
 from cognite.client.data_classes.capabilities import Capability
 
@@ -11,8 +12,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import (
     RuleSetVersionRequest,
     RuleSetVersionResponse,
 )
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.auth import GroupAllScopedCRUD
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import RuleSetVersionYAML, RuleSetYAML
 
 
@@ -101,15 +106,25 @@ class RuleSetVersionCRUD(ResourceCRUD[RuleSetVersionId, RuleSetVersionRequest, R
     @classmethod
     def get_id(cls, item: RuleSetVersionRequest | RuleSetVersionResponse | dict) -> RuleSetVersionId:
         if isinstance(item, dict):
+            ext_id = item.get("ruleSetExternalId") or item.get("rule_set_external_id")
+            version = item.get("version")
+            if ext_id is None:
+                raise KeyError("ruleSetExternalId")
+            if version is None:
+                raise KeyError("version")
             return RuleSetVersionId(
-                rule_set_external_id=item["ruleSetExternalId"],
-                version=item["version"],
+                rule_set_external_id=ext_id,
+                version=version,
             )
         return item.as_id()
 
     @classmethod
     def dump_id(cls, id: RuleSetVersionId) -> dict[str, Any]:
         return id.dump()
+
+    @classmethod
+    def as_str(cls, id: RuleSetVersionId) -> str:
+        return sanitize_filename(f"{id.rule_set_external_id}_v{id.version}")
 
     @classmethod
     def get_required_capability(
@@ -133,6 +148,56 @@ class RuleSetVersionCRUD(ResourceCRUD[RuleSetVersionId, RuleSetVersionRequest, R
     @classmethod
     def get_dependencies(cls, resource: RuleSetVersionYAML) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
         yield RuleSetCRUD, ExternalId(external_id=resource.rule_set_external_id)
+
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        resources = load_yaml_inject_variables(
+            self.safe_read(filepath),
+            environment_variables or {},
+            original_filepath=filepath,
+        )
+        raw_list = resources if isinstance(resources, list) else [resources]
+
+        for item in raw_list:
+            rules_file: Path | None = None
+            if "rulesFile" in item:
+                rules_file = filepath.parent / Path(item.pop("rulesFile"))
+
+            rule_set_id = item.get("ruleSetExternalId", item.get("rule_set_external_id", filepath.stem))
+            if rules_file is None and "rules" not in item:
+                warning = HighSeverityWarning(
+                    f"'rules' property is missing in {filepath.as_posix()!r}. "
+                    f"It can be inline or a separate file named {filepath.stem}.ttl or {rule_set_id}.ttl",
+                )
+                warning.print_warning(console=self.console)
+            elif rules_file and not rules_file.exists():
+                raise ToolkitFileNotFoundError(f"Rules file {rules_file.as_posix()} not found", filepath)
+            elif rules_file and "rules" in item:
+                raise ToolkitYAMLFormatError(
+                    f"'rules' is defined in both the YAML and an external file {rules_file}.\n"
+                    f"Please remove one: either the inline 'rules' in {filepath} or the file {rules_file}",
+                    filepath,
+                )
+            elif rules_file:
+                content = safe_read(rules_file, encoding=BUILD_FOLDER_ENCODING)
+                item["rules"] = [content]
+
+        return raw_list
+
+    def split_resource(
+        self, base_filepath: Path, resource: dict[str, Any]
+    ) -> Iterable[tuple[Path, dict[str, Any] | str]]:
+        """Write rules to a .ttl file only if one does not already exist."""
+        rules = resource.pop("rules", None)
+        ttl_path = base_filepath.with_suffix(".ttl")
+        if rules:
+            if ttl_path.exists():
+                resource["rules"] = rules
+            else:
+                yield ttl_path, cast(str, "\n\n".join(rules))
+                resource["rulesFile"] = ttl_path.name
+        yield base_filepath, resource
 
     def create(self, items: Sequence[RuleSetVersionRequest]) -> list[RuleSetVersionResponse]:
         if not items:

@@ -15,10 +15,16 @@ class RuleSetVersionYAML(ToolkitResource):
     version: SemanticVersion = Field(
         description="Semantic version of this rule set version (major.minor.patch).",
     )
-    rules: list[str] = Field(
-        description="Immutable list of rules in SHACL/Turtle format.",
+    rules: list[str] | None = Field(
+        default=None,
+        description="Inline SHACL rules in Turtle format. Mutually exclusive with rulesFile.",
         min_length=1,
         max_length=100,
+    )
+    rules_file: str | None = Field(
+        default=None,
+        alias="rulesFile",
+        description="Used by Toolkit: path to a .ttl file containing SHACL rules in Turtle format. Mutually exclusive with rules.",
     )
 
     def as_id(self) -> RuleSetVersionId:
