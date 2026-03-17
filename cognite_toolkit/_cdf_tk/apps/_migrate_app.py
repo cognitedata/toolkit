@@ -651,6 +651,7 @@ class MigrateApp(typer.Typer):
                 help="Filter events by subtype. Only events matching this subtype will be migrated.",
             ),
         ] = None,
+        # TODO: Introduce a skip-existing option for records once we have figured out record existence check.
         log_dir: Annotated[
             Path,
             typer.Option(
@@ -689,7 +690,7 @@ class MigrateApp(typer.Typer):
         record_mappings = load_record_property_mappings(ingestion_mapping_path)
         stream_external_id = record_mappings[0].stream_external_id
 
-        selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
+        selected, dry_run, verbose, skip_existing = cls._prepare_asset_centric_arguments(
             client=client,
             mapping_file=None,
             data_set_id=data_set_id,
@@ -703,6 +704,7 @@ class MigrateApp(typer.Typer):
             container_id=ContainerId(space="cdf_cdm", external_id="CogniteActivity"),
             event_type=event_type,
             event_subtype=event_subtype,
+            skip_existing=False,
         )
 
         cmd = MigrationCommand(client=client)
