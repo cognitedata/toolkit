@@ -288,7 +288,8 @@ class MigrationCommand(ToolkitCommand):
             if issues:
                 target.logger.log(issues)
 
-            if page.next_cursor is not None:
+            # Remove false check, when feature is ready.
+            if False and page.next_cursor is not None:
                 CDFProgressYAML(
                     status="in-progress",
                     cursors={page.worker_id: page.next_cursor},
