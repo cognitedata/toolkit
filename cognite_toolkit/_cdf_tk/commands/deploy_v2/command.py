@@ -534,7 +534,7 @@ class DeployV2Command(ToolkitCommand):
         crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
         skipped_cruds: Set[type[ResourceCRUD]],
-        deploy_dir: Path,
+        deploy_dir: Path | None = None,
     ) -> DeploymentResult:
         deleted, created, updated = 0, 0, 0
         action: Literal["create", "delete", "update"] | None = None
@@ -549,39 +549,7 @@ class DeployV2Command(ToolkitCommand):
                 action = "update"
                 updated = len(crud.update(resources.to_update))
         except ToolkitAPIError as error:
-            if action is None:
-                raise RuntimeError("Bug in Toolkit. No action to perform but got API error.") from error
-            if error_message := cls._missing_environment_variables(crud, resources, action):
-                raise cls._get_resource_exception(action)(error_message) from error
-
-            filepath = deploy_dir / f"{sanitize_filename(datetime.now(timezone.utc).isoformat())}.json"
-            suffix = f"The request body and response has been dumped to {filepath.as_posix()} for debugging purposes."
-            if skipped_cruds:
-                error_message = (
-                    f"Failed to {action} {crud.display_name}. This is likely due to missing dependencies on "
-                    f"{humanize_collection([crud.display_name for crud in skipped_cruds])} which were "
-                    f"skipped based on the include filter.\n{suffix}"
-                )
-            else:
-                error_message = f"Failed to {action} {crud.display_name} due to API error: {error.message}.\n{suffix}"
-
-            debug_info: dict[str, Any] = {}
-            if error.request:
-                debug_info["url"] = error.request.endpoint_url
-                debug_info["method"] = error.request.method
-                if error.request.parameters:
-                    debug_info["requestParameters"] = error.request.parameters
-                if error.request.body_content:
-                    debug_info["requestBody"] = error.request.body_content
-                elif error.request.data_content:
-                    debug_info["requestBody"] = "<bytes>"
-            debug_info["errorMessage"] = error.message
-            if error.code:
-                debug_info["statusCode"] = error.code
-
-            filepath.write_text(json.dumps(debug_info, include=4), encoding="utf-8")
-
-            raise cls._get_resource_exception(action)(error_message) from error
+            cls._handle_deploy_error(error, action, crud, resources, skipped_cruds, deploy_dir)
 
         return DeploymentResult(
             resource_name=crud.display_name,
@@ -593,6 +561,41 @@ class DeployV2Command(ToolkitCommand):
             skipped=resources.skipped,
             is_missing_write_acl=False,
         )
+
+    @classmethod
+    def _handle_deploy_error(
+        cls,
+        error: ToolkitAPIError,
+        action: Literal["create", "delete", "update"] | None,
+        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        resources: ResourceToDeploy[T_Identifier, T_RequestResource],
+        skipped_cruds: Set[type[ResourceCRUD]],
+        deploy_dir: Path | None = None,
+    ) -> None:
+        if action is None:
+            raise RuntimeError("Bug in Toolkit. No action to perform but got API error.") from error
+        if error_message := cls._missing_environment_variables(crud, resources, action):
+            raise cls._get_resource_exception(action)(error_message) from error
+
+        suffix = ""
+        if deploy_dir:
+            filepath = deploy_dir / f"{sanitize_filename(datetime.now(timezone.utc).isoformat())}.json"
+            suffix = f"\nThe request body and response has been dumped to {filepath.as_posix()} for debugging purposes."
+            json_str = json.dumps(error.as_debug_dict(), indent=2, sort_keys=False)
+            for item in resources.to_create + resources.to_update:
+                for string in crud.sensitive_strings(item):
+                    json_str = json_str.replace(string, "********")
+            filepath.write_text(json_str, encoding="utf-8")
+
+        if skipped_cruds:
+            error_message = (
+                f"Failed to {action} {crud.display_name}. This is likely due to missing dependencies on "
+                f"{humanize_collection([crud.display_name for crud in skipped_cruds])} which were "
+                f"skipped based on the include filter.{suffix}"
+            )
+        else:
+            error_message = f"Failed to {action} {crud.display_name} due to API error: {error.message}.{suffix}"
+        raise cls._get_resource_exception(action)(error_message) from error
 
     @classmethod
     def _missing_environment_variables(
@@ -609,11 +612,7 @@ class DeployV2Command(ToolkitCommand):
 
     @classmethod
     def _get_resource_exception(cls, action: Literal["create", "update", "delete"]) -> type[ToolkitError]:
-        return {
-            "update": ResourceUpdateError,
-            "delete": ResourceDeleteError,
-            "create": ResourceCreationError,
-        }[action]
+        return {"update": ResourceUpdateError, "delete": ResourceDeleteError, "create": ResourceCreationError}[action]
 
     @classmethod
     def _display_results(cls, client: ToolkitClient, results: Sequence[DeploymentResult]) -> None:

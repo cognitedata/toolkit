@@ -23,3 +23,19 @@ class ToolkitAPIError(Exception):
         self.code = code
         self.is_auto_retryable = is_auto_retryable
         self.request = request
+
+    def as_debug_dict(self) -> dict[str, Any]:
+        debug_info: dict[str, Any] = {}
+        if self.request:
+            debug_info["url"] = self.request.endpoint_url
+            debug_info["method"] = self.request.method
+            if self.request.parameters:
+                debug_info["requestParameters"] = self.request.parameters
+            if self.request.body_content:
+                debug_info["requestBody"] = self.request.body_content
+            elif self.request.data_content:
+                debug_info["requestBody"] = "<bytes>"
+        debug_info["errorMessage"] = self.message
+        if self.code:
+            debug_info["statusCode"] = self.code
+        return debug_info
