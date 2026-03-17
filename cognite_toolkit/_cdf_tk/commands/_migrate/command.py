@@ -26,8 +26,15 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMigrationError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
-from cognite_toolkit._cdf_tk.storageio import ChartIO, T_Selector, UploadableStorageIO, UploadItem
+from cognite_toolkit._cdf_tk.storageio import (
+    ChartIO,
+    Page,
+    T_DataRequest,
+    T_DataResponse,
+    T_Selector,
+    UploadableStorageIO,
+    UploadItem,
+)
 from cognite_toolkit._cdf_tk.storageio.logger import FileDataLogger, OperationStatus
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
@@ -55,8 +62,8 @@ class MigrationCommand(ToolkitCommand):
     def migrate(
         self,
         selectors: Sequence[T_Selector],
-        data: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
-        mapper: DataMapper[T_Selector, T_ResourceResponse, T_ResourceRequest],
+        data: UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest],
+        mapper: DataMapper[T_Selector, T_DataResponse, T_DataRequest],
         log_dir: Path,
         dry_run: bool = False,
         verbose: bool = False,
@@ -94,10 +101,8 @@ class MigrationCommand(ToolkitCommand):
                 if total_items is not None:
                     iteration_count = (total_items // data.CHUNK_SIZE) + (1 if total_items % data.CHUNK_SIZE > 0 else 0)
 
-                executor = ProducerWorkerExecutor[
-                    Sequence[T_ResourceResponse], Sequence[UploadItem[T_ResourceRequest]]
-                ](
-                    download_iterable=(page.items for page in data.stream_data(selected)),
+                executor = ProducerWorkerExecutor[Page[T_DataResponse], Page[UploadItem[T_DataRequest]]](
+                    download_iterable=data.stream_data(selected),
                     process=self._convert(mapper, data),
                     write=self._upload(selected, write_client, data, dry_run),
                     iteration_count=iteration_count,
@@ -125,7 +130,7 @@ class MigrationCommand(ToolkitCommand):
 
     def _print_overview(
         self,
-        data: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
+        data: UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest],
         selectors: Sequence[T_Selector],
         console: Console,
     ) -> tuple[dict[T_Selector, int | None], int]:
@@ -211,16 +216,20 @@ class MigrationCommand(ToolkitCommand):
 
     @staticmethod
     def _convert(
-        mapper: DataMapper[T_Selector, T_ResourceResponse, T_ResourceRequest],
-        data: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
-    ) -> Callable[[Sequence[T_ResourceResponse]], Sequence[UploadItem[T_ResourceRequest]]]:
-        def track_mapping(source: Sequence[T_ResourceResponse]) -> list[UploadItem[T_ResourceRequest]]:
-            mapped = mapper.map(source)
-            return [
-                UploadItem(source_id=data.as_id(item), item=target)
-                for target, item in zip(mapped, source)
-                if target is not None
-            ]
+        mapper: DataMapper[T_Selector, T_DataResponse, T_DataRequest],
+        data: UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest],
+    ) -> Callable[[Page[T_DataResponse]], Page[UploadItem[T_DataRequest]]]:
+        def track_mapping(source: Page[T_DataResponse]) -> Page[UploadItem[T_DataRequest]]:
+            mapped = mapper.map(source.items)
+            return Page(
+                worker_id=source.worker_id,
+                items=[
+                    UploadItem(source_id=data.as_id(item), item=target)
+                    for target, item in zip(mapped, source.items)
+                    if target is not None
+                ],
+                next_cursor=source.next_cursor,
+            )
 
         return track_mapping
 
@@ -228,17 +237,17 @@ class MigrationCommand(ToolkitCommand):
         self,
         selected: T_Selector,
         write_client: HTTPClient,
-        target: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
+        target: UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest],
         dry_run: bool,
-    ) -> Callable[[Sequence[UploadItem[T_ResourceRequest]]], None]:
-        def upload_items(data_item: Sequence[UploadItem[T_ResourceRequest]]) -> None:
+    ) -> Callable[[Page[UploadItem[T_DataRequest]]], None]:
+        def upload_items(data_item: Page[UploadItem[T_DataRequest]]) -> None:
             if not data_item:
                 return None
             if dry_run:
-                target.logger.tracker.finalize_item([item.source_id for item in data_item], "pending")
+                target.logger.tracker.finalize_item([item.source_id for item in data_item.items], "pending")
                 return None
 
-            responses = target.upload_items(data_chunk=data_item, http_client=write_client, selector=selected)
+            responses = target.upload_items(data_chunk=data_item.items, http_client=write_client, selector=selected)
 
             # Todo: Move logging into the UploadableStorageIO class
             issues: list[WriteIssue] = []
@@ -260,6 +269,9 @@ class MigrationCommand(ToolkitCommand):
                     target.logger.tracker.finalize_item(item.ids, "failure")
             if issues:
                 target.logger.log(issues)
+
+            # Todo: Dump progress.
+
             return None
 
         return upload_items
