@@ -107,6 +107,7 @@ class DeploymentStep:
 @dataclass
 class Skipped(Generic[T_Identifier]):
     id: T_Identifier
+    code: str
     source_file: Path
     reason: str
 
@@ -425,7 +426,10 @@ class DeployV2Command(ToolkitCommand):
                 for filepath in source_files[identifier][1:]:
                     resources.skipped.append(
                         Skipped(
-                            identifier, filepath, f"Duplicated resource. Will use definition in {first_file.as_posix()}"
+                            identifier,
+                            "DUPLICATED",
+                            filepath,
+                            f"Duplicated resource. Will use definition in {first_file.as_posix()}",
                         )
                     )
 
