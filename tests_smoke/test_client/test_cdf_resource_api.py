@@ -33,7 +33,6 @@ from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.sequence_rows import SequenceRowsAPI
-from cognite_toolkit._cdf_tk.client.api.signal_sinks import SignalSinksAPI
 from cognite_toolkit._cdf_tk.client.api.signal_subscriptions import SignalSubscriptionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_model_revisions import SimulatorModelRevisionsAPI
 from cognite_toolkit._cdf_tk.client.api.simulator_models import SimulatorModelsAPI
@@ -276,8 +275,6 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         AnnotationsAPI,
         # Subscriptions depend on existing sinks and have no retrieve method.
         SignalSubscriptionsAPI,
-        # Sinks are tested as part of test_signal_subscriptions_crudl; generic test is flaky due to 409 conflicts.
-        SignalSinksAPI,
     }
 )
 
@@ -2000,19 +1997,10 @@ class TestCDFResourceAPI:
         workflow_request = WorkflowRequest.model_validate(workflow_example)
         workflow_id = workflow_request.as_id()
 
-        def _safe_delete_signals() -> None:
-            """Best-effort cleanup; the alpha signals API may return 404 even with ignoreUnknownIds."""
-            try:
-                client.tool.signal_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
-            except ToolkitAPIError:
-                pass
-            try:
-                client.tool.signal_sinks.delete([sink_id], ignore_unknown_ids=True)
-            except ToolkitAPIError:
-                pass
-
         try:
-            _safe_delete_signals()
+            # Clean up stale resources from previous runs
+            client.tool.signal_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
+            client.tool.signal_sinks.delete([sink_id], ignore_unknown_ids=True)
 
             # Create workflow (subscription filter references it)
             client.tool.workflows.create([workflow_request])
@@ -2035,13 +2023,13 @@ class TestCDFResourceAPI:
                 subscription_id,
             )
 
-            # TODO: Update returns 500 in the alpha signals API — re-enable once fixed server-side.
-            # self.assert_endpoint_method(
-            #     lambda: client.tool.signal_subscriptions.update([subscription_request]),
-            #     "update",
-            #     sub_endpoints["update"],
-            #     subscription_id,
-            # )
+            # Update subscription
+            self.assert_endpoint_method(
+                lambda: client.tool.signal_subscriptions.update([subscription_request]),
+                "update",
+                sub_endpoints["update"],
+                subscription_id,
+            )
 
             # List subscriptions
             list_endpoint = sub_endpoints["list"]
@@ -2049,5 +2037,6 @@ class TestCDFResourceAPI:
             if len(listed) == 0:
                 raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed subscription, got 0")
         finally:
-            _safe_delete_signals()
+            client.tool.signal_subscriptions.delete([subscription_id], ignore_unknown_ids=True)
+            client.tool.signal_sinks.delete([sink_id], ignore_unknown_ids=True)
             client.tool.workflows.delete([workflow_id])
