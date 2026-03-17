@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import ClassVar, Literal, cast
+from typing import ClassVar, Literal
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -120,15 +120,11 @@ class AssetCentricMigrationIO(
         self, selector: MigrateDataSetSelector, limit: int | None = None
     ) -> Iterator[Sequence[AssetCentricMapping[T_AssetCentricResource]]]:
         asset_centric_selector = selector.as_asset_centric_selector()
+        space_source = self.client.migration.space_source.retrieve(data_set_external_id=selector.data_set_external_id)
+        instance_space = space_source.instance_space if space_source else MISSING_INSTANCE_SPACE
         for data_chunk in self.hierarchy.stream_data(asset_centric_selector, limit):
             mapping_list: list[AssetCentricMapping[T_AssetCentricResource]] = []
             for resource in data_chunk.items:
-                # We got the resource from a dataset selector, so we know it is there
-                data_set_id = cast(int, resource.data_set_id)
-                space_source = self.client.migration.space_source.retrieve(data_set_id=data_set_id)
-                instance_space = space_source.instance_space if space_source else None
-                if instance_space is None:
-                    instance_space = MISSING_INSTANCE_SPACE
                 external_id = resource.external_id
                 if external_id is None:
                     external_id = MISSING_EXTERNAL_ID.format(project=self.client.config.project, id=resource.id)
