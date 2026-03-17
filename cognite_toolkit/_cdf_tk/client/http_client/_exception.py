@@ -1,4 +1,7 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.client.http_client._data_classes import RequestMessage
 
 
 class ToolkitAPIError(Exception):
@@ -11,6 +14,7 @@ class ToolkitAPIError(Exception):
         duplicated: list[dict[str, Any]] | None = None,
         code: int | None = None,
         is_auto_retryable: bool | None = None,
+        request: "RequestMessage | None " = None,
     ) -> None:
         super().__init__(message)
         self.message = message
@@ -18,3 +22,4 @@ class ToolkitAPIError(Exception):
         self.duplicated = duplicated
         self.code = code
         self.is_auto_retryable = is_auto_retryable
+        self.request = request

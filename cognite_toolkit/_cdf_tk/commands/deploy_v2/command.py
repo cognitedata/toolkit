@@ -1,11 +1,12 @@
-import warnings
+import json
 from collections import defaultdict
 from collections.abc import Iterable, Sequence, Set
 from copy import deepcopy
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import Any, Generic
+from typing import Any, Generic, Literal
 
 from rich.console import Console
 from rich.panel import Panel
@@ -15,14 +16,20 @@ from yaml import YAMLError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import T_Identifier, T_RequestResource, T_ResponseResource
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildLineage
+from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND,
     ResourceContainerCRUD,
     ResourceCRUD,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
+    ResourceCreationError,
+    ResourceDeleteError,
+    ResourceUpdateError,
+    ToolkitError,
     ToolkitNotADirectoryError,
     ToolkitValidationError,
     ToolkitValueError,
@@ -35,7 +42,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitWarning,
     catch_warnings,
 )
-from cognite_toolkit._cdf_tk.utils import humanize_collection, to_diff
+from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename, to_diff
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
@@ -49,6 +56,7 @@ class DeployOptions:
     drop: bool = False
     drop_data: bool = False
     environment_variables: dict[str, str | None] | None = None
+    deployment_dir: Path | None = None
 
 
 @dataclass
@@ -87,10 +95,11 @@ class ReadBuildDirectory:
 
 
 @dataclass
-class ToDeployResource(Generic[T_RequestResource]):
+class ReadResource(Generic[T_RequestResource]):
     request: T_RequestResource
     raw_dict: dict[str, Any]
     source_files: list[Path] = field(default_factory=list)
+    missing_env_vars: set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -107,7 +116,6 @@ class DeploymentStep:
 
     crud_cls: type[ResourceCRUD]
     files: list[Path]
-    # Todo: Warn about skipped CRUDs. Maybe only if deployment fails?
     skipped_cruds: Set[type[ResourceCRUD]] = field(default_factory=set)
 
 
@@ -126,18 +134,37 @@ class ResourceToDeploy(Generic[T_Identifier, T_RequestResource]):
     to_update: list[T_RequestResource] = field(default_factory=list)
     unchanged: list[T_Identifier] = field(default_factory=list)
     skipped: list[Skipped[T_Identifier]] = field(default_factory=list)
+    missing_env_vars_by_id: dict[T_Identifier, set[str]] = field(default_factory=dict)
+
+    def get_ids(
+        self,
+        crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
+        action: Literal["create", "delete", "update"],
+    ) -> list[T_Identifier]:
+        if action == "create":
+            return [crud.get_id(resource) for resource in self.to_create]
+        elif action == "delete":
+            return self.to_delete
+        elif action == "update":
+            return [crud.get_id(resource) for resource in self.to_update]
+        else:
+            return []
 
 
 @dataclass
 class DeploymentResult:
     resource_name: str
     is_dry_run: bool
-    created: int
-    deleted: int
-    updated: int
-    unchanged: int
-    skipped: int
+    created_count: int
+    deleted_count: int
+    updated_count: int
+    unchanged_count: int
     is_missing_write_acl: bool
+    skipped: list[Skipped] = field(default_factory=list)
+
+    @property
+    def skipped_count(self) -> int:
+        return len(self.skipped)
 
 
 class DeployV2Command(ToolkitCommand):
@@ -318,7 +345,7 @@ class DeployV2Command(ToolkitCommand):
                 resource_name = crud.display_name
                 progress.update(task_id, description=f"Reading {resource_name}")
 
-                resource_by_id = cls._read_resource_files(crud, step.files, console, options)
+                resource_by_id = cls._read_resource_files(crud, step.files, options)
                 resource_count = len(resource_by_id)
                 request_resources = [resource.request for _, resource in resource_by_id.values()]  # type: ignore[misc]
 
@@ -341,7 +368,7 @@ class DeployV2Command(ToolkitCommand):
                     progress.update(task_id, description=f"Would have deployed {resource_name} to CDF")
                 else:
                     progress.update(task_id, description=f"Deploying {resource_name} to CDF")
-                    result = cls.deploy_resources(crud, resources_to_deploy)
+                    result = cls.deploy_resources(crud, resources_to_deploy, step.skipped_cruds, options.deployment_dir)
                     progress.update(task_id, description=f"Deployed {resource_name} successfully.")
 
                 results.append(result)
@@ -355,11 +382,10 @@ class DeployV2Command(ToolkitCommand):
         cls,
         crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         filepaths: list[Path],
-        console: Console,
         options: DeployOptions,
-    ) -> dict[T_Identifier, ToDeployResource[T_RequestResource]]:
+    ) -> dict[T_Identifier, ReadResource[T_RequestResource]]:
         """# Load all resources from files, get ids, and remove duplicates."""
-        to_deploy_by_id: dict[T_Identifier, ToDeployResource[T_RequestResource]] = {}
+        to_deploy_by_id: dict[T_Identifier, ReadResource[T_RequestResource]] = {}
         environment_variables = options.environment_variables or {}
         for filepath in filepaths:
             with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
@@ -367,7 +393,13 @@ class DeployV2Command(ToolkitCommand):
                     resource_list = crud.load_resource_file(filepath, environment_variables)
                 except YAMLError as e:
                     raise ToolkitYAMLFormatError(f"YAML validation error for {filepath.as_posix()}: {e}")
-            identifiers: list[T_Identifier] = []
+            # Note we only catch EnvironmentVariableMissingWarning, so all warnings should be of that type.
+            missing_env_vars = {
+                env_var
+                for warning in warning_list
+                if isinstance(warning, EnvironmentVariableMissingWarning)
+                for env_var in warning.variables
+            }
             for resource_dict in resource_list:
                 try:
                     # The load resource modifies the resource_dict, so we deepcopy it to avoid side effects.
@@ -380,20 +412,15 @@ class DeployV2Command(ToolkitCommand):
                 identifier = crud.get_id(request_resource)
 
                 if identifier not in to_deploy_by_id:
-                    to_deploy_by_id[identifier] = ToDeployResource(
-                        request=request_resource, raw_dict=resource_dict, source_files=[filepath]
+                    to_deploy_by_id[identifier] = ReadResource(
+                        request=request_resource,
+                        raw_dict=resource_dict,
+                        source_files=[filepath],
+                        missing_env_vars=missing_env_vars,
                     )
                 else:
                     to_deploy_by_id[identifier].source_files.append(filepath)
 
-            for warning in warning_list:
-                if isinstance(warning, EnvironmentVariableMissingWarning):
-                    # Warnings are immutable, so we use the below method to override it.
-                    object.__setattr__(warning, "identifiers", frozenset(identifiers))
-                    # Reraise the warning to be caught higher up.
-                    warnings.warn(warning, stacklevel=2)
-                else:
-                    warning.print_warning(console=console)
         return to_deploy_by_id
 
     @classmethod
@@ -422,7 +449,7 @@ class DeployV2Command(ToolkitCommand):
     def _categorize_resources(
         cls,
         crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
-        resource_by_id: dict[T_Identifier, ToDeployResource[T_RequestResource]],
+        resource_by_id: dict[T_Identifier, ReadResource[T_RequestResource]],
         cdf_by_id: dict[T_Identifier, T_ResponseResource],
         console: Console,
         options: DeployOptions,
@@ -440,6 +467,8 @@ class DeployV2Command(ToolkitCommand):
                             f"Duplicated resource. Will use definition in {first_file.as_posix()}",
                         )
                     )
+            # Persist as this is used in the deploy context.
+            resources.missing_env_vars_by_id[identifier] = resource.missing_env_vars
 
             cdf_resource = cdf_by_id.get(identifier)
             if cdf_resource is None:
@@ -491,11 +520,11 @@ class DeployV2Command(ToolkitCommand):
         return DeploymentResult(
             resource_name=crud.display_name,
             is_dry_run=True,
-            created=created,
-            updated=updated,
-            deleted=deleted,
-            unchanged=unchanged,
-            skipped=len(resources.skipped),
+            created_count=created,
+            updated_count=updated,
+            deleted_count=deleted,
+            unchanged_count=unchanged,
+            skipped=resources.skipped,
             is_missing_write_acl=is_missing_write_acl,
         )
 
@@ -504,25 +533,87 @@ class DeployV2Command(ToolkitCommand):
         cls,
         crud: ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource],
         resources: ResourceToDeploy[T_Identifier, T_RequestResource],
+        skipped_cruds: Set[type[ResourceCRUD]],
+        deploy_dir: Path,
     ) -> DeploymentResult:
         deleted, created, updated = 0, 0, 0
-        # Todo: Handle API errors.
-        if resources.to_delete:
-            deleted = crud.delete(resources.to_delete)
-        if resources.to_create:
-            created = len(crud.create(resources.to_create))
-        if resources.to_update:
-            updated = len(crud.update(resources.to_update))
+        action: Literal["create", "delete", "update"] | None = None
+        try:
+            if resources.to_delete:
+                action = "delete"
+                deleted = crud.delete(resources.to_delete)
+            if resources.to_create:
+                action = "create"
+                created = len(crud.create(resources.to_create))
+            if resources.to_update:
+                action = "update"
+                updated = len(crud.update(resources.to_update))
+        except ToolkitAPIError as error:
+            if action is None:
+                raise RuntimeError("Bug in Toolkit. No action to perform but got API error.") from error
+            if error_message := cls._missing_environment_variables(crud, resources, action):
+                raise cls._get_resource_exception(action)(error_message) from error
+
+            filepath = deploy_dir / f"{sanitize_filename(datetime.now(timezone.utc).isoformat())}.json"
+            suffix = f"The request body and response has been dumped to {filepath.as_posix()} for debugging purposes."
+            if skipped_cruds:
+                error_message = (
+                    f"Failed to {action} {crud.display_name}. This is likely due to missing dependencies on "
+                    f"{humanize_collection([crud.display_name for crud in skipped_cruds])} which were "
+                    f"skipped based on the include filter.\n{suffix}"
+                )
+            else:
+                error_message = f"Failed to {action} {crud.display_name} due to API error: {error.message}.\n{suffix}"
+
+            debug_info: dict[str, Any] = {}
+            if error.request:
+                debug_info["url"] = error.request.endpoint_url
+                debug_info["method"] = error.request.method
+                if error.request.parameters:
+                    debug_info["requestParameters"] = error.request.parameters
+                if error.request.body_content:
+                    debug_info["requestBody"] = error.request.body_content
+                elif error.request.data_content:
+                    debug_info["requestBody"] = "<bytes>"
+            debug_info["errorMessage"] = error.message
+            if error.code:
+                debug_info["statusCode"] = error.code
+
+            filepath.write_text(json.dumps(debug_info, include=4), encoding="utf-8")
+
+            raise cls._get_resource_exception(action)(error_message) from error
+
         return DeploymentResult(
             resource_name=crud.display_name,
             is_dry_run=False,
-            created=created,
-            updated=updated,
-            deleted=deleted,
-            unchanged=len(resources.unchanged),
-            skipped=len(resources.skipped),
+            created_count=created,
+            updated_count=updated,
+            deleted_count=deleted,
+            unchanged_count=len(resources.unchanged),
+            skipped=resources.skipped,
             is_missing_write_acl=False,
         )
+
+    @classmethod
+    def _missing_environment_variables(
+        cls, crud: ResourceCRUD, resources: ResourceToDeploy, action: Literal["create", "delete", "update"]
+    ) -> str | None:
+        item_ids = resources.get_ids(crud, action)
+        match = set(item_ids) & set(resources.missing_env_vars_by_id)
+        if not match:
+            return None
+        missing_variables = [variable for id in match for variable in resources.missing_env_vars_by_id[id]]
+        variables_str = humanize_collection(missing_variables)
+        suffix = "s" if len(missing_variables) > 1 else ""
+        return f"\n  {HINT_LEAD_TEXT}This is likely due to missing environment variable{suffix}: {variables_str}"
+
+    @classmethod
+    def _get_resource_exception(cls, action: Literal["create", "update", "delete"]) -> type[ToolkitError]:
+        return {
+            "update": ResourceUpdateError,
+            "delete": ResourceDeleteError,
+            "create": ResourceCreationError,
+        }[action]
 
     @classmethod
     def _display_results(cls, client: ToolkitClient, results: Sequence[DeploymentResult]) -> None:
@@ -543,15 +634,15 @@ class DeployV2Command(ToolkitCommand):
         for result in results:
             table.add_row(
                 result.resource_name,
-                str(result.created),
-                str(result.updated),
-                str(result.deleted),
-                str(result.unchanged),
+                str(result.created_count),
+                str(result.updated_count),
+                str(result.deleted_count),
+                str(result.unchanged_count),
             )
-            total_created += result.created
-            total_updated += result.updated
-            total_deleted += result.deleted
-            total_unchanged += result.unchanged
+            total_created += result.created_count
+            total_updated += result.updated_count
+            total_deleted += result.deleted_count
+            total_unchanged += result.unchanged_count
 
         if len(results) > 1:
             table.add_section()
