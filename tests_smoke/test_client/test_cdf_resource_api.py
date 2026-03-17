@@ -1996,6 +1996,10 @@ class TestCDFResourceAPI:
         subscription_request = SignalSubscriptionRequest.model_validate(subscription_example)
         subscription_id = subscription_request.as_id()
 
+        workflow_example = get_examples_minimum_requests(WorkflowResponse)[0]
+        workflow_request = WorkflowRequest.model_validate(workflow_example)
+        workflow_id = workflow_request.as_id()
+
         def _safe_delete_signals() -> None:
             """Best-effort cleanup; the alpha signals API may return 404 even with ignoreUnknownIds."""
             try:
@@ -2009,6 +2013,9 @@ class TestCDFResourceAPI:
 
         try:
             _safe_delete_signals()
+
+            # Create workflow (subscription filter references it)
+            client.tool.workflows.create([workflow_request])
 
             # Create sink (subscription depends on it)
             sink_endpoints = client.tool.signal_sinks._method_endpoint_map
@@ -2043,3 +2050,4 @@ class TestCDFResourceAPI:
                 raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed subscription, got 0")
         finally:
             _safe_delete_signals()
+            client.tool.workflows.delete([workflow_id])
