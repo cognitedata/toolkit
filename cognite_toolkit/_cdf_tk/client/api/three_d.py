@@ -66,15 +66,14 @@ class ThreeDClassicModelsAPI(CDFResourceAPI[ThreeDModelClassicResponse]):
         endpoint = self._method_endpoint_map["retrieve"]
         for id in ids:
             url = endpoint.path.format(modelId=id.id)
-            response = self._http_client.request_single_retries(
-                RequestMessage(
-                    endpoint_url=self._make_url(url),
-                    method=endpoint.method,
-                    api_version=self._api_version,
-                    disable_gzip=self._disable_gzip,
-                )
+            request = RequestMessage(
+                endpoint_url=self._make_url(url),
+                method=endpoint.method,
+                api_version=self._api_version,
+                disable_gzip=self._disable_gzip,
             )
-            result = response.get_success_or_raise()
+            response = self._http_client.request_single_retries(request)
+            result = response.get_success_or_raise(request)
             retrieved.append(ThreeDModelClassicResponse.model_validate_json(result.body))
         return retrieved
 

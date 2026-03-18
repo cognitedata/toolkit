@@ -71,18 +71,17 @@ class WorkflowsAPI(CDFResourceAPI[WorkflowResponse]):
         result: list[WorkflowResponse] = []
         endpoint = self._method_endpoint_map["retrieve"]
         for item in items:
-            response = self._http_client.request_single_retries(
-                RequestMessage(
-                    endpoint_url=self._make_url(f"/workflows/{item.external_id}"),
-                    method=endpoint.method,
-                )
+            request = RequestMessage(
+                endpoint_url=self._make_url(f"/workflows/{item.external_id}"),
+                method=endpoint.method,
             )
+            response = self._http_client.request_single_retries(request)
             if isinstance(response, SuccessResponse):
                 result.append(WorkflowResponse.model_validate_json(response.body))
             elif ignore_unknown_ids:
                 continue
             else:
-                _ = response.get_success_or_raise()
+                _ = response.get_success_or_raise(request)
         return result
 
     def delete(self, items: Sequence[ExternalId]) -> None:

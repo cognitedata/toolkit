@@ -1,11 +1,11 @@
 from collections.abc import Sequence
-from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client.identifiers import SpaceId
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._space import SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import FunctionScheduleResponse
@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.commands.deploy_v2.command import (
     DeploymentStep,
     ReadBuildDirectory,
     ResourceDirectory,
+    Skipped,
 )
 from cognite_toolkit._cdf_tk.cruds import (
     CogniteFileCRUD,
@@ -129,7 +130,7 @@ class TestReadBuildDirectory:
 
         actual: type[Exception] | ReadBuildDirectory
         try:
-            actual = DeployV2Command.read_build_directory(Path("build"), include)
+            actual = DeployV2Command.read_build_directory(Path("build"), "test_project", include)
         except Exception as e:
             actual = type(e)
 
@@ -208,6 +209,7 @@ class ApplyPlanTestCase:
     options: DeployOptions
     expected: Sequence[DeploymentResult] | type[Exception]
     expected_warning: type[Warning] | None = None
+    expected_skipped_count: int = 0
 
 
 class TestApplyPlan:
@@ -221,7 +223,17 @@ class TestApplyPlan:
                     cdf_resources=[],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
-                    expected=[DeploymentResult(is_dry_run=True, created=1, deleted=0, updated=0, unchanged=0)],
+                    expected=[
+                        DeploymentResult(
+                            resource_name="spaces",
+                            is_dry_run=True,
+                            created_count=1,
+                            deleted_count=0,
+                            updated_count=0,
+                            unchanged_count=0,
+                            is_missing_write_acl=False,
+                        )
+                    ],
                     expected_warning=EnvironmentVariableMissingWarning,
                 ),
                 id="missing_env_var",
@@ -259,7 +271,26 @@ class TestApplyPlan:
                     cdf_resources=[],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
-                    expected=[DeploymentResult(is_dry_run=True, created=1, deleted=0, updated=0, unchanged=0)],
+                    expected=[
+                        DeploymentResult(
+                            resource_name="spaces",
+                            is_dry_run=True,
+                            created_count=1,
+                            deleted_count=0,
+                            updated_count=0,
+                            unchanged_count=0,
+                            is_missing_write_acl=False,
+                            skipped=[
+                                Skipped(
+                                    id=SpaceId(space="my_space"),
+                                    code="DUPLICATED",
+                                    source_file=Path("data_modeling/b.Space.yaml"),
+                                    reason="Duplicated resource. Will use definition in data_modeling/a.Space.yaml",
+                                )
+                            ],
+                        )
+                    ],
+                    expected_skipped_count=1,
                 ),
                 id="duplicated_resource_in_two_files",
             ),
@@ -282,7 +313,17 @@ class TestApplyPlan:
                     ],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
-                    expected=[DeploymentResult(is_dry_run=True, created=1, deleted=1, updated=0, unchanged=0)],
+                    expected=[
+                        DeploymentResult(
+                            resource_name="function schedules",
+                            is_dry_run=True,
+                            created_count=1,
+                            deleted_count=1,
+                            updated_count=0,
+                            unchanged_count=0,
+                            is_missing_write_acl=False,
+                        )
+                    ],
                 ),
                 id="changed_function_schedule_requires_delete_and_update",
             ),
@@ -297,7 +338,17 @@ class TestApplyPlan:
                     ],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
-                    expected=[DeploymentResult(is_dry_run=True, created=0, deleted=0, updated=1, unchanged=0)],
+                    expected=[
+                        DeploymentResult(
+                            resource_name="spaces",
+                            is_dry_run=True,
+                            created_count=0,
+                            deleted_count=0,
+                            updated_count=1,
+                            unchanged_count=0,
+                            is_missing_write_acl=False,
+                        )
+                    ],
                 ),
                 id="changed_space_requires_update",
             ),
@@ -308,7 +359,17 @@ class TestApplyPlan:
                     cdf_resources=[],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
-                    expected=[DeploymentResult(is_dry_run=True, created=1, deleted=0, updated=0, unchanged=0)],
+                    expected=[
+                        DeploymentResult(
+                            resource_name="spaces",
+                            is_dry_run=True,
+                            created_count=1,
+                            deleted_count=0,
+                            updated_count=0,
+                            unchanged_count=0,
+                            is_missing_write_acl=False,
+                        )
+                    ],
                 ),
                 id="create_space",
             ),
@@ -321,15 +382,27 @@ class TestApplyPlan:
                     ],
                     acls_missing=False,
                     options=DeployOptions(dry_run=True),
-                    expected=[DeploymentResult(is_dry_run=True, created=0, deleted=0, updated=0, unchanged=1)],
+                    expected=[
+                        DeploymentResult(
+                            resource_name="spaces",
+                            is_dry_run=True,
+                            created_count=0,
+                            deleted_count=0,
+                            updated_count=0,
+                            unchanged_count=1,
+                            is_missing_write_acl=False,
+                        )
+                    ],
                 ),
                 id="unchanged_space",
             ),
         ],
     )
     def test_apply_plan(self, case: ApplyPlanTestCase, tmp_path: Path) -> None:
+        to_replace: dict[str, str] = {}
         for rel_path, content in case.yaml_files.items():
             path = tmp_path / rel_path
+            to_replace[path.as_posix()] = rel_path
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content)
 
@@ -338,15 +411,27 @@ class TestApplyPlan:
         with monkeypatch_toolkit_client() as client:
             self._set_up_mock_client(case, client)
 
-            ctx = pytest.warns(case.expected_warning) if case.expected_warning else nullcontext()
             actual: Sequence[DeploymentResult] | type[Exception]
-            with ctx:
-                try:
-                    actual = DeployV2Command.apply_plan(client, plan, case.options)
-                except Exception as e:
-                    actual = type(e)
+            error_message = ""
+            try:
+                actual = DeployV2Command.apply_plan(client, plan, case.options)
+            except Exception as e:
+                actual = type(e)
+                error_message = str(e)
 
-        assert actual == case.expected
+        if isinstance(actual, list):
+            self._replace_absolute_paths(actual, to_replace, tmp_path)
+
+        assert actual == case.expected, error_message
+
+    def _replace_absolute_paths(self, actual: list[DeploymentResult], to_replace: dict[str, str], tmp_path: Path):
+        """Cleanup to ensure that the test assertions can use relative paths instead of absolute paths that
+        are generated during the test setup."""
+        for item in actual:
+            for skipped in item.skipped:
+                skipped.source_file = skipped.source_file.relative_to(tmp_path)
+                for full_path, rel_path in to_replace.items():
+                    skipped.reason = skipped.reason.replace(full_path, rel_path)
 
     def _set_up_mock_client(self, case: ApplyPlanTestCase, client: ToolkitClientMock):
         if case.acls_missing:

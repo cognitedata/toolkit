@@ -2,6 +2,7 @@
 
 import contextlib
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Annotated, Union
 
@@ -36,6 +37,7 @@ class Common:
 
 
 CDF_TOML = CDFToml.load(Path.cwd())
+TODAY = date.today()
 
 
 def _version_callback(value: bool) -> None:
@@ -419,6 +421,14 @@ class CoreApp(typer.Typer):
                 help="Whether to force update the resources in the CDF project even if they are considered unchanged.",
             ),
         ] = False,
+        deploy_dir: Annotated[
+            Path,
+            typer.Option(
+                "--log-dir",
+                "-l",
+                help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
+            ),
+        ] = Path(f"deploy_logs_{TODAY!s}"),
         verbose: Annotated[
             bool,
             typer.Option(
@@ -441,6 +451,7 @@ class CoreApp(typer.Typer):
                     force_update=force_update,
                     verbose=verbose,
                     environment_variables=env_vars.dump(),
+                    deployment_dir=deploy_dir,
                 ),
             )
         )
