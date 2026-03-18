@@ -74,7 +74,7 @@ class TestMigrationMappingList:
                             id=123,
                             data_set_id=123,
                             instance_id=NodeId(space="sp_full_ts", external_id="full_ts_id"),
-                            ingestion_view="ingestion_view_id",
+                            ingestion_mapping="ingestion_view_id",
                             preferred_consumer_view=ViewId(
                                 space="consumer_view_space", external_id="consumer_view_external_id", version="1.0"
                             ),
@@ -83,7 +83,7 @@ class TestMigrationMappingList:
                             id=3231,
                             data_set_id=None,
                             instance_id=NodeId(space="sp_step_ts", external_id="step_ts_id"),
-                            ingestion_view="ingestion_view_id_2",
+                            ingestion_mapping="ingestion_view_id_2",
                             preferred_consumer_view=ViewId(
                                 space="consumer_view_space_2", external_id="consumer_view_external_id_2", version="2.0"
                             ),
