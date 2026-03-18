@@ -312,6 +312,7 @@ def asset_centric_to_record(
     instance_id: NodeId,
     record_mapping: RecordPropertyMapping,
     container_properties: dict[str, ContainerPropertyDefinition],
+    direct_relation_cache: DirectRelationCache | None = None,
 ) -> tuple[RecordRequest | None, ConversionIssue]:
     """Convert an asset-centric resource to a record request.
 
@@ -320,6 +321,7 @@ def asset_centric_to_record(
         instance_id: The target record space and external_id.
         record_mapping: The record property mapping defining the target container and property mapping.
         container_properties: Property definitions from the target container (for type validation/coercion).
+        direct_relation_cache: Cache for direct relation references (optional).
 
     Returns:
         A tuple of the RecordRequest (or None on failure) and any conversion issues.
@@ -348,6 +350,7 @@ def asset_centric_to_record(
         resource_type,
         issue=issue,
         container_id=record_mapping.container_id,
+        direct_relation_cache=direct_relation_cache,
     )
 
     sources: list[RecordSource] = []
@@ -467,6 +470,7 @@ def create_container_properties(
     resource_type: AssetCentricTypeExtended,
     issue: ConversionIssue,
     container_id: ContainerId,
+    direct_relation_cache: DirectRelationCache | None = None,
 ) -> dict[str, JsonValue]:
     """Create properties for a record from an asset-centric resource using container property definitions."""
     flatten_dump = flatten_dict_json_path(dumped, keep_structured=set(property_mapping.keys()))
@@ -484,6 +488,9 @@ def create_container_properties(
                 prop_def.nullable or False,
                 destination_container_property=(container_id, prop_id),
                 source_property=(resource_type, prop_json_path),
+                direct_relation_lookup=direct_relation_cache.get_cache(resource_type, prop_json_path)
+                if direct_relation_cache
+                else None,
             )
         except (ValueError, TypeError, NotImplementedError) as e:
             issue.failed_conversions.append(

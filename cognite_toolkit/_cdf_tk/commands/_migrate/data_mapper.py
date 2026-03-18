@@ -186,7 +186,7 @@ class AssetCentricMapper(
             if conversion_issue.missing_asset_centric_properties:
                 self.logger.tracker.add_issue(identifier, "Missing asset-centric properties")
             if conversion_issue.missing_instance_properties:
-                self.logger.tracker.add_issue(identifier, "Missing instance properties")
+                self.logger.tracker.add_issue(identifier, "Missing data modeling properties")
             if conversion_issue.ignored_asset_centric_properties:
                 self.logger.tracker.add_issue(identifier, "Ignored asset-centric properties")
 
@@ -239,6 +239,7 @@ class RecordsMapper(
             mapping.external_id: mapping for mapping in record_mappings
         }
         self._container_properties_by_id: dict[ContainerId, dict[str, ContainerPropertyDefinition]] = {}
+        self._direct_relation_cache = DirectRelationCache(client)
 
     def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
         container_ids = list({mapping.container_id for mapping in self._record_mapping_by_id.values()})
@@ -253,6 +254,7 @@ class RecordsMapper(
     def map(
         self, source: Sequence[AssetCentricMapping[T_AssetCentricResourceExtended]]
     ) -> Sequence[RecordRequest | None]:
+        self._direct_relation_cache.update(item.resource for item in source)
         output: list[RecordRequest | None] = []
         issues: list[ConversionIssue] = []
         for item in source:
@@ -266,7 +268,7 @@ class RecordsMapper(
             if conversion_issue.missing_asset_centric_properties:
                 self.logger.tracker.add_issue(identifier, "Missing asset-centric properties")
             if conversion_issue.missing_instance_properties:
-                self.logger.tracker.add_issue(identifier, "Missing instance properties")
+                self.logger.tracker.add_issue(identifier, "Missing data modeling properties")
             if conversion_issue.ignored_asset_centric_properties:
                 self.logger.tracker.add_issue(identifier, "Ignored asset-centric properties")
 
@@ -297,6 +299,7 @@ class RecordsMapper(
             instance_id=NodeId(space=mapping.instance_id.space, external_id=mapping.instance_id.external_id),
             record_mapping=record_mapping,
             container_properties=container_properties,
+            direct_relation_cache=self._direct_relation_cache,
         )
         if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
             conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {mapping.data_set_id!r}"
