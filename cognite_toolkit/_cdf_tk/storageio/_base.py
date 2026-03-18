@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping, Sequence, Sized
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar, runtime_checkable
 
 from pydantic import ConfigDict
@@ -72,7 +72,7 @@ T_Selector = TypeVar("T_Selector", bound=DataSelector)
 class Page(Generic[T_DataItem], Sized):
     worker_id: str
     items: Sequence[DataItem[T_DataItem]]
-    bookmark: Bookmark = NoBookmark()
+    bookmark: Bookmark = field(default_factory=NoBookmark)
 
     def __len__(self) -> int:
         return len(self.items)
@@ -259,6 +259,12 @@ class UploadableStorageIO(
                     bookmark=FileBookmark(worker_id="main", lineno=line_no, filepath=reader.current_file),
                 )
                 batch = []
+        if batch:
+            yield Page(
+                worker_id="main",
+                items=batch,
+                bookmark=FileBookmark(worker_id="main", lineno=line_no, filepath=reader.current_file),
+            )
 
     @classmethod
     def count_items(cls, reader: MultiFileReader, selector: T_Selector | None = None) -> int:

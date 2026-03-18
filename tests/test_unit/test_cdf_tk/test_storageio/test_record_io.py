@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessR
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.storageio import RecordIO, UploadItem
+from cognite_toolkit._cdf_tk.storageio import DataItem, Page, RecordIO
 from cognite_toolkit._cdf_tk.storageio.selectors import RecordContainerSelector
 from cognite_toolkit._cdf_tk.storageio.selectors._records import SelectedContainer, SelectedStream
 
@@ -63,7 +63,8 @@ class TestRecordIO:
             )
             for i in range(record_count)
         ]
-        upload_items = [UploadItem(source_id=record.external_id, item=record) for record in records]
+        data_items = [DataItem(tracking_id=f"{r.space}:{r.external_id}", item=r) for r in records]
+        page = Page(worker_id="main", items=data_items)
 
         expected_url = toolkit_config.create_api_url("/streams/my_stream/records")
 
@@ -78,7 +79,7 @@ class TestRecordIO:
             with respx.mock() as mock_router:
                 mock_router.post(expected_url).mock(side_effect=record_callback)
                 io = RecordIO(client)
-                results = io.upload_items(upload_items, http_client, selector=selector)
+                results = io.upload_items(page, http_client, selector=selector)
 
         success_ids = [item_id for res in results if isinstance(res, ItemsSuccessResponse) for item_id in res.ids]
         assert len(success_ids) == record_count
@@ -107,7 +108,7 @@ class TestRecordIO:
         assert len(pages) == 2  # Both pages should be yielded, even though they contain fewer items than requested
         assert len(pages[0].items) == 3
         assert len(pages[1].items) == 2
-        all_ids = [item.external_id for page in pages for item in page.items]
+        all_ids = [item.item.external_id for page in pages for item in page.items]
         assert all_ids == ["record_0", "record_1", "record_2", "record_3", "record_4"]
 
         first_request = json.loads(route.calls[0].request.content)

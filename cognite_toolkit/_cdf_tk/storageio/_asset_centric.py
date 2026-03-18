@@ -41,12 +41,13 @@ from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResource
 from ._base import (
     Bookmark,
     ConfigurableStorageIO,
+    DataItem,
     Page,
     StorageIOConfig,
     TableStorageIO,
     TableUploadableStorageIO,
-    UploadItem,
 )
+from .progress import CursorBookmark, NoBookmark
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
@@ -167,17 +168,19 @@ class AssetCentricIO(
         self.client.lookup.assets.external_id(list(asset_ids))
 
     def data_to_row(
-        self, data_chunk: Sequence[T_ResourceResponse], selector: AssetCentricSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
-        rows: list[dict[str, JsonVal]] = []
-        for chunk in self.data_to_json_chunk(data_chunk, selector):
+        self, data_chunk: Page[T_ResourceResponse], selector: AssetCentricSelector | None = None
+    ) -> Page[dict[str, JsonVal]]:
+        json_page = self.data_to_json_chunk(data_chunk, selector)
+        rows: list[DataItem[dict[str, JsonVal]]] = []
+        for data_item in json_page.items:
+            chunk = data_item.item
             if "metadata" in chunk and isinstance(chunk["metadata"], dict):
                 metadata = chunk.pop("metadata")
                 # MyPy does understand that metadata is a dict here due to the check above.
                 for key, value in metadata.items():  # type: ignore[union-attr]
                     chunk[f"metadata.{key}"] = value
-            rows.append(chunk)
-        return rows
+            rows.append(DataItem(tracking_id=data_item.tracking_id, item=chunk))
+        return json_page.create_from(rows)
 
 
 class UploadableAssetCentricIO(
@@ -221,12 +224,13 @@ class UploadableAssetCentricIO(
         self.client.lookup.security_categories.id(list(security_category_names))
 
     def rows_to_data(
-        self, rows: list[tuple[str, dict[str, JsonVal]]], selector: AssetCentricSelector | None = None
-    ) -> Sequence[UploadItem[T_ResourceRequest]]:
+        self, rows: Page[dict[str, JsonVal]], selector: AssetCentricSelector | None = None
+    ) -> Page[T_ResourceRequest]:
         # We need to populate caches for any external IDs used in the rows before converting to resources.
         # Thus, we override this method instead of row_to_resource, and reuse the json_to_resource method that
         # does the cache population.
-        return self.json_chunk_to_data([(source_id, self.row_to_json(row)) for source_id, row in rows])
+        json_items = [DataItem(tracking_id=item.tracking_id, item=self.row_to_json(item.item)) for item in rows.items]
+        return self.json_chunk_to_data(rows.create_from(json_items))
 
     @classmethod
     def row_to_json(cls, row: dict[str, JsonVal]) -> dict[str, JsonVal]:
@@ -261,9 +265,6 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
         self._crud = AssetCRUD.create_loader(self.client)
-
-    def as_id(self, item: AssetResponse) -> str:
-        return item.external_id if item.external_id is not None else self._create_identifier(item.id)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return AssetAggregator(self.client)
@@ -317,7 +318,7 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page]:
         filter_ = self._get_classic_filter(selector)
-        cursor: str | None = bookmark.cursor if bookmark else None
+        cursor: str | None = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         total_count = 0
         while True:
             page = self.client.tool.assets.paginate(
@@ -327,27 +328,46 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
                 cursor=cursor,
             )
             self._collect_dependencies(page.items, selector)
-            yield Page(worker_id="main", items=page.items, bookmark=Bookmark(cursor=page.next_cursor))
+            bm: Bookmark = (
+                CursorBookmark(worker_id="main", cursor=page.next_cursor) if page.next_cursor else NoBookmark()
+            )
+            yield Page(
+                worker_id="main",
+                items=[
+                    DataItem(
+                        tracking_id=item.external_id
+                        if item.external_id is not None
+                        else self._create_identifier(item.id),
+                        item=item,
+                    )
+                    for item in page.items
+                ],
+                bookmark=bm,
+            )
             total_count += len(page.items)
             if page.next_cursor is None or (limit is not None and total_count >= limit):
                 break
             cursor = page.next_cursor
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[AssetResponse], selector: AssetCentricSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
+        self, data_chunk: Page[AssetResponse], selector: AssetCentricSelector | None = None
+    ) -> Page[dict[str, JsonVal]]:
         # Ensure data sets are looked up to populate cache.
         # This is to avoid looking up each data set id individually in the .dump_resource call.
-        self._populate_data_set_id_cache(data_chunk)
+        raw_items = [di.item for di in data_chunk.items]
+        self._populate_data_set_id_cache(raw_items)
         asset_ids = {
             segment["id"]
-            for item in data_chunk
+            for item in raw_items
             if isinstance(item.aggregates, AssetAggregateItem)
             for segment in item.aggregates.path
         }
         self.client.lookup.assets.external_id(list(asset_ids))
 
-        return [self._crud.dump_resource(item) for item in data_chunk]
+        result = [
+            DataItem(tracking_id=di.tracking_id, item=self._crud.dump_resource(di.item)) for di in data_chunk.items
+        ]
+        return data_chunk.create_from(result)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> AssetRequest:
         return self._crud.load_resource(item_json)
@@ -356,14 +376,12 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         return self.client.tool.assets.retrieve(InternalId.from_ids(ids))
 
     @classmethod
-    def read_chunks(
-        cls, reader: FileReader, selector: AssetCentricSelector
-    ) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+    def read_chunks(cls, reader: FileReader, selector: AssetCentricSelector) -> Iterable[Page[dict[str, JsonVal]]]:
         """Assets require special handling when reading data to ensure parent assets are created first."""
         current_depth = max_depth = 0
         data_name = "row" if isinstance(reader, TableReader) else "line"
-        batch: list[tuple[str, dict[str, JsonVal]]] = []
         # We read the file multiple times, once for each depth level, to ensure parents are created before children.
+        batch: list[DataItem[dict[str, JsonVal]]] = []
         while current_depth <= max_depth:
             for line_number, item in reader.read_chunks_with_line_numbers():
                 try:
@@ -371,17 +389,17 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
                 except (TypeError, ValueError, KeyError):
                     if current_depth == 0:
                         # If depth is not set, we yield it at depth 0
-                        batch.append((f"{data_name} {line_number}", item))
+                        batch.append(DataItem(tracking_id=f"{data_name} {line_number}", item=item))
                 else:
                     if depth == current_depth:
-                        batch.append((f"{data_name} {line_number}", item))
+                        batch.append(DataItem(tracking_id=f"{data_name} {line_number}", item=item))
                     elif current_depth == 0:
                         max_depth = max(max_depth, depth)
                 if len(batch) >= cls.CHUNK_SIZE:
-                    yield batch
+                    yield Page(worker_id="main", items=batch)
                     batch = []
             if batch:
-                yield batch
+                yield Page(worker_id="main", items=batch)
                 batch = []
             current_depth += 1
 
@@ -397,9 +415,6 @@ class FileMetadataIO(AssetCentricIO[FileMetadataResponse]):
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
         self._crud = FileMetadataCRUD.create_loader(self.client)
-
-    def as_id(self, item: FileMetadataResponse) -> str:
-        return item.external_id if item.external_id is not None else self._create_identifier(item.id)
 
     def _get_aggregator(self) -> AssetCentricAggregator:
         return FileAggregator(self.client)
@@ -448,7 +463,7 @@ class FileMetadataIO(AssetCentricIO[FileMetadataResponse]):
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page[FileMetadataResponse]]:
         filter_ = self._get_classic_filter(selector)
-        cursor: str | None = bookmark.cursor if bookmark else None
+        cursor: str | None = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         total_count = 0
         while True:
             page = self.client.tool.filemetadata.paginate(
@@ -457,7 +472,22 @@ class FileMetadataIO(AssetCentricIO[FileMetadataResponse]):
                 cursor=cursor,
             )
             self._collect_dependencies(page.items, selector)
-            yield Page(worker_id="main", items=page.items, bookmark=Bookmark(cursor=page.next_cursor))
+            bm: Bookmark = (
+                CursorBookmark(worker_id="main", cursor=page.next_cursor) if page.next_cursor else NoBookmark()
+            )
+            yield Page(
+                worker_id="main",
+                items=[
+                    DataItem(
+                        tracking_id=item.external_id
+                        if item.external_id is not None
+                        else self._create_identifier(item.id),
+                        item=item,
+                    )
+                    for item in page.items
+                ],
+                bookmark=bm,
+            )
             total_count += len(page.items)
             if page.next_cursor is None or (limit is not None and total_count >= limit):
                 break
@@ -467,15 +497,19 @@ class FileMetadataIO(AssetCentricIO[FileMetadataResponse]):
         return self.client.tool.filemetadata.retrieve(InternalId.from_ids(ids))
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[FileMetadataResponse], selector: AssetCentricSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
+        self, data_chunk: Page[FileMetadataResponse], selector: AssetCentricSelector | None = None
+    ) -> Page[dict[str, JsonVal]]:
         # Ensure data sets/assets/security-categories are looked up to populate cache.
         # This is to avoid looking up each data set id individually in the .dump_resource call
-        self._populate_data_set_id_cache(data_chunk)
-        self._populate_asset_id_cache(data_chunk)
-        self._populate_security_category_cache(data_chunk)
+        raw_items = [di.item for di in data_chunk.items]
+        self._populate_data_set_id_cache(raw_items)
+        self._populate_asset_id_cache(raw_items)
+        self._populate_security_category_cache(raw_items)
 
-        return [self._crud.dump_resource(item) for item in data_chunk]
+        result = [
+            DataItem(tracking_id=di.tracking_id, item=self._crud.dump_resource(di.item)) for di in data_chunk.items
+        ]
+        return data_chunk.create_from(result)
 
 
 class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesRequest]):
@@ -490,9 +524,6 @@ class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesReques
         super().__init__(client)
         self._crud = TimeSeriesCRUD.create_loader(self.client)
 
-    def as_id(self, item: TimeSeriesResponse) -> str:
-        return item.external_id if item.external_id is not None else self._create_identifier(item.id)
-
     def _get_aggregator(self) -> AssetCentricAggregator:
         return TimeSeriesAggregator(self.client)
 
@@ -506,7 +537,7 @@ class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesReques
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page]:
         filter_ = self._get_classic_filter(selector)
-        cursor: str | None = bookmark.cursor if bookmark else None
+        cursor: str | None = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         total_count = 0
         while True:
             page = self.client.tool.timeseries.paginate(
@@ -515,27 +546,44 @@ class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesReques
                 cursor=cursor,
             )
             self._collect_dependencies(page.items, selector)
-            yield Page(worker_id="main", items=page.items, bookmark=Bookmark(cursor=page.next_cursor))
+            bm: Bookmark = (
+                CursorBookmark(worker_id="main", cursor=page.next_cursor) if page.next_cursor else NoBookmark()
+            )
+            yield Page(
+                worker_id="main",
+                items=[
+                    DataItem(
+                        tracking_id=item.external_id
+                        if item.external_id is not None
+                        else self._create_identifier(item.id),
+                        item=item,
+                    )
+                    for item in page.items
+                ],
+                bookmark=bm,
+            )
             total_count += len(page.items)
             if page.next_cursor is None or (limit is not None and total_count >= limit):
                 break
             cursor = page.next_cursor
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[TimeSeriesResponse], selector: AssetCentricSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
+        self, data_chunk: Page[TimeSeriesResponse], selector: AssetCentricSelector | None = None
+    ) -> Page[dict[str, JsonVal]]:
         # Ensure data sets/assets/security categories are looked up to populate cache.
-        self._populate_data_set_id_cache(data_chunk)
-        self._populate_security_category_cache(data_chunk)
-        asset_ids = {item.asset_id for item in data_chunk if item.asset_id is not None}
+        raw_items = [di.item for di in data_chunk.items]
+        self._populate_data_set_id_cache(raw_items)
+        self._populate_security_category_cache(raw_items)
+        asset_ids = {item.asset_id for item in raw_items if item.asset_id is not None}
         self.client.lookup.assets.external_id(list(asset_ids))
 
-        return [self._crud.dump_resource(item) for item in data_chunk]
+        result = [
+            DataItem(tracking_id=di.tracking_id, item=self._crud.dump_resource(di.item)) for di in data_chunk.items
+        ]
+        return data_chunk.create_from(result)
 
-    def json_chunk_to_data(
-        self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
-    ) -> Sequence[UploadItem[TimeSeriesRequest]]:
-        chunks = [item_json for _, item_json in data_chunk]
+    def json_chunk_to_data(self, data_chunk: Page[dict[str, JsonVal]]) -> Page[TimeSeriesRequest]:
+        chunks = [item.item for item in data_chunk.items]
         self._populate_asset_external_ids_cache(chunks)
         self._populate_data_set_external_id_cache(chunks)
         self._populate_security_category_name_cache(chunks)
@@ -594,9 +642,6 @@ class EventIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
         super().__init__(client)
         self._crud = EventCRUD.create_loader(self.client)
 
-    def as_id(self, item: EventResponse) -> str:
-        return item.external_id if item.external_id is not None else self._create_identifier(item.id)
-
     def _get_aggregator(self) -> AssetCentricAggregator:
         return EventAggregator(self.client)
 
@@ -644,7 +689,7 @@ class EventIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page]:
         filter_ = self._get_classic_filter(selector)
-        cursor: str | None = bookmark.cursor if bookmark else None
+        cursor: str | None = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         total_count = 0
         while True:
             page = self.client.tool.events.paginate(
@@ -653,25 +698,42 @@ class EventIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
                 cursor=cursor,
             )
             self._collect_dependencies(page.items, selector)
-            yield Page(worker_id="main", items=page.items, bookmark=Bookmark(cursor=page.next_cursor))
+            bm: Bookmark = (
+                CursorBookmark(worker_id="main", cursor=page.next_cursor) if page.next_cursor else NoBookmark()
+            )
+            yield Page(
+                worker_id="main",
+                items=[
+                    DataItem(
+                        tracking_id=item.external_id
+                        if item.external_id is not None
+                        else self._create_identifier(item.id),
+                        item=item,
+                    )
+                    for item in page.items
+                ],
+                bookmark=bm,
+            )
             total_count += len(page.items)
             if page.next_cursor is None or (limit is not None and total_count >= limit):
                 break
             cursor = page.next_cursor
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[EventResponse], selector: AssetCentricSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
+        self, data_chunk: Page[EventResponse], selector: AssetCentricSelector | None = None
+    ) -> Page[dict[str, JsonVal]]:
         # Ensure data sets/assets are looked up to populate cache.
-        self._populate_data_set_id_cache(data_chunk)
-        self._populate_asset_id_cache(data_chunk)
+        raw_items = [di.item for di in data_chunk.items]
+        self._populate_data_set_id_cache(raw_items)
+        self._populate_asset_id_cache(raw_items)
 
-        return [self._crud.dump_resource(item) for item in data_chunk]
+        result = [
+            DataItem(tracking_id=di.tracking_id, item=self._crud.dump_resource(di.item)) for di in data_chunk.items
+        ]
+        return data_chunk.create_from(result)
 
-    def json_chunk_to_data(
-        self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
-    ) -> Sequence[UploadItem[EventRequest]]:
-        chunks = [item_json for _, item_json in data_chunk]
+    def json_chunk_to_data(self, data_chunk: Page[dict[str, JsonVal]]) -> Page[EventRequest]:
+        chunks = [item.item for item in data_chunk.items]
         self._populate_asset_external_ids_cache(chunks)
         self._populate_data_set_external_id_cache(chunks)
         return super().json_chunk_to_data(data_chunk)
@@ -702,9 +764,6 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResour
             self._event_io.KIND: self._event_io,
         }
 
-    def as_id(self, item: AssetCentricResource) -> str:
-        return item.external_id or AssetCentricIO.create_internal_identifier(item.id, self.client.config.project)
-
     def stream_data(
         self,
         selector: AssetCentricSelector,
@@ -717,8 +776,8 @@ class HierarchyIO(ConfigurableStorageIO[AssetCentricSelector, AssetCentricResour
         return self.get_resource_io(selector.kind).count(selector)
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[AssetCentricResource], selector: AssetCentricSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
+        self, data_chunk: Page[AssetCentricResource], selector: AssetCentricSelector | None = None
+    ) -> Page[dict[str, JsonVal]]:
         if selector is None:
             raise ValueError(f"Selector must be provided to convert data to JSON chunk for {type(self).__name__}.)")
         return self.get_resource_io(selector.kind).data_to_json_chunk(data_chunk, selector)

@@ -99,16 +99,16 @@ class TestChartIO:
             )
             assert io.count(selector) == 2
             charts_iterator = io.stream_data(selector=selector)
-            json_iterator = (io.data_to_json_chunk(chunk.items) for chunk in charts_iterator)
-            chart_data = [io.json_chunk_to_data([("id", item) for item in chunk]) for chunk in json_iterator]
+            json_iterator = (io.data_to_json_chunk(chunk) for chunk in charts_iterator)
+            chart_data = [io.json_chunk_to_data(chunk) for chunk in json_iterator]
 
             assert len(chart_data) == 1
             chart_list = chart_data[0]
             assert len(chart_list) == 2
-            first = chart_list[0]
+            first = chart_list.items[0]
             assert first.item.data.time_series_collection[0].ts_external_id == "ts_1"
             assert first.item.data.time_series_collection[1].ts_external_id == "ts_2"
-            second = chart_list[1]
+            second = chart_list.items[1]
             assert second.item.data.time_series_collection[0].ts_external_id == "ts_4"
             assert second.item.data.time_series_collection[1].ts_external_id == "ts_3"
 
@@ -148,10 +148,10 @@ class TestChartIO:
             client.charts.list.return_value = twenty_charts
             io = ChartIO(client)
             chunks = list(io.stream_data(selector=selector, limit=limit))
-            all_charts: list[ChartResponse] = []
+            all_external_ids: list[str] = []
             for chunk in chunks:
-                all_charts.extend(chunk.items)
-            assert [chart.external_id for chart in all_charts] == expected_external_ids
+                all_external_ids.extend(di.item.external_id for di in chunk.items)
+            assert all_external_ids == expected_external_ids
 
 
 class TestCanvasIO:
@@ -195,19 +195,21 @@ class TestCanvasIO:
             io = CanvasIO(client)
 
             chunks = list(io.stream_data(selector=selector))
-            canvas_list = [canvas for page in chunks for canvas in page.items]
-            assert len(canvas_list) == 1
+            assert len(chunks) == 1
+            page = chunks[0]
+            assert len(page) == 1
 
-            json_format = io.data_to_json_chunk(canvas_list, selector)
-            assert len(json_format) == 1
+            json_page = io.data_to_json_chunk(page, selector)
+            assert len(json_page) == 1
+            json_format = [di.item for di in json_page.items]
             json_str = json.dumps(json_format)
             internal_id_in_json = [id_ for id_ in ids if str(id_) in json_str]
             assert len(internal_id_in_json) == 0, "Internal IDs should not be present in the JSON export."
             assert "existingVersion" not in json_str, "existingVersion should not be present in the JSON export."
-            restored_canvases = io.json_chunk_to_data([("line 1", item) for item in json_format])
+            restored_page = io.json_chunk_to_data(json_page)
 
-            assert len(restored_canvases) == 1
-            restored_canvas = restored_canvases[0]
+            assert len(restored_page) == 1
+            restored_canvas = restored_page.items[0]
             assert restored_canvas.item.dump() == canvas.as_request_resource().dump()
 
     def test_load_canvas_missing_resource(self) -> None:

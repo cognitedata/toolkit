@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.cruds import RawTableCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
 from cognite_toolkit._cdf_tk.storageio import RawIO
 from cognite_toolkit._cdf_tk.storageio._asset_centric import AssetIO
-from cognite_toolkit._cdf_tk.storageio._base import UploadItem
+from cognite_toolkit._cdf_tk.storageio._base import DataItem, Page
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     InstanceFileSelector,
     InstanceQuerySelector,
@@ -222,15 +222,15 @@ class TestUploadCommand:
             json={"error": {"code": 401, "message": "Unauthorized"}},
         )
         items = [
-            UploadItem(item=AssetRequest(external_id="asset_1", name="Asset 1"), source_id="row 1"),  # type: ignore[arg-type]
-            UploadItem(item=AssetRequest(external_id="asset_2", name="Asset 2"), source_id="row 2"),  # type: ignore[arg-type]
+            DataItem(item=AssetRequest(external_id="asset_1", name="Asset 1"), tracking_id="row 1"),  # type: ignore[arg-type]
+            DataItem(item=AssetRequest(external_id="asset_2", name="Asset 2"), tracking_id="row 2"),  # type: ignore[arg-type]
         ]
         with HTTPClient(config=toolkit_config) as http_client:
             with pytest.raises(
                 ToolkitRuntimeError, match="Upload process was stopped due to repeatedly failed uploads"
             ):
                 UploadCommand._upload_items(
-                    data_chunk=items,
+                    data_chunk=Page(worker_id="main", items=items),
                     upload_client=http_client,
                     io=AssetIO(ToolkitClient(toolkit_config)),  # type: ignore[arg-type]
                     selector=DataSetSelector(data_set_external_id="dummy", kind="Assets"),

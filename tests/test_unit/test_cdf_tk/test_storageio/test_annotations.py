@@ -101,7 +101,7 @@ class TestAnnotationIO:
         assert total_items == 2
         assert annotation_io.count(selector) is None
 
-        json_data = [data for page in pages for data in annotation_io.data_to_json_chunk(page.items)]
+        json_data = [di.item for page in pages for di in annotation_io.data_to_json_chunk(page).items]
         assert len(json_data) == 2
         assert json_data == [
             {

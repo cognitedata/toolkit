@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     ThreeDAssetMappingMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
-from cognite_toolkit._cdf_tk.storageio import AssetIO, UploadItem
+from cognite_toolkit._cdf_tk.storageio import AssetIO, Page
 from cognite_toolkit._cdf_tk.storageio.selectors import ThreeDModelIdSelector
 
 
@@ -54,10 +54,10 @@ class TestAssetCentricMigrationIOAdapter:
         assert len(downloaded) == 2
         assert sum(len(chunk) for chunk in downloaded) == N
         unexpected_space = [
-            item for chunk in downloaded for item in chunk.items if item.mapping.instance_id.space != "mySpace"
+            di.item for chunk in downloaded for di in chunk.items if di.item.mapping.instance_id.space != "mySpace"
         ]
         assert not unexpected_space, f"Found items with unexpected space: {unexpected_space}"
-        first_item = downloaded[0].items[0]
+        first_item = downloaded[0].items[0].item
         assert first_item.dump() == {
             "mapping": {"id": 0, "instanceId": {"space": "mySpace", "externalId": "asset_0"}, "resourceType": "asset"},
             "resource": {
@@ -126,7 +126,7 @@ class TestAnnotationMigrationIO:
 
         assert len(downloaded) == 2
         assert sum(len(chunk) for chunk in downloaded) == N
-        first_item = downloaded[0].items[0]
+        first_item = downloaded[0].items[0].item
         assert first_item.dump() == {
             "mapping": {
                 "id": 0,
@@ -202,16 +202,18 @@ class TestThreeDAssetMappingMigrationIO:
         io = ThreeDAssetMappingMigrationIO(client, object_3D_space="mySpace", cad_node_space="mySpace")
         pages = list(io.stream_data(selector))
         assert len(pages) == 2
-        items = [item for chunk in pages for item in chunk.items]
-        assert len(items) == N
-
-        _ = io.as_id(items[0])
+        data_items = [di for chunk in pages for di in chunk.items]
+        assert len(data_items) == N
 
         assert io.count(selector) is None, "3D Asset mapping count should be None"
 
         with HTTPClient(config) as http_client:
             io.upload_items(
-                [UploadItem(source_id=f"{no:,}", item=item) for no, item in enumerate(items)], http_client=http_client
+                Page(
+                    worker_id="main",
+                    items=data_items,
+                ),
+                http_client=http_client,
             )
 
         assert len(respx_mock.calls) == 4  # 1 model list, 2 mapping list, 1 uploads (since we pass in all at once)

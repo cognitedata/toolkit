@@ -30,7 +30,8 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker, chunker_sequence
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import Bookmark, Page, UploadableStorageIO, UploadItem
+from ._base import Bookmark, DataItem, Page, UploadableStorageIO
+from .progress import NoBookmark
 from .selectors import FileContentSelector, FileIdentifierSelector, FileMetadataTemplateSelector
 from .selectors._file_content import (
     FILEPATH,
@@ -46,7 +47,7 @@ from .selectors._file_content import NodeId as SelectorNodeId
 COGNITE_FILE_VIEW = dm.ViewId("cdf_cdm", "CogniteFile", "v1")
 
 
-class UploadFileContentItem(UploadItem[FileMetadataRequest]):
+class UploadFileContentItem(DataItem[FileMetadataRequest]):
     file_path: Path
     mime_type: str
 
@@ -79,9 +80,6 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         super().__init__(client)
         self._crud = FileMetadataCRUD(client, None, None)
         self._target_dir = target_dir
-
-    def as_id(self, item: MetadataWithFilePath) -> str:
-        return item.metadata.external_id or str(item.metadata.id)
 
     def stream_data(
         self,
@@ -124,7 +122,14 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                         file_path=filepath.relative_to(self._target_dir),
                     )
                 )
-            yield Page(items=downloaded_files, worker_id="Main", bookmark=Bookmark())
+            items = [
+                DataItem(
+                    tracking_id=item.metadata.external_id or str(item.metadata.id),
+                    item=item,
+                )
+                for item in downloaded_files
+            ]
+            yield Page(items=items, worker_id="Main", bookmark=NoBookmark())
 
     def _retrieve_metadata(self, identifiers: Sequence[FileIdentifier]) -> Sequence[FileMetadataResponse] | None:
         config = self.client.config
@@ -220,8 +225,8 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         return None
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[MetadataWithFilePath], selector: FileContentSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
+        self, data_chunk: Page[MetadataWithFilePath], selector: FileContentSelector | None = None
+    ) -> Page[dict[str, JsonVal]]:
         """Convert a writable Cognite resource list to a JSON-compatible chunk of data.
 
         Args:
@@ -230,14 +235,15 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         Returns:
             A list of dictionaries, each representing the data in a JSON-compatible format.
         """
-        result: list[dict[str, JsonVal]] = []
-        for item in data_chunk:
+        result: list[DataItem[dict[str, JsonVal]]] = []
+        for chunk_item in data_chunk.items:
+            item = chunk_item.item
             item_json = self._crud.dump_resource(item.metadata)
             item_json[FILEPATH] = item.file_path.as_posix()
-            result.append(item_json)
-        return result
+            result.append(DataItem(tracking_id=chunk_item.tracking_id, item=item_json))
+        return data_chunk.create_from(result)
 
-    def json_chunk_to_data(self, data_chunk: list[tuple[str, dict[str, JsonVal]]]) -> Sequence[UploadFileContentItem]:
+    def json_chunk_to_data(self, data_chunk: Page[dict[str, JsonVal]]) -> Page[FileMetadataRequest]:
         """Convert a JSON-compatible chunk of data back to a writable Cognite resource list.
 
         Args:
@@ -248,7 +254,9 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         """
         result: list[UploadFileContentItem] = []
         non_property_keys = {FILEPATH, "instanceId", "instance_id"}
-        for source_id, item_json in data_chunk:
+        for chunk_item in data_chunk.items:
+            tracking_id = chunk_item.tracking_id
+            item_json = chunk_item.item
             file_view_properties = {k: v for k, v in item_json.items() if k not in non_property_keys and v is not None}
             item = self.json_to_resource(item_json)
             filepath = Path(cast(str | Path, item_json[FILEPATH]))
@@ -256,21 +264,21 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
             # application/octet-stream is the standard fallback for binary data when the type is unknown. (at least Claude thinks so)
             result.append(
                 UploadFileContentItem(
-                    source_id=source_id,
+                    tracking_id=tracking_id,
                     item=item,
                     file_path=filepath,
                     mime_type=mime_type or "application/octet-stream",
                     file_view_properties=file_view_properties,
                 )
             )
-        return result
+        return data_chunk.create_from(cast(Sequence[DataItem[FileMetadataRequest]], result))
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> FileMetadataRequest:
         return self._crud.load_resource(item_json)
 
     def upload_items(
         self,
-        data_chunk: Sequence[UploadItem[FileMetadataRequest]],
+        data_chunk: Page[FileMetadataRequest],
         http_client: HTTPClient,
         selector: FileContentSelector | None = None,
     ) -> ItemsResultList:
@@ -291,7 +299,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                 f"Upload for the given selector, {type(selector).__name__}, is not supported for FileContentIO"
             )
 
-        for item in cast(Sequence[UploadFileContentItem], data_chunk):
+        for item in cast(Sequence[UploadFileContentItem], data_chunk.items):
             if not (upload_url := upload_url_getter(item, http_client, results)):
                 continue
 
@@ -356,7 +364,12 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         )
         if isinstance(response, FailedResponse) and response.error.missing and not created_node:
             if self._create_cognite_file_node(
-                instance_id, http_client, item.source_id, results, view_id=view_id, properties=item.file_view_properties
+                instance_id,
+                http_client,
+                item.tracking_id,
+                results,
+                view_id=view_id,
+                properties=item.file_view_properties,
             ):
                 return self._upload_url_data_modeling(item, http_client, results, view_id=view_id, created_node=True)
             else:
@@ -406,7 +419,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         cls, response: HTTPResult, item: UploadFileContentItem, results: ItemsResultList
     ) -> str | None:
         if not isinstance(response, SuccessResponse):
-            results.append(response.as_item_response(item.source_id))
+            results.append(response.as_item_response(item.tracking_id))
             return None
         try:
             body = response.body_json
@@ -416,7 +429,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                     status_code=response.status_code,
                     body=response.body,
                     error=ErrorDetails(code=response.status_code, message="Invalid JSON response"),
-                    ids=[item.source_id],
+                    ids=[item.tracking_id],
                 )
             )
             return None
@@ -430,27 +443,25 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                     status_code=200,
                     body=json.dumps(body),
                     error=ErrorDetails(code=200, message="Malformed response"),
-                    ids=[item.source_id],
+                    ids=[item.tracking_id],
                 )
             )
             return None
         return upload_url
 
     @classmethod
-    def read_chunks(
-        cls, reader: MultiFileReader, selector: FileContentSelector
-    ) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+    def read_chunks(cls, reader: MultiFileReader, selector: FileContentSelector) -> Iterable[Page[dict[str, JsonVal]]]:
         if isinstance(selector, FileTemplateSelector):
             for chunk in chunker_sequence(reader.input_files, cls.CHUNK_SIZE):
-                batch: list[tuple[str, dict[str, JsonVal]]] = []
+                batch: list[DataItem[dict[str, JsonVal]]] = []
                 for file_path in chunk:
                     metadata = selector.create_instance(file_path)
                     metadata[FILEPATH] = file_path
-                    batch.append((file_path.as_posix(), metadata))
-                yield batch
+                    batch.append(DataItem(tracking_id=file_path.as_posix(), item=metadata))
+                yield Page(worker_id="main", items=batch, bookmark=NoBookmark())
         elif isinstance(selector, FileIdentifierSelector):
             for item_chunk in chunker(reader.read_chunks(), cls.CHUNK_SIZE):
-                batch = []
+                file_batch: list[DataItem[dict[str, JsonVal]]] = []
                 for item in item_chunk:
                     if FILEPATH not in item:
                         # Todo Log warning
@@ -463,8 +474,8 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
                     if not file_path.is_absolute():
                         file_path = reader.input_file.parent / file_path
                     item[FILEPATH] = file_path
-                    batch.append((file_path.as_posix(), item))
-                yield batch
+                    file_batch.append(DataItem(tracking_id=file_path.as_posix(), item=item))
+                yield Page(worker_id="main", items=file_batch, bookmark=NoBookmark())
         else:
             raise ToolkitNotImplementedError(
                 f"Reading with the manifest, {type(selector).__name__}, is not supported for FileContentIO"
