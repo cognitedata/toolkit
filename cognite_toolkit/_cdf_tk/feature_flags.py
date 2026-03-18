@@ -56,8 +56,7 @@ class Flags(Enum):
     )
     INFIELD_DEV = FlagMetadata(
         visible=False,
-        description="This alpha flag is only for an InField developer, it is to set the schema spaces for where the InFieldOnCDM model is located."
-        "This is used in testing before it has become a system model.",
+        description="For InField developers: sets the schema space for the InFieldOnCDM data model to test migration before it becomes a system model.",
     )
     STREAMS = FlagMetadata(
         visible=True,
