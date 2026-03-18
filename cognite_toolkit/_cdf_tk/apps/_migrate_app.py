@@ -1358,7 +1358,7 @@ class MigrateApp(typer.Typer):
                 help="The spaces were the InFieldOnCDM data model is located. This is for the InField developer to test migration before it becomes a system model.",
                 hidden=not Flags.INFIELD_DEV.is_enabled(),
             ),
-        ] = "infield_cdm_source_desc_sche_asset_file_ts",
+        ] = "cdf_infield",
         log_dir: Annotated[
             Path,
             typer.Option(
