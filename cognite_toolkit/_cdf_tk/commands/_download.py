@@ -97,7 +97,7 @@ class DownloadCommand(ToolkitCommand):
             with FileWriter.create_from_format(
                 file_format, target_dir, selector.kind, compression_cls, columns=columns
             ) as writer:
-                executor = ProducerWorkerExecutor[Page[T_ResourceResponse], list[dict[str, JsonVal]]](
+                executor = ProducerWorkerExecutor[Page[T_ResourceResponse], Page[dict[str, JsonVal]]](
                     download_iterable=io.stream_data(selector, limit),
                     process=self.create_data_process(io=io, selector=selector, is_table=is_table),
                     write=partial(writer.write_chunks, filestem=filestem),
@@ -157,18 +157,8 @@ class DownloadCommand(ToolkitCommand):
         io: StorageIO[T_Selector, T_ResourceResponse],
         selector: T_Selector,
         is_table: bool,
-    ) -> Callable[[Page[T_ResourceResponse]], list[dict[str, JsonVal]]]:
+    ) -> Callable[[Page[T_ResourceResponse]], Page[dict[str, JsonVal]]]:
         """Creates a data processing function based on the IO type and whether the output is a table."""
         if is_table and isinstance(io, TableStorageIO):
-
-            def row_data_process(chunk: Page[T_ResourceResponse]) -> list[dict[str, JsonVal]]:
-                result_page = io.data_to_row(chunk, selector)
-                return [item.item for item in result_page.items]
-
-            return row_data_process
-
-        def chunk_data_process(data_page: Page[T_ResourceResponse]) -> list[dict[str, JsonVal]]:
-            result_page = io.data_to_json_chunk(data_page, selector)
-            return [item.item for item in result_page.items]
-
-        return chunk_data_process
+            return partial(io.data_to_row, selector=selector)
+        return partial(io.data_to_json_chunk, selector=selector)
