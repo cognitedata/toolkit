@@ -415,9 +415,9 @@ class MigrateApp(typer.Typer):
         if data_set_id is not None and mapping_file is not None:
             raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
         elif mapping_file is not None:
-            if data_set_id is not None or mapping_file is not None or consumption_view is not None:
+            if ingestion_mapping is not None or consumption_view is not None:
                 raise typer.BadParameter(
-                    "Cannot specify data_set_id, consumption_view or ingestion_mapping when using mapping_file"
+                    "Cannot specify consumption_view or ingestion_mapping when using mapping_file"
                     "These values are expected to be found in the mapping file."
                 )
 
