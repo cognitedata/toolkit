@@ -502,8 +502,10 @@ def create_container_properties(
             )
             continue
         if isinstance(value, datetime):
+            # Convert datetime to ISO format string, as the data model expects datetimes as strings in ISO format.
             properties[prop_id] = value.isoformat(timespec="milliseconds")
         elif isinstance(value, date):
+            # Convert date to ISO format string, as the data model expects dates as strings in ISO format.
             properties[prop_id] = value.isoformat()
         else:
             properties[prop_id] = value
