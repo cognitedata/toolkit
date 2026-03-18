@@ -100,7 +100,7 @@ class DownloadCommand(ToolkitCommand):
                 executor = ProducerWorkerExecutor[Page[T_ResourceResponse], Page[dict[str, JsonVal]]](
                     download_iterable=io.stream_data(selector, limit),
                     process=self.create_data_process(io=io, selector=selector, is_table=is_table),
-                    write=partial(writer.write_chunks, filestem=filestem),
+                    write=self.create_writer(writer, filestem=filestem),
                     iteration_count=iteration_count,
                     # Limit queue size to avoid filling up memory before the workers can write to disk.
                     max_queue_size=8 * 10,  # 8 workers, 10 items per worker
@@ -162,3 +162,16 @@ class DownloadCommand(ToolkitCommand):
         if is_table and isinstance(io, TableStorageIO):
             return partial(io.data_to_row, selector=selector)
         return partial(io.data_to_json_chunk, selector=selector)
+
+    @staticmethod
+    def create_writer(
+        writer: FileWriter,
+        filestem: str,
+    ) -> Callable[[Page[dict[str, JsonVal]]], None]:
+        """Creates a writer function that writes processed data to files using the provided FileWriter."""
+
+        def write(page: Page[dict[str, JsonVal]]) -> None:
+            # MyPy Fails to understand that JsonVal is a subset fo chunk.
+            writer.write_chunks(page.as_raw_items(), filestem=filestem)  # type: ignore[arg-type]
+
+        return write

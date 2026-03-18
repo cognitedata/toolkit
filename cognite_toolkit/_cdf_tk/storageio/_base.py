@@ -80,6 +80,9 @@ class Page(Generic[T_DataItem], Sized):
     def __iter__(self) -> Iterator[DataItem[T_DataItem]]:
         return iter(self.items)
 
+    def as_raw_items(self) -> Sequence[T_DataItem]:
+        return [item.item for item in self.items]
+
     def create_from(self, items: Sequence[DataItem[T_NewDataItem]]) -> "Page[T_NewDataItem]":
         return Page[T_NewDataItem](worker_id=self.worker_id, items=items, bookmark=self.bookmark)
 
