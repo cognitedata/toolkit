@@ -156,6 +156,7 @@ class ModulesApp(typer.Typer):
                 "--deployment-pack",
                 "-d",
                 help="Name of a specific module to download and install from the library without interactive prompts.",
+                hidden=not Flags.DEPLOYMENT_PACK.is_enabled(),
             ),
         ] = None,
         verbose: Annotated[
@@ -169,6 +170,8 @@ class ModulesApp(typer.Typer):
     ) -> None:
         """Add one or more new module(s) to the project."""
         client: ToolkitClient | None = None
+        if not Flags.DEPLOYMENT_PACK.is_enabled():
+            deployment_pack = None
         with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
             # Try to load client if possible, but ignore errors.
             # This is only used for logging purposes in the command.
