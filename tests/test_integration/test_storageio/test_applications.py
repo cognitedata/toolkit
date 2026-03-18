@@ -6,7 +6,7 @@ from cognite.client.data_classes import DataSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventRequest, EventResponse
-from cognite_toolkit._cdf_tk.storageio import CanvasIO
+from cognite_toolkit._cdf_tk.storageio import CanvasIO, DataItem, Page
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 
@@ -85,7 +85,9 @@ def canvas_raw_data(canvas_event: EventResponse) -> dict[str, Any]:
 class TestCanvasIO:
     def test_upload_canvas(self, toolkit_client: ToolkitClient, canvas_raw_data: dict[str, Any]) -> None:
         io = CanvasIO(toolkit_client)
-        upload_items = io.json_chunk_to_data([("canvas_data.json", canvas_raw_data)])
+        upload_items = io.json_chunk_to_data(
+            Page(items=[DataItem(tracking_id="canvas_data.json", item=canvas_raw_data)], worker_id="main")
+        )
 
         assert len(upload_items) == 1
 
