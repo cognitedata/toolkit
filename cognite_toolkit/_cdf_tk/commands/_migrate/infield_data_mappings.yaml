@@ -7,7 +7,7 @@
     version: v1
     type: view
   destinationView:
-    space: infield_cdm_source_desc_sche_asset_file_ts
+    space: {{schemaSpace}}
     externalId: ConditionalAction
     version: v1
     type: view
@@ -22,7 +22,7 @@
     version: v5
     type: view
   destinationView:
-    space: infield_cdm_source_desc_sche_asset_file_ts
+    space: {{schemaSpace}}
     externalId: FieldObservation
     version: v1
     type: view
@@ -48,7 +48,7 @@
     version: v7
     type: view
   destinationView:
-    space: infield_cdm_source_desc_sche_asset_file_ts
+    space: {{schemaSpace}}
     externalId: Checklist
     version: v1
     type: view
@@ -63,7 +63,7 @@
     version: v4
     type: view
   destinationView:
-    space: infield_cdm_source_desc_sche_asset_file_ts
+    space: {{schemaSpace}}
     externalId: MeasurementReading
     version: v1
     type: view
@@ -80,7 +80,7 @@
     version: v4
     type: view
   destinationView:
-    space: infield_cdm_source_desc_sche_asset_file_ts
+    space: {{schemaSpace}}
     externalId: Schedule
     version: v1
     type: view
@@ -95,7 +95,7 @@
     version: v8
     type: view
   destinationView:
-    space: infield_cdm_source_desc_sche_asset_file_ts
+    space: {{schemaSpace}}
     externalId: Template
     version: v1
     type: view
@@ -110,7 +110,7 @@
     version: v1
     type: view
   destinationView:
-    space: infield_cdm_source_desc_sche_asset_file_ts
+    space: {{schemaSpace}}
     externalId: Action
     version: v1
     type: view
@@ -125,7 +125,7 @@
     version: v1
     type: view
   destinationView:
-    space: infield_cdm_source_desc_sche_asset_file_ts
+    space: {{schemaSpace}}
     externalId: Condition
     version: v1
     type: view
@@ -140,7 +140,7 @@
     version: v7
     type: view
   destinationView:
-    space: infield_cdm_source_desc_sche_asset_file_ts
+    space: {{schemaSpace}}
     externalId: ChecklistItem
     version: v1
     type: view
@@ -158,7 +158,7 @@
     version: v7
     type: view
   destinationView:
-    space: infield_cdm_source_desc_sche_asset_file_ts
+    space: {{schemaSpace}}
     externalId: TemplateItem
     version: v1
     type: view
