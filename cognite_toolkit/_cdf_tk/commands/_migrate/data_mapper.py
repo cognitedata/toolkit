@@ -247,9 +247,7 @@ class RecordsMapper(
         self._container_properties_by_id = {container.as_id(): container.properties for container in containers}
         missing = set(container_ids) - set(self._container_properties_by_id.keys())
         if missing:
-            raise ToolkitValueError(
-                f"The following containers were not found in CDF: {humanize_collection(missing)}"
-            )
+            raise ToolkitValueError(f"The following containers were not found in CDF: {humanize_collection(missing)}")
 
     def map(
         self, source: Sequence[AssetCentricMapping[T_AssetCentricResourceExtended]]
@@ -271,6 +269,13 @@ class RecordsMapper(
                 self.logger.tracker.add_issue(identifier, "Missing data modeling properties")
             if conversion_issue.ignored_asset_centric_properties:
                 self.logger.tracker.add_issue(identifier, "Ignored asset-centric properties")
+
+            if record is not None and not record.sources:
+                self.logger.tracker.add_issue(
+                    identifier,
+                    "No properties could be successfully mapped (at least one property is required to create a record)",
+                )
+                record = None
 
             if conversion_issue.has_issues:
                 issues.append(conversion_issue)

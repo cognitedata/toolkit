@@ -9,14 +9,14 @@ from rich.console import Console
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
-from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.http_client import (
     HTTPClient,
     ItemsFailedRequest,
     ItemsFailedResponse,
     ItemsSuccessResponse,
 )
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._migrate.creators import MigrationCreator
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import DataMapper
@@ -292,20 +292,34 @@ class MigrationCommand(ToolkitCommand):
             self.console(f"Unable to check stream capacity for '{stream.external_id}' (no settings returned).")
             return
 
-        usage = limits.max_records_total
-        consumed = usage.consumed or 0
-        available = usage.provisioned - consumed
+        records_usage = limits.max_records_total
+        records_consumed = records_usage.consumed or 0
+        records_available = records_usage.provisioned - records_consumed
 
-        if available < record_count:
+        if records_available < record_count:
             raise ToolkitValueError(
-                f"Stream '{stream.external_id}' does not have enough capacity. "
-                f"Provisioned: {usage.provisioned:,}, consumed: {consumed:,}, "
-                f"available: {available:,}, needed: {record_count:,}."
+                f"Stream '{stream.external_id}' does not have enough record capacity. "
+                f"Provisioned: {records_usage.provisioned:,}, consumed: {records_consumed:,}, "
+                f"available: {records_available:,}, needed: {record_count:,}."
             )
-        total_after = consumed + record_count
+
+        storage_usage = limits.max_giga_bytes_total
+        storage_consumed = storage_usage.consumed or 0
+        storage_available = storage_usage.provisioned - storage_consumed
+        if storage_available <= 0:
+            raise ToolkitValueError(
+                f"Stream '{stream.external_id}' does not have enough storage capacity. "
+                f"Provisioned: {storage_usage.provisioned:,} GB, consumed: {storage_consumed:,} GB."
+            )
+
+        records_total_after = records_consumed + record_count
         self.console(
             f"Stream '{stream.external_id}' has enough capacity. "
-            f"Total records after migration: {total_after:,} / {usage.provisioned:,}."
+            f"Records after migration: {records_total_after:,} / {records_usage.provisioned:,}. "
+        )
+        self.console(
+            f"Before migration, you've so far used {storage_consumed:,} / {storage_usage.provisioned:,} GB of stream storage. "
+            "Note that storage capacity is NOT considered when checking for capacity, and the migration might fail if you end up going over this limit."
         )
 
     @staticmethod
