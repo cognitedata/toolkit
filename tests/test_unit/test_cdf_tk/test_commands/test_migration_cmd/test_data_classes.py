@@ -105,6 +105,20 @@ class TestMigrationMappingList:
                 ),
                 id="Annotation mapping",
             ),
+            pytest.param(
+                "id,space,externalId,ingestionMapping\n123,sp_full_ts,full_ts_id,cdf_timeseries\n",
+                "TimeSeries",
+                MigrationMappingList(
+                    [
+                        TimeSeriesMapping(
+                            id=123,
+                            instance_id=NodeId(space="sp_full_ts", external_id="full_ts_id"),
+                            ingestion_mapping="cdf_timeseries",
+                        )
+                    ]
+                ),
+                id="Specify ingestionMapping column.",
+            ),
         ],
     )
     def test_read_mapping_file(

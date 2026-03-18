@@ -47,7 +47,7 @@ class MigrationMapping(BaseModel, alias_generator=to_camel, extra="ignore", popu
     instance_id: NodeUntypedId | EdgeUntypedId
     id: int
     data_set_id: int | None = None
-    ingestion_mapping: str | None = Field(default=None, alias="ingestionView")
+    ingestion_mapping: str | None = None
     preferred_consumer_view: ViewId | None = None
 
     def get_ingestion_mapping(self) -> str:
@@ -80,6 +80,10 @@ class MigrationMapping(BaseModel, alias_generator=to_camel, extra="ignore", popu
             if "consumerViewVersion" in values:
                 consumer_view["version"] = values.pop("consumerViewVersion")
             values["preferredConsumerView"] = consumer_view
+
+        if "ingestionView" in values and "ingestionMapping" not in values:
+            # This is for backwards compatability
+            values["ingestionMapping"] = values.pop("ingestionView")
         return values
 
     @field_validator("data_set_id", "ingestion_mapping", mode="before")
