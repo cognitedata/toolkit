@@ -62,19 +62,18 @@ class DataProductsAPI(CDFResourceAPI[DataProductResponse]):
         results: list[DataProductResponse] = []
         endpoint = self._method_endpoint_map["retrieve"]
         for ext_id in external_ids:
-            response = self._http_client.request_single_retries(
-                RequestMessage(
-                    endpoint_url=self._make_url(endpoint.path.format(externalId=ext_id.external_id)),
-                    method=endpoint.method,
-                    api_version=self._api_version,
-                )
+            request = RequestMessage(
+                endpoint_url=self._make_url(endpoint.path.format(externalId=ext_id.external_id)),
+                method=endpoint.method,
+                api_version=self._api_version,
             )
+            response = self._http_client.request_single_retries(request)
             if isinstance(response, SuccessResponse):
                 results.append(DataProductResponse.model_validate_json(response.body))
             elif ignore_unknown_ids:
                 continue
             else:
-                _ = response.get_success_or_raise()
+                _ = response.get_success_or_raise(request)
         return results
 
     def update(

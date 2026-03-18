@@ -10,26 +10,24 @@ class ProjectAPI:
 
     def status(self) -> ProjectStatusList:
         """Retrieve information about the current project."""
-        response = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=f"{self._http_client.config.base_url}/api/v1/projects",
-                method="GET",
-                parameters={"withDataModelingStatus": True},
-            )
-        ).get_success_or_raise()
+        request = RequestMessage(
+            endpoint_url=f"{self._http_client.config.base_url}/api/v1/projects",
+            method="GET",
+            parameters={"withDataModelingStatus": True},
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
         result = ProjectStatusList.model_validate_json(response.body)
         result._project = self._http_client.config.project
         return result
 
     def organization(self) -> OrganizationResponse:
         """Retrieve information about the organization of the current project."""
-        response = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=self._http_client.config.base_api_url,
-                method="GET",
-            )
+        request = RequestMessage(
+            endpoint_url=self._http_client.config.base_api_url,
+            method="GET",
         )
-        success = response.get_success_or_raise()
+        response = self._http_client.request_single_retries(request)
+        success = response.get_success_or_raise(request)
         return OrganizationResponse.model_validate_json(success.body)
 
     @lru_cache(maxsize=1)

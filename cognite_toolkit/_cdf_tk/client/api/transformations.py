@@ -131,18 +131,16 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
         if timeout is not None:
             # This is the server-side timeout for how long the query is allowed to run before it is cancelled.
             body["timeout"] = timeout
-
-        response = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=self._http_client.config.create_api_url("/transformations/query/run"),
-                method="POST",
-                body_content=body,
-                client_timeout=timeout
-                if timeout is not None
-                else (self.DEFAULT_TIMEOUT_RUN_QUERY + 60),  # add a buffer to the timeout
-                retry_status=False,
-            )
-        ).get_success_or_raise()
+        request = RequestMessage(
+            endpoint_url=self._http_client.config.create_api_url("/transformations/query/run"),
+            method="POST",
+            body_content=body,
+            client_timeout=timeout
+            if timeout is not None
+            else (self.DEFAULT_TIMEOUT_RUN_QUERY + 60),  # add a buffer to the timeout
+            retry_status=False,
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
         return SQLQueryResponse.model_validate_json(response.body)
 
     def paginate(

@@ -237,14 +237,12 @@ def cdm_file(
     _ = client.tool.filemetadata.upload_content(
         b"This is the CDM file content", file.upload_url, mime_type="text/plain"
     )
-
-    response = client.http_client.request_single_retries(
-        RequestMessage(
-            endpoint_url=client.config.create_api_url("/files/update"),
-            method="POST",
-            body_content={"items": [{**instance_id.dump(), "update": {"externalId": {"set": node.external_id}}}]},
-        )
-    ).get_success_or_raise()
+    request = RequestMessage(
+        endpoint_url=client.config.create_api_url("/files/update"),
+        method="POST",
+        body_content={"items": [{**instance_id.dump(), "update": {"externalId": {"set": node.external_id}}}]},
+    )
+    response = client.http_client.request_single_retries(request).get_success_or_raise(request)
     return ResponseItems[FileMetadataResponse].model_valide_json(response.body).items[0]
 
 

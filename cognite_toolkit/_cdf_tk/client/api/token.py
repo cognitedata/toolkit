@@ -128,12 +128,11 @@ class ToolkitTokenAPI:
         """Inspect the current token and return its capabilities and scopes."""
         config = self._http_client.config
         url = f"{config.base_url}/api/v1/token/inspect"
-        response = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=url,
-                method="GET",
-            )
-        ).get_success_or_raise()
+        request = RequestMessage(
+            endpoint_url=url,
+            method="GET",
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
         result = InspectResponse.model_validate_json(response.body)
         result.project = self._http_client.config.project
         return result

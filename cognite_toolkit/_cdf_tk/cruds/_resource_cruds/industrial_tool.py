@@ -159,15 +159,14 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
         return missing
 
     def _upload_content(self, upload_url: str, content: str) -> None:
-        result = self.client.http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=upload_url,
-                method="PUT",
-                content_type="application/json",
-                data_content=content.encode("utf-8"),
-            )
+        request = RequestMessage(
+            endpoint_url=upload_url,
+            method="PUT",
+            content_type="application/json",
+            data_content=content.encode("utf-8"),
         )
-        result.get_success_or_raise()
+        result = self.client.http_client.request_single_retries(request)
+        result.get_success_or_raise(request)
 
     def create(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
         created: list[StreamlitResponse] = []
