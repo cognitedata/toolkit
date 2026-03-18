@@ -162,7 +162,7 @@ class CDFResourceAPI(Generic[T_BaseModelObject], ABC):
                 api_version=self._api_version,
             )
             response = self._http_client.request_single_retries(request)
-            yield response.get_success_or_raise()
+            yield response.get_success_or_raise(request)
 
     def _request_item_split_retries(
         self,
@@ -323,7 +323,7 @@ class CDFResourceAPI(Generic[T_BaseModelObject], ABC):
             api_version=self._api_version,
         )
         result = self._http_client.request_single_retries(request)
-        response = result.get_success_or_raise()
+        response = result.get_success_or_raise(request)
         return self._validate_page_response(response)
 
     def _iterate(

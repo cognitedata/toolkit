@@ -198,7 +198,7 @@ class DataModelsAPI(CDFResourceAPI[DataModelResponse]):
                     disable_gzip=self._disable_gzip,
                     api_version=self._api_version,
                 )
-                response = self._http_client.request_single_retries(request).get_success_or_raise()
+                response = self._http_client.request_single_retries(request).get_success_or_raise(request)
                 page = PagedResponse[DataModelResponseWithViews].model_validate_json(response.body)
                 response_items.extend(page.items)
                 total += len(page.items)

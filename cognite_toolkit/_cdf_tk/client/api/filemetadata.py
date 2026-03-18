@@ -63,7 +63,7 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
                 parameters={"overwrite": overwrite},
             )
             response = self._http_client.request_single_retries(request)
-            result = response.get_success_or_raise()
+            result = response.get_success_or_raise(request)
             results.append(FileMetadataResponse.model_validate_json(result.body))
         return results
 
@@ -186,19 +186,18 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
         """Upload file link to CDF."""
         results: list[FileMetadataResponse] = []
         for item in items:
-            response = self._http_client.request_single_retries(
-                RequestMessage(
-                    endpoint_url=self._http_client.config.create_api_url("/files/uploadlink"),
-                    method="POST",
-                    body_content={"items": [item.dump()]},
-                )
+            request = RequestMessage(
+                endpoint_url=self._http_client.config.create_api_url("/files/uploadlink"),
+                method="POST",
+                body_content={"items": [item.dump()]},
             )
+            response = self._http_client.request_single_retries(request)
             if isinstance(response, SuccessResponse):
                 results.extend(ResponseItems[FileMetadataResponse].model_validate_json(response.body).items)
             elif ignore_unknown_ids:
                 continue
             else:
-                _ = response.get_success_or_raise()
+                _ = response.get_success_or_raise(request)
         return results
 
     def upload_content(self, data_content: bytes, upload_url: str, mime_type: str | None = None) -> HTTPResult:

@@ -95,13 +95,12 @@ class DatapointSubscriptionsAPI(CDFResourceAPI[DatapointSubscriptionResponse]):
             parameters: dict[str, Any] = {"externalId": external_id, "limit": page_limit}
             if cursor is not None:
                 parameters["cursor"] = cursor
-            response = self._http_client.request_single_retries(
-                RequestMessage(
-                    endpoint_url=self._http_client.config.create_api_url(endpoint.path),
-                    method=endpoint.method,
-                    parameters=parameters,
-                )
-            ).get_success_or_raise()
+            request = RequestMessage(
+                endpoint_url=self._http_client.config.create_api_url(endpoint.path),
+                method=endpoint.method,
+                parameters=parameters,
+            )
+            response = self._http_client.request_single_retries(request).get_success_or_raise(request)
             page_response = PagedResponse[DatapointSubscriptionTimeSeriesId].model_validate_json(response.body)
             result.extend(page_response.items)
             total += len(page_response.items)

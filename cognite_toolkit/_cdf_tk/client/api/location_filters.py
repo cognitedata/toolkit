@@ -64,7 +64,7 @@ class LocationFiltersAPI(CDFResourceAPI[LocationFilterResponse]):
                 body_content=item.model_dump(mode="json", by_alias=True),
             )
             result = self._http_client.request_single_retries(request)
-            response = result.get_success_or_raise()
+            response = result.get_success_or_raise(request)
             results.append(LocationFilterResponse.model_validate_json(response.body))
         return results
 
@@ -99,7 +99,7 @@ class LocationFiltersAPI(CDFResourceAPI[LocationFilterResponse]):
                 body_content=item.model_dump(mode="json", by_alias=True),
             )
             result = self._http_client.request_single_retries(request)
-            response = result.get_success_or_raise()
+            response = result.get_success_or_raise(request)
             parsed = LocationFilterResponse.model_validate_json(response.body)
             parsed.id = item.id
             results.append(parsed)
@@ -122,7 +122,7 @@ class LocationFiltersAPI(CDFResourceAPI[LocationFilterResponse]):
                 method=endpoint.method,
             )
             result = self._http_client.request_single_retries(request)
-            response = result.get_success_or_raise()
+            response = result.get_success_or_raise(request)
             results.append(LocationFilterResponse.model_validate_json(response.body))
         return results
 
@@ -142,7 +142,7 @@ class LocationFiltersAPI(CDFResourceAPI[LocationFilterResponse]):
             body_content=body or {},
         )
         result = self._http_client.request_single_retries(request)
-        response = result.get_success_or_raise()
+        response = result.get_success_or_raise(request)
         return self._validate_page_response(response)
 
     def paginate(

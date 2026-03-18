@@ -148,7 +148,7 @@ class AssetCentricMigrationIO(
                     ),
                     id=resource.id,
                     data_set_id=resource.data_set_id,
-                    ingestion_view=selector.ingestion_mapping,
+                    ingestion_mapping=selector.ingestion_mapping,
                     preferred_consumer_view=selector.preferred_consumer_view,
                 )
                 mapping_list.append(AssetCentricMapping(mapping=mapping, resource=resource))  # type: ignore[arg-type]
@@ -353,7 +353,7 @@ class AnnotationMigrationIO(
                 mapping = AnnotationMapping(
                     instance_id=EdgeId(space=self.instance_space, external_id=f"annotation_{resource.id!r}"),
                     id=resource.id,
-                    ingestion_view=self._get_mapping(selector.ingestion_mapping, resource),
+                    ingestion_mapping=self._get_mapping(selector.ingestion_mapping, resource),
                     preferred_consumer_view=selector.preferred_consumer_view,
                     annotation_type=resource.annotation_type,  # type: ignore[arg-type]
                 )
@@ -385,7 +385,7 @@ class AnnotationMigrationIO(
                 if resource.annotation_type not in self.SUPPORTED_ANNOTATION_TYPES:
                     incorrect_type_count += 1
                     continue
-                mapping.ingestion_view = self._get_mapping(mapping.ingestion_view, resource)
+                mapping.ingestion_mapping = self._get_mapping(mapping.ingestion_mapping, resource)
                 chunk.append(AssetCentricMapping(mapping=mapping, resource=resource))
             if chunk:
                 yield chunk

@@ -52,7 +52,7 @@ class ExtractionPipelineConfigsAPI(CDFResourceAPI[ExtractionPipelineConfigRespon
                 method=endpoint.method,
                 body_content=item.dump(),
             )
-            response = self._http_client.request_single_retries(request).get_success_or_raise()
+            response = self._http_client.request_single_retries(request).get_success_or_raise(request)
             results.append(ExtractionPipelineConfigResponse.model_validate_json(response.body))
         return results
 
@@ -85,7 +85,7 @@ class ExtractionPipelineConfigsAPI(CDFResourceAPI[ExtractionPipelineConfigRespon
             elif ignore_unknown_ids:
                 continue
             else:
-                _ = response.get_success_or_raise()
+                _ = response.get_success_or_raise(request)
 
         return results
 

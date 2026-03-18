@@ -527,7 +527,7 @@ class BuildV2Command(ToolkitCommand):
         if insight_file_content.strip():
             safe_write(insight_file, insight_file_content)
 
-        lineage_file = build_folder.path / "lineage.yaml"
+        lineage_file = build_folder.path / BuildLineage.filename
         lineage_file.parent.mkdir(parents=True, exist_ok=True)
         lineage = BuildLineage.from_build_parameters_and_results(
             parameters, build_folder, timestamp, duration

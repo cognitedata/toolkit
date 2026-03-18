@@ -185,7 +185,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             body_content=query.dump(),
         )
         response = self._http_client.request_single_retries(request)
-        success = response.get_success_or_raise()
+        success = response.get_success_or_raise(request)
         if type_results:
             return QueryResponseTyped.model_validate_json(success.body)
         else:
@@ -316,7 +316,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
                     body_content={"items": chunk},  # type: ignore[dict-item]
                 )
                 response = self._http_client.request_single_retries(request)
-                success = response.get_success_or_raise()
+                success = response.get_success_or_raise(request)
                 paged_response = PagedResponse[InstanceSlimDefinition].model_validate_json(success.body)
                 item_response.extend(paged_response.items)
             response_items.append(self._merge_instance_slim_definitions(item_response))
@@ -378,14 +378,14 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
                 if delete_chunk:
                     body_content["delete"] = delete_chunk  # type: ignore[assignment]
 
-                response = self._http_client.request_single_retries(
-                    message=RequestMessage(
-                        endpoint_url=self._http_client.config.create_api_url(endpoint.path),
-                        method=endpoint.method,
-                        body_content=body_content,
-                    )
+                request = RequestMessage(
+                    endpoint_url=self._http_client.config.create_api_url(endpoint.path),
+                    method=endpoint.method,
+                    body_content=body_content,
                 )
-                success = response.get_success_or_raise()
+
+                response = self._http_client.request_single_retries(request)
+                success = response.get_success_or_raise(request)
                 paged_response = PagedResponse[InstanceSlimDefinition].model_validate_json(success.body)
                 item_response.extend(paged_response.items)
             updated.append(self._merge_instance_slim_definitions(item_response))
@@ -408,7 +408,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
                 body_content=query.dump(),
             )
             response = self._http_client.request_single_retries(request)
-            success = response.get_success_or_raise()
+            success = response.get_success_or_raise(request)
             paged_response = QueryResponseUntyped.model_validate_json(success.body)
             retrieved.extend(self._validate_query_response(paged_response))
         return retrieved
@@ -428,7 +428,7 @@ class MultiWrappedInstancesAPI(Generic[T_InstancesListRequest, T_InstancesListRe
                 body_content={"items": [item.dump() for item in chunk]},
             )
             response = self._http_client.request_single_retries(request)
-            success = response.get_success_or_raise()
+            success = response.get_success_or_raise(request)
             validated_response = ResponseItems[NodeId].model_validate_json(success.body)
             response_items.extend(validated_response.items)
         return response_items
