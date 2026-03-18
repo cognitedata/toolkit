@@ -267,7 +267,7 @@ class InstanceIO(
             yield Page(
                 worker_id="main",
                 items=wrapped_items,
-                bookmark=CursorBookmark(worker_id="main", cursor=next_cursor) if next_cursor else NoBookmark(),
+                bookmark=CursorBookmark(cursor=next_cursor) if next_cursor else NoBookmark(),
             )
             if next_cursor is None or (limit is not None and total >= limit) or not nodes:
                 break
@@ -327,9 +327,7 @@ class InstanceIO(
                 yield Page(
                     worker_id="main",
                     items=wrapped_items,
-                    bookmark=CursorBookmark(worker_id="main", cursor=page.next_cursor)
-                    if page.next_cursor
-                    else NoBookmark(),
+                    bookmark=CursorBookmark(cursor=page.next_cursor) if page.next_cursor else NoBookmark(),
                 )
             if page.next_cursor is None or (limit is not None and total >= limit) or not page.items:
                 break

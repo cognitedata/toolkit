@@ -14,7 +14,6 @@ class ProgressObject(BaseModel):
 
 class BookmarkType(ProgressObject):
     type: str
-    worker_id: str
 
 
 class CursorBookmark(BookmarkType):
@@ -45,7 +44,7 @@ Bookmark = Annotated[CursorBookmark | FileBookmark | NoBookmark, Field(discrimin
 class ProgressYAML(ProgressObject):
     file_suffix: ClassVar[Literal["Progress"]] = "Progress"
     status: Literal["in-progress", "completed", "failed", "stopped"]
-    bookmarks: list[Bookmark]
+    bookmarks: dict[str, Bookmark]
     total: int | None = None
     completed: int | None = None
 

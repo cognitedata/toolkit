@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Mapping, Sequence, Sized
+from collections.abc import Iterable, Iterator, Mapping, Sequence, Sized
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar, runtime_checkable
 
@@ -76,6 +76,9 @@ class Page(Generic[T_DataItem], Sized):
 
     def __len__(self) -> int:
         return len(self.items)
+
+    def __iter__(self) -> Iterator[DataItem[T_DataItem]]:
+        return iter(self.items)
 
     def create_from(self, items: Sequence[DataItem[T_NewDataItem]]) -> "Page[T_NewDataItem]":
         return Page[T_NewDataItem](worker_id=self.worker_id, items=items, bookmark=self.bookmark)
@@ -250,20 +253,21 @@ class UploadableStorageIO(
         """
         data_name = "row" if reader.is_table else "line"
         batch: list[DataItem[dict[str, JsonVal]]] = []
+        line_no: int = -1
         for line_no, item in reader.read_chunks_with_line_numbers():
             batch.append(DataItem(tracking_id=f"{data_name} {line_no}", item=item))
             if len(batch) >= cls.CHUNK_SIZE:
                 yield Page(
                     worker_id="main",
                     items=batch,
-                    bookmark=FileBookmark(worker_id="main", lineno=line_no, filepath=reader.current_file),
+                    bookmark=FileBookmark(lineno=line_no, filepath=reader.current_file),
                 )
                 batch = []
         if batch:
             yield Page(
                 worker_id="main",
                 items=batch,
-                bookmark=FileBookmark(worker_id="main", lineno=line_no, filepath=reader.current_file),
+                bookmark=FileBookmark(lineno=line_no, filepath=reader.current_file),
             )
 
     @classmethod

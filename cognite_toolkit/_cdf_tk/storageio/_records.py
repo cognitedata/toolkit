@@ -204,7 +204,7 @@ class RecordIO(
                     DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item) for item in sync_response.items
                 ]
                 page_bookmark: Bookmark = (
-                    CursorBookmark(worker_id="main", cursor=sync_response.next_cursor)
+                    CursorBookmark(cursor=sync_response.next_cursor)
                     if sync_response.next_cursor is not None
                     else NoBookmark()
                 )

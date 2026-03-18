@@ -487,11 +487,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
             items = [item for item in response.items if self._is_selected(item, included_models)]
             total += len(items)
             if items:
-                bm: Bookmark = (
-                    CursorBookmark(worker_id="main", cursor=response.next_cursor)
-                    if response.next_cursor
-                    else NoBookmark()
-                )
+                bm: Bookmark = CursorBookmark(cursor=response.next_cursor) if response.next_cursor else NoBookmark()
                 yield Page(
                     worker_id="main",
                     items=[DataItem(tracking_id=item.name, item=item) for item in items],
@@ -599,9 +595,7 @@ class ThreeDAssetMappingMigrationIO(
                     total += len(items)
                     if items:
                         bm: Bookmark = (
-                            CursorBookmark(worker_id="main", cursor=response.next_cursor)
-                            if response.next_cursor
-                            else NoBookmark()
+                            CursorBookmark(cursor=response.next_cursor) if response.next_cursor else NoBookmark()
                         )
                         yield Page(
                             worker_id="main",

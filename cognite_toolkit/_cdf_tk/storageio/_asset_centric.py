@@ -328,9 +328,7 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
                 cursor=cursor,
             )
             self._collect_dependencies(page.items, selector)
-            bm: Bookmark = (
-                CursorBookmark(worker_id="main", cursor=page.next_cursor) if page.next_cursor else NoBookmark()
-            )
+            bm: Bookmark = CursorBookmark(cursor=page.next_cursor) if page.next_cursor else NoBookmark()
             yield Page(
                 worker_id="main",
                 items=[
@@ -472,9 +470,7 @@ class FileMetadataIO(AssetCentricIO[FileMetadataResponse]):
                 cursor=cursor,
             )
             self._collect_dependencies(page.items, selector)
-            bm: Bookmark = (
-                CursorBookmark(worker_id="main", cursor=page.next_cursor) if page.next_cursor else NoBookmark()
-            )
+            bm: Bookmark = CursorBookmark(cursor=page.next_cursor) if page.next_cursor else NoBookmark()
             yield Page(
                 worker_id="main",
                 items=[
@@ -546,9 +542,7 @@ class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesReques
                 cursor=cursor,
             )
             self._collect_dependencies(page.items, selector)
-            bm: Bookmark = (
-                CursorBookmark(worker_id="main", cursor=page.next_cursor) if page.next_cursor else NoBookmark()
-            )
+            bm: Bookmark = CursorBookmark(cursor=page.next_cursor) if page.next_cursor else NoBookmark()
             yield Page(
                 worker_id="main",
                 items=[
@@ -698,9 +692,7 @@ class EventIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
                 cursor=cursor,
             )
             self._collect_dependencies(page.items, selector)
-            bm: Bookmark = (
-                CursorBookmark(worker_id="main", cursor=page.next_cursor) if page.next_cursor else NoBookmark()
-            )
+            bm: Bookmark = CursorBookmark(cursor=page.next_cursor) if page.next_cursor else NoBookmark()
             yield Page(
                 worker_id="main",
                 items=[
