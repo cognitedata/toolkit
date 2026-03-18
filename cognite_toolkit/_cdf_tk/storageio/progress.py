@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.utils.file import read_yaml_file, safe_write
 
 
 class ProgressObject(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel)
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class BookmarkType(ProgressObject):
@@ -40,7 +40,7 @@ Bookmark = Annotated[Cursor | File, Field(discriminator="type")]
 class ProgressYAML(ProgressObject):
     file_suffix: ClassVar[Literal["Progress"]] = "Progress"
     status: Literal["in-progress", "completed", "failed", "stopped"]
-    bookmarks: list[Bookmark] = Field(discriminator="type")
+    bookmarks: list[Bookmark]
 
     @classmethod
     def try_load(cls, directory: Path, filestem: str) -> "ProgressYAML | None":

@@ -23,8 +23,9 @@ from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import Bookmark, Page, UploadableStorageIO, UploadItem
+from ._base import Page, UploadableStorageIO, UploadItem
 from .logger import LogIssue
+from .progress import Bookmark, Cursor
 from .selectors import (
     AllChartsSelector,
     CanvasExternalIdSelector,
@@ -86,7 +87,7 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
         if limit is not None:
             selected_charts = selected_charts[:limit]
         for chunk in chunker_sequence(selected_charts, self.CHUNK_SIZE):
-            yield Page(worker_id="main", items=chunk, bookmark=Bookmark())
+            yield Page(items=chunk, bookmark=Cursor(worker_id="main", cursor=""))
 
     def count(self, selector: ChartSelector) -> int | None:
         if isinstance(selector, ChartExternalIdSelector):
@@ -125,10 +126,8 @@ class ChartIO(UploadableStorageIO[ChartSelector, ChartResponse, ChartRequest]):
                         item["tsExternalId"] = ts_external_id
         return dumped
 
-    def json_chunk_to_data(
-        self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
-    ) -> Sequence[UploadItem[ChartRequest]]:
-        self._populate_timeseries_external_id_cache([item_json for _, item_json in data_chunk])
+    def json_chunk_to_data(self, data_chunk: Page[tuple[str, dict[str, JsonVal]]]) -> Page[UploadItem[ChartRequest]]:
+        self._populate_timeseries_external_id_cache([item_json for _, item_json in data_chunk.items])
         return super().json_chunk_to_data(data_chunk)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> ChartRequest:
@@ -255,7 +254,7 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
         for chunk in chunker_sequence(canvas_ids, self.CHUNK_SIZE):
             items = self.client.canvas.retrieve(NodeId.from_str_ids(chunk, space=CANVAS_INSTANCE_SPACE))
             self._log_retrieve_issues(chunk, items)
-            yield Page(worker_id="main", items=items, bookmark=Bookmark())
+            yield Page(items=items, bookmark=Cursor(worker_id="main", cursor=""))
 
     def _log_retrieve_issues(self, chunk: tuple[str, ...], items: list[IndustrialCanvasResponse]) -> None:
         found = {item.external_id for item in items}
@@ -407,9 +406,9 @@ class CanvasIO(UploadableStorageIO[CanvasSelector, IndustrialCanvasResponse, Ind
         return dumped
 
     def json_chunk_to_data(
-        self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
-    ) -> Sequence[UploadItem[IndustrialCanvasRequest]]:
-        self._populate_external_id_cache([item_json for _, item_json in data_chunk])
+        self, data_chunk: Page[tuple[str, dict[str, JsonVal]]]
+    ) -> Page[UploadItem[IndustrialCanvasRequest]]:
+        self._populate_external_id_cache([item_json for _, item_json in data_chunk.items])
         return super().json_chunk_to_data(data_chunk)
 
     @staticmethod

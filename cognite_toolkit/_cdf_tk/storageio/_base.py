@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.storageio.progress import Bookmark
+from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, Cursor
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -217,10 +217,10 @@ class UploadableStorageIO(
             A writable Cognite resource list representing the data.
         """
         result: list[UploadItem[T_DataRequest]] = []
-        for source_id, item_json in data_chunk:
+        for source_id, item_json in data_chunk.items:
             item = self.json_to_resource(item_json)
             result.append(UploadItem(source_id=source_id, item=item))
-        return result
+        return Page(items=result, bookmark=data_chunk.bookmark)
 
     @abstractmethod
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> T_DataRequest:
@@ -252,7 +252,8 @@ class UploadableStorageIO(
         # Include name of line for better error messages
         iterable = ((f"{data_name} {line_no}", item) for line_no, item in reader.read_chunks_with_line_numbers())
 
-        yield from chunker(iterable, cls.CHUNK_SIZE)
+        for chunk in chunker(iterable, cls.CHUNK_SIZE):
+            yield Page(items=chunk, bookmark=Cursor(worker_id="main", cursor=""))
 
     @classmethod
     def count_items(cls, reader: MultiFileReader, selector: T_Selector | None = None) -> int:
@@ -286,10 +287,10 @@ class TableUploadableStorageIO(UploadableStorageIO[T_Selector, T_DataResponse, T
             A writable Cognite resource list representing the data.
         """
         result: list[UploadItem[T_DataRequest]] = []
-        for source_id, row in rows:
+        for source_id, row in rows.items:
             item = self.row_to_resource(source_id, row, selector=selector)
             result.append(UploadItem(source_id=source_id, item=item))
-        return result
+        return Page(items=result, bookmark=rows.bookmark)
 
     @abstractmethod
     def row_to_resource(

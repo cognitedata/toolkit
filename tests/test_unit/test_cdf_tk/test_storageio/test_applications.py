@@ -16,6 +16,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartDat
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
+from cognite_toolkit._cdf_tk.storageio._base import Page
+from cognite_toolkit._cdf_tk.storageio.progress import Cursor
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     AllChartsSelector,
     CanvasExternalIdSelector,
@@ -100,10 +102,14 @@ class TestChartIO:
             assert io.count(selector) == 2
             charts_iterator = io.stream_data(selector=selector)
             json_iterator = (io.data_to_json_chunk(chunk.items) for chunk in charts_iterator)
-            chart_data = [io.json_chunk_to_data([("id", item) for item in chunk]) for chunk in json_iterator]
+            _bookmark = Cursor(worker_id="main", cursor="")
+            chart_data = [
+                io.json_chunk_to_data(Page(items=[("id", item) for item in chunk], bookmark=_bookmark))
+                for chunk in json_iterator
+            ]
 
             assert len(chart_data) == 1
-            chart_list = chart_data[0]
+            chart_list = chart_data[0].items
             assert len(chart_list) == 2
             first = chart_list[0]
             assert first.item.data.time_series_collection[0].ts_external_id == "ts_1"
@@ -204,10 +210,13 @@ class TestCanvasIO:
             internal_id_in_json = [id_ for id_ in ids if str(id_) in json_str]
             assert len(internal_id_in_json) == 0, "Internal IDs should not be present in the JSON export."
             assert "existingVersion" not in json_str, "existingVersion should not be present in the JSON export."
-            restored_canvases = io.json_chunk_to_data([("line 1", item) for item in json_format])
+            _bookmark = Cursor(worker_id="main", cursor="")
+            restored_canvases = io.json_chunk_to_data(
+                Page(items=[("line 1", item) for item in json_format], bookmark=_bookmark)
+            )
 
-            assert len(restored_canvases) == 1
-            restored_canvas = restored_canvases[0]
+            assert len(restored_canvases.items) == 1
+            restored_canvas = restored_canvases.items[0]
             assert restored_canvas.item.dump() == canvas.as_request_resource().dump()
 
     def test_load_canvas_missing_resource(self) -> None:

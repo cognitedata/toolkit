@@ -14,13 +14,13 @@ from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import (
-    Bookmark,
     ConfigurableStorageIO,
     Page,
     StorageIOConfig,
     TableUploadableStorageIO,
     UploadItem,
 )
+from .progress import Bookmark, Cursor
 from .selectors import RawTableSelector
 
 
@@ -60,7 +60,7 @@ class RawIO(
             partitions=None,
             chunk_size=self.CHUNK_SIZE,
         ):
-            yield Page(worker_id="main", items=chunk, bookmark=Bookmark())
+            yield Page(items=chunk, bookmark=Cursor(worker_id="main", cursor=""))
 
     def upload_items(
         self,
@@ -109,13 +109,12 @@ class RawIO(
 
     @classmethod
     def read_chunks(
-        cls, reader: MultiFileReader, selector: RawTableSelector
-    ) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+        cls, reader: MultiFileReader, selector: RawTableSelector, bookmark: Bookmark | None = None
+    ) -> Iterable[Page[tuple[str, dict[str, JsonVal]]]]:
         if not reader.is_table or selector.key is None:
-            yield from super().read_chunks(reader, selector)
+            yield from super().read_chunks(reader, selector, bookmark)
             return
         data_name = "row" if reader.is_table else "line"
-        # Validate that the key exists in all files
         for input_file in sorted(reader.input_files, key=reader._part_no):
             iterable = reader.reader_class(input_file).read_chunks()
             try:
@@ -128,4 +127,5 @@ class RawIO(
                 )
             full_iterator = chain([first], iterable)
             line_numbered_iterator = ((f"{data_name} {i}", row) for i, row in enumerate(full_iterator, start=1))
-            yield from chunker(line_numbered_iterator, cls.CHUNK_SIZE)
+            for chunk in chunker(line_numbered_iterator, cls.CHUNK_SIZE):
+                yield Page(items=chunk, bookmark=Cursor(worker_id="main", cursor=""))

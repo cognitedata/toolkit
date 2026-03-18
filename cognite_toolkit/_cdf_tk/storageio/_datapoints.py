@@ -36,7 +36,8 @@ from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.fileio._readers import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import Bookmark, Page, TableStorageIO, TableUploadableStorageIO, UploadItem
+from ._base import Page, TableStorageIO, TableUploadableStorageIO, UploadItem
+from .progress import Bookmark, Cursor
 from .selectors import DataPointsDataSetSelector, DataPointsFileSelector, DataPointsSelector
 
 
@@ -205,7 +206,7 @@ class DatapointsIO(
         if not isinstance(response, SuccessResponse):
             return None
         data_response: DataPointListResponse = DataPointListResponse.FromString(response.content)
-        return Page("Main", [data_response], Bookmark())
+        return Page(items=[data_response], bookmark=Cursor(worker_id="Main", cursor=""))
 
     def count(self, selector: DataPointsSelector) -> int | None:
         if isinstance(selector, DataPointsDataSetSelector):
@@ -429,8 +430,8 @@ class DatapointsIO(
 
     @classmethod
     def read_chunks(
-        cls, reader: MultiFileReader, selector: DataPointsSelector
-    ) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+        cls, reader: MultiFileReader, selector: DataPointsSelector, bookmark: Bookmark | None = None
+    ) -> Iterable[Page[tuple[str, dict[str, JsonVal]]]]:
         if not reader.is_table:
             raise RuntimeError(f"{cls.__name__} can only read from TableReader instances.")
 
@@ -456,12 +457,18 @@ class DatapointsIO(
             # The number of datapoints is the number of rows times the number of value columns.
             if ((len(column_names) - 1) * len(batch[column_names[0]])) >= cls.CHUNK_SIZE:
                 # We cannot guarantee JsonVal here, but that is handled later in the processing pipeline.
-                yield [(f"rows {start_row} to {row_no}", batch)]  # type: ignore[list-item]
+                yield Page(
+                    items=[(f"rows {start_row} to {row_no}", batch)],  # type: ignore[list-item]
+                    bookmark=Cursor(worker_id="main", cursor=""),
+                )
                 start_row = row_no + 1
                 batch = {col: [] for col in column_names}
             last_row = row_no
         if any(batch.values()):
-            yield [(f"rows {start_row} to{last_row}", batch)]  # type: ignore[list-item]
+            yield Page(
+                items=[(f"rows {start_row} to{last_row}", batch)],  # type: ignore[list-item]
+                bookmark=Cursor(worker_id="main", cursor=""),
+            )
 
     @classmethod
     def count_items(cls, reader: MultiFileReader, selector: DataPointsSelector | None = None) -> int:

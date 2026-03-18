@@ -172,18 +172,12 @@ class DownloadCommand(ToolkitCommand):
         if is_table and isinstance(io, TableStorageIO):
 
             def row_data_process(chunk: Page[T_ResourceResponse]) -> Page[dict[str, JsonVal]]:
-                return Page(
-                    items=io.data_to_row(chunk.items, selector), bookmark=chunk.bookmark, worker_id=chunk.worker_id
-                )
+                return Page(items=io.data_to_row(chunk.items, selector), bookmark=chunk.bookmark)
 
             return row_data_process
 
         def chunk_data_process(data_page: Page[T_ResourceResponse]) -> Page[dict[str, JsonVal]]:
-            return Page(
-                items=io.data_to_json_chunk(data_page.items, selector),
-                bookmark=data_page.bookmark,
-                worker_id=data_page.worker_id,
-            )
+            return Page(items=io.data_to_json_chunk(data_page.items, selector), bookmark=data_page.bookmark)
 
         return chunk_data_process
 
@@ -196,7 +190,7 @@ class DownloadCommand(ToolkitCommand):
         """Creates a writer function that writes data pages to files using the provided writer function."""
 
         def write(page: Page[dict[str, JsonVal]]) -> None:
-            writer.write_chunks(page.items, filestem=filestem)
+            writer.write_chunks(page.items, filestem=filestem)  # type: ignore[arg-type]
 
             if Flags.EXTEND_DOWNLOAD.is_enabled():
                 ProgressYAML(status="in-progress", bookmarks=[page.bookmark]).dump_to_file(

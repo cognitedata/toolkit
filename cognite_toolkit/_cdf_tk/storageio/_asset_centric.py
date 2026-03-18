@@ -39,7 +39,6 @@ from cognite_toolkit._cdf_tk.utils.useful_types import (
 from cognite_toolkit._cdf_tk.utils.useful_types2 import AssetCentricResource
 
 from ._base import (
-    Bookmark,
     ConfigurableStorageIO,
     Page,
     StorageIOConfig,
@@ -47,6 +46,7 @@ from ._base import (
     TableUploadableStorageIO,
     UploadItem,
 )
+from .progress import Bookmark, Cursor
 from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
@@ -221,12 +221,11 @@ class UploadableAssetCentricIO(
         self.client.lookup.security_categories.id(list(security_category_names))
 
     def rows_to_data(
-        self, rows: list[tuple[str, dict[str, JsonVal]]], selector: AssetCentricSelector | None = None
-    ) -> Sequence[UploadItem[T_ResourceRequest]]:
-        # We need to populate caches for any external IDs used in the rows before converting to resources.
-        # Thus, we override this method instead of row_to_resource, and reuse the json_to_resource method that
-        # does the cache population.
-        return self.json_chunk_to_data([(source_id, self.row_to_json(row)) for source_id, row in rows])
+        self, rows: Page[tuple[str, dict[str, JsonVal]]], selector: AssetCentricSelector | None = None
+    ) -> Page[UploadItem[T_ResourceRequest]]:
+        return self.json_chunk_to_data(
+            Page(items=[(source_id, self.row_to_json(row)) for source_id, row in rows.items], bookmark=rows.bookmark)
+        )
 
     @classmethod
     def row_to_json(cls, row: dict[str, JsonVal]) -> dict[str, JsonVal]:
@@ -317,7 +316,7 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page]:
         filter_ = self._get_classic_filter(selector)
-        cursor: str | None = bookmark.cursor if bookmark else None
+        cursor: str | None = bookmark.cursor if isinstance(bookmark, Cursor) else None
         total_count = 0
         while True:
             page = self.client.tool.assets.paginate(
@@ -327,7 +326,7 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
                 cursor=cursor,
             )
             self._collect_dependencies(page.items, selector)
-            yield Page(worker_id="main", items=page.items, bookmark=Bookmark(cursor=page.next_cursor))
+            yield Page(items=page.items, bookmark=Cursor(worker_id="main", cursor=page.next_cursor or ""))
             total_count += len(page.items)
             if page.next_cursor is None or (limit is not None and total_count >= limit):
                 break
@@ -357,8 +356,8 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
 
     @classmethod
     def read_chunks(
-        cls, reader: FileReader, selector: AssetCentricSelector
-    ) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+        cls, reader: FileReader, selector: AssetCentricSelector, bookmark: Bookmark | None = None
+    ) -> Iterable[Page[tuple[str, dict[str, JsonVal]]]]:
         """Assets require special handling when reading data to ensure parent assets are created first."""
         current_depth = max_depth = 0
         data_name = "row" if isinstance(reader, TableReader) else "line"
@@ -378,10 +377,10 @@ class AssetIO(UploadableAssetCentricIO[AssetResponse, AssetRequest]):
                     elif current_depth == 0:
                         max_depth = max(max_depth, depth)
                 if len(batch) >= cls.CHUNK_SIZE:
-                    yield batch
+                    yield Page(items=batch, bookmark=Cursor(worker_id="main", cursor=""))
                     batch = []
             if batch:
-                yield batch
+                yield Page(items=batch, bookmark=Cursor(worker_id="main", cursor=""))
                 batch = []
             current_depth += 1
 
@@ -448,7 +447,7 @@ class FileMetadataIO(AssetCentricIO[FileMetadataResponse]):
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page[FileMetadataResponse]]:
         filter_ = self._get_classic_filter(selector)
-        cursor: str | None = bookmark.cursor if bookmark else None
+        cursor: str | None = bookmark.cursor if isinstance(bookmark, Cursor) else None
         total_count = 0
         while True:
             page = self.client.tool.filemetadata.paginate(
@@ -457,7 +456,7 @@ class FileMetadataIO(AssetCentricIO[FileMetadataResponse]):
                 cursor=cursor,
             )
             self._collect_dependencies(page.items, selector)
-            yield Page(worker_id="main", items=page.items, bookmark=Bookmark(cursor=page.next_cursor))
+            yield Page(items=page.items, bookmark=Cursor(worker_id="main", cursor=page.next_cursor or ""))
             total_count += len(page.items)
             if page.next_cursor is None or (limit is not None and total_count >= limit):
                 break
@@ -506,7 +505,7 @@ class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesReques
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page]:
         filter_ = self._get_classic_filter(selector)
-        cursor: str | None = bookmark.cursor if bookmark else None
+        cursor: str | None = bookmark.cursor if isinstance(bookmark, Cursor) else None
         total_count = 0
         while True:
             page = self.client.tool.timeseries.paginate(
@@ -515,7 +514,7 @@ class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesReques
                 cursor=cursor,
             )
             self._collect_dependencies(page.items, selector)
-            yield Page(worker_id="main", items=page.items, bookmark=Bookmark(cursor=page.next_cursor))
+            yield Page(items=page.items, bookmark=Cursor(worker_id="main", cursor=page.next_cursor or ""))
             total_count += len(page.items)
             if page.next_cursor is None or (limit is not None and total_count >= limit):
                 break
@@ -533,9 +532,9 @@ class TimeSeriesIO(UploadableAssetCentricIO[TimeSeriesResponse, TimeSeriesReques
         return [self._crud.dump_resource(item) for item in data_chunk]
 
     def json_chunk_to_data(
-        self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
-    ) -> Sequence[UploadItem[TimeSeriesRequest]]:
-        chunks = [item_json for _, item_json in data_chunk]
+        self, data_chunk: Page[tuple[str, dict[str, JsonVal]]]
+    ) -> Page[UploadItem[TimeSeriesRequest]]:
+        chunks = [item_json for _, item_json in data_chunk.items]
         self._populate_asset_external_ids_cache(chunks)
         self._populate_data_set_external_id_cache(chunks)
         self._populate_security_category_name_cache(chunks)
@@ -644,7 +643,7 @@ class EventIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page]:
         filter_ = self._get_classic_filter(selector)
-        cursor: str | None = bookmark.cursor if bookmark else None
+        cursor: str | None = bookmark.cursor if isinstance(bookmark, Cursor) else None
         total_count = 0
         while True:
             page = self.client.tool.events.paginate(
@@ -653,7 +652,7 @@ class EventIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
                 cursor=cursor,
             )
             self._collect_dependencies(page.items, selector)
-            yield Page(worker_id="main", items=page.items, bookmark=Bookmark(cursor=page.next_cursor))
+            yield Page(items=page.items, bookmark=Cursor(worker_id="main", cursor=page.next_cursor or ""))
             total_count += len(page.items)
             if page.next_cursor is None or (limit is not None and total_count >= limit):
                 break
@@ -668,10 +667,8 @@ class EventIO(UploadableAssetCentricIO[EventResponse, EventRequest]):
 
         return [self._crud.dump_resource(item) for item in data_chunk]
 
-    def json_chunk_to_data(
-        self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
-    ) -> Sequence[UploadItem[EventRequest]]:
-        chunks = [item_json for _, item_json in data_chunk]
+    def json_chunk_to_data(self, data_chunk: Page[tuple[str, dict[str, JsonVal]]]) -> Page[UploadItem[EventRequest]]:
+        chunks = [item_json for _, item_json in data_chunk.items]
         self._populate_asset_external_ids_cache(chunks)
         self._populate_data_set_external_id_cache(chunks)
         return super().json_chunk_to_data(data_chunk)

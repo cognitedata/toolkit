@@ -234,7 +234,6 @@ class MigrationCommand(ToolkitCommand):
         def track_mapping(source: Page[T_DataResponse]) -> Page[UploadItem[T_DataRequest]]:
             mapped = mapper.map(source.items)
             return Page(
-                worker_id=source.worker_id,
                 items=[
                     UploadItem(source_id=data.as_id(item), item=target)
                     for target, item in zip(mapped, source.items)

@@ -11,6 +11,8 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
 from cognite_toolkit._cdf_tk.storageio import RawIO
+from cognite_toolkit._cdf_tk.storageio._base import Page
+from cognite_toolkit._cdf_tk.storageio.progress import Cursor
 from cognite_toolkit._cdf_tk.storageio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
@@ -62,9 +64,13 @@ class TestRawStorageIO:
                 json_chunks.append(json_chunk)
 
             with HTTPClient(config) as upload_client:
-                data_chunks = (io.json_chunk_to_data([("", item) for item in chunk]) for chunk in json_chunks)
-                for data_chunk in data_chunks:
-                    io.upload_items(data_chunk, upload_client, selector)
+                _bookmark = Cursor(worker_id="main", cursor="")
+                data_pages = (
+                    io.json_chunk_to_data(Page(items=[("", item) for item in chunk], bookmark=_bookmark))
+                    for chunk in json_chunks
+                )
+                for data_page in data_pages:
+                    io.upload_items(data_page.items, upload_client, selector)
 
             assert respx_mock.calls.call_count == 10  # 100 rows in chunks of 10
             uploaded_rows = []

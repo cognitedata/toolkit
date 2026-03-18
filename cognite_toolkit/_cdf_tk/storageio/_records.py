@@ -19,7 +19,8 @@ from cognite_toolkit._cdf_tk.utils.time import timestamp_to_ms
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
-from ._base import Bookmark, ConfigurableStorageIO, Page, UploadableStorageIO, UploadItem
+from ._base import ConfigurableStorageIO, Page, UploadableStorageIO, UploadItem
+from .progress import Bookmark, Cursor
 from .selectors import RecordContainerSelector
 
 
@@ -206,7 +207,8 @@ class RecordIO(
             total += len(sync_response.items)
             if sync_response.items:
                 yield Page(
-                    worker_id="main", items=sync_response.items, bookmark=Bookmark(cursor=sync_response.next_cursor)
+                    items=sync_response.items,
+                    bookmark=Cursor(worker_id="main", cursor=sync_response.next_cursor or ""),
                 )  # pyright: ignore[reportArgumentType]
             if not sync_response.has_next or total >= effective_limit:
                 break

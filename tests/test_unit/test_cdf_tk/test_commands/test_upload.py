@@ -21,7 +21,8 @@ from cognite_toolkit._cdf_tk.cruds import RawTableCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
 from cognite_toolkit._cdf_tk.storageio import RawIO
 from cognite_toolkit._cdf_tk.storageio._asset_centric import AssetIO
-from cognite_toolkit._cdf_tk.storageio._base import UploadItem
+from cognite_toolkit._cdf_tk.storageio._base import Page, UploadItem
+from cognite_toolkit._cdf_tk.storageio.progress import Cursor
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     InstanceFileSelector,
     InstanceQuerySelector,
@@ -230,7 +231,7 @@ class TestUploadCommand:
                 ToolkitRuntimeError, match="Upload process was stopped due to repeatedly failed uploads"
             ):
                 UploadCommand._upload_items(
-                    data_chunk=items,
+                    data_chunk=Page(items=items, bookmark=Cursor(worker_id="main", cursor="")),
                     upload_client=http_client,
                     io=AssetIO(ToolkitClient(toolkit_config)),  # type: ignore[arg-type]
                     selector=DataSetSelector(data_set_external_id="dummy", kind="Assets"),
@@ -238,4 +239,5 @@ class TestUploadCommand:
                     tracker=MagicMock(),
                     console=MagicMock(spec=Console),
                     verbose=False,
+                    input_dir=Path("."),
                 )

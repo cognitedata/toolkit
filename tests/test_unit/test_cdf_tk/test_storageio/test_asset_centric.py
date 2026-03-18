@@ -29,7 +29,8 @@ from cognite_toolkit._cdf_tk.storageio import (
     FileMetadataIO,
     TimeSeriesIO,
 )
-from cognite_toolkit._cdf_tk.storageio._base import TableUploadableStorageIO
+from cognite_toolkit._cdf_tk.storageio._base import Page, TableUploadableStorageIO
+from cognite_toolkit._cdf_tk.storageio.progress import Cursor
 from cognite_toolkit._cdf_tk.storageio.selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader
@@ -296,10 +297,15 @@ class TestAssetCentricIO:
 
         with HTTPClient(config) as upload_client:
             for chunk_no, rows in enumerate(row_chunks):
-                upload_items = io.rows_to_data(
-                    [(f"chunk {chunk_no} row {row_no}", row) for row_no, row in enumerate(rows)], selector
+                _bookmark = Cursor(worker_id="main", cursor="")
+                upload_page = io.rows_to_data(
+                    Page(
+                        items=[(f"chunk {chunk_no} row {row_no}", row) for row_no, row in enumerate(rows)],
+                        bookmark=_bookmark,
+                    ),
+                    selector,
                 )
-                io.upload_items(upload_items, upload_client, selector)
+                io.upload_items(upload_page.items, upload_client, selector)
 
         assert respx_mock.calls.call_count == RESOURCE_COUNT // CHUNK_SIZE
         uploaded_resources = []
@@ -382,7 +388,7 @@ class TestAssetIO:
             AssetIO.read_chunks(other_reader, AssetSubtreeSelector(hierarchy="does not matter", kind="Assets"))
         )
 
-        assert output == [
+        assert [page.items for page in output] == [
             [("line 4", {"id": 4}), ("line 5", {"id": 5, "depth": "not_an_int"})],
             [("line 3", {"id": 3, "depth": 1})],
             [("line 2", {"id": 2, "depth": 2})],
