@@ -76,8 +76,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.issues import (
 )
 from cognite_toolkit._cdf_tk.constants import MISSING_INSTANCE_SPACE
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
-from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
-from cognite_toolkit._cdf_tk.storageio._base import T_Selector
+from cognite_toolkit._cdf_tk.storageio import T_DataRequest, T_DataResponse, T_Selector
 from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, NoOpLogger
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasSelector,
@@ -92,7 +91,7 @@ from .data_classes import AssetCentricMapping
 from .selectors import AssetCentricMigrationSelector
 
 
-class DataMapper(Generic[T_Selector, T_ResourceResponse, T_ResourceRequest], ABC):
+class DataMapper(Generic[T_Selector, T_DataResponse, T_DataRequest], ABC):
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
         self.logger: DataLogger = NoOpLogger()
@@ -108,7 +107,7 @@ class DataMapper(Generic[T_Selector, T_ResourceResponse, T_ResourceRequest], ABC
         pass
 
     @abstractmethod
-    def map(self, source: Sequence[T_ResourceResponse]) -> Sequence[T_ResourceRequest | None]:
+    def map(self, source: Sequence[T_DataResponse]) -> Sequence[T_DataRequest | None]:
         """Map a chunk of source data to the target format.
 
         Args:
@@ -200,7 +199,7 @@ class AssetCentricMapper(
         self, item: AssetCentricMapping[T_AssetCentricResourceExtended]
     ) -> tuple[NodeRequest | EdgeRequest | None, ConversionIssue]:
         mapping = item.mapping
-        ingestion_view = mapping.get_ingestion_view()
+        ingestion_view = mapping.get_ingestion_mapping()
         try:
             view_source = self._view_mapping_by_id[ingestion_view]
             view_ref = ViewId(

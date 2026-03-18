@@ -84,11 +84,10 @@ class ChartsAPI(CDFResourceAPI[ChartResponse]):
         endpoint = self._method_endpoint_map["list"]
         # Note that even though the internal docs specify that limit is supported for this endpoint,
         # you get: "Encountered an unknown key 'limit' at offset 50 at path: $" if you pass it.
-        response = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=self._make_url(endpoint.path),
-                method=endpoint.method,
-                body_content=body,
-            )
-        ).get_success_or_raise()
+        request = RequestMessage(
+            endpoint_url=self._make_url(endpoint.path),
+            method=endpoint.method,
+            body_content=body,
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
         return self._validate_page_response(response).items

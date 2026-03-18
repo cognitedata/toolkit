@@ -415,6 +415,12 @@ class MigrateApp(typer.Typer):
         if data_set_id is not None and mapping_file is not None:
             raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
         elif mapping_file is not None:
+            if ingestion_mapping is not None or consumption_view is not None:
+                raise typer.BadParameter(
+                    "Cannot specify consumption_view or ingestion_mapping when using mapping_file"
+                    "These values are expected to be found in the mapping file."
+                )
+
             file_selector = MigrationCSVFileSelector(datafile=mapping_file, kind=kind)
             selected: AssetCentricMigrationSelector = file_selector
 
@@ -1351,6 +1357,14 @@ class MigrateApp(typer.Typer):
                 help="The instance space to migrate Infield data to. If not provided, an interactive selection will be performed to select the target instance space.",
             ),
         ] = None,
+        schema_space: Annotated[
+            str,
+            typer.Option(
+                "--schema-space",
+                help="The spaces were the InFieldOnCDM data model is located. This is for the InField developer to test migration before it becomes a system model.",
+                hidden=not Flags.INFIELD_DEV.is_enabled(),
+            ),
+        ] = "cdf_infield",
         log_dir: Annotated[
             Path,
             typer.Option(
@@ -1457,7 +1471,7 @@ class MigrateApp(typer.Typer):
             # to users are preserved.
             "cognite_app_data": "cognite_app_data",
         }
-        infield_mappings = create_infield_data_mappings()
+        infield_mappings = create_infield_data_mappings(schema_space=schema_space)
         schedule_selector = create_infield_schedule_selector()
         selectors: list[InstanceViewSelector | InstanceQuerySelector] = []
         schedule_mapping: ViewToViewMapping | None = None

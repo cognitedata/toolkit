@@ -71,14 +71,13 @@ def record_selector(
     ]
     upsert_url = f"/streams/{toolkit_stream.external_id}/records/upsert"
     with HTTPClient(toolkit_client.config) as http_client:
-        result = http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=toolkit_client.config.create_api_url(upsert_url),
-                method="POST",
-                body_content={"items": items},
-            )
+        request = RequestMessage(
+            endpoint_url=toolkit_client.config.create_api_url(upsert_url),
+            method="POST",
+            body_content={"items": items},
         )
-        result.get_success_or_raise()
+        result = http_client.request_single_retries(request)
+        result.get_success_or_raise(request)
 
     return selector
 

@@ -18,12 +18,18 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
 from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceQuerySelector
-from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
+from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, safe_read
 
 
-def create_infield_data_mappings(extra: ExtraValues | None = None) -> list[ViewToViewMapping]:
+def create_infield_data_mappings(
+    schema_space: str = "infield_cdm_source_desc_sche_asset_file_ts", extra: ExtraValues | None = None
+) -> list[ViewToViewMapping]:
     mappings_path = Path(__file__).parent / "infield_data_mappings.yaml"
-    mappings_dict = read_yaml_file(mappings_path, expected_output="list")
+
+    content = safe_read(mappings_path).replace("{{schemaSpace}}", schema_space)
+    mappings_dict = read_yaml_content(content)
+    if not isinstance(mappings_dict, list):
+        raise ValueError(f"Expected a list of mappings in the YAML file, but got {type(mappings_dict).__name__}")
     return TypeAdapter(list[ViewToViewMapping]).validate_python(mappings_dict, extra=extra)
 
 

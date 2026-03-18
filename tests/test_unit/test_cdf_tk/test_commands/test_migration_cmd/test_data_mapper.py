@@ -79,7 +79,7 @@ class TestAssetCentricMapper:
                     resource_type="asset",
                     instance_id=NodeId(space="my_space", external_id=f"asset_{i}"),
                     id=1000 + i,
-                    ingestion_view="cdf_asset_mapping",
+                    ingestion_mapping="cdf_asset_mapping",
                 ),
                 resource=AssetResponse(
                     id=1000 + i,
@@ -163,7 +163,7 @@ class TestAssetCentricMapper:
                 resource_type="asset",
                 instance_id=NodeId(space="my_space", external_id="asset_1"),
                 id=1001,
-                ingestion_view="cdf_asset_mapping",
+                ingestion_mapping="cdf_asset_mapping",
             ),
             resource=AssetResponse(
                 id=1001,

@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._base import (
+    Bookmark,
     ConfigurableStorageIO,
     Page,
     StorageIOConfig,
@@ -44,7 +45,12 @@ class RawIO(
         # up front.
         return None
 
-    def stream_data(self, selector: RawTableSelector, limit: int | None = None) -> Iterable[Page]:
+    def stream_data(
+        self,
+        selector: RawTableSelector,
+        limit: int | None = None,
+        bookmark: Bookmark | None = None,
+    ) -> Iterable[Page]:
         for chunk in self.client.raw.rows(
             db_name=selector.table.db_name,
             table_name=selector.table.table_name,
@@ -54,7 +60,7 @@ class RawIO(
             partitions=None,
             chunk_size=self.CHUNK_SIZE,
         ):
-            yield Page(worker_id="main", items=chunk)
+            yield Page(worker_id="main", items=chunk, bookmark=Bookmark())
 
     def upload_items(
         self,

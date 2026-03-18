@@ -63,7 +63,7 @@ class GroupsAPI(CDFResourceAPI[GroupResponse]):
                 body_content={"items": [item.id for item in chunk]},
             )
             response = self._http_client.request_single_retries(request)
-            response.get_success_or_raise()
+            response.get_success_or_raise(request)
 
     def list(self, all_groups: bool = False) -> list[GroupResponse]:
         """List all groups in CDF.
@@ -75,11 +75,10 @@ class GroupsAPI(CDFResourceAPI[GroupResponse]):
             List of GroupResponse objects.
         """
         endpoint = self._method_endpoint_map["list"]
-        response = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=self._make_url(endpoint.path),
-                method=endpoint.method,
-                parameters={"all": all_groups},
-            )
-        ).get_success_or_raise()
+        request = RequestMessage(
+            endpoint_url=self._make_url(endpoint.path),
+            method=endpoint.method,
+            parameters={"all": all_groups},
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
         return self._validate_page_response(response).items

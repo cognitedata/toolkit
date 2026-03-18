@@ -59,7 +59,7 @@ class SearchConfigurationsAPI(CDFResourceAPI[SearchConfigResponse]):
                 body_content=item.model_dump(mode="json", by_alias=True),
             )
             result = self._http_client.request_single_retries(request)
-            response = result.get_success_or_raise()
+            response = result.get_success_or_raise(request)
             results.append(SearchConfigResponse.model_validate_json(response.body))
         return results
 

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass
-from typing import Any, ClassVar, Generic, Literal, TypeVar
+from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar, runtime_checkable
 
 from pydantic import ConfigDict
 
@@ -10,13 +10,22 @@ from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.protocols import T_ResourceRequest, T_ResourceResponse
+from cognite_toolkit._cdf_tk.storageio.progress import FileLocation
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from .logger import DataLogger, NoOpLogger
 from .selectors import DataSelector
+
+
+@runtime_checkable
+class DataRequestProtocol(Protocol):
+    def dump(self, camel_case: bool = True) -> dict[str, Any]: ...
+
+
+T_DataRequest = TypeVar("T_DataRequest", bound=DataRequestProtocol)
+T_DataResponse = TypeVar("T_DataResponse")
 
 
 @dataclass
@@ -27,20 +36,26 @@ class StorageIOConfig:
     filename: str | None = None
 
 
+@dataclass
+class Bookmark:
+    cursor: str | None = None
+    file_location: FileLocation | None = None
+
+
 T_Selector = TypeVar("T_Selector", bound=DataSelector)
 
 
 @dataclass
-class Page(Generic[T_ResourceResponse], Sized):
+class Page(Generic[T_DataResponse], Sized):
     worker_id: str
-    items: Sequence[T_ResourceResponse]
-    next_cursor: str | None = None
+    items: Sequence[T_DataResponse]
+    bookmark: Bookmark
 
     def __len__(self) -> int:
         return len(self.items)
 
 
-class UploadItem(RequestItem, Generic[T_ResourceRequest]):
+class UploadItem(RequestItem, Generic[T_DataRequest]):
     """An item to be uploaded to CDF, consisting of a source ID and the writable Cognite resource.
 
     Attributes:
@@ -51,7 +66,7 @@ class UploadItem(RequestItem, Generic[T_ResourceRequest]):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     source_id: str
-    item: T_ResourceRequest
+    item: T_DataRequest
 
     def __str__(self) -> str:
         return self.source_id
@@ -60,7 +75,7 @@ class UploadItem(RequestItem, Generic[T_ResourceRequest]):
         return self.item.dump(camel_case=camel_case)
 
 
-class StorageIO(ABC, Generic[T_Selector, T_ResourceResponse]):
+class StorageIO(ABC, Generic[T_Selector, T_DataResponse]):
     """This is a base class for all storage classes in Cognite Toolkit
 
     It defines the interface for downloading data from CDF. Note this can also be used for multiple
@@ -85,7 +100,7 @@ class StorageIO(ABC, Generic[T_Selector, T_ResourceResponse]):
         self.logger: DataLogger = NoOpLogger()
 
     @abstractmethod
-    def as_id(self, item: T_ResourceResponse) -> str:
+    def as_id(self, item: T_DataResponse) -> str:
         """Convert an item to its corresponding ID.
         Args:
             item: The item to convert.
@@ -95,12 +110,18 @@ class StorageIO(ABC, Generic[T_Selector, T_ResourceResponse]):
         raise NotImplementedError()
 
     @abstractmethod
-    def stream_data(self, selector: T_Selector, limit: int | None = None) -> Iterable[Page]:
+    def stream_data(
+        self,
+        selector: T_Selector,
+        limit: int | None = None,
+        bookmark: Bookmark | None = None,
+    ) -> Iterable[Page[T_DataResponse]]:
         """Download items from the storage given the selection criteria.
 
         Args:
             selector: The selection criteria to filter the items to download.
             limit: Optional limit on the number of items to download.
+            bookmark: Optional bookmark to resume downloading from a previous position.
 
         Returns:
             An iterable of writable Cognite resource lists.
@@ -121,7 +142,7 @@ class StorageIO(ABC, Generic[T_Selector, T_ResourceResponse]):
 
     @abstractmethod
     def data_to_json_chunk(
-        self, data_chunk: Sequence[T_ResourceResponse], selector: T_Selector | None = None
+        self, data_chunk: Sequence[T_DataResponse], selector: T_Selector | None = None
     ) -> list[dict[str, JsonVal]]:
         """Convert a chunk of data to a JSON-compatible format.
 
@@ -137,7 +158,7 @@ class StorageIO(ABC, Generic[T_Selector, T_ResourceResponse]):
 
 
 class UploadableStorageIO(
-    Generic[T_Selector, T_ResourceResponse, T_ResourceRequest], StorageIO[T_Selector, T_ResourceResponse], ABC
+    Generic[T_Selector, T_DataResponse, T_DataRequest], StorageIO[T_Selector, T_DataResponse], ABC
 ):
     """A base class for storage items that support uploading data to CDF.
 
@@ -157,7 +178,7 @@ class UploadableStorageIO(
 
     def upload_items(
         self,
-        data_chunk: Sequence[UploadItem[T_ResourceRequest]],
+        data_chunk: Sequence[UploadItem[T_DataRequest]],
         http_client: HTTPClient,
         selector: T_Selector | None = None,
     ) -> ItemsResultList:
@@ -195,7 +216,7 @@ class UploadableStorageIO(
 
     def json_chunk_to_data(
         self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
-    ) -> Sequence[UploadItem[T_ResourceRequest]]:
+    ) -> Sequence[UploadItem[T_DataRequest]]:
         """Convert a JSON-compatible chunk of data back to a writable Cognite resource list.
 
         Args:
@@ -204,14 +225,14 @@ class UploadableStorageIO(
         Returns:
             A writable Cognite resource list representing the data.
         """
-        result: list[UploadItem[T_ResourceRequest]] = []
+        result: list[UploadItem[T_DataRequest]] = []
         for source_id, item_json in data_chunk:
             item = self.json_to_resource(item_json)
             result.append(UploadItem(source_id=source_id, item=item))
         return result
 
     @abstractmethod
-    def json_to_resource(self, item_json: dict[str, JsonVal]) -> T_ResourceRequest:
+    def json_to_resource(self, item_json: dict[str, JsonVal]) -> T_DataRequest:
         """Convert a JSON-compatible dictionary back to a writable Cognite resource.
 
         Args:
@@ -256,12 +277,12 @@ class UploadableStorageIO(
         return reader.count()
 
 
-class TableUploadableStorageIO(UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest], ABC):
+class TableUploadableStorageIO(UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest], ABC):
     """A base class for storage items that support uploading data with table schemas."""
 
     def rows_to_data(
         self, rows: list[tuple[str, dict[str, JsonVal]]], selector: T_Selector | None = None
-    ) -> Sequence[UploadItem[T_ResourceRequest]]:
+    ) -> Sequence[UploadItem[T_DataRequest]]:
         """Convert a row-based JSON-compatible chunk of data back to a writable Cognite resource list.
 
         Args:
@@ -272,7 +293,7 @@ class TableUploadableStorageIO(UploadableStorageIO[T_Selector, T_ResourceRespons
         Returns:
             A writable Cognite resource list representing the data.
         """
-        result: list[UploadItem[T_ResourceRequest]] = []
+        result: list[UploadItem[T_DataRequest]] = []
         for source_id, row in rows:
             item = self.row_to_resource(source_id, row, selector=selector)
             result.append(UploadItem(source_id=source_id, item=item))
@@ -281,7 +302,7 @@ class TableUploadableStorageIO(UploadableStorageIO[T_Selector, T_ResourceRespons
     @abstractmethod
     def row_to_resource(
         self, source_id: str, row: dict[str, JsonVal], selector: T_Selector | None = None
-    ) -> T_ResourceRequest:
+    ) -> T_DataRequest:
         """Convert a row-based JSON-compatible dictionary back to a writable Cognite resource.
 
         Args:
@@ -294,7 +315,7 @@ class TableUploadableStorageIO(UploadableStorageIO[T_Selector, T_ResourceRespons
         raise NotImplementedError()
 
 
-class ConfigurableStorageIO(StorageIO[T_Selector, T_ResourceResponse], ABC):
+class ConfigurableStorageIO(StorageIO[T_Selector, T_DataResponse], ABC):
     """A base class for storage items that support configurations for different storage items."""
 
     @abstractmethod
@@ -303,7 +324,7 @@ class ConfigurableStorageIO(StorageIO[T_Selector, T_ResourceResponse], ABC):
         raise NotImplementedError()
 
 
-class TableStorageIO(StorageIO[T_Selector, T_ResourceResponse], ABC):
+class TableStorageIO(StorageIO[T_Selector, T_DataResponse], ABC):
     """A base class for storage items that support table schemas."""
 
     @abstractmethod
@@ -321,7 +342,7 @@ class TableStorageIO(StorageIO[T_Selector, T_ResourceResponse], ABC):
 
     @abstractmethod
     def data_to_row(
-        self, data_chunk: Sequence[T_ResourceResponse], selector: T_Selector | None = None
+        self, data_chunk: Sequence[T_DataResponse], selector: T_Selector | None = None
     ) -> list[dict[str, JsonVal]]:
         """Convert a chunk of data to a row-based JSON-compatible format.
 
