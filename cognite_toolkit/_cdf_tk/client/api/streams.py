@@ -71,18 +71,17 @@ class StreamsAPI(CDFResourceAPI[StreamResponse]):
         results: list[StreamResponse] = []
         endpoint = self._method_endpoint_map["retrieve"]
         for item in items:
-            response = self._http_client.request_single_retries(
-                RequestMessage(
-                    endpoint_url=self._make_url(endpoint.path.format(streamId=item.external_id)),
-                    method=endpoint.method,
-                    parameters={"includeStatistics": include_statistics},
-                )
+            request = RequestMessage(
+                endpoint_url=self._make_url(endpoint.path.format(streamId=item.external_id)),
+                method=endpoint.method,
+                parameters={"includeStatistics": include_statistics},
             )
+            response = self._http_client.request_single_retries(request)
             if isinstance(response, SuccessResponse):
                 results.append(StreamResponse.model_validate(response.body_json))
             elif ignore_unknown_ids:
                 continue
-            _ = response.get_success_or_raise()
+            _ = response.get_success_or_raise(request)
         return results
 
     def list(self) -> list[StreamResponse]:

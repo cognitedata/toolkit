@@ -57,15 +57,14 @@ class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
         for dp_ext_id, group in self._group_by_parent(items).items():
             url = self._make_url(self._method_endpoint_map["create"].path.format(externalId=dp_ext_id))
             for item in group:
-                response = self._http_client.request_single_retries(
-                    RequestMessage(
-                        endpoint_url=url,
-                        method="POST",
-                        body_content={"items": [item.dump()]},
-                        api_version=self._api_version,
-                    )
+                request = RequestMessage(
+                    endpoint_url=url,
+                    method="POST",
+                    body_content={"items": [item.dump()]},
+                    api_version=self._api_version,
                 )
-                page = self._validate_page_response(response.get_success_or_raise())
+                response = self._http_client.request_single_retries(request)
+                page = self._validate_page_response(response.get_success_or_raise(request))
                 for version in page.items:
                     version.data_product_external_id = dp_ext_id
                 results.extend(page.items)
@@ -83,13 +82,12 @@ class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
                     externalId=item.data_product_external_id, version=item.version
                 )
             )
-            response = self._http_client.request_single_retries(
-                RequestMessage(
-                    endpoint_url=url,
-                    method="GET",
-                    api_version=self._api_version,
-                )
+            request = RequestMessage(
+                endpoint_url=url,
+                method="GET",
+                api_version=self._api_version,
             )
+            response = self._http_client.request_single_retries(request)
             if isinstance(response, SuccessResponse):
                 ver = DataProductVersionResponse.model_validate_json(response.body)
                 ver.data_product_external_id = item.data_product_external_id
@@ -97,7 +95,7 @@ class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
             elif ignore_unknown_ids:
                 continue
             else:
-                _ = response.get_success_or_raise()
+                _ = response.get_success_or_raise(request)
         return results
 
     def update(
@@ -109,15 +107,14 @@ class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
         for dp_ext_id, group in self._group_by_parent(items).items():
             url = self._make_url(self._method_endpoint_map["update"].path.format(externalId=dp_ext_id))
             for item in group:
-                response = self._http_client.request_single_retries(
-                    RequestMessage(
-                        endpoint_url=url,
-                        method="POST",
-                        body_content={"items": [item.as_update(mode=mode)]},
-                        api_version=self._api_version,
-                    )
+                request = RequestMessage(
+                    endpoint_url=url,
+                    method="POST",
+                    body_content={"items": [item.as_update(mode=mode)]},
+                    api_version=self._api_version,
                 )
-                page = self._validate_page_response(response.get_success_or_raise())
+                response = self._http_client.request_single_retries(request)
+                page = self._validate_page_response(response.get_success_or_raise(request))
                 for ver in page.items:
                     ver.data_product_external_id = dp_ext_id
                 results.extend(page.items)
@@ -129,14 +126,13 @@ class DataProductVersionsAPI(CDFResourceAPI[DataProductVersionResponse]):
             by_parent[id_.data_product_external_id].append(id_.version)
         for dp_ext_id, versions in by_parent.items():
             url = self._make_url(self._method_endpoint_map["delete"].path.format(externalId=dp_ext_id))
-            self._http_client.request_single_retries(
-                RequestMessage(
-                    endpoint_url=url,
-                    method="POST",
-                    body_content={"items": [{"version": v} for v in versions]},
-                    api_version=self._api_version,
-                )
-            ).get_success_or_raise()
+            request = RequestMessage(
+                endpoint_url=url,
+                method="POST",
+                body_content={"items": [{"version": v} for v in versions]},
+                api_version=self._api_version,
+            )
+            self._http_client.request_single_retries(request).get_success_or_raise(request)
 
     def iterate(
         self, data_product_external_id: str, limit: int | None = 10

@@ -853,28 +853,25 @@ def simulator_integration(simulator: str, toolkit_dataset: DataSet, toolkit_clie
     config = toolkit_client.config
 
     # Check if simulator integration already exists
-    list_response = http_client.request_single_retries(
-        RequestMessage(
-            endpoint_url=config.create_api_url("simulators/integrations/list"),
-            method="POST",
-            body_content={"filter": {"simulatorExternalIds": [simulator]}, "limit": 1000},
-        )
+    request = RequestMessage(
+        endpoint_url=config.create_api_url("simulators/integrations/list"),
+        method="POST",
+        body_content={"filter": {"simulatorExternalIds": [simulator]}, "limit": 1000},
     )
-    body = list_response.get_success_or_raise().body_json
+    list_response = http_client.request_single_retries(request)
+    body = list_response.get_success_or_raise(request).body_json
     assert "items" in body
     items = body["items"]
     for item in items:
         if item["externalId"] == external_id:
             return external_id
-
-    creation_response = http_client.request_single_retries(
-        RequestMessage(
-            endpoint_url=config.create_api_url("simulators/integrations"),
-            method="POST",
-            body_content={"items": [simulator_integration]},
-        )
+    request = RequestMessage(
+        endpoint_url=config.create_api_url("simulators/integrations"),
+        method="POST",
+        body_content={"items": [simulator_integration]},
     )
-    body = creation_response.get_success_or_raise().body_json
+    creation_response = http_client.request_single_retries(request)
+    body = creation_response.get_success_or_raise(request).body_json
     assert "items" in body
     items = body["items"]
     for item in items:
