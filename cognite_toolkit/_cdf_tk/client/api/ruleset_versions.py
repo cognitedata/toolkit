@@ -55,15 +55,14 @@ class RuleSetVersionsAPI(CDFResourceAPI[RuleSetVersionResponse]):
         for rs_ext_id, group in self._group_by_parent(items).items():
             url = self._make_url(self._method_endpoint_map["create"].path.format(externalId=rs_ext_id))
             for item in group:
-                response = self._http_client.request_single_retries(
-                    RequestMessage(
-                        endpoint_url=url,
-                        method="POST",
-                        body_content={"items": [item.dump()]},
-                        api_version=self._api_version,
-                    )
+                request = RequestMessage(
+                    endpoint_url=url,
+                    method="POST",
+                    body_content={"items": [item.dump()]},
+                    api_version=self._api_version,
                 )
-                page = self._validate_page_response(response.get_success_or_raise())
+                response = self._http_client.request_single_retries(request)
+                page = self._validate_page_response(response.get_success_or_raise(request))
                 for version in page.items:
                     version.rule_set_external_id = rs_ext_id
                 results.extend(page.items)
@@ -90,15 +89,14 @@ class RuleSetVersionsAPI(CDFResourceAPI[RuleSetVersionResponse]):
                 "items": [{"externalId": rs_ext_id, "version": v} for v in versions],
                 "ignoreUnknownIds": ignore_unknown_ids,
             }
-            response = self._http_client.request_single_retries(
-                RequestMessage(
-                    endpoint_url=url,
-                    method="POST",
-                    body_content=body,
-                    api_version=self._api_version,
-                )
+            request = RequestMessage(
+                endpoint_url=url,
+                method="POST",
+                body_content=body,
+                api_version=self._api_version,
             )
-            page = self._validate_page_response(response.get_success_or_raise())
+            response = self._http_client.request_single_retries(request)
+            page = self._validate_page_response(response.get_success_or_raise(request))
             for ver in page.items:
                 ver.rule_set_external_id = rs_ext_id
             results.extend(page.items)
@@ -110,14 +108,13 @@ class RuleSetVersionsAPI(CDFResourceAPI[RuleSetVersionResponse]):
             by_parent[id_.rule_set_external_id].append(id_.version)
         for rs_ext_id, versions in by_parent.items():
             url = self._make_url(self._method_endpoint_map["delete"].path.format(externalId=rs_ext_id))
-            self._http_client.request_single_retries(
-                RequestMessage(
-                    endpoint_url=url,
-                    method="POST",
-                    body_content={"items": [{"version": v} for v in versions]},
-                    api_version=self._api_version,
-                )
-            ).get_success_or_raise()
+            request = RequestMessage(
+                endpoint_url=url,
+                method="POST",
+                body_content={"items": [{"version": v} for v in versions]},
+                api_version=self._api_version,
+            )
+            self._http_client.request_single_retries(request).get_success_or_raise(request)
 
     def iterate(self, rule_set_external_id: str, limit: int | None = 50) -> Iterable[list[RuleSetVersionResponse]]:
         path = self._method_endpoint_map["list"].path.format(externalId=rule_set_external_id)
