@@ -132,7 +132,7 @@ class TestAnnotationMigrationIO:
                 "id": 0,
                 "instanceId": {"space": "mySpace", "externalId": "annotation_0"},
                 "resourceType": "annotation",
-                "ingestionView": "cdf_asset_annotations_mapping",
+                "ingestionMapping": "cdf_asset_annotations_mapping",
             },
             "resource": annotation_items[0],
         }

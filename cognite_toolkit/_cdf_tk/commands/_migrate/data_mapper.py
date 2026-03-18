@@ -199,7 +199,7 @@ class AssetCentricMapper(
         self, item: AssetCentricMapping[T_AssetCentricResourceExtended]
     ) -> tuple[NodeRequest | EdgeRequest | None, ConversionIssue]:
         mapping = item.mapping
-        ingestion_view = mapping.get_ingestion_view()
+        ingestion_view = mapping.get_ingestion_mapping()
         try:
             view_source = self._view_mapping_by_id[ingestion_view]
             view_ref = ViewId(
