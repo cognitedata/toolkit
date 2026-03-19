@@ -187,7 +187,7 @@ class DeployV2Command(ToolkitCommand):
 
         plan = self.create_deployment_plan(build_dir)
 
-        self._display_plan(client, plan)
+        self._display_plan(plan, client.console)
 
         results = self.apply_plan(client, plan, options)
 
@@ -378,18 +378,20 @@ class DeployV2Command(ToolkitCommand):
         return plan
 
     @classmethod
-    def _display_plan(cls, client: ToolkitClient, plan: list[DeploymentStep]) -> None:
+    def _display_plan(cls, plan: list[DeploymentStep], console: Console) -> None:
         if not plan:
-            client.console.print("[bold yellow]No resources to deploy.[/]")
+            console.print("[bold yellow]No resources to deploy.[/]")
             return
-        table = Table(title="Deployment Plan", show_lines=False)
-        table.add_column("#", style="dim", width=4)
-        table.add_column("Resource Type", style="cyan")
-        table.add_column("Files", justify="right")
-        for i, step in enumerate(plan, 1):
-            crud_name = step.crud_cls.folder_name
-            table.add_row(str(i), crud_name, str(len(step.files)))
-        client.console.print(table)
+
+        step_count = len(plan)
+        total_files = sum(len(step.files) for step in plan)
+
+        lines = [
+            "Deployment plan",
+            f" - {step_count} resource types to deploy",
+            f" - {total_files} resources to deploy",
+        ]
+        console.print(*lines, sep="\n")
 
     @classmethod
     def apply_plan(
