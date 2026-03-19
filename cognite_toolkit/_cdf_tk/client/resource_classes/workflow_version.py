@@ -1,6 +1,6 @@
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import Field, JsonValue, field_serializer, field_validator
+from pydantic import ConfigDict, Field, JsonValue, field_serializer, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
@@ -128,6 +128,7 @@ Parameter = Annotated[
 
 
 class Task(BaseModelObject):
+    model_config = ConfigDict(extra="allow")
     external_id: str
     type: TaskType
     name: str | None = None
