@@ -318,7 +318,7 @@ class DeployV2Command(ToolkitCommand):
             for warning in warnings:
                 self.warn(warning, console=console)
 
-        if (not verbose and skipped_dir_count) or invalid_dir_count or invalid_yaml_file_count:
+        if not verbose and (skipped_dir_count or invalid_dir_count or invalid_yaml_file_count):
             console.print(
                 f"{HINT_LEAD_TEXT} Use --verbose flag to get more details about the skipped and invalid directories and files."
             )
