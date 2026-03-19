@@ -8,6 +8,7 @@ from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any, Generic, Literal
 
+import questionary
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress
@@ -179,7 +180,7 @@ class DeployV2Command(ToolkitCommand):
 
         client = env_vars.get_client(is_strict_validation=read_dir.is_strict_validation)
 
-        self._display_read_dir(read_dir, client.console)
+        self._display_read_dir(read_dir, options.cdf_project, client.config.project, client.console)
 
         plan = self.create_deployment_plan(read_dir)
 
@@ -262,7 +263,26 @@ class DeployV2Command(ToolkitCommand):
             has_validated_cdf_project=has_validated_cdf_project,
         )
 
-    def _display_read_dir(self, read_dir: ReadBuildDirectory, console: Console) -> None:
+    def _display_read_dir(
+        self, read_dir: ReadBuildDirectory, cdf_project: str | None, client_cd_project: str, console: Console
+    ) -> None:
+        # Command argument vs environment takes precedence
+        if cdf_project is not None and cdf_project != client_cd_project:
+            raise ToolkitValidationError(
+                f"The CDF project in your command argument does not match your credentials, "
+                f"{cdf_project!r}≠{client_cd_project!r}."
+            )
+        # If not prompt user, unless project was validated in the lineage.yaml file in the build directory.
+        elif cdf_project is None and not read_dir.has_validated_cdf_project:
+            typed_project = questionary.text(
+                f"Enter the name of CDF project you are deploying to. This must match the CDF_PROJECT={client_cd_project!r} in you environment variables.\n",
+            ).unsafe_ask()
+            if typed_project != cdf_project:
+                raise ToolkitValidationError(
+                    f"The CDF project you typed does not match your credentials, "
+                    f"{typed_project!r}≠{client_cd_project!r}."
+                )
+
         console.print(f"Read {read_dir.build_dir.as_posix()} complete")
         warnings = list(read_dir.create_warnings())
         if warnings:

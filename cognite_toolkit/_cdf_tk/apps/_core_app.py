@@ -429,6 +429,15 @@ class CoreApp(typer.Typer):
                 help="Path to the directory where logs will be stored. If the directory does not exist, it will be created.",
             ),
         ] = Path(f"deploy_logs_{TODAY!s}"),
+        cdf_project: Annotated[
+            str | None,
+            typer.Option(
+                "--cdf-project",
+                help="The CDF Project you are deploying to. This is used to verify against the credentials you have set."
+                "If it is not passed, Toolkit will validate against the CDF project the configurations were built"
+                "for, and if that is missing you will be prompted for it.",
+            ),
+        ] = None,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -446,6 +455,7 @@ class CoreApp(typer.Typer):
                 env_vars=env_vars,
                 build_dir=build_dir,
                 options=DeployOptions(
+                    cdf_project=cdf_project,
                     dry_run=dry_run,
                     include=include,
                     force_update=force_update,
