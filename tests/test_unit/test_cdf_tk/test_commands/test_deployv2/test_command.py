@@ -130,7 +130,7 @@ class TestReadBuildDirectory:
 
         actual: type[Exception] | ReadBuildDirectory
         try:
-            actual = DeployV2Command.read_build_directory(Path("build"), "test_project", include)
+            actual = DeployV2Command.read_build_directory(Path("build"), include)
         except Exception as e:
             actual = type(e)
 
