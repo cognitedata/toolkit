@@ -154,6 +154,11 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 break
 
     def run(self, start_item: int = 0) -> None:
+        """Runs the producer-worker execution, optionally resuming from a specified item count.
+
+        Args:
+            start_item (int): The initial item count to start the progress from, used for resuming operations.
+        """
         self.console.print(f"[blue]Starting {self.download_description} (Press 'q' to stop)...[/blue]")
         columns = self._get_progress_columns()
         with Progress(*columns, console=self.console) as progress:
