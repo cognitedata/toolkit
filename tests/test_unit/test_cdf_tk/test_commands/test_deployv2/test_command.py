@@ -283,9 +283,9 @@ class TestApplyPlan:
                             skipped=[
                                 Skipped(
                                     id=SpaceId(space="my_space"),
-                                    code="DUPLICATED",
+                                    code="AMBIGUOUS",
                                     source_file=Path("data_modeling/b.Space.yaml"),
-                                    reason="Duplicated resource. Will use definition in data_modeling/a.Space.yaml",
+                                    reason="Identifier is not unique. Will use definition in data_modeling/a.Space.yaml",
                                 )
                             ],
                         )
