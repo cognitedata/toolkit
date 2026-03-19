@@ -290,21 +290,30 @@ class DeployV2Command(ToolkitCommand):
         )
         invalid_yaml_file_count = sum(len(dir_.invalid_files) for dir_ in build_dir.resource_directories)
 
-        lines = [
-            f"Read {build_dir.path.as_posix()} directory complete.",
-            f" - Found {resource_dir_count} resource directories",
-            f" - Found {resource_file_count:,} resource files",
+        has_issues = bool(warnings or invalid_dir_count or invalid_yaml_file_count)
+
+        summary_lines = [
+            f"[green]✓[/] [bold]{resource_dir_count}[/] resource directories",
+            f"[green]✓[/] [bold]{resource_file_count:,}[/] resource files",
         ]
         if warnings:
-            lines.append(f" - Found {len(warnings)} warnings during reading process")
+            summary_lines.append(f"[yellow]![/] [bold]{len(warnings)}[/] warnings during reading")
         if skipped_dir_count:
-            lines.append(f" - Found {skipped_dir_count} skipped directories")
+            summary_lines.append(f"[dim]○[/] [bold]{skipped_dir_count}[/] skipped directories")
         if invalid_dir_count:
-            lines.append(f" - Found {invalid_dir_count} invalid directories")
+            summary_lines.append(f"[red]✗[/] [bold]{invalid_dir_count}[/] invalid directories")
         if invalid_yaml_file_count:
-            lines.append(f" - Found {invalid_yaml_file_count} invalid yaml files")
+            summary_lines.append(f"[red]✗[/] [bold]{invalid_yaml_file_count}[/] invalid yaml files")
 
-        console.print("\n".join(lines))
+        console.print(
+            Panel(
+                "\n".join(summary_lines),
+                title=f"[bold]Read {build_dir.path.as_posix()}[/]",
+                border_style="yellow" if has_issues else "green",
+                expand=False,
+            )
+        )
+
         if warnings:
             for warning in build_dir.create_warnings():
                 self.warn(warning, console=console)
@@ -315,16 +324,24 @@ class DeployV2Command(ToolkitCommand):
             )
         if verbose:
             if build_dir.skipped_directories:
-                skipped_str = "\n".join([dir_.directory.as_posix() for dir_ in build_dir.skipped_directories])
-                console.print(f"Skipped directories:\n{skipped_str}")
+                table = Table(title="Skipped Directories", expand=False, show_edge=False)
+                table.add_column("Directory", style="dim")
+                for dir_ in build_dir.skipped_directories:
+                    table.add_row(dir_.directory.as_posix())
+                console.print(table)
             if build_dir.invalid_directories:
-                invalid_str = "\n".join([skipped.as_posix() for skipped in build_dir.invalid_directories])
-                console.print(f"Invalid directories\n{invalid_str}")
+                table = Table(title="Invalid Directories", expand=False, show_edge=False)
+                table.add_column("Directory", style="red")
+                for inv_dir in build_dir.invalid_directories:
+                    table.add_row(inv_dir.as_posix())
+                console.print(table)
             if invalid_yaml_file_count:
-                invalid_str = "\n".join(
-                    [file.as_posix() for dir_ in build_dir.resource_directories for file in dir_.invalid_files]
-                )
-                console.print(f"Invalid yaml files\n{invalid_str}")
+                table = Table(title="Invalid YAML Files", expand=False, show_edge=False)
+                table.add_column("File", style="red")
+                for dir_ in build_dir.resource_directories:
+                    for file in dir_.invalid_files:
+                        table.add_row(file.as_posix())
+                console.print(table)
 
     def _validate_cdf_project(
         self, build_dir: ReadBuildDirectory, cli_cdf_project: str | None, client_cdf_project: str, console: Console
@@ -396,15 +413,26 @@ class DeployV2Command(ToolkitCommand):
             console.print("[bold yellow]No resources to deploy.[/]")
             return
 
-        step_count = len(plan)
-        total_files = sum(len(step.files) for step in plan)
+        table = Table(title="Deployment Plan", expand=False)
+        table.add_column("#", style="dim", justify="right")
+        table.add_column("Resource Type", style="cyan")
+        table.add_column("Files", justify="right", style="green")
+        table.add_column("Skipped Dependencies", justify="right")
 
-        lines = [
-            "Deployment plan",
-            f" - {step_count} resource types to deploy",
-            f" - {total_files} resources to deploy",
-        ]
-        console.print(*lines, sep="\n")
+        for i, step in enumerate(plan, 1):
+            skipped = (
+                f"[yellow]{', '.join(c.folder_name for c in step.skipped_cruds)}[/]"
+                if step.skipped_cruds
+                else "[dim]—[/]"
+            )
+            table.add_row(str(i), step.crud_cls.folder_name, str(len(step.files)), skipped)
+
+        if len(plan) > 1:
+            total_files = sum(len(step.files) for step in plan)
+            table.add_section()
+            table.add_row("", f"[bold]{len(plan)} types[/]", f"[bold]{total_files}[/]", "")
+
+        console.print(table)
 
     @classmethod
     def apply_plan(
