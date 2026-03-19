@@ -177,7 +177,7 @@ class DeploymentResult:
         self.deleted_count += other.deleted_count
         self.updated_count += other.updated_count
         self.unchanged_count += other.unchanged_count
-        self.is_missing_write_acl = self.is_missing_write_acl and other.is_missing_write_acl
+        self.is_missing_write_acl = self.is_missing_write_acl or other.is_missing_write_acl
         self.skipped.extend(other.skipped)
         return self
 
@@ -315,7 +315,7 @@ class DeployV2Command(ToolkitCommand):
         )
 
         if warnings:
-            for warning in build_dir.create_warnings():
+            for warning in warnings:
                 self.warn(warning, console=console)
 
         if (not verbose and skipped_dir_count) or invalid_dir_count or invalid_yaml_file_count:
