@@ -413,26 +413,21 @@ class DeployV2Command(ToolkitCommand):
             console.print("[bold yellow]No resources to deploy.[/]")
             return
 
-        table = Table(title="Deployment Plan", expand=False)
-        table.add_column("#", style="dim", justify="right")
-        table.add_column("Resource Type", style="cyan")
-        table.add_column("Files", justify="right", style="green")
-        table.add_column("Skipped Dependencies", justify="right")
+        step_count = len(plan)
+        total_files = sum(len(step.files) for step in plan)
 
-        for i, step in enumerate(plan, 1):
-            skipped = (
-                f"[yellow]{', '.join(c.folder_name for c in step.skipped_cruds)}[/]"
-                if step.skipped_cruds
-                else "[dim]—[/]"
+        summary_lines = [
+            f"[green]✓[/] [bold]{step_count}[/] resource types to deploy",
+            f"[green]✓[/] [bold]{total_files}[/] resources to deploy",
+        ]
+        console.print(
+            Panel(
+                "\n".join(summary_lines),
+                title="[bold]Deployment Plan[/]",
+                border_style="green",
+                expand=False,
             )
-            table.add_row(str(i), step.crud_cls.folder_name, str(len(step.files)), skipped)
-
-        if len(plan) > 1:
-            total_files = sum(len(step.files) for step in plan)
-            table.add_section()
-            table.add_row("", f"[bold]{len(plan)} types[/]", f"[bold]{total_files}[/]", "")
-
-        console.print(table)
+        )
 
     @classmethod
     def apply_plan(
