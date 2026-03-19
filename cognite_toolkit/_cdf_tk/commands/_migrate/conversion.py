@@ -370,12 +370,12 @@ def create_properties(
                 FailedConversion(property_id=prop_json_path, value=flatten_dump[prop_json_path], error=str(e))
             )
             continue
-        if isinstance(value, date):
-            # Convert date to ISO format string, as the data model expects dates as strings in ISO format.
-            properties[prop_id] = value.isoformat()
-        elif isinstance(value, datetime):
+        if isinstance(value, datetime):
             # Convert datetime to ISO format string, as the data model expects datetimes as strings in ISO format.
             properties[prop_id] = value.isoformat(timespec="milliseconds")
+        elif isinstance(value, date):
+            # Convert date to ISO format string, as the data model expects dates as strings in ISO format.
+            properties[prop_id] = value.isoformat()
         else:
             properties[prop_id] = value
 
