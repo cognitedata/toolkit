@@ -173,7 +173,7 @@ class TestCreateProperties:
                 {"name": "nameId", "created": "createdId", "active": "activeId"},
                 {
                     "nameId": "MyAsset",
-                    "createdId": "2023-01-01T12:00:00+00:00",
+                    "createdId": "2023-01-01T12:00:00.000+00:00",
                     "activeId": True,
                 },
                 ConversionIssue(id=str(ASSET_CENTRIC_ID), asset_centric_id=ASSET_CENTRIC_ID, instance_id=INSTANCE_ID),
@@ -478,8 +478,8 @@ class TestCreateProperties:
                     "assetIds": "assets",
                 },
                 {
-                    "startTimeId": "1970-01-01T00:00:00.123000+00:00",
-                    "endTimeId": "1970-01-01T00:00:00.321000+00:00",
+                    "startTimeId": "1970-01-01T00:00:00.123+00:00",
+                    "endTimeId": "1970-01-01T00:00:00.321+00:00",
                     "descriptionId": "An event",
                     "source": {"space": "instance_space", "externalId": "TheSourceA"},
                     "assets": [{"space": "instance_space", "externalId": "MyFirstAsset"}],
@@ -765,8 +765,8 @@ class TestAssetCentricConversion:
                     ),
                 },
                 {
-                    "eventStart": "2025-08-28T05:38:09.386000+00:00",
-                    "eventEnd": "2025-08-28T05:38:19.880000+00:00",
+                    "eventStart": "2025-08-28T05:38:09.386+00:00",
+                    "eventEnd": "2025-08-28T05:38:19.880+00:00",
                     "eventSeverity": "high",
                     "source": {"space": "test_space", "externalId": "source_system_1_instance"},
                     "assets": [{"space": "test_space", "externalId": "asset_123_instance"}],
