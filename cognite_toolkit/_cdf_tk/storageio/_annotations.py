@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from typing import Any
 
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
@@ -13,7 +13,8 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from ._asset_centric import FileMetadataIO
-from ._base import Bookmark, Page, StorageIO
+from ._base import Bookmark, DataItem, Page, StorageIO
+from .progress import NoBookmark
 from .selectors import AssetCentricSelector
 
 
@@ -24,10 +25,6 @@ class AnnotationIO(StorageIO[AssetCentricSelector, AnnotationResponse]):
     BASE_SELECTOR = AssetCentricSelector
 
     MISSING_ID = "<MISSING_RESOURCE_ID>"
-
-    def as_id(self, item: AnnotationResponse) -> str:
-        project = self.client.config.project
-        return f"INTERNAL_ID_project_{project}_{item.id!s}"
 
     def stream_data(
         self,
@@ -41,13 +38,20 @@ class AnnotationIO(StorageIO[AssetCentricSelector, AnnotationResponse]):
             for annotation_type in annotation_types:
                 annotation_filter = AnnotationFilter(
                     annotated_resource_type="file",
-                    annotated_resource_ids=[InternalId(id=fm.id) for fm in file_chunk.items],
+                    annotated_resource_ids=[InternalId(id=fm.item.id) for fm in file_chunk.items],
                     annotation_type=annotation_type,
                 )
                 remaining = limit - total if limit is not None else None
                 for page_items in self.client.tool.annotations.iterate(filter=annotation_filter, limit=remaining):
                     for chunk in chunker_sequence(page_items, self.CHUNK_SIZE):
-                        yield Page(worker_id="main", items=chunk, bookmark=Bookmark())
+                        items = [
+                            DataItem(
+                                tracking_id=f"INTERNAL_ID_project_{self.client.config.project}_{item.id!s}",
+                                item=item,
+                            )
+                            for item in chunk
+                        ]
+                        yield Page(worker_id="main", items=items, bookmark=NoBookmark())
                         total += len(chunk)
                         if limit is not None and total >= limit:
                             return
@@ -57,18 +61,22 @@ class AnnotationIO(StorageIO[AssetCentricSelector, AnnotationResponse]):
         return None
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[AnnotationResponse], selector: AssetCentricSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
+        self, data_chunk: Page[AnnotationResponse], selector: AssetCentricSelector | None = None
+    ) -> Page[dict[str, JsonVal]]:
+        unwrapped = [di.item for di in data_chunk.items]
         files_ids: set[int] = set()
-        for item in data_chunk:
+        for item in unwrapped:
             if item.annotated_resource_type == "file":
                 files_ids.add(item.annotated_resource_id)
             if file_id := self._get_file_id(item.data):
                 files_ids.add(file_id)
         self.client.lookup.files.external_id(list(files_ids))  # Preload file external IDs
-        asset_ids = {asset_id for item in data_chunk if (asset_id := self._get_asset_id(item.data))}
+        asset_ids = {asset_id for item in unwrapped if (asset_id := self._get_asset_id(item.data))}
         self.client.lookup.assets.external_id(list(asset_ids))  # Preload asset external IDs
-        return [self.dump_annotation_to_json(item) for item in data_chunk]
+        result = [
+            DataItem(tracking_id=di.tracking_id, item=self.dump_annotation_to_json(di.item)) for di in data_chunk.items
+        ]
+        return data_chunk.create_from(result)
 
     def dump_annotation_to_json(self, annotation: AnnotationResponse) -> dict[str, JsonVal]:
         """Dump annotations to a list of JSON serializable dictionaries.

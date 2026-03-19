@@ -1,5 +1,4 @@
 from collections import Counter
-from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
 
@@ -25,7 +24,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     UploadableStorageIO,
     get_upload_io,
 )
-from cognite_toolkit._cdf_tk.storageio._base import TableStorageIO, TableUploadableStorageIO, UploadItem
+from cognite_toolkit._cdf_tk.storageio._base import Page, TableStorageIO, TableUploadableStorageIO
 from cognite_toolkit._cdf_tk.storageio.selectors import Selector, load_selector
 from cognite_toolkit._cdf_tk.storageio.selectors._instances import InstanceSpaceSelector, InstanceViewSelector
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning, ToolkitWarning
@@ -233,7 +232,7 @@ class UploadCommand(ToolkitCommand):
                 iteration_count = item_count // io.CHUNK_SIZE + (1 if item_count % io.CHUNK_SIZE > 0 else 0)
 
                 tracker = ProgressTracker[str]([self._UPLOAD])
-                executor = ProducerWorkerExecutor[list[tuple[str, dict[str, JsonVal]]], Sequence[UploadItem]](
+                executor = ProducerWorkerExecutor[Page[dict[str, JsonVal]], Page](
                     download_iterable=io.read_chunks(reader, selector),
                     process=partial(io.rows_to_data, selector=selector)
                     if reader.is_table and isinstance(io, TableUploadableStorageIO)
@@ -289,7 +288,7 @@ class UploadCommand(ToolkitCommand):
     @classmethod
     def _upload_items(
         cls,
-        data_chunk: Sequence[UploadItem[T_ResourceRequest]],
+        data_chunk: Page[T_ResourceRequest],
         upload_client: HTTPClient,
         io: UploadableStorageIO[T_Selector, T_ResourceResponse, T_ResourceRequest],
         selector: T_Selector,
@@ -299,8 +298,8 @@ class UploadCommand(ToolkitCommand):
         verbose: bool,
     ) -> None:
         if dry_run:
-            for item in data_chunk:
-                tracker.set_progress(item.source_id, cls._UPLOAD, "success")
+            for item in data_chunk.items:
+                tracker.set_progress(item.tracking_id, cls._UPLOAD, "success")
             return
         results = io.upload_items(data_chunk, upload_client, selector)
         all_failed = True

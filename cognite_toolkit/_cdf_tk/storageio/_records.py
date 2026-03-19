@@ -1,6 +1,6 @@
 import json
 import time
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from datetime import timedelta
 from typing import ClassVar
 
@@ -19,7 +19,8 @@ from cognite_toolkit._cdf_tk.utils.time import timestamp_to_ms
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
-from ._base import Bookmark, ConfigurableStorageIO, Page, UploadableStorageIO, UploadItem
+from ._base import Bookmark, ConfigurableStorageIO, DataItem, Page, UploadableStorageIO
+from .progress import CursorBookmark, NoBookmark
 from .selectors import RecordContainerSelector
 
 
@@ -51,9 +52,6 @@ class RecordIO(
     MAX_TOTAL_RECORDS = 1_000_000
     BASE_SELECTOR = RecordContainerSelector
     _TIMEDELTA_ADAPTER: ClassVar[TypeAdapter[timedelta]] = TypeAdapter(timedelta)
-
-    def as_id(self, item: RecordResponse) -> str:
-        return f"{item.space}:{item.external_id}"
 
     def _get_max_filtering_interval_ms(self, stream_external_id: str) -> int | None:
         """Get the stream's maxFilteringInterval in ms, returning None for mutable streams."""
@@ -202,9 +200,15 @@ class RecordIO(
             sync_response = RecordSyncResponse.model_validate_json(response.body)
             total += len(sync_response.items)
             if sync_response.items:
-                yield Page(
-                    worker_id="main", items=sync_response.items, bookmark=Bookmark(cursor=sync_response.next_cursor)
-                )  # pyright: ignore[reportArgumentType]
+                items = [
+                    DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item) for item in sync_response.items
+                ]
+                page_bookmark: Bookmark = (
+                    CursorBookmark(cursor=sync_response.next_cursor)
+                    if sync_response.next_cursor is not None
+                    else NoBookmark()
+                )
+                yield Page(worker_id="main", items=items, bookmark=page_bookmark)
             if not sync_response.has_next or total >= effective_limit:
                 break
 
@@ -212,16 +216,20 @@ class RecordIO(
             body["cursor"] = sync_response.next_cursor
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[RecordResponse], selector: RecordContainerSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
-        return [record.as_request_resource().dump() for record in data_chunk]
+        self, data_chunk: Page[RecordResponse], selector: RecordContainerSelector | None = None
+    ) -> Page[dict[str, JsonVal]]:
+        result = [
+            DataItem(tracking_id=item.tracking_id, item=item.item.as_request_resource().dump())
+            for item in data_chunk.items
+        ]
+        return data_chunk.create_from(result)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> RecordRequest:
         return RecordRequest.model_validate(item_json)
 
     def upload_items(
         self,
-        data_chunk: Sequence[UploadItem[RecordRequest]],  # pyright: ignore[reportInvalidTypeArguments]
+        data_chunk: Page[RecordRequest],
         http_client: HTTPClient,
         selector: RecordContainerSelector | None = None,
     ) -> ItemsResultList:
@@ -233,6 +241,6 @@ class RecordIO(
             message=ItemsRequest(
                 endpoint_url=config.create_api_url(url),
                 method="POST",
-                items=data_chunk,
+                items=data_chunk.items,
             )
         )

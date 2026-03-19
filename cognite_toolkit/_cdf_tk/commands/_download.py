@@ -97,10 +97,10 @@ class DownloadCommand(ToolkitCommand):
             with FileWriter.create_from_format(
                 file_format, target_dir, selector.kind, compression_cls, columns=columns
             ) as writer:
-                executor = ProducerWorkerExecutor[Page[T_ResourceResponse], list[dict[str, JsonVal]]](
+                executor = ProducerWorkerExecutor[Page[T_ResourceResponse], Page[dict[str, JsonVal]]](
                     download_iterable=io.stream_data(selector, limit),
                     process=self.create_data_process(io=io, selector=selector, is_table=is_table),
-                    write=partial(writer.write_chunks, filestem=filestem),
+                    write=self.create_writer(writer, filestem=filestem),
                     iteration_count=iteration_count,
                     # Limit queue size to avoid filling up memory before the workers can write to disk.
                     max_queue_size=8 * 10,  # 8 workers, 10 items per worker
@@ -157,16 +157,21 @@ class DownloadCommand(ToolkitCommand):
         io: StorageIO[T_Selector, T_ResourceResponse],
         selector: T_Selector,
         is_table: bool,
-    ) -> Callable[[Page[T_ResourceResponse]], list[dict[str, JsonVal]]]:
+    ) -> Callable[[Page[T_ResourceResponse]], Page[dict[str, JsonVal]]]:
         """Creates a data processing function based on the IO type and whether the output is a table."""
         if is_table and isinstance(io, TableStorageIO):
+            return partial(io.data_to_row, selector=selector)
+        return partial(io.data_to_json_chunk, selector=selector)
 
-            def row_data_process(chunk: Page[T_ResourceResponse]) -> list[dict[str, JsonVal]]:
-                return io.data_to_row(chunk.items, selector)
+    @staticmethod
+    def create_writer(
+        writer: FileWriter,
+        filestem: str,
+    ) -> Callable[[Page[dict[str, JsonVal]]], None]:
+        """Creates a writer function that writes processed data to files using the provided FileWriter."""
 
-            return row_data_process
+        def write(page: Page[dict[str, JsonVal]]) -> None:
+            # MyPy Fails to understand that JsonVal is a subset of chunk.
+            writer.write_chunks(page.as_raw_items(), filestem=filestem)  # type: ignore[arg-type]
 
-        def chunk_data_process(data_page: Page[T_ResourceResponse]) -> list[dict[str, JsonVal]]:
-            return io.data_to_json_chunk(data_page.items, selector)
-
-        return chunk_data_process
+        return write

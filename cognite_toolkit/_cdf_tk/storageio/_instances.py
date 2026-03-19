@@ -38,7 +38,8 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
-from ._base import Bookmark, ConfigurableStorageIO, Page, UploadableStorageIO
+from ._base import Bookmark, ConfigurableStorageIO, DataItem, Page, UploadableStorageIO
+from .progress import CursorBookmark, NoBookmark
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector, SelectedView
 from .selectors._instances import InstanceQuerySelector
 
@@ -81,9 +82,6 @@ class InstanceIO(
         # Cache for view to read-only properties mapping
         self._view_readonly_properties_cache: dict[ViewId, set[str]] = {}
         self._view_crud = ViewCRUD.create_loader(self.client)
-
-    def as_id(self, item: InstanceResponse) -> str:
-        return f"{item.space}:{item.external_id}"
 
     @staticmethod
     def _build_list_filter(selector: InstanceViewSelector | InstanceSpaceSelector) -> InstanceFilter:
@@ -173,14 +171,18 @@ class InstanceIO(
         limit: int | None = None,
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page]:
-        init_cursor = bookmark.cursor if bookmark else None
+        init_cursor = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         if isinstance(selector, InstanceViewSelector) and selector.edge_types and selector.instance_type == "node":
             yield from self._instances_with_container_and_edge_properties(selector, limit, init_cursor)
         elif isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
             yield from self._instances_with_container_properties(selector, limit, init_cursor)
         elif isinstance(selector, InstanceFileSelector):
             for chunk in chunker_sequence(selector.ids, self.CHUNK_SIZE):
-                yield Page(worker_id="main", items=self.client.tool.instances.retrieve(chunk), bookmark=Bookmark())
+                items = [
+                    DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item)
+                    for item in self.client.tool.instances.retrieve(chunk)
+                ]
+                yield Page(worker_id="main", items=items, bookmark=NoBookmark())
         elif isinstance(selector, InstanceQuerySelector):
             yield from self._instance_by_query(
                 QueryRequest.model_validate_json(selector.query),
@@ -261,7 +263,12 @@ class InstanceIO(
             items = nodes + list(sub_responses.values())
             total += len(nodes)
             next_cursor = response.next_cursor.get(root_selection)
-            yield Page(worker_id="main", items=items, bookmark=Bookmark(cursor=next_cursor))
+            wrapped_items = [DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item) for item in items]
+            yield Page(
+                worker_id="main",
+                items=wrapped_items,
+                bookmark=CursorBookmark(cursor=next_cursor) if next_cursor else NoBookmark(),
+            )
             if next_cursor is None or (limit is not None and total >= limit) or not nodes:
                 break
             page_limit = min(chunk_size, limit - total) if limit is not None else chunk_size
@@ -314,7 +321,14 @@ class InstanceIO(
             page = self.client.tool.instances.paginate(instance_filter, limit=page_limit, cursor=cursor)
             total += len(page.items)
             if page:
-                yield Page(worker_id="main", items=page.items, bookmark=Bookmark(cursor=page.next_cursor))
+                wrapped_items = [
+                    DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item) for item in page.items
+                ]
+                yield Page(
+                    worker_id="main",
+                    items=wrapped_items,
+                    bookmark=CursorBookmark(cursor=page.next_cursor) if page.next_cursor else NoBookmark(),
+                )
             if page.next_cursor is None or (limit is not None and total >= limit) or not page.items:
                 break
             cursor = page.next_cursor
@@ -328,7 +342,9 @@ class InstanceIO(
                 instances_to_yield = instances_to_yield[:limit]
             yield from chunker_sequence(instances_to_yield, self.CHUNK_SIZE)
         else:
-            yield from ([instance.as_id() for instance in chunk.items] for chunk in self.stream_data(selector, limit))
+            yield from (
+                [data_item.item.as_id() for data_item in chunk.items] for chunk in self.stream_data(selector, limit)
+            )
 
     def count(self, selector: InstanceSelector) -> int | None:
         if isinstance(selector, InstanceViewSelector) or (
@@ -359,9 +375,13 @@ class InstanceIO(
         raise NotImplementedError()
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[InstanceResponse], selector: InstanceSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
-        return [instance.as_request_resource().dump() for instance in data_chunk]
+        self, data_chunk: Page[InstanceResponse], selector: InstanceSelector | None = None
+    ) -> Page[dict[str, JsonVal]]:
+        result = [
+            DataItem(tracking_id=item.tracking_id, item=item.item.as_request_resource().dump())
+            for item in data_chunk.items
+        ]
+        return data_chunk.create_from(result)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceRequest:
         item_to_load = item_json.copy()

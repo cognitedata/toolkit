@@ -39,7 +39,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     ThreeDMigrationIO,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
-from cognite_toolkit._cdf_tk.storageio import UploadItem
+from cognite_toolkit._cdf_tk.storageio import DataItem, Page
 from cognite_toolkit._cdf_tk.storageio.selectors import ThreeDModelIdSelector
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from tests.test_integration.constants import RUN_UNIQUE_ID
@@ -241,7 +241,8 @@ class TestMigrate3D:
         # Call migration endpoint for 3D model and revision
         with HTTPClient(config=client.config) as http_client:
             result = io.upload_items(
-                [UploadItem(source_id=str(model.id), item=migration_request)], http_client=http_client
+                Page(worker_id="main", items=[DataItem(tracking_id=str(model.id), item=migration_request)]),
+                http_client=http_client,
             )
 
         errors = [str(res) for res in result if isinstance(res, FailedRequest | FailedResponse)]
@@ -294,7 +295,7 @@ class TestMigrate3D:
         mappings = list(mapping_io.stream_data(selector=selector))
         if not mappings:
             raise AssertionError(f"{self.ERROR_HEADING}No asset mappings found for migration.")
-        asset_mappings_dm = ThreeDAssetMapper(client).map([item for page in mappings for item in page.items])
+        asset_mappings_dm = ThreeDAssetMapper(client).map([di.item for page in mappings for di in page.items])
         if len(asset_mappings_dm) != 1:
             raise AssertionError(f"{self.ERROR_HEADING}Failed to map asset mappings for migration.")
         asset_mapping = asset_mappings_dm[0]
@@ -303,7 +304,8 @@ class TestMigrate3D:
 
         with HTTPClient(config=client.config) as http_client:
             mapping_results = mapping_io.upload_items(
-                [UploadItem(source_id=f"{model.id}", item=asset_mapping)], http_client=http_client
+                Page(worker_id="main", items=[DataItem(tracking_id=f"{model.id}", item=asset_mapping)]),
+                http_client=http_client,
             )
         mapping_errors = [str(res) for res in mapping_results if isinstance(res, FailedRequest | FailedResponse)]
         if len(mapping_errors) > 0:

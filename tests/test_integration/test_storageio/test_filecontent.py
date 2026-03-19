@@ -65,14 +65,14 @@ class TestFileContentIO:
             download_selector = FileIdentifierSelector(
                 identifiers=(FileExternalID(external_id=external_id),), download_dir_name="files"
             )
-            downloaded_files = [item for page in io.stream_data(download_selector) for item in page.items]
-            assert len(downloaded_files) == 1
+            pages = list(io.stream_data(download_selector))
+            assert len(pages) == 1
             expected_file = tmp_path / directory.removeprefix("/") / filename
             assert expected_file.is_file()
             downloaded_content = expected_file.read_text(encoding="utf-8")
             assert downloaded_content == "This is some test content."
 
-            json_chunks = io.data_to_json_chunk(downloaded_files, download_selector)
+            json_chunks = io.data_to_json_chunk(pages[0], download_selector)
             assert len(json_chunks) == 1
         finally:
             # Clean up
@@ -177,8 +177,8 @@ class TestFileContentIO:
             self.verify_file_uploaded(toolkit_client, external_id)
 
             io = FileContentIO(toolkit_client, tmp_path / "downloads")
-            downloaded_files = [item for page in io.stream_data(selector) for item in page.items]
-            assert len(downloaded_files) == 1
+            pages = list(io.stream_data(selector))
+            assert len(pages) == 1
             expected_file = tmp_path / "downloads" / selector.file_directory / "test_file_identifier.txt"
             assert expected_file.is_file()
             downloaded_content = expected_file.read_text(encoding="utf-8")
