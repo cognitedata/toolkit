@@ -158,7 +158,9 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         columns = self._get_progress_columns()
         with Progress(*columns, console=self.console) as progress:
             task_args: dict[str, Any] = (
-                {"item_count": 0, "total": None} if self.total_item_count is None else {"total": self.total_item_count}
+                {"item_count": start_item, "total": None}
+                if self.total_item_count is None
+                else {"total": self.total_item_count}
             )
             download_task = progress.add_task(self.download_description, **task_args)
             process_task = progress.add_task(self.process_description, **task_args)
