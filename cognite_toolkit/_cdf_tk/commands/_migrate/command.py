@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     UploadableStorageIO,
 )
 from cognite_toolkit._cdf_tk.storageio.logger import FileDataLogger, OperationStatus
-from cognite_toolkit._cdf_tk.storageio.progress import ProgressYAML
+from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
@@ -98,6 +98,8 @@ class MigrationCommand(ToolkitCommand):
                 mapper.prepare(selected)
 
                 total_items = counts_by_selector[selected]
+                init_bookmark: Bookmark | None = None
+                start_item = 0
                 if progress := ProgressYAML.try_load(log_dir, str(selected)):
                     if progress.total != total_items:
                         console.print(
