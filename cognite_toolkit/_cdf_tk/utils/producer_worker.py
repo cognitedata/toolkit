@@ -232,6 +232,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
             return
         self.downloaded_items = start_item
+        progress.update(download_task, advance=start_item)
         while not self._error_event.is_set():
             try:
                 if self._stop_event.is_set():
@@ -266,6 +267,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
     def _process_worker(self, progress: Progress, process_task: TaskID, start_item: int = 0) -> None:
         """Worker thread for processing data."""
         process_count = start_item
+        progress.update(process_task, advance=start_item)
         while not self._error_event.is_set():
             try:
                 items = self.process_queue.get(timeout=0.5)
@@ -296,6 +298,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
     def _write_worker(self, progress: Progress, write_task: TaskID, start_item: int = 0) -> None:
         """Worker thread for writing data to file."""
         write_count = start_item
+        progress.update(write_task, advance=start_item)
         while not self._error_event.is_set():
             try:
                 items = self.write_queue.get(timeout=0.5)
