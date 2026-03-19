@@ -74,7 +74,7 @@ class ReadBuildDirectory:
     skipped_directories: list[ResourceDirectory] = field(default_factory=list)
     invalid_directories: list[Path] = field(default_factory=list)
     is_strict_validation: bool = False
-    has_validated_cdf_project: bool = False
+    cdf_project: str | None = None
 
     def create_warnings(self) -> Iterable[ToolkitWarning]:
         for invalid_dir in self.invalid_directories:
@@ -176,11 +176,11 @@ class DeployV2Command(ToolkitCommand):
         options: DeployOptions | None = None,
     ) -> Sequence[DeploymentResult]:
         options = options or DeployOptions(environment_variables=env_vars.dump())
-        read_dir = self.read_build_directory(build_dir, env_vars.CDF_PROJECT, options.include)
+        read_dir = self.read_build_directory(build_dir, options.include)
 
         client = env_vars.get_client(is_strict_validation=read_dir.is_strict_validation)
 
-        self._display_read_dir(read_dir, options.cdf_project, client.config.project, client.console)
+        self._display_read_dir(read_dir, options.cdf_project, env_vars.CDF_PROJECT, client.console)
 
         plan = self.create_deployment_plan(read_dir)
 
@@ -194,9 +194,7 @@ class DeployV2Command(ToolkitCommand):
         return results
 
     @classmethod
-    def read_build_directory(
-        cls, build_dir: Path, cdf_project: str, include: Sequence[str] | None = None
-    ) -> ReadBuildDirectory:
+    def read_build_directory(cls, build_dir: Path, include: Sequence[str] | None = None) -> ReadBuildDirectory:
         """Reads the build directory and returns a structured representation of the resources to be deployed.
 
         Args:
@@ -216,18 +214,11 @@ class DeployV2Command(ToolkitCommand):
             )
         # Note we support running without linage. This is for example used when deploying resources
         # with the upload command.from
-        has_validated_cdf_project = False
+        cdf_project: str | None = None
         if (lineage_path := (build_dir / BuildLineage.filename)).exists():
             lineage = BuildLineage.from_yaml_file(lineage_path)
             lineage.validate_source_files_unchanged()
-            if lineage.cdf_project is not None:
-                if lineage.cdf_project != cdf_project:
-                    raise ToolkitValidationError(
-                        f"CDF project in {lineage_path.as_posix()} ≠ {cdf_project} in "
-                        f"your credentials. Please ensure you have built your resources "
-                        f"for the {cdf_project!r} project."
-                    )
-                has_validated_cdf_project = True
+            cdf_project = lineage.cdf_project
         include_set = set(include) if include else None
         invalid_resource_dirs: list[Path] = []
         resource_directories: list[ResourceDirectory] = []
@@ -260,27 +251,32 @@ class DeployV2Command(ToolkitCommand):
             resource_directories=resource_directories,
             invalid_directories=invalid_resource_dirs,
             skipped_directories=skipped_resource_dirs,
-            has_validated_cdf_project=has_validated_cdf_project,
+            cdf_project=cdf_project,
         )
 
     def _display_read_dir(
-        self, read_dir: ReadBuildDirectory, cdf_project: str | None, client_cd_project: str, console: Console
+        self, read_dir: ReadBuildDirectory, cli_cdf_project: str | None, client_cdf_project: str, console: Console
     ) -> None:
-        # Command argument vs environment takes precedence
-        if cdf_project is not None and cdf_project != client_cd_project:
+        if cli_cdf_project is not None and cli_cdf_project != client_cdf_project:
             raise ToolkitValidationError(
                 f"The CDF project in your command argument does not match your credentials, "
-                f"{cdf_project!r}≠{client_cd_project!r}."
+                f"{cli_cdf_project!r}≠{client_cdf_project!r}."
             )
-        # If not prompt user, unless project was validated in the lineage.yaml file in the build directory.
-        elif cdf_project is None and not read_dir.has_validated_cdf_project:
+        elif (
+            cli_cdf_project is None and read_dir.cdf_project is not None and read_dir.cdf_project != client_cdf_project
+        ):
+            raise ToolkitValidationError(
+                f"The configurations were built for the {read_dir.cdf_project!r} CDF project, but your credentials are for {client_cdf_project!r}, "
+                f"{read_dir.cdf_project!r}≠{client_cdf_project!r}."
+            )
+        elif cli_cdf_project is None and read_dir.cdf_project is None:
             typed_project = questionary.text(
-                f"Enter the name of CDF project you are deploying to. This must match the CDF_PROJECT={client_cd_project!r} in you environment variables.\n",
+                f"Enter the name of CDF project you are deploying to. This must match the CDF_PROJECT={client_cdf_project!r} in you environment variables.\n",
             ).unsafe_ask()
-            if typed_project != cdf_project:
+            if typed_project != client_cdf_project:
                 raise ToolkitValidationError(
                     f"The CDF project you typed does not match your credentials, "
-                    f"{typed_project!r}≠{client_cd_project!r}."
+                    f"{typed_project!r}≠{client_cdf_project!r}."
                 )
 
         console.print(f"Read {read_dir.build_dir.as_posix()} complete")
