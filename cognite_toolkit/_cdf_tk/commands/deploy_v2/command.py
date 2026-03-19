@@ -168,6 +168,19 @@ class DeploymentResult:
     def skipped_count(self) -> int:
         return len(self.skipped)
 
+    @property
+    def total_count(self) -> int:
+        return self.created_count + self.deleted_count + self.updated_count + self.unchanged_count + self.skipped_count
+
+    def __iadd__(self, other: "DeploymentResult") -> "DeploymentResult":
+        self.created_count += other.created_count
+        self.deleted_count += other.deleted_count
+        self.updated_count += other.updated_count
+        self.unchanged_count += other.unchanged_count
+        self.is_missing_write_acl = self.is_missing_write_acl and other.is_missing_write_acl
+        self.skipped.extend(other.skipped)
+        return self
+
 
 class DeployV2Command(ToolkitCommand):
     def deploy(
@@ -192,7 +205,7 @@ class DeployV2Command(ToolkitCommand):
         results = self.apply_plan(client, plan, options)
 
         # Todo: Some mixpanel tracking??
-        self._display_results(client, results)
+        self._display_results(results, client.console, options.verbose)
 
         return results
 
@@ -690,42 +703,76 @@ class DeployV2Command(ToolkitCommand):
         return {"update": ResourceUpdateError, "delete": ResourceDeleteError, "create": ResourceCreationError}[action]
 
     @classmethod
-    def _display_results(cls, client: ToolkitClient, results: Sequence[DeploymentResult]) -> None:
+    def _display_results(cls, results: Sequence[DeploymentResult], console: Console, verbose: bool) -> None:
         if not results:
-            client.console.print("No resources were deployed.")
+            console.print("No resources were deployed.")
             return
 
         is_dry_run = results[0].is_dry_run
         title = "Deployment Summary (dry run)" if is_dry_run else "Deployment Summary"
         table = Table(title=title, show_lines=False)
         table.add_column("Resource", style="cyan")
-        table.add_column("Created", justify="right", style="green")
-        table.add_column("Updated", justify="right", style="yellow")
-        table.add_column("Deleted", justify="right", style="red")
-        table.add_column("Unchanged", justify="right", style="dim")
+        if is_dry_run:
+            table.add_column("Would create", justify="right", style="green")
+            table.add_column("Would update", justify="right", style="yellow")
+            table.add_column("Would delete", justify="right", style="red")
+        else:
+            table.add_column("Created", justify="right", style="green")
+            table.add_column("Updated", justify="right", style="yellow")
+            table.add_column("Deleted", justify="right", style="red")
 
-        total_created, total_updated, total_deleted, total_unchanged = 0, 0, 0, 0
+        table.add_column("Unchanged", justify="right", style="dim")
+        table.add_column("Skipped", justify="right", style="yellow")
+        table.add_column("Total", justify="right", style="cyan")
+        if is_dry_run:
+            table.add_column("Can deploy", justify="right")
+
+        total = DeploymentResult(
+            "All",
+            is_dry_run=is_dry_run,
+            created_count=0,
+            deleted_count=0,
+            updated_count=0,
+            unchanged_count=0,
+            skipped=[],
+            is_missing_write_acl=False,
+        )
         for result in results:
-            table.add_row(
+            row = [
                 result.resource_name,
                 str(result.created_count),
                 str(result.updated_count),
                 str(result.deleted_count),
                 str(result.unchanged_count),
-            )
-            total_created += result.created_count
-            total_updated += result.updated_count
-            total_deleted += result.deleted_count
-            total_unchanged += result.unchanged_count
+                str(result.skipped),
+                str(result.total_count),
+            ]
+            if is_dry_run:
+                if result.is_missing_write_acl:
+                    row.append("[red]No[/]")
+                else:
+                    row.append("[green]Yes[/]")
+
+            table.add_row(*row)
+            total += result
 
         if len(results) > 1:
             table.add_section()
-            table.add_row(
-                "[bold]Total[/]",
-                f"[bold]{total_created}[/]",
-                f"[bold]{total_updated}[/]",
-                f"[bold]{total_deleted}[/]",
-                f"[bold]{total_unchanged}[/]",
-            )
+            last_row = [
+                f"[bold]{total.resource_name}[/]",
+                f"[bold]{total.created_count}[/]",
+                f"[bold]{total.updated_count}[/]",
+                f"[bold]{total.deleted_count}[/]",
+                f"[bold]{total.unchanged_count}[/]",
+                f"[bold]{total.skipped}[/]",
+                f"[bold]{total.total_count}[/]",
+            ]
+            if is_dry_run:
+                if total.is_missing_write_acl:
+                    last_row.append("[red]No[/]")
+                else:
+                    last_row.append("[green]Yes[/]")
 
-        client.console.print(table)
+            table.add_row(*last_row)
+
+        console.print(table)
