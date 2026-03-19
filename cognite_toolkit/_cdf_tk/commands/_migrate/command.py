@@ -106,18 +106,9 @@ class MigrationCommand(ToolkitCommand):
                 init_bookmark: Bookmark | None = None
                 progress = ProgressYAML.try_load(log_dir, filestem=str(selected))
                 if progress is not None:
-                    for bm in progress.bookmarks:
-                        if isinstance(bm, CursorBookmark):
-                            init_bookmark = bm
-                            console.print(f"Resuming migration for {selected.display_name} from cursor {bm.cursor!r}.")
-                            break
-                        elif isinstance(bm, FileBookmark):
-                            init_bookmark = bm
-                            console.print(
-                                f"Resuming migration for {selected.display_name} from"
-                                f" lineno {bm.lineno:,} in {bm.filepath.as_posix()!r}."
-                            )
-                            break
+                    if first := progress.get_first_bookmark():
+                        init_bookmark = first
+                        console.print(f"Resuming migration for {selected.display_name} from {first!s}.")
                     else:
                         console.print(
                             f"Found progress file but failed to load cursor for {selected.display_name}. Starting migration from the beginning."
@@ -300,15 +291,10 @@ class MigrationCommand(ToolkitCommand):
                 target.logger.log(issues)
 
             # Remove false check, when feature is ready.
-            if False and isinstance(page.bookmark, CursorBookmark):
+            if False and isinstance(page.bookmark, CursorBookmark | FileBookmark):
                 ProgressYAML(
                     status="in-progress",
-                    bookmarks=[page.bookmark],
-                ).dump_to_file(log_dir, filestem=str(selected))
-            if False and isinstance(page.bookmark, FileBookmark):
-                ProgressYAML(
-                    status="in-progress",
-                    bookmarks=[page.bookmark],
+                    bookmarks={page.worker_id: page.bookmark},
                 ).dump_to_file(log_dir, filestem=str(selected))
             return None
 

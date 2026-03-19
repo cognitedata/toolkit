@@ -30,12 +30,14 @@ class FileBookmark(BookmarkType):
     filepath: Path
 
     def __str__(self) -> str:
-        return f"lineno {self.lineno:,} in file {self.filepath.as_posix()!r}"
+        return f"lineno {self.lineno:,} in {self.filepath.as_posix()!r}"
 
 
 class NoBookmark(BookmarkType):
     type: Literal["nobookmark"] = "nobookmark"
-    worker_id: str = "main"
+
+    def __str__(self) -> str:
+        return "beginning"
 
 
 Bookmark = Annotated[CursorBookmark | FileBookmark | NoBookmark, Field(discriminator="type")]
@@ -63,3 +65,8 @@ class ProgressYAML(ProgressObject):
         filepath = self._get_filepath(directory, filestem)
         filepath.parent.mkdir(parents=True, exist_ok=True)
         safe_write(filepath, yaml.safe_dump(self.model_dump(by_alias=True)))
+
+    def get_first_bookmark(self) -> Bookmark | None:
+        if not self.bookmarks:
+            return None
+        return next((bookmark for bookmark in self.bookmarks.values() if bookmark.type != "nobookmark"), None)

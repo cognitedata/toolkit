@@ -171,7 +171,7 @@ class DownloadCommand(ToolkitCommand):
         """Creates a writer function that writes processed data to files using the provided FileWriter."""
 
         def write(page: Page[dict[str, JsonVal]]) -> None:
-            # MyPy Fails to understand that JsonVal is a subset fo chunk.
+            # MyPy Fails to understand that JsonVal is a subset of chunk.
             writer.write_chunks(page.as_raw_items(), filestem=filestem)  # type: ignore[arg-type]
 
         return write

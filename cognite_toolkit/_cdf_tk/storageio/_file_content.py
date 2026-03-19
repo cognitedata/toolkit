@@ -247,8 +247,7 @@ class FileContentIO(UploadableStorageIO[FileContentSelector, MetadataWithFilePat
         """Convert a JSON-compatible chunk of data back to a writable Cognite resource list.
 
         Args:
-            data_chunk: A list of tuples, each containing a source ID and a dictionary representing
-                the data in a JSON-compatible format.
+             data_chunk: A page of JSON-compatible dictionaries, each wrapped in a DataItem with a tracking ID.
         Returns:
             A writable Cognite resource list representing the data.
         """

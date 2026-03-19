@@ -3,7 +3,7 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence, Sized
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar, runtime_checkable
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
@@ -38,7 +38,7 @@ class StorageIOConfig:
 
 
 class DataItem(RequestItem, Generic[T_DataItem]):
-    """This wraps a data item with a tracking ID for better logging and error messages in data operatoins.
+    """This wraps a data item with a tracking ID for better logging and error messages in data operations.
 
     Attributes:
         tracking_id: The identifier for the item.
@@ -47,8 +47,9 @@ class DataItem(RequestItem, Generic[T_DataItem]):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    # Display Id = line number when source is file,
-    tracking_id: str
+    tracking_id: str = Field(
+        description="Identifier of the data item in the source. For example, if the source is a file it can be a line number."
+    )
     item: T_DataItem
 
     def __str__(self) -> str:
@@ -246,8 +247,8 @@ class UploadableStorageIO(
     def read_chunks(cls, reader: MultiFileReader, selector: T_Selector) -> Iterable[Page[dict[str, JsonVal]]]:
         """Read data from a MultiFileReader in chunks.
 
-        This method yields chunks of data, where each chunk is a list of tuples. Each tuple contains a source ID
-        (e.g., line number or row identifier) and a dictionary representing the data in a JSON-compatible format.
+         This method yields pages of DataItems, where each DataItem contains a tracking ID
+         (e.g., line number or row identifier)
 
         This method can be overridden by subclasses to customize how data is read and chunked.
         Args:
@@ -295,8 +296,7 @@ class TableUploadableStorageIO(UploadableStorageIO[T_Selector, T_DataResponse, T
         """Convert a row-based JSON-compatible chunk of data back to a writable Cognite resource list.
 
         Args:
-            rows: A list of tuples, each containing a source ID and a dictionary representing
-                the data in a JSON-compatible format.
+            rows: A page of row dictionaries, each wrapped in a DataItem with a tracking ID.
             selector: Optional selection criteria to identify where to upload the data. This is required for some storage types.
 
         Returns:
