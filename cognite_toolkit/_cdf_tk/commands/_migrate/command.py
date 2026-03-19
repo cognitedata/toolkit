@@ -128,7 +128,7 @@ class MigrationCommand(ToolkitCommand):
                 )
 
                 executor.run()
-                total = executor.total_items
+                total = executor.downloaded_items
 
                 results = self._create_status_summary(logger)
                 results_by_selector[str(selected)] = results

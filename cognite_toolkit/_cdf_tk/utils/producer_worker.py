@@ -107,7 +107,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         # Download -> [process_queue] -> Process -> [write_queue] -> Write
         self.process_queue: queue.Queue[T_Download] = queue.Queue(maxsize=max_queue_size)
         self.write_queue: queue.Queue[T_Processed] = queue.Queue(maxsize=max_queue_size)
-        self.total_items = 0
+        self.downloaded_items = 0
         self.error_message = ""
         self.error_traceback = ""
         self.verbose = verbose
@@ -235,7 +235,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 if self._stop_event.is_set():
                     break
                 items = next(iterator)
-                self.total_items += len(items)
+                self.downloaded_items += len(items)
                 if self._put_with_error_check(items, self.process_queue):
                     item_count += len(items)
                     progress.update(download_task, advance=1, item_count=item_count)
