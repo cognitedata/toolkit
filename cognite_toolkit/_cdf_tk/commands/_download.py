@@ -82,7 +82,8 @@ class DownloadCommand(ToolkitCommand):
             filestem = sanitize_filename(str(selector))
             start_item = 0
             init_bookmark: Bookmark | None = None
-            if Flags.EXTEND_DOWNLOAD.is_enabled():
+            # Remove false when ready.
+            if False and Flags.EXTEND_DOWNLOAD.is_enabled():
                 if progress := ProgressYAML.try_load(target_dir, self._download_filestem(filestem)):
                     if progress.total != total_item_count:
                         console.print(
@@ -200,7 +201,8 @@ class DownloadCommand(ToolkitCommand):
             nonlocal write_item_count
             writer.write_chunks(page.as_raw_items(), filestem=filestem)  # type: ignore[arg-type]
 
-            if Flags.EXTEND_DOWNLOAD.is_enabled():
+            # Remove false when functionality is ready.
+            if False and Flags.EXTEND_DOWNLOAD.is_enabled():
                 write_item_count += len(page.as_raw_items())
                 ProgressYAML(
                     status="in-progress",
