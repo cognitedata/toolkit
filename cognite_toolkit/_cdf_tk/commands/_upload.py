@@ -229,7 +229,6 @@ class UploadCommand(ToolkitCommand):
                     )
 
                 item_count = io.count_items(reader, selector)
-                iteration_count = item_count // io.CHUNK_SIZE + (1 if item_count % io.CHUNK_SIZE > 0 else 0)
 
                 tracker = ProgressTracker[str]([self._UPLOAD])
                 executor = ProducerWorkerExecutor[Page[dict[str, JsonVal]], Page](
@@ -247,7 +246,7 @@ class UploadCommand(ToolkitCommand):
                         console=console,
                         verbose=verbose,
                     ),
-                    iteration_count=iteration_count,
+                    total_item_count=item_count,
                     max_queue_size=self._MAX_QUEUE_SIZE,
                     download_description="Reading files",
                     process_description="Processing",

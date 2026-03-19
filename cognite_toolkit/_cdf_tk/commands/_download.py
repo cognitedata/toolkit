@@ -75,7 +75,6 @@ class DownloadCommand(ToolkitCommand):
             if total == 0:
                 console.print(f"No items to download for {selector!s}. Skipping.")
                 continue
-            iteration_count = self._get_iteration_count(total, limit, io.CHUNK_SIZE)
             filestem = sanitize_filename(str(selector))
             if self._already_downloaded(target_dir, filestem):
                 warning = LowSeverityWarning(
@@ -101,7 +100,7 @@ class DownloadCommand(ToolkitCommand):
                     download_iterable=io.stream_data(selector, limit),
                     process=self.create_data_process(io=io, selector=selector, is_table=is_table),
                     write=self.create_writer(writer, filestem=filestem),
-                    iteration_count=iteration_count,
+                    total_item_count=total if (limit is None or total is None) else min(limit, total),
                     # Limit queue size to avoid filling up memory before the workers can write to disk.
                     max_queue_size=8 * 10,  # 8 workers, 10 items per worker
                     download_description=f"Downloading {selector!s}",
@@ -121,19 +120,6 @@ class DownloadCommand(ToolkitCommand):
                     safe_write(config_file, yaml_safe_dump(config.value))
 
             console.print(f"Downloaded {selector!s} to {file_count} file(s) in {target_dir.as_posix()!r}.")
-
-    @staticmethod
-    def _get_iteration_count(
-        total: int | None,
-        limit: int | None,
-        chunk_size: int,
-    ) -> int | None:
-        if total is not None and limit is not None and total > limit:
-            total = limit
-        iteration_count: int | None = None
-        if total is not None:
-            iteration_count = total // chunk_size + (1 if total % chunk_size > 0 else 0)
-        return iteration_count
 
     @staticmethod
     def _already_downloaded(output_dir: Path, filestem: str) -> bool:
