@@ -1,5 +1,5 @@
 import json
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence, Set
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -744,7 +744,7 @@ class DeployV2Command(ToolkitCommand):
                 str(result.updated_count),
                 str(result.deleted_count),
                 str(result.unchanged_count),
-                str(result.skipped),
+                str(result.skipped_count),
                 str(result.total_count),
             ]
             if is_dry_run:
@@ -764,7 +764,7 @@ class DeployV2Command(ToolkitCommand):
                 f"[bold]{total.updated_count}[/]",
                 f"[bold]{total.deleted_count}[/]",
                 f"[bold]{total.unchanged_count}[/]",
-                f"[bold]{total.skipped}[/]",
+                f"[bold]{total.skipped_count}[/]",
                 f"[bold]{total.total_count}[/]",
             ]
             if is_dry_run:
@@ -776,3 +776,17 @@ class DeployV2Command(ToolkitCommand):
             table.add_row(*last_row)
 
         console.print(table)
+
+        if total.skipped and not verbose:
+            most_common = Counter(skip.code for skip in total.skipped).most_common(n=3)
+            console.print(
+                f"{HINT_LEAD_TEXT}A total of {total.skipped_count} resources were skipped during deployment. "
+                f"The most common reasons were: {', '.join(f'{code} ({count} occurrences)' for code, count in most_common)}. "
+                f"Use --verbose flag to get details about all skipped resources."
+            )
+        if verbose and total.skipped:
+            skipped_str = [
+                f"{skip.id!s} in file {skip.source_file.as_posix()} | {skip.code} | {skip.reason}"
+                for skip in total.skipped
+            ]
+            console.print(Panel("\n".join(skipped_str), title="Skipped resources", expand=False))
