@@ -134,6 +134,11 @@ class DownloadCommand(ToolkitCommand):
                     console=console,
                 )
                 executor.run(start_item=start_item)
+                progress = ProgressYAML.try_load(target_dir, filestem=self._download_filestem(filestem))
+                if progress is not None:
+                    progress.status = executor.result
+                    progress.dump_to_file(target_dir, filestem=self._download_filestem(filestem))
+
                 executor.raise_on_error()
                 file_count = writer.file_count
 
