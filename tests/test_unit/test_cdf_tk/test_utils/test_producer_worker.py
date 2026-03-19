@@ -20,7 +20,7 @@ def setup_executor() -> tuple[
         download_iterable=download_iterable,
         process=process,
         write=write_to_file,
-        iteration_count=len(download_iterable),
+        total_item_count=sum(len(batch) for batch in download_iterable),
         max_queue_size=2,
     )
     return executor, process, write_to_file, len(download_iterable)

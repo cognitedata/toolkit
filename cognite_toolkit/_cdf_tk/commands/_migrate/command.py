@@ -98,11 +98,7 @@ class MigrationCommand(ToolkitCommand):
 
                 mapper.prepare(selected)
 
-                iteration_count: int | None = None
                 total_items = counts_by_selector[selected]
-                if total_items is not None:
-                    iteration_count = (total_items // data.CHUNK_SIZE) + (1 if total_items % data.CHUNK_SIZE > 0 else 0)
-
                 init_bookmark: Bookmark | None = None
                 progress = ProgressYAML.try_load(log_dir, filestem=str(selected))
                 if progress is not None:
@@ -118,7 +114,7 @@ class MigrationCommand(ToolkitCommand):
                     download_iterable=data.stream_data(selected, bookmark=init_bookmark),
                     process=self._convert(mapper, data),
                     write=self._upload(selected, write_client, data, dry_run, log_dir),
-                    iteration_count=iteration_count,
+                    total_item_count=total_items,
                     max_queue_size=10,
                     download_description=f"Downloading {selected.display_name}",
                     process_description="Converting",
@@ -128,7 +124,7 @@ class MigrationCommand(ToolkitCommand):
                 )
 
                 executor.run()
-                total = executor.total_items
+                total = executor.downloaded_items
 
                 results = self._create_status_summary(logger)
                 results_by_selector[str(selected)] = results
