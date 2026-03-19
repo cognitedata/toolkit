@@ -156,13 +156,12 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
             if cursor is not None:
                 query.cursors = {self._CANVAS_REF: cursor}
 
-            batch_response = self._http_client.request_single_retries(
-                RequestMessage(
-                    endpoint_url=self._http_client.config.create_api_url(QUERY_ENDPOINT.path),
-                    method=QUERY_ENDPOINT.method,
-                    body_content=query.dump(),
-                )
-            ).get_success_or_raise()
+            request = RequestMessage(
+                endpoint_url=self._http_client.config.create_api_url(QUERY_ENDPOINT.path),
+                method=QUERY_ENDPOINT.method,
+                body_content=query.dump(),
+            )
+            batch_response = self._http_client.request_single_retries(request).get_success_or_raise(request)
 
             query_response = QueryResponseUntyped.model_validate_json(batch_response.body)
             batch_items = self._validate_query_response(query_response)

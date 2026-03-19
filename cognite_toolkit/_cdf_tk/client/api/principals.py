@@ -136,12 +136,11 @@ class PrincipalsAPI(CDFResourceAPI[Principal]):
         Returns:
             The principal (ServiceAccountPrincipal or UserPrincipal) that issued the request.
         """
-        response = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=self._http_client.config.create_auth_url(self._me_endpoint.path),
-                method=self._me_endpoint.method,
-            )
-        ).get_success_or_raise()
+        request = RequestMessage(
+            endpoint_url=self._http_client.config.create_auth_url(self._me_endpoint.path),
+            method=self._me_endpoint.method,
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
         return TypeAdapter(Principal).validate_json(response.body)
 
     def retrieve(self, items: Sequence[PrincipalId | ExternalId], ignore_unknown_ids: bool = False) -> list[Principal]:

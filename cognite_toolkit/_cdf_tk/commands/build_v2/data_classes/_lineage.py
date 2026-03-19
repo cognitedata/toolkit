@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
+from typing import ClassVar
 
 import yaml
 from pydantic import (
@@ -8,6 +9,7 @@ from pydantic import (
     ConfigDict,
     Field,
     SerializationInfo,
+    ValidationError,
     computed_field,
     field_serializer,
 )
@@ -18,6 +20,10 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     ModelSyntaxError,
 )
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.utils import calculate_hash, read_yaml_content, safe_read
+from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
 from ._types import AbsoluteDirPath, AbsoluteFilePath
 
@@ -120,10 +126,12 @@ class ModuleLineageItem(_BaseLineageModel):
 class BuildLineage(_BaseLineageModel):
     """Minimal lineage"""
 
+    filename: ClassVar[str] = "lineage.yaml"
     timestamp: datetime = Field(default_factory=datetime.now, description="When build started")
     duration: float | None = Field(None, description="Total build duration in seconds")
     organization_dir: Path
     build_dir: Path
+    cdf_project: str | None = None
     modules_summary: dict[str, int] = Field(description="Summary of modules by build status")
     insights_summary: dict[str, int] = Field(description="Summary of insights by type across all modules")
 
@@ -191,3 +199,59 @@ class BuildLineage(_BaseLineageModel):
             context={"organization_dir": self.organization_dir},
         )
         return yaml.dump(data, default_flow_style=False, sort_keys=False)
+
+    @classmethod
+    def from_yaml_file(cls, yaml_file: Path) -> "BuildLineage":
+        """Load BuildLineage from a YAML file."""
+        try:
+            # The lineage file should always be located in a build folder.
+            content = read_yaml_content(yaml_file.read_text(encoding=BUILD_FOLDER_ENCODING))
+        except yaml.YAMLError as e:
+            raise ToolkitYAMLFormatError(f"Invalid YAML in {yaml_file.as_posix()}: {e}") from e
+        try:
+            return cls.model_validate(content, extra="ignore")
+        except ValidationError as e:
+            errors = " - ".join(humanize_validation_error(e))
+            raise ToolkitValidationError(f"Invalid lineage format in {yaml_file.as_posix()}:\n{errors}") from e
+
+    def validate_source_files_unchanged(self) -> None:
+        """Validate that source files have not changed since the build.
+
+        Reads each source file tracked in the lineage and compares its current hash
+        with the stored hash from build time. Uses the same hashing method as
+        BuildV2Command (calculate_hash with shorten=True on file content read via safe_read).
+
+        Raises:
+            ToolkitValidationError: If any source file has changed or is missing.
+        """
+        changed_files: list[str] = []
+        missing_files: list[str] = []
+        for module in self.module_lineage:
+            for resource in module.resource_lineage:
+                source_file = resource.source_file
+
+                if not source_file.exists():
+                    missing_files.append(source_file.as_posix())
+                    continue
+
+                try:
+                    content = safe_read(source_file)
+                except Exception:
+                    missing_files.append(source_file.as_posix())
+                    continue
+
+                current_hash = calculate_hash(content, shorten=True)
+
+                if current_hash != resource.source_hash:
+                    changed_files.append(source_file.as_posix())
+
+        errors: list[str] = []
+        if missing_files:
+            errors.append(f"Missing source files: {', '.join(missing_files)}")
+        if changed_files:
+            errors.append(f"Changed source files: {', '.join(changed_files)}")
+
+        if errors:
+            raise ToolkitValidationError(
+                "Source files have changed since the build. Please rebuild before deploying.\n" + "\n".join(errors)
+            )

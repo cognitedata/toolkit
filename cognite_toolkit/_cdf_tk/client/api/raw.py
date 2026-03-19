@@ -186,14 +186,13 @@ class RawTablesAPI(CDFResourceAPI[RAWTableResponse]):
         """
         if limit <= 0 or limit > self.MAX_PROFILE_LIMIT:
             raise ValueError(f"Limit must be between 1 and {self.MAX_PROFILE_LIMIT}, got {limit}.")
-        response = self._http_client.request_single_retries(
-            RequestMessage(
-                endpoint_url=self._http_client.config.create_api_url("/profiler/raw"),
-                method="POST",
-                body_content={"database": table.db_name, "table": table.name, "limit": limit},
-                client_timeout=timeout_seconds,
-            )
-        ).get_success_or_raise()
+        request = RequestMessage(
+            endpoint_url=self._http_client.config.create_api_url("/profiler/raw"),
+            method="POST",
+            body_content={"database": table.db_name, "table": table.name, "limit": limit},
+            client_timeout=timeout_seconds,
+        )
+        response = self._http_client.request_single_retries(request).get_success_or_raise(request)
         return RawProfileResponse.model_validate_json(response.body)
 
     def paginate(

@@ -26,7 +26,7 @@ class MigrationCSVFileSelector(AssetCentricMigrationSelector):
         return f"file_{self.datafile.name}"
 
     def get_ingestion_mappings(self) -> list[str]:
-        views = {item.get_ingestion_view() for item in self.items}
+        views = {item.get_ingestion_mapping() for item in self.items}
         return sorted(views)
 
     @cached_property
