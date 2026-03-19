@@ -316,11 +316,6 @@ class PurgeCommand(ToolkitCommand):
                 # Two results objects since they are updated concurrently
                 process_results = ResourceDeployResult(item.display_name)
                 write_results = ResourceDeployResult(item.display_name)
-                iteration_count: int | None = None
-                if item.total > 0:
-                    iteration_count = item.total // self.BATCH_SIZE_DM + (
-                        1 if item.total % self.BATCH_SIZE_DM > 0 else 0
-                    )
                 executor = ProducerWorkerExecutor[list[ResourceResponseProtocol], list[JsonVal]](
                     download_iterable=self._iterate_batch(
                         item.crud, space, data_set_external_id, batch_size=self.BATCH_SIZE_DM
@@ -328,7 +323,7 @@ class PurgeCommand(ToolkitCommand):
                     process=item.get_process_function(client, console, verbose, process_results),
                     write=self._purge_batch(item, item.delete_url, delete_client, write_results),
                     max_queue_size=10,
-                    iteration_count=iteration_count,
+                    total_item_count=item.total,
                     download_description=f"Downloading {item.display_name}",
                     process_description=f"Preparing {item.display_name} for deletion",
                     write_description=f"Deleting {item.display_name}",
@@ -603,7 +598,6 @@ class PurgeCommand(ToolkitCommand):
         if unlink:
             process = partial(self._unlink_prepare, client=client, dry_run=dry_run, console=console, verbose=verbose)
 
-        iteration_count = int(total // io.CHUNK_SIZE + (1 if total % io.CHUNK_SIZE > 0 else 0))
         with HTTPClient(config=client.config) as delete_client:
             process_str = "Would be unlinking" if dry_run else "Unlinking"
             write_str = "Would be deleting" if dry_run else "Deleting"
@@ -612,7 +606,7 @@ class PurgeCommand(ToolkitCommand):
                 download_iterable=io.download_ids(selector),
                 process=process,
                 write=partial(self._delete_instance_ids, dry_run=dry_run, delete_client=delete_client, results=results),
-                iteration_count=iteration_count,
+                total_item_count=total,
                 max_queue_size=10,
                 download_description=f"Retrieving instances from {selector!s}",
                 process_description=f"{process_str} instances from files/timeseries" if unlink else "",
