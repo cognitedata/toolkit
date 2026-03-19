@@ -278,7 +278,7 @@ class DeployV2Command(ToolkitCommand):
         invalid_yaml_file_count = sum(len(dir_.invalid_files) for dir_ in build_dir.resource_directories)
 
         lines = [
-            f"Read {build_dir.path.as_posix()} complete.",
+            f"Read {build_dir.path.as_posix()} directory complete.",
             f" - Found {resource_dir_count} resource directories",
             f" - Found {resource_file_count:,} resource files",
         ]
