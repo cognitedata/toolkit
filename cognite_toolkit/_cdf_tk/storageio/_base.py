@@ -218,13 +218,14 @@ class UploadableStorageIO(
         )
 
     def json_chunk_to_data(self, data_chunk: Page[dict[str, JsonVal]]) -> Page[T_DataRequest]:
-        """Convert a JSON-compatible chunk of data back to a writable Cognite resource list.
+        """Convert a JSON-compatible chunk of data to a writable Cognite resource list.
 
         Args:
-            data_chunk: A list of tuples, each containing a source ID and a dictionary representing
-                the data in a JSON-compatible format.
+            data_chunk: A page with raw data from to convert.
+
         Returns:
-            A writable Cognite resource list representing the data.
+            A page with data from converted to JSON-compatible format.
+
         """
         result: list[DataItem[T_DataRequest]] = []
         for chunk in data_chunk.items:
