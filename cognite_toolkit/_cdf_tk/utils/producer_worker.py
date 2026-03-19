@@ -26,7 +26,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
 
 T_Download = TypeVar("T_Download", bound=Sized)
 T_Processed = TypeVar("T_Processed", bound=Sized)
-T_Item = TypeVar("T_Item", bound=Sized)
+T_Item = TypeVar("T_Item")
 
 # Sentinels for signaling finish
 PROCESS_FINISH_SENTINEL = object()
