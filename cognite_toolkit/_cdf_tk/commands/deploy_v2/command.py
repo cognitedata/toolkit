@@ -339,7 +339,7 @@ class DeployV2Command(ToolkitCommand):
         console = client.console
         with Progress(console=console) as progress:
             total_files = sum(len(step.files) for step in plan)
-            task_id = progress.add_task("Starting deploying", total=total_files)
+            task_id = progress.add_task("Starting deployment", total=total_files)
             for step in plan:
                 crud = step.crud_cls.create_loader(client)
                 resource_name = crud.display_name
@@ -462,9 +462,9 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            "DUPLICATED",
+                            "AMBIGUOUS",
                             filepath,
-                            f"Duplicated resource. Will use definition in {first_file.as_posix()}",
+                            f"Identifier is not unique. Will use definition in {first_file.as_posix()}",
                         )
                     )
             # Persist as this is used in the deploy context.
@@ -580,7 +580,9 @@ class DeployV2Command(ToolkitCommand):
         suffix = ""
         if deploy_dir:
             filepath = deploy_dir / f"{sanitize_filename(datetime.now(timezone.utc).isoformat())}.json"
-            suffix = f"\nThe request body and response has been dumped to {filepath.as_posix()} for debugging purposes."
+            suffix = (
+                f"\nThe request body and response has been written to {filepath.as_posix()} for debugging purposes."
+            )
             json_str = json.dumps(error.as_debug_dict(), indent=2, sort_keys=False)
             for item in resources.to_create + resources.to_update:
                 for string in crud.sensitive_strings(item):
