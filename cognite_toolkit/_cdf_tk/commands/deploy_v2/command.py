@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename, to_diff
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._version import __version__
 
 
 @dataclass
@@ -69,7 +70,7 @@ class ResourceDirectory:
 
 @dataclass
 class ReadBuildDirectory:
-    build_dir: Path
+    path: Path
     resource_directories: list[ResourceDirectory] = field(default_factory=list)
     skipped_directories: list[ResourceDirectory] = field(default_factory=list)
     invalid_directories: list[Path] = field(default_factory=list)
@@ -172,17 +173,19 @@ class DeployV2Command(ToolkitCommand):
     def deploy(
         self,
         env_vars: EnvironmentVariables,
-        build_dir: Path,
+        user_build_dir: Path,
         options: DeployOptions | None = None,
     ) -> Sequence[DeploymentResult]:
         options = options or DeployOptions(environment_variables=env_vars.dump())
-        read_dir = self.read_build_directory(build_dir, options.include)
+        build_dir = self.read_build_directory(user_build_dir, options.include)
 
-        client = env_vars.get_client(is_strict_validation=read_dir.is_strict_validation)
+        client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
 
-        self._display_read_dir(read_dir, options.cdf_project, env_vars.CDF_PROJECT, client.console)
+        self._validate_cdf_project(build_dir, options.cdf_project, env_vars.CDF_PROJECT, client.console)
+        self._display_startup(build_dir.path, client.config.project, client.console)
+        self._display_read_dir(build_dir, client.console, options.verbose)
 
-        plan = self.create_deployment_plan(read_dir)
+        plan = self.create_deployment_plan(build_dir)
 
         self._display_plan(client, plan)
 
@@ -233,7 +236,7 @@ class DeployV2Command(ToolkitCommand):
             crud_by_kind = RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[resource_dir.name]
             for yaml_file in resource_dir.glob("*.yaml"):
                 for kind, crud in crud_by_kind.items():
-                    if yaml_file.stem.endswith(kind):
+                    if yaml_file.stem.casefold().endswith(kind.casefold()):
                         resources.files_by_crud[crud].append(yaml_file)
                         break
                 else:
@@ -247,29 +250,88 @@ class DeployV2Command(ToolkitCommand):
             raise ToolkitValueError(f"No resources found in {build_dir.as_posix()} directory.")
 
         return ReadBuildDirectory(
-            build_dir=build_dir,
+            path=build_dir,
             resource_directories=resource_directories,
             invalid_directories=invalid_resource_dirs,
             skipped_directories=skipped_resource_dirs,
             cdf_project=cdf_project,
         )
 
-    def _display_read_dir(
-        self, read_dir: ReadBuildDirectory, cli_cdf_project: str | None, client_cdf_project: str, console: Console
+    def _display_startup(self, build_dir: Path, cdf_project: str, console: Console) -> None:
+        console.print(
+            Panel(
+                f"Deploying {build_dir.as_posix()} directory:\n  - Toolkit Version '{__version__!s}'\n"
+                f"  - CDF project {cdf_project!r}",
+                expand=False,
+            )
+        )
+
+    def _display_read_dir(self, build_dir: ReadBuildDirectory, console: Console, verbose: bool) -> None:
+        warnings = list(build_dir.create_warnings())
+        resource_dir_count = len(build_dir.resource_directories)
+        skipped_dir_count = len(build_dir.skipped_directories)
+        invalid_dir_count = len(build_dir.invalid_directories)
+
+        resource_file_count = sum(
+            len(files) for dir_ in build_dir.resource_directories for files in dir_.files_by_crud.values()
+        )
+        invalid_yaml_file_count = sum(len(dir_.invalid_files) for dir_ in build_dir.resource_directories)
+
+        lines = [
+            f"Read {build_dir.path.as_posix()} complete.",
+            f" - Found {resource_dir_count} resource directories",
+            f" - Found {resource_file_count:,} resource files",
+        ]
+        if warnings:
+            lines.append(f" - Found {len(warnings)} warnings during reading process")
+        if skipped_dir_count:
+            lines.append(f" - Found {skipped_dir_count} skipped directories")
+        if invalid_dir_count:
+            lines.append(f" - Found {invalid_dir_count} invalid directories")
+        if invalid_yaml_file_count:
+            lines.append(f" - Found {invalid_yaml_file_count} invalid yaml files")
+
+        console.print("\n".join(lines))
+        if warnings:
+            for warning in build_dir.create_warnings():
+                self.warn(warning, console=console)
+
+        if (not verbose and skipped_dir_count) or invalid_dir_count or invalid_yaml_file_count:
+            console.print(
+                f"{HINT_LEAD_TEXT} Use --verbose flag to get more details about the skipped and invalid directories and files."
+            )
+        if verbose:
+            if build_dir.skipped_directories:
+                skipped_str = "\n".join([dir_.directory.as_posix() for dir_ in build_dir.skipped_directories])
+                console.print(f"Skipped directories:\n{skipped_str}")
+            if build_dir.invalid_directories:
+                invalid_str = "\n".join([skipped.as_posix() for skipped in build_dir.invalid_directories])
+                console.print(f"Invalid directories\n{invalid_str}")
+            if invalid_yaml_file_count:
+                invalid_str = "\n".join(
+                    [file.as_posix() for dir_ in build_dir.resource_directories for file in dir_.invalid_files]
+                )
+                console.print(f"Invalid yaml files\n{invalid_str}")
+
+    def _validate_cdf_project(
+        self, build_dir: ReadBuildDirectory, cli_cdf_project: str | None, client_cdf_project: str, console: Console
     ) -> None:
+        """Validates that the user is deploying to the CDF project they intended"""
         if cli_cdf_project is not None and cli_cdf_project != client_cdf_project:
             raise ToolkitValidationError(
                 f"The CDF project in your command argument does not match your credentials, "
                 f"{cli_cdf_project!r}≠{client_cdf_project!r}."
             )
         elif (
-            cli_cdf_project is None and read_dir.cdf_project is not None and read_dir.cdf_project != client_cdf_project
+            cli_cdf_project is None
+            and build_dir.cdf_project is not None
+            and build_dir.cdf_project != client_cdf_project
         ):
             raise ToolkitValidationError(
-                f"The configurations were built for the {read_dir.cdf_project!r} CDF project, but your credentials are for {client_cdf_project!r}, "
-                f"{read_dir.cdf_project!r}≠{client_cdf_project!r}."
+                f"The configurations were built for the {build_dir.cdf_project!r} CDF project, but your credentials are for {client_cdf_project!r}, "
+                f"{build_dir.cdf_project!r}≠{client_cdf_project!r}."
             )
-        elif cli_cdf_project is None and read_dir.cdf_project is None:
+        elif cli_cdf_project is None and build_dir.cdf_project is None:
             typed_project = questionary.text(
                 f"Enter the name of CDF project you are deploying to. This must match the CDF_PROJECT={client_cdf_project!r} in you environment variables.\n",
             ).unsafe_ask()
@@ -278,13 +340,6 @@ class DeployV2Command(ToolkitCommand):
                     f"The CDF project you typed does not match your credentials, "
                     f"{typed_project!r}≠{client_cdf_project!r}."
                 )
-
-        console.print(f"Read {read_dir.build_dir.as_posix()} complete")
-        warnings = list(read_dir.create_warnings())
-        if warnings:
-            console.print(f"Found {len(warnings)} warnings")
-            for warning in read_dir.create_warnings():
-                self.warn(warning, console=console)
 
     @classmethod
     def create_deployment_plan(cls, read_dir: ReadBuildDirectory) -> list[DeploymentStep]:

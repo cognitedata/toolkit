@@ -453,7 +453,7 @@ class CoreApp(typer.Typer):
         cmd.run(
             lambda: cmd.deploy(
                 env_vars=env_vars,
-                build_dir=build_dir,
+                user_build_dir=build_dir,
                 options=DeployOptions(
                     cdf_project=cdf_project,
                     dry_run=dry_run,
