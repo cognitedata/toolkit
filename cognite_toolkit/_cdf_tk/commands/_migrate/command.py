@@ -108,13 +108,14 @@ class MigrationCommand(ToolkitCommand):
                         )
                     elif progress.status == "completed":
                         console.print(f"Found completed progress file for {selected.display_name}. Skipping migration.")
+                        continue
                     elif first := progress.get_first_bookmark():
                         init_bookmark = first
                         start_item = progress.completed_count
                         console.print(f"Resuming migration for {selected.display_name} from {first!s}.")
                     else:
                         console.print(
-                            f"Found progress file but failed to loading for {selected.display_name}. "
+                            f"Found progress file but failed to load for {selected.display_name}. "
                             f"Starting from beginning"
                         )
 
@@ -299,6 +300,7 @@ class MigrationCommand(ToolkitCommand):
             if issues:
                 target.logger.log(issues)
 
+            migrate_count += len(responses)
             ProgressYAML(
                 status="in-progress",
                 bookmarks={page.worker_id: page.bookmark},

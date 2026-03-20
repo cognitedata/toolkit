@@ -98,7 +98,7 @@ class DownloadCommand(ToolkitCommand):
                         console.print(f"Resuming download for {selector.display_name} from {first!s}.")
                     else:
                         console.print(
-                            f"Found progress file but failed to loading for {selector.display_name}. "
+                            f"Found progress file but failed to load for {selector.display_name}. "
                             f"Starting from beginning"
                         )
             else:
