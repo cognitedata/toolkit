@@ -206,19 +206,63 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             QueryResult containing matching instances grouped by result set expression name.
         """
         response_cls = QueryResponseTyped if type_results else QueryResponseUntyped
-        return self._query(query, response_cls, endpoint, exhaust_sub_selections)
+        endpoint_prop = self._get_endpoint(endpoint)
+        return self._query(query, response_cls, endpoint_prop, exhaust_sub_selections)
+
+    @overload
+    def query_iterate(
+        self,
+        query: QueryRequest,
+        type_results: Literal[True] = True,
+        endpoint: QueryEndpoint = "query",
+        exhaust_sub_selections: bool = False,
+        limit: int | None = None,
+    ) -> Iterable[QueryResponseTyped]: ...
+
+    @overload
+    def query_iterate(
+        self,
+        query: QueryRequest,
+        type_results: Literal[False],
+        endpoint: QueryEndpoint = "query",
+        exhaust_sub_selections: bool = False,
+        limit: int | None = None,
+    ) -> Iterable[QueryResponseUntyped]: ...
+
+    def query_iterate(
+        self,
+        query: QueryRequest,
+        type_results: bool = True,
+        endpoint: QueryEndpoint = "query",
+        exhaust_sub_selections: bool = False,
+        limit: int | None = None,
+    ) -> Iterable[QueryResponseTyped | QueryResponseUntyped]:
+        """Iterate over the results of a query against the instances query/sync endpoint."""
+        endpoint_prop = self._get_endpoint(endpoint)
+        response_cls = QueryResponseTyped if type_results else QueryResponseUntyped
+        chunk_size = query.with_[query.root].limit or endpoint_prop.item_limit
+        total = 0
+        while True:
+            batch = self._query(query, response_cls, endpoint_prop, exhaust_sub_selections)
+            total += len(batch.items[query.root])
+            next_cursor = batch.root_cursor
+            yield batch
+            if next_cursor is None or not batch or (limit is not None and total >= limit):
+                break
+            page_limit = chunk_size if limit is None else min(chunk_size, max(limit - total, 0))
+            query.with_[query.root].limit = page_limit
+            query.cursors = {query.root: next_cursor}
 
     def _query(
         self,
         query: QueryRequest,
         response_cls: type[_T_QueryResponse],
-        endpoint: QueryEndpoint,
+        endpoint: Endpoint,
         exhaust_sub_selections: bool,
     ) -> _T_QueryResponse:
         first: _T_QueryResponse | None = None
-        endpoint_prop = self._get_endpoint(endpoint)
         while True:
-            response = self._make_query(endpoint_prop, query, response_cls)
+            response = self._make_query(endpoint, query, response_cls)
             if first is None:
                 first = response
             else:
@@ -242,11 +286,11 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             query = query.model_copy(update={"cursors": next_cursors})
 
     def _make_query(
-        self, endpoint_prop: Endpoint, query: QueryRequest, response_cls: type[_T_QueryResponse]
+        self, endpoint: Endpoint, query: QueryRequest, response_cls: type[_T_QueryResponse]
     ) -> _T_QueryResponse:
         request = RequestMessage(
-            endpoint_url=self._http_client.config.create_api_url(endpoint_prop.path),
-            method=endpoint_prop.method,
+            endpoint_url=self._http_client.config.create_api_url(endpoint.path),
+            method=endpoint.method,
             body_content=query.dump(),
         )
         response = self._http_client.request_single_retries(request)
