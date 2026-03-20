@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
 )
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, ExternalId
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 
@@ -25,6 +25,20 @@ class ScheduleTriggerRule(TriggerRuleDefinition):
 class DataModelingTriggerRule(TriggerRuleDefinition):
     trigger_type: Literal["dataModeling"] = "dataModeling"
     data_modeling_query: JsonValue
+    batch_size: int
+    batch_timeout: int
+
+
+class RecordSource(BaseModelObject):
+    source: ContainerId
+    properties: list[str]
+
+
+class RecordStreamTriggerRule(TriggerRuleDefinition):
+    trigger_type: Literal["recordStream"] = "recordStream"
+    stream_external_id: str
+    filter: JsonValue
+    sources: list[RecordSource]
     batch_size: int
     batch_timeout: int
 
@@ -51,7 +65,7 @@ _TRIGGER_RULE_BY_TYPE = {
 }
 
 TriggerRule = Annotated[
-    ScheduleTriggerRule | DataModelingTriggerRule | UnknownTriggerRule,
+    ScheduleTriggerRule | DataModelingTriggerRule | RecordStreamTriggerRule | UnknownTriggerRule,
     BeforeValidator(_handle_unknown_trigger),
 ]
 
