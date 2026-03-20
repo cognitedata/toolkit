@@ -113,6 +113,7 @@ class InstanceSourceAPI:
                     ),
                 },
                 select={"instanceSource": _select_all(self._view_id)},
+                root="instanceSource",
             )
             response = self._instances_api.query(query_request, type_results=False)
             for item in response.items.get("instanceSource", []):
@@ -205,6 +206,7 @@ class CreatedSourceSystemAPI:
                     ),
                 },
                 select={"sourceSystem": _select_all(self._view_id)},
+                root="sourceSystem",
             )
             response = self._instances_api.query(query_request, type_results=False)
             for item in response.items.get("sourceSystem", []):
@@ -330,6 +332,7 @@ class SpaceSourceAPI:
                     ),
                 },
                 select={"spaceSource": _select_all(self._view_id)},
+                root="spaceSource",
             )
             response = self._instances_api.query(query_request, type_results=False)
             for item in response.items.get("spaceSource", []):
@@ -469,6 +472,7 @@ class LookupAPI:
                     ),
                 },
                 select={"instanceSource": _select_all(self._view_id)},
+                root="instanceSource",
             )
             response = self._instances_api.query(query_request, type_results=False)
             for item in response.items.get("instanceSource", []):

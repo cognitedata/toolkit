@@ -1,3 +1,4 @@
+import json
 from abc import ABC, abstractmethod
 from functools import cached_property
 from pathlib import Path
@@ -6,7 +7,7 @@ from typing import Literal
 from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeId, EdgeTypeId, InstanceDefinitionId, NodeId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId, ViewNoVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import QueryRequest, ViewId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
 from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceIdCSVList
 from cognite_toolkit._cdf_tk.storageio.selectors._base import DataSelector, SelectorObject
@@ -193,3 +194,8 @@ class InstanceQuerySelector(InstanceSelector):
 
     def __str__(self) -> str:
         return f"query_{self.root}_{'_'.join(self.subselections)}"
+
+    def create_query(self) -> QueryRequest:
+        data = json.loads(self.query)
+        data["root"] = self.root
+        return QueryRequest.model_validate(data)

@@ -117,6 +117,7 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
                 "templateItemEdges": QuerySelect(),
                 "templateEdges": QuerySelect(),
             },
+            root="template",
         ).model_dump_json(),
         root="template",
         subselections=tuple(["schedules", "templateItemEdges", "templateEdges"]),
