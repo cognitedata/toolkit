@@ -1,7 +1,6 @@
 import json
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock
 
 import httpx
@@ -29,7 +28,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     FileMetadataIO,
     TimeSeriesIO,
 )
-from cognite_toolkit._cdf_tk.storageio._base import TableUploadableStorageIO
+from cognite_toolkit._cdf_tk.storageio._base import Page, TableUploadableStorageIO
 from cognite_toolkit._cdf_tk.storageio.selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.fileio import FileReader
@@ -251,16 +250,16 @@ class TestAssetCentricIO:
 
         source = io.stream_data(selector)
 
-        row_chunks: list[list[dict[str, Any]]] = []
+        row_chunks: list[Page] = []
         for page in source:
-            rows = io.data_to_row(page.items, selector)
-            assert isinstance(rows, list)
-            assert len(rows) == CHUNK_SIZE
-            for row in rows:
+            rows_page = io.data_to_row(page, selector)
+            assert len(rows_page) == CHUNK_SIZE
+            for data_item in rows_page.items:
+                row = data_item.item
                 assert isinstance(row, dict)
                 assert "dataSetExternalId" in row
                 assert row["dataSetExternalId"] == DATA_SET_EXTERNAL_ID
-            row_chunks.append(rows)
+            row_chunks.append(rows_page)
 
         if create_endpoint is None:
             return  # No upload test for this IO class
@@ -295,10 +294,8 @@ class TestAssetCentricIO:
         respx_mock.post(config.create_api_url(create_endpoint)).mock(side_effect=create_callback)
 
         with HTTPClient(config) as upload_client:
-            for chunk_no, rows in enumerate(row_chunks):
-                upload_items = io.rows_to_data(
-                    [(f"chunk {chunk_no} row {row_no}", row) for row_no, row in enumerate(rows)], selector
-                )
+            for rows_page in row_chunks:
+                upload_items = io.rows_to_data(rows_page, selector)
                 io.upload_items(upload_items, upload_client, selector)
 
         assert respx_mock.calls.call_count == RESOURCE_COUNT // CHUNK_SIZE
@@ -382,7 +379,8 @@ class TestAssetIO:
             AssetIO.read_chunks(other_reader, AssetSubtreeSelector(hierarchy="does not matter", kind="Assets"))
         )
 
-        assert output == [
+        result = [[(di.tracking_id, di.item) for di in page.items] for page in output]
+        assert result == [
             [("line 4", {"id": 4}), ("line 5", {"id": 5, "depth": "not_an_int"})],
             [("line 3", {"id": 3, "depth": 1})],
             [("line 2", {"id": 2, "depth": 2})],

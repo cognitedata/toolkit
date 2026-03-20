@@ -26,7 +26,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
 
 T_Download = TypeVar("T_Download", bound=Sized)
 T_Processed = TypeVar("T_Processed", bound=Sized)
-T_Item = TypeVar("T_Item", bound=Sized)
+T_Item = TypeVar("T_Item")
 
 # Sentinels for signaling finish
 PROCESS_FINISH_SENTINEL = object()
@@ -85,7 +85,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         download_iterable: Iterable[T_Download],
         process: Callable[[T_Download], T_Processed],
         write: Callable[[T_Processed], None],
-        iteration_count: int | None,
+        total_item_count: int | None,
         max_queue_size: int,
         download_description: str = "Producing",
         process_description: str = "Processing",
@@ -96,7 +96,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         self._download_iterable = download_iterable
         self._process = process
         self._write = write
-        self.iteration_count = iteration_count
+        self.total_item_count = total_item_count
         self.download_description = download_description
         self.process_description = process_description
         self.write_description = write_description
@@ -107,7 +107,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         # Download -> [process_queue] -> Process -> [write_queue] -> Write
         self.process_queue: queue.Queue[T_Download] = queue.Queue(maxsize=max_queue_size)
         self.write_queue: queue.Queue[T_Processed] = queue.Queue(maxsize=max_queue_size)
-        self.total_items = 0
+        self.downloaded_items = 0
         self.error_message = ""
         self.error_traceback = ""
         self.verbose = verbose
@@ -124,7 +124,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
 
     def _get_progress_columns(self) -> list[ProgressColumn]:
         """Helper to set up the progress bar and tasks based on iteration_count."""
-        if self.iteration_count is None:
+        if self.total_item_count is None:
             return [
                 SpinnerColumn(),
                 TextColumn("[bold blue]{task.description}"),
@@ -153,20 +153,27 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 )
                 break
 
-    def run(self) -> None:
+    def run(self, start_item: int = 0) -> None:
+        """Runs the producer-worker execution, optionally resuming from a specified item count.
+
+        Args:
+            start_item (int): The initial item count to start the progress from, used for resuming operations.
+        """
         self.console.print(f"[blue]Starting {self.download_description} (Press 'q' to stop)...[/blue]")
         columns = self._get_progress_columns()
         with Progress(*columns, console=self.console) as progress:
             task_args: dict[str, Any] = (
-                {"item_count": 0, "total": None} if self.iteration_count is None else {"total": self.iteration_count}
+                {"item_count": start_item, "total": None}
+                if self.total_item_count is None
+                else {"total": self.total_item_count}
             )
             download_task = progress.add_task(self.download_description, **task_args)
             process_task = progress.add_task(self.process_description, **task_args)
             write_task = progress.add_task(self.write_description, **task_args)
 
-            download_thread = threading.Thread(target=self._download_worker, args=(progress, download_task))
-            process_thread = threading.Thread(target=self._process_worker, args=(progress, process_task))
-            write_thread = threading.Thread(target=self._write_worker, args=(progress, write_task))
+            download_thread = threading.Thread(target=self._download_worker, args=(progress, download_task, start_item))
+            process_thread = threading.Thread(target=self._process_worker, args=(progress, process_task, start_item))
+            write_thread = threading.Thread(target=self._write_worker, args=(progress, write_task, start_item))
 
             download_thread.start()
             process_thread.start()
@@ -220,7 +227,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 )
             )
 
-    def _download_worker(self, progress: Progress, download_task: TaskID) -> None:
+    def _download_worker(self, progress: Progress, download_task: TaskID, start_item: int = 0) -> None:
         """Worker thread for downloading data."""
         try:
             iterator = iter(self._download_iterable)
@@ -229,16 +236,17 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             self.error_message = str(e)
             self.console.print(f"[red]Error[/red] occurred while {self.download_description}: {self.error_message}")
             return
-        item_count = 0
+        self.downloaded_items = start_item
+        progress.update(download_task, advance=start_item)
         while not self._error_event.is_set():
             try:
                 if self._stop_event.is_set():
                     break
                 items = next(iterator)
-                self.total_items += len(items)
+                batch_len = len(items)
+                self.downloaded_items += batch_len
                 if self._put_with_error_check(items, self.process_queue):
-                    item_count += len(items)
-                    progress.update(download_task, advance=1, item_count=item_count)
+                    progress.update(download_task, advance=batch_len, item_count=self.downloaded_items)
                     continue
                 break  # Exit if error event was set while waiting to put
             except StopIteration:
@@ -261,9 +269,10 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 continue
         return False
 
-    def _process_worker(self, progress: Progress, process_task: TaskID) -> None:
+    def _process_worker(self, progress: Progress, process_task: TaskID, start_item: int = 0) -> None:
         """Worker thread for processing data."""
-        item_count = 0
+        process_count = start_item
+        progress.update(process_task, advance=start_item)
         while not self._error_event.is_set():
             try:
                 items = self.process_queue.get(timeout=0.5)
@@ -274,8 +283,9 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                     break
                 processed_items = self._process(items)
                 if self._put_with_error_check(processed_items, self.write_queue):
-                    item_count += len(items)
-                    progress.update(process_task, advance=1, item_count=item_count)
+                    batch_len = len(processed_items)
+                    process_count += batch_len
+                    progress.update(process_task, advance=batch_len, item_count=process_count)
                     self.process_queue.task_done()
                     continue
                 else:
@@ -290,9 +300,10 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 self.console.print(f"[red]Error[/red] occurred while {self.process_description}: {self.error_message}")
                 break
 
-    def _write_worker(self, progress: Progress, write_task: TaskID) -> None:
+    def _write_worker(self, progress: Progress, write_task: TaskID, start_item: int = 0) -> None:
         """Worker thread for writing data to file."""
-        item_count = 0
+        write_count = start_item
+        progress.update(write_task, advance=start_item)
         while not self._error_event.is_set():
             try:
                 items = self.write_queue.get(timeout=0.5)
@@ -300,8 +311,9 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                     self.write_queue.task_done()
                     break
                 self._write(items)
-                item_count += len(items)
-                progress.update(write_task, advance=1, item_count=item_count)
+                batch_len = len(items)
+                write_count += batch_len
+                progress.update(write_task, advance=batch_len, item_count=write_count)
                 self.write_queue.task_done()
             except queue.Empty:
                 continue
