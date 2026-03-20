@@ -185,7 +185,7 @@ class InstanceIO(
                 yield Page(worker_id="main", items=items, bookmark=NoBookmark())
         elif isinstance(selector, InstanceQuerySelector):
             yield from self._instance_by_query(
-                QueryRequest.model_validate_json(selector.query),
+                selector.create_query(),
                 selector.root,
                 list(selector.subselections),
                 limit,
