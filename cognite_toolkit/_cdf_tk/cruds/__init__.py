@@ -59,6 +59,8 @@ from ._resource_cruds import (
     RoboticLocationCRUD,
     RoboticMapCRUD,
     RoboticsDataPostProcessingCRUD,
+    RuleSetCRUD,
+    RuleSetVersionCRUD,
     SearchConfigCRUD,
     SecurityCategoryCRUD,
     SequenceCRUD,
@@ -106,6 +108,8 @@ if not FeatureFlag.is_enabled(Flags.SIMULATORS):
 if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
     _EXCLUDED_CRUDS.add(DataProductCRUD)
     _EXCLUDED_CRUDS.add(DataProductVersionCRUD)
+    _EXCLUDED_CRUDS.add(RuleSetCRUD)
+    _EXCLUDED_CRUDS.add(RuleSetVersionCRUD)
 
 CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[Loader]]] = defaultdict(list)
 CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)
@@ -171,6 +175,7 @@ ResourceTypes: TypeAlias = Literal[
     "functions",
     "raw",
     "robotics",
+    "rulesets",
     "signals",
     "simulators",
     "streams",
@@ -244,6 +249,8 @@ __all__ = [
     "RoboticLocationCRUD",
     "RoboticMapCRUD",
     "RoboticsDataPostProcessingCRUD",
+    "RuleSetCRUD",
+    "RuleSetVersionCRUD",
     "SearchConfigCRUD",
     "SecurityCategoryCRUD",
     "SequenceCRUD",

@@ -177,6 +177,14 @@ class PrincipalLoginId(Identifier):
         return f"principal='{self.principal}', id='{self.id}'"
 
 
+class RuleSetVersionId(Identifier):
+    rule_set_external_id: str
+    version: SemanticVersion
+
+    def __str__(self) -> str:
+        return f"ruleSetExternalId='{self.rule_set_external_id}', version='{self.version}'"
+
+
 class SignalSinkId(Identifier):
     type: Literal["email", "user"]
     external_id: str
