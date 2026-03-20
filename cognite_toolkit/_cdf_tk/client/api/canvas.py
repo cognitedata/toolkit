@@ -104,6 +104,7 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
                     (self._FDM_REFS_REF, FDM_INSTANCE_CONTAINER_REFERENCE_VIEW_ID, ["*"]),
                 ]
             },
+            root=self._CANVAS_REF,
         )
 
     def _validate_query_response(self, query_response: QueryResponseUntyped) -> list[IndustrialCanvasResponse]:
@@ -152,6 +153,7 @@ class IndustrialCanvasAPI(MultiWrappedInstancesAPI[IndustrialCanvasRequest, Indu
                         sources=[QuerySelectSource(source=CANVAS_VIEW_ID, properties=self._CANVAS_NODE_PROPERTIES)]
                     )
                 },
+                root=self._CANVAS_REF,
             )
             if cursor is not None:
                 query.cursors = {self._CANVAS_REF: cursor}

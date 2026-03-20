@@ -68,6 +68,7 @@ class InfieldConfigAPI(MultiWrappedInstancesAPI[InFieldLocationConfigRequest, In
                     sources=[QuerySelectSource(source=DataExplorationConfig.VIEW_ID, properties=["*"])],
                 ),
             },
+            root=self._LOCATION_REF,
         )
 
     def _validate_query_response(self, query_response: QueryResponseUntyped) -> list[InFieldLocationConfigResponse]:

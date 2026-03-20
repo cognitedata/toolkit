@@ -234,7 +234,7 @@ class InstanceIO(
             edge_ids.append(query_id)
             select[query_id] = QuerySelect()
 
-        query = QueryRequest(with_=with_, select=select)
+        query = QueryRequest(with_=with_, select=select, root="nodes")
         yield from self._instance_by_query(query, root, edge_ids, limit, init_cursor)
 
     def _instance_by_query(
