@@ -176,19 +176,22 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         filter: InstanceFilter | None = None,
         limit: int | None = 100,
         endpoint: QueryEndpoint = "query",
+        init_cursor: str | None = None,
     ) -> Iterable[list[InstanceResponse]]:
         """Iterate over all instances in CDF.
 
         Args:
             filter: InstanceFilter to filter instances.
             limit: Maximum number of items to return per page.
+            endpoint: Which endpoint to use
+            init_cursor: Which cursor to use
 
         Returns:
             Iterable of lists of InstanceResponse objects.
         """
         endpoint_prop = self._get_endpoint(endpoint)
         chunk_limit = endpoint_prop.item_limit if limit is None else min(limit, endpoint_prop.item_limit)
-        query = self._create_query(filter, chunk_limit, None)
+        query = self._create_query(filter, chunk_limit, init_cursor)
         for response in self.query_iterate(
             query, type_results=True, endpoint=endpoint, exhaust_sub_selections=False, limit=limit
         ):
@@ -247,7 +250,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         """
         response_cls = QueryResponseTyped if type_results else QueryResponseUntyped
         endpoint_prop = self._get_endpoint(endpoint)
-        return self._query(query, response_cls, endpoint_prop, exhaust_sub_selections)
+        return self._query(query, response_cls, endpoint_prop, exhaust_sub_selections, endpoint_name=endpoint)
 
     @overload
     def query_iterate(
@@ -286,7 +289,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         chunk_size = query.with_[query.root].limit or endpoint_prop.item_limit
         total = 0
         while True:
-            batch = self._query(query, response_cls, endpoint_prop, exhaust_sub_selections)
+            batch = self._query(query, response_cls, endpoint_prop, exhaust_sub_selections, endpoint_name=endpoint)
             total += len(batch.items[query.root])
             next_cursor = batch.root_cursor
             yield batch
@@ -302,10 +305,11 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         response_cls: type[_T_QueryResponse],
         endpoint: Endpoint,
         exhaust_sub_selections: bool,
+        endpoint_name: QueryEndpoint,
     ) -> _T_QueryResponse:
         first: _T_QueryResponse | None = None
         while True:
-            response = self._make_query(endpoint, query, response_cls)
+            response = self._make_query(endpoint, query, response_cls, endpoint_name)
             if first is None:
                 first = response
             else:
@@ -329,12 +333,16 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             query = query.model_copy(update={"cursors": next_cursors})
 
     def _make_query(
-        self, endpoint: Endpoint, query: QueryRequest, response_cls: type[_T_QueryResponse]
+        self,
+        endpoint: Endpoint,
+        query: QueryRequest,
+        response_cls: type[_T_QueryResponse],
+        endpoint_name: QueryEndpoint,
     ) -> _T_QueryResponse:
         request = RequestMessage(
             endpoint_url=self._http_client.config.create_api_url(endpoint.path),
             method=endpoint.method,
-            body_content=query.dump(),
+            body_content=query.dump(endpoint=endpoint_name),
         )
         response = self._http_client.request_single_retries(request)
         success = response.get_success_or_raise(request)

@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field, JsonValue, field_serializer
 
@@ -126,6 +126,34 @@ class QueryRequest(BaseModelObject):
     debug: QueryDebugParameters | None = None
     # This is not part of the API request body, but it enables the exhaust sub selection feature in the InstanceAPI.
     root: str = Field(exclude=True)
+
+    def dump(
+        self, camel_case: bool = True, exclude_extra: bool = False, endpoint: Literal["query", "sync"] = "query"
+    ) -> dict[str, Any]:
+        """Dump the resource to a dictionary.
+
+        Args:
+            camel_case (bool): Whether to use camelCase for the keys. Default is True.
+            exclude_extra (bool): Whether to exclude extra fields not defined in the model. Default is False.
+            endpoint (Literal["query", "sync"]): The endpoint to use.
+
+        """
+        dumped = super().dump(camel_case=camel_case, exclude_extra=exclude_extra)
+        if endpoint == "query":
+            return dumped
+        # The sync endpoint does not support sorting
+        exclude: set[str] = {"sort"}
+        if exclude_extra and self.__pydantic_extra__:
+            exclude.update(self.__pydantic_extra__.keys())
+        with_section = dumped["with"]
+        for key, expression in self.with_.items():
+            with_section[key] = expression.model_dump(
+                mode="json",
+                exclude=exclude,
+                exclude_unset=True,
+                by_alias=camel_case,
+            )
+        return dumped
 
 
 class QueryResponse(BaseModelObject):

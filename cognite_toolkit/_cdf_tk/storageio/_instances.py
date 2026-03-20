@@ -9,9 +9,7 @@ from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ContainerId,
-    EdgeId,
     InstanceDefinitionId,
-    NodeId,
     SpaceId,
     ViewId,
 )
@@ -24,7 +22,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QueryNodeExpression,
     QueryNodeTableExpression,
     QueryRequest,
-    QueryResponseTyped,
     QuerySelect,
     QuerySelectSource,
     QuerySortSpec,
@@ -184,13 +181,7 @@ class InstanceIO(
                 ]
                 yield Page(worker_id="main", items=items, bookmark=NoBookmark())
         elif isinstance(selector, InstanceQuerySelector):
-            yield from self._instance_by_query(
-                selector.create_query(),
-                selector.root,
-                list(selector.subselections),
-                limit,
-                init_cursor,
-            )
+            yield from self._instance_by_query(selector.create_query(), limit, init_cursor)
         else:
             raise NotImplementedError()
 
@@ -235,83 +226,36 @@ class InstanceIO(
             select[query_id] = QuerySelect()
 
         query = QueryRequest(with_=with_, select=select, root="nodes")
-        yield from self._instance_by_query(query, root, edge_ids, limit, init_cursor)
+        yield from self._instance_by_query(query, limit, init_cursor)
 
     def _instance_by_query(
         self,
         query: QueryRequest,
-        root_selection: str,
-        sub_selections: list[str],
         limit: int | None,
         init_cursor: str | None = None,
         endpoint: Literal["query", "sync"] = "query",
     ) -> Iterable[Page]:
-        total = 0
-        chunk_size = query.with_[root_selection].limit or self.CHUNK_SIZE
         if init_cursor is not None:
-            query.cursors = {root_selection: init_cursor}
-        while True:
-            response = self._exhaust_sub_selections(query, root_selection, sub_selections, endpoint)
-            nodes = response.items.get(root_selection, [])
-            # De-duplicate edges across properties, as the same edge can be returned for multiple
-            # properties if it connects two nodes that are in the result set.
-            sub_responses: dict[NodeId | EdgeId, InstanceResponse] = {}
-            for prop_id in sub_selections:
-                for edge in response.items.get(prop_id, []):
-                    ref = edge.as_id()
-                    if ref not in sub_responses:
-                        sub_responses[ref] = edge
-            items = nodes + list(sub_responses.values())
-            total += len(nodes)
-            next_cursor = response.next_cursor.get(root_selection)
-            wrapped_items = [DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item) for item in items]
+            query.cursors = {query.root: init_cursor}
+
+        for batch in self.client.tool.instances.query_iterate(
+            query,
+            type_results=True,
+            exhaust_sub_selections=True,
+            limit=limit,
+            endpoint=endpoint,
+        ):
+            wrapped_items = [
+                DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item)
+                for items in batch.items.values()
+                for item in items
+            ]
+            next_cursor = batch.root_cursor
             yield Page(
                 worker_id="main",
                 items=wrapped_items,
                 bookmark=CursorBookmark(cursor=next_cursor) if next_cursor else NoBookmark(),
             )
-            if next_cursor is None or (limit is not None and total >= limit) or not nodes:
-                break
-            page_limit = min(chunk_size, limit - total) if limit is not None else chunk_size
-            query.with_[root_selection].limit = page_limit
-            query.cursors = {root_selection: next_cursor}
-
-    def _exhaust_sub_selections(
-        self,
-        query: QueryRequest,
-        root_selection: str,
-        sub_selections: list[str],
-        endpoint: Literal["query", "sync"] = "query",
-    ) -> QueryResponseTyped:
-        """Exhaust a query with sub-selections by following the cursors for the sub-selections until they are all exhausted.
-
-        Args:
-            query: The query to exhaust. It is assumed that the query has sub-selections with the ids in sub_selections.
-            sub_selections:  The ids of the sub-selections to exhaust.
-            endpoint: The endpoint to exhaust.
-
-        Returns:
-            A QueryResponseTyped with all items from the initial query and the sub-selections.
-        """
-        first: QueryResponseTyped | None = None
-        while True:
-            response = self.client.tool.instances.query(query, type_results=True, endpoint=endpoint)
-            if first is None:
-                first = response
-            else:
-                for key in sub_selections:
-                    if key in response.items:
-                        first.items[key].extend(response.items[key])
-            next_cursors: dict[str, str | None] = {}
-            for prop_id in sub_selections:
-                sub_cursor = response.next_cursor.get(prop_id)
-                if sub_cursor is not None:
-                    next_cursors[prop_id] = sub_cursor
-            if not next_cursors or not response.items:
-                return first
-            # Keep the root cursor to iterate over all subitems.
-            next_cursors[root_selection] = (query.cursors or {}).get(root_selection)
-            query = query.model_copy(update={"cursors": next_cursors})
 
     def _instances_with_container_properties(
         self,
@@ -324,7 +268,9 @@ class InstanceIO(
         cursor: str | None = init_cursor
         while cursor is not None or total == 0:
             page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
-            page = self.client.tool.instances.paginate(instance_filter, limit=page_limit, cursor=cursor)
+            page = self.client.tool.instances.paginate(
+                instance_filter, limit=page_limit, cursor=cursor, endpoint=selector.endpoint
+            )
             total += len(page.items)
             if page:
                 wrapped_items = [
