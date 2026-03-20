@@ -176,19 +176,22 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         filter: InstanceFilter | None = None,
         limit: int | None = 100,
         endpoint: QueryEndpoint = "query",
+        init_cursor: str | None = None,
     ) -> Iterable[list[InstanceResponse]]:
         """Iterate over all instances in CDF.
 
         Args:
             filter: InstanceFilter to filter instances.
             limit: Maximum number of items to return per page.
+            endpoint: Which endpoint to use
+            init_cursor: Which cursor to use
 
         Returns:
             Iterable of lists of InstanceResponse objects.
         """
         endpoint_prop = self._get_endpoint(endpoint)
         chunk_limit = endpoint_prop.item_limit if limit is None else min(limit, endpoint_prop.item_limit)
-        query = self._create_query(filter, chunk_limit, None)
+        query = self._create_query(filter, chunk_limit, init_cursor)
         for response in self.query_iterate(
             query, type_results=True, endpoint=endpoint, exhaust_sub_selections=False, limit=limit
         ):
