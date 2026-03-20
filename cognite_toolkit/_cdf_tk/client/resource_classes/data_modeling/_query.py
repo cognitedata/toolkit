@@ -124,6 +124,8 @@ class QueryRequest(BaseModelObject):
     parameters: dict[str, JsonValue] | None = None
     include_typing: bool | None = None
     debug: QueryDebugParameters | None = None
+    # This is not part of the API request body, but it is useful.
+    root: str = Field(exclude=True)
 
 
 class QueryResponse(BaseModelObject):
@@ -132,6 +134,13 @@ class QueryResponse(BaseModelObject):
     # For now we do not care about the typing and debug structures in the response.
     typing: dict[str, JsonValue] | None = None
     debug: dict[str, JsonValue] | None = None
+
+    # This is not part of the response, but we set it in the InstancesAPI
+    root: str = Field("", exclude=True)
+
+    @property
+    def root_cursor(self) -> str | None:
+        return self.next_cursor.get(self.root)
 
 
 class QueryResponseTyped(QueryResponse):
