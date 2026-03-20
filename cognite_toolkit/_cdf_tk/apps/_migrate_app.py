@@ -657,7 +657,14 @@ class MigrateApp(typer.Typer):
                 help="Filter events by subtype. Only events matching this subtype will be migrated.",
             ),
         ] = None,
-        # TODO: Introduce a skip-existing option for records once we have figured out record existence check.
+        skip_existing: Annotated[
+            bool,
+            typer.Option(
+                "--skip-existing",
+                help="If set, queries the stream for existing records and skips uploads for "
+                "(space, externalId) pairs that already exist.",
+            ),
+        ] = False,
         log_dir: Annotated[
             Path,
             typer.Option(
@@ -710,14 +717,16 @@ class MigrateApp(typer.Typer):
             container_id=ContainerId(space="cdf_cdm", external_id="CogniteActivity"),
             event_type=event_type,
             event_subtype=event_subtype,
-            skip_existing=False,
+            skip_existing=skip_existing,
         )
 
         cmd = MigrationCommand(client=client)
         cmd.run(
             lambda: cmd.migrate(
                 selectors=[selected],
-                data=RecordsMigrationIO(client, stream_external_id=stream_external_id),
+                data=RecordsMigrationIO(
+                    client, stream_external_id=stream_external_id, skip_existing=skip_existing
+                ),
                 mapper=RecordsMapper(client, record_mappings=record_mappings),
                 log_dir=log_dir,
                 dry_run=dry_run,
