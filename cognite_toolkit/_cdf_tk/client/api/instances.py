@@ -33,6 +33,7 @@ METHOD_MAP: dict[APIMethod, Endpoint] = {
     "list": Endpoint(method="POST", path="/models/instances/list", item_limit=1000),
 }
 QUERY_ENDPOINT = Endpoint(method="POST", path="/models/instances/query", item_limit=1000)
+SYNC_ENDPOINT = Endpoint(method="POST", path="/models/instances/sync", item_limit=1000)
 INSTANCE_UPSERT_ENDPOINT = METHOD_MAP["upsert"]
 INSTANCE_DELETE_ENDPOINT = METHOD_MAP["delete"]
 
@@ -160,12 +161,18 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         return self._list(limit=limit, body=self._create_body(filter))
 
     @overload
-    def query(self, query: QueryRequest, type_results: Literal[True] = True) -> QueryResponseTyped: ...
+    def query(
+        self, query: QueryRequest, type_results: Literal[True] = True, endpoint: Literal["query", "sync"] = "query"
+    ) -> QueryResponseTyped: ...
 
     @overload
-    def query(self, query: QueryRequest, type_results: Literal[False]) -> QueryResponseUntyped: ...
+    def query(
+        self, query: QueryRequest, type_results: Literal[False], endpoint: Literal["query", "sync"] = "query"
+    ) -> QueryResponseUntyped: ...
 
-    def query(self, query: QueryRequest, type_results: bool = True) -> QueryResponseTyped | QueryResponseUntyped:
+    def query(
+        self, query: QueryRequest, type_results: bool = True, endpoint: Literal["query", "sync"] = "query"
+    ) -> QueryResponseTyped | QueryResponseUntyped:
         """Execute a query against the instances query endpoint.
 
         This uses the ``POST /models/instances/query`` endpoint which supports
@@ -175,13 +182,21 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             query: The query request specifying what to retrieve.
                 type_results: Whether to return typed results (QueryResponseTyped) or untyped results
                     (QueryResponseUntyped).
+            endpoint: The endpoint to use for this query.
 
         Returns:
             QueryResult containing matching instances grouped by result set expression name.
         """
+        if endpoint == "query":
+            endpoint_prop = QUERY_ENDPOINT
+        elif endpoint == "sync":
+            endpoint_prop = SYNC_ENDPOINT
+        else:
+            raise NotImplementedError(f"Unknown endpoint {endpoint!r}")
+
         request = RequestMessage(
-            endpoint_url=self._http_client.config.create_api_url(QUERY_ENDPOINT.path),
-            method=QUERY_ENDPOINT.method,
+            endpoint_url=self._http_client.config.create_api_url(endpoint_prop.path),
+            method=endpoint_prop.method,
             body_content=query.dump(),
         )
         response = self._http_client.request_single_retries(request)

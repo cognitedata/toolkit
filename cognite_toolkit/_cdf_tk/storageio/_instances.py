@@ -244,13 +244,14 @@ class InstanceIO(
         sub_selections: list[str],
         limit: int | None,
         init_cursor: str | None = None,
+        endpoint: Literal["query", "sync"] = "query",
     ) -> Iterable[Page]:
         total = 0
         chunk_size = query.with_[root_selection].limit or self.CHUNK_SIZE
         if init_cursor is not None:
             query.cursors = {root_selection: init_cursor}
         while True:
-            response = self._exhaust_sub_selections(query, root_selection, sub_selections)
+            response = self._exhaust_sub_selections(query, root_selection, sub_selections, endpoint)
             nodes = response.items.get(root_selection, [])
             # De-duplicate edges across properties, as the same edge can be returned for multiple
             # properties if it connects two nodes that are in the result set.
@@ -276,20 +277,25 @@ class InstanceIO(
             query.cursors = {root_selection: next_cursor}
 
     def _exhaust_sub_selections(
-        self, query: QueryRequest, root_selection: str, sub_selections: list[str]
+        self,
+        query: QueryRequest,
+        root_selection: str,
+        sub_selections: list[str],
+        endpoint: Literal["query", "sync"] = "query",
     ) -> QueryResponseTyped:
         """Exhaust a query with sub-selections by following the cursors for the sub-selections until they are all exhausted.
 
         Args:
             query: The query to exhaust. It is assumed that the query has sub-selections with the ids in sub_selections.
             sub_selections:  The ids of the sub-selections to exhaust.
+            endpoint: The endpoint to exhaust.
 
         Returns:
             A QueryResponseTyped with all items from the initial query and the sub-selections.
         """
         first: QueryResponseTyped | None = None
         while True:
-            response = self.client.tool.instances.query(query, type_results=True)
+            response = self.client.tool.instances.query(query, type_results=True, endpoint=endpoint)
             if first is None:
                 first = response
             else:

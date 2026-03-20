@@ -48,7 +48,7 @@ class ProgressYAML(ProgressObject):
     status: Literal["in-progress", "completed", "failed", "stopped"]
     bookmarks: dict[str, Bookmark]
     total: int | None = None
-    completed: int | None = None
+    completed_count: int
 
     @classmethod
     def try_load(cls, directory: Path, filestem: str) -> "ProgressYAML | None":
