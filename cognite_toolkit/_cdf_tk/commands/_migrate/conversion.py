@@ -494,6 +494,9 @@ class ConnectionCreator:
         self._custom_mapping_caches = self._create_custom_case_caches(custom_mappings or [])
         self._timeseries_reference_cache: dict[str, NodeId] = {}
         self._file_reference_cache: dict[str, NodeId] = {}
+        # This is used to store the targets of direct relations that we have already lookup up.
+        # The value tells whether the target is existing or not.
+        self._direct_relation_targets_existing: dict[NodeId, bool] = {}
 
     def _create_custom_case_caches(
         self, custom_mappings: Sequence[CustomConnectionMapping]
@@ -710,6 +713,24 @@ class ConnectionCreator:
         self, targets: list[NodeId], dm_prop: DirectNodeRelation, source_display_name: str
     ) -> tuple[NodeId | list[NodeId], list[str]]:
         errors: list[str] = []
+        if dm_prop.container:
+            missing_in_cache = set(self._direct_relation_targets_existing) - set(targets)
+            if missing_in_cache:
+                existing_node_ids = [
+                    node.as_id() for node in self._client.tool.instances.retrieve(list(missing_in_cache))
+                ]
+                for node_id in missing_in_cache:
+                    self._direct_relation_targets_existing[node_id] = node_id in existing_node_ids
+            ready_targets: list[NodeId] = []
+            for target in targets:
+                if self._direct_relation_targets_existing.get(target, False):
+                    ready_targets.append(target)
+                else:
+                    errors.append(
+                        f"Cannot create direct relation to {target!s}. The node does not exist and requires to have properties in the {dm_prop.container!s} container."
+                    )
+            targets = ready_targets
+
         if dm_prop.list:
             if dm_prop.max_list_size and len(targets) > dm_prop.max_list_size:
                 errors.append(
