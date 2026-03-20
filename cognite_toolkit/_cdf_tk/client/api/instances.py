@@ -177,12 +177,12 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         Returns:
             Iterable of lists of InstanceResponse objects.
         """
-        query = self._create_query(
-            filter,
-            limit,
-            endpoint,
-        )
-        for response in self.query_iterate(query, type_results=True, endpoint=endpoint, exhaust_sub_selections=False):
+        endpoint_prop = self._get_endpoint(endpoint)
+        chunk_limit = endpoint_prop.item_limit if limit is None else min(limit, endpoint_prop.item_limit)
+        query = self._create_query(filter, chunk_limit, None)
+        for response in self.query_iterate(
+            query, type_results=True, endpoint=endpoint, exhaust_sub_selections=False, limit=limit
+        ):
             yield response.items[response.root]
 
     def list(
