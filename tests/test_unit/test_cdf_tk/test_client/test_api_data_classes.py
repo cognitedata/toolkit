@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.simulator_routine_revision 
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import WorkflowTriggerRequest
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from tests.test_unit.test_cdf_tk.test_client.data import (
     CDFResource,
@@ -527,3 +528,15 @@ class TestStreams:
         }
         stream_response = StreamResponse.model_validate(data)
         assert stream_response.dump() == data
+
+
+class TestWorkflowTriggers:
+    def test_unknown_trigger_rules(self) -> None:
+        data = {
+            "externalId": "my_trigger",
+            "triggerRule": {"type": "unknown", "some": "value", "that": ["is", "unknown", "to", "toolkit"]},
+            "workflowExternalId": "workflow_1",
+            "workflowVersion": "v1",
+            "authentication": {"nonce": "123"},
+        }
+        assert WorkflowTriggerRequest._load(data).dump() == data
