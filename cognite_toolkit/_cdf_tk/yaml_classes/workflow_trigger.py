@@ -98,13 +98,13 @@ class RecordStreamTriggerRule(TriggerRuleYAML):
     sources: list[RecordSource]
     batch_size: int = Field(
         description="The maximum number of records to pass to a workflow execution.",
-        min_length=1,
-        max_length=100,
+        ge=1,
+        le=100,
     )
     batch_timeout: int = Field(
         description="The maximum time in seconds to wait for the batch to be filled before passing it to a workflow execution. A partial batch will be passed after the timeout. A full batch will be passed without further delay.",
-        min_length=10,
-        max_length=86400,
+        ge=10,
+        le=86400,
     )
 
 
