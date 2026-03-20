@@ -300,7 +300,7 @@ class MigrationCommand(ToolkitCommand):
             if issues:
                 target.logger.log(issues)
 
-            migrate_count += len(responses)
+            migrate_count += sum(len(response.ids) for response in responses)
             ProgressYAML(
                 status="in-progress",
                 bookmarks={page.worker_id: page.bookmark},
