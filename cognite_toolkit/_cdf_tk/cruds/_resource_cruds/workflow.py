@@ -36,6 +36,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow import WorkflowRequest, WorkflowResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.workflow_trigger import (
     NonceCredentials,
+    RecordStreamTriggerRule,
     WorkflowTriggerRequest,
     WorkflowTriggerResponse,
 )
@@ -70,6 +71,7 @@ from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
 from .function import FunctionCRUD
 from .group_scoped import GroupResourceScopedCRUD
+from .streams import StreamCRUD
 from .transformation import TransformationCRUD
 
 
@@ -474,7 +476,9 @@ class WorkflowTriggerCRUD(ResourceCRUD[ExternalId, WorkflowTriggerRequest, Workf
     resource_cls = WorkflowTriggerResponse
     resource_write_cls = WorkflowTriggerRequest
     kind = "WorkflowTrigger"
-    dependencies = frozenset({WorkflowCRUD, WorkflowVersionCRUD, GroupResourceScopedCRUD, GroupAllScopedCRUD})
+    dependencies = frozenset(
+        {WorkflowCRUD, WorkflowVersionCRUD, GroupResourceScopedCRUD, GroupAllScopedCRUD, StreamCRUD}
+    )
     parent_resource = frozenset({WorkflowCRUD})
     yaml_cls = WorkflowTriggerYAML
 
@@ -587,6 +591,8 @@ class WorkflowTriggerCRUD(ResourceCRUD[ExternalId, WorkflowTriggerRequest, Workf
             WorkflowVersionCRUD,
             WorkflowVersionId(workflow_external_id=resource.workflow_external_id, version=resource.workflow_version),
         )
+        if isinstance(resource.trigger_rule, RecordStreamTriggerRule):
+            yield (StreamCRUD, ExternalId(external_id=resource.trigger_rule.stream_external_id))
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
