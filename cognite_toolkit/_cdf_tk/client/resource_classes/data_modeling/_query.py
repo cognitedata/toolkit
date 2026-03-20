@@ -149,7 +149,8 @@ class QueryResponseTyped(QueryResponse):
     items: dict[str, list[InstanceResponse]]
 
     def __bool__(self) -> bool:
-        return bool(self.items)
+        return any(self.items.values())
+
 
 
 class QueryResponseUntyped(QueryResponse):
@@ -161,4 +162,5 @@ class QueryResponseUntyped(QueryResponse):
     items: dict[str, list[dict[str, JsonValue]]]
 
     def __bool__(self) -> bool:
-        return bool(self.items)
+        return any(self.items.values())
+
