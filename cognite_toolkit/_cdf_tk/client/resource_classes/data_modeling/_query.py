@@ -124,7 +124,7 @@ class QueryRequest(BaseModelObject):
     parameters: dict[str, JsonValue] | None = None
     include_typing: bool | None = None
     debug: QueryDebugParameters | None = None
-    # This is not part of the API request body, but it is useful.
+    # This is not part of the API request body, but it enables the exhaust sub selection feature in the InstanceAPI.
     root: str = Field(exclude=True)
 
 
