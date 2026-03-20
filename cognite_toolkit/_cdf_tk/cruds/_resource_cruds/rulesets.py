@@ -6,7 +6,7 @@ from cognite.client.data_classes.capabilities import Capability
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, RuleSetVersionId
-from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, AllScope, ScopeDefinition
+from cognite_toolkit._cdf_tk.client.resource_classes.group import AclType, ScopeDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.ruleset import RuleSetRequest, RuleSetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import (
     RuleSetVersionRequest,
@@ -44,7 +44,7 @@ class RuleSetCRUD(ResourceCRUD[ExternalId, RuleSetRequest, RuleSetResponse]):
 
     @classmethod
     def dump_id(cls, id: ExternalId) -> dict[str, Any]:
-        return {"externalId": id.external_id}
+        return id.dump()
 
     @classmethod
     def get_required_capability(
@@ -54,7 +54,7 @@ class RuleSetCRUD(ResourceCRUD[ExternalId, RuleSetRequest, RuleSetResponse]):
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[RuleSetRequest]) -> ScopeDefinition | None:
-        return AllScope()
+        return None
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
