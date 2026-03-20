@@ -4,6 +4,7 @@ from typing import get_args
 
 import pytest
 
+from cognite_toolkit._cdf_tk.client.resource_classes.workflow_version import WorkflowVersionRequest
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
@@ -202,3 +203,23 @@ class TestWorkflowVersionYAML:
             f"The following TaskDefinition subclasses are "
             f"missing from the Tasks union: {humanize_collection([cls.__name__ for cls in missing])}"
         )
+
+    def test_task_extra_fields_roundtrip(self) -> None:
+        """Tasks must preserve unknown fields so the API can add new properties without breaking deployments."""
+        data = {
+            "workflowExternalId": "wf1",
+            "version": "v1",
+            "workflowDefinition": {
+                "tasks": [
+                    {
+                        "externalId": "t1",
+                        "type": "function",
+                        "parameters": {"function": {"externalId": "my-func"}},
+                        "someNewField": "some-value",
+                    }
+                ]
+            },
+        }
+        loaded = WorkflowVersionRequest._load(data)
+
+        assert loaded.dump() == data

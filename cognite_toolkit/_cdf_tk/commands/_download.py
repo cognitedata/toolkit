@@ -6,6 +6,7 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.constants import DATA_MANIFEST_STEM, DATA_RESOURCE_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.protocols import T_ResourceResponse
 from cognite_toolkit._cdf_tk.storageio import (
     ConfigurableStorageIO,
@@ -14,6 +15,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     T_Selector,
     TableStorageIO,
 )
+from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import (
@@ -75,14 +77,37 @@ class DownloadCommand(ToolkitCommand):
             if total == 0:
                 console.print(f"No items to download for {selector!s}. Skipping.")
                 continue
-            iteration_count = self._get_iteration_count(total, limit, io.CHUNK_SIZE)
+            total_item_count = total if (limit is None or total is None) else min(limit, total)
+
             filestem = sanitize_filename(str(selector))
-            if self._already_downloaded(target_dir, filestem):
-                warning = LowSeverityWarning(
-                    f"Data for {selector!s} already exists in {target_dir.as_posix()!r}. Skipping download."
-                )
-                self.warn(warning, console=console)
-                continue
+            start_item = 0
+            init_bookmark: Bookmark | None = None
+            # Remove false when ready.
+            if False and Flags.EXTEND_DOWNLOAD.is_enabled():
+                if progress := ProgressYAML.try_load(target_dir, self._download_filestem(filestem)):
+                    if progress.total != total_item_count:
+                        console.print(
+                            f"Found progress file for {selector.display_name}. But total items "
+                            f"does not match the expected total. Starting from beginning..."
+                        )
+                    elif progress.status == "completed":
+                        console.print(f"Found completed progress file for {selector.display_name}. Skipping download.")
+                    elif first := progress.get_first_bookmark():
+                        init_bookmark = first
+                        start_item = progress.completed_count
+                        console.print(f"Resuming download for {selector.display_name} from {first!s}.")
+                    else:
+                        console.print(
+                            f"Found progress file but failed to load for {selector.display_name}. "
+                            f"Starting from beginning"
+                        )
+            else:
+                if self._already_downloaded(target_dir, filestem):
+                    warning = LowSeverityWarning(
+                        f"Data for {selector!s} already exists in {target_dir.as_posix()!r}. Skipping download."
+                    )
+                    self.warn(warning, console=console)
+                    continue
 
             selector.dump_to_file(target_dir)
             columns: list[SchemaColumn] | None = None
@@ -98,10 +123,10 @@ class DownloadCommand(ToolkitCommand):
                 file_format, target_dir, selector.kind, compression_cls, columns=columns
             ) as writer:
                 executor = ProducerWorkerExecutor[Page[T_ResourceResponse], Page[dict[str, JsonVal]]](
-                    download_iterable=io.stream_data(selector, limit),
+                    download_iterable=io.stream_data(selector, limit, bookmark=init_bookmark),
                     process=self.create_data_process(io=io, selector=selector, is_table=is_table),
-                    write=self.create_writer(writer, filestem=filestem),
-                    iteration_count=iteration_count,
+                    write=self.create_writer(writer, filestem, target_dir, start_item, total_item_count),
+                    total_item_count=total_item_count,
                     # Limit queue size to avoid filling up memory before the workers can write to disk.
                     max_queue_size=8 * 10,  # 8 workers, 10 items per worker
                     download_description=f"Downloading {selector!s}",
@@ -109,7 +134,12 @@ class DownloadCommand(ToolkitCommand):
                     write_description=f"Writing to {target_dir.as_posix()!r} in files with stem {filestem!r}",
                     console=console,
                 )
-                executor.run()
+                executor.run(start_item=start_item)
+                progress = ProgressYAML.try_load(target_dir, filestem=self._download_filestem(filestem))
+                if progress is not None:
+                    progress.status = executor.result
+                    progress.dump_to_file(target_dir, filestem=self._download_filestem(filestem))
+
                 executor.raise_on_error()
                 file_count = writer.file_count
 
@@ -121,19 +151,6 @@ class DownloadCommand(ToolkitCommand):
                     safe_write(config_file, yaml_safe_dump(config.value))
 
             console.print(f"Downloaded {selector!s} to {file_count} file(s) in {target_dir.as_posix()!r}.")
-
-    @staticmethod
-    def _get_iteration_count(
-        total: int | None,
-        limit: int | None,
-        chunk_size: int,
-    ) -> int | None:
-        if total is not None and limit is not None and total > limit:
-            total = limit
-        iteration_count: int | None = None
-        if total is not None:
-            iteration_count = total // chunk_size + (1 if total % chunk_size > 0 else 0)
-        return iteration_count
 
     @staticmethod
     def _already_downloaded(output_dir: Path, filestem: str) -> bool:
@@ -153,6 +170,10 @@ class DownloadCommand(ToolkitCommand):
         return False
 
     @staticmethod
+    def _download_filestem(filestem: str) -> str:
+        return f"downloaded_{filestem!s}"
+
+    @staticmethod
     def create_data_process(
         io: StorageIO[T_Selector, T_ResourceResponse],
         selector: T_Selector,
@@ -163,15 +184,34 @@ class DownloadCommand(ToolkitCommand):
             return partial(io.data_to_row, selector=selector)
         return partial(io.data_to_json_chunk, selector=selector)
 
-    @staticmethod
+    @classmethod
     def create_writer(
+        cls,
         writer: FileWriter,
         filestem: str,
+        directory: Path,
+        start_item: int,
+        total_item_count: int | None,
     ) -> Callable[[Page[dict[str, JsonVal]]], None]:
         """Creates a writer function that writes processed data to files using the provided FileWriter."""
+        write_item_count = start_item
 
         def write(page: Page[dict[str, JsonVal]]) -> None:
             # MyPy Fails to understand that JsonVal is a subset of chunk.
+            nonlocal write_item_count
             writer.write_chunks(page.as_raw_items(), filestem=filestem)  # type: ignore[arg-type]
+
+            # Remove false when functionality is ready.
+            if False and Flags.EXTEND_DOWNLOAD.is_enabled():
+                write_item_count += len(page.as_raw_items())
+                ProgressYAML(
+                    status="in-progress",
+                    bookmarks={page.worker_id: page.bookmark},
+                    total=total_item_count,
+                    completed_count=write_item_count,
+                ).dump_to_file(
+                    directory=directory,
+                    filestem=cls._download_filestem(filestem),
+                )
 
         return write

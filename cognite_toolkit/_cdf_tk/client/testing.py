@@ -74,6 +74,8 @@ from .api.migration import (
 )
 from .api.project import ProjectAPI
 from .api.relationships import RelationshipsAPI
+from .api.ruleset_versions import RuleSetVersionsAPI
+from .api.rulesets import RuleSetsAPI
 from .api.security_categories import SecurityCategoriesAPI
 from .api.sequence_rows import SequenceRowsAPI
 from .api.sequences import SequencesAPI
@@ -212,6 +214,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.workflows.versions = MagicMock(spec_set=WorkflowVersionsAPI)
         self.tool.data_products = MagicMock(spec=DataProductsAPI)
         self.tool.data_products.versions = MagicMock(spec_set=DataProductVersionsAPI)
+        self.tool.rulesets = MagicMock(spec=RuleSetsAPI)
+        self.tool.rulesets.versions = MagicMock(spec_set=RuleSetVersionsAPI)
 
         self.streams = MagicMock(spec=StreamsAPI)
 

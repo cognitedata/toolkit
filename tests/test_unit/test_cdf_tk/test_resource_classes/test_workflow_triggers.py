@@ -51,7 +51,9 @@ def invalid_workflow_trigger_test_cases() -> Iterable:
             "workflowVersion": "v1",
             "authentication": {"clientId": "id", "clientSecret": "secret"},
         },
-        {"In field triggerRule invalid trigger type 'notAType'. Expected one of dataModeling or schedule"},
+        {
+            "In field triggerRule invalid trigger type 'notAType'. Expected one of dataModeling, recordStream or schedule"
+        },
         id="Invalid triggerType value",
     )
     # Missing required triggerRule fields (e.g. for schedule)

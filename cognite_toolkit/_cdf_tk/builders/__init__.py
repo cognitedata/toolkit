@@ -9,6 +9,7 @@ from ._file import FileBuilder
 from ._function import FunctionBuilder
 from ._location import LocationBuilder
 from ._raw import RawBuilder
+from ._ruleset import RuleSetBuilder
 from ._streamlit import StreamlitBuilder
 from ._transformation import TransformationBuilder
 
@@ -33,6 +34,7 @@ __all__ = [
     "FunctionBuilder",
     "LocationBuilder",
     "RawBuilder",
+    "RuleSetBuilder",
     "StreamlitBuilder",
     "TransformationBuilder",
     "create_builder",

@@ -51,6 +51,22 @@ class TestFunctionLoader:
 
         assert isinstance(loaded, FunctionRequest)
 
+    def test_load_resource_passes_is_dry_run_to_data_set_lookup(self) -> None:
+        """Avoid poisoning the shared lookup cache when dry-run and a DataSet is created in the same deploy."""
+        client = MagicMock()
+        client.lookup.data_sets.id.return_value = 42
+        loader = FunctionCRUD.create_loader(client, Path("/tmp"))
+        resource = {
+            "externalId": "fn_test",
+            "name": "test",
+            "dataSetExternalId": "ds_new",
+        }
+        loader.load_resource(dict(resource), is_dry_run=True)
+        client.lookup.data_sets.id.assert_called_with("ds_new", True)
+        client.lookup.data_sets.id.reset_mock()
+        loader.load_resource(dict(resource), is_dry_run=False)
+        client.lookup.data_sets.id.assert_called_with("ds_new", False)
+
     def test_update_secrets(
         self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
     ) -> None:
