@@ -27,7 +27,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.storageio import (
-    Bookmark,
     ChartIO,
     DataItem,
     Page,
@@ -37,7 +36,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     UploadableStorageIO,
 )
 from cognite_toolkit._cdf_tk.storageio.logger import FileDataLogger, OperationStatus
-from cognite_toolkit._cdf_tk.storageio.progress import CursorBookmark, FileBookmark, ProgressYAML
+from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
@@ -100,20 +99,30 @@ class MigrationCommand(ToolkitCommand):
 
                 total_items = counts_by_selector[selected]
                 init_bookmark: Bookmark | None = None
-                progress = ProgressYAML.try_load(log_dir, filestem=str(selected))
-                if progress is not None:
-                    if first := progress.get_first_bookmark():
+                start_item = 0
+                if progress := ProgressYAML.try_load(log_dir, str(selected)):
+                    if progress.total != total_items:
+                        console.print(
+                            f"Found progress file for {selected.display_name}. But total items "
+                            f"does not match the expected total. Starting from beginning..."
+                        )
+                    elif progress.status == "completed":
+                        console.print(f"Found completed progress file for {selected.display_name}. Skipping migration.")
+                        continue
+                    elif first := progress.get_first_bookmark():
                         init_bookmark = first
+                        start_item = progress.completed_count
                         console.print(f"Resuming migration for {selected.display_name} from {first!s}.")
                     else:
                         console.print(
-                            f"Found progress file but failed to load cursor for {selected.display_name}. Starting migration from the beginning."
+                            f"Found progress file but failed to load for {selected.display_name}. "
+                            f"Starting from beginning"
                         )
 
                 executor = ProducerWorkerExecutor[Page[T_DataResponse], Page[T_DataRequest]](
                     download_iterable=data.stream_data(selected, bookmark=init_bookmark),
                     process=self._convert(mapper, data),
-                    write=self._upload(selected, write_client, data, dry_run, log_dir),
+                    write=self._upload(selected, write_client, data, dry_run, log_dir, total_items, start_item),
                     total_item_count=total_items,
                     max_queue_size=10,
                     download_description=f"Downloading {selected.display_name}",
@@ -123,7 +132,7 @@ class MigrationCommand(ToolkitCommand):
                     verbose=verbose,
                 )
 
-                executor.run()
+                executor.run(start_item=start_item)
                 total = executor.downloaded_items
 
                 results = self._create_status_summary(logger)
@@ -255,8 +264,13 @@ class MigrationCommand(ToolkitCommand):
         target: UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest],
         dry_run: bool,
         log_dir: Path,
+        total_item_count: int | None,
+        start_item: int,
     ) -> Callable[[Page[T_DataRequest]], None]:
+        migrate_count: int = start_item
+
         def upload_items(page: Page[T_DataRequest]) -> None:
+            nonlocal migrate_count
             if not page:
                 return None
             if dry_run:
@@ -286,12 +300,13 @@ class MigrationCommand(ToolkitCommand):
             if issues:
                 target.logger.log(issues)
 
-            # Remove false check, when feature is ready.
-            if False and isinstance(page.bookmark, CursorBookmark | FileBookmark):
-                ProgressYAML(
-                    status="in-progress",
-                    bookmarks={page.worker_id: page.bookmark},
-                ).dump_to_file(log_dir, filestem=str(selected))
+            migrate_count += len(responses)
+            ProgressYAML(
+                status="in-progress",
+                bookmarks={page.worker_id: page.bookmark},
+                total=total_item_count,
+                completed_count=migrate_count,
+            ).dump_to_file(log_dir, filestem=str(selected))
             return None
 
         return upload_items

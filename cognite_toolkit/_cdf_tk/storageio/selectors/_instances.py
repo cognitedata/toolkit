@@ -180,7 +180,7 @@ class InstanceQuerySelector(InstanceSelector):
     """
 
     type: Literal["instanceQuery"] = "instanceQuery"
-
+    endpoint: Literal["query", "sync"] = "query"
     query: str
     root: str
     subselections: tuple[str, ...]
