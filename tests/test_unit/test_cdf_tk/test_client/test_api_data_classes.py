@@ -534,7 +534,7 @@ class TestWorkflowTriggers:
     def test_unknown_trigger_rules(self) -> None:
         data = {
             "externalId": "my_trigger",
-            "triggerRule": {"type": "unknown", "some": "value", "that": ["is", "unknown", "to", "toolkit"]},
+            "triggerRule": {"triggerType": "unknown", "some": "value", "that": ["is", "unknown", "to", "toolkit"]},
             "workflowExternalId": "workflow_1",
             "workflowVersion": "v1",
             "authentication": {"nonce": "123"},
