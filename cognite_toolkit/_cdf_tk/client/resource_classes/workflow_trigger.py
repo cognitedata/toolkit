@@ -1,6 +1,6 @@
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import Field, JsonValue
+from pydantic import BeforeValidator, ConfigDict, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -8,29 +8,65 @@ from cognite_toolkit._cdf_tk.client._resource_base import (
     ResponseResource,
 )
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, ExternalId
+from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
 
 class TriggerRuleDefinition(BaseModelObject):
     trigger_type: str
 
 
-class ScheduleTriggerRule(BaseModelObject):
+class ScheduleTriggerRule(TriggerRuleDefinition):
     trigger_type: Literal["schedule"] = "schedule"
     cron_expression: str
     timezone: str | None = None
 
 
-class DataModelingTriggerRule(BaseModelObject):
+class DataModelingTriggerRule(TriggerRuleDefinition):
     trigger_type: Literal["dataModeling"] = "dataModeling"
     data_modeling_query: JsonValue
     batch_size: int
     batch_timeout: int
 
 
+class RecordSource(BaseModelObject):
+    source: ContainerId
+    properties: list[str]
+
+
+class RecordStreamTriggerRule(TriggerRuleDefinition):
+    trigger_type: Literal["recordStream"] = "recordStream"
+    stream_external_id: str
+    filter: JsonValue
+    sources: list[RecordSource]
+    batch_size: int
+    batch_timeout: int
+
+
+class UnknownTriggerRule(TriggerRuleDefinition):
+    model_config = ConfigDict(extra="allow")
+    trigger_type: str
+
+
+def _handle_unknown_trigger(value: Any) -> Any:
+    if isinstance(value, dict):
+        trigger_type = value.get("triggerType")
+        if trigger_type not in _TRIGGER_RULE_BY_TYPE:
+            return UnknownTriggerRule.model_validate(value)
+        else:
+            return _TRIGGER_RULE_BY_TYPE[trigger_type].model_validate(value)
+    return value
+
+
+_TRIGGER_RULE_BY_TYPE = {
+    cls_.model_fields["trigger_type"].default: cls_
+    for cls_ in get_concrete_subclasses(TriggerRuleDefinition)
+    if cls_ is not UnknownTriggerRule
+}
+
 TriggerRule = Annotated[
-    ScheduleTriggerRule | DataModelingTriggerRule,
-    Field(discriminator="trigger_type"),
+    ScheduleTriggerRule | DataModelingTriggerRule | RecordStreamTriggerRule | UnknownTriggerRule,
+    BeforeValidator(_handle_unknown_trigger),
 ]
 
 

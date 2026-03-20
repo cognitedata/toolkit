@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from itertools import groupby
 from typing import Any, ClassVar, cast
 
@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.utils.fileio import SchemaColumn
 from cognite_toolkit._cdf_tk.utils.fileio._readers import MultiFileReader
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
-from ._base import Bookmark, Page, TableStorageIO, TableUploadableStorageIO, UploadItem
+from ._base import Bookmark, DataItem, Page, TableStorageIO, TableUploadableStorageIO
 from .selectors import DataPointsDataSetSelector, DataPointsFileSelector, DataPointsSelector
 
 
@@ -76,9 +76,6 @@ class DatapointsIO(
         self._epoc_converter = _EpochConverter(nullable=True)
         self._numeric_converter = _Float64Converter(nullable=True)
         self._string_converter = _TextConverter(nullable=True)
-
-    def as_id(self, item: DataPointListResponse) -> str:
-        raise NotImplementedError()
 
     def get_schema(self, selector: DataPointsSelector) -> list[SchemaColumn]:
         return [
@@ -205,7 +202,7 @@ class DatapointsIO(
         if not isinstance(response, SuccessResponse):
             return None
         data_response: DataPointListResponse = DataPointListResponse.FromString(response.content)
-        return Page("Main", [data_response], Bookmark())
+        return Page("Main", [DataItem(tracking_id="datapoints", item=data_response)])
 
     def count(self, selector: DataPointsSelector) -> int | None:
         if isinstance(selector, DataPointsDataSetSelector):
@@ -220,46 +217,53 @@ class DatapointsIO(
         return None
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[DataPointListResponse], selector: DataPointsSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
+        self, data_chunk: Page[DataPointListResponse], selector: DataPointsSelector | None = None
+    ) -> Page[dict[str, JsonVal]]:
         raise ToolkitNotImplementedError(
             f"Download of {type(DatapointsIO).__name__.removesuffix('IO')} does not support json format."
         )
 
     def data_to_row(
-        self, data_chunk: Sequence[DataPointListResponse], selector: DataPointsSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
-        output: list[dict[str, JsonVal]] = []
-        for response in data_chunk:
+        self, data_chunk: Page[DataPointListResponse], selector: DataPointsSelector | None = None
+    ) -> Page[dict[str, JsonVal]]:
+        result: list[DataItem[dict[str, JsonVal]]] = []
+        for data_item in data_chunk.items:
+            response = data_item.item
             for item in response.items:
                 if item.numericDatapoints.datapoints:
                     for dp in item.numericDatapoints.datapoints:
-                        output.append(
-                            {
-                                "externalId": item.externalId,
-                                "timestamp": dp.timestamp,
-                                "value": dp.value,
-                            }
+                        result.append(
+                            DataItem(
+                                tracking_id=data_item.tracking_id,
+                                item={
+                                    "externalId": item.externalId,
+                                    "timestamp": dp.timestamp,
+                                    "value": dp.value,
+                                },
+                            )
                         )
                 if item.stringDatapoints.datapoints:
                     for dp in item.stringDatapoints.datapoints:
-                        output.append(
-                            {
-                                "externalId": item.externalId,
-                                "timestamp": dp.timestamp,
-                                "value": dp.value,
-                            }
+                        result.append(
+                            DataItem(
+                                tracking_id=data_item.tracking_id,
+                                item={
+                                    "externalId": item.externalId,
+                                    "timestamp": dp.timestamp,
+                                    "value": dp.value,
+                                },
+                            )
                         )
-        return output
+        return data_chunk.create_from(result)
 
     def upload_items(
         self,
-        data_chunk: Sequence[UploadItem[DatapointsRequestAdapter]],
+        data_chunk: Page[DatapointsRequestAdapter],
         http_client: HTTPClient,
         selector: DataPointsSelector | None = None,
     ) -> ItemsResultList:
         results = ItemsResultList()
-        for item in data_chunk:
+        for item in data_chunk.items:
             response = http_client.request_single_retries(
                 RequestMessage(
                     endpoint_url=http_client.config.create_api_url(self.UPLOAD_ENDPOINT),
@@ -268,7 +272,7 @@ class DatapointsIO(
                     data_content=item.item.datapoints.SerializeToString(),
                 )
             )
-            results.append(response.as_item_response(item.source_id))
+            results.append(response.as_item_response(item.tracking_id))
         return results
 
     def row_to_resource(
@@ -428,9 +432,7 @@ class DatapointsIO(
         )
 
     @classmethod
-    def read_chunks(
-        cls, reader: MultiFileReader, selector: DataPointsSelector
-    ) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+    def read_chunks(cls, reader: MultiFileReader, selector: DataPointsSelector) -> Iterable[Page[dict[str, JsonVal]]]:
         if not reader.is_table:
             raise RuntimeError(f"{cls.__name__} can only read from TableReader instances.")
 
@@ -456,12 +458,18 @@ class DatapointsIO(
             # The number of datapoints is the number of rows times the number of value columns.
             if ((len(column_names) - 1) * len(batch[column_names[0]])) >= cls.CHUNK_SIZE:
                 # We cannot guarantee JsonVal here, but that is handled later in the processing pipeline.
-                yield [(f"rows {start_row} to {row_no}", batch)]  # type: ignore[list-item]
+                yield Page(
+                    worker_id="main",
+                    items=[DataItem(tracking_id=f"rows {start_row} to {row_no}", item=batch)],  # type: ignore[arg-type]
+                )
                 start_row = row_no + 1
                 batch = {col: [] for col in column_names}
             last_row = row_no
         if any(batch.values()):
-            yield [(f"rows {start_row} to{last_row}", batch)]  # type: ignore[list-item]
+            yield Page(
+                worker_id="main",
+                items=[DataItem(tracking_id=f"rows {start_row} to {last_row}", item=batch)],  # type: ignore[arg-type]
+            )
 
     @classmethod
     def count_items(cls, reader: MultiFileReader, selector: DataPointsSelector | None = None) -> int:

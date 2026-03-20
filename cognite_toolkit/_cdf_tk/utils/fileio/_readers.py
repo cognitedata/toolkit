@@ -83,6 +83,7 @@ class MultiFileReader(FileReader):
         super().__init__(input_file=input_files[0])
         self.input_files = input_files
         self.schema = schema
+        self.current_file = input_files[0]
 
     @cached_property
     def reader_class(self) -> type[FileReader]:
@@ -115,6 +116,7 @@ class MultiFileReader(FileReader):
 
     def read_chunks(self) -> Iterator[dict[str, JsonVal]]:
         for input_file in sorted(self.input_files, key=self._part_no):
+            self.current_file = input_file
             yield from self._create_reader(input_file).read_chunks()
 
     def _part_no(self, path: Path) -> int:

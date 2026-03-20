@@ -249,7 +249,7 @@ class SourceSystemCreator(MigrationCreator):
         )
 
     def _get_existing_source_systems(self) -> dict[str, NodeId]:
-        all_existing = self.client.migration.created_source_system.list(limit=-1)
+        all_existing = self.client.migration.created_source_system.list(limit=None)
         return {node.source: NodeId(space=node.space, external_id=node.external_id) for node in all_existing}
 
     def _lookup_sources(self) -> Iterable[UniqueResult]:
