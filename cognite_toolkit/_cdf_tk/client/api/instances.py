@@ -319,7 +319,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                 sub_cursor = response.next_cursor.get(select_id)
                 if sub_cursor is not None:
                     next_cursors[select_id] = sub_cursor
-            if not next_cursors or not response.items:
+            if not next_cursors or not response:
                 return first
             # Keep the root cursor to iterate over all subitems.
             next_cursors[query.root] = (query.cursors or {}).get(query.root)

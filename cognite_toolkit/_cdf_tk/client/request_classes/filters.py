@@ -106,26 +106,27 @@ class InstanceFilter(Filter):
         return body
 
     def dump_filter(self, include_has_data: bool = False) -> dict[str, Any] | None:
+        leaf_filters: list[dict[str, Any]] = []
         if self.space is not None:
             instance_type = self.instance_type or "node"
-            filter_: dict[str, Any] = {
-                "in": {
-                    "property": [instance_type, "space"],
-                    "values": self.space,
+            leaf_filters.append(
+                {
+                    "in": {
+                        "property": [instance_type, "space"],
+                        "values": self.space,
+                    }
                 }
-            }
+            )
         elif self.filter is not None:
-            filter_ = self.filter
-        else:
+            leaf_filters.append(self.filter)
+        if include_has_data and self.source is not None:
+            leaf_filters.append({"hasData": [self.source.dump(include_type=True)]})
+        if len(leaf_filters) == 0:
             return None
-        if not include_has_data or self.source is None:
-            return filter_
-        return {
-            "and": [
-                filter_,
-                {"hasData": [self.source.dump(include_type=True)]},
-            ]
-        }
+        elif len(leaf_filters) == 1:
+            return leaf_filters[0]
+        else:
+            return {"and": leaf_filters}
 
 
 class AnnotationFilter(Filter):
