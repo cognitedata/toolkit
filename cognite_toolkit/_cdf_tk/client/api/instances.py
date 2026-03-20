@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from itertools import zip_longest
-from typing import Any, Generic, Literal, TypeAlias, TypeVar, overload
+from typing import Generic, Literal, TypeAlias, TypeVar, overload
 
 from pydantic import JsonValue
 
@@ -21,8 +21,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import (
+    QueryEdgeExpression,
+    QueryEdgeTableExpression,
+    QueryNodeExpression,
+    QueryNodeTableExpression,
     QueryResponseTyped,
     QueryResponseUntyped,
+    QuerySelect,
+    QuerySelectSource,
+    QuerySortSpec,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
@@ -93,38 +100,12 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             response_items.extend(self._validate_response(response).items)
         return response_items
 
-    @staticmethod
-    def _create_sort_body(instance_type: Literal["node", "edge"] | None) -> list[dict]:
-        """We sort by space and externalId to get a stable sort order.
-
-        This is also more performant than sorting by using the default sort, which will sort on
-        internal CDF IDs. This will be slow if you have deleted a lot of instances, as they will be counted.
-        By sorting on space and externalId, we avoid this issue.
-        """
-        instance_type = instance_type or "node"
-        return [
-            {
-                "property": [instance_type, "space"],
-                "direction": "ascending",
-            },
-            {
-                "property": [instance_type, "externalId"],
-                "direction": "ascending",
-            },
-        ]
-
-    @classmethod
-    def _create_body(cls, filter: InstanceFilter | None) -> dict[str, Any]:
-        return {
-            **(filter.dump() if filter else {}),
-            "sort": cls._create_sort_body(filter.instance_type if filter else "node"),
-        }
-
     def paginate(
         self,
         filter: InstanceFilter | None = None,
         limit: int = 100,
         cursor: str | None = None,
+        endpoint: QueryEndpoint = "query",
     ) -> PagedResponse[InstanceResponse]:
         """Iterate over all instances in CDF.
 
@@ -132,18 +113,60 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
            filter: InstanceFilter to filter instances.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
+            endpoint: Which endpoint to use
 
         Returns:
             PagedResponse of InstanceResponse objects.
         """
-        return self._paginate(
-            cursor=cursor,
-            limit=limit,
-            body=self._create_body(filter),
-        )
+        request = self._create_query(filter, limit, cursor)
+        response = self.query(request, type_results=True, endpoint=endpoint, exhaust_sub_selections=False)
+        return PagedResponse(items=response.items["root"], nextCursor=response.root_cursor)
+
+    def _create_query(
+        self, filter: InstanceFilter | None, limit: int | None, cursor: str | None = None
+    ) -> QueryRequest:
+        """Create a query from the instance filter"""
+
+        # We sort by space and externalId to get a stable sort order.
+        #
+        #         This is also more performant than sorting by using the default sort, which will sort on
+        #         internal CDF IDs. This will be slow if you have deleted a lot of instances, as they will be counted.
+        #         By sorting on space and externalId, we avoid this issue.
+        if filter is None:
+            query = QueryRequest(
+                with_={"root": QueryNodeExpression(limit=limit, nodes=QueryNodeTableExpression())},
+                select={"root": QuerySelect()},
+                root="root",
+            )
+            if cursor is not None:
+                query.cursors = {"root": cursor}
+            return query
+
+        if filter.instance_type == "edge":
+            expression: QueryNodeExpression | QueryEdgeExpression = QueryEdgeExpression(
+                limit=limit,
+                edges=QueryEdgeTableExpression(filter=filter.dump_filter(include_has_data=True)),
+                sort=[QuerySortSpec(property=["edge", "space"]), QuerySortSpec(property=["edge", "externalId"])],
+            )
+        else:  # Node or none
+            expression = QueryNodeExpression(
+                limit=limit,
+                nodes=QueryNodeTableExpression(filter=filter.dump_filter(include_has_data=True)),
+                sort=[QuerySortSpec(property=["node", "space"]), QuerySortSpec(property=["node", "externalId"])],
+            )
+        sources: list[QuerySelectSource] = []
+        if filter.source:
+            sources.append(QuerySelectSource(source=filter.source, properties=["*"]))
+        query = QueryRequest(with_={"root": expression}, select={"root": QuerySelect(sources=sources)}, root="root")
+        if cursor:
+            query.cursors = {"root": cursor}
+        return query
 
     def iterate(
-        self, filter: InstanceFilter | None = None, limit: int | None = 100
+        self,
+        filter: InstanceFilter | None = None,
+        limit: int | None = 100,
+        endpoint: QueryEndpoint = "query",
     ) -> Iterable[list[InstanceResponse]]:
         """Iterate over all instances in CDF.
 
@@ -154,15 +177,23 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         Returns:
             Iterable of lists of InstanceResponse objects.
         """
-        return self._iterate(limit=limit, body=self._create_body(filter))
+        query = self._create_query(
+            filter,
+            limit,
+            endpoint,
+        )
+        for response in self.query_iterate(query, type_results=True, endpoint=endpoint, exhaust_sub_selections=False):
+            yield response.items[response.root]
 
-    def list(self, filter: InstanceFilter | None = None, limit: int | None = 100) -> list[InstanceResponse]:
+    def list(
+        self, filter: InstanceFilter | None = None, limit: int | None = 100, endpoint: QueryEndpoint = "query"
+    ) -> list[InstanceResponse]:
         """List all instances in CDF.
 
         Returns:
             List of InstanceResponse objects.
         """
-        return self._list(limit=limit, body=self._create_body(filter))
+        return [item for batch in self.iterate(filter=filter, limit=limit, endpoint=endpoint) for item in batch]
 
     @overload
     def query(
