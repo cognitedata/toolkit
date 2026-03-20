@@ -210,10 +210,17 @@ class TestPurgeInstances:
                 ]
             },
         )
-        respx_mock.post(config.create_api_url("/models/instances/list")).respond(
-            status_code=200,
-            json={"items": [instance.dump() for instance in instances]},
-        )
+        instance_dumps = [instance.dump() for instance in instances]
+        respx_mock.post(config.create_api_url("/models/instances/query")).side_effect = [
+            httpx.Response(
+                status_code=200,
+                json={"items": {"root": instance_dumps[:1000]}, "nextCursor": {"root": "next"}},
+            ),
+            httpx.Response(
+                status_code=200,
+                json={"items": {"root": instance_dumps[1000:]}, "nextCursor": {"root": None}},
+            ),
+        ]
         ts_objects = list(timeseries_by_node_id.values()) if instance_type == "timeseries" else []
         file_objects = list(files_by_node_id.values()) if instance_type == "files" else []
         if unlink:
@@ -327,13 +334,18 @@ class TestPurgeSpace:
             edge_items = [gen.create_instance(EdgeResponse) for _ in range(edge_count)]
             node_items = [gen.create_instance(NodeResponse) for _ in range(node_count)]
 
-            def list_instances_callback(request: httpx.Request) -> httpx.Response:
+            def list_instances_query_callback(request: httpx.Request) -> httpx.Response:
                 body = json.loads(request.content.decode("utf-8"))
-                instance_type = body.get("instanceType", "node")
-                items = edge_items if instance_type == "edge" else node_items
-                return httpx.Response(200, json={"items": [item.dump() for item in items]})
+                root_expr = body.get("with", {}).get("root", {})
+                items = edge_items if "edges" in root_expr else node_items
+                return httpx.Response(
+                    200,
+                    json={"items": {"root": [item.dump() for item in items]}, "nextCursor": {"root": None}},
+                )
 
-            respx_mock.post(config.create_api_url("/models/instances/list")).mock(side_effect=list_instances_callback)
+            respx_mock.post(config.create_api_url("/models/instances/query")).mock(
+                side_effect=list_instances_query_callback
+            )
 
             nodes = node_items
             retrieve_calls: list[tuple[str, type, int, list[NodeResponse]]] = []

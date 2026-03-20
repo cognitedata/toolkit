@@ -30,7 +30,7 @@ class TestInstanceIO:
         self, rsps: responses.RequestsMock, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
     ) -> None:
         client = ToolkitClient(config=toolkit_config)
-        url = toolkit_config.create_api_url("/models/instances/list")
+        url = toolkit_config.create_api_url("/models/instances/query")
         selector = InstanceViewSelector(
             view=SelectedView(space="mySpace", external_id="myView", version="v42"),
             instance_type="node",
@@ -51,55 +51,36 @@ class TestInstanceIO:
             },
         )
 
+        def _node_dict(i: int) -> dict:
+            return {
+                "externalId": f"instance_{i}",
+                "space": "my_space",
+                "instanceType": "node",
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+                "version": 1,
+            }
+
         respx_mock.post(url).side_effect = [
             httpx.Response(
                 status_code=200,
                 json={
-                    "items": [
-                        {
-                            "externalId": f"instance_{i}",
-                            "space": "my_space",
-                            "instanceType": "node",
-                            "createdTime": 0,
-                            "lastUpdatedTime": 0,
-                            "version": 1,
-                        }
-                        for i in range(1000)
-                    ],
-                    "nextCursor": "cursor_1",
+                    "items": {"root": [_node_dict(i) for i in range(1000)]},
+                    "nextCursor": {"root": "cursor_1"},
                 },
             ),
             httpx.Response(
                 status_code=200,
                 json={
-                    "items": [
-                        {
-                            "externalId": f"instance_{i}",
-                            "space": "my_space",
-                            "instanceType": "node",
-                            "createdTime": 0,
-                            "lastUpdatedTime": 0,
-                            "version": 1,
-                        }
-                        for i in range(1000, 2000)
-                    ],
-                    "nextCursor": "cursor_2",
+                    "items": {"root": [_node_dict(i) for i in range(1000, 2000)]},
+                    "nextCursor": {"root": "cursor_2"},
                 },
             ),
             httpx.Response(
                 status_code=200,
                 json={
-                    "items": [
-                        {
-                            "externalId": f"instance_{i}",
-                            "space": "my_space",
-                            "instanceType": "node",
-                            "createdTime": 0,
-                            "lastUpdatedTime": 0,
-                            "version": 1,
-                        }
-                        for i in range(2000, N)
-                    ]
+                    "items": {"root": [_node_dict(i) for i in range(2000, N)]},
+                    "nextCursor": {"root": None},
                 },
             ),
         ]
@@ -224,8 +205,8 @@ class TestInstanceIO:
             status=200,
         )
         # Download data
-        respx_mock.post(config.create_api_url("/models/instances/list")).respond(
-            json={"items": [inst.dump() for inst in some_instance_data]},
+        respx_mock.post(config.create_api_url("/models/instances/query")).respond(
+            json={"items": {"root": [inst.dump() for inst in some_instance_data]}, "nextCursor": {"root": None}},
             status_code=200,
         )
         # Space
