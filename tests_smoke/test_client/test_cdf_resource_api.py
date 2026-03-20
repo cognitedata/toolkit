@@ -30,6 +30,8 @@ from cognite_toolkit._cdf_tk.client.api.robotics_frames import FramesAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_locations import LocationsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
+from cognite_toolkit._cdf_tk.client.api.ruleset_versions import RuleSetVersionsAPI
+from cognite_toolkit._cdf_tk.client.api.rulesets import RuleSetsAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.security_categories import SecurityCategoriesAPI
 from cognite_toolkit._cdf_tk.client.api.sequence_rows import SequenceRowsAPI
@@ -137,6 +139,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.relationship import Relatio
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import (
     ResourceViewMappingRequest,
     ResourceViewMappingResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.ruleset import RuleSetRequest, RuleSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import (
+    RuleSetVersionRequest,
+    RuleSetVersionResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.search_config import SearchConfigRequest, SearchConfigResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.securitycategory import (
@@ -275,6 +282,9 @@ NOT_GENERIC_TESTED: Set[type[CDFResourceAPI]] = frozenset(
         AnnotationsAPI,
         # Subscriptions depend on existing sinks and have no retrieve method.
         SignalSubscriptionsAPI,
+        # Rule sets: parent/child relationship, versions require parent in path.
+        RuleSetsAPI,
+        RuleSetVersionsAPI,
     }
 )
 
@@ -524,6 +534,33 @@ def get_examples_minimum_requests(request_cls: type[ResponseResource]) -> list[d
                 "externalId": "smoke-test-asset-mapping-dm",
                 "model3dId": 1,
                 "nodeId": "smoke-test-node",
+            }
+        ],
+        RuleSetResponse: [
+            {"externalId": "smoke-test-ruleset", "name": "Smoke Test Rule Set"},
+        ],
+        RuleSetVersionResponse: [
+            {
+                "ruleSetExternalId": "smoke-test-ruleset",
+                "version": "1.0.0",
+                "rules": [
+                    """@prefix ex: <http://example.org/industrial/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Define a specific asset
+ex:Pump_001
+    rdf:type ex:CentrifugalPump ;
+    ex:hasName "Main Feed Water Pump" ;
+    ex:installedDate "2023-10-12"^^xsd:date ;
+    ex:operatingPressure 15.5 ;
+    ex:locatedIn ex:Oslo_Facility .
+
+# Define the facility
+ex:Oslo_Facility
+    rdf:type ex:Site ;
+    ex:country "Norway" .""",
+                ],
             }
         ],
         RelationshipResponse: [
@@ -1293,6 +1330,82 @@ class TestCDFResourceAPI:
             client.tool.workflows.triggers.delete([workflow_trigger_id])
             client.tool.workflows.versions.delete([workflow_version_id])
             client.tool.workflows.delete([workflow_id])
+
+    def test_rulesets_crudl(self, toolkit_client: ToolkitClient) -> None:
+        client = toolkit_client
+
+        ruleset_example = get_examples_minimum_requests(RuleSetResponse)[0]
+        ruleset_request = RuleSetRequest.model_validate(ruleset_example)
+        ruleset_id = ruleset_request.as_id()
+
+        ruleset_version_example = get_examples_minimum_requests(RuleSetVersionResponse)[0]
+        ruleset_version_request = RuleSetVersionRequest.model_validate(ruleset_version_example)
+        ruleset_version_id = ruleset_version_request.as_id()
+
+        try:
+            # Probe: skip if Rule Sets API is not enabled on the project
+            client.tool.rulesets.list(limit=1)
+        except ToolkitAPIError as e:
+            if "403" in str(e) and "Rule Sets API is not enabled" in str(e):
+                pytest.skip("Rule Sets API is not enabled for this project")
+            raise
+
+        try:
+            # Create rule set
+            create_endpoint = client.tool.rulesets._method_endpoint_map["create"]
+            self.assert_endpoint_method(
+                lambda: client.tool.rulesets.create([ruleset_request]),
+                "create",
+                create_endpoint,
+                ruleset_id,
+            )
+
+            # Create rule set version
+            version_create_endpoint = client.tool.rulesets.versions._method_endpoint_map["create"]
+            self.assert_endpoint_method(
+                lambda: client.tool.rulesets.versions.create([ruleset_version_request]),
+                "create",
+                version_create_endpoint,
+                ruleset_version_id,
+            )
+
+            # Retrieve rule set
+            retrieve_endpoint = client.tool.rulesets._method_endpoint_map["retrieve"]
+            self.assert_endpoint_method(
+                lambda: client.tool.rulesets.retrieve([ruleset_id], ignore_unknown_ids=True),
+                "retrieve",
+                retrieve_endpoint,
+                ruleset_id,
+            )
+
+            # Retrieve rule set version
+            version_retrieve_endpoint = client.tool.rulesets.versions._method_endpoint_map["retrieve"]
+            self.assert_endpoint_method(
+                lambda: client.tool.rulesets.versions.retrieve([ruleset_version_id], ignore_unknown_ids=True),
+                "retrieve",
+                version_retrieve_endpoint,
+                ruleset_version_id,
+            )
+
+            # List rule set versions
+            version_list_endpoint = client.tool.rulesets.versions._method_endpoint_map["list"]
+            listed_versions = client.tool.rulesets.versions.list(
+                rule_set_external_id=ruleset_request.external_id, limit=1
+            )
+            if len(listed_versions) == 0:
+                raise EndpointAssertionError(
+                    version_list_endpoint.path, "Expected at least 1 listed rule set version, got 0"
+                )
+
+            # List rule sets
+            list_endpoint = client.tool.rulesets._method_endpoint_map["list"]
+            listed_rulesets = client.tool.rulesets.list(limit=1)
+            if len(listed_rulesets) == 0:
+                raise EndpointAssertionError(list_endpoint.path, "Expected at least 1 listed rule set, got 0")
+        finally:
+            # Clean up
+            client.tool.rulesets.versions.delete([ruleset_version_id])
+            client.tool.rulesets.delete([ruleset_id])
 
     def test_security_categories_crudl(self, toolkit_client: ToolkitClient) -> None:
         client = toolkit_client
