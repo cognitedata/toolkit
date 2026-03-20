@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from itertools import zip_longest
-from typing import Any, Generic, Literal, overload
+from typing import Any, Generic, Literal, TypeAlias, overload
 
 from pydantic import JsonValue
 
@@ -36,6 +36,8 @@ QUERY_ENDPOINT = Endpoint(method="POST", path="/models/instances/query", item_li
 SYNC_ENDPOINT = Endpoint(method="POST", path="/models/instances/sync", item_limit=1000)
 INSTANCE_UPSERT_ENDPOINT = METHOD_MAP["upsert"]
 INSTANCE_DELETE_ENDPOINT = METHOD_MAP["delete"]
+
+QueryEndpoint: TypeAlias = Literal["query", "sync"]
 
 
 class InstancesAPI(CDFResourceAPI[InstanceResponse]):
