@@ -5,7 +5,7 @@ from typing import Any, ClassVar, cast
 from pydantic import Field, JsonValue, ModelWrapValidatorHandler, model_serializer, model_validator
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
-from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, ExternalId
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .authentication import AuthenticationClientIdSecret
@@ -74,6 +74,37 @@ class DataModelingTrigger(TriggerRuleYAML):
         ge=60,
         le=86_400,
         description="The maximum time in seconds to wait for the batch to be filled before passing it to a workflow execution.",
+    )
+
+
+class RecordSource(BaseModelResource):
+    source: ContainerId = Field(description="Reference to a container.")
+    properties: list[str] = Field(
+        description='Properties to return for the specified container. Use "*" to return all properties.',
+        min_length=1,
+        max_length=1000,
+    )
+
+
+class RecordStreamTriggerRule(TriggerRuleYAML):
+    _trigger_type = "recordStream"
+    stream_external_id: str = Field(
+        description="The external ID of the stream to subscribe to for record changes.",
+        pattern="^[a-z]([a-z0-9_-]{0,98}[a-z0-9])?$",
+        min_length=1,
+        max_length=100,
+    )
+    filter: JsonValue
+    sources: list[RecordSource]
+    batch_size: int = Field(
+        description="The maximum number of records to pass to a workflow execution.",
+        ge=1,
+        le=100,
+    )
+    batch_timeout: int = Field(
+        description="The maximum time in seconds to wait for the batch to be filled before passing it to a workflow execution. A partial batch will be passed after the timeout. A full batch will be passed without further delay.",
+        ge=10,
+        le=86400,
     )
 
 
