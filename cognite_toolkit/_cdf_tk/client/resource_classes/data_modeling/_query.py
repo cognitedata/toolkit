@@ -152,7 +152,6 @@ class QueryResponseTyped(QueryResponse):
         return any(self.items.values())
 
 
-
 class QueryResponseUntyped(QueryResponse):
     """Response from the ``POST /models/instances/query`` endpoint, without parsing the items into typed instances.
 
@@ -163,4 +162,3 @@ class QueryResponseUntyped(QueryResponse):
 
     def __bool__(self) -> bool:
         return any(self.items.values())
-
