@@ -22,6 +22,7 @@ class RuleSetVersionsAPI(CDFResourceAPI[RuleSetVersionResponse]):
 
     Endpoints are scoped under a parent rule set: /rulesets/{externalId}/versions.
     Versions are identified by a semantic version string (major.minor.patch).
+    Single-version reads use GET /rulesets/{externalId}/versions/{version}.
     """
 
     def __init__(self, http_client: HTTPClient) -> None:
@@ -31,7 +32,7 @@ class RuleSetVersionsAPI(CDFResourceAPI[RuleSetVersionResponse]):
                 "create": Endpoint(method="POST", path="/rulesets/{externalId}/versions", item_limit=1),
                 "delete": Endpoint(method="POST", path="/rulesets/{externalId}/versions/delete", item_limit=1),
                 "list": Endpoint(method="GET", path="/rulesets/{externalId}/versions", item_limit=50),
-                "retrieve": Endpoint(method="POST", path="/rulesetversions/byids", item_limit=100),
+                "retrieve": Endpoint(method="GET", path="/rulesets/{externalId}/versions/{version}", item_limit=1),
             },
             api_version="alpha",
         )
@@ -73,33 +74,27 @@ class RuleSetVersionsAPI(CDFResourceAPI[RuleSetVersionResponse]):
         items: Sequence[RuleSetVersionId],
         ignore_unknown_ids: bool = False,
     ) -> list[RuleSetVersionResponse]:
-        if not items:
-            return []
-        # Group by parent to avoid ambiguity: different rule sets can share
-        # the same version string, so a single batch response can't be
-        # reliably mapped back to the correct parent.
-        by_parent: defaultdict[str, list[str]] = defaultdict(list)
-        for item in items:
-            by_parent[item.rule_set_external_id].append(item.version)
-
-        url = self._make_url(self._method_endpoint_map["retrieve"].path)
         results: list[RuleSetVersionResponse] = []
-        for rs_ext_id, versions in by_parent.items():
-            body: dict = {
-                "items": [{"externalId": rs_ext_id, "version": v} for v in versions],
-                "ignoreUnknownIds": ignore_unknown_ids,
-            }
+        for item in items:
+            url = self._make_url(
+                self._method_endpoint_map["retrieve"].path.format(
+                    externalId=item.rule_set_external_id, version=item.version
+                )
+            )
             request = RequestMessage(
                 endpoint_url=url,
-                method="POST",
-                body_content=body,
+                method="GET",
                 api_version=self._api_version,
             )
             response = self._http_client.request_single_retries(request)
-            page = self._validate_page_response(response.get_success_or_raise(request))
-            for ver in page.items:
-                ver.rule_set_external_id = rs_ext_id
-            results.extend(page.items)
+            if isinstance(response, SuccessResponse):
+                ver = RuleSetVersionResponse.model_validate_json(response.body)
+                ver.rule_set_external_id = item.rule_set_external_id
+                results.append(ver)
+            elif ignore_unknown_ids:
+                continue
+            else:
+                _ = response.get_success_or_raise(request)
         return results
 
     def delete(self, ids: Sequence[RuleSetVersionId]) -> None:
