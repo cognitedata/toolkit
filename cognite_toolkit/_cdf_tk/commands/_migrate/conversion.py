@@ -714,7 +714,7 @@ class ConnectionCreator:
     ) -> tuple[NodeId | list[NodeId], list[str]]:
         errors: list[str] = []
         if dm_prop.container:
-            missing_in_cache = set(self._direct_relation_targets_existing) - set(targets)
+            missing_in_cache = set(targets) - set(self._direct_relation_targets_existing)
             if missing_in_cache:
                 existing_node_ids = [
                     node.as_id() for node in self._client.tool.instances.retrieve(list(missing_in_cache))
