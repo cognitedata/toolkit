@@ -129,9 +129,9 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
 
         # We sort by space and externalId to get a stable sort order.
         #
-        #         This is also more performant than sorting by using the default sort, which will sort on
-        #         internal CDF IDs. This will be slow if you have deleted a lot of instances, as they will be counted.
-        #         By sorting on space and externalId, we avoid this issue.
+        # This is also more performant than sorting by using the default sort, which will sort on
+        # internal CDF IDs. This will be slow if you have deleted a lot of instances, as they will be counted.
+        # By sorting on space and externalId, we avoid this issue.
         if filter is None:
             query = QueryRequest(
                 with_={
@@ -167,7 +167,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         if filter.source:
             sources.append(QuerySelectSource(source=filter.source, properties=["*"]))
         query = QueryRequest(with_={"root": expression}, select={"root": QuerySelect(sources=sources)}, root="root")
-        if cursor:
+        if cursor is not None:
             query.cursors = {"root": cursor}
         return query
 
@@ -277,7 +277,10 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         exhaust_sub_selections: bool = False,
         limit: int | None = None,
     ) -> Iterable[QueryResponseTyped | QueryResponseUntyped]:
-        """Iterate over the results of a query against the instances query/sync endpoint."""
+        """Iterate over the results of a query against the instances query/sync endpoint.
+
+        Note this mutates the cursor of the QueryRequest object.
+        """
         endpoint_prop = self._get_endpoint(endpoint)
         response_cls = QueryResponseTyped if type_results else QueryResponseUntyped
         chunk_size = query.with_[query.root].limit or endpoint_prop.item_limit
@@ -339,7 +342,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         # of that class no the class type.
         query_response: _T_QueryResponse = response_cls.model_validate_json(success.body)  # type: ignore[assignment]
         # We persist the root from the query. This is for convenience.
-        query_response.root = query.root  #
+        query_response.root = query.root
         return query_response
 
     def _get_endpoint(self, endpoint: QueryEndpoint) -> Endpoint:
