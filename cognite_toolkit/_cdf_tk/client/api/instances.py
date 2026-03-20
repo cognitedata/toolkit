@@ -134,7 +134,16 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         #         By sorting on space and externalId, we avoid this issue.
         if filter is None:
             query = QueryRequest(
-                with_={"root": QueryNodeExpression(limit=limit, nodes=QueryNodeTableExpression())},
+                with_={
+                    "root": QueryNodeExpression(
+                        limit=limit,
+                        nodes=QueryNodeTableExpression(),
+                        sort=[
+                            QuerySortSpec(property=["node", "space"]),
+                            QuerySortSpec(property=["node", "externalId"]),
+                        ],
+                    )
+                },
                 select={"root": QuerySelect()},
                 root="root",
             )
