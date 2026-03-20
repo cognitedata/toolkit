@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from itertools import zip_longest
-from typing import Any, Generic, Literal, TypeAlias, overload
+from typing import Any, Generic, Literal, TypeAlias, TypeVar, overload
 
 from pydantic import JsonValue
 
@@ -38,6 +38,8 @@ INSTANCE_UPSERT_ENDPOINT = METHOD_MAP["upsert"]
 INSTANCE_DELETE_ENDPOINT = METHOD_MAP["delete"]
 
 QueryEndpoint: TypeAlias = Literal["query", "sync"]
+
+_T_QueryResponse = TypeVar("_T_QueryResponse", bound=QueryResponseTyped | QueryResponseUntyped)
 
 
 class InstancesAPI(CDFResourceAPI[InstanceResponse]):
@@ -164,16 +166,28 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
 
     @overload
     def query(
-        self, query: QueryRequest, type_results: Literal[True] = True, endpoint: Literal["query", "sync"] = "query"
+        self,
+        query: QueryRequest,
+        type_results: Literal[True] = True,
+        endpoint: QueryEndpoint = "query",
+        exhaust_sub_selections: bool = False,
     ) -> QueryResponseTyped: ...
 
     @overload
     def query(
-        self, query: QueryRequest, type_results: Literal[False], endpoint: Literal["query", "sync"] = "query"
+        self,
+        query: QueryRequest,
+        type_results: Literal[False],
+        endpoint: QueryEndpoint = "query",
+        exhaust_sub_selections: bool = False,
     ) -> QueryResponseUntyped: ...
 
     def query(
-        self, query: QueryRequest, type_results: bool = True, endpoint: Literal["query", "sync"] = "query"
+        self,
+        query: QueryRequest,
+        type_results: bool = True,
+        endpoint: QueryEndpoint = "query",
+        exhaust_sub_selections: bool = False,
     ) -> QueryResponseTyped | QueryResponseUntyped:
         """Execute a query against the instances query endpoint.
 
@@ -185,17 +199,51 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                 type_results: Whether to return typed results (QueryResponseTyped) or untyped results
                     (QueryResponseUntyped).
             endpoint: The endpoint to use for this query.
+            exhaust_sub_selections: Whether to exhaust sub-selections, for example, if you are fetching nodes and all
+                edges connected to those nodes. Setting this to true will fetch all edges.
 
         Returns:
             QueryResult containing matching instances grouped by result set expression name.
         """
-        if endpoint == "query":
-            endpoint_prop = QUERY_ENDPOINT
-        elif endpoint == "sync":
-            endpoint_prop = SYNC_ENDPOINT
-        else:
-            raise NotImplementedError(f"Unknown endpoint {endpoint!r}")
+        response_cls = QueryResponseTyped if type_results else QueryResponseUntyped
+        return self._query(query, response_cls, endpoint, exhaust_sub_selections)
 
+    def _query(
+        self,
+        query: QueryRequest,
+        response_cls: type[_T_QueryResponse],
+        endpoint: QueryEndpoint,
+        exhaust_sub_selections: bool,
+    ) -> _T_QueryResponse:
+        first: _T_QueryResponse | None = None
+        endpoint_prop = self._get_endpoint(endpoint)
+        while True:
+            response = self._make_query(endpoint_prop, query, response_cls)
+            if first is None:
+                first = response
+            else:
+                for key in response.items:
+                    if key != query.root and key in first.items:
+                        # MyPy does not like the mix of type and untyped query responses.
+                        first.items[key].extend(response.items[key])  # type: ignore[arg-type]
+            if not exhaust_sub_selections:
+                return first
+            next_cursors: dict[str, str | None] = {}
+            for select_id in query.select.keys():
+                if select_id == query.root:
+                    continue
+                sub_cursor = response.next_cursor.get(select_id)
+                if sub_cursor is not None:
+                    next_cursors[select_id] = sub_cursor
+            if not next_cursors or not response.items:
+                return first
+            # Keep the root cursor to iterate over all subitems.
+            next_cursors[query.root] = (query.cursors or {}).get(query.root)
+            query = query.model_copy(update={"cursors": next_cursors})
+
+    def _make_query(
+        self, endpoint_prop: Endpoint, query: QueryRequest, response_cls: type[_T_QueryResponse]
+    ) -> _T_QueryResponse:
         request = RequestMessage(
             endpoint_url=self._http_client.config.create_api_url(endpoint_prop.path),
             method=endpoint_prop.method,
@@ -203,10 +251,21 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         )
         response = self._http_client.request_single_retries(request)
         success = response.get_success_or_raise(request)
-        if type_results:
-            return QueryResponseTyped.model_validate_json(success.body)
+        # Wrong type hint in pydantic, response_cls.model_validate_json returns an instance
+        # of that class no the class type.
+        query_response: _T_QueryResponse = response_cls.model_validate_json(success.body)  # type: ignore[assignment]
+        # We persist the root from the query. This is for convenience.
+        query_response.root = query.root  #
+        return query_response
+
+    def _get_endpoint(self, endpoint: QueryEndpoint) -> Endpoint:
+        if endpoint == "query":
+            endpoint_prop = QUERY_ENDPOINT
+        elif endpoint == "sync":
+            endpoint_prop = SYNC_ENDPOINT
         else:
-            return QueryResponseUntyped.model_validate_json(success.body)
+            raise NotImplementedError(f"Unknown endpoint {endpoint!r}")
+        return endpoint_prop
 
 
 class WrappedInstancesAPI(
