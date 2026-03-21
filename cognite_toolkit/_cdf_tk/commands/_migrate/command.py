@@ -174,7 +174,7 @@ class MigrationCommand(ToolkitCommand):
                         f"Found progress file for {selector.display_name}. But total items "
                         f"does not match the expected total. Starting from beginning..."
                     )
-                elif progress.status == "completed" and not is_sync:
+                elif progress.status == "completed" and (not is_sync or completed_count != total_items):
                     message = f"Found completed progress file for {selector.display_name}. Skipping migration."
                     is_complete = True
                 elif first is not None:
