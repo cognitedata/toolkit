@@ -96,7 +96,6 @@ class MigrationCommand(ToolkitCommand):
         if needed_capacity and not isinstance(data, ChartIO):
             # Chart are not creating any new nodes.
             self.validate_available_capacity(data.client, needed_capacity)
-
         results_by_selector: dict[str, list[MigrationStatusResult]] = {}
         with (
             NDJsonWriter(
@@ -195,7 +194,6 @@ class MigrationCommand(ToolkitCommand):
                     selector=selector,
                 )
             )
-            print(message)
         return plan
 
     def _display_plan(
