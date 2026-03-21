@@ -163,8 +163,10 @@ class MigrationCommand(ToolkitCommand):
             completed_count = 0
             init_bookmark: Bookmark | None = None
             message = ""
+
             is_complete = False
             if progress := ProgressYAML.try_load(log_dir, str(selector)):
+                completed_count = progress.completed_count
                 first = progress.get_first_bookmark()
                 is_sync = isinstance(first, CursorBookmark) and first.source == "sync"
                 # Sync cursor supports continuing even if the data has been modified.
@@ -178,7 +180,6 @@ class MigrationCommand(ToolkitCommand):
                     is_complete = True
                 elif first is not None:
                     init_bookmark = first
-                    completed_count = completed_count
                     message = f"Resuming migration for {selector.display_name} from {first!s}."
                 else:
                     message = (
@@ -194,6 +195,7 @@ class MigrationCommand(ToolkitCommand):
                     selector=selector,
                 )
             )
+            print(message)
         return plan
 
     def _display_plan(
