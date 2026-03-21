@@ -1143,11 +1143,15 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
         if isinstance(dm_prop := destination_properties.get(prop_id), ViewCorePropertyResponse) and isinstance(
             dm_prop.type, DirectNodeRelation
         ):
-            node_id, creation_issues = self._connection_creator.create_direct_relation_from_edges(
-                edges=edges,
-                dm_prop=dm_prop.type,
-                source_edge_type=source_edge_type,
-            )
+            try:
+                node_id, creation_issues = self._connection_creator.create_direct_relation_from_edges(
+                    edges=edges,
+                    dm_prop=dm_prop.type,
+                    source_edge_type=source_edge_type,
+                )
+            except ValueError as err:
+                issue.errors.append(f"Failed to create direct relation {dm_prop.type} from edge {edges}: {err!s}")
+                return None
             issue.errors.extend(creation_issues)
             if isinstance(node_id, NodeId):
                 return node_id.dump(include_instance_type=False)
