@@ -424,25 +424,6 @@ class BuildV2Command(ToolkitCommand):
         )
 
     def _export_module(self, module: Module, resource_counter: Counter, build_dir: Path) -> BuiltModule:
-        # init built_module
-        # built_module = BuiltModule(source=module.source)
-        #
-        # if module.is_success:
-        #     self._local_validation(module)
-        #     # Todo: Information about results is lost here as we creating
-        #     #   builtModule from the ModuleSource but not the Module object.
-        #     built_module.built_files_by_source = self._export_module(module, build_dir)
-        #     built_module.built_resources_identifiers = [
-        #         resource.resource.as_id()
-        #         for resource in module.resources
-        #         if isinstance(resource, SuccessfulReadResource)
-        #     ]
-        #     built_module.dependencies = module.dependencies
-        #
-        # built_module.insights.extend(module.insights)
-        # for resource in module.resources:
-        #     if isinstance(resource, FailedReadResource):
-        #         built_module.insights.extend(resource.errors)
         built_module = BuiltModule(
             source=module.source,
             module_id=module.source.as_id(),
