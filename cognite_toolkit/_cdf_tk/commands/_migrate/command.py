@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     UploadableStorageIO,
 )
 from cognite_toolkit._cdf_tk.storageio.logger import FileDataLogger, OperationStatus
-from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, ProgressYAML
+from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
@@ -101,15 +101,18 @@ class MigrationCommand(ToolkitCommand):
                 init_bookmark: Bookmark | None = None
                 start_item = 0
                 if progress := ProgressYAML.try_load(log_dir, str(selected)):
-                    if progress.total != total_items:
+                    first = progress.get_first_bookmark()
+                    is_sync = isinstance(first, CursorBookmark) and first.source == "sync"
+                    # Sync cursor supports continuing even if the data has been modified.
+                    if progress.total != total_items and not is_sync:
                         console.print(
                             f"Found progress file for {selected.display_name}. But total items "
                             f"does not match the expected total. Starting from beginning..."
                         )
-                    elif progress.status == "completed":
+                    elif progress.status == "completed" and not is_sync:
                         console.print(f"Found completed progress file for {selected.display_name}. Skipping migration.")
                         continue
-                    elif first := progress.get_first_bookmark():
+                    elif first is not None:
                         init_bookmark = first
                         start_item = progress.completed_count
                         console.print(f"Resuming migration for {selected.display_name} from {first!s}.")
