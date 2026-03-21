@@ -118,7 +118,7 @@ class MigrationCommand(ToolkitCommand):
 
                 executor = ProducerWorkerExecutor[Page[T_DataResponse], Page[T_DataRequest]](
                     download_iterable=data.stream_data(selected, bookmark=step.bookmark),
-                    process=self._convert(mapper, data),
+                    process=self._convert(mapper),
                     write=self._upload(
                         selected, write_client, data, dry_run, log_dir, step.total_count, step.completed_count
                     ),
@@ -174,7 +174,7 @@ class MigrationCommand(ToolkitCommand):
                         f"Found progress file for {selector.display_name}. But total items "
                         f"does not match the expected total. Starting from beginning..."
                     )
-                elif progress.status == "completed" and (not is_sync or completed_count != total_items):
+                elif progress.status == "completed" and (not is_sync or completed_count == total_items):
                     message = f"Found completed progress file for {selector.display_name}. Skipping migration."
                     is_complete = True
                 elif first is not None:
@@ -287,7 +287,6 @@ class MigrationCommand(ToolkitCommand):
     @staticmethod
     def _convert(
         mapper: DataMapper[T_Selector, T_DataResponse, T_DataRequest],
-        data: UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest],
     ) -> Callable[[Page[T_DataResponse]], Page[T_DataRequest]]:
         def track_mapping(source: Page[T_DataResponse]) -> Page[T_DataRequest]:
             raw_items = [di.item for di in source.items]
