@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError, ToolkitYA
 from cognite_toolkit._cdf_tk.utils import calculate_hash, read_yaml_content, safe_read
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
-from . import ResourceType
+from ._module import ResourceType
 from ._types import AbsoluteDirPath, AbsoluteFilePath
 
 

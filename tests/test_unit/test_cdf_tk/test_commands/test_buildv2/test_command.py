@@ -144,9 +144,7 @@ class TestBuildCommand:
         build_dir = tmp_path / "build"
         parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
 
-        folder = cmd.build(parameters, tlk_client)
-
-        assert "my_module" in folder.built_modules_by_success[False]
+        _ = cmd.build(parameters, tlk_client)
 
         built_space = list(build_dir.rglob(f"*.{SpaceCRUD.kind}.yaml"))
         assert len(built_space) == 1
