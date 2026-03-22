@@ -887,7 +887,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
                     "node.version": node.version,
                 }
             )
-            special_properties: dict[str, JsonValue] = {}
+            special_properties: dict[str, JsonValue | NodeId | list[NodeId]] = {}
             if context.mapping.source_view in self._custom_properties_mapping:
                 special_results = self._custom_properties_mapping[context.mapping.source_view].convert(
                     source_properties, context
@@ -1088,7 +1088,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
                     self.logger.tracker.finalize_item(str(item.as_id()), "failure")
         return schedules, template_edges_by_item_id, template_item_edges_by_schedule_id, issues
 
-    def _calculate_schedule_hash(self, properties: dict[str, JsonValue]) -> str:
+    def _calculate_schedule_hash(self, properties: dict[str, JsonValue | NodeId | list[NodeId]]) -> str:
         relevant_properties: dict[str, Any] = {}
         for key in self.UNIQUE_SCHEDULE_PROPERTIES:
             value = properties.get(key)
