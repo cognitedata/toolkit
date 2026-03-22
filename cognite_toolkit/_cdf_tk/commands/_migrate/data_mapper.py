@@ -1166,8 +1166,8 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
         template_item_edges: list[EdgeOtherSide],
         destination_properties: dict[str, ViewResponseProperty],
         issue: InstanceConversionIssue,
-    ) -> dict[str, JsonValue]:
-        created_properties: dict[str, JsonValue] = {}
+    ) -> dict[str, JsonValue | NodeId | list[NodeId]]:
+        created_properties: dict[str, JsonValue | NodeId | list[NodeId]] = {}
         if template_relation := self._create_direct_relation(
             template_edges,
             "template",
@@ -1193,7 +1193,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
         destination_properties: dict[str, ViewResponseProperty],
         source_edge_type: EdgeTypeId,
         issue: InstanceConversionIssue,
-    ) -> JsonValue | None:
+    ) -> JsonValue | NodeId | list[NodeId] | None:
         if not edges:
             return None
         if isinstance(dm_prop := destination_properties.get(prop_id), ViewCorePropertyResponse) and isinstance(
@@ -1209,10 +1209,7 @@ class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResp
                 issue.errors.append(f"Failed to create direct relation {dm_prop.type} from edge {edges}: {err!s}")
                 return None
             issue.errors.extend(creation_issues)
-            if isinstance(node_id, NodeId):
-                return node_id.dump(include_instance_type=False)
-            elif isinstance(node_id, list):
-                return [n.dump(include_instance_type=False) for n in node_id]
+            return node_id
         else:
             issue.errors.append(
                 f"Cannot create direct relation for property '{prop_id}' as it is not a DirectNodeRelation property in the destination view."
