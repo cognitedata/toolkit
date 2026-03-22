@@ -248,9 +248,31 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         Returns:
             QueryResult containing matching instances grouped by result set expression name.
         """
-        response_cls = QueryResponseTyped if type_results else QueryResponseUntyped
-        endpoint_prop = self._get_endpoint(endpoint)
-        return self._query(query, response_cls, endpoint_prop, exhaust_sub_selections, endpoint_name=endpoint)
+        limit = query.with_[query.root].limit
+        results: list[QueryResponseTyped | QueryResponseUntyped] = []
+        for batch in self._query_iterate(
+            # Deep copy to avoid modifying the original query object with next cursors and limits.
+            query.model_copy(deep=True),
+            type_results,
+            endpoint,
+            exhaust_sub_selections,
+            limit,
+        ):
+            results.append(batch)
+        if len(results) == 0:
+            raise ValueError("Query did not return any results.")
+        # Merge results
+        first = results[0]
+        if len(results) > 1:
+            for result in results[1:]:
+                for key, items in result.items.items():
+                    # We now that all query responses will be either QueryResponseTyped or QueryResponseUntyped
+                    # not mixed, so we can safely ignore the type here.
+                    if key in first.items:
+                        first.items[key].extend(items)  # type: ignore[arg-type]
+                    else:
+                        first.items[key] = items  # type: ignore[assignment]
+        return first
 
     @overload
     def query_iterate(
@@ -280,10 +302,24 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         exhaust_sub_selections: bool = False,
         limit: int | None = None,
     ) -> Iterable[QueryResponseTyped | QueryResponseUntyped]:
-        """Iterate over the results of a query against the instances query/sync endpoint.
+        """Iterate over the results of a query against the instances query/sync endpoint."""
+        yield from self._query_iterate(
+            # Deep copy to avoid modifying the original query object with next cursors and limits.
+            query.model_copy(deep=True),
+            type_results,
+            endpoint,
+            exhaust_sub_selections,
+            limit,
+        )
 
-        Note this mutates the cursor of the QueryRequest object.
-        """
+    def _query_iterate(
+        self,
+        query: QueryRequest,
+        type_results: bool = True,
+        endpoint: QueryEndpoint = "query",
+        exhaust_sub_selections: bool = False,
+        limit: int | None = None,
+    ) -> Iterable[QueryResponseTyped | QueryResponseUntyped]:
         endpoint_prop = self._get_endpoint(endpoint)
         response_cls = QueryResponseTyped if type_results else QueryResponseUntyped
         chunk_size = query.with_[query.root].limit or endpoint_prop.item_limit
