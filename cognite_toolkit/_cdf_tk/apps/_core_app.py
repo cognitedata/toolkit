@@ -281,6 +281,14 @@ class CoreApp(typer.Typer):
                 help="The name of the config YAML file to use. It expected to be named config.<name>.yaml and be located in the organization directory.",
             ),
         ] = CDF_TOML.cdf.default_config_yaml,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
     ) -> None:
         """Build configuration files from the modules to the build directory."""
         client: ToolkitClient | None = None
