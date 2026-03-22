@@ -1,7 +1,7 @@
 import json
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any, ClassVar, Generic, Literal, cast
 from uuid import uuid4
 
@@ -722,7 +722,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
         # These data structures are used to validate required direct relations, i.e.,
         # direct relation properties that requires that the target has properties in a
         # given container.
-        self._constrained_properties_by_view_id: dict[ViewId, set[str]] = {}
+        self._constrained_properties_by_view_id: dict[ViewId, dict[str, ContainerId]] = {}
         self._is_existing_by_node_id: dict[NodeId, bool] = {}
 
     def prepare(self, source_selector: InstanceSelector) -> None:
@@ -771,11 +771,10 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
             mapped_instances.append(mapped_node)
             mapped_instances.extend(edges)
 
-        # Todo: Post validation - check that all direct relations with constraints exists
-
-        # We need to
+        # Post Validation - check that all direct relation with constraints exists.
         self._connection_creator.update_view_cache(view_ids=target_view_ids)
         self._update_existing_node_cache(mapped_instances)
+        self._check_existence_of_required_targets(mapped_instances, issue_by_node_id)
 
         if issue_by_node_id:
             self.logger.log(list(issue_by_node_id.values()))
@@ -812,40 +811,6 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
                     EdgeTypeId(type=item.type, direction="inwards")
                 ].append(EdgeOtherSide(edge_id, item.start_node))
         return nodes, other_side_by_edge_type_and_direction_by_source
-
-    def _update_existing_node_cache(self, mapped_instances: Sequence[InstanceRequest | EdgeRequest | None]) -> None:
-        to_check: list[NodeId] = []
-        for mapped_node in mapped_instances:
-            if mapped_node is None or isinstance(mapped_node, EdgeRequest):
-                # We assume edges do not have direct relations.
-                continue
-            for source in mapped_node.sources or []:
-                if source.properties is None or not isinstance(source.source, ViewId):
-                    continue
-                if source.source not in self._constrained_properties_by_view_id:
-                    view = self._connection_creator.view_by_id[source.source]
-                    self._constrained_properties_by_view_id[source.source] = {
-                        prop_id
-                        for prop_id, prop in view.properties.items()
-                        if isinstance(prop, ViewCorePropertyResponse)
-                        and isinstance(prop.type, DirectNodeRelation)
-                        and prop.container is not None
-                    }
-                if direct_relation_properties := (
-                    self._constrained_properties_by_view_id[source.source] & set(source.properties.keys())
-                ):
-                    for prop_id in direct_relation_properties:
-                        value = source.properties[prop_id]
-                        if isinstance(value, NodeId):
-                            to_check.append(value)
-                        elif isinstance(value, list):
-                            to_check.extend([node_id for node_id in value if isinstance(node_id, NodeId)])
-
-        missing_in_cache = set(to_check) - set(self._is_existing_by_node_id.keys())
-        if missing_in_cache:
-            existing_node_ids = {node.as_id() for node in self.client.tool.instances.retrieve(list(missing_in_cache))}
-            for node_id in missing_in_cache:
-                self._is_existing_by_node_id[node_id] = node_id in existing_node_ids
 
     def _map_single_node(
         self,
@@ -954,6 +919,110 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
             source_view_id=view_or_container_id,
             new_id=new_id,
         )
+
+    def _update_existing_node_cache(self, mapped_instances: Sequence[InstanceRequest | EdgeRequest | None]) -> None:
+        """Updates the existing nodes cache for all direct relations properties that have
+        constraints on the target node.
+        """
+        to_check: list[NodeId] = []
+        for _, direct_relation_property_ids, source in self._iterate_constrained_direct_relation_properties(
+            mapped_instances
+        ):
+            if source.properties is None:
+                continue
+            for prop_id in direct_relation_property_ids.keys():
+                value = source.properties[prop_id]
+                if isinstance(value, NodeId):
+                    to_check.append(value)
+                elif isinstance(value, list):
+                    to_check.extend([node_id for node_id in value if isinstance(node_id, NodeId)])
+
+        missing_in_cache = set(to_check) - set(self._is_existing_by_node_id.keys())
+        if missing_in_cache:
+            existing_node_ids = {node.as_id() for node in self.client.tool.instances.retrieve(list(missing_in_cache))}
+            for node_id in missing_in_cache:
+                self._is_existing_by_node_id[node_id] = node_id in existing_node_ids
+
+    def _check_existence_of_required_targets(
+        self,
+        mapped_instances: Sequence[InstanceRequest | EdgeRequest | None],
+        issue_by_node_id: dict[NodeId, InstanceConversionIssue],
+    ) -> None:
+        """
+
+        Args:
+            mapped_instances:
+            issue_by_node_id:
+
+        """
+
+        for node_id, direct_relation_property_ids, source in self._iterate_constrained_direct_relation_properties(
+            mapped_instances
+        ):
+            if source.properties is None:
+                continue
+            for prop_id, required_container in direct_relation_property_ids.items():
+                value = source.properties[prop_id]
+                if isinstance(value, NodeId) and not self._is_existing_by_node_id.get(value, False):
+                    message = f"Cannot create direct relation to {value!s}. The node does not exist and requires to have properties in the {required_container!s} container."
+                    if node_id not in issue_by_node_id:
+                        issue_by_node_id[node_id] = InstanceConversionIssue(id=str(node_id), errors=[message])
+                    else:
+                        issue_by_node_id[node_id].errors.append(message)
+                    del source.properties[prop_id]
+                elif isinstance(value, list):
+                    keep: list[NodeId | JsonValue] = []
+                    missing_node_ids: set[NodeId] = set()
+                    for target_id in value:
+                        if not isinstance(target_id, NodeId):
+                            # Should never happen as we know we have a direct relation, but
+                            # default to not modify
+                            keep.append(target_id)
+                            continue
+                        if self._is_existing_by_node_id.get(target_id, False):
+                            keep.append(target_id)
+                        else:
+                            missing_node_ids.add(target_id)
+                    if missing_node_ids:
+                        error = f"Cannot create direct relations to {humanize_collection(missing_node_ids)}. These nodes does not exist and requires to have properties in the {required_container!s} container."
+                        if node_id not in issue_by_node_id:
+                            issue_by_node_id[node_id] = InstanceConversionIssue(id=str(node_id), errors=[error])
+                        else:
+                            issue_by_node_id[node_id].errors.append(error)
+                    source.properties[prop_id] = keep  # type: ignore[assignment]
+
+    def _iterate_constrained_direct_relation_properties(
+        self, instances: Sequence[InstanceRequest | EdgeRequest | None]
+    ) -> Iterable[tuple[NodeId, dict[str, ContainerId], InstanceSource]]:
+        for node in instances:
+            if node is None or isinstance(node, EdgeRequest):
+                # We assume edges do not have direct relations.
+                continue
+            for source in node.sources or []:
+                if source.properties is None or not isinstance(source.source, ViewId):
+                    continue
+                if source.source not in self._constrained_properties_by_view_id:
+                    # We have already populated the view_by_id cache, so we should have the view.
+                    view = self._connection_creator.view_by_id[source.source]
+                    self._constrained_properties_by_view_id[source.source] = {
+                        prop_id: prop.type.container
+                        for prop_id, prop in view.properties.items()
+                        if isinstance(prop, ViewCorePropertyResponse)
+                        and isinstance(prop.type, DirectNodeRelation)
+                        # When the container is set on a DirectNodeRelation property, this means it requires
+                        # that the target has properties in that container.
+                        and prop.type.container is not None
+                    }
+                if property_ids := (
+                    set(self._constrained_properties_by_view_id[source.source]).intersection(
+                        set(source.properties.keys())
+                    )
+                ):
+                    constraint_by_prop_id = {
+                        prop_id: self._constrained_properties_by_view_id[source.source][prop_id]
+                        for prop_id in property_ids
+                    }
+                    yield node.as_id(), constraint_by_prop_id, source
 
 
 class InFieldLegacyToCDMScheduleMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequest]):
