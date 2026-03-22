@@ -167,7 +167,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         if filter.source:
             sources.append(QuerySelectSource(source=filter.source, properties=["*"]))
         query = QueryRequest(with_={"root": expression}, select={"root": QuerySelect(sources=sources)}, root="root")
-        if cursor:
+        if cursor is not None:
             query.cursors = {"root": cursor}
         return query
 
