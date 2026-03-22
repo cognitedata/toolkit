@@ -458,7 +458,8 @@ class BuildV2Command(ToolkitCommand):
             # Todo: Store original yaml and do not require the resource. In other words allow
             #   model syntax errors.
             safe_write(
-                destination_path, yaml_safe_dump(resource.resource.model_dump(by_alias=True, exclude_unset=True))
+                destination_path,
+                yaml_safe_dump(resource.resource.model_dump(by_alias=True, exclude_unset=True, mode="json")),
             )
             built_resources.append(
                 BuiltResource(
