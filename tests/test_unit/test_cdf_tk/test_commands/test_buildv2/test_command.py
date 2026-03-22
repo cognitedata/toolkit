@@ -313,11 +313,20 @@ class TestReadFileSystem:
         )
 
     @pytest.mark.parametrize(
-        "paths, user_selection, selection, errors",
+        "paths, user_selection, organization_dir, selection, errors",
         [
+            pytest.param(
+                ["modules/module1"],
+                ["modules/"],
+                Path("tests/data/complete_org"),
+                {Path("modules")},
+                [],
+                id="Current working directory parent of organization_dir",
+            ),
             pytest.param(
                 ["modules/module1", "modules/module2"],
                 ["modules/"],
+                Path("."),
                 {Path("modules")},
                 [],
                 id="User selects module paths",
@@ -325,6 +334,7 @@ class TestReadFileSystem:
             pytest.param(
                 ["modules/module1"],
                 ["non_existent/module"],
+                Path("."),
                 set(),
                 ["Selected module path 'non_existent/module' does not exist under the organization directory"],
                 id="Path does not exist",
@@ -332,6 +342,7 @@ class TestReadFileSystem:
             pytest.param(
                 ["modules/module1"],
                 ["modules/module1", "non_existent/path"],
+                Path("."),
                 {Path("modules/module1")},
                 ["Selected module path 'non_existent/path' does not exist under the organization directory"],
                 id="Mix of valid and non-existent paths",
@@ -339,6 +350,7 @@ class TestReadFileSystem:
             pytest.param(
                 ["modules/module1", "modules/module2"],
                 ["../../other_org/modules/module3"],
+                Path("."),
                 set(),
                 ["Selected module path '../../other_org/modules/module3' is not under the organization directory"],
                 id="Attack path outside of organization directory",
@@ -349,16 +361,19 @@ class TestReadFileSystem:
         self,
         paths: list[str],
         user_selection: list[str],
+        organization_dir: Path,
         selection: set[RelativeDirPath | str],
         errors: list[str],
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.chdir(tmp_path)
-        for path in paths:
-            (tmp_path / Path(path)).mkdir(parents=True, exist_ok=True)
 
-        actual_selection, actual_errors = BuildV2Command._parse_user_selection(user_selection, tmp_path)
+        organization_path = tmp_path / organization_dir
+        for path in paths:
+            (organization_path / Path(path)).mkdir(parents=True, exist_ok=True)
+
+        actual_selection, actual_errors = BuildV2Command._parse_user_selection(user_selection, organization_path)
 
         assert actual_errors == errors
         assert actual_selection == selection
