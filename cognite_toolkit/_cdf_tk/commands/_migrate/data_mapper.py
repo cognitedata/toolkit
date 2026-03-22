@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from cognite.client import data_modeling as dm
 from cognite.client.exceptions import CogniteException
-from pydantic import JsonValue, TypeAdapter, ValidationError
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, InstanceId
@@ -836,16 +836,10 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
                 ):
                     for prop_id in direct_relation_properties:
                         value = source.properties[prop_id]
-                        if isinstance(value, dict):
-                            try:
-                                to_check.append(NodeId.model_validate(value))
-                            except ValidationError:
-                                continue
+                        if isinstance(value, NodeId):
+                            to_check.append(value)
                         elif isinstance(value, list):
-                            try:
-                                to_check.extend(TypeAdapter(list[NodeId]).validate_python(value))
-                            except ValidationError:
-                                continue
+                            to_check.extend([node_id for node_id in value if isinstance(node_id, NodeId)])
 
         missing_in_cache = set(to_check) - set(self._is_existing_by_node_id.keys())
         if missing_in_cache:
