@@ -74,7 +74,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
 
     """
 
-    def __init__(self, http_client: HTTPClient, consecutive_success_count_increase: int = 5) -> None:
+    def __init__(self, http_client: HTTPClient, consecutive_success_count_increase: int = 100) -> None:
         super().__init__(http_client=http_client, method_endpoint_map=METHOD_MAP)
         self._consecutive_success_count_increase = consecutive_success_count_increase
 
@@ -349,13 +349,10 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         response_cls = QueryResponseTyped if type_results else QueryResponseUntyped
 
         max_chunk_size = query.with_[query.root].limit or endpoint_prop.item_limit
-        # max_subselection_limits = {
-        #     name: query.with_[name].limit or SUBSELECTION_LIMIT_QUERY_ENDPOINT
-        #     for name in query.with_.keys() if name != query.root
-        # }
         current_chunk_size = max_chunk_size
+        min_failed_chunk_size = max_chunk_size + 1
+        max_successful_chunk_size = 0
         success_request_count = 0
-        # current_subselection_limit = max_subselection_limits
         total = 0
         while True:
             try:
@@ -363,12 +360,19 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             except ReduceLoadException as e:
                 if current_chunk_size <= 1:
                     raise e.source_exception
+                min_failed_chunk_size = min(current_chunk_size, min_failed_chunk_size)
                 success_request_count = 0
-                current_chunk_size = current_chunk_size // 2
+                if current_chunk_size > max_successful_chunk_size:
+                    current_chunk_size = (
+                        max_successful_chunk_size + (current_chunk_size - max_successful_chunk_size) // 2
+                    )
+                else:
+                    current_chunk_size = current_chunk_size // 2
                 page_limit = current_chunk_size if limit is None else min(current_chunk_size, max(limit - total, 0))
                 query.with_[query.root].limit = page_limit
                 continue
 
+            max_successful_chunk_size = max(max_successful_chunk_size, current_chunk_size)
             success_request_count += 1
             total += len(batch.items[query.root])
             next_cursor = batch.root_cursor
@@ -376,9 +380,15 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             if next_cursor is None or not batch or (limit is not None and total >= limit):
                 break
 
-            if current_chunk_size < max_chunk_size and success_request_count > self._consecutive_success_count_increase:
-                # Try to increase limit again.
-                current_chunk_size = current_chunk_size + (max_chunk_size - current_chunk_size) // 2
+            if current_chunk_size < min_failed_chunk_size:
+                # Binary search towards optimal chunk size.
+                current_chunk_size = current_chunk_size + (min_failed_chunk_size - current_chunk_size) // 2
+            elif success_request_count > self._consecutive_success_count_increase:
+                # If we had a lot of successful attempts, try increasing the chunk size again to avoid getting
+                # stuck in a low limit.
+                success_request_count = 0
+                current_chunk_size = min(current_chunk_size * 2, max_chunk_size)
+                min_failed_chunk_size = max(current_chunk_size + 2, max_chunk_size)
 
             page_limit = current_chunk_size if limit is None else min(current_chunk_size, max(limit - total, 0))
             query.with_[query.root].limit = page_limit
@@ -408,9 +418,14 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             for select_id in query.select.keys():
                 if select_id == query.root:
                     continue
+                sub_selection_limit = query.with_[select_id].limit
+                if sub_selection_limit is not None and len(response.items[select_id]) < sub_selection_limit:
+                    # The response returned fewer than the limit, no more items to fetch for this sub-selection.
+                    continue
                 sub_cursor = response.next_cursor.get(select_id)
                 if sub_cursor is not None:
                     next_cursors[select_id] = sub_cursor
+
             if not next_cursors or not response:
                 return first
             # Keep the root cursor to iterate over all subitems.
