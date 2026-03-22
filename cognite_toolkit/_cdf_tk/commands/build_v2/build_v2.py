@@ -370,6 +370,7 @@ class BuildV2Command(ToolkitCommand):
             )
 
     def _substitute_variables_in_content(self, content: str, variables: list[BuildVariable]) -> str:
+        # Todo: Support variable substitution in content.
         raise NotImplementedError()
 
     def _parse_yaml_content(self, content: str) -> dict[str, Any] | list[dict[str, Any]] | ModelSyntaxError:
@@ -421,7 +422,8 @@ class BuildV2Command(ToolkitCommand):
             )
 
     def _create_recommendation(self, error: ValidationError) -> Recommendation:
-        # This is a quick implementation that just creates a generic recommendation for all errors. It should be extended to create more specific recommendations based on the error details.
+        # This is a quick implementation that just creates a generic recommendation for all errors.
+        # Todo: It should be extended to create more specific recommendations based on the error details.
         errors = humanize_validation_error(error)
         return Recommendation(
             code="UNKNOWN-FIELDS",
