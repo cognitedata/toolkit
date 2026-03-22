@@ -259,6 +259,7 @@ class BuildV2Command(ToolkitCommand):
         for source in module_sources:
             # Inside this loop, do not raise exceptions.
             module = self._import_module(source)  # Syntax validation
+            # Todo: Avoid mutating module object.
             self._local_validation(module)
             built_module = self._export_module(module, resource_counter, build_dir)
             folder.built_modules.append(built_module)

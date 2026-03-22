@@ -23,6 +23,7 @@ class BuildVariable(BaseModel):
 
 
 class ModuleId(Identifier):
+    model_config = ConfigDict(frozen=True)
     id: RelativeDirPath
     path: DirectoryPath
 
@@ -82,7 +83,7 @@ class Module(BaseModel):
     """Class used to store module in-memory"""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    # Todo: Replace module source with MoudleId
+    # Todo: Replace module source with ModuleId
     source: ModuleSource
     resources: list[ReadResource] = Field(default_factory=list)
     # Todo: Remove insights from this location. It is only used in the orchestrator.
