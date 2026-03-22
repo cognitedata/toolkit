@@ -719,6 +719,11 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
             view_id: mapping for mapping in (custom_properties_mappings or []) for view_id in mapping.VIEW_IDS
         }
         self._custom_instance_mappings = custom_instance_mappings
+        # These data structures are used to validate required direct relations, i.e.,
+        # direct relation properties that requires that the target has properties in a
+        # given container.
+        self._constrained_properties_by_view_id: dict[ViewId, set[str]] = {}
+        self._is_existing_by_node_id: dict[NodeId, bool] = {}
 
     def prepare(self, source_selector: InstanceSelector) -> None:
         view_ids = set(mapping.source_view for mapping in self._mappings_by_source_view.values()) | set(
@@ -744,6 +749,7 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
         nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)
         mapped_instances: list[InstanceRequest | None] = []
         issue_by_node_id: dict[NodeId, InstanceConversionIssue] = {}
+        target_view_ids: set[ViewId] = set()
         for node in nodes:
             node_id = node.as_id()
             if node.space not in self._connection_creator.space_mapping:
@@ -757,10 +763,16 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
             )
             if issue.has_issues:
                 issue_by_node_id[node_id] = issue
+            target_view_ids.update(
+                source_view_id
+                for source_view_id in (node.properties or {}).keys()
+                if isinstance(source_view_id, ViewId)
+            )
             mapped_instances.append(mapped_node)
             mapped_instances.extend(edges)
 
         # Todo: Post validation - check that all direct relations with constraints exists
+        self._connection_creator.update_view_cache(view_ids=target_view_ids)
 
         if issue_by_node_id:
             self.logger.log(list(issue_by_node_id.values()))

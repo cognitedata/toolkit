@@ -504,9 +504,18 @@ class ConnectionCreator:
                 mapping[view_property] = case
         return mapping
 
-    def update_view_cache(self, views: Iterable[ViewResponse]) -> None:
-        for view in views:
-            self.view_by_id[view.as_id()] = view
+    def update_view_cache(
+        self, views: Iterable[ViewResponse] | None = None, view_ids: Iterable[ViewId] | None = None
+    ) -> None:
+        if views is not None:
+            for view in views:
+                self.view_by_id[view.as_id()] = view
+        if view_ids is not None:
+            missing_views = set(view_ids) - set(self.view_by_id.keys())
+            if missing_views:
+                retrieved_views = self._client.tool.views.retrieve(list(missing_views))
+                for view in retrieved_views:
+                    self.view_by_id[view.as_id()] = view
 
     def update_cache(self, instances: Sequence[InstanceResponse]) -> None:
         self._update_views(instances)
@@ -516,11 +525,7 @@ class ConnectionCreator:
         unique_views = {
             view_id for item in instances for view_id in (item.properties or {}).keys() if isinstance(view_id, ViewId)
         }
-        missing_views = unique_views - set(self.view_by_id.keys())
-        if missing_views:
-            views = self._client.tool.views.retrieve(list(missing_views))
-            for view in views:
-                self.view_by_id[view.as_id()] = view
+        self.update_view_cache(view_ids=unique_views)
 
     def _update_property_caches(self, instances: Sequence[InstanceResponse]) -> None:
         timeseries_refs: set[str] = set()
