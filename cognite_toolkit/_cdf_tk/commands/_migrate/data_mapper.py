@@ -945,15 +945,28 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
 
     def _check_existence_of_required_targets(
         self,
-        mapped_instances: Sequence[InstanceRequest | EdgeRequest | None],
+        mapped_instances: Sequence[NodeRequest | EdgeRequest | None],
         issue_by_node_id: dict[NodeId, InstanceConversionIssue],
     ) -> None:
-        """
+        """This method removes all direct relations property values that have a container constraint
+        where the target node does not exist, and adds an issue to the source node for each removed relation.
+
+        Context: A direct relation can have a constraint that requires the target node to have properties in a given
+        container. If the target node does not exist, we cannot auto-create it as we do not know how to
+        populate the required container. This means the POST /models/instances endpoint will reject the creation
+        of this node. To avoid that, this method removes all targets of direct relation properties
+        with a constraint and logs the error.
+
+        Note: This method removes all targets that are guaranteed to cause ingestion to fail. However,
+        even if the target node exists, it can still cause ingestion to fail. The reason is that we do check
+        that existing nodes have properties in the given container. There is no efficient way of checking
+        this with the DMS API as you cannot retrieve node with properties in a given container only given view.
 
         Args:
-            mapped_instances:
-            issue_by_node_id:
-
+            mapped_instances: Iterable of InstanceRequest or EdgeRequest or None. CAVEAT: The node request are
+                mutated by this function
+            issue_by_node_id: The issues by node id. CAVEAT: The collection is mutated if any property value
+                is removed.
         """
 
         for node_id, direct_relation_property_ids, source in self._iterate_constrained_direct_relation_properties(
