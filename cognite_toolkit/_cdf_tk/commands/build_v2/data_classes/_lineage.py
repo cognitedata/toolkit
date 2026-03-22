@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError, ToolkitYA
 from cognite_toolkit._cdf_tk.utils import calculate_hash, read_yaml_content, safe_read
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 
+from . import ResourceType
 from ._types import AbsoluteDirPath, AbsoluteFilePath
 
 
@@ -39,8 +40,7 @@ class ResourceLineageItem(_BaseLineageModel):
 
     source_file: AbsoluteFilePath
     source_hash: str
-    type_: str = Field(alias="type", description="Resource type folder (e.g., 'spaces', 'containers', 'views')")
-    kind: str = Field(description="Resource kind (e.g., 'space', 'container', 'view')")
+    type: ResourceType
     built_file: AbsoluteFilePath
 
     @field_serializer("source_file", "built_file", when_used="json")
@@ -97,24 +97,15 @@ class ModuleLineageItem(_BaseLineageModel):
         """Construct lineage item from built module."""
 
         resource_lineage = []
-
-        for type_, file_by_kind in module.resource_by_type_by_kind.items():
-            for kind, files in file_by_kind.items():
-                for built_file in files:
-                    source_file = module.built_files_by_source.get(built_file)
-                    if source_file is None:
-                        raise RuntimeError("This is a bug - built file does not have a corresponding source file.")
-
-                    resource_lineage.append(
-                        ResourceLineageItem(
-                            source_file=source_file,
-                            source_hash="",
-                            type_=type_,
-                            kind=kind,
-                            built_file=built_file,
-                        )
-                    )
-
+        for resource in module.resources:
+            resource_lineage.append(
+                ResourceLineageItem(
+                    source_file=resource.source_path,
+                    source_hash=resource.source_hash,
+                    built_file=resource.build_path,
+                    type=resource.type,
+                )
+            )
         return cls(
             module_id=module.module_id.id.as_posix(),
             module_path=module.module_id.path,

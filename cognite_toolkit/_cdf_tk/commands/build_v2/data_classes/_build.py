@@ -1,3 +1,5 @@
+import builtins
+from collections import defaultdict
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
@@ -7,7 +9,7 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
 from ._insights import InsightList
-from ._module import ModuleId
+from ._module import ModuleId, ResourceType
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
 
@@ -51,9 +53,10 @@ class BuiltResource(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     identifier: Identifier
     source_hash: str
+    type: ResourceType
     source_path: AbsoluteFilePath
     build_path: AbsoluteFilePath
-    dependencies: set[tuple[type[ResourceCRUD], Identifier]] = Field(default_factory=set)
+    dependencies: set[tuple[builtins.type[ResourceCRUD], Identifier]] = Field(default_factory=set)
     insights: InsightList = Field(default_factory=InsightList)
 
 
@@ -63,28 +66,22 @@ class BuiltModule(BaseModel):
     resources: list[BuiltResource] = Field(default_factory=list)
 
     # Replace with above
-    built_files_by_source: dict[Path, Path] = Field(
-        default_factory=dict, description="Mapping of built file paths to their corresponding source file paths"
-    )
-    built_resources_identifiers: list[Identifier] = Field(default_factory=list)
     dependencies: dict[AbsoluteFilePath, set[tuple[type[ResourceCRUD], Identifier]]] = Field(default_factory=dict)
     insights: InsightList = Field(default_factory=InsightList)
 
     @property
-    def resource_by_type_by_kind(self) -> dict[str, dict[str, list[Path]]]:
+    def resource_by_type_by_kind(self) -> dict[ResourceType, list[Path]]:
         """Organizes built files by their resource type and kind."""
-        resource_by: dict[str, dict[str, list[Path]]] = {}
-        for file in self.built_files_by_source.keys():
-            kind = file.stem.split(".")[-1]
-            resource_type = file.parent.name
-            resource_by.setdefault(resource_type, {}).setdefault(kind, []).append(file)
+        resource_by_type: dict[ResourceType, list[Path]] = defaultdict(list)
+        for resource in self.resources:
+            resource_by_type[resource.type].append(resource.build_path)
 
-        return resource_by
+        return dict(resource_by_type)
 
     @property
     def files_built(self) -> bool:
         """Indicates whether any files were built for this module."""
-        return len(self.built_files_by_source) > 0
+        return len(self.resources) > 0
 
     @property
     def is_success(self) -> bool:

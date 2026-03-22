@@ -456,6 +456,7 @@ class BuildV2Command(ToolkitCommand):
             built_resources.append(
                 BuiltResource(
                     identifier=identifier,
+                    type=resource.resource_type,
                     source_hash=resource.source_hash,
                     source_path=resource.source_path,
                     build_path=destination_path,
@@ -503,16 +504,15 @@ class BuildV2Command(ToolkitCommand):
         """This validation is performed per resource type and not per individual resource and against CDF
         for all modules. This validation will leverage external plugins such as NEAT.
         """
-
         # Can be parallelized if needed
         for built_module in build_folder.built_modules:
             if not built_module.files_built:
                 continue
-
-            if files_by_resource_type := built_module.resource_by_type_by_kind.get(DataModelCRUD.folder_name):
-                if NeatPlugin.installed() and client and DataModelCRUD.kind in files_by_resource_type:
+            data_model_type = ResourceType(resource_folder=DataModelCRUD.folder_name, kind=DataModelCRUD.kind)
+            if data_model_files := built_module.resource_by_type_by_kind.get(data_model_type):
+                if NeatPlugin.installed() and client and data_model_files:
                     neat = NeatPlugin(client)
-                    for data_model_file in files_by_resource_type[DataModelCRUD.kind]:
+                    for data_model_file in data_model_files:
                         for insight in neat.validate(data_model_file.parent, data_model_file):
                             if insight not in built_module.insights:
                                 built_module.insights.append(insight)
