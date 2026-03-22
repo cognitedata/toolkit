@@ -221,7 +221,7 @@ class BuildV2Command(ToolkitCommand):
             variables=variables,
             validation_type=validation_type,
             cdf_project=cdf_project,
-            organization_dir=parameters.organization_dir,
+            organization_dir=parameters.organization_dir.resolve(),
         )
 
     @classmethod
