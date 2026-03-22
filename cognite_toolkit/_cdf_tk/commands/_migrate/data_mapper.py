@@ -743,14 +743,12 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
         self._connection_creator.update_cache(source)
         nodes, other_side_by_edge_type_and_direction_by_source = self._as_nodes_and_edges(source)
         mapped_instances: list[InstanceRequest | None] = []
-        issue_list: list[InstanceConversionIssue] = []
+        issue_by_node_id: dict[NodeId, InstanceConversionIssue] = {}
         for node in nodes:
             node_id = node.as_id()
             if node.space not in self._connection_creator.space_mapping:
-                issue_list.append(
-                    InstanceConversionIssue(
-                        id=str(node_id), errors=[f"No target space mapping for source space '{node.space}'"]
-                    )
+                issue_by_node_id[node_id] = InstanceConversionIssue(
+                    id=str(node_id), errors=[f"No target space mapping for source space '{node.space}'"]
                 )
                 self.logger.tracker.finalize_item(str(node.as_id()), "failure")
                 continue
@@ -758,11 +756,14 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
                 node, other_side_by_edge_type_and_direction_by_source[node.as_id()]
             )
             if issue.has_issues:
-                issue_list.append(issue)
+                issue_by_node_id[node_id] = issue
             mapped_instances.append(mapped_node)
             mapped_instances.extend(edges)
-        if issue_list:
-            self.logger.log(issue_list)
+
+        # Todo: Post validation - check that all direct relations with constraints exists
+
+        if issue_by_node_id:
+            self.logger.log(list(issue_by_node_id.values()))
         return mapped_instances
 
     def _get_view_ids(self, source: Sequence[InstanceResponse]) -> set[ViewId]:
