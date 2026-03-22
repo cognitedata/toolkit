@@ -475,13 +475,6 @@ class BuildV2Command(ToolkitCommand):
             )
         return built_resources
 
-    @classmethod
-    def _create_syntax_errors(cls, resource_type: ResourceType, error: ValidationError) -> Iterable[ModelSyntaxError]:
-        # TODO: should be extended with humanizing of errors, this is a quick solution.
-        for error_details in error.errors(include_input=True, include_url=False):
-            message = error_details.get("msg", "Unknown syntax error")
-            yield ModelSyntaxError(code=f"{resource_type}-SYNTAX-ERROR", message=message)
-
     def _dependency_validation(self, built_modules: list[BuiltModule], client: ToolkitClient | None) -> InsightList:
         """CDF dependency validations are validations that require checking the existence of resources in CDF."""
         built_resource_ids: set[tuple[type[ResourceCRUD], Identifier]] = {
