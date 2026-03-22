@@ -385,7 +385,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                 current_chunk_size = current_chunk_size + (min_failed_chunk_size - current_chunk_size) // 2
             elif success_request_count > self._consecutive_success_count_increase:
                 # If we had a lot of successful attempts, try increasing the chunk size again to avoid getting
-                # stuck in a low limit.
+                # stuck at a low limit.
                 success_request_count = 0
                 current_chunk_size = min(current_chunk_size * 2, max_chunk_size)
                 min_failed_chunk_size = max(current_chunk_size + 2, max_chunk_size)
