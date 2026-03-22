@@ -504,7 +504,7 @@ class TestNodeRequest:
         }
         assert my_node_request.type == my_node_type
 
-    def test_serialize_node_id_property(self) -> None:
+    def test_serialize_direct_relation_property(self) -> None:
         my_node = NodeRequest(
             space="my_space",
             external_id="my_node",

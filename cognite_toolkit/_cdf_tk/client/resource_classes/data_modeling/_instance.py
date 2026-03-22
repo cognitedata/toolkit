@@ -29,11 +29,7 @@ class InstanceDefinition(BaseModelObject, ABC):
 
 class InstanceSource(BaseModelObject):
     source: ViewId | ContainerId
-    properties: dict[str, JsonValue] | None = None
-
-    @field_serializer("source", mode="plain")
-    def serialize_source(self, value: ViewId | ContainerId) -> Any:
-        return {**value.dump(), "type": value.type}
+    properties: dict[str, JsonValue | NodeUntypedId | list[NodeUntypedId]] | None = None
 
 
 class InstanceRequestDefinition(InstanceDefinition, RequestResource, ABC):
