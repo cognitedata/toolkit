@@ -352,7 +352,9 @@ class TestReadFileSystem:
                 ["../../other_org/modules/module3"],
                 Path("."),
                 set(),
-                ["Selected module path '../../other_org/modules/module3' is not under the organization directory"],
+                [
+                    "Selected module path '../../other_org/modules/module3' does not exist under the organization directory"
+                ],
                 id="Attack path outside of organization directory",
             ),
         ],
