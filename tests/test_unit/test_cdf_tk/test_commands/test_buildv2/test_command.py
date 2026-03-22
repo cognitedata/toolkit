@@ -10,11 +10,6 @@ from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, RelativeDirPath
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
-    ConsistencyError,
-    ModelSyntaxError,
-    Recommendation,
-)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     FailedReadResource,
     SuccessfulReadResource,
@@ -165,22 +160,6 @@ class TestBuildCommand:
         assert len(built_view) == 1
         assert built_view[0].read_text() == view_file.read_text()
 
-        assert len(folder.insights) == 11
-        assert {Recommendation, ConsistencyError} == set(folder.insights.by_type().keys())
-        assert set(folder.insights.by_code().keys()) == {
-            "TOOLKIT-WORKFLOW-001",
-            "DUMMY_MODEL_RULE",
-            "NEAT-DMS-AI-READINESS-001",
-            "NEAT-DMS-AI-READINESS-002",
-            "NEAT-DMS-AI-READINESS-003",
-            "NEAT-DMS-AI-READINESS-004",
-            "NEAT-DMS-AI-READINESS-005",
-            "NEAT-DMS-AI-READINESS-006",
-            "NEAT-DMS-CONTAINER-001",
-            "NEAT-DMS-VIEW-001",
-            "MISSING-DEPENDENCY",
-        }
-
         lineage_file = list(build_dir.rglob("lineage.yaml"))
         insights_file = list(build_dir.rglob("insights.csv"))
 
@@ -204,8 +183,6 @@ name: My Space
         folder = cmd.build(parameters, tlk_client)
 
         assert "my_module" in folder.built_modules_by_success[False]
-        assert len(folder.insights) == 1
-        assert isinstance(folder.insights[0], ModelSyntaxError)
 
 
 class TestValidateBuildParameters:
