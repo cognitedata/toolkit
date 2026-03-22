@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from cognite.client import data_modeling as dm
 from cognite.client.exceptions import CogniteException
-from pydantic import JsonValue
+from pydantic import JsonValue, TypeAdapter, ValidationError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, InstanceId
@@ -772,7 +772,10 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
             mapped_instances.extend(edges)
 
         # Todo: Post validation - check that all direct relations with constraints exists
+
+        # We need to
         self._connection_creator.update_view_cache(view_ids=target_view_ids)
+        self._update_existing_node_cache(mapped_instances)
 
         if issue_by_node_id:
             self.logger.log(list(issue_by_node_id.values()))
@@ -809,6 +812,46 @@ class FDMtoCDMMapper(DataMapper[InstanceSelector, InstanceResponse, InstanceRequ
                     EdgeTypeId(type=item.type, direction="inwards")
                 ].append(EdgeOtherSide(edge_id, item.start_node))
         return nodes, other_side_by_edge_type_and_direction_by_source
+
+    def _update_existing_node_cache(self, mapped_instances: Sequence[InstanceRequest | EdgeRequest | None]) -> None:
+        to_check: list[NodeId] = []
+        for mapped_node in mapped_instances:
+            if mapped_node is None or isinstance(mapped_node, EdgeRequest):
+                # We assume edges do not have direct relations.
+                continue
+            for source in mapped_node.sources or []:
+                if source.properties is None or not isinstance(source.source, ViewId):
+                    continue
+                if source.source not in self._constrained_properties_by_view_id:
+                    view = self._connection_creator.view_by_id[source.source]
+                    self._constrained_properties_by_view_id[source.source] = {
+                        prop_id
+                        for prop_id, prop in view.properties.items()
+                        if isinstance(prop, ViewCorePropertyResponse)
+                        and isinstance(prop.type, DirectNodeRelation)
+                        and prop.container is not None
+                    }
+                if direct_relation_properties := (
+                    self._constrained_properties_by_view_id[source.source] & set(source.properties.keys())
+                ):
+                    for prop_id in direct_relation_properties:
+                        value = source.properties[prop_id]
+                        if isinstance(value, dict):
+                            try:
+                                to_check.append(NodeId.model_validate(value))
+                            except ValidationError:
+                                continue
+                        elif isinstance(value, list):
+                            try:
+                                to_check.extend(TypeAdapter(list[NodeId]).validate_python(value))
+                            except ValidationError:
+                                continue
+
+        missing_in_cache = set(to_check) - set(self._is_existing_by_node_id.keys())
+        if missing_in_cache:
+            existing_node_ids = {node.as_id() for node in self.client.tool.instances.retrieve(list(missing_in_cache))}
+            for node_id in missing_in_cache:
+                self._is_existing_by_node_id[node_id] = node_id in existing_node_ids
 
     def _map_single_node(
         self,
