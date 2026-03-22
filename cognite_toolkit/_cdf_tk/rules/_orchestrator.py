@@ -1,5 +1,6 @@
 from collections.abc import Callable
 
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import InsightList
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Module, SuccessfulReadResource
 from cognite_toolkit._cdf_tk.rules._base import ToolkitResourceRule
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
@@ -36,7 +37,7 @@ class RulesOrchestrator:
         self._can_run_validator = can_run_validator or (lambda code, issue_type: True)
         self._enable_alpha_validators = enable_alpha_validators
 
-    def run(self, module: Module) -> None:
+    def run(self, module: Module) -> InsightList:
         """Run all applicable rules on the provided modules while updating modules insights.
 
         Args:
@@ -44,7 +45,7 @@ class RulesOrchestrator:
         """
 
         rules_registry = get_rules_registry()
-
+        all_insights = InsightList()
         for resource in module.resources:
             if not isinstance(resource, SuccessfulReadResource):
                 continue
@@ -54,4 +55,5 @@ class RulesOrchestrator:
 
                 if self._can_run_validator(rule.code, rule.insight_type):
                     if insights := rule([resource.resource]).validate():
-                        module.insights.extend(insights)
+                        all_insights.extend(insights)
+        return all_insights

@@ -255,13 +255,18 @@ class BuildV2Command(ToolkitCommand):
     def _build_modules(self, module_sources: Sequence[ModuleSource], build_dir: Path) -> BuildFolder:
         build_dir.mkdir(parents=True, exist_ok=True)
         folder: BuildFolder = BuildFolder(path=build_dir)
+        # If parallelizing the build, this should be a multiprocessing.Manager().Counter() or similar.
         resource_counter: Counter = Counter()
+        # and use one orchestrator per process
+        orchestrator = RulesOrchestrator()
         for source in module_sources:
             # Inside this loop, do not raise exceptions.
             module = self._import_module(source)  # Syntax validation
-            # Todo: Avoid mutating module object.
-            self._local_validation(module)
+            # Local validation of module
+            insights = orchestrator.run(module)
             built_module = self._export_module(module, resource_counter, build_dir)
+            built_module.insights.extend(insights)
+
             folder.built_modules.append(built_module)
 
         return folder
@@ -426,7 +431,6 @@ class BuildV2Command(ToolkitCommand):
 
     def _export_module(self, module: Module, resource_counter: Counter, build_dir: Path) -> BuiltModule:
         built_module = BuiltModule(
-            source=module.source,
             module_id=module.source.as_id(),
             dependencies={},
         )
@@ -467,10 +471,6 @@ class BuildV2Command(ToolkitCommand):
         for error_details in error.errors(include_input=True, include_url=False):
             message = error_details.get("msg", "Unknown syntax error")
             yield ModelSyntaxError(code=f"{resource_type}-SYNTAX-ERROR", message=message)
-
-    def _local_validation(self, module: Module) -> None:
-        """Local validations are post-syntax validations executed"""
-        RulesOrchestrator().run(module)
 
     def _cdf_dependency_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
         """CDF dependency validations are validations that require checking the existence of resources in CDF."""

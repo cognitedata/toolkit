@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
 from ._insights import InsightList
-from ._module import ModuleId, ModuleSource
+from ._module import ModuleId
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
 
@@ -62,9 +62,6 @@ class BuiltModule(BaseModel):
     module_id: ModuleId
     resources: list[BuiltResource] = Field(default_factory=list)
 
-    # From source we only need the ModuleIdentifier (path, id, name)
-    # Todo: Replace source with ModuleId
-    source: ModuleSource
     # Replace with above
     built_files_by_source: dict[Path, Path] = Field(
         default_factory=dict, description="Mapping of built file paths to their corresponding source file paths"
@@ -95,7 +92,7 @@ class BuiltModule(BaseModel):
         return not self.insights.has_errors and self.files_built
 
     def __hash__(self) -> int:
-        return hash(self.source.path)
+        return hash(self.module_id.path)
 
 
 class BuildFolder(BaseModel):

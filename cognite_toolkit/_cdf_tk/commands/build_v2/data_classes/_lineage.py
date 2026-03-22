@@ -116,8 +116,8 @@ class ModuleLineageItem(_BaseLineageModel):
                     )
 
         return cls(
-            module_id=module.source.id.as_posix(),
-            module_path=module.source.path,
+            module_id=module.module_id.id.as_posix(),
+            module_path=module.module_id.path,
             resource_lineage=resource_lineage,
             insights_summary=module.insights.summary,
         )
