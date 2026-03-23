@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     BooleanProperty,
     ConstraintOrIndexState,
+    ContainerPropertyDefinition,
     ContainerId,
     DateProperty,
     DirectNodeRelation,
@@ -39,6 +40,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId, CreatedSourceSystem
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
@@ -49,6 +52,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     DirectRelationCache,
     EdgeOtherSide,
     asset_centric_to_dm,
+    asset_centric_to_record,
     convert_container_properties,
     convert_edges,
     create_properties,
@@ -1623,3 +1627,103 @@ class TestInstanceToInstanceConversion:
         assert results.container_properties == expected_relations
         assert [edge.model_dump() for edge in results.edges] == [edge.model_dump() for edge in expected_edges]
         assert results.errors == expected_errors
+
+
+class TestAssetCentricToRecord:
+    CONTAINER_ID = ContainerId(space="my_stream_space", external_id="EventContainer")
+    INSTANCE_ID = NodeId(space="my_space", external_id="event_42")
+
+    def _make_record_mapping(self, property_mapping: dict[str, str]) -> RecordPropertyMapping:
+        return RecordPropertyMapping(
+            external_id="my_event_mapping",
+            resource_type="event",
+            container_id=self.CONTAINER_ID,
+            stream_external_id="my_stream",
+            property_mapping=property_mapping,
+        )
+
+    def _make_container_properties(self) -> dict[str, ContainerPropertyDefinition]:
+        def prop(data_type: Any) -> ContainerPropertyDefinition:
+            return ContainerPropertyDefinition(type=data_type, nullable=True, immutable=False, auto_increment=False)
+
+        return {
+            "description": prop(TextProperty()),
+            "startTime": prop(TimestampProperty()),
+        }
+
+    @staticmethod
+    def _make_direct_relation_cache() -> DirectRelationCache:
+        return DirectRelationCache(MagicMock(spec=ToolkitClient))
+
+    def test_basic_event_conversion(self) -> None:
+        event = EventResponse(
+            id=42,
+            description="An event",
+            start_time=0,
+            created_time=1,
+            last_updated_time=2,
+        )
+        record_mapping = self._make_record_mapping({"description": "description", "startTime": "startTime"})
+        container_properties = self._make_container_properties()
+
+        record, issue = asset_centric_to_record(
+            event,
+            instance_id=self.INSTANCE_ID,
+            record_mapping=record_mapping,
+            container_properties=container_properties,
+            direct_relation_cache=self._make_direct_relation_cache(),
+        )
+
+        assert record is not None
+        assert record.space == self.INSTANCE_ID.space
+        assert record.external_id == self.INSTANCE_ID.external_id
+        assert len(record.sources) == 1
+        assert record.sources[0].source == self.CONTAINER_ID
+        assert record.sources[0].properties["description"] == "An event"
+        assert record.sources[0].properties["startTime"] == "1970-01-01T00:00:00.000+00:00"
+
+    def test_id_and_metadata_fields_are_excluded(self) -> None:
+        """id, externalId, dataSetId must not appear in mapped properties."""
+        event = EventResponse(
+            id=99,
+            external_id="evt_99",
+            data_set_id=100,
+            description="Test",
+            created_time=0,
+            last_updated_time=0,
+        )
+        # Map all possible fields so we can check excluded ones don't appear
+        record_mapping = self._make_record_mapping({"description": "description"})
+        container_properties = self._make_container_properties()
+
+        record, _ = asset_centric_to_record(
+            event,
+            instance_id=self.INSTANCE_ID,
+            record_mapping=record_mapping,
+            container_properties=container_properties,
+            direct_relation_cache=self._make_direct_relation_cache(),
+        )
+
+        assert record is not None
+        assert len(record.sources) == 1
+        # Verify the dumped record body does not contain id/externalId/dataSetId
+        body = record.sources[0].properties
+        assert "id" not in body
+        assert "externalId" not in body
+        assert "dataSetId" not in body
+
+    def test_no_mappable_properties_yields_empty_sources(self) -> None:
+        event = EventResponse(id=1, description="Event", created_time=0, last_updated_time=0)
+        record_mapping = self._make_record_mapping({})  # empty mapping
+        container_properties = self._make_container_properties()
+
+        record, _ = asset_centric_to_record(
+            event,
+            instance_id=self.INSTANCE_ID,
+            record_mapping=record_mapping,
+            container_properties=container_properties,
+            direct_relation_cache=self._make_direct_relation_cache(),
+        )
+
+        assert record is not None
+        assert record.sources == []

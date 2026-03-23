@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import Cognite
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricToInstanceMapper
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import (
     ASSET_ID,
     EVENT_ID,
@@ -87,7 +87,7 @@ class TestMigrateAssetsCommand:
         cmd.migrate(
             selectors=[MigrationCSVFileSelector(datafile=input_file, kind="Assets")],
             data=AssetCentricMigrationIO(client),
-            mapper=AssetCentricMapper(client),
+            mapper=AssetCentricToInstanceMapper(client),
             log_dir=tmp_path / "logs",
             dry_run=False,
             verbose=False,
@@ -111,7 +111,7 @@ class TestMigrateAssetsCommand:
         result = cmd.migrate(
             selectors=[selector],
             data=AssetCentricMigrationIO(client),
-            mapper=AssetCentricMapper(client),
+            mapper=AssetCentricToInstanceMapper(client),
             log_dir=tmp_path,
             dry_run=True,
         )
@@ -135,7 +135,7 @@ class TestMigrateEventsCommand:
         result = cmd.migrate(
             selectors=[selector],
             data=AssetCentricMigrationIO(client),
-            mapper=AssetCentricMapper(client),
+            mapper=AssetCentricToInstanceMapper(client),
             log_dir=tmp_path,
             dry_run=True,
         )
@@ -159,7 +159,7 @@ class TestMigrateTimeSeriesCommand:
         result = cmd.migrate(
             selectors=[selector],
             data=AssetCentricMigrationIO(client, skip_linking=True),
-            mapper=AssetCentricMapper(client),
+            mapper=AssetCentricToInstanceMapper(client),
             log_dir=tmp_path,
             dry_run=True,
         )
@@ -183,7 +183,7 @@ class TestMigrateFileMetadataCommand:
         result = cmd.migrate(
             selectors=[selector],
             data=AssetCentricMigrationIO(client, skip_linking=False),
-            mapper=AssetCentricMapper(client),
+            mapper=AssetCentricToInstanceMapper(client),
             log_dir=tmp_path,
             dry_run=True,
         )
@@ -205,7 +205,7 @@ class TestMigrateAnnotations:
         result = cmd.migrate(
             selectors=[selector],
             data=AnnotationMigrationIO(client, instance_space="my_annotations_space"),
-            mapper=AssetCentricMapper(client),
+            mapper=AssetCentricToInstanceMapper(client),
             log_dir=tmp_path,
             dry_run=True,
             verbose=True,
@@ -272,7 +272,7 @@ class TestMigrateFiles:
         result = cmd.migrate(
             selectors=[selected_cdm_file],
             data=AssetCentricMigrationIO(client, skip_linking=False),
-            mapper=AssetCentricMapper(client),
+            mapper=AssetCentricToInstanceMapper(client),
             log_dir=tmp_path,
             dry_run=False,
         )
@@ -291,7 +291,7 @@ class TestMigrateFiles:
         result = cmd.migrate(
             selectors=[selected_cdm_file],
             data=AssetCentricMigrationIO(client, skip_existing=True),
-            mapper=AssetCentricMapper(client),
+            mapper=AssetCentricToInstanceMapper(client),
             log_dir=tmp_path,
             dry_run=False,
         )

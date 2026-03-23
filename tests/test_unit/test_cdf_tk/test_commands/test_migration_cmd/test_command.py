@@ -42,7 +42,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
 )
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, CanvasMapper, ChartMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricToInstanceMapper, CanvasMapper, ChartMapper
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
     COGNITE_MIGRATION_MODEL,
     COGNITE_MIGRATION_SPACE_ID,
@@ -248,7 +248,7 @@ class TestMigrationCommand:
         results_by_selector = command.migrate(
             selectors=[selector],
             data=AssetCentricMigrationIO(client),
-            mapper=AssetCentricMapper(client),
+            mapper=AssetCentricToInstanceMapper(client),
             log_dir=logs,
             dry_run=False,
             verbose=False,
@@ -377,7 +377,7 @@ class TestMigrationCommand:
             results_by_selector = command.migrate(
                 selectors=[selector],
                 data=AssetCentricMigrationIO(client),
-                mapper=AssetCentricMapper(client),
+                mapper=AssetCentricToInstanceMapper(client),
                 log_dir=logs,
                 dry_run=False,
                 verbose=False,
@@ -523,7 +523,7 @@ class TestMigrationCommand:
         results_by_selector = command.migrate(
             selectors=[selector],
             data=AnnotationMigrationIO(client),
-            mapper=AssetCentricMapper(client),
+            mapper=AssetCentricToInstanceMapper(client),
             log_dir=tmp_path / "logs",
             dry_run=False,
             verbose=True,

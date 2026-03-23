@@ -124,14 +124,63 @@ class DataMapper(Generic[T_Selector, T_DataResponse, T_DataRequest], ABC):
         raise NotImplementedError("Subclasses must implement this method.")
 
 
-class AssetCentricMapper(
-    DataMapper[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResourceExtended], InstanceRequest]
+class AssetCentricDataMapper(
+    DataMapper[
+        AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResourceExtended], T_DataRequest
+    ],
+    Generic[T_AssetCentricResourceExtended, T_DataRequest],
+    ABC,
 ):
+    """Base class for mappers that convert asset-centric resources using a DirectRelationCache."""
+
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client)
+        self._direct_relation_cache = DirectRelationCache(client)
+
+    @abstractmethod
+    def _map_single_item(
+        self, item: AssetCentricMapping[T_AssetCentricResourceExtended]
+    ) -> tuple[T_DataRequest | None, ConversionIssue]:
+        raise NotImplementedError
+
+    def map(
+        self, source: Sequence[AssetCentricMapping[T_AssetCentricResourceExtended]]
+    ) -> Sequence[T_DataRequest | None]:
+        self._direct_relation_cache.update(item.resource for item in source)
+        output: list[T_DataRequest | None] = []
+        issues: list[ConversionIssue] = []
+        for item in source:
+            result, conversion_issue = self._map_single_item(item)
+            identifier = str(item.mapping.as_asset_centric_id())
+
+            if conversion_issue.missing_instance_space:
+                self.logger.tracker.add_issue(identifier, "Missing instance space")
+            if conversion_issue.failed_conversions:
+                self.logger.tracker.add_issue(identifier, "Failed conversions")
+            if conversion_issue.invalid_instance_property_types:
+                self.logger.tracker.add_issue(identifier, "Invalid instance property types")
+            if conversion_issue.missing_asset_centric_properties:
+                self.logger.tracker.add_issue(identifier, "Missing asset-centric properties")
+            if conversion_issue.missing_instance_properties:
+                self.logger.tracker.add_issue(identifier, "Missing data modeling properties")
+            if conversion_issue.ignored_asset_centric_properties:
+                self.logger.tracker.add_issue(identifier, "Ignored asset-centric properties")
+
+            if conversion_issue.has_issues:
+                issues.append(conversion_issue)
+            if result is None:
+                self.logger.tracker.finalize_item(identifier, "failure")
+            output.append(result)
+        if issues:
+            self.logger.log(issues)
+        return output
+
+
+class AssetCentricToInstanceMapper(AssetCentricDataMapper[T_AssetCentricResourceExtended, InstanceRequest]):
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
         self._ingestion_view_by_id: dict[ViewId, ViewResponse] = {}
         self._view_mapping_by_id: dict[str, ResourceViewMappingRequest] = {}
-        self._direct_relation_cache = DirectRelationCache(client)
 
     def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
         ingestion_view_ids = source_selector.get_ingestion_mappings()
@@ -164,41 +213,6 @@ class AssetCentricMapper(
                 f"The following ingestion views were not found in Data Modeling: {humanize_collection(missing_views)}"
             )
 
-    def map(
-        self, source: Sequence[AssetCentricMapping[T_AssetCentricResourceExtended]]
-    ) -> Sequence[InstanceRequest | None]:
-        """Map a chunk of asset-centric data to InstanceApplyList format."""
-        # We update the direct relation cache in bulk for all resources in the chunk.
-        self._direct_relation_cache.update(item.resource for item in source)
-        output: list[InstanceRequest | None] = []
-        issues: list[ConversionIssue] = []
-        for item in source:
-            instance, conversion_issue = self._map_single_item(item)
-            identifier = str(item.mapping.as_asset_centric_id())
-
-            if conversion_issue.missing_instance_space:
-                self.logger.tracker.add_issue(identifier, "Missing instance space")
-            if conversion_issue.failed_conversions:
-                self.logger.tracker.add_issue(identifier, "Failed conversions")
-            if conversion_issue.invalid_instance_property_types:
-                self.logger.tracker.add_issue(identifier, "Invalid instance property types")
-            if conversion_issue.missing_asset_centric_properties:
-                self.logger.tracker.add_issue(identifier, "Missing asset-centric properties")
-            if conversion_issue.missing_instance_properties:
-                self.logger.tracker.add_issue(identifier, "Missing data modeling properties")
-            if conversion_issue.ignored_asset_centric_properties:
-                self.logger.tracker.add_issue(identifier, "Ignored asset-centric properties")
-
-            if conversion_issue.has_issues:
-                issues.append(conversion_issue)
-
-            if instance is None:
-                self.logger.tracker.finalize_item(identifier, "failure")
-            output.append(instance)
-        if issues:
-            self.logger.log(issues)
-        return output
-
     def _map_single_item(
         self, item: AssetCentricMapping[T_AssetCentricResourceExtended]
     ) -> tuple[NodeRequest | EdgeRequest | None, ConversionIssue]:
@@ -229,16 +243,13 @@ class AssetCentricMapper(
         return instance, conversion_issue
 
 
-class RecordsMapper(
-    DataMapper[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResourceExtended], RecordRequest]
-):
+class AssetCentricToRecordMapper(AssetCentricDataMapper[T_AssetCentricResourceExtended, RecordRequest]):
     def __init__(self, client: ToolkitClient, record_mappings: Sequence[RecordPropertyMapping]) -> None:
         super().__init__(client)
         self._record_mapping_by_id: dict[str, RecordPropertyMapping] = {
             mapping.external_id: mapping for mapping in record_mappings
         }
         self._container_properties_by_id: dict[ContainerId, dict[str, ContainerPropertyDefinition]] = {}
-        self._direct_relation_cache = DirectRelationCache(client)
 
     def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
         container_ids = list({mapping.container_id for mapping in self._record_mapping_by_id.values()})
@@ -247,44 +258,6 @@ class RecordsMapper(
         missing = set(container_ids) - set(self._container_properties_by_id.keys())
         if missing:
             raise ToolkitValueError(f"The following containers were not found in CDF: {humanize_collection(missing)}")
-
-    def map(
-        self, source: Sequence[AssetCentricMapping[T_AssetCentricResourceExtended]]
-    ) -> Sequence[RecordRequest | None]:
-        self._direct_relation_cache.update(item.resource for item in source)
-        output: list[RecordRequest | None] = []
-        issues: list[ConversionIssue] = []
-        for item in source:
-            record, conversion_issue = self._map_single_item(item)
-            identifier = str(item.mapping.as_asset_centric_id())
-
-            if conversion_issue.missing_instance_space:
-                self.logger.tracker.add_issue(identifier, "Missing instance space")
-            if conversion_issue.failed_conversions:
-                self.logger.tracker.add_issue(identifier, "Failed conversions")
-            if conversion_issue.missing_asset_centric_properties:
-                self.logger.tracker.add_issue(identifier, "Missing asset-centric properties")
-            if conversion_issue.missing_instance_properties:
-                self.logger.tracker.add_issue(identifier, "Missing data modeling properties")
-            if conversion_issue.ignored_asset_centric_properties:
-                self.logger.tracker.add_issue(identifier, "Ignored asset-centric properties")
-
-            if record is not None and not record.sources:
-                self.logger.tracker.add_issue(
-                    identifier,
-                    "No properties could be successfully mapped (at least one property is required to create a record)",
-                )
-                record = None
-
-            if conversion_issue.has_issues:
-                issues.append(conversion_issue)
-
-            if record is None:
-                self.logger.tracker.finalize_item(identifier, "failure")
-            output.append(record)
-        if issues:
-            self.logger.log(issues)
-        return output
 
     def _map_single_item(
         self, item: AssetCentricMapping[T_AssetCentricResourceExtended]
@@ -307,6 +280,12 @@ class RecordsMapper(
         )
         if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
             conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {mapping.data_set_id!r}"
+        if record is not None and not record.sources:
+            self.logger.tracker.add_issue(
+                str(item.mapping.as_asset_centric_id()),
+                "No properties could be successfully mapped (at least one property is required to create a record)",
+            )
+            return None, conversion_issue
         return record, conversion_issue
 
 

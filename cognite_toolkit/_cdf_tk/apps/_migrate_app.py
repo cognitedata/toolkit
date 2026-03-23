@@ -24,12 +24,12 @@ from cognite_toolkit._cdf_tk.commands._migrate.creators import (
     SourceSystemCreator,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
-    AssetCentricMapper,
+    AssetCentricToInstanceMapper,
+    AssetCentricToRecordMapper,
     CanvasMapper,
     ChartMapper,
     FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
-    RecordsMapper,
     ThreeDAssetMapper,
     ThreeDMapper,
 )
@@ -402,7 +402,7 @@ class MigrateApp(typer.Typer):
             lambda: cmd.migrate(
                 selectors=[selected],
                 data=AssetCentricMigrationIO(client, skip_existing=skip_existing),
-                mapper=AssetCentricMapper(client),
+                mapper=AssetCentricToInstanceMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
@@ -593,7 +593,7 @@ class MigrateApp(typer.Typer):
             lambda: cmd.migrate(
                 selectors=[selected],
                 data=AssetCentricMigrationIO(client, skip_existing=skip_existing),
-                mapper=AssetCentricMapper(client),
+                mapper=AssetCentricToInstanceMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
@@ -689,7 +689,7 @@ class MigrateApp(typer.Typer):
                 data=RecordsMigrationIO(
                     client, stream_external_id=stream_external_id, skip_existing=skip_existing
                 ),
-                mapper=RecordsMapper(client, record_mappings=record_mappings),
+                mapper=AssetCentricToRecordMapper(client, record_mappings=record_mappings),
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
@@ -815,7 +815,7 @@ class MigrateApp(typer.Typer):
             lambda: cmd.migrate(
                 selectors=[selected],
                 data=AssetCentricMigrationIO(client, skip_linking=skip_linking, skip_existing=skip_existing),
-                mapper=AssetCentricMapper(client),
+                mapper=AssetCentricToInstanceMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
@@ -942,7 +942,7 @@ class MigrateApp(typer.Typer):
             lambda: cmd.migrate(
                 selectors=[selected],
                 data=AssetCentricMigrationIO(client, skip_linking=skip_linking, skip_existing=skip_existing),
-                mapper=AssetCentricMapper(client),
+                mapper=AssetCentricToInstanceMapper(client),
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,
@@ -1084,7 +1084,7 @@ class MigrateApp(typer.Typer):
             lambda: cmd.migrate(
                 selectors=[selected],
                 data=annotation_io,
-                mapper=AssetCentricMapper[AnnotationResponse](client),
+                mapper=AssetCentricToInstanceMapper[AnnotationResponse](client),
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,

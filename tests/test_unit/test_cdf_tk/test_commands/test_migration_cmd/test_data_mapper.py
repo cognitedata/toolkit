@@ -10,6 +10,7 @@ from cognite.client.data_classes.data_modeling import InstanceApply
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId, EdgeTypeId, NodeId, ViewDirectId, ViewId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerPropertyDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     IndustrialCanvasResponse,
@@ -36,8 +37,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewCorePropertyResponse,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import CreatedSourceSystem
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
+
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
@@ -52,10 +56,11 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     MigrationMapping,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
-    AssetCentricMapper,
+    AssetCentricToInstanceMapper,
     CanvasMapper,
     FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
+    AssetCentricToRecordMapper,
     ThreeDAssetMapper,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.issues import CanvasMigrationIssue
@@ -65,7 +70,7 @@ from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, OperationTracke
 from tests.data import MIGRATION_DIR
 
 
-class TestAssetCentricMapper:
+class TestAssetCentricToInstanceMapper:
     def test_map_assets(
         self,
         tmp_path: Path,
@@ -131,7 +136,7 @@ class TestAssetCentricMapper:
             ]
             client.tool.views.retrieve.return_value = cognite_core_no_3D.views + cognite_extractor_views
 
-            mapper = AssetCentricMapper(client)
+            mapper = AssetCentricToInstanceMapper(client)
 
             mapper.prepare(selected)
 
@@ -176,7 +181,7 @@ class TestAssetCentricMapper:
         )
 
         with monkeypatch_toolkit_client() as client:
-            mapper = AssetCentricMapper(client)
+            mapper = AssetCentricToInstanceMapper(client)
 
             # Call map_chunk without calling prepare first
             with pytest.raises(
@@ -196,7 +201,7 @@ class TestAssetCentricMapper:
             # Return empty list to simulate missing view source
             client.migration.resource_view_mapping.retrieve.return_value = []
 
-            mapper = AssetCentricMapper(client)
+            mapper = AssetCentricToInstanceMapper(client)
 
             with pytest.raises(
                 ToolkitValueError, match=r"The following ingestion views were not found: missing_view_source"
@@ -230,7 +235,7 @@ class TestAssetCentricMapper:
             # Return empty list to simulate missing view in Data Modeling
             client.data_modeling.views.retrieve.return_value = []
 
-            mapper = AssetCentricMapper(client)
+            mapper = AssetCentricToInstanceMapper(client)
 
             with pytest.raises(ToolkitValueError) as exc_info:
                 mapper.prepare(selected)
@@ -860,3 +865,70 @@ class TestInFieldLegacyToCDMScheduleMapper:
         assert len(mapped_schedules) == 2
 
         data_regression.check({"schedules": [s.dump() for s in mapped_schedules]})
+
+
+class TestAssetCentricToRecordMapper:
+    CONTAINER_ID = ContainerId(space="stream_space", external_id="EventContainer")
+    STREAM_EXTERNAL_ID = "my_stream"
+
+    def _make_record_mapping(self, property_mapping: dict[str, str] | None = None) -> RecordPropertyMapping:
+        return RecordPropertyMapping(
+            external_id="my_event_mapping",
+            resource_type="event",
+            container_id=self.CONTAINER_ID,
+            stream_external_id=self.STREAM_EXTERNAL_ID,
+            property_mapping={"description": "description"} if property_mapping is None else property_mapping,
+        )
+
+    def _make_container_response(self) -> Any:
+        container = MagicMock()
+        container.as_id.return_value = self.CONTAINER_ID
+        container.properties = {
+            "description": ContainerPropertyDefinition(type=TextProperty(), nullable=True, immutable=False, auto_increment=False),
+        }
+        return container
+
+    def _make_source(self, index: int, ingestion_mapping: str = "my_event_mapping") -> AssetCentricMapping:
+        return AssetCentricMapping(
+            mapping=MigrationMapping(
+                resource_type="event",
+                instance_id=NodeId(space="my_space", external_id=f"event_{index}"),
+                id=index,
+                ingestion_mapping=ingestion_mapping,
+            ),
+            resource=EventResponse(
+                id=index,
+                description=f"Event {index}",
+                created_time=0,
+                last_updated_time=1,
+            ),
+        )
+
+    def test_map_no_properties_yields_none(self) -> None:
+        """If no properties map successfully the record must be None and an issue logged."""
+        source = [self._make_source(0)]
+        record_mapping = self._make_record_mapping(property_mapping={})  # nothing to map
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.containers.retrieve.return_value = [self._make_container_response()]
+
+            mapper = AssetCentricToRecordMapper(client, record_mappings=[record_mapping])
+            mapper.logger = MagicMock(spec=DataLogger)
+            mapper.logger.tracker = MagicMock(spec_set=OperationTracker)
+            mapper.logger.log = MagicMock()
+            mapper.prepare(MagicMock())
+            results = mapper.map(source)
+
+        assert results[0] is None
+        issue_messages = [call.args[1] for call in mapper.logger.tracker.add_issue.call_args_list]
+        assert any("No properties could be successfully mapped" in msg for msg in issue_messages)
+
+    def test_prepare_missing_container_raises(self) -> None:
+        record_mapping = self._make_record_mapping()
+
+        with monkeypatch_toolkit_client() as client:
+            client.tool.containers.retrieve.return_value = []
+
+            mapper = AssetCentricToRecordMapper(client, record_mappings=[record_mapping])
+            with pytest.raises(ToolkitValueError, match="not found in CDF"):
+                mapper.prepare(MagicMock())
