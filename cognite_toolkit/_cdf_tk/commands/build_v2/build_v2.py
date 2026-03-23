@@ -262,12 +262,10 @@ class BuildV2Command(ToolkitCommand):
         return selected, errors
 
     def _prepare_build_directory(self, build_dir: Path) -> None:
-        is_populated = build_dir.exists() and any(build_dir.iterdir())
-        if is_populated:
+        """Ensures the build directory is clean before a build."""
+        if build_dir.exists():
             safe_rmtree(build_dir)
-            build_dir.mkdir()
-        elif not build_dir.exists():
-            build_dir.mkdir()
+        build_dir.mkdir(parents=True)
         return None
 
     def _build_modules(self, module_sources: Sequence[ModuleSource], build_dir: Path) -> list[BuiltModule]:
