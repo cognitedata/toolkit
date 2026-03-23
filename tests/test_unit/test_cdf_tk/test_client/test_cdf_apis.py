@@ -924,10 +924,21 @@ class TestCDFResourceAPI:
         assert len(respx_mock.calls) >= 1  # At least one call should have been made
         assert len(deleted) == 1
 
-        # Test list/paginate/iterate
-        respx_mock.post(config.create_api_url("/models/instances/list")).mock(
-            return_value=httpx.Response(status_code=200, json={"items": [example]})
-        )
+        # Test list/paginate/iterate (via POST /models/instances/query)
+        query_url = config.create_api_url("/models/instances/query")
+        query_page = {"items": {"root": [example]}, "nextCursor": {"root": None}}
+        respx_mock.post(query_url).mock(return_value=httpx.Response(status_code=200, json=query_page))
         listed = api.list(limit=10)
         assert len(listed) == 1
         assert listed[0].dump() == example
+
+        page = api.paginate(limit=10)
+        assert isinstance(page, PagedResponse)
+        assert len(page.items) == 1
+        assert page.items[0].dump() == example
+        assert page.next_cursor is None
+
+        iterated = list(api.iterate(limit=10))
+        assert len(iterated) == 1
+        assert len(iterated[0]) == 1
+        assert iterated[0][0].dump() == example

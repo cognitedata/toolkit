@@ -58,7 +58,7 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
             "and": [template_filter, {"equals": {"property": ["node", "space"], "value": instance_space}}]
         }
     return InstanceQuerySelector(
-        endpoint="sync",
+        endpoint="query",
         query=QueryRequest(
             with_={
                 "template": QueryNodeExpression(
@@ -117,6 +117,7 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
                 "templateItemEdges": QuerySelect(),
                 "templateEdges": QuerySelect(),
             },
+            root="template",
         ).model_dump_json(),
         root="template",
         subselections=tuple(["schedules", "templateItemEdges", "templateEdges"]),

@@ -1,3 +1,4 @@
+import json
 from abc import ABC, abstractmethod
 from functools import cached_property
 from pathlib import Path
@@ -5,8 +6,9 @@ from typing import Literal
 
 from pydantic import Field
 
+from cognite_toolkit._cdf_tk.client.api.instances import QueryEndpoint
 from cognite_toolkit._cdf_tk.client.identifiers import EdgeId, EdgeTypeId, InstanceDefinitionId, NodeId
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId, ViewNoVersionId
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import QueryRequest, ViewId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.constants import DM_EXTERNAL_ID_PATTERN, DM_VERSION_PATTERN, SPACE_FORMAT_PATTERN
 from cognite_toolkit._cdf_tk.storageio._data_classes import InstanceIdCSVList
 from cognite_toolkit._cdf_tk.storageio.selectors._base import DataSelector, SelectorObject
@@ -65,6 +67,7 @@ class InstanceViewSelector(InstanceSelector):
     instance_type: Literal["node", "edge"] = "node"
     instance_spaces: tuple[str, ...] | None = None
     edge_types: tuple[EdgeTypeId, ...] | None = None
+    endpoint: QueryEndpoint = "query"
 
     def get_schema_spaces(self) -> list[str] | None:
         return [self.view.space]
@@ -90,6 +93,7 @@ class InstanceSpaceSelector(InstanceSelector):
     instance_space: str
     instance_type: Literal["node", "edge"] = "node"
     view: SelectedView | None = None
+    endpoint: QueryEndpoint = "query"
 
     def get_schema_spaces(self) -> list[str] | None:
         return [self.view.space] if self.view else None
@@ -180,7 +184,7 @@ class InstanceQuerySelector(InstanceSelector):
     """
 
     type: Literal["instanceQuery"] = "instanceQuery"
-    endpoint: Literal["query", "sync"] = "query"
+    endpoint: QueryEndpoint = "query"
     query: str
     root: str
     subselections: tuple[str, ...]
@@ -193,3 +197,8 @@ class InstanceQuerySelector(InstanceSelector):
 
     def __str__(self) -> str:
         return f"query_{self.root}_{'_'.join(self.subselections)}"
+
+    def create_query(self) -> QueryRequest:
+        data = json.loads(self.query)
+        data["root"] = self.root
+        return QueryRequest.model_validate(data)

@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
+from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
 from cognite_toolkit._cdf_tk.storageio import DataItem, InstanceIO, Page
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSpaceSelector, InstanceViewSelector, SelectedView
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -30,7 +31,7 @@ class TestInstanceIO:
         self, rsps: responses.RequestsMock, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
     ) -> None:
         client = ToolkitClient(config=toolkit_config)
-        url = toolkit_config.create_api_url("/models/instances/list")
+        url = toolkit_config.create_api_url("/models/instances/query")
         selector = InstanceViewSelector(
             view=SelectedView(space="mySpace", external_id="myView", version="v42"),
             instance_type="node",
@@ -51,55 +52,36 @@ class TestInstanceIO:
             },
         )
 
+        def _node_dict(i: int) -> dict:
+            return {
+                "externalId": f"instance_{i}",
+                "space": "my_space",
+                "instanceType": "node",
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+                "version": 1,
+            }
+
         respx_mock.post(url).side_effect = [
             httpx.Response(
                 status_code=200,
                 json={
-                    "items": [
-                        {
-                            "externalId": f"instance_{i}",
-                            "space": "my_space",
-                            "instanceType": "node",
-                            "createdTime": 0,
-                            "lastUpdatedTime": 0,
-                            "version": 1,
-                        }
-                        for i in range(1000)
-                    ],
-                    "nextCursor": "cursor_1",
+                    "items": {"root": [_node_dict(i) for i in range(1000)]},
+                    "nextCursor": {"root": "cursor_1"},
                 },
             ),
             httpx.Response(
                 status_code=200,
                 json={
-                    "items": [
-                        {
-                            "externalId": f"instance_{i}",
-                            "space": "my_space",
-                            "instanceType": "node",
-                            "createdTime": 0,
-                            "lastUpdatedTime": 0,
-                            "version": 1,
-                        }
-                        for i in range(1000, 2000)
-                    ],
-                    "nextCursor": "cursor_2",
+                    "items": {"root": [_node_dict(i) for i in range(1000, 2000)]},
+                    "nextCursor": {"root": "cursor_2"},
                 },
             ),
             httpx.Response(
                 status_code=200,
                 json={
-                    "items": [
-                        {
-                            "externalId": f"instance_{i}",
-                            "space": "my_space",
-                            "instanceType": "node",
-                            "createdTime": 0,
-                            "lastUpdatedTime": 0,
-                            "version": 1,
-                        }
-                        for i in range(2000, N)
-                    ]
+                    "items": {"root": [_node_dict(i) for i in range(2000, N)]},
+                    "nextCursor": {"root": None},
                 },
             ),
         ]
@@ -224,8 +206,8 @@ class TestInstanceIO:
             status=200,
         )
         # Download data
-        respx_mock.post(config.create_api_url("/models/instances/list")).respond(
-            json={"items": [inst.dump() for inst in some_instance_data]},
+        respx_mock.post(config.create_api_url("/models/instances/query")).respond(
+            json={"items": {"root": [inst.dump() for inst in some_instance_data]}, "nextCursor": {"root": None}},
             status_code=200,
         )
         # Space
@@ -380,7 +362,9 @@ class TestInstanceIO:
                 json={
                     "items": {
                         "nodes": [_node("node_0"), _node("node_1")],
-                        "edge_1": [_edge("edge_0", "node_0", "node_1"), _edge("edge_1", "node_1", "node_0")],
+                        "edge_1": [
+                            _edge(f"edge_{i}", "node_0", "node_1") for i in range(SUBSELECTION_LIMIT_QUERY_ENDPOINT)
+                        ],
                     },
                     "nextCursor": {"nodes": "node_cursor_1", "edge_1": "edge_cursor_1"},
                 },
@@ -391,7 +375,7 @@ class TestInstanceIO:
                 json={
                     "items": {
                         "nodes": [],
-                        "edge_1": [_edge("edge_2", "node_0", "node_1")],
+                        "edge_1": [_edge(f"edge_{SUBSELECTION_LIMIT_QUERY_ENDPOINT}", "node_0", "node_1")],
                     },
                     "nextCursor": {"nodes": "node_cursor_1"},
                 },
@@ -418,7 +402,7 @@ class TestInstanceIO:
         first_node_ids = {di.item.external_id for di in first_page.items if di.item.instance_type == "node"}
         first_edge_ids = {di.item.external_id for di in first_page.items if di.item.instance_type == "edge"}
         assert first_node_ids == {"node_0", "node_1"}
-        assert first_edge_ids == {"edge_0", "edge_1", "edge_2"}
+        assert first_edge_ids == {f"edge_{i}" for i in range(SUBSELECTION_LIMIT_QUERY_ENDPOINT + 1)}
         assert first_page.bookmark.cursor == "node_cursor_1"
 
         second_page = pages[1]

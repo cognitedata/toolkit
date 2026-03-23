@@ -138,7 +138,7 @@ class TransformationsAPI(CDFResourceAPI[TransformationResponse]):
             client_timeout=timeout
             if timeout is not None
             else (self.DEFAULT_TIMEOUT_RUN_QUERY + 60),  # add a buffer to the timeout
-            retry_status=False,
+            retry_status_codes=set(),  # Do not retry any status codes.
         )
         response = self._http_client.request_single_retries(request).get_success_or_raise(request)
         return SQLQueryResponse.model_validate_json(response.body)

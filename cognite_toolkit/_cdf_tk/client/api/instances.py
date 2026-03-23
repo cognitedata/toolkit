@@ -1,13 +1,20 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from itertools import zip_longest
-from typing import Any, Generic, Literal, overload
+from typing import Generic, Literal, TypeAlias, TypeVar, overload
 
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod, Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import (
+    FailedResponse,
+    HTTPClient,
+    ItemsSuccessResponse,
+    RequestMessage,
+    SuccessResponse,
+    ToolkitAPIError,
+)
 from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId, NodeId, T_InstanceId, ViewId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -21,8 +28,15 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._query import (
+    QueryEdgeExpression,
+    QueryEdgeTableExpression,
+    QueryNodeExpression,
+    QueryNodeTableExpression,
     QueryResponseTyped,
     QueryResponseUntyped,
+    QuerySelect,
+    QuerySelectSource,
+    QuerySortSpec,
 )
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
@@ -37,10 +51,32 @@ SYNC_ENDPOINT = Endpoint(method="POST", path="/models/instances/sync", item_limi
 INSTANCE_UPSERT_ENDPOINT = METHOD_MAP["upsert"]
 INSTANCE_DELETE_ENDPOINT = METHOD_MAP["delete"]
 
+QueryEndpoint: TypeAlias = Literal["query", "sync"]
+
+_T_QueryResponse = TypeVar("_T_QueryResponse", bound=QueryResponseTyped | QueryResponseUntyped)
+
+
+class ReduceLoadException(Exception):
+    """This is used in the flow of instance query to signal to reduce the load."""
+
+    def __init__(self, source_exception: Exception) -> None:
+        self.source_exception = source_exception
+
 
 class InstancesAPI(CDFResourceAPI[InstanceResponse]):
-    def __init__(self, http_client: HTTPClient) -> None:
+    """Instances API
+
+    Args:
+        http_client (HTTPClient): Client to use to make requests to the API.
+        consecutive_success_count_increase (int): Number of consecutive successful requests before
+            trying to increase the chunk size again. This is used to find a good chunk size when using the
+            /instances/query and /instances/sync endpoints.
+
+    """
+
+    def __init__(self, http_client: HTTPClient, consecutive_success_count_increase: int = 100) -> None:
         super().__init__(http_client=http_client, method_endpoint_map=METHOD_MAP)
+        self._consecutive_success_count_increase = consecutive_success_count_increase
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
@@ -89,38 +125,12 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             response_items.extend(self._validate_response(response).items)
         return response_items
 
-    @staticmethod
-    def _create_sort_body(instance_type: Literal["node", "edge"] | None) -> list[dict]:
-        """We sort by space and externalId to get a stable sort order.
-
-        This is also more performant than sorting by using the default sort, which will sort on
-        internal CDF IDs. This will be slow if you have deleted a lot of instances, as they will be counted.
-        By sorting on space and externalId, we avoid this issue.
-        """
-        instance_type = instance_type or "node"
-        return [
-            {
-                "property": [instance_type, "space"],
-                "direction": "ascending",
-            },
-            {
-                "property": [instance_type, "externalId"],
-                "direction": "ascending",
-            },
-        ]
-
-    @classmethod
-    def _create_body(cls, filter: InstanceFilter | None) -> dict[str, Any]:
-        return {
-            **(filter.dump() if filter else {}),
-            "sort": cls._create_sort_body(filter.instance_type if filter else "node"),
-        }
-
     def paginate(
         self,
         filter: InstanceFilter | None = None,
         limit: int = 100,
         cursor: str | None = None,
+        endpoint: QueryEndpoint = "query",
     ) -> PagedResponse[InstanceResponse]:
         """Iterate over all instances in CDF.
 
@@ -128,50 +138,124 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
            filter: InstanceFilter to filter instances.
             limit: Maximum number of items to return.
             cursor: Cursor for pagination.
+            endpoint: Which endpoint to use
 
         Returns:
             PagedResponse of InstanceResponse objects.
         """
-        return self._paginate(
-            cursor=cursor,
-            limit=limit,
-            body=self._create_body(filter),
-        )
+        request = self._create_query(filter, limit, cursor)
+        response = self.query(request, type_results=True, endpoint=endpoint, exhaust_sub_selections=False)
+        return PagedResponse(items=response.items["root"], nextCursor=response.root_cursor)
+
+    def _create_query(
+        self, filter: InstanceFilter | None, limit: int | None, cursor: str | None = None
+    ) -> QueryRequest:
+        """Create a query from the instance filter"""
+
+        # We sort by space and externalId to get a stable sort order.
+        #
+        # This is also more performant than sorting by using the default sort, which will sort on
+        # internal CDF IDs. This will be slow if you have deleted a lot of instances, as they will be counted.
+        # By sorting on space and externalId, we avoid this issue.
+        if filter is None:
+            query = QueryRequest(
+                with_={
+                    "root": QueryNodeExpression(
+                        limit=limit,
+                        nodes=QueryNodeTableExpression(),
+                        sort=[
+                            QuerySortSpec(property=["node", "space"]),
+                            QuerySortSpec(property=["node", "externalId"]),
+                        ],
+                    )
+                },
+                select={"root": QuerySelect()},
+                root="root",
+            )
+            if cursor is not None:
+                query.cursors = {"root": cursor}
+            return query
+
+        if filter.instance_type == "edge":
+            expression: QueryNodeExpression | QueryEdgeExpression = QueryEdgeExpression(
+                limit=limit,
+                edges=QueryEdgeTableExpression(filter=filter.dump_filter(include_has_data=True)),
+                sort=[QuerySortSpec(property=["edge", "space"]), QuerySortSpec(property=["edge", "externalId"])],
+            )
+        else:  # Node or none
+            expression = QueryNodeExpression(
+                limit=limit,
+                nodes=QueryNodeTableExpression(filter=filter.dump_filter(include_has_data=True)),
+                sort=[QuerySortSpec(property=["node", "space"]), QuerySortSpec(property=["node", "externalId"])],
+            )
+        sources: list[QuerySelectSource] = []
+        if filter.source:
+            sources.append(QuerySelectSource(source=filter.source, properties=["*"]))
+        query = QueryRequest(with_={"root": expression}, select={"root": QuerySelect(sources=sources)}, root="root")
+        if cursor is not None:
+            query.cursors = {"root": cursor}
+        return query
 
     def iterate(
-        self, filter: InstanceFilter | None = None, limit: int | None = 100
+        self,
+        filter: InstanceFilter | None = None,
+        limit: int | None = 100,
+        endpoint: QueryEndpoint = "query",
+        init_cursor: str | None = None,
     ) -> Iterable[list[InstanceResponse]]:
         """Iterate over all instances in CDF.
 
         Args:
             filter: InstanceFilter to filter instances.
             limit: Maximum number of items to return per page.
+            endpoint: Which endpoint to use
+            init_cursor: Which cursor to use
 
         Returns:
             Iterable of lists of InstanceResponse objects.
         """
-        return self._iterate(limit=limit, body=self._create_body(filter))
+        endpoint_prop = self._get_endpoint(endpoint)
+        chunk_limit = endpoint_prop.item_limit if limit is None else min(limit, endpoint_prop.item_limit)
+        query = self._create_query(filter, chunk_limit, init_cursor)
+        for response in self.query_iterate(
+            query, type_results=True, endpoint=endpoint, exhaust_sub_selections=False, limit=limit
+        ):
+            yield response.items[response.root]
 
-    def list(self, filter: InstanceFilter | None = None, limit: int | None = 100) -> list[InstanceResponse]:
+    def list(
+        self, filter: InstanceFilter | None = None, limit: int | None = 100, endpoint: QueryEndpoint = "query"
+    ) -> list[InstanceResponse]:
         """List all instances in CDF.
 
         Returns:
             List of InstanceResponse objects.
         """
-        return self._list(limit=limit, body=self._create_body(filter))
+        return [item for batch in self.iterate(filter=filter, limit=limit, endpoint=endpoint) for item in batch]
 
     @overload
     def query(
-        self, query: QueryRequest, type_results: Literal[True] = True, endpoint: Literal["query", "sync"] = "query"
+        self,
+        query: QueryRequest,
+        type_results: Literal[True] = True,
+        endpoint: QueryEndpoint = "query",
+        exhaust_sub_selections: bool = False,
     ) -> QueryResponseTyped: ...
 
     @overload
     def query(
-        self, query: QueryRequest, type_results: Literal[False], endpoint: Literal["query", "sync"] = "query"
+        self,
+        query: QueryRequest,
+        type_results: Literal[False],
+        endpoint: QueryEndpoint = "query",
+        exhaust_sub_selections: bool = False,
     ) -> QueryResponseUntyped: ...
 
     def query(
-        self, query: QueryRequest, type_results: bool = True, endpoint: Literal["query", "sync"] = "query"
+        self,
+        query: QueryRequest,
+        type_results: bool = True,
+        endpoint: QueryEndpoint = "query",
+        exhaust_sub_selections: bool = False,
     ) -> QueryResponseTyped | QueryResponseUntyped:
         """Execute a query against the instances query endpoint.
 
@@ -183,28 +267,210 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                 type_results: Whether to return typed results (QueryResponseTyped) or untyped results
                     (QueryResponseUntyped).
             endpoint: The endpoint to use for this query.
+            exhaust_sub_selections: Whether to exhaust sub-selections, for example, if you are fetching nodes and all
+                edges connected to those nodes. Setting this to true will fetch all edges.
 
         Returns:
             QueryResult containing matching instances grouped by result set expression name.
         """
+        limit = query.with_[query.root].limit
+        results: list[QueryResponseTyped | QueryResponseUntyped] = []
+        for batch in self._query_iterate(
+            # Deep copy to avoid modifying the original query object with next cursors and limits.
+            query.model_copy(deep=True),
+            type_results,
+            endpoint,
+            exhaust_sub_selections,
+            limit,
+        ):
+            results.append(batch)
+        if not results:
+            response_cls = QueryResponseTyped if type_results else QueryResponseUntyped
+            empty_response = response_cls(items={}, next_cursor={})
+            empty_response.root = query.root
+            return empty_response
+        # Merge results
+        first = results[0]
+        if len(results) > 1:
+            for result in results[1:]:
+                for key, items in result.items.items():
+                    # We now that all query responses will be either QueryResponseTyped or QueryResponseUntyped
+                    # not mixed, so we can safely ignore the type here.
+                    if key in first.items:
+                        first.items[key].extend(items)  # type: ignore[arg-type]
+                    else:
+                        first.items[key] = items  # type: ignore[assignment]
+        return first
+
+    @overload
+    def query_iterate(
+        self,
+        query: QueryRequest,
+        type_results: Literal[True] = True,
+        endpoint: QueryEndpoint = "query",
+        exhaust_sub_selections: bool = False,
+        limit: int | None = None,
+    ) -> Iterable[QueryResponseTyped]: ...
+
+    @overload
+    def query_iterate(
+        self,
+        query: QueryRequest,
+        type_results: Literal[False],
+        endpoint: QueryEndpoint = "query",
+        exhaust_sub_selections: bool = False,
+        limit: int | None = None,
+    ) -> Iterable[QueryResponseUntyped]: ...
+
+    def query_iterate(
+        self,
+        query: QueryRequest,
+        type_results: bool = True,
+        endpoint: QueryEndpoint = "query",
+        exhaust_sub_selections: bool = False,
+        limit: int | None = None,
+    ) -> Iterable[QueryResponseTyped | QueryResponseUntyped]:
+        """Iterate over the results of a query against the instances query/sync endpoint."""
+        yield from self._query_iterate(
+            # Deep copy to avoid modifying the original query object with next cursors and limits.
+            query.model_copy(deep=True),
+            type_results,
+            endpoint,
+            exhaust_sub_selections,
+            limit,
+        )
+
+    def _query_iterate(
+        self,
+        query: QueryRequest,
+        type_results: bool = True,
+        endpoint: QueryEndpoint = "query",
+        exhaust_sub_selections: bool = False,
+        limit: int | None = None,
+    ) -> Iterable[QueryResponseTyped | QueryResponseUntyped]:
+        endpoint_prop = self._get_endpoint(endpoint)
+        response_cls = QueryResponseTyped if type_results else QueryResponseUntyped
+
+        max_chunk_size = query.with_[query.root].limit or endpoint_prop.item_limit
+        current_chunk_size = max_chunk_size
+        min_failed_chunk_size = max_chunk_size + 1
+        success_request_count = 0
+        total = 0
+        while True:
+            try:
+                batch = self._query(query, response_cls, endpoint_prop, exhaust_sub_selections, endpoint_name=endpoint)
+            except ReduceLoadException as e:
+                if current_chunk_size <= 1:
+                    raise e.source_exception
+                min_failed_chunk_size = min(current_chunk_size, min_failed_chunk_size)
+                success_request_count = 0
+                current_chunk_size = current_chunk_size // 2
+                page_limit = current_chunk_size if limit is None else min(current_chunk_size, max(limit - total, 0))
+                query.with_[query.root].limit = page_limit
+                continue
+
+            success_request_count += 1
+            total += len(batch.items[query.root])
+            next_cursor = batch.root_cursor
+            yield batch
+            if next_cursor is None or not batch or (limit is not None and total >= limit):
+                break
+
+            if current_chunk_size < min_failed_chunk_size:
+                # Binary search towards optimal chunk size.
+                current_chunk_size = current_chunk_size + (min_failed_chunk_size - current_chunk_size) // 2
+            elif success_request_count > self._consecutive_success_count_increase:
+                # If we had a lot of successful attempts, try increasing the chunk size again to avoid getting
+                # stuck at a low limit.
+                success_request_count = 0
+                current_chunk_size = min(current_chunk_size * 2, max_chunk_size)
+                min_failed_chunk_size = max(current_chunk_size * 2, max_chunk_size)
+
+            page_limit = current_chunk_size if limit is None else min(current_chunk_size, max(limit - total, 0))
+            query.with_[query.root].limit = page_limit
+            query.cursors = {query.root: next_cursor}
+
+    def _query(
+        self,
+        query: QueryRequest,
+        response_cls: type[_T_QueryResponse],
+        endpoint: Endpoint,
+        exhaust_sub_selections: bool,
+        endpoint_name: QueryEndpoint,
+    ) -> _T_QueryResponse:
+        first: _T_QueryResponse | None = None
+        while True:
+            response = self._make_query(endpoint, query, response_cls, endpoint_name)
+            if first is None:
+                first = response
+            else:
+                for key in response.items:
+                    if key != query.root and key in first.items:
+                        # MyPy does not like the mix of type and untyped query responses.
+                        first.items[key].extend(response.items[key])  # type: ignore[arg-type]
+            if not exhaust_sub_selections:
+                return first
+            next_cursors: dict[str, str | None] = {}
+            for select_id in query.select.keys():
+                if select_id == query.root:
+                    continue
+                sub_selection_limit = query.with_[select_id].limit
+                if sub_selection_limit is not None and len(response.items[select_id]) < sub_selection_limit:
+                    # The response returned fewer than the limit, no more items to fetch for this sub-selection.
+                    continue
+                sub_cursor = response.next_cursor.get(select_id)
+                if sub_cursor is not None:
+                    next_cursors[select_id] = sub_cursor
+
+            if not next_cursors or not response:
+                return first
+            # Keep the root cursor to iterate over all subitems.
+            next_cursors[query.root] = (query.cursors or {}).get(query.root)
+            query = query.model_copy(update={"cursors": next_cursors})
+
+    def _make_query(
+        self,
+        endpoint: Endpoint,
+        query: QueryRequest,
+        response_cls: type[_T_QueryResponse],
+        endpoint_name: QueryEndpoint,
+    ) -> _T_QueryResponse:
+        request = RequestMessage(
+            endpoint_url=self._http_client.config.create_api_url(endpoint.path),
+            method=endpoint.method,
+            body_content=query.dump(endpoint=endpoint_name),
+            # We do not retry 408 as that is an indication we should reduce load.
+            retry_status_codes={429, 502, 503, 504},
+        )
+        response = self._http_client.request_single_retries(request)
+        if isinstance(response, FailedResponse) and response.status_code == 408:
+            # Graph query timed out. Reduce load or contention, or optimise your query.
+            raise ReduceLoadException(
+                source_exception=ToolkitAPIError(
+                    f"Request failed with status code {response.status_code}: {response.error.message}",
+                    missing=response.error.missing,  # type: ignore[arg-type]
+                    duplicated=response.error.duplicated,  # type: ignore[arg-type]
+                    code=response.error.code,
+                    request=request,
+                )
+            )
+
+        success = response.get_success_or_raise(request)
+        # Wrong type hint in pydantic, response_cls.model_validate_json returns an instance
+        # of that class no the class type.
+        query_response: _T_QueryResponse = response_cls.model_validate_json(success.body)  # type: ignore[assignment]
+        # We persist the root from the query. This is for convenience.
+        query_response.root = query.root
+        return query_response
+
+    def _get_endpoint(self, endpoint: QueryEndpoint) -> Endpoint:
         if endpoint == "query":
             endpoint_prop = QUERY_ENDPOINT
         elif endpoint == "sync":
             endpoint_prop = SYNC_ENDPOINT
         else:
             raise NotImplementedError(f"Unknown endpoint {endpoint!r}")
-
-        request = RequestMessage(
-            endpoint_url=self._http_client.config.create_api_url(endpoint_prop.path),
-            method=endpoint_prop.method,
-            body_content=query.dump(),
-        )
-        response = self._http_client.request_single_retries(request)
-        success = response.get_success_or_raise(request)
-        if type_results:
-            return QueryResponseTyped.model_validate_json(success.body)
-        else:
-            return QueryResponseUntyped.model_validate_json(success.body)
+        return endpoint_prop
 
 
 class WrappedInstancesAPI(
