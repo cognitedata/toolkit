@@ -96,7 +96,7 @@ class BuildV2Command(ToolkitCommand):
             global_insights=global_insights,
         )
 
-        self._display_build_folder(build_folder)
+        self._display_build_folder(build_folder, console)
 
         self._write_results(parameters, build_folder, build_start_time, build_duration_seconds)
 
@@ -628,7 +628,63 @@ class BuildV2Command(ToolkitCommand):
                                 insights.append(insight)
         return insights
 
-    def _display_build_folder(self, build_folder: BuildFolder) -> None:
+    def _display_build_folder(self, build_folder: BuildFolder, console: Console) -> None:
+        module_count = len(build_folder.built_modules)
+        resource_count = sum(len(module.resources) for module in build_folder.built_modules)
+
+        resource_insight_count = sum(
+            len(resource.insights) for module in build_folder.built_modules for resource in module.resources
+        )
+        dependency_insight_count = len(build_folder.dependency_insights)
+        global_insight_count = len(build_folder.global_insights)
+
+        resource_type_count = len(
+            {resource.type for module in build_folder.built_modules for resource in module.resources}
+        )
+
+        summary_lines = [
+            f"[green]✓[/] [bold]{module_count}[/] modules",
+            f"[green]✓[/] [bold]{resource_count}[/] resources",
+            f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
+        ]
+        has_issues = False
+        if resource_insight_count:
+            summary_lines.append(f"[yellow]![/] [bold]{resource_insight_count}[/] resource insights found.")
+            has_issues = True
+        if dependency_insight_count:
+            summary_lines.append(f"[red]✗[/] [bold]{dependency_insight_count}[/] missing dependencies found.")
+            has_issues = True
+        if global_insight_count:
+            summary_lines.append(f"[yellow]![/] [bold]{global_insight_count}[/] global insights found.")
+            has_issues = True
+        build_dir_display = relative_to_if_possible(build_folder.path)
+        console.print(
+            Panel(
+                "\n".join(summary_lines),
+                title=f"[bold]Built to ({build_dir_display.as_posix()})[/]",
+                border_style="yellow" if has_issues else "green",
+                expand=False,
+            )
+        )
+        all_insights = build_folder.all_insights
+        if all_insights:
+            table = Table(title="Insights", expand=False, show_edge=False)
+            table.add_column("Type", style="dim")
+            table.add_column("Code", style="dim")
+            table.add_column("Description", style="dim")
+            table.add_column("Fix", style="dim")
+            max_reached = False
+            for no, issue in enumerate(all_insights):
+                table.add_row(type(issue).__name__, issue.code or "", issue.message, issue.fix or "-")
+                if no > 10:
+                    max_reached = True
+                    break
+            console.print(table)
+            if max_reached:
+                console.print(
+                    f"[dim]... and {len(all_insights) - 10} more insights not shown[/]",
+                    style="dim",
+                )
         return None
 
     def _write_results(
