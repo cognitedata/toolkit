@@ -354,7 +354,6 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         max_chunk_size = query.with_[query.root].limit or endpoint_prop.item_limit
         current_chunk_size = max_chunk_size
         min_failed_chunk_size = max_chunk_size + 1
-        max_successful_chunk_size = 0
         success_request_count = 0
         total = 0
         while True:
@@ -365,17 +364,11 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                     raise e.source_exception
                 min_failed_chunk_size = min(current_chunk_size, min_failed_chunk_size)
                 success_request_count = 0
-                if current_chunk_size > max_successful_chunk_size:
-                    current_chunk_size = (
-                        max_successful_chunk_size + (current_chunk_size - max_successful_chunk_size) // 2
-                    )
-                else:
-                    current_chunk_size = current_chunk_size // 2
+                current_chunk_size = current_chunk_size // 2
                 page_limit = current_chunk_size if limit is None else min(current_chunk_size, max(limit - total, 0))
                 query.with_[query.root].limit = page_limit
                 continue
 
-            max_successful_chunk_size = max(max_successful_chunk_size, current_chunk_size)
             success_request_count += 1
             total += len(batch.items[query.root])
             next_cursor = batch.root_cursor
@@ -391,7 +384,7 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
                 # stuck at a low limit.
                 success_request_count = 0
                 current_chunk_size = min(current_chunk_size * 2, max_chunk_size)
-                min_failed_chunk_size = max(current_chunk_size + 2, max_chunk_size)
+                min_failed_chunk_size = max(current_chunk_size * 2, max_chunk_size)
 
             page_limit = current_chunk_size if limit is None else min(current_chunk_size, max(limit - total, 0))
             query.with_[query.root].limit = page_limit

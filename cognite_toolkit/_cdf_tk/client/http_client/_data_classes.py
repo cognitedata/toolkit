@@ -122,7 +122,7 @@ class BaseRequestMessage(HTTPBaseModel, ABC):
     client_timeout: float | None = None
     retry_status_codes: Set[int] | None = Field(
         default=None,
-        description="HTTP status codes to retry, set to an empty set to not retry any statu codes. "
+        description="HTTP status codes to retry, set to an empty set to not retry any status codes. "
         "This overrides the HTTPClient configuration",
     )
 
