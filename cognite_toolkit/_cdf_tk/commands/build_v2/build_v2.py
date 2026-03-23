@@ -102,17 +102,9 @@ class BuildV2Command(ToolkitCommand):
 
         # Set up the variables
         organization_dir = parameters.organization_dir
-        organization_dir_display = relative_to_if_possible(organization_dir)
         config_yaml_path: Path | None = None
         if parameters.config_yaml_name:
             config_yaml_path = organization_dir / ConfigYAML.get_filename(parameters.config_yaml_name)
-            content = f"  ┣ {MODULES}/\n  ┗ {config_yaml_path.name}\n"
-        else:
-            content = f"  ┗ {MODULES}\n"
-        expected_panel = Panel(
-            f"Toolkit expects the following structure:\n{organization_dir_display.as_posix()!r}/\n{content}",
-            expand=False,
-        )
         module_directory = parameters.modules_directory
 
         # Execute the checks.
@@ -120,7 +112,18 @@ class BuildV2Command(ToolkitCommand):
             # All good.
             return
 
+        # Display what Toolkit expects.
+        if isinstance(config_yaml_path, Path):
+            content = f"  ┣ {MODULES}/\n  ┗ {config_yaml_path.name}\n"
+        else:
+            content = f"  ┗ {MODULES}\n"
+        organization_dir_display = relative_to_if_possible(organization_dir)
+        expected_panel = Panel(
+            f"Toolkit expects the following structure:\n{organization_dir_display.as_posix()!r}/\n{content}",
+            expand=False,
+        )
         console.print(expected_panel)
+
         if not organization_dir.exists():
             raise ToolkitNotADirectoryError(f"Organization directory '{organization_dir_display.as_posix()}' not found")
         elif module_directory.exists() and config_yaml_path is not None and not config_yaml_path.exists():
