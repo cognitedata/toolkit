@@ -357,6 +357,7 @@ class BuildV2Command(ToolkitCommand):
 
     def _import_module(self, source: ModuleSource) -> Module:
         resources: list[ReadResource] = []
+        ignored_files: list[Path] = []
         for resource_folder, resource_files in source.resource_files_by_folder.items():
             crud_classes = RESOURCE_CRUD_BY_FOLDER_NAME.get(resource_folder)
             if not crud_classes:
@@ -364,33 +365,31 @@ class BuildV2Command(ToolkitCommand):
                 continue
             class_by_kind = {crud_class.kind.lower(): crud_class for crud_class in crud_classes}
             for resource_file in resource_files:
-                resources.extend(
-                    self._import_resource_file(resource_file, class_by_kind, source.variables, resource_folder)
-                )
+                if "." not in resource_file.name:
+                    ignored_files.append(resource_file)
+                    continue
+                kind = resource_file.stem.rsplit(".", maxsplit=1)[-1]
+                if kind not in class_by_kind:
+                    resources.append(
+                        FailedReadResource(
+                            source_path=resource_file,
+                            errors=[
+                                self._create_failed_read_resource_for_invalid_kind(
+                                    resource_file, kind, resource_folder, [c.kind for c in class_by_kind.values()]
+                                )
+                            ],
+                        )
+                    )
+                    continue
+                resources.extend(self._import_resource_file(resource_file, class_by_kind[kind], source.variables))
         return Module(id=source.as_id(), resources=resources)
 
     def _import_resource_file(
         self,
         resource_file: AbsoluteFilePath,
-        class_by_kind: dict[str, type[ResourceCRUD]],
+        crud_class: type[ResourceCRUD],
         variables: list[BuildVariable],
-        folder_name: str,
     ) -> list[ReadResource]:
-        if "." not in resource_file.stem:
-            # Todo: Discussion error or silent ignore.
-            #   Reason for error is in the case were the user do not set a kind and intends to.
-            #   Reason for silently ignore is that the user for example has a YAML file as part of their
-            #   function code, and it is not meant to be a resource file.
-            # Todo: This will fail for kinds that just endswith the kind. This is often used for
-            #   for example transformation schedules.
-            return []
-        kind = resource_file.stem.rsplit(".", maxsplit=1)[-1]
-        crud_class = class_by_kind.get(kind.lower())
-        if not crud_class:
-            error = self._create_failed_read_resource_for_invalid_kind(
-                resource_file, kind, folder_name, [c.kind for c in class_by_kind.values()]
-            )
-            return [FailedReadResource(source_path=resource_file, errors=[error])]
         error_or_string = self._read_resource_file(resource_file)
         if isinstance(error_or_string, ModelSyntaxError):
             return [FailedReadResource(source_path=resource_file, errors=[error_or_string])]

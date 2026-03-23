@@ -105,6 +105,7 @@ class Module(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     id: ModuleId
     resources: list[ReadResource] = Field(default_factory=list)
+    ignored_yamL_files: list[Path] = Field(default_factory=list)
 
     @property
     def is_success(self) -> bool:
