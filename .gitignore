@@ -315,6 +315,7 @@ tests/**/cdf.toml
 *.xlsx
 data/
 migration_logs*/
+deploy_logs*/
 !tests/data/
 !tests/data/**
 tests/data/**/__pycache__/
