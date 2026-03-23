@@ -54,6 +54,10 @@ class BuildSourceFiles(BaseModel):
     cdf_project: str
     organization_dir: AbsoluteDirPath
 
+    @property
+    def module_dir(self) -> Path:
+        return self.organization_dir / MODULES
+
 
 class BuiltResource(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)

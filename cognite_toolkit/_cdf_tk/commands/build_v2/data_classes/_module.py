@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic import BaseModel, ConfigDict, DirectoryPath, Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -55,8 +57,13 @@ class BuildSource(BaseModel):
     """Class used to describe source for build"""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+    module_dir: Path
     modules: list[ModuleSource]
     insights: InsightList = Field(default_factory=InsightList)
+
+    @property
+    def total_files(self) -> int:
+        return sum(module.total_files for module in self.modules)
 
 
 class ResourceType(BaseModel):

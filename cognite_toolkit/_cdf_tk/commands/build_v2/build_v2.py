@@ -10,6 +10,7 @@ from pydantic import JsonValue, TypeAdapter, ValidationError
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress
+from rich.table import Table
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -76,7 +77,7 @@ class BuildV2Command(ToolkitCommand):
         build_files = self._read_file_system(parameters)
 
         build_source = self._find_modules(build_files)
-        self._display_module_sources(build_source)
+        self._display_module_sources(build_source, console)
 
         self._prepare_build_directory(parameters.build_dir)
         built_modules = self._build_modules(build_source.modules, parameters.build_dir, console)
@@ -188,11 +189,53 @@ class BuildV2Command(ToolkitCommand):
         parser = ModuleSourceParser(build.selected_modules, build.organization_dir)
         module_sources = parser.parse(build.yaml_files, build.variables)
         return BuildSource(
+            module_dir=build.module_dir,
             modules=module_sources,
             insights=parser.errors,
         )
 
-    def _display_module_sources(self, build_source: BuildSource) -> None:
+    def _display_module_sources(self, build_source: BuildSource, console: Console) -> None:
+        module_count = len(build_source.modules)
+        total_files = build_source.total_files
+        read_variables = len({variable.id for module in build_source.modules for variable in module.variables})
+        resource_type_count = len(
+            {
+                resource_type
+                for module in build_source.modules
+                for resource_type in module.resource_files_by_folder.keys()
+            }
+        )
+
+        summary_lines = [
+            f"[green]✓[/] [bold]{module_count}[/] modules",
+            f"[green]✓[/] [bold]{total_files}[/] total resource files",
+            f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
+        ]
+        if read_variables:
+            summary_lines.append(f"[green]✓[/] [bold]{read_variables}[/] variables used in the build")
+
+        has_issues = False
+        if build_source.insights:
+            summary_lines.append(f"[red]✗[/] [bold]{len(build_source.insights)}[/] issues found while reading modules")
+            has_issues = True
+        module_dir_display = relative_to_if_possible(build_source.module_dir)
+        console.print(
+            Panel(
+                "\n".join(summary_lines),
+                title=f"[bold]Read module dir ({module_dir_display.as_posix()})[/]",
+                border_style="yellow" if has_issues else "green",
+                expand=False,
+            )
+        )
+        if build_source.insights:
+            table = Table(title="Reading module issues", expand=False, show_edge=False)
+            table.add_column("Type", style="dim")
+            table.add_column("Code", style="dim")
+            table.add_column("Description", style="dim")
+            table.add_column("Fix", style="dim")
+            for issue in build_source.insights:
+                table.add_row(type(issue).__name__, issue.code or "", issue.message, issue.fix or "-")
+            console.print(table)
         return None
 
     @classmethod
