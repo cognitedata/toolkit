@@ -424,8 +424,6 @@ class MigrateApp(typer.Typer):
         kind: AssetCentricKind,
         resource_type: str,
         container_id: ContainerId,
-        event_type: str | None = None,
-        event_subtype: str | None = None,
     ) -> tuple[AssetCentricMigrationSelector, bool, bool, bool]:
         if data_set_id is not None and mapping_file is not None:
             raise typer.BadParameter("Cannot specify both data_set_id and mapping_file")
@@ -456,8 +454,6 @@ class MigrateApp(typer.Typer):
                 kind=kind,
                 ingestion_mapping=ingestion_mapping,
                 preferred_consumer_view=parsed_view,
-                event_type=event_type,
-                event_subtype=event_subtype,
             )
         else:
             # Interactive selection of data set.
@@ -483,8 +479,6 @@ class MigrateApp(typer.Typer):
                 kind=kind,
                 ingestion_mapping=asset_mapping.external_id,
                 preferred_consumer_view=preferred_consumer_view,
-                event_type=event_type,
-                event_subtype=event_subtype,
             )
             skip_existing = questionary.confirm(
                 "Do you want to check for and skip existing nodes?", default=skip_existing
@@ -534,20 +528,6 @@ class MigrateApp(typer.Typer):
                 help="The consumption view to assign to the migrated events Given as space:externalId/version. "
                 "This will be used in Canvas to select which view to use when migrating events. If not provided, "
                 "CogniteActivity in CogniteCore will be used.",
-            ),
-        ] = None,
-        event_type: Annotated[
-            str | None,
-            typer.Option(
-                "--type",
-                help="Filter events by type. Only events matching this type will be migrated.",
-            ),
-        ] = None,
-        event_subtype: Annotated[
-            str | None,
-            typer.Option(
-                "--subtype",
-                help="Filter events by subtype. Only events matching this subtype will be migrated.",
             ),
         ] = None,
         skip_existing: Annotated[
@@ -606,8 +586,6 @@ class MigrateApp(typer.Typer):
             kind="Events",
             resource_type="event",
             container_id=ContainerId(space="cdf_cdm", external_id="CogniteActivity"),
-            event_type=event_type,
-            event_subtype=event_subtype,
         )
 
         cmd = MigrationCommand(client=client)
@@ -641,20 +619,6 @@ class MigrateApp(typer.Typer):
                 "--data-set-id",
                 "-s",
                 help="The data set ID to filter source events by. If not provided, all events are migrated.",
-            ),
-        ] = None,
-        event_type: Annotated[
-            str | None,
-            typer.Option(
-                "--type",
-                help="Filter events by type. Only events matching this type will be migrated.",
-            ),
-        ] = None,
-        event_subtype: Annotated[
-            str | None,
-            typer.Option(
-                "--subtype",
-                help="Filter events by subtype. Only events matching this subtype will be migrated.",
             ),
         ] = None,
         skip_existing: Annotated[
@@ -715,8 +679,6 @@ class MigrateApp(typer.Typer):
             kind="Events",
             resource_type="event",
             container_id=ContainerId(space="cdf_cdm", external_id="CogniteActivity"),
-            event_type=event_type,
-            event_subtype=event_subtype,
             skip_existing=skip_existing,
         )
 

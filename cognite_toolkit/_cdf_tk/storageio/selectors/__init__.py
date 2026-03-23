@@ -14,7 +14,6 @@ from ._asset_centric import (
     AssetCentricSelector,
     AssetSubtreeSelector,
     DataSetSelector,
-    EventDataSetSelector,
 )
 from ._base import DataSelector
 from ._canvas import CanvasExternalIdSelector, CanvasSelector
@@ -118,7 +117,6 @@ __all__ = [
     "DataPointsSelector",
     "DataSelector",
     "DataSetSelector",
-    "EventDataSetSelector",
     "ExternalIdColumn",
     "FileContentSelector",
     "FileDataModelingTemplate",

@@ -23,22 +23,16 @@ class Filter(BaseModelRequest): ...
 class ClassicFilter(Filter):
     asset_subtree_ids: list[ExternalId | InternalId] | None = None
     data_set_ids: list[ExternalId | InternalId] | None = None
-    type: str | None = None
-    subtype: str | None = None
 
     @classmethod
     def from_asset_subtree_and_data_sets(
         cls,
         asset_subtree_id: str | int | list[str | int] | None = None,
         data_set_id: str | int | list[str | int] | None = None,
-        type: str | None = None,
-        subtype: str | None = None,
     ) -> Self:
         return cls(
             asset_subtree_ids=cls._as_internal_or_external_id_list(asset_subtree_id),
             data_set_ids=cls._as_internal_or_external_id_list(data_set_id),
-            type=type,
-            subtype=subtype,
         )
 
     @classmethod

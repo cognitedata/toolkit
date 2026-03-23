@@ -47,7 +47,7 @@ from ._base import (
     TableUploadableStorageIO,
     UploadItem,
 )
-from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector, EventDataSetSelector
+from .selectors import AssetCentricSelector, AssetSubtreeSelector, DataSetSelector
 
 
 class AssetCentricIO(
@@ -96,13 +96,7 @@ class AssetCentricIO(
         )
 
     def _get_classic_filter(self, selector: AssetCentricSelector) -> ClassicFilter:
-        if isinstance(selector, EventDataSetSelector):
-            return ClassicFilter.from_asset_subtree_and_data_sets(
-                data_set_id=selector.data_set_external_id,
-                type=selector.event_type,
-                subtype=selector.event_subtype,
-            )
-        elif isinstance(selector, DataSetSelector):
+        if isinstance(selector, DataSetSelector):
             return ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=selector.data_set_external_id)
         elif isinstance(selector, AssetSubtreeSelector):
             return ClassicFilter.from_asset_subtree_and_data_sets(asset_subtree_id=selector.hierarchy)

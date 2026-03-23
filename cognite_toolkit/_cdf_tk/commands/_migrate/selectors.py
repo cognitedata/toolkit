@@ -6,7 +6,7 @@ from typing import Literal
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ViewId
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import MigrationMappingList
 from cognite_toolkit._cdf_tk.storageio import DataSelector
-from cognite_toolkit._cdf_tk.storageio.selectors import DataSetSelector, EventDataSetSelector
+from cognite_toolkit._cdf_tk.storageio.selectors import DataSetSelector
 from cognite_toolkit._cdf_tk.utils.useful_types import AssetCentricKindExtended
 
 
@@ -40,8 +40,6 @@ class MigrateDataSetSelector(AssetCentricMigrationSelector):
     data_set_external_id: str
     ingestion_mapping: str | None = None
     preferred_consumer_view: ViewId | None = None
-    event_type: str | None = None
-    event_subtype: str | None = None
 
     def __str__(self) -> str:
         return self.kind
@@ -60,12 +58,5 @@ class MigrateDataSetSelector(AssetCentricMigrationSelector):
             # Annotations are connected to file metadata, so we need to download the file metadata
             # and look up the annotations connected to each file metadata.
             return DataSetSelector(data_set_external_id=self.data_set_external_id, kind="FileMetadata")
-        elif self.kind == "Events" and (self.event_type is not None or self.event_subtype is not None):
-            return EventDataSetSelector(
-                data_set_external_id=self.data_set_external_id,
-                kind=self.kind,
-                event_type=self.event_type,
-                event_subtype=self.event_subtype,
-            )
         else:
             return DataSetSelector(data_set_external_id=self.data_set_external_id, kind=self.kind)
