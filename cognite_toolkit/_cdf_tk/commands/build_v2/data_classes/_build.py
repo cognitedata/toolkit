@@ -1,3 +1,5 @@
+import builtins
+from collections import defaultdict
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
@@ -7,7 +9,7 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
 from ._insights import InsightList
-from ._module import ModuleId, ModuleSource
+from ._module import ModuleId, ResourceType
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
 
@@ -51,9 +53,11 @@ class BuiltResource(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     identifier: Identifier
     source_hash: str
+    type: ResourceType
     source_path: AbsoluteFilePath
     build_path: AbsoluteFilePath
-    dependencies: set[tuple[type[ResourceCRUD], Identifier]] = Field(default_factory=set)
+    crud_cls: builtins.type[ResourceCRUD]
+    dependencies: set[tuple[builtins.type[ResourceCRUD], Identifier]] = Field(default_factory=set)
     insights: InsightList = Field(default_factory=InsightList)
 
 
@@ -62,32 +66,22 @@ class BuiltModule(BaseModel):
     module_id: ModuleId
     resources: list[BuiltResource] = Field(default_factory=list)
 
-    # From source we only need the ModuleIdentifier (path, id, name)
-    # Todo: Replace source with ModuleId
-    source: ModuleSource
     # Replace with above
-    built_files_by_source: dict[Path, Path] = Field(
-        default_factory=dict, description="Mapping of built file paths to their corresponding source file paths"
-    )
-    built_resources_identifiers: list[Identifier] = Field(default_factory=list)
-    dependencies: dict[AbsoluteFilePath, set[tuple[type[ResourceCRUD], Identifier]]] = Field(default_factory=dict)
     insights: InsightList = Field(default_factory=InsightList)
 
     @property
-    def resource_by_type_by_kind(self) -> dict[str, dict[str, list[Path]]]:
+    def resource_by_type_by_kind(self) -> dict[ResourceType, list[Path]]:
         """Organizes built files by their resource type and kind."""
-        resource_by: dict[str, dict[str, list[Path]]] = {}
-        for file in self.built_files_by_source.keys():
-            kind = file.stem.split(".")[-1]
-            resource_type = file.parent.name
-            resource_by.setdefault(resource_type, {}).setdefault(kind, []).append(file)
+        resource_by_type: dict[ResourceType, list[Path]] = defaultdict(list)
+        for resource in self.resources:
+            resource_by_type[resource.type].append(resource.build_path)
 
-        return resource_by
+        return dict(resource_by_type)
 
     @property
     def files_built(self) -> bool:
         """Indicates whether any files were built for this module."""
-        return len(self.built_files_by_source) > 0
+        return len(self.resources) > 0
 
     @property
     def is_success(self) -> bool:
@@ -95,7 +89,7 @@ class BuiltModule(BaseModel):
         return not self.insights.has_errors and self.files_built
 
     def __hash__(self) -> int:
-        return hash(self.source.path)
+        return hash(self.module_id.path)
 
 
 class BuildFolder(BaseModel):
@@ -104,13 +98,17 @@ class BuildFolder(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     path: Path
     built_modules: list[BuiltModule] = Field(default_factory=list)
+    dependency_insights: InsightList = Field(default_factory=InsightList)
+    global_insights: InsightList = Field(default_factory=InsightList)
 
     @property
-    def insights(self) -> InsightList:
+    def all_insights(self) -> InsightList:
         """Insights from all built modules."""
-        insights = InsightList()
+        insights = InsightList(self.dependency_insights + self.global_insights)
         for module in self.built_modules:
             insights.extend(module.insights)
+            for resource in module.resources:
+                insights.extend(resource.insights)
         return insights
 
     @property
@@ -121,41 +119,3 @@ class BuildFolder(BaseModel):
             modules_by_success[built_module.is_success].append(built_module.module_id.name)
 
         return modules_by_success
-
-    @property
-    def built_resources_identifiers(self) -> set[Identifier]:
-        """Set of all built resources across all modules."""
-        resources: set[Identifier] = set()
-        for built_module in self.built_modules:
-            for resource in built_module.resources:
-                resources.add(resource.identifier)
-        return resources
-
-    @property
-    def cdf_dependencies_by_built_module(
-        self,
-    ) -> dict[BuiltModule, dict[AbsoluteFilePath, dict[type[ResourceCRUD], set[Identifier]]]]:
-        """Get CDF dependencies for all built modules.
-        CDF dependencies are dependencies that are not part of the build which require validation against CDF.
-
-        If CDF dependency is present in multiple modules, it will be returned only to a single module
-        (the first one that it is encountered in) to avoid duplicate validations insights.
-        """
-        dependencies_by_built_module: dict[
-            BuiltModule, dict[AbsoluteFilePath, dict[type[ResourceCRUD], set[Identifier]]]
-        ] = {}
-        seen: set[Identifier] = set()
-
-        for built_module in self.built_modules:
-            for file, dependencies_by_resource_type in built_module.dependencies.items():
-                for resource_type, dependency in dependencies_by_resource_type:
-                    if dependency in self.built_resources_identifiers:
-                        continue
-                    if dependency in seen:
-                        continue
-                    seen.add(dependency)
-                    dependencies_by_built_module.setdefault(built_module, {}).setdefault(file, {}).setdefault(
-                        resource_type, set()
-                    ).add(dependency)
-
-        return dependencies_by_built_module

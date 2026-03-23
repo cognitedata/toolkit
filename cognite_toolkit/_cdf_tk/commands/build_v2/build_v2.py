@@ -1,6 +1,6 @@
 import os
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +12,7 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2._module_source_parser import ModuleSourceParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
@@ -67,21 +68,25 @@ class BuildV2Command(ToolkitCommand):
         build_files = self._read_file_system(parameters)
         module_sources = self._parse_module_sources(build_files)
 
-        build_folder = self._build_modules(module_sources, parameters.build_dir)
+        built_modules = self._build_modules(module_sources, parameters.build_dir)
 
-        self._cdf_dependency_validation(build_folder, client)
+        dependency_insights = self._dependency_validation(built_modules, client)
 
-        # Can be parallelized with number of plugins.
-        # Neat is done inside the global validation.
-        self._global_validation(build_folder, client)
+        global_insights = self._global_validation(built_modules, client)
 
         # Calculate build duration
         build_duration_seconds = round((datetime.now(timezone.utc) - build_start_time).total_seconds(), 2)
 
+        build_folder = BuildFolder(
+            path=parameters.build_dir,
+            built_modules=built_modules,
+            dependency_insights=dependency_insights,
+            global_insights=global_insights,
+        )
+
         self._write_results(parameters, build_folder, build_start_time, build_duration_seconds)
 
         # Todo: Some mixpanel tracking.
-
         return build_folder
 
     @classmethod
@@ -252,19 +257,29 @@ class BuildV2Command(ToolkitCommand):
             selected.add(item_path)
         return selected, errors
 
-    def _build_modules(self, module_sources: Sequence[ModuleSource], build_dir: Path) -> BuildFolder:
+    def _build_modules(self, module_sources: Sequence[ModuleSource], build_dir: Path) -> list[BuiltModule]:
         build_dir.mkdir(parents=True, exist_ok=True)
-        folder: BuildFolder = BuildFolder(path=build_dir)
+        built_modules: list[BuiltModule] = []
+        # If parallelizing the build, this should be a multiprocessing.Manager().Counter() or similar.
         resource_counter: Counter = Counter()
+        # and use one orchestrator per process
+        orchestrator = RulesOrchestrator()
         for source in module_sources:
             # Inside this loop, do not raise exceptions.
             module = self._import_module(source)  # Syntax validation
-            # Todo: Avoid mutating module object.
-            self._local_validation(module)
-            built_module = self._export_module(module, resource_counter, build_dir)
-            folder.built_modules.append(built_module)
+            # Local validation of module
+            insights = orchestrator.run(module)
+            built_resources = self._export_resources(module.resources, resource_counter, build_dir)
 
-        return folder
+            built_modules.append(
+                BuiltModule(
+                    module_id=module.id,
+                    resources=built_resources,
+                    insights=insights,
+                )
+            )
+
+        return built_modules
 
     def _import_module(self, source: ModuleSource) -> Module:
         resources: list[ReadResource] = []
@@ -278,7 +293,7 @@ class BuildV2Command(ToolkitCommand):
                 resources.extend(
                     self._import_resource_file(resource_file, class_by_kind, source.variables, resource_folder)
                 )
-        return Module(source=source, resources=resources)
+        return Module(id=source.as_id(), resources=resources)
 
     def _import_resource_file(
         self,
@@ -355,6 +370,7 @@ class BuildV2Command(ToolkitCommand):
             )
 
     def _substitute_variables_in_content(self, content: str, variables: list[BuildVariable]) -> str:
+        # Todo: Support variable substitution in content.
         raise NotImplementedError()
 
     def _parse_yaml_content(self, content: str) -> dict[str, Any] | list[dict[str, Any]] | ModelSyntaxError:
@@ -406,7 +422,8 @@ class BuildV2Command(ToolkitCommand):
             )
 
     def _create_recommendation(self, error: ValidationError) -> Recommendation:
-        # This is a quick implementation that just creates a generic recommendation for all errors. It should be extended to create more specific recommendations based on the error details.
+        # This is a quick implementation that just creates a generic recommendation for all errors.
+        # Todo: It should be extended to create more specific recommendations based on the error details.
         errors = humanize_validation_error(error)
         return Recommendation(
             code="UNKNOWN-FIELDS",
@@ -424,14 +441,11 @@ class BuildV2Command(ToolkitCommand):
             fix="Make sure the resource YAML content is valid and follows the expected structure.",
         )
 
-    def _export_module(self, module: Module, resource_counter: Counter, build_dir: Path) -> BuiltModule:
-        built_module = BuiltModule(
-            source=module.source,
-            module_id=module.source.as_id(),
-            dependencies={},
-        )
+    def _export_resources(
+        self, resources: Sequence[ReadResource], resource_counter: Counter, build_dir: Path
+    ) -> list[BuiltResource]:
         built_resources: list[BuiltResource] = []
-        for resource in module.resources:
+        for resource in resources:
             if not isinstance(resource, SuccessfulReadResource):
                 # Todo: Allow syntax errors.
                 continue
@@ -452,70 +466,92 @@ class BuildV2Command(ToolkitCommand):
             built_resources.append(
                 BuiltResource(
                     identifier=identifier,
+                    type=resource.resource_type,
                     source_hash=resource.source_hash,
                     source_path=resource.source_path,
                     build_path=destination_path,
+                    crud_cls=resource.crud_cls,
                     dependencies=resource.dependencies,
                     insights=resource.insights,
                 )
             )
-        return built_module
+        return built_resources
 
-    @classmethod
-    def _create_syntax_errors(cls, resource_type: ResourceType, error: ValidationError) -> Iterable[ModelSyntaxError]:
-        # TODO: should be extended with humanizing of errors, this is a quick solution.
-        for error_details in error.errors(include_input=True, include_url=False):
-            message = error_details.get("msg", "Unknown syntax error")
-            yield ModelSyntaxError(code=f"{resource_type}-SYNTAX-ERROR", message=message)
-
-    def _local_validation(self, module: Module) -> None:
-        """Local validations are post-syntax validations executed"""
-        RulesOrchestrator().run(module)
-
-    def _cdf_dependency_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
+    def _dependency_validation(self, built_modules: list[BuiltModule], client: ToolkitClient | None) -> InsightList:
         """CDF dependency validations are validations that require checking the existence of resources in CDF."""
-
-        dependencies_by_built_module = build_folder.cdf_dependencies_by_built_module
-
+        built_resource_ids: set[tuple[type[ResourceCRUD], Identifier]] = {
+            (resource.crud_cls, resource.identifier) for module in built_modules for resource in module.resources
+        }
+        missing_locally_by_crud_cls: dict[type[ResourceCRUD], dict[Identifier, list[BuiltResource]]] = defaultdict(
+            lambda: defaultdict(list)
+        )
+        for module in built_modules:
+            for resource in module.resources:
+                for crud_cls, dependency_id in resource.dependencies:
+                    if (crud_cls, dependency_id) not in built_resource_ids:
+                        missing_locally_by_crud_cls[crud_cls][dependency_id].append(resource)
+        insights = InsightList()
+        code = "MISSING-DEPENDENCY"
         if client:
-            for built_module, dependencies_by_file in dependencies_by_built_module.items():
-                for file, dependencies_by_crud in dependencies_by_file.items():
-                    for crud_cls, dependencies in dependencies_by_crud.items():
-                        crud = crud_cls(client=client, build_dir=build_folder.path)
-                        response = {resource.as_id() for resource in crud.retrieve(list(dependencies))}
+            for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():
+                crud = crud_cls(client, None, None)
+                display_name = crud.display_name
+                existing_in_cdf = {
+                    crud.get_id(cdf_item) for cdf_item in crud.retrieve(list(expected_by_identifier.keys()))
+                }
+                if missing := set(expected_by_identifier.keys()) - existing_in_cdf:
+                    for identifier in missing:
+                        expected_resources = expected_by_identifier[identifier]
+                        referenced_str = " - ".join(
+                            f"{resource.identifier!s} in {resource.source_path.as_posix()!r}"
+                            for resource in expected_resources
+                        )
+                        insights.append(
+                            ConsistencyError(
+                                code=code,
+                                message=f"{identifier} {display_name} does not exist locally or in CDF. It is referenced by: \n{referenced_str}",
+                                fix=f"Ensure that {display_name} exists or removed the reference to it.",
+                            )
+                        )
 
-                        if missing := dependencies - response:
-                            for m in missing:
-                                built_module.insights.append(
-                                    ConsistencyError(
-                                        code="MISSING-DEPENDENCY",
-                                        message=(
-                                            f"{crud.kind} '{m}' referenced in file '{file}' "
-                                            "does not exist locally neither in CDF."
-                                        ),
-                                        fix="Make sure the resource exists in CDF or remove the reference to it.",
-                                    )
-                                )
-        # Todo: Add recommendation if client missing and there dependencies for the user to supply a
-        #   client.
+        else:
+            for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():
+                resource_type_name = f"{crud_cls.kind.lower()} ({crud_cls.folder_name})"
+                for identifier, expected_resources in expected_by_identifier.items():
+                    referenced_str = " - ".join(
+                        f"{resource.identifier!s} in {resource.source_path.as_posix()!r}"
+                        for resource in expected_resources
+                    )
+                    insights.append(
+                        ConsistencyError(
+                            code=code,
+                            message=f"{identifier} {resource_type_name} does not exist. It is referenced by: \n{referenced_str}",
+                            fix=f"If the {resource_type_name} exist in CDF, provide client credentials to not get this error. "
+                            f"Or ensure that {resource_type_name} exists or removed the reference to it.",
+                        )
+                    )
 
-    def _global_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
+        return insights
+
+    def _global_validation(self, built_modules: list[BuiltModule], client: ToolkitClient | None) -> InsightList:
         """This validation is performed per resource type and not per individual resource and against CDF
         for all modules. This validation will leverage external plugins such as NEAT.
         """
-
-        # Can be parallelized if needed
-        for built_module in build_folder.built_modules:
+        # Can be parallelized with number of plugins.
+        # Neat is done inside the global validation.
+        insights = InsightList()
+        for built_module in built_modules:
             if not built_module.files_built:
                 continue
-
-            if files_by_resource_type := built_module.resource_by_type_by_kind.get(DataModelCRUD.folder_name):
-                if NeatPlugin.installed() and client and DataModelCRUD.kind in files_by_resource_type:
+            data_model_type = ResourceType(resource_folder=DataModelCRUD.folder_name, kind=DataModelCRUD.kind)
+            if data_model_files := built_module.resource_by_type_by_kind.get(data_model_type):
+                if NeatPlugin.installed() and client and data_model_files:
                     neat = NeatPlugin(client)
-                    for data_model_file in files_by_resource_type[DataModelCRUD.kind]:
+                    for data_model_file in data_model_files:
                         for insight in neat.validate(data_model_file.parent, data_model_file):
                             if insight not in built_module.insights:
-                                built_module.insights.append(insight)
+                                insights.append(insight)
+        return insights
 
     def _write_results(
         self,
@@ -529,7 +565,7 @@ class BuildV2Command(ToolkitCommand):
         insight_file = build_folder.path / "insights.csv"
         insight_file.parent.mkdir(parents=True, exist_ok=True)
 
-        insight_file_content = build_folder.insights.to_csv()
+        insight_file_content = build_folder.all_insights.to_csv()
         if insight_file_content.strip():
             safe_write(insight_file, insight_file_content)
 

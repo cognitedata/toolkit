@@ -1,5 +1,3 @@
-from functools import cached_property
-
 from pydantic import BaseModel, ConfigDict, DirectoryPath, Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
@@ -71,37 +69,24 @@ class SuccessfulReadResource(ReadResource):
     resource: ToolkitResource
     insights: InsightList = Field(default_factory=InsightList)
 
-    @cached_property
-    def dependencies(self) -> set[tuple[type[ResourceCRUD], Identifier]]:
+    @property
+    def crud_cls(self) -> type[ResourceCRUD]:
         kind = self.resource_type.kind
         folder_name = self.resource_type.resource_folder
-        crud = RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[folder_name][kind]
-        return set(crud.get_dependencies(self.resource))
+        return RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[folder_name][kind]
+
+    @property
+    def dependencies(self) -> set[tuple[type[ResourceCRUD], Identifier]]:
+        return set(self.crud_cls.get_dependencies(self.resource))
 
 
 class Module(BaseModel):
     """Class used to store module in-memory"""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    # Todo: Replace module source with ModuleId
-    source: ModuleSource
+    id: ModuleId
     resources: list[ReadResource] = Field(default_factory=list)
-    # Todo: Remove insights from this location. It is only used in the orchestrator.
-    insights: InsightList = Field(default_factory=InsightList)
 
     @property
     def is_success(self) -> bool:
-        return not self.insights.has_errors and all(
-            isinstance(resource, SuccessfulReadResource) for resource in self.resources
-        )
-
-    @cached_property
-    def dependencies(self) -> dict[AbsoluteFilePath, set[tuple[type[ResourceCRUD], Identifier]]]:
-        """Get external dependencies for all resources in the module."""
-        dependencies: dict[AbsoluteFilePath, set[tuple[type[ResourceCRUD], Identifier]]] = {}
-
-        for resource in self.resources:
-            if not isinstance(resource, SuccessfulReadResource):
-                continue
-            dependencies[resource.source_path] = resource.dependencies
-        return dependencies
+        return all(isinstance(resource, SuccessfulReadResource) for resource in self.resources)
