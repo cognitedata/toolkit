@@ -430,9 +430,11 @@ def create_properties(
             continue
         prop_def = properties[prop_id]
         if isinstance(prop_def, ContainerPropertyDefinition):
-            dest = (container_id, prop_id)
+            if container_id is None:
+                raise ValueError("Cannot create mapping directly to container property without providing Container ID")
+            destination_container_property = (container_id, prop_id)
         elif isinstance(prop_def, ViewCorePropertyResponse):
-            dest = (prop_def.container, prop_def.container_property_identifier)
+            destination_container_property = (prop_def.container, prop_def.container_property_identifier)
         else:
             issue.invalid_instance_property_types.append(
                 InvalidPropertyDataType(property_id=prop_id, expected_type=ViewCorePropertyResponse.__name__)
@@ -445,7 +447,7 @@ def create_properties(
                 flatten_dump[prop_json_path],
                 data_type,
                 nullable,
-                destination_container_property=dest,
+                destination_container_property=destination_container_property,
                 source_property=(resource_type, prop_json_path),
                 direct_relation_lookup=direct_relation_cache.get_cache(resource_type, prop_json_path),
             )
