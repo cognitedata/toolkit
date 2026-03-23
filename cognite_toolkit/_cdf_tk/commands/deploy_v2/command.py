@@ -308,7 +308,7 @@ class DeployV2Command(ToolkitCommand):
         console.print(
             Panel(
                 "\n".join(summary_lines),
-                title=f"[bold]Read {build_dir.path.as_posix()}[/]",
+                title=f"[bold]Build directory ({build_dir.path.as_posix()})[/]",
                 border_style="yellow" if has_issues else "green",
                 expand=False,
             )
@@ -423,7 +423,7 @@ class DeployV2Command(ToolkitCommand):
         console.print(
             Panel(
                 "\n".join(summary_lines),
-                title="[bold]Deployment Plan[/]",
+                title="[bold]Deployment plan[/]",
                 border_style="green",
                 expand=False,
             )
