@@ -309,7 +309,7 @@ class BuildV2Command(ToolkitCommand):
                     )
                 )
                 progress.update(build_task, description=f"Built {module_name}", advance=source.total_files)
-
+            progress.update(build_task, description=f"Finished building. Built {len(built_modules)} modules")
         return built_modules
 
     def _import_module(self, source: ModuleSource) -> Module:
