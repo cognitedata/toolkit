@@ -73,6 +73,7 @@ class BuildV2Command(ToolkitCommand):
         self._validate_build_parameters(parameters, console, sys.argv)
         build_files = self._read_file_system(parameters)
         module_sources = self._parse_module_sources(build_files)
+        self._display_module_sources(module_sources)
 
         self._prepare_build_directory(parameters.build_dir)
         built_modules = self._build_modules(module_sources, parameters.build_dir)
@@ -90,6 +91,8 @@ class BuildV2Command(ToolkitCommand):
             dependency_insights=dependency_insights,
             global_insights=global_insights,
         )
+
+        self._display_build_folder(build_folder)
 
         self._write_results(parameters, build_folder, build_start_time, build_duration_seconds)
 
@@ -187,6 +190,9 @@ class BuildV2Command(ToolkitCommand):
                 "Errors encountered while parsing modules:\n" + "\n".join(f"- {error!s}" for error in parser.errors)
             )
         return module_sources
+
+    def _display_module_sources(self, module_sources: list[ModuleSource]) -> None:
+        return None
 
     @classmethod
     def _read_file_system(cls, parameters: BuildParameters) -> BuildSourceFiles:
@@ -566,6 +572,9 @@ class BuildV2Command(ToolkitCommand):
                             if insight not in built_module.insights:
                                 insights.append(insight)
         return insights
+
+    def _display_build_folder(self, build_folder: BuildFolder) -> None:
+        return None
 
     def _write_results(
         self,
