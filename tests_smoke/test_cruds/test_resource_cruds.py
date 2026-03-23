@@ -5,8 +5,17 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_LIST, ResourceCRUD
 from tests.test_unit.utils import FakeCogniteResourceGenerator
+
+
+def _rulesets_or_dataproducts_api_disabled(exc: ToolkitAPIError) -> bool:
+    """CDF returns 403 when Rule Sets / Data products is not enabled on the project."""
+    if exc.code != 403 and "403" not in str(exc):
+        return False
+    msg = str(exc)
+    return "Rule Sets API is not enabled" in msg or "Data products service" in msg
 
 
 class TestResourceCRUD:
@@ -32,6 +41,12 @@ class TestResourceCRUD:
             retrieved = resource_io.retrieve(
                 [non_existing_id],
             )
+        except ToolkitAPIError as e:
+            if _rulesets_or_dataproducts_api_disabled(e):
+                pytest.skip(str(e))
+            raise AssertionError(
+                f"Retrieving non-existing resource id in {resource_io.display_name} raised an error: {e}"
+            ) from e
         except Exception as e:
             raise AssertionError(
                 f"Retrieving non-existing resource id in {resource_io.display_name} raised an error: {e}"
