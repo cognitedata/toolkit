@@ -58,7 +58,7 @@ def create_infield_schedule_selector(instance_space: str | None = None) -> Insta
             "and": [template_filter, {"equals": {"property": ["node", "space"], "value": instance_space}}]
         }
     return InstanceQuerySelector(
-        endpoint="sync",
+        endpoint="query",
         query=QueryRequest(
             with_={
                 "template": QueryNodeExpression(

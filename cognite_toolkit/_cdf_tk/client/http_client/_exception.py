@@ -38,4 +38,11 @@ class ToolkitAPIError(Exception):
         debug_info["errorMessage"] = self.message
         if self.code:
             debug_info["statusCode"] = self.code
+        if self.is_auto_retryable is not None:
+            debug_info["isAutoRetryable"] = self.is_auto_retryable
+        if self.missing is not None:
+            debug_info["missing"] = self.missing
+        if self.duplicated is not None:
+            debug_info["duplicated"] = self.duplicated
+
         return debug_info

@@ -226,7 +226,7 @@ class InstanceIO(
             select[query_id] = QuerySelect()
 
         query = QueryRequest(with_=with_, select=select, root="nodes")
-        yield from self._instance_by_query(query, limit, init_cursor)
+        yield from self._instance_by_query(query, limit, init_cursor, endpoint=selector.endpoint)
 
     def _instance_by_query(
         self,
@@ -254,7 +254,9 @@ class InstanceIO(
             yield Page(
                 worker_id="main",
                 items=wrapped_items,
-                bookmark=CursorBookmark(cursor=next_cursor) if next_cursor else NoBookmark(),
+                bookmark=CursorBookmark(cursor=next_cursor, source="sync" if endpoint == "sync" else "regular")
+                if next_cursor
+                else NoBookmark(),
             )
 
     def _instances_with_container_properties(
@@ -279,7 +281,11 @@ class InstanceIO(
                 yield Page(
                     worker_id="main",
                     items=wrapped_items,
-                    bookmark=CursorBookmark(cursor=page.next_cursor) if page.next_cursor else NoBookmark(),
+                    bookmark=CursorBookmark(
+                        cursor=page.next_cursor, source="sync" if selector.endpoint == "sync" else "regular"
+                    )
+                    if page.next_cursor
+                    else NoBookmark(),
                 )
             if page.next_cursor is None or (limit is not None and total >= limit) or not page.items:
                 break
