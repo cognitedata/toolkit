@@ -39,7 +39,7 @@ INT64_MAX = 9_223_372_036_854_775_807
 
 
 def asset_centric_convert_to_primary_property(
-    value: str | int | float | bool | dict | list | None,
+    value: str | int | float | bool | NodeId | dict | list | None,
     type_: PropertyTypeDefinition,
     nullable: bool,
     destination_container_property: tuple[data_modeling.ContainerId, str],
@@ -60,7 +60,7 @@ def asset_centric_convert_to_primary_property(
 
 
 def convert_to_primary_property(
-    value: str | int | float | bool | dict | list | None,
+    value: str | int | float | bool | NodeId | dict | list | None,
     type_: PropertyTypeDefinition,
     nullable: bool,
     direct_relation_lookup: Mapping[str | int, NodeId] | None = None,
@@ -203,7 +203,7 @@ def _is_midnight_and_naive(dt: datetime) -> bool:
     return not (dt.hour or dt.minute or dt.second or dt.microsecond or dt.tzinfo)
 
 
-def _as_list(value: str | int | float | bool | dict[str, object] | list[object] | None) -> list[object]:
+def _as_list(value: str | int | float | bool | NodeId | dict[str, object] | list[object] | None) -> list[object]:
     """Convert a value to a list, ensuring that it is iterable."""
     if value is None:
         return []
@@ -217,7 +217,7 @@ def _as_list(value: str | int | float | bool | dict[str, object] | list[object] 
             return data if isinstance(data, list) else [data]
         except json.JSONDecodeError:
             return [value]
-    elif isinstance(value, int | float | bool | dict):
+    elif isinstance(value, int | float | bool | dict | NodeId):
         return [value]
     else:
         raise TypeError(f"Cannot convert {value} of type {type(value)} to a list.")
@@ -225,7 +225,7 @@ def _as_list(value: str | int | float | bool | dict[str, object] | list[object] 
 
 class _Converter(ABC):
     @abstractmethod
-    def convert(self, value: str | int | float | bool | dict | list | None) -> PropertyValueWrite:
+    def convert(self, value: str | int | float | bool | NodeId | dict | list | None) -> PropertyValueWrite:
         """Convert a value to the appropriate type."""
         raise NotImplementedError("This method should be implemented by subclasses.")
 
@@ -238,7 +238,7 @@ class _ValueConverter(_Converter, ABC):
     def __init__(self, nullable: bool) -> None:
         self.nullable = nullable
 
-    def convert(self, value: str | int | float | bool | dict | list | None) -> PropertyValueWrite:
+    def convert(self, value: str | int | float | bool | NodeId | dict | list | None) -> PropertyValueWrite:
         if value is None and self.nullable is False:
             raise ValueError("Cannot convert None to a non-nullable property.")
         elif value is None:
@@ -265,7 +265,7 @@ class _TimeSeriesTypeConverter(_SpecialCaseConverter):
     source_property = ("timeseries", "isString")
     destination_container_property = (ContainerId(space="cdf_cdm", external_id="CogniteTimeSeries"), "type")
 
-    def convert(self, value: str | int | float | bool | dict | list | None) -> str:
+    def convert(self, value: str | int | float | bool | NodeId | dict | list | None) -> str:
         if isinstance(value, bool):
             return "string" if value else "numeric"
         raise ValueError(f"Cannot convert {value} to TimeSeries type. Expected a boolean value.")
@@ -275,7 +275,7 @@ class _TimeSeriesUnitConverter(_SpecialCaseConverter):
     source_property = ("timeseries", "unitExternalId")
     destination_container_property = (ContainerId(space="cdf_cdm", external_id="CogniteTimeSeries"), "unit")
 
-    def convert(self, value: str | int | float | bool | dict | list | None) -> dict[str, str] | None:
+    def convert(self, value: str | int | float | bool | NodeId | dict | list | None) -> dict[str, str] | None:
         if value is None:
             return None
         if isinstance(value, str):
@@ -286,7 +286,7 @@ class _TimeSeriesUnitConverter(_SpecialCaseConverter):
 class _LabelConverter(_SpecialCaseConverter, ABC):
     destination_container_property = (ContainerId(space="cdf_cdm", external_id="CogniteDescribable"), "tags")
 
-    def convert(self, value: str | int | float | bool | dict | list | None) -> list[str]:
+    def convert(self, value: str | int | float | bool | NodeId | dict | list | None) -> list[str]:
         if not isinstance(value, list):
             raise ValueError(
                 f"Cannot convert {value} to labels. Expected a list of Labels, objects, or LabelDefinitions."
@@ -320,7 +320,7 @@ class _SourceConverter(_SpecialCaseConverter, ABC):
     def __init__(self, direct_relation_lookup: Mapping[str | int, NodeId]) -> None:
         self.direct_relation_lookup = direct_relation_lookup
 
-    def convert(self, value: str | int | float | bool | dict | list | None) -> PropertyValueWrite:
+    def convert(self, value: str | int | float | bool | NodeId | dict | list | None) -> PropertyValueWrite:
         if isinstance(value, str | int):
             if value in self.direct_relation_lookup:
                 return self.direct_relation_lookup[value].dump(include_instance_type=False)
@@ -347,7 +347,7 @@ class _TextConverter(_ValueConverter):
     type_str = "text"
     schema_type = "string"
 
-    def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
         return str(value)
 
 
@@ -355,7 +355,7 @@ class _BooleanConverter(_ValueConverter):
     type_str = "boolean"
     schema_type = "boolean"
 
-    def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
         if isinstance(value, bool | int | float):
             return bool(value)
         elif isinstance(value, str):
@@ -369,7 +369,7 @@ class _BooleanConverter(_ValueConverter):
 class _Int32Converter(_ValueConverter):
     type_str = "int32"
 
-    def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
         if isinstance(value, int):
             output = value
         elif isinstance(value, str):
@@ -388,7 +388,7 @@ class _Int64Converter(_ValueConverter):
     type_str = "int64"
     schema_type = "integer"
 
-    def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
         if isinstance(value, int):
             output = value
         elif isinstance(value, str):
@@ -406,7 +406,7 @@ class _Int64Converter(_ValueConverter):
 class _Float32Converter(_ValueConverter):
     type_str = "float32"
 
-    def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
         if isinstance(value, float | int):
             output = float(value)
         elif isinstance(value, str):
@@ -429,7 +429,7 @@ class _Float64Converter(_ValueConverter):
     type_str = "float64"
     schema_type = "float"
 
-    def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
         if isinstance(value, float | int):
             output = float(value)
         elif isinstance(value, str):
@@ -449,7 +449,7 @@ class _JsonConverter(_ValueConverter):
     schema_type = "json"
     _handles_list = True
 
-    def _convert(self, value: str | int | float | bool | dict[str, object] | list) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict[str, object] | list) -> PropertyValueWrite:
         if isinstance(value, bool | int | float):
             return value
         elif isinstance(value, dict):
@@ -474,7 +474,7 @@ class _TimestampConverter(_ValueConverter):
     type_str = "timestamp"
     schema_type = "timestamp"
 
-    def _convert(self, value: str | int | float | bool | dict) -> datetime:
+    def _convert(self, value: str | int | float | bool | NodeId | dict) -> datetime:
         if isinstance(value, int | float):
             try:
                 return ms_to_datetime(value)
@@ -492,7 +492,7 @@ class _EpochConverter(_ValueConverter):
     type_str = "epoch"
     schema_type = "epoch"
 
-    def _convert(self, value: str | int | float | bool | dict) -> int:
+    def _convert(self, value: str | int | float | bool | NodeId | dict) -> int:
         if isinstance(value, int | float):
             return int(value)
         elif isinstance(value, str):
@@ -509,7 +509,7 @@ class _DateConverter(_ValueConverter):
     type_str = "date"
     schema_type = "date"
 
-    def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
         if isinstance(value, str):
             try:
                 return parser.parse(value).date()
@@ -525,7 +525,7 @@ class _EnumConverter(_ValueConverter):
         super().__init__(nullable)
         self.available_types = {enum_value.casefold(): enum_value for enum_value in type_.values.keys()}
 
-    def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
         value = str(value).casefold()
         if value in self.available_types:
             return self.available_types[value]
@@ -541,7 +541,7 @@ class _DirectRelationshipConverter(_ValueConverter):
         super().__init__(nullable=True)
         self.direct_relation_lookup = direct_relation_lookup
 
-    def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
         if isinstance(value, str | int) and value in self.direct_relation_lookup:
             return self.direct_relation_lookup[value].dump(include_instance_type=False)
         raise ValueError(f"Cannot convert {value!r} to NodeReference. Invalid data type or missing in lookup.")
@@ -550,21 +550,21 @@ class _DirectRelationshipConverter(_ValueConverter):
 class _TimeSeriesReferenceConverter(_ValueConverter):
     type_str = "timeseries"
 
-    def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
         raise ToolkitNotSupported("Timeseries reference conversion is not supported.")
 
 
 class _FileReferenceConverter(_ValueConverter):
     type_str = "file"
 
-    def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
         raise ToolkitNotSupported("File reference conversion is not supported.")
 
 
 class _SequenceReferenceConverter(_ValueConverter):
     type_str = "sequence"
 
-    def _convert(self, value: str | int | float | bool | dict) -> PropertyValueWrite:
+    def _convert(self, value: str | int | float | bool | NodeId | dict) -> PropertyValueWrite:
         raise ToolkitNotSupported("Sequence reference conversion is not supported.")
 
 

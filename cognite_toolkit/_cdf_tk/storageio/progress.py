@@ -19,9 +19,11 @@ class BookmarkType(ProgressObject):
 class CursorBookmark(BookmarkType):
     type: Literal["cursor"] = "cursor"
     cursor: str
+    source: Literal["sync", "regular"] = "regular"
 
     def __str__(self) -> str:
-        return f"cursor {self.cursor!r}"
+        prefix = f"{self.source}-" if self.source == "sync" else ""
+        return f"{prefix}cursor {self.cursor!r}"
 
 
 class FileBookmark(BookmarkType):

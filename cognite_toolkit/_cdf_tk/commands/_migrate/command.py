@@ -2,7 +2,7 @@ import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import get_args
+from typing import Generic, get_args
 
 from rich import print
 from rich.console import Console
@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     UploadableStorageIO,
 )
 from cognite_toolkit._cdf_tk.storageio.logger import FileDataLogger, OperationStatus
-from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, ProgressYAML
+from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
@@ -59,6 +59,16 @@ class MigrationStatusResult:
     count: int
 
 
+@dataclass
+class MigrationStep(Generic[T_Selector]):
+    total_count: int | None
+    completed_count: int
+    bookmark: Bookmark | None
+    message: str
+    is_completed: bool
+    selector: T_Selector
+
+
 class MigrationCommand(ToolkitCommand):
     def migrate(
         self,
@@ -71,17 +81,21 @@ class MigrationCommand(ToolkitCommand):
         user_log_filestem: str | None = None,
     ) -> dict[str, list[MigrationStatusResult]]:
         self.validate_migration_model_available(data.client)
-
         log_dir.mkdir(parents=True, exist_ok=True)
         log_filestem = self._create_logfile_stem(log_dir, user_log_filestem, data.KIND)
 
         console = data.client.console
-        counts_by_selector, total_all_items = self._print_overview(data, selectors, console)
 
-        if total_all_items and not isinstance(data, ChartIO):
+        plan = self._create_plan(data, selectors, log_dir)
+        self._display_plan(plan, console)
+
+        needed_capacity = sum(
+            (step.total_count - step.completed_count) for step in plan if step.total_count is not None
+        )
+
+        if needed_capacity and not isinstance(data, ChartIO):
             # Chart are not creating any new nodes.
-            self.validate_available_capacity(data.client, total_all_items)
-
+            self.validate_available_capacity(data.client, needed_capacity)
         results_by_selector: dict[str, list[MigrationStatusResult]] = {}
         with (
             NDJsonWriter(
@@ -92,38 +106,23 @@ class MigrationCommand(ToolkitCommand):
             logger = FileDataLogger(log_file)
             data.logger = logger
             mapper.logger = logger
-            for selected in selectors:
-                logger.tracker.reset()
+            for step in plan:
+                if step.message:
+                    console.print(step.message)
+                if step.is_completed:
+                    continue
 
+                selected = step.selector
+                logger.tracker.reset()
                 mapper.prepare(selected)
 
-                total_items = counts_by_selector[selected]
-                init_bookmark: Bookmark | None = None
-                start_item = 0
-                if progress := ProgressYAML.try_load(log_dir, str(selected)):
-                    if progress.total != total_items:
-                        console.print(
-                            f"Found progress file for {selected.display_name}. But total items "
-                            f"does not match the expected total. Starting from beginning..."
-                        )
-                    elif progress.status == "completed":
-                        console.print(f"Found completed progress file for {selected.display_name}. Skipping migration.")
-                        continue
-                    elif first := progress.get_first_bookmark():
-                        init_bookmark = first
-                        start_item = progress.completed_count
-                        console.print(f"Resuming migration for {selected.display_name} from {first!s}.")
-                    else:
-                        console.print(
-                            f"Found progress file but failed to load for {selected.display_name}. "
-                            f"Starting from beginning"
-                        )
-
                 executor = ProducerWorkerExecutor[Page[T_DataResponse], Page[T_DataRequest]](
-                    download_iterable=data.stream_data(selected, bookmark=init_bookmark),
-                    process=self._convert(mapper, data),
-                    write=self._upload(selected, write_client, data, dry_run, log_dir, total_items, start_item),
-                    total_item_count=total_items,
+                    download_iterable=data.stream_data(selected, bookmark=step.bookmark),
+                    process=self._convert(mapper),
+                    write=self._upload(
+                        selected, write_client, data, dry_run, log_dir, step.total_count, step.completed_count
+                    ),
+                    total_item_count=step.total_count,
                     max_queue_size=10,
                     download_description=f"Downloading {selected.display_name}",
                     process_description="Converting",
@@ -132,7 +131,7 @@ class MigrationCommand(ToolkitCommand):
                     verbose=verbose,
                 )
 
-                executor.run(start_item=start_item)
+                executor.run(start_item=step.completed_count)
                 total = executor.downloaded_items
 
                 results = self._create_status_summary(logger)
@@ -151,25 +150,73 @@ class MigrationCommand(ToolkitCommand):
 
         return results_by_selector
 
-    def _print_overview(
+    def _create_plan(
         self,
         data: UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest],
         selectors: Sequence[T_Selector],
+        log_dir: Path,
+    ) -> list[MigrationStep]:
+        plan: list[MigrationStep] = []
+        for selector in selectors:
+            total_items = data.count(selector)
+            completed_count = 0
+            init_bookmark: Bookmark | None = None
+            message = ""
+
+            is_complete = False
+            if progress := ProgressYAML.try_load(log_dir, str(selector)):
+                completed_count = progress.completed_count
+                first = progress.get_first_bookmark()
+                is_sync = isinstance(first, CursorBookmark) and first.source == "sync"
+                # Sync cursor supports continuing even if the data has been modified.
+                if progress.total != total_items and not is_sync:
+                    message = (
+                        f"Found progress file for {selector.display_name}. But total items "
+                        f"does not match the expected total. Starting from beginning..."
+                    )
+                elif progress.status == "completed" and (not is_sync or completed_count == total_items):
+                    message = f"Found completed progress file for {selector.display_name}. Skipping migration."
+                    is_complete = True
+                elif first is not None:
+                    init_bookmark = first
+                    message = f"Resuming migration for {selector.display_name} from {first!s}."
+                else:
+                    message = (
+                        f"Found progress file but failed to load for {selector.display_name}. Starting from beginning"
+                    )
+            plan.append(
+                MigrationStep(
+                    total_count=total_items,
+                    completed_count=completed_count,
+                    bookmark=init_bookmark,
+                    message=message,
+                    is_completed=is_complete,
+                    selector=selector,
+                )
+            )
+        return plan
+
+    def _display_plan(
+        self,
+        plan: Sequence[MigrationStep],
         console: Console,
-    ) -> tuple[dict[T_Selector, int | None], int]:
-        counts_by_selector: dict[T_Selector, int | None] = {}
-        total_all_items = 0
+    ) -> None:
         table = Table(title="Planned Migrations")
         table.add_column("Data Type", style="cyan")
-        table.add_column("Item Count", justify="right", style="green")
-        for selected in selectors:
-            total_items = data.count(selected)
-            total_all_items += total_items if total_items is not None else 0
-            counts_by_selector[selected] = total_items
-            item_count = str(total_items) if total_items is not None else "Unknown"
-            table.add_row(str(selected), item_count)
+        table.add_column("Completed Count", style="cyan")
+        table.add_column("Total Count", justify="right", style="green")
+        total_count = 0
+        total_completed = 0
+        for step in plan:
+            total_count += step.total_count if step.total_count is not None else 0
+            total_completed += step.completed_count if step.completed_count is not None else 0
+            item_count = f"{step.total_count:,}" if step.total_count is not None else "Unknown"
+            table.add_row(str(step.selector), f"{step.completed_count:,}", item_count)
+
+        table.add_section()
+        table.add_row("Total", f"{total_completed:,}", f"{total_count:,}")
         console.print(table)
-        return counts_by_selector, total_all_items
+        return None
 
     @staticmethod
     def _create_logfile_stem(log_dir: Path, user_log_filestem: str | None, data_kind: str) -> str:
@@ -240,7 +287,6 @@ class MigrationCommand(ToolkitCommand):
     @staticmethod
     def _convert(
         mapper: DataMapper[T_Selector, T_DataResponse, T_DataRequest],
-        data: UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest],
     ) -> Callable[[Page[T_DataResponse]], Page[T_DataRequest]]:
         def track_mapping(source: Page[T_DataResponse]) -> Page[T_DataRequest]:
             raw_items = [di.item for di in source.items]
@@ -300,7 +346,7 @@ class MigrationCommand(ToolkitCommand):
             if issues:
                 target.logger.log(issues)
 
-            migrate_count += len(responses)
+            migrate_count += sum(len(response.ids) for response in responses)
             ProgressYAML(
                 status="in-progress",
                 bookmarks={page.worker_id: page.bookmark},
@@ -338,7 +384,7 @@ class MigrationCommand(ToolkitCommand):
         stats = client.data_modeling.statistics.project()
 
         available_capacity = stats.instances.instances_limit - stats.instances.instances
-        available_capacity_after = available_capacity - instance_count
+        available_capacity_after = available_capacity - max(instance_count, 0)
 
         if available_capacity_after < DMS_INSTANCE_LIMIT_MARGIN:
             raise ToolkitValueError(
