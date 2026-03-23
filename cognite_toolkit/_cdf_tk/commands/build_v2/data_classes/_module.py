@@ -51,6 +51,14 @@ class ModuleSource(BaseModel):
         return sum(len(files) for files in self.resource_files_by_folder.values())
 
 
+class BuildSource(BaseModel):
+    """Class used to describe source for build"""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    modules: list[ModuleSource]
+    insights: InsightList = Field(default_factory=InsightList)
+
+
 class ResourceType(BaseModel):
     model_config = ConfigDict(frozen=True)
 

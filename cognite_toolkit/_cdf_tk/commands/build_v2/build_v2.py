@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Recommendation,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
+    BuildSource,
     BuildVariable,
     FailedReadResource,
     ReadResource,
@@ -73,11 +74,12 @@ class BuildV2Command(ToolkitCommand):
 
         self._validate_build_parameters(parameters, console, sys.argv)
         build_files = self._read_file_system(parameters)
-        module_sources = self._parse_module_sources(build_files)
-        self._display_module_sources(module_sources)
+
+        build_source = self._find_modules(build_files)
+        self._display_module_sources(build_source)
 
         self._prepare_build_directory(parameters.build_dir)
-        built_modules = self._build_modules(module_sources, parameters.build_dir, console)
+        built_modules = self._build_modules(build_source.modules, parameters.build_dir, console)
 
         dependency_insights = self._dependency_validation(built_modules, client)
 
@@ -182,17 +184,15 @@ class BuildV2Command(ToolkitCommand):
             suggestion.append(f"-o {display_path}")
         return f"'{' '.join(suggestion)}'"
 
-    def _parse_module_sources(self, build: BuildSourceFiles) -> list[ModuleSource]:
+    def _find_modules(self, build: BuildSourceFiles) -> BuildSource:
         parser = ModuleSourceParser(build.selected_modules, build.organization_dir)
         module_sources = parser.parse(build.yaml_files, build.variables)
-        if parser.errors:
-            # Todo: Nicer way of formatting errors. Jira CDF-27107
-            raise ToolkitValueError(
-                "Errors encountered while parsing modules:\n" + "\n".join(f"- {error!s}" for error in parser.errors)
-            )
-        return module_sources
+        return BuildSource(
+            modules=module_sources,
+            insights=parser.errors,
+        )
 
-    def _display_module_sources(self, module_sources: list[ModuleSource]) -> None:
+    def _display_module_sources(self, build_source: BuildSource) -> None:
         return None
 
     @classmethod
