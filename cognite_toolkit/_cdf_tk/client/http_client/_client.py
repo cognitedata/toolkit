@@ -203,7 +203,7 @@ class HTTPClient:
                 content=response.content,
             )
         error_details = ErrorDetails.from_response(response)
-        if request.retry_status and (retry_request := self._retry_request(response, request, error_details)):
+        if retry_request := self._retry_request(response, request, error_details):
             return retry_request
         else:
             # Permanent failure
@@ -227,7 +227,10 @@ class HTTPClient:
             time.sleep(retry_after)
             return request
 
-        should_retry = response.status_code in self._retry_status_codes or error_details.is_auto_retryable is True
+        retry_status_codes = (
+            self._retry_status_codes if request.retry_status_codes is None else request.retry_status_codes
+        )
+        should_retry = response.status_code in retry_status_codes or error_details.is_auto_retryable is True
         if request.status_attempt < self._max_retries and should_retry:
             request.status_attempt += 1
             time.sleep(self._backoff_time(request.total_attempts))

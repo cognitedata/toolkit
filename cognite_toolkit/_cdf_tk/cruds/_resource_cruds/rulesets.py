@@ -19,6 +19,9 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, sanitize_filename
 from cognite_toolkit._cdf_tk.yaml_classes import RuleSetVersionYAML, RuleSetYAML
 
+# docs are not published yet; link to the API reference root.
+_DOCS_ROOT = "https://api-docs.cognite.com/20230101/"
+
 
 @final
 class RuleSetCRUD(ResourceCRUD[ExternalId, RuleSetRequest, RuleSetResponse]):
@@ -30,7 +33,10 @@ class RuleSetCRUD(ResourceCRUD[ExternalId, RuleSetRequest, RuleSetResponse]):
     dependencies = frozenset({GroupAllScopedCRUD})
     support_drop = True
     support_update = False
-    _doc_url = "Rule-sets/operation/createRuleSet"
+
+    @classmethod
+    def doc_url(cls) -> str:
+        return _DOCS_ROOT
 
     @property
     def display_name(self) -> str:
@@ -96,7 +102,10 @@ class RuleSetVersionCRUD(ResourceCRUD[RuleSetVersionId, RuleSetVersionRequest, R
     parent_resource = frozenset({RuleSetCRUD})
     support_drop = True
     support_update = False
-    _doc_url = "Rule-sets/operation/createRuleSetVersions"
+
+    @classmethod
+    def doc_url(cls) -> str:
+        return _DOCS_ROOT
 
     @property
     def display_name(self) -> str:

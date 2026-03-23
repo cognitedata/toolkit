@@ -7,7 +7,14 @@ from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
 from cognite_toolkit._cdf_tk.client.cdf_client.api import APIMethod, Endpoint
-from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, ItemsSuccessResponse, RequestMessage, SuccessResponse
+from cognite_toolkit._cdf_tk.client.http_client import (
+    FailedResponse,
+    HTTPClient,
+    ItemsSuccessResponse,
+    RequestMessage,
+    SuccessResponse,
+    ToolkitAPIError,
+)
 from cognite_toolkit._cdf_tk.client.identifiers import InstanceDefinitionId, NodeId, T_InstanceId, ViewId
 from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -49,9 +56,27 @@ QueryEndpoint: TypeAlias = Literal["query", "sync"]
 _T_QueryResponse = TypeVar("_T_QueryResponse", bound=QueryResponseTyped | QueryResponseUntyped)
 
 
+class ReduceLoadException(Exception):
+    """This is used in the flow of instance query to signal to reduce the load."""
+
+    def __init__(self, source_exception: Exception) -> None:
+        self.source_exception = source_exception
+
+
 class InstancesAPI(CDFResourceAPI[InstanceResponse]):
-    def __init__(self, http_client: HTTPClient) -> None:
+    """Instances API
+
+    Args:
+        http_client (HTTPClient): Client to use to make requests to the API.
+        consecutive_success_count_increase (int): Number of consecutive successful requests before
+            trying to increase the chunk size again. This is used to find a good chunk size when using the
+            /instances/query and /instances/sync endpoints.
+
+    """
+
+    def __init__(self, http_client: HTTPClient, consecutive_success_count_increase: int = 100) -> None:
         super().__init__(http_client=http_client, method_endpoint_map=METHOD_MAP)
+        self._consecutive_success_count_increase = consecutive_success_count_increase
 
     def _validate_page_response(
         self, response: SuccessResponse | ItemsSuccessResponse
@@ -248,9 +273,34 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         Returns:
             QueryResult containing matching instances grouped by result set expression name.
         """
-        response_cls = QueryResponseTyped if type_results else QueryResponseUntyped
-        endpoint_prop = self._get_endpoint(endpoint)
-        return self._query(query, response_cls, endpoint_prop, exhaust_sub_selections, endpoint_name=endpoint)
+        limit = query.with_[query.root].limit
+        results: list[QueryResponseTyped | QueryResponseUntyped] = []
+        for batch in self._query_iterate(
+            # Deep copy to avoid modifying the original query object with next cursors and limits.
+            query.model_copy(deep=True),
+            type_results,
+            endpoint,
+            exhaust_sub_selections,
+            limit,
+        ):
+            results.append(batch)
+        if not results:
+            response_cls = QueryResponseTyped if type_results else QueryResponseUntyped
+            empty_response = response_cls(items={}, next_cursor={})
+            empty_response.root = query.root
+            return empty_response
+        # Merge results
+        first = results[0]
+        if len(results) > 1:
+            for result in results[1:]:
+                for key, items in result.items.items():
+                    # We now that all query responses will be either QueryResponseTyped or QueryResponseUntyped
+                    # not mixed, so we can safely ignore the type here.
+                    if key in first.items:
+                        first.items[key].extend(items)  # type: ignore[arg-type]
+                    else:
+                        first.items[key] = items  # type: ignore[assignment]
+        return first
 
     @overload
     def query_iterate(
@@ -280,22 +330,63 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
         exhaust_sub_selections: bool = False,
         limit: int | None = None,
     ) -> Iterable[QueryResponseTyped | QueryResponseUntyped]:
-        """Iterate over the results of a query against the instances query/sync endpoint.
+        """Iterate over the results of a query against the instances query/sync endpoint."""
+        yield from self._query_iterate(
+            # Deep copy to avoid modifying the original query object with next cursors and limits.
+            query.model_copy(deep=True),
+            type_results,
+            endpoint,
+            exhaust_sub_selections,
+            limit,
+        )
 
-        Note this mutates the cursor of the QueryRequest object.
-        """
+    def _query_iterate(
+        self,
+        query: QueryRequest,
+        type_results: bool = True,
+        endpoint: QueryEndpoint = "query",
+        exhaust_sub_selections: bool = False,
+        limit: int | None = None,
+    ) -> Iterable[QueryResponseTyped | QueryResponseUntyped]:
         endpoint_prop = self._get_endpoint(endpoint)
         response_cls = QueryResponseTyped if type_results else QueryResponseUntyped
-        chunk_size = query.with_[query.root].limit or endpoint_prop.item_limit
+
+        max_chunk_size = query.with_[query.root].limit or endpoint_prop.item_limit
+        current_chunk_size = max_chunk_size
+        min_failed_chunk_size = max_chunk_size + 1
+        success_request_count = 0
         total = 0
         while True:
-            batch = self._query(query, response_cls, endpoint_prop, exhaust_sub_selections, endpoint_name=endpoint)
+            try:
+                batch = self._query(query, response_cls, endpoint_prop, exhaust_sub_selections, endpoint_name=endpoint)
+            except ReduceLoadException as e:
+                if current_chunk_size <= 1:
+                    raise e.source_exception
+                min_failed_chunk_size = min(current_chunk_size, min_failed_chunk_size)
+                success_request_count = 0
+                current_chunk_size = current_chunk_size // 2
+                page_limit = current_chunk_size if limit is None else min(current_chunk_size, max(limit - total, 0))
+                query.with_[query.root].limit = page_limit
+                continue
+
+            success_request_count += 1
             total += len(batch.items[query.root])
             next_cursor = batch.root_cursor
             yield batch
             if next_cursor is None or not batch or (limit is not None and total >= limit):
                 break
-            page_limit = chunk_size if limit is None else min(chunk_size, max(limit - total, 0))
+
+            if current_chunk_size < min_failed_chunk_size:
+                # Binary search towards optimal chunk size.
+                current_chunk_size = current_chunk_size + (min_failed_chunk_size - current_chunk_size) // 2
+            elif success_request_count > self._consecutive_success_count_increase:
+                # If we had a lot of successful attempts, try increasing the chunk size again to avoid getting
+                # stuck at a low limit.
+                success_request_count = 0
+                current_chunk_size = min(current_chunk_size * 2, max_chunk_size)
+                min_failed_chunk_size = max(current_chunk_size * 2, max_chunk_size)
+
+            page_limit = current_chunk_size if limit is None else min(current_chunk_size, max(limit - total, 0))
             query.with_[query.root].limit = page_limit
             query.cursors = {query.root: next_cursor}
 
@@ -323,9 +414,14 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             for select_id in query.select.keys():
                 if select_id == query.root:
                     continue
+                sub_selection_limit = query.with_[select_id].limit
+                if sub_selection_limit is not None and len(response.items[select_id]) < sub_selection_limit:
+                    # The response returned fewer than the limit, no more items to fetch for this sub-selection.
+                    continue
                 sub_cursor = response.next_cursor.get(select_id)
                 if sub_cursor is not None:
                     next_cursors[select_id] = sub_cursor
+
             if not next_cursors or not response:
                 return first
             # Keep the root cursor to iterate over all subitems.
@@ -343,8 +439,22 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             endpoint_url=self._http_client.config.create_api_url(endpoint.path),
             method=endpoint.method,
             body_content=query.dump(endpoint=endpoint_name),
+            # We do not retry 408 as that is an indication we should reduce load.
+            retry_status_codes={429, 502, 503, 504},
         )
         response = self._http_client.request_single_retries(request)
+        if isinstance(response, FailedResponse) and response.status_code == 408:
+            # Graph query timed out. Reduce load or contention, or optimise your query.
+            raise ReduceLoadException(
+                source_exception=ToolkitAPIError(
+                    f"Request failed with status code {response.status_code}: {response.error.message}",
+                    missing=response.error.missing,  # type: ignore[arg-type]
+                    duplicated=response.error.duplicated,  # type: ignore[arg-type]
+                    code=response.error.code,
+                    request=request,
+                )
+            )
+
         success = response.get_success_or_raise(request)
         # Wrong type hint in pydantic, response_cls.model_validate_json returns an instance
         # of that class no the class type.

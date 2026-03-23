@@ -323,7 +323,7 @@ def create_properties(
     resource_type: AssetCentricTypeExtended,
     issue: ConversionIssue,
     direct_relation_cache: DirectRelationCache,
-) -> dict[str, JsonValue]:
+) -> dict[str, JsonValue | NodeId | list[NodeId]]:
     """
     Create properties for a data model instance from an asset-centric resource.
 
@@ -340,7 +340,7 @@ def create_properties(
 
     """
     flatten_dump = flatten_dict_json_path(dumped, keep_structured=set(property_mapping.keys()))
-    properties: dict[str, JsonValue] = {}
+    properties: dict[str, JsonValue | NodeId | list[NodeId]] = {}
     ignored_asset_centric_properties: set[str] = set()
     for prop_json_path, prop_id in property_mapping.items():
         if prop_json_path not in flatten_dump:
@@ -504,9 +504,18 @@ class ConnectionCreator:
                 mapping[view_property] = case
         return mapping
 
-    def update_view_cache(self, views: Iterable[ViewResponse]) -> None:
-        for view in views:
-            self.view_by_id[view.as_id()] = view
+    def update_view_cache(
+        self, views: Iterable[ViewResponse] | None = None, view_ids: Iterable[ViewId] | None = None
+    ) -> None:
+        if views is not None:
+            for view in views:
+                self.view_by_id[view.as_id()] = view
+        if view_ids is not None:
+            missing_views = set(view_ids) - set(self.view_by_id.keys())
+            if missing_views:
+                retrieved_views = self._client.tool.views.retrieve(list(missing_views))
+                for view in retrieved_views:
+                    self.view_by_id[view.as_id()] = view
 
     def update_cache(self, instances: Sequence[InstanceResponse]) -> None:
         self._update_views(instances)
@@ -516,11 +525,7 @@ class ConnectionCreator:
         unique_views = {
             view_id for item in instances for view_id in (item.properties or {}).keys() if isinstance(view_id, ViewId)
         }
-        missing_views = unique_views - set(self.view_by_id.keys())
-        if missing_views:
-            views = self._client.tool.views.retrieve(list(missing_views))
-            for view in views:
-                self.view_by_id[view.as_id()] = view
+        self.update_view_cache(view_ids=unique_views)
 
     def _update_property_caches(self, instances: Sequence[InstanceResponse]) -> None:
         timeseries_refs: set[str] = set()
@@ -783,7 +788,7 @@ class ConnectionCreator:
 
 @dataclass
 class ConversionResult:
-    container_properties: dict[str, JsonValue]
+    container_properties: dict[str, JsonValue | NodeId | list[NodeId]]
     errors: list[str] = field(default_factory=list)
     edges: list[EdgeRequest] = field(default_factory=list)
 
@@ -819,7 +824,9 @@ class CustomContainerPropertiesMapping(ABC):
     VIEW_IDS: ClassVar[Set[ViewId]] = frozenset()
 
     @abstractmethod
-    def convert(self, source_properties: dict[str, JsonValue], context: ConversionContext) -> ConversionResult:
+    def convert(
+        self, source_properties: dict[str, JsonValue | NodeId | list[NodeId]], context: ConversionContext
+    ) -> ConversionResult:
         raise NotImplementedError()
 
 
@@ -836,8 +843,10 @@ class InFieldConditionMapping(CustomContainerPropertiesMapping):
         """The special format used in the sourceView property of InField"""
         return f"{view_id.space}/{view_id.external_id}/{view_id.version!s}"
 
-    def convert(self, source_properties: dict[str, JsonValue], context: ConversionContext) -> ConversionResult:
-        created_properties: dict[str, JsonValue] = {}
+    def convert(
+        self, source_properties: dict[str, JsonValue | NodeId | list[NodeId]], context: ConversionContext
+    ) -> ConversionResult:
+        created_properties: dict[str, JsonValue | NodeId | list[NodeId]] = {}
         issues: list[str] = []
         if value := source_properties.get("sourceView"):
             if not isinstance(value, str):
@@ -904,7 +913,7 @@ class InFieldAssetMapping(CustomConnectionMapping[NodeId]):
 
 
 def convert_container_properties(
-    source_properties: dict[str, JsonValue], context: ConversionContext
+    source_properties: dict[str, JsonValue | NodeId | list[NodeId]], context: ConversionContext
 ) -> ConversionResult:
     """
     Create properties for a data model instance from another instance's properties.
@@ -917,7 +926,7 @@ def convert_container_properties(
     Returns:
         ConversionResult containing the created properties, edges to create and any errors encountered during conversion.
     """
-    created_properties: dict[str, JsonValue] = {}
+    created_properties: dict[str, JsonValue | NodeId | list[NodeId]] = {}
     edges: list[EdgeRequest] = []
     errors: list[str] = []
     for source_prop_id, value in source_properties.items():
@@ -962,12 +971,7 @@ def convert_container_properties(
                 )
                 continue
             errors.extend(issues)
-            if isinstance(created_connection, list):
-                created_properties[dest_prop_id] = [
-                    conn.dump(include_instance_type=False) for conn in created_connection
-                ]
-            else:
-                created_properties[dest_prop_id] = created_connection.dump(include_instance_type=False)
+            created_properties[dest_prop_id] = created_connection
         elif isinstance(dm_prop, ViewCorePropertyResponse):
             try:
                 created_value = convert_to_primary_property(
@@ -994,7 +998,7 @@ def convert_edges(
     Returns:
         ConversionResult containing the created properties, edges to create and any errors encountered during conversion.
     """
-    created_properties: dict[str, JsonValue] = {}
+    created_properties: dict[str, JsonValue | NodeId | list[NodeId]] = {}
     new_edges: list[EdgeRequest] = []
     errors: list[str] = []
     for source_type, dest_prop_id in (context.mapping.edge_mapping or {}).items():
@@ -1021,12 +1025,7 @@ def convert_edges(
                 )
                 continue
             errors.extend(issues)
-            if isinstance(created_connection, list):
-                created_properties[dest_prop_id] = [
-                    conn.dump(include_instance_type=False) for conn in created_connection
-                ]
-            else:
-                created_properties[dest_prop_id] = created_connection.dump(include_instance_type=False)
+            created_properties[dest_prop_id] = created_connection
         elif isinstance(dm_prop, ViewCorePropertyResponse):
             # Todo: If json or text we can potentially convert to a string representation of the edge targets, but for now we just log an error.
             errors.append(f"Cannot map edge property {source_type!s} to non-connection property {dm_prop.type.type!s}.")
