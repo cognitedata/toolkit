@@ -14,14 +14,30 @@ from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordReques
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import ContainerCRUD, SpaceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.streams import StreamCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
-from cognite_toolkit._cdf_tk.utils.time import timestamp_to_ms
+from cognite_toolkit._cdf_tk.utils.time import time_windows_ms, timestamp_to_ms
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
 from ._base import Bookmark, ConfigurableStorageIO, DataItem, Page, UploadableStorageIO
 from .progress import CursorBookmark, NoBookmark
 from .selectors import RecordContainerSelector
+
+
+_TIMEDELTA_ADAPTER: TypeAdapter[timedelta] = TypeAdapter(timedelta)
+
+
+def get_stream_max_filtering_interval_ms(client: ToolkitClient, stream_external_id: str) -> int | None:
+    """Return the stream's maxFilteringInterval in ms, or None for mutable/missing streams."""
+    streams = client.streams.retrieve([ExternalId(external_id=stream_external_id)])
+    stream = streams[0] if streams else None
+    if stream is None or stream.type == "Mutable":
+        return None
+    if stream.settings and stream.settings.limits.max_filtering_interval:
+        td = _TIMEDELTA_ADAPTER.validate_python(stream.settings.limits.max_filtering_interval)
+        return int(td.total_seconds() * 1000)
+    return None
 
 
 class RecordSyncResponse(PagedResponse[RecordResponse]):
@@ -51,19 +67,6 @@ class RecordIO(
     CHUNK_SIZE = 500
     MAX_TOTAL_RECORDS = 1_000_000
     BASE_SELECTOR = RecordContainerSelector
-    _TIMEDELTA_ADAPTER: ClassVar[TypeAdapter[timedelta]] = TypeAdapter(timedelta)
-
-    def _get_max_filtering_interval_ms(self, stream_external_id: str) -> int | None:
-        """Get the stream's maxFilteringInterval in ms, returning None for mutable streams."""
-        streams = self.client.streams.retrieve([ExternalId(external_id=stream_external_id)])
-        stream = streams[0] if streams else None
-        if stream is None or stream.type == "Mutable":
-            return None
-        if stream.settings and stream.settings.limits.max_filtering_interval:
-            td = self._TIMEDELTA_ADAPTER.validate_python(stream.settings.limits.max_filtering_interval)
-            return int(td.total_seconds() * 1000)
-        return None
-
     def count(self, selector: RecordContainerSelector) -> int | None:
         if selector.initialize_cursor is None:
             raise ToolkitValueError("initialize_cursor must be set on the selector for download operations")
@@ -71,15 +74,9 @@ class RecordIO(
         start_ms = timestamp_to_ms(selector.initialize_cursor)
         now_ms = int(time.time() * 1000)
         sync_filter = self._build_sync_filter(selector)
-        # Immutable streams enforce a maxFilteringInterval for the lastUpdatedTime filter which is
-        # specified in its settings, so we split the time range for downloading records into windows that
-        # fit within that limit. Mutable streams have no such restriction, so we query the full range in one go.
-        max_interval_ms = self._get_max_filtering_interval_ms(selector.stream.external_id) or (now_ms - start_ms)
-
+        max_interval_ms = get_stream_max_filtering_interval_ms(self.client, selector.stream.external_id)
         total = 0
-        window_start = start_ms
-        while window_start < now_ms:
-            window_end = min(window_start + max_interval_ms, now_ms)
+        for window_start, window_end in time_windows_ms(start_ms, now_ms, max_interval_ms):
             body: dict[str, object] = {
                 "filter": sync_filter,
                 "lastUpdatedTime": {"gte": window_start, "lt": window_end},
@@ -94,7 +91,6 @@ class RecordIO(
             response = result.get_success_or_raise(request)
             data = json.loads(response.body)
             total += int(data["aggregates"]["total"]["count"])
-            window_start = window_end
         return total
 
     def configurations(self, selector: RecordContainerSelector) -> Iterable[StorageIOConfig]:

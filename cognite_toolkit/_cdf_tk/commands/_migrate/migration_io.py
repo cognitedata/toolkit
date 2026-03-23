@@ -2,10 +2,9 @@ import json
 import time
 from collections import defaultdict
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from datetime import timedelta
 from typing import ClassVar, Literal, cast
 
-from pydantic import JsonValue, TypeAdapter
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -25,7 +24,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.annotation import Annotatio
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeId, InstanceRequest, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
+from cognite_toolkit._cdf_tk.storageio._records import get_stream_max_filtering_interval_ms
+from cognite_toolkit._cdf_tk.utils.time import time_windows_ms
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
     AssetMappingDMRequestId,
@@ -307,31 +307,6 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
         super().__init__(client)
         self.stream_external_id = stream_external_id
         self.skip_existing = skip_existing
-        self._stream_for_filter_cache: StreamResponse | None = None
-
-    def _get_stream_for_filter(self) -> StreamResponse | None:
-        if self._stream_for_filter_cache is None:
-            streams = self.client.streams.retrieve([ExternalId(external_id=self.stream_external_id)])
-            self._stream_for_filter_cache = streams[0] if streams else None
-        return self._stream_for_filter_cache
-
-    def _last_updated_time_windows_ms(self) -> list[tuple[int, int]]:
-        """Windows [gte, lt) in ms for /records/filter lastUpdatedTime (required for immutable streams)."""
-        now_ms = int(time.time() * 1000)
-        stream = self._get_stream_for_filter()
-        if stream is None or stream.type == "Mutable":
-            return [(0, now_ms)]
-        max_interval_ms = now_ms
-        if stream.settings and stream.settings.limits.max_filtering_interval:
-            td = TypeAdapter(timedelta).validate_python(stream.settings.limits.max_filtering_interval)
-            max_interval_ms = int(td.total_seconds() * 1000)
-        windows: list[tuple[int, int]] = []
-        window_start = 0
-        while window_start < now_ms:
-            window_end = min(window_start + max_interval_ms, now_ms)
-            windows.append((window_start, window_end))
-            window_start = window_end
-        return windows
 
     def _remove_existing(
         self,
@@ -351,7 +326,8 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
 
         existing_pairs: set[tuple[str, str]] = set()
         filter_url = self.client.config.create_api_url(self.FILTER_ENDPOINT.format(streamId=self.stream_external_id))
-        time_windows = self._last_updated_time_windows_ms()
+        now_ms = int(time.time() * 1000)
+        time_windows = time_windows_ms(0, now_ms, get_stream_max_filtering_interval_ms(self.client, self.stream_external_id))
 
         for space, items in by_space.items():
             external_ids = [upload_item.item.external_id for upload_item in items]

@@ -94,6 +94,22 @@ def datetime_to_ms(dt: datetime) -> int:
         ) from e
 
 
+def time_windows_ms(start_ms: int, now_ms: int, max_interval_ms: int | None) -> list[tuple[int, int]]:
+    """Split [start_ms, now_ms) into consecutive windows bounded by max_interval_ms.
+
+    If max_interval_ms is None, returns a single window covering the full range.
+    """
+    if max_interval_ms is None:
+        return [(start_ms, now_ms)]
+    windows: list[tuple[int, int]] = []
+    window_start = start_ms
+    while window_start < now_ms:
+        window_end = min(window_start + max_interval_ms, now_ms)
+        windows.append((window_start, window_end))
+        window_start = window_end
+    return windows
+
+
 def convert_data_modelling_timestamp(timestamp: str) -> datetime:
     """Converts a timestamp string to a datetime object.
 

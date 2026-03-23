@@ -12,13 +12,13 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.identifiers import ContainerId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest, RecordSource
-from cognite_toolkit._cdf_tk.client.resource_classes.streams import LifecycleObject, LimitsObject, ResourceUsage, StreamResponse, StreamSettings
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
     AnnotationMigrationIO,
     AssetCentricMigrationIO,
     RecordsMigrationIO,
     ThreeDAssetMappingMigrationIO,
 )
+from cognite_toolkit._cdf_tk.utils.time import time_windows_ms
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.storageio import AssetIO, Page
 from cognite_toolkit._cdf_tk.storageio._base import DataItem
@@ -238,6 +238,19 @@ class TestThreeDAssetMappingMigrationIO:
             io.data_to_json_chunk(MagicMock())
 
 
+class TestTimeWindowsMs:
+    def test_none_interval_returns_single_window(self) -> None:
+        assert time_windows_ms(0, 1_000, None) == [(0, 1_000)]
+
+    def test_splits_evenly_by_interval(self) -> None:
+        hour_ms = 60 * 60 * 1000
+        now_ms = 3 * hour_ms
+        windows = time_windows_ms(0, now_ms, hour_ms)
+        assert windows == [(0, hour_ms), (hour_ms, 2 * hour_ms), (2 * hour_ms, now_ms)]
+        for i in range(len(windows) - 1):
+            assert windows[i][1] == windows[i + 1][0]
+
+
 class TestRecordsMigrationIO:
     STREAM_ID = "my_stream"
     CONTAINER_ID = ContainerId(space="stream_space", external_id="EventContainer")
@@ -259,22 +272,6 @@ class TestRecordsMigrationIO:
             )
             for i in range(n)
         ]
-
-    def _make_immutable_stream(self, max_filtering_interval: str | None = "PT1H") -> StreamResponse:
-        return StreamResponse(
-            external_id=self.STREAM_ID,
-            created_time=0,
-            created_from_template="test_template",
-            type="Immutable",
-            settings=StreamSettings(
-                lifecycle=LifecycleObject(retained_after_soft_delete="P30D"),
-                limits=LimitsObject(
-                    max_records_total=ResourceUsage(provisioned=1_000_000),
-                    max_giga_bytes_total=ResourceUsage(provisioned=100),
-                    max_filtering_interval=max_filtering_interval,
-                ),
-            ),
-        )
 
     def test_upload_items(self, toolkit_client: ToolkitClient, respx_mock: respx.MockRouter) -> None:
         config = toolkit_client.config
@@ -320,15 +317,11 @@ class TestRecordsMigrationIO:
         io = RecordsMigrationIO(toolkit_client, stream_external_id=self.STREAM_ID, skip_existing=True)
         io.logger = MagicMock(spec=DataLogger)
         io.logger.tracker = MagicMock(spec_set=OperationTracker)
-        # Use a mutable stream so there's only one time window
-        io._stream_for_filter_cache = StreamResponse(
-            external_id=self.STREAM_ID,
-            created_time=0,
-            created_from_template="t",
-            type="Mutable",
-        )
 
-        with HTTPClient(config) as http_client:
+        with patch(
+            "cognite_toolkit._cdf_tk.commands._migrate.migration_io.get_stream_max_filtering_interval_ms",
+            return_value=None,
+        ), HTTPClient(config) as http_client:
             io.upload_items(upload_items, http_client)
 
         # Only event_2 should be uploaded
@@ -343,33 +336,3 @@ class TestRecordsMigrationIO:
         skipped_ids = {call.args[0] for call in io.logger.tracker.finalize_item.call_args_list}
         assert skipped_ids == {"event_0", "event_1"}
 
-    def test_time_windows_mutable_stream(self, toolkit_client: ToolkitClient) -> None:
-        io = RecordsMigrationIO(toolkit_client, stream_external_id=self.STREAM_ID)
-        io._stream_for_filter_cache = StreamResponse(
-            external_id=self.STREAM_ID,
-            created_time=0,
-            created_from_template="t",
-            type="Mutable",
-        )
-        now_ms = 1_700_000_000_000
-
-        with patch("cognite_toolkit._cdf_tk.commands._migrate.migration_io.time.time", return_value=now_ms / 1000):
-            windows = io._last_updated_time_windows_ms()
-
-        assert windows == [(0, now_ms)]
-
-    def test_time_windows_immutable_stream_splits_by_interval(self, toolkit_client: ToolkitClient) -> None:
-        """Immutable stream with 1-hour max interval must produce hourly windows covering [0, now)."""
-        now_ms = 3 * 60 * 60 * 1000  # 3 hours in ms
-        hour_ms = 60 * 60 * 1000
-
-        io = RecordsMigrationIO(toolkit_client, stream_external_id=self.STREAM_ID)
-        io._stream_for_filter_cache = self._make_immutable_stream(max_filtering_interval="PT1H")
-
-        with patch("cognite_toolkit._cdf_tk.commands._migrate.migration_io.time.time", return_value=now_ms / 1000):
-            windows = io._last_updated_time_windows_ms()
-
-        assert windows == [(0, hour_ms), (hour_ms, 2 * hour_ms), (2 * hour_ms, 3 * hour_ms)]
-        # No gaps and no overlaps
-        for i in range(len(windows) - 1):
-            assert windows[i][1] == windows[i + 1][0]
