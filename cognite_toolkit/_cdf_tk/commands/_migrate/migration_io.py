@@ -335,9 +335,9 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
 
     def _remove_existing(
         self,
-        data_chunk: Sequence[UploadItem[RecordRequest]],
+        data_chunk: Sequence[DataItem[RecordRequest]],
         http_client: HTTPClient,
-    ) -> list[UploadItem[RecordRequest]]:
+    ) -> list[DataItem[RecordRequest]]:
         """Return upload items whose (space, externalId) are not already in the stream.
 
         Marks skipped items on the logger tracker. Groups by space and queries the filter API per group.
@@ -345,7 +345,7 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
         if not data_chunk:
             return []
 
-        by_space: dict[str, list[UploadItem[RecordRequest]]] = defaultdict(list)
+        by_space: dict[str, list[DataItem[RecordRequest]]] = defaultdict(list)
         for upload_item in data_chunk:
             by_space[upload_item.item.space].append(upload_item)
 
@@ -385,11 +385,11 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
                         if isinstance(record_space, str) and isinstance(external_id, str):
                             existing_pairs.add((record_space, external_id))
 
-        to_upload: list[UploadItem[RecordRequest]] = []
+        to_upload: list[DataItem[RecordRequest]] = []
         for upload_item in data_chunk:
             pair = (upload_item.item.space, upload_item.item.external_id)
             if pair in existing_pairs:
-                self.logger.tracker.finalize_item(upload_item.source_id, "skipped")
+                self.logger.tracker.finalize_item(upload_item.tracking_id, "skipped")
             else:
                 to_upload.append(upload_item)
 
@@ -397,7 +397,7 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
 
     def upload_items(
         self,
-        data_chunk: Sequence[UploadItem[RecordRequest]],  # type: ignore[override]
+        data_chunk: Sequence[DataItem[RecordRequest]],  # type: ignore[override]
         http_client: HTTPClient,
         selector: AssetCentricMigrationSelector | None = None,
     ) -> ItemsResultList:
