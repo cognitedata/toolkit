@@ -68,7 +68,7 @@ from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 class BuildV2Command(ToolkitCommand):
     def build(self, parameters: BuildParameters, client: ToolkitClient | None = None) -> BuildFolder:
-        console = client.console if client else Console()
+        console = client.console if client else Console(markup=True)
 
         # Track build duration
         build_start_time = datetime.now(timezone.utc)
