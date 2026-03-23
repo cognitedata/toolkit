@@ -52,7 +52,13 @@ from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRU
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write, sanitize_filename
-from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, relative_to_if_possible, safe_read, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import (
+    read_yaml_content,
+    relative_to_if_possible,
+    safe_read,
+    safe_rmtree,
+    yaml_safe_dump,
+)
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
@@ -68,6 +74,7 @@ class BuildV2Command(ToolkitCommand):
         build_files = self._read_file_system(parameters)
         module_sources = self._parse_module_sources(build_files)
 
+        self._prepare_build_directory(parameters.build_dir)
         built_modules = self._build_modules(module_sources, parameters.build_dir)
 
         dependency_insights = self._dependency_validation(built_modules, client)
@@ -221,7 +228,7 @@ class BuildV2Command(ToolkitCommand):
             variables=variables,
             validation_type=validation_type,
             cdf_project=cdf_project,
-            organization_dir=parameters.organization_dir,
+            organization_dir=parameters.organization_dir.resolve(),
         )
 
     @classmethod
@@ -237,28 +244,31 @@ class BuildV2Command(ToolkitCommand):
                 continue
 
             item_path = Path(item)
-            if not Path(item).resolve().is_relative_to(organization_dir):
-                errors.append(f"Selected module path {item_path.as_posix()!r} is not under the organization directory")
-                continue
-
             if item_path.is_absolute():
                 errors.append(
                     f"Selected module path {item_path.as_posix()!r} should be relative to the organization directory"
                 )
                 continue
-            if not (organization_dir / item_path).exists():
+            absolute_path = organization_dir / item_path
+            if not absolute_path.exists():
                 errors.append(
                     f"Selected module path {item_path.as_posix()!r} does not exist under the organization directory"
                 )
                 continue
-            if not item_path.is_dir():
+            if not absolute_path.is_dir():
                 errors.append(f"Selected module path {item_path.as_posix()!r} is not a directory")
                 continue
             selected.add(item_path)
         return selected, errors
 
+    def _prepare_build_directory(self, build_dir: Path) -> None:
+        """Ensures the build directory is clean before a build."""
+        if build_dir.exists():
+            safe_rmtree(build_dir)
+        build_dir.mkdir(parents=True)
+        return None
+
     def _build_modules(self, module_sources: Sequence[ModuleSource], build_dir: Path) -> list[BuiltModule]:
-        build_dir.mkdir(parents=True, exist_ok=True)
         built_modules: list[BuiltModule] = []
         # If parallelizing the build, this should be a multiprocessing.Manager().Counter() or similar.
         resource_counter: Counter = Counter()
@@ -461,7 +471,8 @@ class BuildV2Command(ToolkitCommand):
             # Todo: Store original yaml and do not require the resource. In other words allow
             #   model syntax errors.
             safe_write(
-                destination_path, yaml_safe_dump(resource.resource.model_dump(by_alias=True, exclude_unset=True))
+                destination_path,
+                yaml_safe_dump(resource.resource.model_dump(by_alias=True, exclude_unset=True, mode="json")),
             )
             built_resources.append(
                 BuiltResource(

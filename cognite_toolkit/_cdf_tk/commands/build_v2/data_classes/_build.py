@@ -26,6 +26,7 @@ class BuildParameters(BaseModel):
         description="List of module names or paths to build. If not provided, Toolkit will first attempt to find a config YAML "
         "and the modules specified there. If no config YAML is found, Toolkit will build all modules in the organization directory.",
     )
+    verbose: bool = False
 
     @property
     def modules_directory(self) -> Path:

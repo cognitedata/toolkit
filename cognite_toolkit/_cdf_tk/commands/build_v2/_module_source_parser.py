@@ -34,7 +34,13 @@ class ModuleSourceParser:
             self.errors.extend(errors)
             return []
         selected_modules = self._select_modules(module_ids, self.selected_modules)
-        build_variables, errors = self._parse_variables(variables, set(module_ids), set(selected_modules))
+        available_paths = {parent for module_id in source_by_module_id.keys() for parent in module_id.parents} | set(
+            module_ids
+        )
+        selected_paths = {parent for module_id in selected_modules for parent in module_id.parents} | set(
+            selected_modules
+        )
+        build_variables, errors = self._parse_variables(variables, available_paths, selected_paths)
         if errors:
             self.errors.extend(errors)
             return []
