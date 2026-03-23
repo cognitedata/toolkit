@@ -52,7 +52,13 @@ from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRU
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write, sanitize_filename
-from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, relative_to_if_possible, safe_read, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import (
+    read_yaml_content,
+    relative_to_if_possible,
+    safe_read,
+    safe_rmtree,
+    yaml_safe_dump,
+)
 from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
@@ -68,6 +74,7 @@ class BuildV2Command(ToolkitCommand):
         build_files = self._read_file_system(parameters)
         module_sources = self._parse_module_sources(build_files)
 
+        self._prepare_build_directory(parameters.build_dir)
         built_modules = self._build_modules(module_sources, parameters.build_dir)
 
         dependency_insights = self._dependency_validation(built_modules, client)
@@ -254,8 +261,16 @@ class BuildV2Command(ToolkitCommand):
             selected.add(item_path)
         return selected, errors
 
+    def _prepare_build_directory(self, build_dir: Path) -> None:
+        is_populated = build_dir.exists() and any(build_dir.iterdir())
+        if is_populated:
+            safe_rmtree(build_dir)
+            build_dir.mkdir()
+        elif not build_dir.exists():
+            build_dir.mkdir()
+        return None
+
     def _build_modules(self, module_sources: Sequence[ModuleSource], build_dir: Path) -> list[BuiltModule]:
-        build_dir.mkdir(parents=True, exist_ok=True)
         built_modules: list[BuiltModule] = []
         # If parallelizing the build, this should be a multiprocessing.Manager().Counter() or similar.
         resource_counter: Counter = Counter()
