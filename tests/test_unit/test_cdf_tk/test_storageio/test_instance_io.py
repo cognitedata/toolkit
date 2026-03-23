@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
-from cognite_toolkit._cdf_tk.storageio import InstanceIO, UploadItem
+from cognite_toolkit._cdf_tk.storageio import DataItem, InstanceIO, Page
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSpaceSelector, InstanceViewSelector, SelectedView
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -30,7 +30,7 @@ class TestInstanceIO:
         self, rsps: responses.RequestsMock, respx_mock: respx.MockRouter, toolkit_config: ToolkitClientConfig
     ) -> None:
         client = ToolkitClient(config=toolkit_config)
-        url = toolkit_config.create_api_url("/models/instances/list")
+        url = toolkit_config.create_api_url("/models/instances/query")
         selector = InstanceViewSelector(
             view=SelectedView(space="mySpace", external_id="myView", version="v42"),
             instance_type="node",
@@ -51,55 +51,36 @@ class TestInstanceIO:
             },
         )
 
+        def _node_dict(i: int) -> dict:
+            return {
+                "externalId": f"instance_{i}",
+                "space": "my_space",
+                "instanceType": "node",
+                "createdTime": 0,
+                "lastUpdatedTime": 0,
+                "version": 1,
+            }
+
         respx_mock.post(url).side_effect = [
             httpx.Response(
                 status_code=200,
                 json={
-                    "items": [
-                        {
-                            "externalId": f"instance_{i}",
-                            "space": "my_space",
-                            "instanceType": "node",
-                            "createdTime": 0,
-                            "lastUpdatedTime": 0,
-                            "version": 1,
-                        }
-                        for i in range(1000)
-                    ],
-                    "nextCursor": "cursor_1",
+                    "items": {"root": [_node_dict(i) for i in range(1000)]},
+                    "nextCursor": {"root": "cursor_1"},
                 },
             ),
             httpx.Response(
                 status_code=200,
                 json={
-                    "items": [
-                        {
-                            "externalId": f"instance_{i}",
-                            "space": "my_space",
-                            "instanceType": "node",
-                            "createdTime": 0,
-                            "lastUpdatedTime": 0,
-                            "version": 1,
-                        }
-                        for i in range(1000, 2000)
-                    ],
-                    "nextCursor": "cursor_2",
+                    "items": {"root": [_node_dict(i) for i in range(1000, 2000)]},
+                    "nextCursor": {"root": "cursor_2"},
                 },
             ),
             httpx.Response(
                 status_code=200,
                 json={
-                    "items": [
-                        {
-                            "externalId": f"instance_{i}",
-                            "space": "my_space",
-                            "instanceType": "node",
-                            "createdTime": 0,
-                            "lastUpdatedTime": 0,
-                            "version": 1,
-                        }
-                        for i in range(2000, N)
-                    ]
+                    "items": {"root": [_node_dict(i) for i in range(2000, N)]},
+                    "nextCursor": {"root": None},
                 },
             ),
         ]
@@ -132,7 +113,10 @@ class TestInstanceIO:
                 )
                 for i in range(instance_count)
             )
-            upload_items = [UploadItem(source_id=instance.external_id, item=instance) for instance in instances]
+            upload_items = Page(
+                worker_id="main",
+                items=[DataItem(tracking_id=instance.external_id, item=instance) for instance in instances],
+            )
 
             def hate_edges(request: httpx.Request) -> httpx.Response:
                 # Check request body content
@@ -163,7 +147,7 @@ class TestInstanceIO:
             with respx.mock() as rsps:
                 rsps.post(url).mock(side_effect=hate_edges)
                 io = InstanceIO(client)
-                results = io.upload_items(upload_items, http_client)
+                results = io.upload_items(upload_items, http_client=http_client)
 
             assert len(results) == instance_count
             failed_items = [id for res in results if isinstance(res, ItemsFailedResponse) for id in res.ids]
@@ -221,8 +205,8 @@ class TestInstanceIO:
             status=200,
         )
         # Download data
-        respx_mock.post(config.create_api_url("/models/instances/list")).respond(
-            json={"items": [inst.dump() for inst in some_instance_data]},
+        respx_mock.post(config.create_api_url("/models/instances/query")).respond(
+            json={"items": {"root": [inst.dump() for inst in some_instance_data]}, "nextCursor": {"root": None}},
             status_code=200,
         )
         # Space
@@ -412,15 +396,15 @@ class TestInstanceIO:
         assert len(pages) == 2
 
         first_page = pages[0]
-        first_node_ids = {item.external_id for item in first_page.items if item.instance_type == "node"}
-        first_edge_ids = {item.external_id for item in first_page.items if item.instance_type == "edge"}
+        first_node_ids = {di.item.external_id for di in first_page.items if di.item.instance_type == "node"}
+        first_edge_ids = {di.item.external_id for di in first_page.items if di.item.instance_type == "edge"}
         assert first_node_ids == {"node_0", "node_1"}
         assert first_edge_ids == {"edge_0", "edge_1", "edge_2"}
         assert first_page.bookmark.cursor == "node_cursor_1"
 
         second_page = pages[1]
-        second_node_ids = {item.external_id for item in second_page.items if item.instance_type == "node"}
-        second_edge_ids = {item.external_id for item in second_page.items if item.instance_type == "edge"}
+        second_node_ids = {di.item.external_id for di in second_page.items if di.item.instance_type == "node"}
+        second_edge_ids = {di.item.external_id for di in second_page.items if di.item.instance_type == "edge"}
         assert second_node_ids == {"node_2", "node_3"}
         assert second_edge_ids == set()
 

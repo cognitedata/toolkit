@@ -29,17 +29,16 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.storageio import (
-    Bookmark,
     ChartIO,
+    DataItem,
     Page,
     T_DataRequest,
     T_DataResponse,
     T_Selector,
     UploadableStorageIO,
-    UploadItem,
 )
 from cognite_toolkit._cdf_tk.storageio.logger import FileDataLogger, OperationStatus
-from cognite_toolkit._cdf_tk.storageio.progress import CDFProgressYAML, FileProgressYAML, Progress
+from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.utils import humanize_collection, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import NDJsonWriter, Uncompressed
@@ -107,35 +106,33 @@ class MigrationCommand(ToolkitCommand):
 
                 mapper.prepare(selected)
 
-                iteration_count: int | None = None
                 total_items = counts_by_selector[selected]
-                if total_items is not None:
-                    iteration_count = (total_items // data.CHUNK_SIZE) + (1 if total_items % data.CHUNK_SIZE > 0 else 0)
-
                 init_bookmark: Bookmark | None = None
-                progress = Progress.try_load(log_dir, filestem=str(selected))
-                if progress is not None:
-                    if isinstance(progress, CDFProgressYAML) and len(progress.cursors) == 1:
-                        init_cursor = next(iter(progress.cursors.values()))
-                        init_bookmark = Bookmark(cursor=init_cursor)
-                        console.print(f"Resuming migration for {selected.display_name} from cursor {init_cursor!r}.")
-                    elif isinstance(progress, FileProgressYAML) and len(progress.locations) == 1:
-                        init_file_location = next(iter(progress.locations.values()))
-                        init_bookmark = Bookmark(file_location=init_file_location)
+                start_item = 0
+                if progress := ProgressYAML.try_load(log_dir, str(selected)):
+                    if progress.total != total_items:
                         console.print(
-                            f"Resuming migration for {selected.display_name} from"
-                            f" lineno {init_file_location.lineno:,} in {init_file_location.filepath.as_posix()!r}."
+                            f"Found progress file for {selected.display_name}. But total items "
+                            f"does not match the expected total. Starting from beginning..."
                         )
+                    elif progress.status == "completed":
+                        console.print(f"Found completed progress file for {selected.display_name}. Skipping migration.")
+                        continue
+                    elif first := progress.get_first_bookmark():
+                        init_bookmark = first
+                        start_item = progress.completed_count
+                        console.print(f"Resuming migration for {selected.display_name} from {first!s}.")
                     else:
                         console.print(
-                            f"Found progress file but failed to load cursor for {selected.display_name}. Starting migration from the beginning."
+                            f"Found progress file but failed to load for {selected.display_name}. "
+                            f"Starting from beginning"
                         )
 
-                executor = ProducerWorkerExecutor[Page[T_DataResponse], Page[UploadItem[T_DataRequest]]](
+                executor = ProducerWorkerExecutor[Page[T_DataResponse], Page[T_DataRequest]](
                     download_iterable=data.stream_data(selected, bookmark=init_bookmark),
                     process=self._convert(mapper, data),
-                    write=self._upload(selected, write_client, data, dry_run, log_dir),
-                    iteration_count=iteration_count,
+                    write=self._upload(selected, write_client, data, dry_run, log_dir, total_items, start_item),
+                    total_item_count=total_items,
                     max_queue_size=10,
                     download_description=f"Downloading {selected.display_name}",
                     process_description="Converting",
@@ -144,15 +141,15 @@ class MigrationCommand(ToolkitCommand):
                     verbose=verbose,
                 )
 
-                executor.run()
-                total = executor.total_items
+                executor.run(start_item=start_item)
+                total = executor.downloaded_items
 
                 results = self._create_status_summary(logger)
                 results_by_selector[str(selected)] = results
 
                 self._print_rich_tables(results, console)
                 self._print_txt(results, log_dir, f"{selected!s}Items", console)
-                progress = Progress.try_load(log_dir, filestem=str(selected))
+                progress = ProgressYAML.try_load(log_dir, filestem=str(selected))
                 if progress is not None:
                     progress.status = executor.result
                     progress.dump_to_file(log_dir, filestem=str(selected))
@@ -254,13 +251,14 @@ class MigrationCommand(ToolkitCommand):
     def _convert(
         mapper: DataMapper[T_Selector, T_DataResponse, T_DataRequest],
         data: UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest],
-    ) -> Callable[[Page[T_DataResponse]], Page[UploadItem[T_DataRequest]]]:
-        def track_mapping(source: Page[T_DataResponse]) -> Page[UploadItem[T_DataRequest]]:
-            mapped = mapper.map(source.items)
+    ) -> Callable[[Page[T_DataResponse]], Page[T_DataRequest]]:
+        def track_mapping(source: Page[T_DataResponse]) -> Page[T_DataRequest]:
+            raw_items = [di.item for di in source.items]
+            mapped = mapper.map(raw_items)
             return Page(
                 worker_id=source.worker_id,
                 items=[
-                    UploadItem(source_id=data.as_id(item), item=target)
+                    DataItem(tracking_id=item.tracking_id, item=target)
                     for target, item in zip(mapped, source.items)
                     if target is not None
                 ],
@@ -276,15 +274,20 @@ class MigrationCommand(ToolkitCommand):
         target: UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest],
         dry_run: bool,
         log_dir: Path,
-    ) -> Callable[[Page[UploadItem[T_DataRequest]]], None]:
-        def upload_items(page: Page[UploadItem[T_DataRequest]]) -> None:
+        total_item_count: int | None,
+        start_item: int,
+    ) -> Callable[[Page[T_DataRequest]], None]:
+        migrate_count: int = start_item
+
+        def upload_items(page: Page[T_DataRequest]) -> None:
+            nonlocal migrate_count
             if not page:
                 return None
             if dry_run:
-                target.logger.tracker.finalize_item([item.source_id for item in page.items], "pending")
+                target.logger.tracker.finalize_item([item.tracking_id for item in page.items], "pending")
                 return None
 
-            responses = target.upload_items(data_chunk=page.items, http_client=write_client, selector=selected)
+            responses = target.upload_items(data_chunk=page, http_client=write_client, selector=selected)
 
             # Todo: Move logging into the UploadableStorageIO class
             issues: list[WriteIssue] = []
@@ -307,17 +310,13 @@ class MigrationCommand(ToolkitCommand):
             if issues:
                 target.logger.log(issues)
 
-            # Remove false check, when feature is ready.
-            if False and page.bookmark.cursor is not None:
-                CDFProgressYAML(
-                    status="in-progress",
-                    cursors={page.worker_id: page.bookmark.cursor},
-                ).dump_to_file(log_dir, filestem=str(selected))
-            if False and page.bookmark.file_location is not None:
-                FileProgressYAML(
-                    status="in-progress",
-                    locations={page.worker_id: page.bookmark.file_location},
-                ).dump_to_file(log_dir, filestem=str(selected))
+            migrate_count += len(responses)
+            ProgressYAML(
+                status="in-progress",
+                bookmarks={page.worker_id: page.bookmark},
+                total=total_item_count,
+                completed_count=migrate_count,
+            ).dump_to_file(log_dir, filestem=str(selected))
             return None
 
         return upload_items

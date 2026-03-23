@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from itertools import chain
 from uuid import uuid4
 
@@ -16,10 +16,10 @@ from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 from ._base import (
     Bookmark,
     ConfigurableStorageIO,
+    DataItem,
     Page,
     StorageIOConfig,
     TableUploadableStorageIO,
-    UploadItem,
 )
 from .selectors import RawTableSelector
 
@@ -36,9 +36,6 @@ class RawIO(
     CHUNK_SIZE = 10_000
     UPLOAD_ENDPOINT = "/raw/dbs/{dbName}/tables/{tableName}/rows"
     BASE_SELECTOR = RawTableSelector
-
-    def as_id(self, item: Row) -> str:
-        return str(item.key)
 
     def count(self, selector: RawTableSelector) -> int | None:
         # Raw tables do not support aggregation queries, so we do not know the count
@@ -60,11 +57,14 @@ class RawIO(
             partitions=None,
             chunk_size=self.CHUNK_SIZE,
         ):
-            yield Page(worker_id="main", items=chunk, bookmark=Bookmark())
+            yield Page(
+                worker_id="main",
+                items=[DataItem(tracking_id=str(item.key), item=item) for item in chunk],
+            )
 
     def upload_items(
         self,
-        data_chunk: Sequence[UploadItem[RowWrite]],
+        data_chunk: Page[RowWrite],
         http_client: HTTPClient,
         selector: RawTableSelector | None = None,
     ) -> ItemsResultList:
@@ -76,14 +76,15 @@ class RawIO(
             message=ItemsRequest(
                 endpoint_url=config.create_api_url(url),
                 method="POST",
-                items=data_chunk,
+                items=data_chunk.items,
             )
         )
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[Row], selector: RawTableSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
-        return [row.as_write().dump() for row in data_chunk]
+        self, data_chunk: Page[Row], selector: RawTableSelector | None = None
+    ) -> Page[dict[str, JsonVal]]:
+        result = [DataItem(tracking_id=item.tracking_id, item=item.item.as_write().dump()) for item in data_chunk.items]
+        return data_chunk.create_from(result)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> RowWrite:
         return RowWrite._load(item_json)
@@ -108,9 +109,7 @@ class RawIO(
         return RowWrite(key=key, columns=row)
 
     @classmethod
-    def read_chunks(
-        cls, reader: MultiFileReader, selector: RawTableSelector
-    ) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+    def read_chunks(cls, reader: MultiFileReader, selector: RawTableSelector) -> Iterable[Page[dict[str, JsonVal]]]:
         if not reader.is_table or selector.key is None:
             yield from super().read_chunks(reader, selector)
             return
@@ -128,4 +127,8 @@ class RawIO(
                 )
             full_iterator = chain([first], iterable)
             line_numbered_iterator = ((f"{data_name} {i}", row) for i, row in enumerate(full_iterator, start=1))
-            yield from chunker(line_numbered_iterator, cls.CHUNK_SIZE)
+            for chunk in chunker(line_numbered_iterator, cls.CHUNK_SIZE):
+                yield Page(
+                    worker_id="main",
+                    items=[DataItem(tracking_id=tracking_id, item=row) for tracking_id, row in chunk],
+                )

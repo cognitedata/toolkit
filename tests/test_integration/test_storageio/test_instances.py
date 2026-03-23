@@ -231,6 +231,6 @@ class TestInstanceIO:
         io = InstanceIO(client)
         pages = list(io.stream_data(selector))
 
-        actual = [instance.as_id() for page in pages for instance in page.items]
+        actual = [instance.item.as_id() for page in pages for instance in page.items]
         expected = infield_apm_app_data_schedule_populated
         assert set(actual) == set(expected), f"Expected edge instances {expected[1:]}, got {actual[1:]}"

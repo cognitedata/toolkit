@@ -37,6 +37,7 @@ from .robotics import (
     RoboticMapCRUD,
     RoboticsDataPostProcessingCRUD,
 )
+from .rulesets import RuleSetCRUD, RuleSetVersionCRUD
 from .signal_sink import SignalSinkCRUD
 from .signal_subscription import SignalSubscriptionCRUD
 from .simulators import (
@@ -91,6 +92,8 @@ __all__ = [
     "RoboticLocationCRUD",
     "RoboticMapCRUD",
     "RoboticsDataPostProcessingCRUD",
+    "RuleSetCRUD",
+    "RuleSetVersionCRUD",
     "SearchConfigCRUD",
     "SecurityCategoryCRUD",
     "SequenceCRUD",

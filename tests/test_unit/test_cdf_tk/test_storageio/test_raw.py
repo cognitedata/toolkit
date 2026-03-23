@@ -10,10 +10,9 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import UploadCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRuntimeError
-from cognite_toolkit._cdf_tk.storageio import RawIO
+from cognite_toolkit._cdf_tk.storageio import Page, RawIO
 from cognite_toolkit._cdf_tk.storageio.selectors import RawTableSelector, SelectedTable
 from cognite_toolkit._cdf_tk.utils.collection import chunker
-from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 
 @pytest.fixture()
@@ -52,17 +51,17 @@ class TestRawStorageIO:
             assert io.count(selector) is None
 
             source = io.stream_data(selector, limit=100)
-            json_chunks: list[list[dict[str, JsonVal]]] = []
+            json_chunks: list[Page] = []
             for chunk in source:
-                json_chunk = io.data_to_json_chunk(chunk.items)
-                assert isinstance(json_chunk, list)
+                json_chunk = io.data_to_json_chunk(chunk)
+                assert isinstance(json_chunk, Page)
                 assert len(json_chunk) == 10
-                for item in json_chunk:
-                    assert isinstance(item, dict)
+                for item in json_chunk.items:
+                    assert isinstance(item.item, dict)
                 json_chunks.append(json_chunk)
 
             with HTTPClient(config) as upload_client:
-                data_chunks = (io.json_chunk_to_data([("", item) for item in chunk]) for chunk in json_chunks)
+                data_chunks = (io.json_chunk_to_data(chunk) for chunk in json_chunks)
                 for data_chunk in data_chunks:
                     io.upload_items(data_chunk, upload_client, selector)
 

@@ -41,8 +41,8 @@ from cognite_toolkit._cdf_tk.storageio import (
     T_Selector,
     UploadableStorageIO,
 )
-from cognite_toolkit._cdf_tk.storageio._base import Bookmark, Page, UploadItem
-from cognite_toolkit._cdf_tk.storageio.progress import FileLocation
+from cognite_toolkit._cdf_tk.storageio._base import Bookmark, DataItem, Page
+from cognite_toolkit._cdf_tk.storageio.progress import CursorBookmark, FileBookmark, NoBookmark
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     ThreeDModelFilteredSelector,
     ThreeDModelIdSelector,
@@ -90,29 +90,32 @@ class AssetCentricMigrationIO(
         self.skip_linking = skip_linking
         self.skip_existing = skip_existing
 
-    def as_id(self, item: AssetCentricMapping) -> str:
-        return str(item.mapping.as_asset_centric_id())
-
     def stream_data(
         self,
         selector: AssetCentricMigrationSelector,
         limit: int | None = None,
         bookmark: Bookmark | None = None,
     ) -> Iterator[Page]:
-        file_location = bookmark.file_location if bookmark else None
+        file_location = bookmark if isinstance(bookmark, FileBookmark) else None
         if isinstance(selector, MigrationCSVFileSelector):
             iterator = self._stream_from_csv(selector, limit, file_location)
         elif isinstance(selector, MigrateDataSetSelector):
             iterator = self._stream_given_dataset(selector, limit)
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
-        yield from (Page(worker_id="main", items=items, bookmark=Bookmark()) for items in iterator)
+        yield from (
+            Page(
+                worker_id="main",
+                items=[DataItem(tracking_id=str(item.mapping.as_asset_centric_id()), item=item) for item in items],
+            )
+            for items in iterator
+        )
 
     def _stream_from_csv(
         self,
         selector: MigrationCSVFileSelector,
         limit: int | None = None,
-        file_location: FileLocation | None = None,
+        file_location: FileBookmark | None = None,
     ) -> Iterator[Sequence[AssetCentricMapping[T_AssetCentricResource]]]:
         items = selector.items
         if file_location is not None:
@@ -144,7 +147,8 @@ class AssetCentricMigrationIO(
         instance_space = space_source.instance_space if space_source else MISSING_INSTANCE_SPACE
         for data_chunk in self.hierarchy.stream_data(asset_centric_selector, limit):
             mapping_list: list[AssetCentricMapping[T_AssetCentricResource]] = []
-            for resource in data_chunk.items:
+            for data_item in data_chunk.items:
+                resource = data_item.item
                 external_id = resource.external_id
                 if external_id is None:
                     external_id = MISSING_EXTERNAL_ID.format(project=self.client.config.project, id=resource.id)
@@ -177,17 +181,19 @@ class AssetCentricMigrationIO(
 
     def data_to_json_chunk(
         self,
-        data_chunk: Sequence[AssetCentricMapping[T_AssetCentricResource]],
+        data_chunk: Page[AssetCentricMapping[T_AssetCentricResource]],
         selector: AssetCentricMigrationSelector | None = None,
-    ) -> list[dict[str, JsonVal]]:
-        return [item.dump() for item in data_chunk]
+    ) -> Page[dict[str, JsonVal]]:
+        return data_chunk.create_from(
+            [DataItem(tracking_id=item.tracking_id, item=item.item.dump()) for item in data_chunk.items]
+        )
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceRequest:
         raise NotImplementedError()
 
     def upload_items(
         self,
-        data_chunk: Sequence[UploadItem[InstanceRequest]],
+        data_chunk: Page[InstanceRequest],
         http_client: HTTPClient,
         selector: AssetCentricMigrationSelector | None = None,
     ) -> ItemsResultList:
@@ -211,39 +217,37 @@ class AssetCentricMigrationIO(
             results.extend(super().upload_items(to_upload, http_client, None))
         return results
 
-    def _remove_existing(
-        self, data_chunk: Sequence[UploadItem[InstanceRequest]]
-    ) -> Sequence[UploadItem[InstanceRequest]]:
+    def _remove_existing(self, data_chunk: Page[InstanceRequest]) -> Page[InstanceRequest]:
         """Remove items from the chunk that already exist in CDF to avoid upload failures."""
-        data_by_instance_id = {item.item.as_id(): item for item in data_chunk}
+        data_by_instance_id = {item.item.as_id(): item for item in data_chunk.items}
         existing_ids = {item.as_id() for item in self.client.tool.instances.retrieve(list(data_by_instance_id.keys()))}
-        to_create: list[UploadItem[InstanceRequest]] = []
+        to_create: list[DataItem[InstanceRequest]] = []
         for instance_id, data in data_by_instance_id.items():
             if instance_id in existing_ids:
-                self.logger.tracker.finalize_item(data.source_id, "skipped")
+                self.logger.tracker.finalize_item(data.tracking_id, "skipped")
             else:
                 to_create.append(data)
 
-        return to_create
+        return data_chunk.create_from(to_create)
 
     def link_asset_centric(
         self,
-        data_chunk: Sequence[UploadItem[InstanceRequest]],
+        data_chunk: Page[InstanceRequest],
         http_client: HTTPClient,
         pending_instance_id_endpoint: str,
-    ) -> Sequence[UploadItem[InstanceRequest]]:
+    ) -> Page[InstanceRequest]:
         """Links asset-centric resources to their (uncreated) instances using the pending-instance-ids endpoint."""
         config = http_client.config
         successful_linked: set[str] = set()
         failure_issues: list[WriteIssue] = []
-        for batch in chunker_sequence(data_chunk, self.CHUNK_SIZE):
+        for batch in chunker_sequence(data_chunk.items, self.CHUNK_SIZE):
             batch_results = http_client.request_items_retries(
                 message=ItemsRequest(
                     endpoint_url=config.create_api_url(pending_instance_id_endpoint),
                     method="POST",
                     api_version="alpha",
                     items=[
-                        UploadItem(source_id=item.source_id, item=self.as_pending_instance_id(item.item))
+                        DataItem(tracking_id=item.tracking_id, item=self.as_pending_instance_id(item.item))
                         for item in batch
                     ],
                 )
@@ -265,8 +269,8 @@ class AssetCentricMigrationIO(
                     )
         if failure_issues:
             self.logger.log(failure_issues)
-        to_upload = [item for item in data_chunk if item.source_id in successful_linked]
-        return to_upload
+        to_upload = [item for item in data_chunk.items if item.tracking_id in successful_linked]
+        return data_chunk.create_from(to_upload)
 
     @staticmethod
     def as_pending_instance_id(item: InstanceRequest) -> PendingInstanceId:
@@ -447,9 +451,6 @@ class AnnotationMigrationIO(
         self.default_asset_annotation_mapping = default_asset_annotation_mapping or ASSET_ANNOTATIONS_ID
         self.default_file_annotation_mapping = default_file_annotation_mapping or FILE_ANNOTATIONS_ID
 
-    def as_id(self, item: AssetCentricMapping[AnnotationResponse]) -> str:
-        return f"Annotation_{item.mapping.id}"
-
     def count(self, selector: AssetCentricMigrationSelector) -> int | None:
         if isinstance(selector, MigrationCSVFileSelector):
             return len(selector.items)
@@ -463,14 +464,20 @@ class AnnotationMigrationIO(
         limit: int | None = None,
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page]:
-        file_location = bookmark.file_location if bookmark else None
+        file_location = bookmark if isinstance(bookmark, FileBookmark) else None
         if isinstance(selector, MigrateDataSetSelector):
             iterator = self._stream_from_dataset(selector, limit)
         elif isinstance(selector, MigrationCSVFileSelector):
             iterator = self._stream_from_csv(selector, limit, file_location)
         else:
             raise ToolkitNotImplementedError(f"Selector {type(selector)} is not supported for stream_data")
-        yield from (Page(worker_id="main", items=items, bookmark=Bookmark()) for items in iterator)
+        yield from (
+            Page(
+                worker_id="main",
+                items=[DataItem(tracking_id=f"Annotation_{item.mapping.id}", item=item) for item in items],
+            )
+            for items in iterator
+        )
 
     def _stream_from_dataset(
         self, selector: MigrateDataSetSelector, limit: int | None = None
@@ -480,7 +487,8 @@ class AnnotationMigrationIO(
         asset_centric_selector = selector.as_asset_centric_selector()
         for data_chunk in self.annotation_io.stream_data(asset_centric_selector, limit):
             mapping_list: list[AssetCentricMapping[AnnotationResponse]] = []
-            for resource in data_chunk.items:
+            for data_item in data_chunk.items:
+                resource = data_item.item
                 if resource.annotation_type not in self.SUPPORTED_ANNOTATION_TYPES:
                     # This should not happen, as the annotation_io should already filter these out.
                     # This is just in case.
@@ -499,7 +507,7 @@ class AnnotationMigrationIO(
         self,
         selector: MigrationCSVFileSelector,
         limit: int | None = None,
-        file_location: FileLocation | None = None,
+        file_location: FileBookmark | None = None,
     ) -> Iterator[Sequence[AssetCentricMapping[AnnotationResponse]]]:
         items = selector.items
         if file_location is not None:
@@ -555,9 +563,9 @@ class AnnotationMigrationIO(
 
     def data_to_json_chunk(
         self,
-        data_chunk: Sequence[AssetCentricMapping[AnnotationResponse]],
+        data_chunk: Page[AssetCentricMapping[AnnotationResponse]],
         selector: AssetCentricMigrationSelector | None = None,
-    ) -> list[dict[str, JsonVal]]:
+    ) -> Page[dict[str, JsonVal]]:
         raise NotImplementedError("Serializing Annotation Migrations to JSON is not supported.")
 
 
@@ -583,9 +591,6 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
         super().__init__(client)
         self.data_model_type = data_model_type
 
-    def as_id(self, item: ThreeDModelClassicResponse) -> str:
-        return item.name
-
     def _is_selected(self, item: ThreeDModelClassicResponse, included_models: set[int] | None) -> bool:
         return self._is_correct_type(item) and (included_models is None or item.id in included_models)
 
@@ -607,7 +612,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
         included_models: set[int] | None = None
         if isinstance(selector, ThreeDModelIdSelector):
             included_models = set(selector.ids)
-        cursor: str | None = bookmark.cursor if bookmark else None
+        cursor: str | None = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         total = 0
         while True:
             request_limit = min(self.DOWNLOAD_LIMIT, limit - total) if limit is not None else self.DOWNLOAD_LIMIT
@@ -617,7 +622,12 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
             items = [item for item in response.items if self._is_selected(item, included_models)]
             total += len(items)
             if items:
-                yield Page(worker_id="main", items=items, bookmark=Bookmark(cursor=response.next_cursor))
+                bm: Bookmark = CursorBookmark(cursor=response.next_cursor) if response.next_cursor else NoBookmark()
+                yield Page(
+                    worker_id="main",
+                    items=[DataItem(tracking_id=item.name, item=item) for item in items],
+                    bookmark=bm,
+                )
             if response.next_cursor is None:
                 break
             cursor = response.next_cursor
@@ -627,8 +637,8 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
         return None
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[ThreeDModelClassicResponse], selector: ThreeDSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
+        self, data_chunk: Page[ThreeDModelClassicResponse], selector: ThreeDSelector | None = None
+    ) -> Page[dict[str, JsonVal]]:
         raise NotImplementedError("Deserializing Annotation Migrations from JSON is not supported.")
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> ThreeDMigrationRequest:
@@ -636,7 +646,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
 
     def upload_items(
         self,
-        data_chunk: Sequence[UploadItem[ThreeDMigrationRequest]],
+        data_chunk: Page[ThreeDMigrationRequest],
         http_client: HTTPClient,
         selector: ThreeDSelector | None = None,
     ) -> ItemsResultList:
@@ -649,7 +659,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
             message=ItemsRequest(
                 endpoint_url=self.client.config.create_api_url(self.UPLOAD_ENDPOINT),
                 method="POST",
-                items=data_chunk,
+                items=data_chunk.items,
             )
         )
         if (
@@ -659,8 +669,8 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
 
         results.extend(responses)
         success_ids = {id for res in responses if isinstance(res, ItemsSuccessResponse) for id in res.ids}
-        for data in data_chunk:
-            if data.source_id not in success_ids:
+        for data in data_chunk.items:
+            if data.tracking_id not in success_ids:
                 continue
             revision = http_client.request_single_retries(
                 message=RequestMessage(
@@ -669,7 +679,7 @@ class ThreeDMigrationIO(UploadableStorageIO[ThreeDSelector, ThreeDModelClassicRe
                     body_content={"items": [data.item.revision.dump(camel_case=True)]},
                 )
             )
-            results.append(revision.as_item_response(data.source_id))
+            results.append(revision.as_item_response(data.tracking_id))
         return results
 
 
@@ -691,9 +701,6 @@ class ThreeDAssetMappingMigrationIO(
         # We can only migrate asset mappings for 3D models that are already migrated to data modeling.
         self._3D_io = ThreeDMigrationIO(client, data_model_type="data modeling")
 
-    def as_id(self, item: AssetMappingClassicResponse) -> str:
-        return f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.asset_id!s}"
-
     def stream_data(
         self,
         selector: ThreeDSelector,
@@ -702,9 +709,9 @@ class ThreeDAssetMappingMigrationIO(
     ) -> Iterable[Page[AssetMappingClassicResponse]]:
         total = 0
         for three_d_page in self._3D_io.stream_data(selector, None):
-            for model in three_d_page.items:
+            for data_item in three_d_page.items:
+                model = data_item.item
                 if model.last_revision_info is None or model.last_revision_info.revision_id is None:
-                    # No revisions, so no asset mappings to
                     continue
                 cursor: str | None = None
                 while True:
@@ -722,7 +729,20 @@ class ThreeDAssetMappingMigrationIO(
                     items = response.items
                     total += len(items)
                     if items:
-                        yield Page(worker_id="main", items=items, bookmark=Bookmark(cursor=response.next_cursor))
+                        bm: Bookmark = (
+                            CursorBookmark(cursor=response.next_cursor) if response.next_cursor else NoBookmark()
+                        )
+                        yield Page(
+                            worker_id="main",
+                            items=[
+                                DataItem(
+                                    tracking_id=f"AssetMapping_{item.model_id!s}_{item.revision_id!s}_{item.asset_id!s}",
+                                    item=item,
+                                )
+                                for item in items
+                            ],
+                            bookmark=bm,
+                        )
                     if response.next_cursor is None:
                         break
                     cursor = response.next_cursor
@@ -733,7 +753,7 @@ class ThreeDAssetMappingMigrationIO(
 
     def upload_items(
         self,
-        data_chunk: Sequence[UploadItem[AssetMappingDMRequestId]],
+        data_chunk: Page[AssetMappingDMRequestId],
         http_client: HTTPClient,
         selector: T_Selector | None = None,
     ) -> ItemsResultList:
@@ -742,7 +762,7 @@ class ThreeDAssetMappingMigrationIO(
             return ItemsResultList()
         # Assume all items in the chunk belong to the same model and revision, they should
         # if the .stream_data method is used for downloading.
-        first = data_chunk[0]
+        first = data_chunk.items[0]
         model_id = first.item.model_id
         revision_id = first.item.revision_id
         endpoint = self.UPLOAD_ENDPOINT.format(modelId=model_id, revisionId=revision_id)
@@ -750,7 +770,7 @@ class ThreeDAssetMappingMigrationIO(
             ItemsRequest(
                 endpoint_url=self.client.config.create_api_url(endpoint),
                 method="POST",
-                items=data_chunk,
+                items=data_chunk.items,
                 extra_body_fields={
                     "dmsContextualizationConfig": {
                         "object3DSpace": self.object_3D_space,
@@ -764,6 +784,6 @@ class ThreeDAssetMappingMigrationIO(
         raise NotImplementedError("Deserializing 3D Asset Mappings from JSON is not supported.")
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[AssetMappingClassicResponse], selector: ThreeDSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
+        self, data_chunk: Page[AssetMappingClassicResponse], selector: ThreeDSelector | None = None
+    ) -> Page[dict[str, JsonVal]]:
         raise NotImplementedError("Serializing 3D Asset Mappings to JSON is not supported.")

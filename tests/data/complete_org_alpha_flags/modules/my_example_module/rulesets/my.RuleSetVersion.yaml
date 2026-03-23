@@ -1,0 +1,7 @@
+ruleSetExternalId: my-rule-set
+version: "1.0.0"
+rules:
+  - |
+    @prefix sh: <http://www.w3.org/ns/shacl#> .
+    @prefix ex: <http://example.org/> .
+    ex:MyShape a sh:NodeShape .

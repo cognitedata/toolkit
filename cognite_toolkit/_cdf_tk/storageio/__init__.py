@@ -13,6 +13,7 @@ from ._asset_centric import (
 from ._base import (
     Bookmark,
     ConfigurableStorageIO,
+    DataItem,
     Page,
     StorageIO,
     StorageIOConfig,
@@ -21,7 +22,6 @@ from ._base import (
     T_Selector,
     TableStorageIO,
     UploadableStorageIO,
-    UploadItem,
 )
 from ._data_classes import InstanceIdCSVList, InstanceIdRow, ModelList
 from ._datapoints import DatapointsIO
@@ -52,6 +52,7 @@ __all__ = [
     "CanvasIO",
     "ChartIO",
     "ConfigurableStorageIO",
+    "DataItem",
     "DatapointsIO",
     "EventIO",
     "FileContentIO",
@@ -71,7 +72,6 @@ __all__ = [
     "T_Selector",
     "TableStorageIO",
     "TimeSeriesIO",
-    "UploadItem",
     "UploadableStorageIO",
     "get_upload_io",
 ]

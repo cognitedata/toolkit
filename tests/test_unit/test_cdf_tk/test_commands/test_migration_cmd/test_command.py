@@ -53,6 +53,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AnnotationMig
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMigrationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import CanvasIO, ChartIO
+from cognite_toolkit._cdf_tk.storageio.progress import CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.storageio.selectors import (
     CanvasExternalIdSelector,
     ChartExternalIdSelector,
@@ -287,6 +288,106 @@ class TestMigrationCommand:
         result = results_by_selector[str(selector)]
         actual_results = {status.status: status.count for status in result}
         assert actual_results == {"failure": 0, "pending": 0, "success": len(assets), "unchanged": 0, "skipped": 0}
+
+    @pytest.mark.usefixtures("mock_statistics", "resource_view_mappings")
+    def test_migrate_resume(
+        self,
+        toolkit_config: ToolkitClientConfig,
+        tmp_path: Path,
+        cognite_migration_model: respx.MockRouter,
+    ) -> None:
+        respx_mock = cognite_migration_model
+        config = toolkit_config
+        assets = [
+            AssetResponse(
+                id=1000,
+                external_id="asset_0",
+                name="Asset 0",
+                description="This is Asset 0",
+                last_updated_time=1,
+                created_time=0,
+                root_id=1,
+            )
+        ]
+        space = "my_space"
+        csv_content = (
+            "id,space,externalId,ingestionView,consumerViewSpace,consumerViewExternalId,consumerViewVersion\n"
+            f"{assets[0].id},{space},{assets[0].external_id},{ASSET_ID},cdf_cdm,CogniteAsset,v1"
+        )
+
+        # Asset retrieve ids
+        respx.post(
+            config.create_api_url("/assets/byids"),
+        ).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={"items": [asset.dump() for asset in assets]},
+            )
+        )
+
+        # Instance creation
+        respx_mock.post(
+            config.create_api_url("/models/instances"),
+        ).mock(
+            return_value=httpx.Response(
+                status_code=200,
+                json={
+                    "items": [
+                        {
+                            "instanceType": "node",
+                            "space": space,
+                            "externalId": assets[0].external_id,
+                            "version": 1,
+                            "wasModified": True,
+                            "createdTime": 1,
+                            "lastUpdatedTime": 1,
+                        }
+                    ]
+                },
+            )
+        )
+        csv_file = tmp_path / "migration.csv"
+        csv_file.write_text(csv_content, encoding="utf-8")
+        selector = MigrationCSVFileSelector(datafile=csv_file, kind="Assets")
+        logs = tmp_path / "logs"
+        ProgressYAML(
+            status="in-progress",
+            bookmarks={"main": CursorBookmark(cursor="resume-cursor-1")},
+            total=1,
+            completed_count=0,
+        ).dump_to_file(logs, filestem=str(selector))
+
+        observed_bookmarks = []
+        original_stream_data = AssetCentricMigrationIO.stream_data
+
+        def _track_resume_bookmark(self, selector, limit=None, bookmark=None):
+            observed_bookmarks.append(bookmark)
+            yield from original_stream_data(self, selector, limit=limit, bookmark=bookmark)
+
+        client = ToolkitClient(config)
+        command = MigrationCommand(silent=True)
+        with patch.object(AssetCentricMigrationIO, "stream_data", autospec=True, side_effect=_track_resume_bookmark):
+            results_by_selector = command.migrate(
+                selectors=[selector],
+                data=AssetCentricMigrationIO(client),
+                mapper=AssetCentricMapper(client),
+                log_dir=logs,
+                dry_run=False,
+                verbose=False,
+            )
+
+        assert len(observed_bookmarks) == 1
+        bookmark = observed_bookmarks[0]
+        assert isinstance(bookmark, CursorBookmark)
+        assert bookmark.cursor == "resume-cursor-1"
+
+        result = results_by_selector[str(selector)]
+        actual_results = {status.status: status.count for status in result}
+        assert actual_results == {"failure": 0, "pending": 0, "success": 1, "unchanged": 0, "skipped": 0}
+
+        progress = ProgressYAML.try_load(logs, filestem=str(selector))
+        assert progress is not None
+        assert progress.status == "completed"
 
     @pytest.mark.usefixtures("mock_statistics", "resource_view_mappings")
     def test_migrate_annotations(

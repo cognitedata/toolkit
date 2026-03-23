@@ -1598,6 +1598,7 @@ class MigrateApp(typer.Typer):
                         ),
                         instance_spaces=(source_space,),
                         edge_types=tuple(mapping.edge_mapping.keys()) if mapping.edge_mapping else None,
+                        endpoint="sync",
                     )
                 )
         if schedule_mapping is None:

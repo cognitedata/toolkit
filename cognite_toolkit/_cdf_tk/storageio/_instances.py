@@ -9,9 +9,7 @@ from cognite_toolkit._cdf_tk import constants
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ContainerId,
-    EdgeId,
     InstanceDefinitionId,
-    NodeId,
     SpaceId,
     ViewId,
 )
@@ -24,7 +22,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     QueryNodeExpression,
     QueryNodeTableExpression,
     QueryRequest,
-    QueryResponseTyped,
     QuerySelect,
     QuerySelectSource,
     QuerySortSpec,
@@ -38,7 +35,8 @@ from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
-from ._base import Bookmark, ConfigurableStorageIO, Page, UploadableStorageIO
+from ._base import Bookmark, ConfigurableStorageIO, DataItem, Page, UploadableStorageIO
+from .progress import CursorBookmark, NoBookmark
 from .selectors import InstanceFileSelector, InstanceSelector, InstanceSpaceSelector, InstanceViewSelector, SelectedView
 from .selectors._instances import InstanceQuerySelector
 
@@ -81,9 +79,6 @@ class InstanceIO(
         # Cache for view to read-only properties mapping
         self._view_readonly_properties_cache: dict[ViewId, set[str]] = {}
         self._view_crud = ViewCRUD.create_loader(self.client)
-
-    def as_id(self, item: InstanceResponse) -> str:
-        return f"{item.space}:{item.external_id}"
 
     @staticmethod
     def _build_list_filter(selector: InstanceViewSelector | InstanceSpaceSelector) -> InstanceFilter:
@@ -173,22 +168,20 @@ class InstanceIO(
         limit: int | None = None,
         bookmark: Bookmark | None = None,
     ) -> Iterable[Page]:
-        init_cursor = bookmark.cursor if bookmark else None
+        init_cursor = bookmark.cursor if isinstance(bookmark, CursorBookmark) else None
         if isinstance(selector, InstanceViewSelector) and selector.edge_types and selector.instance_type == "node":
             yield from self._instances_with_container_and_edge_properties(selector, limit, init_cursor)
         elif isinstance(selector, InstanceViewSelector | InstanceSpaceSelector):
             yield from self._instances_with_container_properties(selector, limit, init_cursor)
         elif isinstance(selector, InstanceFileSelector):
             for chunk in chunker_sequence(selector.ids, self.CHUNK_SIZE):
-                yield Page(worker_id="main", items=self.client.tool.instances.retrieve(chunk), bookmark=Bookmark())
+                items = [
+                    DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item)
+                    for item in self.client.tool.instances.retrieve(chunk)
+                ]
+                yield Page(worker_id="main", items=items, bookmark=NoBookmark())
         elif isinstance(selector, InstanceQuerySelector):
-            yield from self._instance_by_query(
-                QueryRequest.model_validate_json(selector.query),
-                selector.root,
-                list(selector.subselections),
-                limit,
-                init_cursor,
-            )
+            yield from self._instance_by_query(selector.create_query(), limit, init_cursor)
         else:
             raise NotImplementedError()
 
@@ -232,73 +225,37 @@ class InstanceIO(
             edge_ids.append(query_id)
             select[query_id] = QuerySelect()
 
-        query = QueryRequest(with_=with_, select=select)
-        yield from self._instance_by_query(query, root, edge_ids, limit, init_cursor)
+        query = QueryRequest(with_=with_, select=select, root="nodes")
+        yield from self._instance_by_query(query, limit, init_cursor)
 
     def _instance_by_query(
         self,
         query: QueryRequest,
-        root_selection: str,
-        sub_selections: list[str],
         limit: int | None,
         init_cursor: str | None = None,
+        endpoint: Literal["query", "sync"] = "query",
     ) -> Iterable[Page]:
-        total = 0
-        chunk_size = query.with_[root_selection].limit or self.CHUNK_SIZE
         if init_cursor is not None:
-            query.cursors = {root_selection: init_cursor}
-        while True:
-            response = self._exhaust_sub_selections(query, root_selection, sub_selections)
-            nodes = response.items.get(root_selection, [])
-            # De-duplicate edges across properties, as the same edge can be returned for multiple
-            # properties if it connects two nodes that are in the result set.
-            sub_responses: dict[NodeId | EdgeId, InstanceResponse] = {}
-            for prop_id in sub_selections:
-                for edge in response.items.get(prop_id, []):
-                    ref = edge.as_id()
-                    if ref not in sub_responses:
-                        sub_responses[ref] = edge
-            items = nodes + list(sub_responses.values())
-            total += len(nodes)
-            next_cursor = response.next_cursor.get(root_selection)
-            yield Page(worker_id="main", items=items, bookmark=Bookmark(cursor=next_cursor))
-            if next_cursor is None or (limit is not None and total >= limit) or not nodes:
-                break
-            page_limit = min(chunk_size, limit - total) if limit is not None else chunk_size
-            query.with_[root_selection].limit = page_limit
-            query.cursors = {root_selection: next_cursor}
+            query.cursors = {query.root: init_cursor}
 
-    def _exhaust_sub_selections(
-        self, query: QueryRequest, root_selection: str, sub_selections: list[str]
-    ) -> QueryResponseTyped:
-        """Exhaust a query with sub-selections by following the cursors for the sub-selections until they are all exhausted.
-
-        Args:
-            query: The query to exhaust. It is assumed that the query has sub-selections with the ids in sub_selections.
-            sub_selections:  The ids of the sub-selections to exhaust.
-
-        Returns:
-            A QueryResponseTyped with all items from the initial query and the sub-selections.
-        """
-        first: QueryResponseTyped | None = None
-        while True:
-            response = self.client.tool.instances.query(query, type_results=True)
-            if first is None:
-                first = response
-            else:
-                for key in sub_selections:
-                    if key in response.items:
-                        first.items[key].extend(response.items[key])
-            next_cursors: dict[str, str | None] = {}
-            for prop_id in sub_selections:
-                sub_cursor = response.next_cursor.get(prop_id)
-                if sub_cursor is not None:
-                    next_cursors[prop_id] = sub_cursor
-            if not next_cursors or not response.items:
-                return first
-            # Keep the root cursor to iterate over all subitems.
-            next_cursors[root_selection] = (query.cursors or {}).get(root_selection)
-            query = query.model_copy(update={"cursors": next_cursors})
+        for batch in self.client.tool.instances.query_iterate(
+            query,
+            type_results=True,
+            exhaust_sub_selections=True,
+            limit=limit,
+            endpoint=endpoint,
+        ):
+            wrapped_items = [
+                DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item)
+                for items in batch.items.values()
+                for item in items
+            ]
+            next_cursor = batch.root_cursor
+            yield Page(
+                worker_id="main",
+                items=wrapped_items,
+                bookmark=CursorBookmark(cursor=next_cursor) if next_cursor else NoBookmark(),
+            )
 
     def _instances_with_container_properties(
         self,
@@ -311,10 +268,19 @@ class InstanceIO(
         cursor: str | None = init_cursor
         while cursor is not None or total == 0:
             page_limit = min(self.CHUNK_SIZE, limit - total) if limit is not None else self.CHUNK_SIZE
-            page = self.client.tool.instances.paginate(instance_filter, limit=page_limit, cursor=cursor)
+            page = self.client.tool.instances.paginate(
+                instance_filter, limit=page_limit, cursor=cursor, endpoint=selector.endpoint
+            )
             total += len(page.items)
             if page:
-                yield Page(worker_id="main", items=page.items, bookmark=Bookmark(cursor=page.next_cursor))
+                wrapped_items = [
+                    DataItem(tracking_id=f"{item.space}:{item.external_id}", item=item) for item in page.items
+                ]
+                yield Page(
+                    worker_id="main",
+                    items=wrapped_items,
+                    bookmark=CursorBookmark(cursor=page.next_cursor) if page.next_cursor else NoBookmark(),
+                )
             if page.next_cursor is None or (limit is not None and total >= limit) or not page.items:
                 break
             cursor = page.next_cursor
@@ -328,7 +294,9 @@ class InstanceIO(
                 instances_to_yield = instances_to_yield[:limit]
             yield from chunker_sequence(instances_to_yield, self.CHUNK_SIZE)
         else:
-            yield from ([instance.as_id() for instance in chunk.items] for chunk in self.stream_data(selector, limit))
+            yield from (
+                [data_item.item.as_id() for data_item in chunk.items] for chunk in self.stream_data(selector, limit)
+            )
 
     def count(self, selector: InstanceSelector) -> int | None:
         if isinstance(selector, InstanceViewSelector) or (
@@ -359,9 +327,13 @@ class InstanceIO(
         raise NotImplementedError()
 
     def data_to_json_chunk(
-        self, data_chunk: Sequence[InstanceResponse], selector: InstanceSelector | None = None
-    ) -> list[dict[str, JsonVal]]:
-        return [instance.as_request_resource().dump() for instance in data_chunk]
+        self, data_chunk: Page[InstanceResponse], selector: InstanceSelector | None = None
+    ) -> Page[dict[str, JsonVal]]:
+        result = [
+            DataItem(tracking_id=item.tracking_id, item=item.item.as_request_resource().dump())
+            for item in data_chunk.items
+        ]
+        return data_chunk.create_from(result)
 
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> InstanceRequest:
         item_to_load = item_json.copy()

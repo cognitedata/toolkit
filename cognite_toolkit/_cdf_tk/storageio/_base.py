@@ -1,17 +1,16 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Mapping, Sequence, Sized
-from dataclasses import dataclass
+from collections.abc import Iterable, Iterator, Mapping, Sequence, Sized
+from dataclasses import dataclass, field
 from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar, runtime_checkable
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import RequestItem
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 from cognite_toolkit._cdf_tk.client.http_client._item_classes import ItemsRequest, ItemsResultList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError
-from cognite_toolkit._cdf_tk.storageio.progress import FileLocation
-from cognite_toolkit._cdf_tk.utils.collection import chunker
+from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, FileBookmark, NoBookmark
 from cognite_toolkit._cdf_tk.utils.fileio import MultiFileReader, SchemaColumn
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -26,6 +25,8 @@ class DataRequestProtocol(Protocol):
 
 T_DataRequest = TypeVar("T_DataRequest", bound=DataRequestProtocol)
 T_DataResponse = TypeVar("T_DataResponse")
+T_DataItem = TypeVar("T_DataItem")
+T_NewDataItem = TypeVar("T_NewDataItem")
 
 
 @dataclass
@@ -36,43 +37,55 @@ class StorageIOConfig:
     filename: str | None = None
 
 
-@dataclass
-class Bookmark:
-    cursor: str | None = None
-    file_location: FileLocation | None = None
+class DataItem(RequestItem, Generic[T_DataItem]):
+    """This wraps a data item with a tracking ID for better logging and error messages in data operations.
+
+    Attributes:
+        tracking_id: The identifier for the item.
+        item: The data item, which can be either a dictionary or an object that implements the DataRequestProtocol.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    tracking_id: str = Field(
+        description="Identifier of the data item in the source. For example, if the source is a file it can be a line number."
+    )
+    item: T_DataItem
+
+    def __str__(self) -> str:
+        return self.tracking_id
+
+    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
+        if isinstance(self.item, dict):
+            return self.item
+        elif isinstance(self.item, DataRequestProtocol):
+            return self.item.dump(camel_case=camel_case)
+        else:
+            raise NotImplementedError(
+                f"Cannot dump item of type {type(self.item)!r}. It must be either a dict or implement the DataRequestProtocol."
+            )
 
 
 T_Selector = TypeVar("T_Selector", bound=DataSelector)
 
 
 @dataclass
-class Page(Generic[T_DataResponse], Sized):
+class Page(Generic[T_DataItem], Sized):
     worker_id: str
-    items: Sequence[T_DataResponse]
-    bookmark: Bookmark
+    items: Sequence[DataItem[T_DataItem]]
+    bookmark: Bookmark = field(default_factory=NoBookmark)
 
     def __len__(self) -> int:
         return len(self.items)
 
+    def __iter__(self) -> Iterator[DataItem[T_DataItem]]:
+        return iter(self.items)
 
-class UploadItem(RequestItem, Generic[T_DataRequest]):
-    """An item to be uploaded to CDF, consisting of a source ID and the writable Cognite resource.
+    def as_raw_items(self) -> Sequence[T_DataItem]:
+        return [item.item for item in self.items]
 
-    Attributes:
-        source_id: The source identifier for the item. For example, the line number in a CSV file.
-        item: The writable Cognite resource to be uploaded.
-    """
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    source_id: str
-    item: T_DataRequest
-
-    def __str__(self) -> str:
-        return self.source_id
-
-    def dump(self, camel_case: bool = True, exclude_extra: bool = False) -> dict[str, Any]:
-        return self.item.dump(camel_case=camel_case)
+    def create_from(self, items: Sequence[DataItem[T_NewDataItem]]) -> "Page[T_NewDataItem]":
+        return Page[T_NewDataItem](worker_id=self.worker_id, items=items, bookmark=self.bookmark)
 
 
 class StorageIO(ABC, Generic[T_Selector, T_DataResponse]):
@@ -98,16 +111,6 @@ class StorageIO(ABC, Generic[T_Selector, T_DataResponse]):
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
         self.logger: DataLogger = NoOpLogger()
-
-    @abstractmethod
-    def as_id(self, item: T_DataResponse) -> str:
-        """Convert an item to its corresponding ID.
-        Args:
-            item: The item to convert.
-        Returns:
-            The ID corresponding to the item.
-        """
-        raise NotImplementedError()
 
     @abstractmethod
     def stream_data(
@@ -142,8 +145,8 @@ class StorageIO(ABC, Generic[T_Selector, T_DataResponse]):
 
     @abstractmethod
     def data_to_json_chunk(
-        self, data_chunk: Sequence[T_DataResponse], selector: T_Selector | None = None
-    ) -> list[dict[str, JsonVal]]:
+        self, data_chunk: Page[T_DataResponse], selector: T_Selector | None = None
+    ) -> Page[dict[str, JsonVal]]:
         """Convert a chunk of data to a JSON-compatible format.
 
         Args:
@@ -178,7 +181,7 @@ class UploadableStorageIO(
 
     def upload_items(
         self,
-        data_chunk: Sequence[UploadItem[T_DataRequest]],
+        data_chunk: Page[T_DataRequest],
         http_client: HTTPClient,
         selector: T_Selector | None = None,
     ) -> ItemsResultList:
@@ -209,27 +212,26 @@ class UploadableStorageIO(
             message=ItemsRequest(
                 endpoint_url=url,
                 method=self.UPLOAD_ENDPOINT_METHOD,
-                items=data_chunk,
+                items=data_chunk.items,
                 extra_body_fields=dict(self.UPLOAD_EXTRA_ARGS or {}),
             )
         )
 
-    def json_chunk_to_data(
-        self, data_chunk: list[tuple[str, dict[str, JsonVal]]]
-    ) -> Sequence[UploadItem[T_DataRequest]]:
-        """Convert a JSON-compatible chunk of data back to a writable Cognite resource list.
+    def json_chunk_to_data(self, data_chunk: Page[dict[str, JsonVal]]) -> Page[T_DataRequest]:
+        """Convert a JSON-compatible chunk of data to a writable Cognite resource list.
 
         Args:
-            data_chunk: A list of tuples, each containing a source ID and a dictionary representing
-                the data in a JSON-compatible format.
+            data_chunk: A page with raw data from to convert.
+
         Returns:
-            A writable Cognite resource list representing the data.
+            A page with data from converted to JSON-compatible format.
+
         """
-        result: list[UploadItem[T_DataRequest]] = []
-        for source_id, item_json in data_chunk:
-            item = self.json_to_resource(item_json)
-            result.append(UploadItem(source_id=source_id, item=item))
-        return result
+        result: list[DataItem[T_DataRequest]] = []
+        for chunk in data_chunk.items:
+            item = self.json_to_resource(chunk.item)
+            result.append(DataItem(tracking_id=chunk.tracking_id, item=item))
+        return data_chunk.create_from(result)
 
     @abstractmethod
     def json_to_resource(self, item_json: dict[str, JsonVal]) -> T_DataRequest:
@@ -243,13 +245,11 @@ class UploadableStorageIO(
         raise NotImplementedError()
 
     @classmethod
-    def read_chunks(
-        cls, reader: MultiFileReader, selector: T_Selector
-    ) -> Iterable[list[tuple[str, dict[str, JsonVal]]]]:
+    def read_chunks(cls, reader: MultiFileReader, selector: T_Selector) -> Iterable[Page[dict[str, JsonVal]]]:
         """Read data from a MultiFileReader in chunks.
 
-        This method yields chunks of data, where each chunk is a list of tuples. Each tuple contains a source ID
-        (e.g., line number or row identifier) and a dictionary representing the data in a JSON-compatible format.
+         This method yields pages of DataItems, where each DataItem contains a tracking ID
+         (e.g., line number or row identifier)
 
         This method can be overridden by subclasses to customize how data is read and chunked.
         Args:
@@ -257,10 +257,23 @@ class UploadableStorageIO(
             selector: The selection criteria to identify the data.
         """
         data_name = "row" if reader.is_table else "line"
-        # Include name of line for better error messages
-        iterable = ((f"{data_name} {line_no}", item) for line_no, item in reader.read_chunks_with_line_numbers())
-
-        yield from chunker(iterable, cls.CHUNK_SIZE)
+        batch: list[DataItem[dict[str, JsonVal]]] = []
+        line_no: int = -1
+        for line_no, item in reader.read_chunks_with_line_numbers():
+            batch.append(DataItem(tracking_id=f"{data_name} {line_no}", item=item))
+            if len(batch) >= cls.CHUNK_SIZE:
+                yield Page(
+                    worker_id="main",
+                    items=batch,
+                    bookmark=FileBookmark(lineno=line_no, filepath=reader.current_file),
+                )
+                batch = []
+        if batch:
+            yield Page(
+                worker_id="main",
+                items=batch,
+                bookmark=FileBookmark(lineno=line_no, filepath=reader.current_file),
+            )
 
     @classmethod
     def count_items(cls, reader: MultiFileReader, selector: T_Selector | None = None) -> int:
@@ -280,24 +293,21 @@ class UploadableStorageIO(
 class TableUploadableStorageIO(UploadableStorageIO[T_Selector, T_DataResponse, T_DataRequest], ABC):
     """A base class for storage items that support uploading data with table schemas."""
 
-    def rows_to_data(
-        self, rows: list[tuple[str, dict[str, JsonVal]]], selector: T_Selector | None = None
-    ) -> Sequence[UploadItem[T_DataRequest]]:
+    def rows_to_data(self, rows: Page[dict[str, JsonVal]], selector: T_Selector | None = None) -> Page[T_DataRequest]:
         """Convert a row-based JSON-compatible chunk of data back to a writable Cognite resource list.
 
         Args:
-            rows: A list of tuples, each containing a source ID and a dictionary representing
-                the data in a JSON-compatible format.
+            rows: A page of row dictionaries, each wrapped in a DataItem with a tracking ID.
             selector: Optional selection criteria to identify where to upload the data. This is required for some storage types.
 
         Returns:
             A writable Cognite resource list representing the data.
         """
-        result: list[UploadItem[T_DataRequest]] = []
-        for source_id, row in rows:
-            item = self.row_to_resource(source_id, row, selector=selector)
-            result.append(UploadItem(source_id=source_id, item=item))
-        return result
+        result: list[DataItem[T_DataRequest]] = []
+        for row in rows.items:
+            request_object = self.row_to_resource(source_id=row.tracking_id, row=row.item, selector=selector)
+            result.append(DataItem(tracking_id=row.tracking_id, item=request_object))
+        return rows.create_from(result)
 
     @abstractmethod
     def row_to_resource(
@@ -342,8 +352,8 @@ class TableStorageIO(StorageIO[T_Selector, T_DataResponse], ABC):
 
     @abstractmethod
     def data_to_row(
-        self, data_chunk: Sequence[T_DataResponse], selector: T_Selector | None = None
-    ) -> list[dict[str, JsonVal]]:
+        self, data_chunk: Page[T_DataResponse], selector: T_Selector | None = None
+    ) -> Page[dict[str, JsonVal]]:
         """Convert a chunk of data to a row-based JSON-compatible format.
 
         Args:
