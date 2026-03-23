@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
 from ._insights import InsightList
-from ._module import ModuleSource
+from ._module import ModuleId, ModuleSource
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
 
@@ -47,10 +47,25 @@ class BuildSourceFiles(BaseModel):
     organization_dir: AbsoluteDirPath
 
 
+class BuiltResource(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    identifier: Identifier
+    source_hash: str
+    source_path: AbsoluteFilePath
+    build_path: AbsoluteFilePath
+    dependencies: set[tuple[type[ResourceCRUD], Identifier]] = Field(default_factory=set)
+    insights: InsightList = Field(default_factory=InsightList)
+
+
 class BuiltModule(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
+    module_id: ModuleId
+    resources: list[BuiltResource] = Field(default_factory=list)
 
+    # From source we only need the ModuleIdentifier (path, id, name)
+    # Todo: Replace source with ModuleId
     source: ModuleSource
+    # Replace with above
     built_files_by_source: dict[Path, Path] = Field(
         default_factory=dict, description="Mapping of built file paths to their corresponding source file paths"
     )
@@ -103,7 +118,7 @@ class BuildFolder(BaseModel):
         """Organizes built modules by their success status."""
         modules_by_success: dict[bool, list[str]] = {True: [], False: []}
         for built_module in self.built_modules:
-            modules_by_success[built_module.is_success].append(built_module.source.name)
+            modules_by_success[built_module.is_success].append(built_module.module_id.name)
 
         return modules_by_success
 
@@ -112,7 +127,8 @@ class BuildFolder(BaseModel):
         """Set of all built resources across all modules."""
         resources: set[Identifier] = set()
         for built_module in self.built_modules:
-            resources.update(built_module.built_resources_identifiers)
+            for resource in built_module.resources:
+                resources.add(resource.identifier)
         return resources
 
     @property

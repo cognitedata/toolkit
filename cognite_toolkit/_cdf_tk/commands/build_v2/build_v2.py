@@ -1,5 +1,6 @@
 import os
 import sys
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,6 +27,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ResourceType,
     ValidationType,
 )
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuiltResource
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     InsightList,
@@ -69,7 +71,6 @@ class BuildV2Command(ToolkitCommand):
 
         self._cdf_dependency_validation(build_folder, client)
 
-        # Todo: Some mixpanel tracking.
         # Can be parallelized with number of plugins.
         # Neat is done inside the global validation.
         self._global_validation(build_folder, client)
@@ -78,6 +79,9 @@ class BuildV2Command(ToolkitCommand):
         build_duration_seconds = round((datetime.now(timezone.utc) - build_start_time).total_seconds(), 2)
 
         self._write_results(parameters, build_folder, build_start_time, build_duration_seconds)
+
+        # Todo: Some mixpanel tracking.
+
         return build_folder
 
     @classmethod
@@ -248,32 +252,16 @@ class BuildV2Command(ToolkitCommand):
             selected.add(item_path)
         return selected, errors
 
-    def _build_modules(
-        self, module_sources: Sequence[ModuleSource], build_dir: Path, max_workers: int = 1
-    ) -> BuildFolder:
+    def _build_modules(self, module_sources: Sequence[ModuleSource], build_dir: Path) -> BuildFolder:
+        build_dir.mkdir(parents=True, exist_ok=True)
         folder: BuildFolder = BuildFolder(path=build_dir)
+        resource_counter: Counter = Counter()
         for source in module_sources:
             # Inside this loop, do not raise exceptions.
             module = self._import_module(source)  # Syntax validation
-
-            # init built_module
-            built_module = BuiltModule(source=module.source)
-
-            if module.is_success:
-                self._local_validation(module)
-
-                built_module.built_files_by_source = self._export_module(module, build_dir)
-                built_module.built_resources_identifiers = [
-                    resource.resource.as_id()
-                    for resource in module.resources
-                    if isinstance(resource, SuccessfulReadResource)
-                ]
-                built_module.dependencies = module.dependencies
-
-            built_module.insights.extend(module.insights)
-            for resource in module.resources:
-                if isinstance(resource, FailedReadResource):
-                    built_module.insights.extend(resource.errors)
+            # Todo: Avoid mutating module object.
+            self._local_validation(module)
+            built_module = self._export_module(module, resource_counter, build_dir)
             folder.built_modules.append(built_module)
 
         return folder
@@ -436,30 +424,46 @@ class BuildV2Command(ToolkitCommand):
             fix="Make sure the resource YAML content is valid and follows the expected structure.",
         )
 
-    def _export_module(self, module: Module, build_dir: Path) -> dict[Path, Path]:
-        build_dir.mkdir(parents=True, exist_ok=True)
-
-        built_files: dict[Path, Path] = {}
+    def _export_module(self, module: Module, resource_counter: Counter, build_dir: Path) -> BuiltModule:
+        built_module = BuiltModule(
+            source=module.source,
+            module_id=module.source.as_id(),
+            dependencies={},
+        )
+        built_resources: list[BuiltResource] = []
         for resource in module.resources:
             if not isinstance(resource, SuccessfulReadResource):
+                # Todo: Allow syntax errors.
                 continue
             folder = build_dir / resource.resource_type.resource_folder
             folder.mkdir(parents=True, exist_ok=True)
-            built_file = (
-                folder
-                / f"resource_{sanitize_filename(str(resource.resource.as_id()))}.{resource.resource_type.kind}.yaml"
+            resource_counter.update([resource.resource_type])
+            index = resource_counter[resource.resource_type]
+            source_stem = resource.source_path.stem.rsplit(".", maxsplit=1)[0]
+            identifier = resource.resource.as_id()
+            identifier_filename = sanitize_filename(str(identifier))
+            filename = f"{index}-{source_stem}-{identifier_filename}.{resource.resource_type.kind}.yaml"
+            destination_path = folder / filename
+            # Todo: Store original yaml and do not require the resource. In other words allow
+            #   model syntax errors.
+            safe_write(
+                destination_path, yaml_safe_dump(resource.resource.model_dump(by_alias=True, exclude_unset=True))
             )
-            # Todo Move into Toolkit resource.
-            safe_write(built_file, yaml_safe_dump(resource.resource.model_dump(by_alias=True, exclude_unset=True)))
-            built_files[built_file] = resource.source_path
-
-        # Todo: Store source path, source hash, ID, and so on for build_linage
-        return built_files
+            built_resources.append(
+                BuiltResource(
+                    identifier=identifier,
+                    source_hash=resource.source_hash,
+                    source_path=resource.source_path,
+                    build_path=destination_path,
+                    dependencies=resource.dependencies,
+                    insights=resource.insights,
+                )
+            )
+        return built_module
 
     @classmethod
     def _create_syntax_errors(cls, resource_type: ResourceType, error: ValidationError) -> Iterable[ModelSyntaxError]:
         # TODO: should be extended with humanizing of errors, this is a quick solution.
-
         for error_details in error.errors(include_input=True, include_url=False):
             message = error_details.get("msg", "Unknown syntax error")
             yield ModelSyntaxError(code=f"{resource_type}-SYNTAX-ERROR", message=message)
@@ -492,6 +496,8 @@ class BuildV2Command(ToolkitCommand):
                                         fix="Make sure the resource exists in CDF or remove the reference to it.",
                                     )
                                 )
+        # Todo: Add recommendation if client missing and there dependencies for the user to supply a
+        #   client.
 
     def _global_validation(self, build_folder: BuildFolder, client: ToolkitClient | None) -> None:
         """This validation is performed per resource type and not per individual resource and against CDF
