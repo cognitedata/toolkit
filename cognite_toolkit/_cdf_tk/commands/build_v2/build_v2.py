@@ -382,7 +382,7 @@ class BuildV2Command(ToolkitCommand):
                     )
                     continue
                 resources.extend(self._import_resource_file(resource_file, class_by_kind[kind], source.variables))
-        return Module(id=source.as_id(), resources=resources)
+        return Module(id=source.as_id(), resources=resources, ignored_files=ignored_files)
 
     def _import_resource_file(
         self,
