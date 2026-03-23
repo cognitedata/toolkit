@@ -470,6 +470,9 @@ class TestModulesCommand:
         mod_b = ModuleLocation(dir=base / "mod_b", source_absolute_path=base, source_paths=[])
         mod_locked = ModuleLocation(dir=base / "mod_locked", source_absolute_path=base, source_paths=[])
         mod_only_fixed = ModuleLocation(dir=base / "mod_only_fixed", source_absolute_path=base, source_paths=[])
+        # A second cherry-pickable package that also contains a module named "mod_b" (collision)
+        mod_b_alt = ModuleLocation(dir=base / "alt" / "mod_b", source_absolute_path=base, source_paths=[])
+        mod_c = ModuleLocation(dir=base / "mod_c", source_absolute_path=base, source_paths=[])
         return Packages(
             {
                 "cherry_pkg": Package(
@@ -481,6 +484,12 @@ class TestModulesCommand:
                     can_cherry_pick=False,
                     modules=[mod_locked, mod_only_fixed],
                 ),
+                "other_cherry_pkg": Package(
+                    name="other_cherry_pkg",
+                    title="Other Cherry Package",
+                    can_cherry_pick=True,
+                    modules=[mod_b_alt, mod_c],
+                ),
             }
         )
 
@@ -490,8 +499,10 @@ class TestModulesCommand:
             ("cherry_pkg", "cherry_pkg", {"mod_a", "mod_b"}),
             ("CHERRY_PKG", "cherry_pkg", {"mod_a", "mod_b"}),
             ("fixed_pkg", "fixed_pkg", {"mod_locked", "mod_only_fixed"}),
+            ("other_cherry_pkg", "other_cherry_pkg", {"mod_b", "mod_c"}),
             ("mod_a", "cherry_pkg", {"mod_a"}),
             ("MOD_A", "cherry_pkg", {"mod_a"}),
+            ("mod_c", "other_cherry_pkg", {"mod_c"}),
         ],
     )
     def test_find_and_select_module_lookup(
@@ -514,6 +525,7 @@ class TestModulesCommand:
             ("cherry_pkg", ["mod_a", "mod_b"], "already installed"),
             ("mod_a", ["mod_a"], "already installed"),
             ("mod_locked", [], "not found"),  # non-cherry-pickable module
+            ("mod_b", [], "multiple packages"),  # ambiguous: exists in cherry_pkg and other_cherry_pkg
             ("cherry_pk", [], "Did you mean"),  # typo
             ("zzz_completely_unrelated_xyz", [], "not found"),
         ],

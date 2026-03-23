@@ -557,12 +557,11 @@ class ModulesCommand(ToolkitCommand):
         name_lower = module_name.casefold()
 
         by_package = {name.casefold(): pkg for name, pkg in packages.items()}
-        by_module: dict[str, tuple[Package, ModuleLocation]] = {
-            module.name.casefold(): (pkg, module)
-            for pkg in packages.values()
-            if pkg.can_cherry_pick
-            for module in pkg.modules
-        }
+        by_module: dict[str, list[tuple[Package, ModuleLocation]]] = {}
+        for pkg in packages.values():
+            if pkg.can_cherry_pick:
+                for module in pkg.modules:
+                    by_module.setdefault(module.name.casefold(), []).append((pkg, module))
 
         if name_lower in by_package:
             package = by_package[name_lower]
@@ -583,7 +582,14 @@ class ModulesCommand(ToolkitCommand):
             return selected
 
         if name_lower in by_module:
-            found_package, found_module = by_module[name_lower]
+            matches = by_module[name_lower]
+            if len(matches) > 1:
+                pkg_names = ", ".join(f"'{pkg.name}'" for pkg, _ in matches)
+                raise ToolkitError(
+                    f"Module '{module_name}' exists in multiple packages: {pkg_names}. "
+                    f"Use the full package name instead."
+                )
+            found_package, found_module = matches[0]
             if found_module.name in existing:
                 raise ToolkitError(f"Module '{found_module.name}' is already installed in this project.")
             print(f"[green]Selected module '{found_module.name}' from package '{found_package.name}'.[/]")
@@ -599,7 +605,7 @@ class ModulesCommand(ToolkitCommand):
         close = difflib.get_close_matches(name_lower, list(by_package) + list(by_module), n=1)
         if close:
             match = close[0]
-            suggestion = by_package[match].name if match in by_package else by_module[match][1].name
+            suggestion = by_package[match].name if match in by_package else by_module[match][0][1].name
             raise ToolkitError(f"'{module_name}' not found. Did you mean '{suggestion}'?")
         raise ToolkitError(
             f"'{module_name}' not found as a package name or module name in any cherry-pickable package."
