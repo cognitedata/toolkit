@@ -1,9 +1,11 @@
 import json
+import time
 from collections import defaultdict
 from collections.abc import Iterable, Iterator, Mapping, Sequence
+from datetime import timedelta
 from typing import ClassVar, Literal, cast
 
-from pydantic import JsonValue
+from pydantic import JsonValue, TypeAdapter
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -18,11 +20,12 @@ from cognite_toolkit._cdf_tk.client.http_client._item_classes import (
     ItemsResultList,
     ItemsSuccessResponse,
 )
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeId, InstanceRequest, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
 from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
     AssetMappingDMRequestId,
@@ -293,11 +296,38 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
     CHUNK_SIZE = 500
     UPLOAD_ENDPOINT = "/streams/{streamId}/records"
     FILTER_ENDPOINT = "/streams/{streamId}/records/filter"
+    # Records filter API: multivalued `in` filters allow at most 100 values (see API error range [1, 100]).
+    FILTER_IN_MAX_VALUES = 100
 
     def __init__(self, client: ToolkitClient, stream_external_id: str, skip_existing: bool = False) -> None:
         super().__init__(client)
         self.stream_external_id = stream_external_id
         self.skip_existing = skip_existing
+        self._stream_for_filter_cache: StreamResponse | None = None
+
+    def _get_stream_for_filter(self) -> StreamResponse | None:
+        if self._stream_for_filter_cache is None:
+            streams = self.client.streams.retrieve([ExternalId(external_id=self.stream_external_id)])
+            self._stream_for_filter_cache = streams[0] if streams else None
+        return self._stream_for_filter_cache
+
+    def _last_updated_time_windows_ms(self) -> list[tuple[int, int]]:
+        """Windows [gte, lt) in ms for /records/filter lastUpdatedTime (required for immutable streams)."""
+        now_ms = int(time.time() * 1000)
+        stream = self._get_stream_for_filter()
+        if stream is None or stream.type == "Mutable":
+            return [(0, now_ms)]
+        max_interval_ms = now_ms
+        if stream.settings and stream.settings.limits.max_filtering_interval:
+            td = TypeAdapter(timedelta).validate_python(stream.settings.limits.max_filtering_interval)
+            max_interval_ms = int(td.total_seconds() * 1000)
+        windows: list[tuple[int, int]] = []
+        window_start = 0
+        while window_start < now_ms:
+            window_end = min(window_start + max_interval_ms, now_ms)
+            windows.append((window_start, window_end))
+            window_start = window_end
+        return windows
 
     def _remove_existing(
         self,
@@ -317,34 +347,39 @@ class RecordsMigrationIO(AssetCentricMigrationIO):
 
         existing_pairs: set[tuple[str, str]] = set()
         filter_url = self.client.config.create_api_url(self.FILTER_ENDPOINT.format(streamId=self.stream_external_id))
+        time_windows = self._last_updated_time_windows_ms()
 
         for space, items in by_space.items():
             external_ids = [upload_item.item.external_id for upload_item in items]
-            body_content = cast(
-                dict[str, JsonValue],
-                {
-                    "filter": {
-                        "and": [
-                            {"equals": {"property": ["space"], "value": space}},
-                            {"in": {"property": ["externalId"], "values": external_ids}},
-                        ]
-                    },
-                    "limit": min(len(external_ids), 1000),
-                },
-            )
-            request = RequestMessage(
-                endpoint_url=filter_url,
-                method="POST",
-                body_content=body_content,
-            )
-            result = http_client.request_single_retries(request)
-            response = result.get_success_or_raise(request)
-            payload = json.loads(response.body)
-            for record in payload.get("items") or []:
-                record_space = record.get("space")
-                external_id = record.get("externalId")
-                if isinstance(record_space, str) and isinstance(external_id, str):
-                    existing_pairs.add((record_space, external_id))
+            for id_batch in chunker_sequence(external_ids, self.FILTER_IN_MAX_VALUES):
+                batch_list = list(id_batch)
+                for gte_ms, lt_ms in time_windows:
+                    body_content = cast(
+                        dict[str, JsonValue],
+                        {
+                            "filter": {
+                                "and": [
+                                    {"equals": {"property": ["space"], "value": space}},
+                                    {"in": {"property": ["externalId"], "values": batch_list}},
+                                ]
+                            },
+                            "lastUpdatedTime": {"gte": gte_ms, "lt": lt_ms},
+                            "limit": min(len(batch_list), 1000),
+                        },
+                    )
+                    request = RequestMessage(
+                        endpoint_url=filter_url,
+                        method="POST",
+                        body_content=body_content,
+                    )
+                    result = http_client.request_single_retries(request)
+                    response = result.get_success_or_raise(request)
+                    payload = json.loads(response.body)
+                    for record in payload.get("items") or []:
+                        record_space = record.get("space")
+                        external_id = record.get("externalId")
+                        if isinstance(record_space, str) and isinstance(external_id, str):
+                            existing_pairs.add((record_space, external_id))
 
         to_upload: list[UploadItem[RecordRequest]] = []
         for upload_item in data_chunk:

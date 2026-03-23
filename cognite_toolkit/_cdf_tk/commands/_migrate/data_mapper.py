@@ -290,12 +290,12 @@ class RecordsMapper(
         self, item: AssetCentricMapping[T_AssetCentricResourceExtended]
     ) -> tuple[RecordRequest | None, ConversionIssue]:
         mapping = item.mapping
-        ingestion_view = mapping.get_ingestion_view()
+        ingestion_mapping = mapping.get_ingestion_mapping()
         try:
-            record_mapping = self._record_mapping_by_id[ingestion_view]
+            record_mapping = self._record_mapping_by_id[ingestion_mapping]
         except KeyError as e:
             raise RuntimeError(
-                f"Failed to lookup record property mapping '{ingestion_view}'. Did you forget to call .prepare()?"
+                f"Failed to lookup record property mapping '{ingestion_mapping}'. Did you forget to call .prepare()?"
             ) from e
         container_properties = self._container_properties_by_id[record_mapping.container_id]
         record, conversion_issue = asset_centric_to_record(
