@@ -304,6 +304,7 @@ class CoreApp(typer.Typer):
             build_dir=build_dir,
             config_yaml_name=config_yaml,
             user_selected_modules=selected,
+            verbose=verbose,
         )
 
         cmd.run(
