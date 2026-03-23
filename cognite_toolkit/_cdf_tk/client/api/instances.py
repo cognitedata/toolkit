@@ -284,8 +284,11 @@ class InstancesAPI(CDFResourceAPI[InstanceResponse]):
             limit,
         ):
             results.append(batch)
-        if len(results) == 0:
-            raise ValueError("Query did not return any results.")
+        if not results:
+            response_cls = QueryResponseTyped if type_results else QueryResponseUntyped
+            empty_response = response_cls(items={}, next_cursor={})
+            empty_response.root = query.root
+            return empty_response
         # Merge results
         first = results[0]
         if len(results) > 1:
