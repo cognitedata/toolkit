@@ -52,7 +52,7 @@ from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     MigrationMapping,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
-    AssetCentricMapper,
+    AssetCentricToInstanceMapper,
     CanvasMapper,
     FDMtoCDMMapper,
     InFieldLegacyToCDMScheduleMapper,
@@ -65,7 +65,7 @@ from cognite_toolkit._cdf_tk.storageio.logger import DataLogger, OperationTracke
 from tests.data import MIGRATION_DIR
 
 
-class TestAssetCentricMapper:
+class TestAssetCentricToInstanceMapper:
     def test_map_assets(
         self,
         tmp_path: Path,
@@ -131,7 +131,7 @@ class TestAssetCentricMapper:
             ]
             client.tool.views.retrieve.return_value = cognite_core_no_3D.views + cognite_extractor_views
 
-            mapper = AssetCentricMapper(client)
+            mapper = AssetCentricToInstanceMapper(client)
 
             mapper.prepare(selected)
 
@@ -176,7 +176,7 @@ class TestAssetCentricMapper:
         )
 
         with monkeypatch_toolkit_client() as client:
-            mapper = AssetCentricMapper(client)
+            mapper = AssetCentricToInstanceMapper(client)
 
             # Call map_chunk without calling prepare first
             with pytest.raises(
@@ -196,7 +196,7 @@ class TestAssetCentricMapper:
             # Return empty list to simulate missing view source
             client.migration.resource_view_mapping.retrieve.return_value = []
 
-            mapper = AssetCentricMapper(client)
+            mapper = AssetCentricToInstanceMapper(client)
 
             with pytest.raises(
                 ToolkitValueError, match=r"The following ingestion views were not found: missing_view_source"
@@ -230,7 +230,7 @@ class TestAssetCentricMapper:
             # Return empty list to simulate missing view in Data Modeling
             client.data_modeling.views.retrieve.return_value = []
 
-            mapper = AssetCentricMapper(client)
+            mapper = AssetCentricToInstanceMapper(client)
 
             with pytest.raises(ToolkitValueError) as exc_info:
                 mapper.prepare(selected)
@@ -860,3 +860,4 @@ class TestInFieldLegacyToCDMScheduleMapper:
         assert len(mapped_schedules) == 2
 
         data_regression.check({"schedules": [s.dump() for s in mapped_schedules]})
+

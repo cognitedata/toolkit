@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.client.http_client import RequestMessage, SuccessRe
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
 from cognite_toolkit._cdf_tk.commands import MigrationCommand
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricToInstanceMapper
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import AssetCentricMigrationIO
 from cognite_toolkit._cdf_tk.commands._migrate.selectors import MigrationCSVFileSelector
 from tests_smoke.exceptions import EndpointAssertionError
@@ -104,7 +104,7 @@ class TestMigrateFile:
         cmd.migrate(
             selectors=[MigrationCSVFileSelector(kind="FileMetadata", datafile=input_file)],
             data=AssetCentricMigrationIO(client, skip_linking=False),
-            mapper=AssetCentricMapper(client),
+            mapper=AssetCentricToInstanceMapper(client),
             log_dir=tmp_path / "migration_logs",
             dry_run=False,
             verbose=False,
