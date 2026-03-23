@@ -1,5 +1,5 @@
 import json
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence, Set
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -8,6 +8,7 @@ from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Any, Generic, Literal
 
+import questionary
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress
@@ -44,6 +45,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection, sanitize_filename, to_diff
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._version import __version__
 
 
 @dataclass
@@ -68,12 +70,12 @@ class ResourceDirectory:
 
 @dataclass
 class ReadBuildDirectory:
-    build_dir: Path
+    path: Path
     resource_directories: list[ResourceDirectory] = field(default_factory=list)
     skipped_directories: list[ResourceDirectory] = field(default_factory=list)
     invalid_directories: list[Path] = field(default_factory=list)
     is_strict_validation: bool = False
-    has_validated_cdf_project: bool = False
+    cdf_project: str | None = None
 
     def create_warnings(self) -> Iterable[ToolkitWarning]:
         for invalid_dir in self.invalid_directories:
@@ -166,36 +168,49 @@ class DeploymentResult:
     def skipped_count(self) -> int:
         return len(self.skipped)
 
+    @property
+    def total_count(self) -> int:
+        return self.created_count + self.deleted_count + self.updated_count + self.unchanged_count + self.skipped_count
+
+    def __iadd__(self, other: "DeploymentResult") -> "DeploymentResult":
+        self.created_count += other.created_count
+        self.deleted_count += other.deleted_count
+        self.updated_count += other.updated_count
+        self.unchanged_count += other.unchanged_count
+        self.is_missing_write_acl = self.is_missing_write_acl or other.is_missing_write_acl
+        self.skipped.extend(other.skipped)
+        return self
+
 
 class DeployV2Command(ToolkitCommand):
     def deploy(
         self,
         env_vars: EnvironmentVariables,
-        build_dir: Path,
+        user_build_dir: Path,
         options: DeployOptions | None = None,
     ) -> Sequence[DeploymentResult]:
         options = options or DeployOptions(environment_variables=env_vars.dump())
-        read_dir = self.read_build_directory(build_dir, env_vars.CDF_PROJECT, options.include)
+        build_dir = self.read_build_directory(user_build_dir, options.include)
 
-        client = env_vars.get_client(is_strict_validation=read_dir.is_strict_validation)
+        client = env_vars.get_client(is_strict_validation=build_dir.is_strict_validation)
 
-        self._display_read_dir(read_dir, client.console)
+        self._validate_cdf_project(build_dir, options.cdf_project, env_vars.CDF_PROJECT, client.console)
+        self._display_startup(build_dir.path, client.config.project, client.console)
+        self._display_read_dir(build_dir, client.console, options.verbose)
 
-        plan = self.create_deployment_plan(read_dir)
+        plan = self.create_deployment_plan(build_dir)
 
-        self._display_plan(client, plan)
+        self._display_plan(plan, client.console)
 
         results = self.apply_plan(client, plan, options)
 
         # Todo: Some mixpanel tracking??
-        self._display_results(client, results)
+        self._display_results(results, client.console, options.verbose)
 
         return results
 
     @classmethod
-    def read_build_directory(
-        cls, build_dir: Path, cdf_project: str, include: Sequence[str] | None = None
-    ) -> ReadBuildDirectory:
+    def read_build_directory(cls, build_dir: Path, include: Sequence[str] | None = None) -> ReadBuildDirectory:
         """Reads the build directory and returns a structured representation of the resources to be deployed.
 
         Args:
@@ -215,18 +230,11 @@ class DeployV2Command(ToolkitCommand):
             )
         # Note we support running without linage. This is for example used when deploying resources
         # with the upload command.from
-        has_validated_cdf_project = False
+        cdf_project: str | None = None
         if (lineage_path := (build_dir / BuildLineage.filename)).exists():
             lineage = BuildLineage.from_yaml_file(lineage_path)
             lineage.validate_source_files_unchanged()
-            if lineage.cdf_project is not None:
-                if lineage.cdf_project != cdf_project:
-                    raise ToolkitValidationError(
-                        f"CDF project in {lineage_path.as_posix()} ≠ {cdf_project} in "
-                        f"your credentials. Please ensure you have built your resources "
-                        f"for the {cdf_project!r} project."
-                    )
-                has_validated_cdf_project = True
+            cdf_project = lineage.cdf_project
         include_set = set(include) if include else None
         invalid_resource_dirs: list[Path] = []
         resource_directories: list[ResourceDirectory] = []
@@ -241,7 +249,7 @@ class DeployV2Command(ToolkitCommand):
             crud_by_kind = RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[resource_dir.name]
             for yaml_file in resource_dir.glob("*.yaml"):
                 for kind, crud in crud_by_kind.items():
-                    if yaml_file.stem.endswith(kind):
+                    if yaml_file.stem.casefold().endswith(kind.casefold()):
                         resources.files_by_crud[crud].append(yaml_file)
                         break
                 else:
@@ -255,20 +263,113 @@ class DeployV2Command(ToolkitCommand):
             raise ToolkitValueError(f"No resources found in {build_dir.as_posix()} directory.")
 
         return ReadBuildDirectory(
-            build_dir=build_dir,
+            path=build_dir,
             resource_directories=resource_directories,
             invalid_directories=invalid_resource_dirs,
             skipped_directories=skipped_resource_dirs,
-            has_validated_cdf_project=has_validated_cdf_project,
+            cdf_project=cdf_project,
         )
 
-    def _display_read_dir(self, read_dir: ReadBuildDirectory, console: Console) -> None:
-        console.print(f"Read {read_dir.build_dir.as_posix()} complete")
-        warnings = list(read_dir.create_warnings())
+    def _display_startup(self, build_dir: Path, cdf_project: str, console: Console) -> None:
+        console.print(
+            Panel(
+                f"Deploying {build_dir.as_posix()} directory:\n  - Toolkit Version '{__version__!s}'\n"
+                f"  - CDF project {cdf_project!r}",
+                expand=False,
+            )
+        )
+
+    def _display_read_dir(self, build_dir: ReadBuildDirectory, console: Console, verbose: bool) -> None:
+        warnings = list(build_dir.create_warnings())
+        resource_dir_count = len(build_dir.resource_directories)
+        skipped_dir_count = len(build_dir.skipped_directories)
+        invalid_dir_count = len(build_dir.invalid_directories)
+
+        resource_file_count = sum(
+            len(files) for dir_ in build_dir.resource_directories for files in dir_.files_by_crud.values()
+        )
+        invalid_yaml_file_count = sum(len(dir_.invalid_files) for dir_ in build_dir.resource_directories)
+
+        has_issues = bool(warnings or invalid_dir_count or invalid_yaml_file_count)
+
+        summary_lines = [
+            f"[green]✓[/] [bold]{resource_dir_count}[/] resource directories",
+            f"[green]✓[/] [bold]{resource_file_count:,}[/] resource files",
+        ]
         if warnings:
-            console.print(f"Found {len(warnings)} warnings")
-            for warning in read_dir.create_warnings():
+            summary_lines.append(f"[yellow]![/] [bold]{len(warnings)}[/] warnings during reading")
+        if skipped_dir_count:
+            summary_lines.append(f"[dim]○[/] [bold]{skipped_dir_count}[/] skipped directories")
+        if invalid_dir_count:
+            summary_lines.append(f"[red]✗[/] [bold]{invalid_dir_count}[/] invalid directories")
+        if invalid_yaml_file_count:
+            summary_lines.append(f"[red]✗[/] [bold]{invalid_yaml_file_count}[/] invalid yaml files")
+
+        console.print(
+            Panel(
+                "\n".join(summary_lines),
+                title=f"[bold]Build directory ({build_dir.path.as_posix()})[/]",
+                border_style="yellow" if has_issues else "green",
+                expand=False,
+            )
+        )
+
+        if warnings:
+            for warning in warnings:
                 self.warn(warning, console=console)
+
+        if not verbose and (skipped_dir_count or invalid_dir_count or invalid_yaml_file_count):
+            console.print(
+                f"{HINT_LEAD_TEXT} Use --verbose flag to get more details about the skipped and invalid directories and files."
+            )
+        if verbose:
+            if build_dir.skipped_directories:
+                table = Table(title="Skipped Directories", expand=False, show_edge=False)
+                table.add_column("Directory", style="dim")
+                for dir_ in build_dir.skipped_directories:
+                    table.add_row(dir_.directory.as_posix())
+                console.print(table)
+            if build_dir.invalid_directories:
+                table = Table(title="Invalid Directories", expand=False, show_edge=False)
+                table.add_column("Directory", style="red")
+                for inv_dir in build_dir.invalid_directories:
+                    table.add_row(inv_dir.as_posix())
+                console.print(table)
+            if invalid_yaml_file_count:
+                table = Table(title="Invalid YAML Files", expand=False, show_edge=False)
+                table.add_column("File", style="red")
+                for dir_ in build_dir.resource_directories:
+                    for file in dir_.invalid_files:
+                        table.add_row(file.as_posix())
+                console.print(table)
+
+    def _validate_cdf_project(
+        self, build_dir: ReadBuildDirectory, cli_cdf_project: str | None, client_cdf_project: str, console: Console
+    ) -> None:
+        """Validates that the user is deploying to the CDF project they intended"""
+        if cli_cdf_project is not None and cli_cdf_project != client_cdf_project:
+            raise ToolkitValidationError(
+                f"The CDF project in your command argument does not match your credentials, "
+                f"{cli_cdf_project!r}≠{client_cdf_project!r}."
+            )
+        elif (
+            cli_cdf_project is None
+            and build_dir.cdf_project is not None
+            and build_dir.cdf_project != client_cdf_project
+        ):
+            raise ToolkitValidationError(
+                f"The configurations were built for the {build_dir.cdf_project!r} CDF project, but your credentials are for {client_cdf_project!r}, "
+                f"{build_dir.cdf_project!r}≠{client_cdf_project!r}."
+            )
+        elif cli_cdf_project is None and build_dir.cdf_project is None:
+            typed_project = questionary.text(
+                f"Enter the name of CDF project you are deploying to. This must match the CDF_PROJECT={client_cdf_project!r} in you environment variables.\n",
+            ).unsafe_ask()
+            if typed_project != client_cdf_project:
+                raise ToolkitValidationError(
+                    f"The CDF project you typed does not match your credentials, "
+                    f"{typed_project!r}≠{client_cdf_project!r}."
+                )
 
     @classmethod
     def create_deployment_plan(cls, read_dir: ReadBuildDirectory) -> list[DeploymentStep]:
@@ -307,18 +408,26 @@ class DeployV2Command(ToolkitCommand):
         return plan
 
     @classmethod
-    def _display_plan(cls, client: ToolkitClient, plan: list[DeploymentStep]) -> None:
+    def _display_plan(cls, plan: list[DeploymentStep], console: Console) -> None:
         if not plan:
-            client.console.print("[bold yellow]No resources to deploy.[/]")
+            console.print("[bold yellow]No resources to deploy.[/]")
             return
-        table = Table(title="Deployment Plan", show_lines=False)
-        table.add_column("#", style="dim", width=4)
-        table.add_column("Resource Type", style="cyan")
-        table.add_column("Files", justify="right")
-        for i, step in enumerate(plan, 1):
-            crud_name = step.crud_cls.folder_name
-            table.add_row(str(i), crud_name, str(len(step.files)))
-        client.console.print(table)
+
+        step_count = len(plan)
+        total_files = sum(len(step.files) for step in plan)
+
+        summary_lines = [
+            f"[green]✓[/] [bold]{step_count}[/] resource types to deploy",
+            f"[green]✓[/] [bold]{total_files}[/] resources to deploy",
+        ]
+        console.print(
+            Panel(
+                "\n".join(summary_lines),
+                title="[bold]Deployment plan[/]",
+                border_style="green",
+                expand=False,
+            )
+        )
 
     @classmethod
     def apply_plan(
@@ -339,7 +448,7 @@ class DeployV2Command(ToolkitCommand):
         console = client.console
         with Progress(console=console) as progress:
             total_files = sum(len(step.files) for step in plan)
-            task_id = progress.add_task("Starting deploying", total=total_files)
+            task_id = progress.add_task("Starting deployment", total=total_files)
             for step in plan:
                 crud = step.crud_cls.create_loader(client)
                 resource_name = crud.display_name
@@ -462,9 +571,9 @@ class DeployV2Command(ToolkitCommand):
                     resources.skipped.append(
                         Skipped(
                             identifier,
-                            "DUPLICATED",
+                            "AMBIGUOUS",
                             filepath,
-                            f"Duplicated resource. Will use definition in {first_file.as_posix()}",
+                            f"Identifier is not unique. Will use definition in {first_file.as_posix()}",
                         )
                     )
             # Persist as this is used in the deploy context.
@@ -580,7 +689,9 @@ class DeployV2Command(ToolkitCommand):
         suffix = ""
         if deploy_dir:
             filepath = deploy_dir / f"{sanitize_filename(datetime.now(timezone.utc).isoformat())}.json"
-            suffix = f"\nThe request body and response has been dumped to {filepath.as_posix()} for debugging purposes."
+            suffix = (
+                f"\nThe request body and response has been written to {filepath.as_posix()} for debugging purposes."
+            )
             json_str = json.dumps(error.as_debug_dict(), indent=2, sort_keys=False)
             for item in resources.to_create + resources.to_update:
                 for string in crud.sensitive_strings(item):
@@ -615,42 +726,90 @@ class DeployV2Command(ToolkitCommand):
         return {"update": ResourceUpdateError, "delete": ResourceDeleteError, "create": ResourceCreationError}[action]
 
     @classmethod
-    def _display_results(cls, client: ToolkitClient, results: Sequence[DeploymentResult]) -> None:
+    def _display_results(cls, results: Sequence[DeploymentResult], console: Console, verbose: bool) -> None:
         if not results:
-            client.console.print("No resources were deployed.")
+            console.print("No resources were deployed.")
             return
 
         is_dry_run = results[0].is_dry_run
         title = "Deployment Summary (dry run)" if is_dry_run else "Deployment Summary"
         table = Table(title=title, show_lines=False)
         table.add_column("Resource", style="cyan")
-        table.add_column("Created", justify="right", style="green")
-        table.add_column("Updated", justify="right", style="yellow")
-        table.add_column("Deleted", justify="right", style="red")
-        table.add_column("Unchanged", justify="right", style="dim")
+        if is_dry_run:
+            table.add_column("Would create", justify="right", style="green")
+            table.add_column("Would update", justify="right", style="yellow")
+            table.add_column("Would delete", justify="right", style="red")
+        else:
+            table.add_column("Created", justify="right", style="green")
+            table.add_column("Updated", justify="right", style="yellow")
+            table.add_column("Deleted", justify="right", style="red")
 
-        total_created, total_updated, total_deleted, total_unchanged = 0, 0, 0, 0
+        table.add_column("Unchanged", justify="right", style="dim")
+        table.add_column("Skipped", justify="right", style="yellow")
+        table.add_column("Total", justify="right", style="cyan")
+        if is_dry_run:
+            table.add_column("Can deploy", justify="right")
+
+        total = DeploymentResult(
+            "All",
+            is_dry_run=is_dry_run,
+            created_count=0,
+            deleted_count=0,
+            updated_count=0,
+            unchanged_count=0,
+            skipped=[],
+            is_missing_write_acl=False,
+        )
         for result in results:
-            table.add_row(
+            row = [
                 result.resource_name,
                 str(result.created_count),
                 str(result.updated_count),
                 str(result.deleted_count),
                 str(result.unchanged_count),
-            )
-            total_created += result.created_count
-            total_updated += result.updated_count
-            total_deleted += result.deleted_count
-            total_unchanged += result.unchanged_count
+                str(result.skipped_count),
+                str(result.total_count),
+            ]
+            if is_dry_run:
+                if result.is_missing_write_acl:
+                    row.append("[red]No[/]")
+                else:
+                    row.append("[green]Yes[/]")
+
+            table.add_row(*row)
+            total += result
 
         if len(results) > 1:
             table.add_section()
-            table.add_row(
-                "[bold]Total[/]",
-                f"[bold]{total_created}[/]",
-                f"[bold]{total_updated}[/]",
-                f"[bold]{total_deleted}[/]",
-                f"[bold]{total_unchanged}[/]",
-            )
+            last_row = [
+                f"[bold]{total.resource_name}[/]",
+                f"[bold]{total.created_count}[/]",
+                f"[bold]{total.updated_count}[/]",
+                f"[bold]{total.deleted_count}[/]",
+                f"[bold]{total.unchanged_count}[/]",
+                f"[bold]{total.skipped_count}[/]",
+                f"[bold]{total.total_count}[/]",
+            ]
+            if is_dry_run:
+                if total.is_missing_write_acl:
+                    last_row.append("[red]No[/]")
+                else:
+                    last_row.append("[green]Yes[/]")
 
-        client.console.print(table)
+            table.add_row(*last_row)
+
+        console.print(table)
+
+        if total.skipped and not verbose:
+            most_common = Counter(skip.code for skip in total.skipped).most_common(n=3)
+            console.print(
+                f"{HINT_LEAD_TEXT}A total of {total.skipped_count} resources were skipped during deployment. "
+                f"The most common reasons were: {', '.join(f'{code} ({count} occurrences)' for code, count in most_common)}. "
+                f"Use --verbose flag to get details about all skipped resources."
+            )
+        if verbose and total.skipped:
+            skipped_str = [
+                f"{skip.id!s} in file {skip.source_file.as_posix()} | {skip.code} | {skip.reason}"
+                for skip in total.skipped
+            ]
+            console.print(Panel("\n".join(skipped_str), title="Skipped resources", expand=False))

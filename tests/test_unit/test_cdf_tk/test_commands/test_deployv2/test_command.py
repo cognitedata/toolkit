@@ -70,7 +70,7 @@ class TestReadBuildDirectory:
                 [DATA_SET_PATH, LABEL_PATH],
                 ["data_sets"],
                 ReadBuildDirectory(
-                    build_dir=Path("build"),
+                    path=Path("build"),
                     resource_directories=[DATA_SET_DIR],
                     skipped_directories=[LABEL_DIR],
                 ),
@@ -80,7 +80,7 @@ class TestReadBuildDirectory:
                 [DATA_SET_PATH, LABEL_PATH, "build/not_a_valid_resource_type/"],
                 None,
                 ReadBuildDirectory(
-                    build_dir=Path("build"),
+                    path=Path("build"),
                     resource_directories=[LABEL_DIR, DATA_SET_DIR],
                     invalid_directories=[Path("build/not_a_valid_resource_type/")],
                 ),
@@ -95,7 +95,7 @@ class TestReadBuildDirectory:
                 ],
                 None,
                 ReadBuildDirectory(
-                    build_dir=Path("build"),
+                    path=Path("build"),
                     resource_directories=[
                         ResourceDirectory(
                             directory=Path("build/data_sets"),
@@ -130,7 +130,7 @@ class TestReadBuildDirectory:
 
         actual: type[Exception] | ReadBuildDirectory
         try:
-            actual = DeployV2Command.read_build_directory(Path("build"), "test_project", include)
+            actual = DeployV2Command.read_build_directory(Path("build"), include)
         except Exception as e:
             actual = type(e)
 
@@ -142,13 +142,13 @@ class TestCreateDeploymentPlan:
         "read_dir, expected_plan",
         [
             pytest.param(
-                ReadBuildDirectory(build_dir=Path("build")),
+                ReadBuildDirectory(path=Path("build")),
                 [],
                 id="empty_build_directory_produces_empty_plan",
             ),
             pytest.param(
                 ReadBuildDirectory(
-                    build_dir=Path("build"),
+                    path=Path("build"),
                     resource_directories=[
                         ResourceDirectory(
                             directory=Path("build/data_modeling"),
@@ -167,7 +167,7 @@ class TestCreateDeploymentPlan:
             ),
             pytest.param(
                 ReadBuildDirectory(
-                    build_dir=Path("build"),
+                    path=Path("build"),
                     resource_directories=[
                         ResourceDirectory(
                             directory=Path("build/files"),
@@ -283,9 +283,9 @@ class TestApplyPlan:
                             skipped=[
                                 Skipped(
                                     id=SpaceId(space="my_space"),
-                                    code="DUPLICATED",
+                                    code="AMBIGUOUS",
                                     source_file=Path("data_modeling/b.Space.yaml"),
-                                    reason="Duplicated resource. Will use definition in data_modeling/a.Space.yaml",
+                                    reason="Identifier is not unique. Will use definition in data_modeling/a.Space.yaml",
                                 )
                             ],
                         )

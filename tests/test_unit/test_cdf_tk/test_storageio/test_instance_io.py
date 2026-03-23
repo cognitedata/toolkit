@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._data_model import DataModelResponseWithViews
 from cognite_toolkit._cdf_tk.commands import DownloadCommand, UploadCommand
+from cognite_toolkit._cdf_tk.constants import SUBSELECTION_LIMIT_QUERY_ENDPOINT
 from cognite_toolkit._cdf_tk.storageio import DataItem, InstanceIO, Page
 from cognite_toolkit._cdf_tk.storageio.selectors import InstanceSpaceSelector, InstanceViewSelector, SelectedView
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -361,7 +362,9 @@ class TestInstanceIO:
                 json={
                     "items": {
                         "nodes": [_node("node_0"), _node("node_1")],
-                        "edge_1": [_edge("edge_0", "node_0", "node_1"), _edge("edge_1", "node_1", "node_0")],
+                        "edge_1": [
+                            _edge(f"edge_{i}", "node_0", "node_1") for i in range(SUBSELECTION_LIMIT_QUERY_ENDPOINT)
+                        ],
                     },
                     "nextCursor": {"nodes": "node_cursor_1", "edge_1": "edge_cursor_1"},
                 },
@@ -372,7 +375,7 @@ class TestInstanceIO:
                 json={
                     "items": {
                         "nodes": [],
-                        "edge_1": [_edge("edge_2", "node_0", "node_1")],
+                        "edge_1": [_edge(f"edge_{SUBSELECTION_LIMIT_QUERY_ENDPOINT}", "node_0", "node_1")],
                     },
                     "nextCursor": {"nodes": "node_cursor_1"},
                 },
@@ -399,7 +402,7 @@ class TestInstanceIO:
         first_node_ids = {di.item.external_id for di in first_page.items if di.item.instance_type == "node"}
         first_edge_ids = {di.item.external_id for di in first_page.items if di.item.instance_type == "edge"}
         assert first_node_ids == {"node_0", "node_1"}
-        assert first_edge_ids == {"edge_0", "edge_1", "edge_2"}
+        assert first_edge_ids == {f"edge_{i}" for i in range(SUBSELECTION_LIMIT_QUERY_ENDPOINT + 1)}
         assert first_page.bookmark.cursor == "node_cursor_1"
 
         second_page = pages[1]

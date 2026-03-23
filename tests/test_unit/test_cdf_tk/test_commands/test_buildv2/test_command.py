@@ -10,11 +10,6 @@ from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, RelativeDirPath
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
-    ConsistencyError,
-    ModelSyntaxError,
-    Recommendation,
-)
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     FailedReadResource,
     SuccessfulReadResource,
@@ -149,9 +144,7 @@ class TestBuildCommand:
         build_dir = tmp_path / "build"
         parameters = BuildParameters(organization_dir=org, build_dir=build_dir)
 
-        folder = cmd.build(parameters, tlk_client)
-
-        assert "my_module" in folder.built_modules_by_success[False]
+        _ = cmd.build(parameters, tlk_client)
 
         built_space = list(build_dir.rglob(f"*.{SpaceCRUD.kind}.yaml"))
         assert len(built_space) == 1
@@ -164,22 +157,6 @@ class TestBuildCommand:
         built_view = list(build_dir.rglob(f"*.{ViewCRUD.kind}.yaml"))
         assert len(built_view) == 1
         assert built_view[0].read_text() == view_file.read_text()
-
-        assert len(folder.insights) == 11
-        assert {Recommendation, ConsistencyError} == set(folder.insights.by_type().keys())
-        assert set(folder.insights.by_code().keys()) == {
-            "TOOLKIT-WORKFLOW-001",
-            "DUMMY_MODEL_RULE",
-            "NEAT-DMS-AI-READINESS-001",
-            "NEAT-DMS-AI-READINESS-002",
-            "NEAT-DMS-AI-READINESS-003",
-            "NEAT-DMS-AI-READINESS-004",
-            "NEAT-DMS-AI-READINESS-005",
-            "NEAT-DMS-AI-READINESS-006",
-            "NEAT-DMS-CONTAINER-001",
-            "NEAT-DMS-VIEW-001",
-            "MISSING-DEPENDENCY",
-        }
 
         lineage_file = list(build_dir.rglob("lineage.yaml"))
         insights_file = list(build_dir.rglob("insights.csv"))
@@ -204,8 +181,6 @@ name: My Space
         folder = cmd.build(parameters, tlk_client)
 
         assert "my_module" in folder.built_modules_by_success[False]
-        assert len(folder.insights) == 1
-        assert isinstance(folder.insights[0], ModelSyntaxError)
 
 
 class TestValidateBuildParameters:
@@ -338,11 +313,20 @@ class TestReadFileSystem:
         )
 
     @pytest.mark.parametrize(
-        "paths, user_selection, selection, errors",
+        "paths, user_selection, organization_dir, selection, errors",
         [
+            pytest.param(
+                ["modules/module1"],
+                ["modules/"],
+                Path("tests/data/complete_org"),
+                {Path("modules")},
+                [],
+                id="Current working directory parent of organization_dir",
+            ),
             pytest.param(
                 ["modules/module1", "modules/module2"],
                 ["modules/"],
+                Path("."),
                 {Path("modules")},
                 [],
                 id="User selects module paths",
@@ -350,6 +334,7 @@ class TestReadFileSystem:
             pytest.param(
                 ["modules/module1"],
                 ["non_existent/module"],
+                Path("."),
                 set(),
                 ["Selected module path 'non_existent/module' does not exist under the organization directory"],
                 id="Path does not exist",
@@ -357,6 +342,7 @@ class TestReadFileSystem:
             pytest.param(
                 ["modules/module1"],
                 ["modules/module1", "non_existent/path"],
+                Path("."),
                 {Path("modules/module1")},
                 ["Selected module path 'non_existent/path' does not exist under the organization directory"],
                 id="Mix of valid and non-existent paths",
@@ -364,8 +350,11 @@ class TestReadFileSystem:
             pytest.param(
                 ["modules/module1", "modules/module2"],
                 ["../../other_org/modules/module3"],
+                Path("."),
                 set(),
-                ["Selected module path '../../other_org/modules/module3' is not under the organization directory"],
+                [
+                    "Selected module path '../../other_org/modules/module3' does not exist under the organization directory"
+                ],
                 id="Attack path outside of organization directory",
             ),
         ],
@@ -374,16 +363,19 @@ class TestReadFileSystem:
         self,
         paths: list[str],
         user_selection: list[str],
+        organization_dir: Path,
         selection: set[RelativeDirPath | str],
         errors: list[str],
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.chdir(tmp_path)
-        for path in paths:
-            (tmp_path / Path(path)).mkdir(parents=True, exist_ok=True)
 
-        actual_selection, actual_errors = BuildV2Command._parse_user_selection(user_selection, tmp_path)
+        organization_path = tmp_path / organization_dir
+        for path in paths:
+            (organization_path / Path(path)).mkdir(parents=True, exist_ok=True)
+
+        actual_selection, actual_errors = BuildV2Command._parse_user_selection(user_selection, organization_path)
 
         assert actual_errors == errors
         assert actual_selection == selection

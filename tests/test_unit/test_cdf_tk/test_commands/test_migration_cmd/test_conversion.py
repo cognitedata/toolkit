@@ -1417,7 +1417,7 @@ class TestInstanceToInstanceConversion:
                 {"name": "Sensor1", "sensorTs": "ts_ext_1", "unmappedProp": "value", "count": "42"},
                 {
                     "name": "Sensor1",
-                    "sensorTs": COGNITE_TIMESERIES.dump(include_instance_type=False),
+                    "sensorTs": COGNITE_TIMESERIES,
                     "count": 42,
                 },
                 ["Source instance property 'unmappedProp' is not mapped to any destination property."],
@@ -1431,7 +1431,7 @@ class TestInstanceToInstanceConversion:
                     "parentAsset": "whatever",
                 },
                 {
-                    "fileRef": COGNITE_FILE.dump(include_instance_type=False),
+                    "fileRef": COGNITE_FILE,
                     "dateVal": "2023-06-15",
                 },
                 [
@@ -1456,8 +1456,8 @@ class TestInstanceToInstanceConversion:
                 },
                 {
                     "jsonDestination": [
-                        {"space": "dst_space", "externalId": "value1"},
-                        {"space": "dst_space", "externalId": "value2"},
+                        NodeId(space="dst_space", external_id="value1"),
+                        NodeId(space="dst_space", external_id="value2"),
                     ],
                 },
                 [
@@ -1531,7 +1531,7 @@ class TestInstanceToInstanceConversion:
                     ],
                 },
                 {
-                    "relatedAsset": {"space": "dst_space", "externalId": "asset_123"},
+                    "relatedAsset": NodeId(space="dst_space", external_id="asset_123"),
                 },
                 [],
                 [],
@@ -1579,10 +1579,10 @@ class TestInstanceToInstanceConversion:
                     ],
                 },
                 {
-                    "relatedAsset": {"space": "dst_space", "externalId": "asset_G"},
+                    "relatedAsset": NodeId(space="dst_space", external_id="asset_G"),
                     "listAssets": [
-                        {"space": "dst_space", "externalId": "asset_A"},
-                        {"space": "dst_space", "externalId": "asset_B"},
+                        NodeId(space="dst_space", external_id="asset_A"),
+                        NodeId(space="dst_space", external_id="asset_B"),
                     ],
                 },
                 [

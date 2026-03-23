@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.storageio import (
     T_Selector,
     TableStorageIO,
 )
-from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, ProgressYAML
+from cognite_toolkit._cdf_tk.storageio.progress import Bookmark, CursorBookmark, ProgressYAML
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils.file import safe_write, sanitize_filename, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.fileio import (
@@ -85,14 +85,17 @@ class DownloadCommand(ToolkitCommand):
             # Remove false when ready.
             if False and Flags.EXTEND_DOWNLOAD.is_enabled():
                 if progress := ProgressYAML.try_load(target_dir, self._download_filestem(filestem)):
-                    if progress.total != total_item_count:
+                    first = progress.get_first_bookmark()
+                    is_sync = isinstance(first, CursorBookmark) and first.source == "sync"
+                    # Sync cursor supports continuing even if the data has been modified.
+                    if progress.total != total_item_count and not is_sync:
                         console.print(
                             f"Found progress file for {selector.display_name}. But total items "
                             f"does not match the expected total. Starting from beginning..."
                         )
-                    elif progress.status == "completed":
+                    elif progress.status == "completed" and is_sync:
                         console.print(f"Found completed progress file for {selector.display_name}. Skipping download.")
-                    elif first := progress.get_first_bookmark():
+                    elif first is not None:
                         init_bookmark = first
                         start_item = progress.completed_count
                         console.print(f"Resuming download for {selector.display_name} from {first!s}.")

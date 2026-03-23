@@ -73,21 +73,6 @@
     node.lastUpdatedTime: sourceUpdatedTime
   edgeMapping:
     cdf_apm:referenceMeasurements(direction=inwards): item
-- externalId: InFieldScheduleMapping
-  sourceView:
-    space: cdf_apm
-    externalId: Schedule
-    version: v4
-    type: view
-  destinationView:
-    space: {{schemaSpace}}
-    externalId: Schedule
-    version: v1
-    type: view
-  mapIdenticalIdProperties: true
-  containerMapping:
-    node.createdTime: sourceCreatedTime
-    node.lastUpdatedTime: sourceUpdatedTime
 - externalId: InFieldTemplateMapping
   sourceView:
     space: cdf_apm
@@ -168,3 +153,18 @@
     node.lastUpdatedTime: sourceUpdatedTime
   edgeMapping:
     cdf_apm:referenceTemplateItems(direction=inwards): template
+- externalId: InFieldScheduleMapping
+  sourceView:
+    space: cdf_apm
+    externalId: Schedule
+    version: v4
+    type: view
+  destinationView:
+    space: {{schemaSpace}}
+    externalId: Schedule
+    version: v1
+    type: view
+  mapIdenticalIdProperties: true
+  containerMapping:
+    node.createdTime: sourceCreatedTime
+    node.lastUpdatedTime: sourceUpdatedTime

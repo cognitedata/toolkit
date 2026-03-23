@@ -1,5 +1,6 @@
 import gzip
 from abc import ABC, abstractmethod
+from collections.abc import Set
 from typing import TYPE_CHECKING, Any, Literal
 
 import httpx
@@ -119,8 +120,10 @@ class BaseRequestMessage(HTTPBaseModel, ABC):
     content_type: str = "application/json"
     accept: str = "application/json"
     client_timeout: float | None = None
-    retry_status: bool = Field(
-        default=True, description="Whether to retry failed responses. This overrides the HTTPClient configuration"
+    retry_status_codes: Set[int] | None = Field(
+        default=None,
+        description="HTTP status codes to retry, set to an empty set to not retry any status codes. "
+        "This overrides the HTTPClient configuration",
     )
 
     parameters: dict[str, PrimitiveType] | None = None

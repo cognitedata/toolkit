@@ -278,3 +278,5 @@ build.*
 build/
 function_local_venvs/
 data/
+migration_logs*/
+deploy_logs*/
