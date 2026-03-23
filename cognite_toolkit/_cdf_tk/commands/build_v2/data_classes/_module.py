@@ -46,6 +46,10 @@ class ModuleSource(BaseModel):
     def as_id(self) -> ModuleId:
         return ModuleId(id=self.id, path=self.path)
 
+    @property
+    def total_files(self) -> int:
+        return sum(len(files) for files in self.resource_files_by_folder.values())
+
 
 class ResourceType(BaseModel):
     model_config = ConfigDict(frozen=True)

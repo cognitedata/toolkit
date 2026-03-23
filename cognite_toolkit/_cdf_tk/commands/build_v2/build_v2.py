@@ -9,6 +9,7 @@ from typing import Any
 from pydantic import JsonValue, TypeAdapter, ValidationError
 from rich.console import Console
 from rich.panel import Panel
+from rich.progress import Progress
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -76,7 +77,7 @@ class BuildV2Command(ToolkitCommand):
         self._display_module_sources(module_sources)
 
         self._prepare_build_directory(parameters.build_dir)
-        built_modules = self._build_modules(module_sources, parameters.build_dir)
+        built_modules = self._build_modules(module_sources, parameters.build_dir, console)
 
         dependency_insights = self._dependency_validation(built_modules, client)
 
@@ -277,26 +278,37 @@ class BuildV2Command(ToolkitCommand):
         build_dir.mkdir(parents=True)
         return None
 
-    def _build_modules(self, module_sources: Sequence[ModuleSource], build_dir: Path) -> list[BuiltModule]:
+    def _build_modules(
+        self, module_sources: Sequence[ModuleSource], build_dir: Path, console: Console
+    ) -> list[BuiltModule]:
         built_modules: list[BuiltModule] = []
         # If parallelizing the build, this should be a multiprocessing.Manager().Counter() or similar.
         resource_counter: Counter = Counter()
         # and use one orchestrator per process
         orchestrator = RulesOrchestrator()
-        for source in module_sources:
-            # Inside this loop, do not raise exceptions.
-            module = self._import_module(source)  # Syntax validation
-            # Local validation of module
-            insights = orchestrator.run(module)
-            built_resources = self._export_resources(module.resources, resource_counter, build_dir)
 
-            built_modules.append(
-                BuiltModule(
-                    module_id=module.id,
-                    resources=built_resources,
-                    insights=insights,
+        with Progress(console=console) as progress:
+            total_files = sum(source.total_files for source in module_sources)
+            build_task = progress.add_task("Building modules", total=total_files)
+            for source in module_sources:
+                module_name = source.name
+                progress.update(build_task, description=f"Building {module_name}")
+
+                # Inside this loop, do not raise exceptions.
+                module = self._import_module(source)  # Syntax validation
+
+                # Local validation of module
+                insights = orchestrator.run(module)
+                built_resources = self._export_resources(module.resources, resource_counter, build_dir)
+
+                built_modules.append(
+                    BuiltModule(
+                        module_id=module.id,
+                        resources=built_resources,
+                        insights=insights,
+                    )
                 )
-            )
+                progress.update(build_task, description=f"Built {module_name}", advance=source.total_files)
 
         return built_modules
 
