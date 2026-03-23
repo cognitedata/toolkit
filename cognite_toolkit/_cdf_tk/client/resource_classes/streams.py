@@ -51,8 +51,8 @@ class LifecycleObject(ModelObject):
 class ResourceUsage(ModelObject):
     """Resource quota with provisioned and consumed values."""
 
-    provisioned: int
-    consumed: int | None = None
+    provisioned: int | float
+    consumed: int | float | None = None
 
 
 class LimitsObject(ModelObject):
