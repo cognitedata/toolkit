@@ -57,7 +57,6 @@ class RunApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will run the specified transformation using a one-time session."""
-        RunApp._print_deprecation_warning()
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = RunTransformationCommand(client=client)
 
@@ -116,7 +115,6 @@ class RunApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will run the specified workflow."""
-        RunApp._print_deprecation_warning()
         env_vars = EnvironmentVariables.create_from_environment()
         cmd = RunWorkflowCommand(client=env_vars.get_client())
         cmd.run(lambda: cmd.run_workflow(env_vars, organization_dir, env_name, external_id, version, wait))
@@ -132,7 +130,6 @@ class RunFunctionApp(typer.Typer):
     @staticmethod
     def main(ctx: typer.Context) -> None:
         """Commands to execute function."""
-        RunApp._print_deprecation_warning()
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf run function --help[/] for more information.")
 
@@ -188,7 +185,6 @@ class RunFunctionApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will run the specified function locally."""
-        RunApp._print_deprecation_warning()
         env_vars = EnvironmentVariables.create_from_environment()
         cmd = RunFunctionCommand(client=env_vars.get_client())
         cmd.run(
@@ -254,7 +250,6 @@ class RunFunctionApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will run the specified function (assuming it is deployed) in CDF."""
-        RunApp._print_deprecation_warning()
         env_vars = EnvironmentVariables.create_from_environment()
         cmd = RunFunctionCommand(client=env_vars.get_client())
         cmd.run(lambda: cmd.run_cdf(env_vars, organization_dir, env_name, external_id, schedule, wait))
