@@ -17,7 +17,7 @@ class Insight(BaseModel):
         return cls.__name__
 
 
-class ModelSyntaxError(Insight):
+class ModelSyntaxWarning(Insight):
     """If any syntax error is found. Stop validation
     and ask user to fix the syntax error first."""
 
@@ -70,12 +70,12 @@ class InsightList(UserList[Insight]):
     @property
     def has_model_syntax_errors(self) -> bool:
         """Returns True if there are any model syntax errors in the insights."""
-        return any(isinstance(insight, ModelSyntaxError) for insight in self.data)
+        return any(isinstance(insight, ModelSyntaxWarning) for insight in self.data)
 
     @property
     def has_errors(self) -> bool:
         """Returns True if there are any errors (model syntax or consistency) in the insights."""
-        return any(isinstance(insight, (ModelSyntaxError, ConsistencyError)) for insight in self.data)
+        return any(isinstance(insight, (ModelSyntaxWarning, ConsistencyError)) for insight in self.data)
 
     @property
     def summary(self) -> dict[str, int]:

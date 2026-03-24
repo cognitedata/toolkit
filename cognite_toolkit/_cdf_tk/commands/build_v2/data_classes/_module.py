@@ -1,13 +1,13 @@
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, DirectoryPath, Field
+from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND, ResourceTypes
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 from cognite_toolkit._cdf_tk.yaml_classes.base import ToolkitResource
 
-from ._insights import InsightList, ModelSyntaxError
+from ._insights import InsightList, ModelSyntaxWarning
 from ._types import AbsoluteFilePath, RelativeDirPath
 
 
@@ -78,15 +78,20 @@ class ReadResource(BaseModel):
 
 
 class FailedReadResource(ReadResource):
-    errors: list[ModelSyntaxError] = Field(default_factory=list)
+    code: str
+    error: str
 
 
 class SuccessfulReadResource(ReadResource):
     model_config = ConfigDict(arbitrary_types_allowed=True)
+    raw: dict[str, JsonValue]
     source_hash: str
     resource_type: ResourceType
+    syntax_warning: ModelSyntaxWarning | None = None
+
+
+class SuccessfulValidatedResource(SuccessfulReadResource):
     resource: ToolkitResource
-    insights: InsightList = Field(default_factory=InsightList)
 
     @property
     def crud_cls(self) -> type[ResourceCRUD]:
@@ -99,13 +104,19 @@ class SuccessfulReadResource(ReadResource):
         return set(self.crud_cls.get_dependencies(self.resource))
 
 
+class IgnoredFile(BaseModel):
+    filepath: Path
+    code: str
+    reason: str
+
+
 class Module(BaseModel):
     """Class used to store module in-memory"""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
     id: ModuleId
     resources: list[ReadResource] = Field(default_factory=list)
-    ignored_files: list[Path] = Field(default_factory=list)
+    ignored_files: list[IgnoredFile] = Field(default_factory=list)
 
     @property
     def is_success(self) -> bool:
