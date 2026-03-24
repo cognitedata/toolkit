@@ -256,7 +256,8 @@ class ExtractionPipelineConfigCRUD(
     ) -> Iterable[tuple[type[ResourceCRUD], Identifier]]:
         yield ExtractionPipelineCRUD, ExternalId(external_id=resource.external_id)
 
-    def safe_read(self, filepath: Path | str) -> str:
+    @classmethod
+    def safe_read(cls, filepath: Path | str) -> str:
         # The config is expected to be a string that is parsed as a YAML on the server side.
         # The user typically writes the config as an object, so add a | to ensure it is parsed as a string.
         return stringify_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="config")

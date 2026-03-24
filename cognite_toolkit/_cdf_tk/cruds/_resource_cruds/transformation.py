@@ -250,7 +250,8 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
                     ),
                 )
 
-    def safe_read(self, filepath: Path | str) -> str:
+    @classmethod
+    def safe_read(cls, filepath: Path | str) -> str:
         # If the destination is a DataModel or a View we need to ensure that the version is a string
         return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="version")
 

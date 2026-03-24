@@ -18,7 +18,7 @@ from pydantic.alias_generators import to_camel
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._build import BuildFolder, BuildParameters, BuiltModule
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
-    ModelSyntaxError,
+    ModelSyntaxWarning,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValidationError, ToolkitYAMLFormatError
@@ -66,7 +66,7 @@ class ModuleLineageItem(_BaseLineageModel):
     def is_success(self) -> bool:
         """Determine if module build was successful based on insights summary."""
         return (
-            self.insights_summary.get(ModelSyntaxError.__name__, 0) == 0
+            self.insights_summary.get(ModelSyntaxWarning.__name__, 0) == 0
             and self.insights_summary.get(ConsistencyError.__name__, 0) == 0
             and bool(self.resource_lineage)
         )
@@ -77,7 +77,7 @@ class ModuleLineageItem(_BaseLineageModel):
         """Overall status of the module build based on insights summary."""
         if self.is_success:
             return "SUCCESS"
-        elif self.insights_summary.get(ModelSyntaxError.__name__, 0) > 0:
+        elif self.insights_summary.get(ModelSyntaxWarning.__name__, 0) > 0:
             return "FAILED: ModelSyntaxError"
         elif self.insights_summary.get(ConsistencyError.__name__, 0) > 0:
             return "FAILED: ConsistencyError"
