@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import pytest
 from cognite.client.data_classes import ClientCredentials
@@ -185,3 +186,62 @@ class TestRunWorkflow:
             )
             is True
         )
+
+    @patch("cognite_toolkit._cdf_tk.commands.run.time.sleep")
+    def test_run_workflow_wait_for_completion(
+        self,
+        _sleep: MagicMock,
+        toolkit_client_approval: ApprovalToolkitClient,
+        env_vars_with_client: EnvironmentVariables,
+    ) -> None:
+        toolkit_client_approval.mock_client.workflows.executions.run.return_value = WorkflowExecution(
+            id="1234567890",
+            workflow_external_id="workflow",
+            status="running",
+            created_time=int(datetime.now().timestamp() / 1000),
+            version="v1",
+        )
+        wf_task = MagicMock()
+        wf_task.timeout = 60
+        wf_task.retries = 1
+        wf_version = MagicMock()
+        wf_version.workflow_definition.tasks = [wf_task]
+        toolkit_client_approval.mock_client.workflows.versions.retrieve = MagicMock(return_value=wf_version)
+
+        now_ms = int(datetime.now().timestamp() * 1000)
+        running = MagicMock()
+        running.status = "running"
+        running.executed_tasks = [
+            SimpleNamespace(
+                status="in_progress",
+                external_id="t1",
+                start_time=now_ms,
+                end_time=None,
+                reason_for_incompletion=None,
+            )
+        ]
+        done = MagicMock()
+        done.status = "completed"
+        done.executed_tasks = [
+            SimpleNamespace(
+                status="completed",
+                external_id="t1",
+                start_time=now_ms,
+                end_time=now_ms + 1000,
+                reason_for_incompletion=None,
+            )
+        ]
+        toolkit_client_approval.mock_client.workflows.executions.retrieve_detailed.side_effect = [running, done]
+
+        assert (
+            RunWorkflowCommand().run_workflow(
+                env_vars_with_client,
+                organization_dir=RUN_DATA,
+                build_env_name="dev",
+                external_id="workflow",
+                version="v1",
+                wait=True,
+            )
+            is True
+        )
+        assert toolkit_client_approval.mock_client.workflows.executions.retrieve_detailed.call_count == 2
