@@ -5,7 +5,6 @@ import sys
 import tempfile
 import zipfile
 from collections import Counter
-from hashlib import sha256
 from pathlib import Path
 from types import TracebackType
 from typing import Any, Literal
@@ -58,7 +57,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
-from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
 from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
@@ -999,36 +997,10 @@ class ModulesCommand(ToolkitCommand):
     def _validate_checksum(self, checksum: str, file_path: Path) -> None:
         """
         Compares the checksum of the downloaded file with the expected checksum.
+
+        CDF-27407: Validation is temporarily disabled. Published toolkit-data can lag
+        toolkit releases, producing false mismatch warnings and blocking workflows.
         """
-
-        if checksum.lower().startswith("sha256:"):
-            checksum = checksum[7:]
-        else:
-            raise ToolkitValueError(f"Unsupported checksum format: {checksum}. Expected 'sha256:' prefix")
-
-        chunk_size: int = 8192
-        sha256_hash = sha256()
-        try:
-            with open(file_path, "rb") as f:
-                # Read the file in chunks to handle large files efficiently
-                for chunk in iter(lambda: f.read(chunk_size), b""):
-                    sha256_hash.update(chunk)
-            calculated = sha256_hash.hexdigest()
-        except OSError as e:
-            raise ToolkitError(f"Failed to calculate checksum for {file_path}: {e}") from e
-        except Exception as e:
-            raise ToolkitError(f"Unexpected error during checksum calculation for {file_path}: {e}") from e
-
-        if calculated != checksum:
-            self.warn(
-                HighSeverityWarning(
-                    f"The provided checksum sha256:{checksum} does not match downloaded file hash sha256:{calculated}.\n"
-                    "Please verify the checksum with the source and update cdf.toml if needed.\n"
-                    "This may indicate that the package content has changed."
-                )
-            )
-        else:
-            print("[green]✓ Checksum verified[/green]")
 
     def _unpack(self, file_path: Path) -> None:
         """

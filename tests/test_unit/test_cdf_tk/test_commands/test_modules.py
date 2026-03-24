@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -17,7 +16,6 @@ from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import ModuleLocation, Package, Packages
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
-from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
 from tests.data import COMPLETE_ORG, EXTERNAL_PACKAGE
 from tests.test_unit.utils import MockQuestionary
 
@@ -307,14 +305,11 @@ class TestModulesCommand:
         assert isinstance(excinfo.value.__cause__, OSError)
         assert "No space left on device" in str(excinfo.value.__cause__)
 
-    def test_checksum_format(self, tmp_path: Path) -> None:
+    def test_checksum_format_cdf_27407_skipped(self, tmp_path: Path) -> None:
         invalid_checksum = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-        with pytest.raises(ToolkitError) as excinfo:
-            ModulesCommand(module_source_dir=COMPLETE_ORG_MODULES)._validate_checksum(
-                invalid_checksum, Path(tmp_path / "test_file.zip")
-            )
-
-        assert "Unsupported checksum format" in str(excinfo.value)
+        ModulesCommand(module_source_dir=COMPLETE_ORG_MODULES)._validate_checksum(
+            invalid_checksum, Path(tmp_path / "test_file.zip")
+        )
 
     def test_checksum_success(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         file_path = tmp_path / "test_file.zip"
@@ -404,24 +399,16 @@ class TestModulesCommand:
 
         shutil.rmtree(mock_module_dir)
 
-    def test_checksum_mismatch_prints_warning(self, tmp_path: Path, capsys) -> None:
+    def test_checksum_mismatch_cdf_27407_no_warning(self, tmp_path: Path) -> None:
         file_path = tmp_path / "mismatch.zip"
-        # Write some bytes so we get a deterministic SHA256
         file_bytes = b"dummy-bytes-for-checksum-test"
         file_path.write_bytes(file_bytes)
-
-        # Intentionally use a different checksum than the file's actual hash
         wrong_checksum = "sha256:" + hashlib.sha256(b"some-other-content").hexdigest()
 
         cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG / MODULES)
         cmd._validate_checksum(wrong_checksum, file_path)
 
-        assert len(cmd.warning_list) == 1
-        warning = cmd.warning_list[0]
-        assert isinstance(warning, HighSeverityWarning)
-        # Expect: two SHA256 hex hashes in the message, one for provided and one for calculated
-        pattern = r"^The provided checksum sha256:[0-9a-f]{64} does not match downloaded file hash sha256:[0-9a-f]{64}"
-        assert re.search(pattern, warning.message_raw)
+        assert len(cmd.warning_list) == 0
 
     def test_list_json_output_is_parseable(self, tmp_path: Path, monkeypatch: MonkeyPatch, capsys) -> None:
         location = MagicMock()
