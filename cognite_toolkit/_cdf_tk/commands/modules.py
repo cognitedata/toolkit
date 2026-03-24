@@ -306,9 +306,9 @@ class ModulesCommand(ToolkitCommand):
         elif not (organization_dir / CDFToml.file_name).exists():
             # Load default library from resources when cdf.toml doesn't exist
             default_cdf_toml = CDFToml.load(cwd=RESOURCES_PATH, use_singleton=False)
-            library = default_cdf_toml.libraries.get("toolkit-data")
+            library = default_cdf_toml.libraries.get("cognite")
             if library is None:
-                raise ToolkitError("Default cdf.toml in resources is missing 'toolkit-data' library configuration.")
+                raise ToolkitError("Default cdf.toml in resources is missing Library configuration.")
 
         packages, modules_source_path = self._get_available_packages(library)
 

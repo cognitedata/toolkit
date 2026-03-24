@@ -112,12 +112,12 @@ class TestCDFToml:
         """Test that the default cdf.toml in resources has valid library configuration."""
         default_cdf_toml = CDFToml.load(cwd=RESOURCES_PATH, use_singleton=False)
 
-        # Verify the toolkit-data library exists
-        assert "toolkit-data" in default_cdf_toml.libraries
-        library = default_cdf_toml.libraries["toolkit-data"]
+        # Verify the cognite library exists
+        assert "cognite" in default_cdf_toml.libraries
+        library = default_cdf_toml.libraries["cognite"]
 
-        # Verify the URL is a valid HTTPS URL pointing to toolkit-data
-        assert library.url.startswith("https://github.com/cognitedata/toolkit-data")
+        # Verify the URL is a valid HTTPS URL pointing to cognite library
+        assert library.url.startswith("https://github.com/cognitedata/library")
         assert library.url.endswith(".zip")
 
         # Verify the checksum has the correct format
