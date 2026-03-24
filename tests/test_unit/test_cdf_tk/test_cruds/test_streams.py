@@ -1,84 +1,87 @@
 import pytest
-import respx
-from httpx import Response
 
-from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.streams import StreamCRUD
 
+_HOUR_MS = 60 * 60 * 1000
+_NOW_MS = 3 * _HOUR_MS
 
-@pytest.fixture(scope="module")
-def toolkit_client(toolkit_config: ToolkitClientConfig) -> ToolkitClient:
-    return ToolkitClient(config=toolkit_config)
+_IMMUTABLE_STREAM = {
+    "externalId": "my-stream",
+    "createdTime": 0,
+    "createdFromTemplate": "ImmutableTestStream",
+    "type": "Immutable",
+    "settings": {
+        "lifecycle": {"retainedAfterSoftDelete": "P30D"},
+        "limits": {
+            "maxRecordsTotal": {"provisioned": 1_000_000},
+            "maxGigaBytesTotal": {"provisioned": 10},
+            "maxFilteringInterval": "PT1H",
+        },
+    },
+}
+
+_MUTABLE_STREAM = {
+    "externalId": "my-stream",
+    "createdTime": 0,
+    "createdFromTemplate": "BasicLiveData",
+    "type": "Mutable",
+}
 
 
 class TestStreamCRUDIterLastUpdatedTimeWindows:
-    def test_immutable_stream_with_filtering_interval(
-        self, toolkit_client: ToolkitClient, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
+    @pytest.mark.parametrize(
+        "start_ms, expected",
+        [
+            pytest.param(
+                None,
+                [{"gte": 0, "lt": _HOUR_MS}, {"gte": _HOUR_MS, "lt": 2 * _HOUR_MS}, {"gte": 2 * _HOUR_MS, "lt": _NOW_MS}],
+                id="uses-created-time-as-lower-bound",
+            ),
+            pytest.param(
+                _HOUR_MS,
+                [{"gte": _HOUR_MS, "lt": 2 * _HOUR_MS}, {"gte": 2 * _HOUR_MS, "lt": _NOW_MS}],
+                id="explicit-start-ms-overrides-created-time",
+            ),
+        ],
+    )
+    def test_immutable_stream(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        start_ms: int | None,
+        expected: list[dict[str, int]],
     ) -> None:
-        config = toolkit_client.config
-        hour_ms = 60 * 60 * 1000
-        created_time_ms = 0
-        now_ms = 3 * hour_ms
-        monkeypatch.setattr("cognite_toolkit._cdf_tk.cruds._resource_cruds.streams.time.time", lambda: now_ms / 1000)
-        respx_mock.get(config.create_api_url("/streams/my-immutable-stream")).mock(
-            return_value=Response(
-                status_code=200,
-                json={
-                    "externalId": "my-immutable-stream",
-                    "createdTime": created_time_ms,
-                    "createdFromTemplate": "ImmutableTestStream",
-                    "type": "Immutable",
-                    "settings": {
-                        "lifecycle": {"retainedAfterSoftDelete": "P30D"},
-                        "limits": {
-                            "maxRecordsTotal": {"provisioned": 1_000_000},
-                            "maxGigaBytesTotal": {"provisioned": 10},
-                            "maxFilteringInterval": "PT1H",
-                        },
-                    },
-                },
-            )
-        )
-        crud = StreamCRUD.create_loader(toolkit_client)
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.cruds._resource_cruds.streams.time.time", lambda: _NOW_MS / 1000)
+        with monkeypatch_toolkit_client() as client:
+            client.streams.retrieve.return_value = [StreamResponse.model_validate(_IMMUTABLE_STREAM)]
+            windows = list(StreamCRUD.create_loader(client).iter_last_updated_time_windows("my-stream", start_ms=start_ms))
 
-        windows = list(crud.iter_last_updated_time_windows("my-immutable-stream"))
+        assert windows == expected
 
-        assert windows == [
-            {"gte": 0, "lt": hour_ms},
-            {"gte": hour_ms, "lt": 2 * hour_ms},
-            {"gte": 2 * hour_ms, "lt": now_ms},
-        ]
-
-    def test_mutable_stream_yields_single_empty_window(
-        self, toolkit_client: ToolkitClient, respx_mock: respx.MockRouter
+    @pytest.mark.parametrize(
+        "start_ms, expected",
+        [
+            pytest.param(None, [None], id="no-filter-needed"),
+            pytest.param(_HOUR_MS, [{"gte": _HOUR_MS, "lt": _NOW_MS}], id="bounded-by-start-ms"),
+        ],
+    )
+    def test_mutable_stream(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        start_ms: int | None,
+        expected: list[dict[str, int] | None],
     ) -> None:
-        config = toolkit_client.config
-        respx_mock.get(config.create_api_url("/streams/my-mutable-stream")).mock(
-            return_value=Response(
-                status_code=200,
-                json={
-                    "externalId": "my-mutable-stream",
-                    "createdTime": 1_000,
-                    "createdFromTemplate": "BasicLiveData",
-                    "type": "Mutable",
-                },
-            )
-        )
-        crud = StreamCRUD.create_loader(toolkit_client)
+        monkeypatch.setattr("cognite_toolkit._cdf_tk.cruds._resource_cruds.streams.time.time", lambda: _NOW_MS / 1000)
+        with monkeypatch_toolkit_client() as client:
+            client.streams.retrieve.return_value = [StreamResponse.model_validate(_MUTABLE_STREAM)]
+            windows = list(StreamCRUD.create_loader(client).iter_last_updated_time_windows("my-stream", start_ms=start_ms))
 
-        windows = list(crud.iter_last_updated_time_windows("my-mutable-stream"))
+        assert windows == expected
 
-        assert windows == [None]
-
-    def test_unknown_stream_yields_no_windows(
-        self, toolkit_client: ToolkitClient, respx_mock: respx.MockRouter
-    ) -> None:
-        config = toolkit_client.config
-        respx_mock.get(config.create_api_url("/streams/unknown-stream")).mock(
-            return_value=Response(status_code=404, json={"error": {"code": 404, "message": "Not found"}})
-        )
-        crud = StreamCRUD.create_loader(toolkit_client)
-
-        windows = list(crud.iter_last_updated_time_windows("unknown-stream"))
+    def test_unknown_stream_yields_no_windows(self) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.streams.retrieve.return_value = []
+            windows = list(StreamCRUD.create_loader(client).iter_last_updated_time_windows("unknown-stream"))
 
         assert windows == []

@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import ContainerCRU
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.streams import StreamCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
+from cognite_toolkit._cdf_tk.utils.time import timestamp_to_ms
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
@@ -52,9 +53,12 @@ class RecordIO(
     def count(self, selector: RecordContainerSelector) -> int | None:
         url = self.AGGREGATE_ENDPOINT.format(streamId=selector.stream.external_id)
         sync_filter = self._build_sync_filter(selector)
+        start_ms = timestamp_to_ms(selector.initialize_cursor) if selector.initialize_cursor else None
         total = 0
         stream_crud = StreamCRUD.create_loader(self.client)
-        for last_updated_time in stream_crud.iter_last_updated_time_windows(selector.stream.external_id):
+        for last_updated_time in stream_crud.iter_last_updated_time_windows(
+            selector.stream.external_id, start_ms=start_ms
+        ):
             body: dict[str, object] = {
                 "filter": sync_filter,
                 "aggregates": {"total": {"count": {}}},
