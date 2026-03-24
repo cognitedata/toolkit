@@ -160,7 +160,7 @@ class EventFilter(ChartObject):
     filter: dict[str, JsonValue] | None = None
 
 
-class Activity(ChartObject):
+class ChartActivity(ChartObject):
     is_highlighted: bool | None = None
     is_pinned: bool | None = None
     node_reference: NodeUntypedId | None = None
@@ -183,4 +183,4 @@ class ChartData(ChartObject):
     settings: ChartSettings | None = None
     monitoring_jobs: list[MonitoringJob] | None = None
     event_filters: list[EventFilter] | None = None
-    activities_collection: list[Activity] | None = None
+    activities_collection: list[ChartActivity] | None = None

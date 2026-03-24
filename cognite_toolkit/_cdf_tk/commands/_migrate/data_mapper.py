@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
+    ChartActivity,
     ChartCoreTimeseries,
     ChartSource,
     ChartThreshold,
@@ -87,6 +88,7 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     ThreeDSelector,
 )
 from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection
+from cognite_toolkit._cdf_tk.utils.time import convert_data_modelling_timestamp, datetime_to_ms
 from cognite_toolkit._cdf_tk.utils.useful_types2 import T_AssetCentricResourceExtended
 
 from .data_classes import AssetCentricMapping
@@ -240,6 +242,8 @@ class AssetCentricToInstanceMapper(AssetCentricMapper[T_AssetCentricResourceExte
 
 
 class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
+    DEFAULT_EVENT_VIEW = ViewId(space="cdf_cdm", external_id="CogniteActivity", version="v1")
+
     def prepare(self, source_selector: ChartSelector) -> None:
         if missing_acl := self.client.tool.token.verify_acls(
             [ChartsAdminAcl(actions=["READ", "UPDATE"], scope=AllScope())]
@@ -247,7 +251,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             raise self.client.tool.token.create_error(missing_acl, action="migrate charts")
 
     def map(self, source: Sequence[ChartResponse]) -> Sequence[ChartRequest | None]:
-        self._populate_cache(source)
+        event_ids_by_chart_external_id = self._populate_cache(source)
         output: list[ChartRequest | None] = []
         issues: list[ChartMigrationIssue] = []
         for item in source:
@@ -259,7 +263,9 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 self.logger.tracker.finalize_item(identifier, "failure")
                 continue
 
-            mapped_item, issue = self._map_single_item(item)
+            mapped_item, issue = self._map_single_item(
+                item, event_ids_by_chart_external_id.get(item.external_id, set())
+            )
 
             if issue.missing_timeseries_ids:
                 self.logger.tracker.add_issue(identifier, "Missing timeseries IDs")
@@ -286,25 +292,49 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             errors.append("Monitoring jobs is not yet supported")
         return ChartMigrationIssue(chart_external_id=item.external_id, id=item.external_id, errors=errors)
 
-    def _populate_cache(self, source: Sequence[ChartResponse]) -> None:
+    def _populate_cache(self, source: Sequence[ChartResponse]) -> dict[str, set[int]]:
         """Populate the internal cache with timeseries from the source charts.
 
         Note that the consumption views are also cached as part of the timeseries lookup.
         """
         timeseries_ids: set[int] = set()
         timeseries_external_ids: set[str] = set()
+        event_ids_by_chart_external_id: dict[str, set[int]] = defaultdict(set)
         for chart in source:
             for item in chart.data.time_series_collection or []:
                 if item.ts_id:
                     timeseries_ids.add(item.ts_id)
                 if item.ts_external_id:
                     timeseries_external_ids.add(item.ts_external_id)
+            for event_filter in chart.data.event_filters or []:
+                if not event_filter.filter:
+                    continue
+                # Copy to avoid mutating.
+                api_filter = event_filter.filter.copy()
+
+                # Assuming that it is always possible to do this conversion.
+                data_to = convert_data_modelling_timestamp(chart.data.date_to)
+                date_from = convert_data_modelling_timestamp(chart.data.date_from)
+                api_filter["startTime"] = {"max": datetime_to_ms(data_to)}
+                api_filter["endTime"] = {"min": datetime_to_ms(date_from)}
+
+                events = self.client.tool.events.list(filter=api_filter, limit=None)
+                event_ids_by_chart_external_id[chart.external_id].update(event.id for event in events)
+
         if timeseries_ids:
             self.client.migration.lookup.time_series(list(timeseries_ids))
         if timeseries_external_ids:
             self.client.migration.lookup.time_series(external_id=list(timeseries_external_ids))
+        if event_ids_by_chart_external_id:
+            all_event_ids = list(
+                {event_id for event_ids in event_ids_by_chart_external_id.values() for event_id in event_ids}
+            )
+            self.client.migration.lookup.time_series(all_event_ids)
+        return event_ids_by_chart_external_id
 
-    def _map_single_item(self, item: ChartResponse) -> tuple[ChartRequest | None, ChartMigrationIssue]:
+    def _map_single_item(
+        self, item: ChartResponse, event_ids: set[int]
+    ) -> tuple[ChartRequest | None, ChartMigrationIssue]:
         issue = ChartMigrationIssue(chart_external_id=item.external_id, id=item.external_id)
 
         uuid_generator: dict[str, str] = defaultdict(lambda: str(uuid4()))
@@ -325,6 +355,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         updated_workflow_collection = self._update_workflow_collection(
             item.data.workflow_collection or [], uuid_generator
         )
+        updated_activities_collection = self._create_activities_collection(event_ids, issue)
 
         mapped_chart = item.as_request_resource()
         mapped_chart.data.core_timeseries_collection = timeseries_core_collection
@@ -334,6 +365,9 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             mapped_chart.data.threshold_collection = updated_threshold_collection
         if updated_workflow_collection:
             mapped_chart.data.workflow_collection = updated_workflow_collection
+        if updated_activities_collection:
+            mapped_chart.data.activities_collection = updated_activities_collection
+            mapped_chart.data.event_filters = None
         return mapped_chart, issue
 
     def _create_timeseries_core_collection(
@@ -465,6 +499,25 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             else:
                 updated_collection.append(workflow)
         return updated_collection
+
+    def _create_activities_collection(self, event_ids: set[int], issue: ChartMigrationIssue) -> list[ChartActivity]:
+        activities: list[ChartActivity] = []
+        # Sort to ensure determinism.
+        for event_id in sorted(event_ids):
+            node_id = self.client.migration.lookup.events(event_id)
+            if node_id is None:
+                issue.errors.append(f"The event with internal ID {event_id} has not been migrated.")
+            view_id = self.client.migration.lookup.events.consumer_view(event_id)
+            activities.append(
+                ChartActivity(
+                    is_highlighted=False,
+                    is_pinned=False,
+                    node_reference=node_id,
+                    view_reference=view_id or self.DEFAULT_EVENT_VIEW,
+                )
+            )
+
+        return activities
 
 
 class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, IndustrialCanvasRequest]):
