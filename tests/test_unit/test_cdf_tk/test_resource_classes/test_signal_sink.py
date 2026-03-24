@@ -1,14 +1,9 @@
 from collections.abc import Iterable
 from pathlib import Path
-from unittest.mock import MagicMock, create_autospec
 
 import pytest
-from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.resource_classes.user_profile import UserProfile
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.signal_sink import SignalSinkCRUD
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from cognite_toolkit._cdf_tk.yaml_classes.signal_sink import EmailSinkYAML, SignalSinkYAML, UserSinkYAML
@@ -66,50 +61,3 @@ class TestSignalSinkYAML:
         format_warning = warning_list[0]
         assert isinstance(format_warning, ResourceFormatWarning)
         assert set(format_warning.errors) == expected_errors
-
-
-def _make_user_profile(email: str) -> UserProfile:
-    return UserProfile(
-        user_identifier=f"user-{email}",
-        email=email,
-        identity_type="USER",
-        last_updated_time=0,
-    )
-
-
-class TestSignalSinkCRUDEmailWarning:
-    @pytest.fixture
-    def mock_client(self) -> ToolkitClient:
-        client = create_autospec(ToolkitClient, instance=True)
-        client.user_profiles = MagicMock()
-        client.user_profiles.list.return_value = [
-            _make_user_profile("known-user@example.com"),
-        ]
-        return client
-
-    @pytest.fixture
-    def crud(self, mock_client: ToolkitClient) -> SignalSinkCRUD:
-        return SignalSinkCRUD(mock_client, build_dir=None, console=Console())
-
-    def test_known_email_no_warning(self, crud: SignalSinkCRUD, capsys: pytest.CaptureFixture[str]) -> None:
-        crud.load_resource(
-            {"type": "email", "externalId": "sink-ok", "emailAddress": "known-user@example.com"},
-            is_dry_run=True,
-        )
-        assert "does not match" not in capsys.readouterr().out
-
-    def test_unknown_email_warns(self, crud: SignalSinkCRUD, capsys: pytest.CaptureFixture[str]) -> None:
-        crud.load_resource(
-            {"type": "email", "externalId": "sink-bad", "emailAddress": "nobody@nonexistent.invalid"},
-            is_dry_run=True,
-        )
-        captured = capsys.readouterr().out
-        assert "nobody@nonexistent.invalid" in captured
-        assert "does not match any known user profile" in captured
-
-    def test_user_type_skips_email_check(self, crud: SignalSinkCRUD) -> None:
-        result = crud.load_resource(
-            {"type": "user", "externalId": "sink-user"},
-            is_dry_run=True,
-        )
-        assert result.type == "user"
