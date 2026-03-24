@@ -1,5 +1,9 @@
-from collections.abc import Hashable, Iterable, Sequence
+import time
+from collections.abc import Hashable, Iterable, Iterator, Sequence
+from datetime import timedelta
 from typing import Any, Literal, final
+
+from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
@@ -13,9 +17,12 @@ from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
     StreamResponse,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.utils.time import time_windows_ms
 from cognite_toolkit._cdf_tk.yaml_classes import StreamYAML
 
 from .datamodel import ContainerCRUD
+
+_TIMEDELTA_ADAPTER: TypeAdapter[timedelta] = TypeAdapter(timedelta)
 
 
 @final
@@ -79,3 +86,35 @@ class StreamCRUD(ResourceCRUD[ExternalId, StreamRequest, StreamResponse]):
 
         all_streams = self.client.streams.list()
         return iter(all_streams)
+
+    def iter_last_updated_time_windows(
+        self, stream_external_id: str, start_ms: int | None = None
+    ) -> Iterator[dict[str, int] | None]:
+        """Yield lastUpdatedTime filter dicts to use in record queries.
+
+        Each yielded dict is {"gte": ..., "lt": ...} representing one query window.
+        None is yielded for Mutable streams with no start_ms — meaning no time filter is needed.
+        Yields nothing if the stream does not exist.
+
+        Immutable streams enforce a maxFilteringInterval per request, so the range
+        [start_ms (or stream.createdTime), now) is split into consecutive windows.
+        Mutable streams have no such constraint and are covered in a single pass.
+        """
+        streams = self.retrieve(ExternalId.from_external_ids([stream_external_id]))
+        if not streams:
+            return
+        stream = streams[0]
+        now_ms = int(time.time() * 1000)
+        if stream.type == "Mutable":
+            if start_ms is None:
+                yield None
+            else:
+                yield {"gte": start_ms, "lt": now_ms}
+            return
+        effective_start_ms = start_ms if start_ms is not None else stream.created_time
+        max_interval_ms: int | None = None
+        if stream.settings and stream.settings.limits.max_filtering_interval:
+            td = _TIMEDELTA_ADAPTER.validate_python(stream.settings.limits.max_filtering_interval)
+            max_interval_ms = int(td.total_seconds() * 1000)
+        for window_start, window_end in time_windows_ms(effective_start_ms, now_ms, max_interval_ms):
+            yield {"gte": window_start, "lt": window_end}
