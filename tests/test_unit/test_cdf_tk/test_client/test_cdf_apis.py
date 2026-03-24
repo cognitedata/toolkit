@@ -212,6 +212,12 @@ class TestCDFResourceAPI:
         items = [item for batch in iterated for item in batch]
         assert items[0].dump() == resource
 
+    def test_raw_table_response_without_created_time(self) -> None:
+        """CDF may return table items without createdTime; clean/list must still parse (CDF-27546)."""
+        parsed = RAWTableResponse.model_validate({"name": "t"})
+        assert parsed.name == "t"
+        assert parsed.created_time == 0
+
     def test_raw_table_api_crud(self, toolkit_config: ToolkitClientConfig, respx_mock: respx.MockRouter) -> None:
         """Test RawTablesAPI create, delete, list, and iterate methods.
 

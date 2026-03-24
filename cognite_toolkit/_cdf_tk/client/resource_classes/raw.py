@@ -97,7 +97,8 @@ class RAWTableResponse(ResponseResource[RAWTableRequest]):
     # Default to empty string to allow parsing from API responses (which don't include db_name).
     db_name: str = Field(default="", exclude=True)
     name: str
-    created_time: int
+    # CDF sometimes omits createdTime on raw table payloads (e.g. some list responses); default matches unknown.
+    created_time: int = 0
 
     @classmethod
     def request_cls(cls) -> type[RAWTableRequest]:
