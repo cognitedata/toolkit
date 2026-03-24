@@ -54,12 +54,13 @@ class RecordIO(
         sync_filter = self._build_sync_filter(selector)
         total = 0
         stream_crud = StreamCRUD.create_loader(self.client)
-        for window_start, window_end in stream_crud.iter_last_updated_time_windows(selector.stream.external_id):
+        for last_updated_time in stream_crud.iter_last_updated_time_windows(selector.stream.external_id):
             body: dict[str, object] = {
                 "filter": sync_filter,
-                "lastUpdatedTime": {"gte": window_start, "lt": window_end},
                 "aggregates": {"total": {"count": {}}},
             }
+            if last_updated_time is not None:
+                body["lastUpdatedTime"] = last_updated_time
             request = RequestMessage(
                 endpoint_url=self.client.config.create_api_url(url),
                 method="POST",

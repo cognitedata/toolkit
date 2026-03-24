@@ -87,21 +87,25 @@ class StreamCRUD(ResourceCRUD[ExternalId, StreamRequest, StreamResponse]):
         all_streams = self.client.streams.list()
         return iter(all_streams)
 
-    def iter_last_updated_time_windows(self, stream_external_id: str) -> Iterator[tuple[int, int]]:
-        """Yield lastUpdatedTime windows that together cover all records in the stream.
+    def iter_last_updated_time_windows(self, stream_external_id: str) -> Iterator[dict[str, int] | None]:
+        """Yield lastUpdatedTime filter dicts covering all records in the stream.
 
         For Immutable streams the API enforces a maxFilteringInterval per request,
-        so the range [stream.createdTime, now) is split into consecutive windows.
-        Mutable streams have no such constraint, so a single window is yielded.
+        so the range [stream.createdTime, now) is split into consecutive {"gte": ..., "lt": ...} dicts.
+        Mutable streams have no such constraint, so a single None is yielded (no time filter needed).
         Yields nothing if the stream does not exist.
         """
         streams = self.retrieve(ExternalId.from_external_ids([stream_external_id]))
         if not streams:
             return
         stream = streams[0]
+        if stream.type == "Mutable":
+            yield None
+            return
         now_ms = int(time.time() * 1000)
         max_interval_ms: int | None = None
-        if stream.type != "Mutable" and stream.settings and stream.settings.limits.max_filtering_interval:
+        if stream.settings and stream.settings.limits.max_filtering_interval:
             td = _TIMEDELTA_ADAPTER.validate_python(stream.settings.limits.max_filtering_interval)
             max_interval_ms = int(td.total_seconds() * 1000)
-        yield from time_windows_ms(stream.created_time, now_ms, max_interval_ms)
+        for window_start, window_end in time_windows_ms(stream.created_time, now_ms, max_interval_ms):
+            yield {"gte": window_start, "lt": window_end}
