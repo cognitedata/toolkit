@@ -1,10 +1,8 @@
 import json
-import time
 from collections.abc import Iterable
-from datetime import timedelta
 from typing import ClassVar
 
-from pydantic import Field, TypeAdapter
+from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
@@ -16,28 +14,12 @@ from cognite_toolkit._cdf_tk.cruds._resource_cruds.streams import StreamCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
-from cognite_toolkit._cdf_tk.utils.time import time_windows_ms, timestamp_to_ms
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
 from . import StorageIOConfig
 from ._base import Bookmark, ConfigurableStorageIO, DataItem, Page, UploadableStorageIO
 from .progress import CursorBookmark, NoBookmark
 from .selectors import RecordContainerSelector
-
-
-_TIMEDELTA_ADAPTER: TypeAdapter[timedelta] = TypeAdapter(timedelta)
-
-
-def get_stream_max_filtering_interval_ms(client: ToolkitClient, stream_external_id: str) -> int | None:
-    """Return the stream's maxFilteringInterval in ms, or None for mutable/missing streams."""
-    streams = client.streams.retrieve([ExternalId(external_id=stream_external_id)])
-    stream = streams[0] if streams else None
-    if stream is None or stream.type == "Mutable":
-        return None
-    if stream.settings and stream.settings.limits.max_filtering_interval:
-        td = _TIMEDELTA_ADAPTER.validate_python(stream.settings.limits.max_filtering_interval)
-        return int(td.total_seconds() * 1000)
-    return None
 
 
 class RecordSyncResponse(PagedResponse[RecordResponse]):
@@ -68,15 +50,12 @@ class RecordIO(
     MAX_TOTAL_RECORDS = 1_000_000
     BASE_SELECTOR = RecordContainerSelector
     def count(self, selector: RecordContainerSelector) -> int | None:
-        if selector.initialize_cursor is None:
-            raise ToolkitValueError("initialize_cursor must be set on the selector for download operations")
         url = self.AGGREGATE_ENDPOINT.format(streamId=selector.stream.external_id)
-        start_ms = timestamp_to_ms(selector.initialize_cursor)
-        now_ms = int(time.time() * 1000)
         sync_filter = self._build_sync_filter(selector)
-        max_interval_ms = get_stream_max_filtering_interval_ms(self.client, selector.stream.external_id)
         total = 0
-        for window_start, window_end in time_windows_ms(start_ms, now_ms, max_interval_ms):
+        for window_start, window_end in self.client.streams.iter_last_updated_time_windows(
+            selector.stream.external_id
+        ):
             body: dict[str, object] = {
                 "filter": sync_filter,
                 "lastUpdatedTime": {"gte": window_start, "lt": window_end},

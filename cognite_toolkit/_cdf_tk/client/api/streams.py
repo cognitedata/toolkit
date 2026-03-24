@@ -1,4 +1,8 @@
-from collections.abc import Sequence
+import time
+from collections.abc import Iterator, Sequence
+from datetime import timedelta
+
+from pydantic import TypeAdapter
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse
 from cognite_toolkit._cdf_tk.client.cdf_client.api import Endpoint
@@ -10,6 +14,10 @@ from cognite_toolkit._cdf_tk.client.http_client import (
 )
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamRequest, StreamResponse
+from cognite_toolkit._cdf_tk.utils.time import time_windows_ms
+
+
+_TIMEDELTA_ADAPTER: TypeAdapter[timedelta] = TypeAdapter(timedelta)
 
 
 class StreamsAPI(CDFResourceAPI[StreamResponse]):
@@ -93,3 +101,22 @@ class StreamsAPI(CDFResourceAPI[StreamResponse]):
             List of StreamResponse items.
         """
         return self._list(limit=None)
+
+    def iter_last_updated_time_windows(self, stream_external_id: str) -> Iterator[tuple[int, int]]:
+        """Yield lastUpdatedTime windows that together cover all records in the stream.
+
+        For Immutable streams the API enforces a maxFilteringInterval per request,
+        so the range [stream.createdTime, now) is split into consecutive windows.
+        Mutable streams have no such constraint, so a single window is yielded.
+        Yields nothing if the stream does not exist.
+        """
+        streams = self.retrieve(ExternalId.from_external_ids([stream_external_id]), ignore_unknown_ids=True)
+        if not streams:
+            return
+        stream = streams[0]
+        now_ms = int(time.time() * 1000)
+        max_interval_ms: int | None = None
+        if stream.type != "Mutable" and stream.settings and stream.settings.limits.max_filtering_interval:
+            td = _TIMEDELTA_ADAPTER.validate_python(stream.settings.limits.max_filtering_interval)
+            max_interval_ms = int(td.total_seconds() * 1000)
+        yield from time_windows_ms(stream.created_time, now_ms, max_interval_ms)
