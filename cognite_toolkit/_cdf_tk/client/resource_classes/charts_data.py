@@ -1,7 +1,4 @@
-from typing import Any
-
-from cognite.client import data_modeling as dm
-from pydantic import JsonValue, field_serializer, field_validator
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId, ViewUntypedId
@@ -69,8 +66,8 @@ class ChartSource(ChartElement): ...
 
 
 class ChartCoreTimeseries(ChartElement):
-    node_reference: dm.NodeId | None = None
-    view_reference: dm.ViewId | None = None
+    node_reference: NodeUntypedId | None = None
+    view_reference: ViewUntypedId | None = None
     display_mode: str | None = None
     color: str | None = None
     created_at: int | None = None
@@ -81,32 +78,6 @@ class ChartCoreTimeseries(ChartElement):
     name: str | None = None
     preferred_unit: str | None = None
     range: list[float | None] | None = None
-
-    @field_serializer("node_reference", when_used="always")
-    def serialize_node_reference(self, node_reference: dm.NodeId | None) -> dict[str, Any] | None:
-        if node_reference:
-            return node_reference.dump(include_instance_type=False)
-        return None
-
-    @field_serializer("view_reference", when_used="always")
-    def serialize_view_reference(self, view_reference: dm.ViewId | None) -> dict[str, Any] | None:
-        if view_reference:
-            return view_reference.dump(include_type=False)
-        return None
-
-    @field_validator("node_reference", mode="before")
-    @classmethod
-    def validate_node_reference(cls, value: Any) -> dm.NodeId | None:
-        if value is None or isinstance(value, dm.NodeId):
-            return value
-        return dm.NodeId.load(value)
-
-    @field_validator("view_reference", mode="before")
-    @classmethod
-    def validate_view_reference(cls, value: Any) -> dm.ViewId | None:
-        if value is None or isinstance(value, dm.ViewId):
-            return value
-        return dm.ViewId.load(value)
 
 
 class ChartTimeseries(ChartElement):

@@ -5,7 +5,6 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any, ClassVar, Generic, Literal, cast
 from uuid import uuid4
 
-from cognite.client import data_modeling as dm
 from cognite.client.exceptions import CogniteException
 from pydantic import JsonValue
 
@@ -304,8 +303,12 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
 
     def _map_single_item(self, item: ChartResponse) -> tuple[ChartRequest | None, ChartMigrationIssue]:
         issue = ChartMigrationIssue(chart_external_id=item.external_id, id=item.external_id)
+
+        uuid_generator: dict[str, str] = defaultdict(lambda: str(uuid4()))
         time_series_collection = item.data.time_series_collection or []
-        timeseries_core_collection = self._create_timeseries_core_collection(time_series_collection, issue)
+        timeseries_core_collection = self._create_timeseries_core_collection(
+            time_series_collection, issue, uuid_generator
+        )
         if issue.has_issues:
             return None, issue
 
@@ -320,7 +323,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         return mapped_chart, issue
 
     def _create_timeseries_core_collection(
-        self, time_series_collection: list[ChartTimeseries], issue: ChartMigrationIssue
+        self, time_series_collection: list[ChartTimeseries], issue: ChartMigrationIssue, uuid_generator: dict[str, str]
     ) -> list[ChartCoreTimeseries]:
         timeseries_core_collection: list[ChartCoreTimeseries] = []
         for ts_item in time_series_collection or []:
@@ -334,24 +337,20 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 else:
                     issue.missing_timeseries_identifier.append(ts_item.id or "unknown")
                 continue
-
-            core_timeseries = self._create_new_timeseries_core(ts_item, node_id, consumer_view_id)
+            if ts_item.id is None:
+                issue.errors.append(f"Missing timeseries id: {ts_item.ts_id!r}")
+                continue
+            new_uuid = uuid_generator[ts_item.id]
+            core_timeseries = self._create_new_timeseries_core(ts_item, node_id, consumer_view_id, new_uuid)
             timeseries_core_collection.append(core_timeseries)
         return timeseries_core_collection
 
     def _create_new_timeseries_core(
-        self, ts_item: ChartTimeseries, node_id: NodeId, consumer_view_id: ViewId | None
+        self, ts_item: ChartTimeseries, node_id: NodeId, consumer_view_id: ViewId | None, new_uuid: str
     ) -> ChartCoreTimeseries:
         dumped = ts_item.model_dump(mode="json", by_alias=True, exclude_unset=True)
-        dumped["nodeReference"] = dm.NodeId(space=node_id.space, external_id=node_id.external_id)
-        dumped["viewReference"] = (
-            dm.ViewId(
-                space=consumer_view_id.space, external_id=consumer_view_id.external_id, version=consumer_view_id.version
-            )
-            if consumer_view_id
-            else None
-        )
-        new_uuid = str(uuid4())
+        dumped["nodeReference"] = node_id
+        dumped["viewReference"] = consumer_view_id
         dumped["id"] = new_uuid
         dumped["type"] = "coreTimeseries"
         # We ignore extra here to only include the fields that are shared between ChartTimeseries and ChartCoreTimeseries
