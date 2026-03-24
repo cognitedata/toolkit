@@ -2,6 +2,7 @@ from collections.abc import Iterator
 
 import pytest
 import respx
+import yaml
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
@@ -18,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartWorkflow,
     UserInfo,
 )
+from tests.data import MIGRATION_DIR
 
 CHART = ChartResponse(
     external_id="chart",
@@ -305,3 +307,15 @@ class TestChartDTOs:
         dumped_items = [item.dump(camel_case=True) for item in loaded_items]
 
         assert dumped_items == chart_data_dict, f"Expected {chart_data_dict}, but got {dumped_items}"
+
+    @pytest.mark.parametrize(
+        "filename",
+        [
+            pytest.param("dms.Chart.yaml", id="DMS Chart"),
+            pytest.param("classic.Chart.yaml", id="Classic Chart"),
+        ],
+    )
+    def test_load_dms_chart(self, filename: str) -> None:
+        data = yaml.safe_load((MIGRATION_DIR / "charts" / filename).read_text(encoding="utf-8"))
+        chart = ChartResponse.model_validate(data)
+        assert isinstance(chart, ChartResponse)
