@@ -9,12 +9,12 @@ from ._insights import ConsistencyError, Insight, InsightList, ModelSyntaxWarnin
 from ._lineage import BuildLineage
 from ._module import (
     BuildVariable,
-    FailedReadResource,
+    FailedReadYAMLFile,
     Module,
     ModuleSource,
-    ReadResource,
+    ReadYAMLFile,
     ResourceType,
-    SuccessfulReadResource,
+    SuccessfulReadYAMLFile,
 )
 from ._types import AbsoluteDirPath, RelativeDirPath, RelativeFilePath, ValidationType
 
@@ -28,17 +28,17 @@ __all__ = [
     "BuiltModule",
     "ConfigYAML",
     "ConsistencyError",
-    "FailedReadResource",
+    "FailedReadYAMLFile",
     "Insight",
     "InsightList",
     "ModelSyntaxWarning",
     "Module",
     "ModuleSource",
-    "ReadResource",
+    "ReadYAMLFile",
     "Recommendation",
     "RelativeDirPath",
     "RelativeFilePath",
     "ResourceType",
-    "SuccessfulReadResource",
+    "SuccessfulReadYAMLFile",
     "ValidationType",
 ]

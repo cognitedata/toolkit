@@ -11,8 +11,8 @@ from cognite_toolkit._cdf_tk.client.config import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.commands import BuildV2Command
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildParameters, RelativeDirPath
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
-    FailedReadResource,
-    SuccessfulReadResource,
+    FailedReadYAMLFile,
+    SuccessfulReadYAMLFile,
 )
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds import SpaceCRUD
@@ -396,49 +396,49 @@ class TestImportResourceFile:
                 "resource.UnknownKind.yaml",
                 "space: test\n",
                 {"space": SpaceCRUD},
-                [FailedReadResource],
+                [FailedReadYAMLFile],
                 id="unknown_kind",
             ),
             pytest.param(
                 "nonexistent.Space.yaml",
                 None,
                 {"space": SpaceCRUD},
-                [FailedReadResource],
+                [FailedReadYAMLFile],
                 id="file_read_error",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 "key: [unclosed",
                 {"space": SpaceCRUD},
-                [FailedReadResource],
+                [FailedReadYAMLFile],
                 id="yaml_parse_error",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 "space: my_space\nname: My Space\n",
                 {"space": SpaceCRUD},
-                [SuccessfulReadResource],
+                [SuccessfulReadYAMLFile],
                 id="successful_single_resource",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 'space: ""\n',
                 {"space": SpaceCRUD},
-                [FailedReadResource],
+                [FailedReadYAMLFile],
                 id="model_validation_error",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 "space: my_space\nextra_field: value\n",
                 {"space": SpaceCRUD},
-                [SuccessfulReadResource],
+                [SuccessfulReadYAMLFile],
                 id="extra_fields_produces_recommendation",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 "- space: space_one\n- space: space_two\n",
                 {"space": SpaceCRUD},
-                [SuccessfulReadResource, SuccessfulReadResource],
+                [SuccessfulReadYAMLFile, SuccessfulReadYAMLFile],
                 id="multiple_resources_in_list",
             ),
         ],

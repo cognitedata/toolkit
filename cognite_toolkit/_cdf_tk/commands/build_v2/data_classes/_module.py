@@ -73,24 +73,26 @@ class ResourceType(BaseModel):
     kind: str
 
 
-class ReadResource(BaseModel):
+class ReadYAMLFile(BaseModel):
     source_path: AbsoluteFilePath
 
 
-class FailedReadResource(ReadResource):
+class FailedReadYAMLFile(ReadYAMLFile):
     code: str
     error: str
 
 
-class SuccessfulReadResource(ReadResource):
+class SuccessfulReadYAMLFile(ReadYAMLFile):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    raw: dict[str, JsonValue]
     source_hash: str
     resource_type: ResourceType
+
+    raw: dict[str, JsonValue]
+
     syntax_warning: ModelSyntaxWarning | None = None
 
 
-class SuccessfulValidatedResource(SuccessfulReadResource):
+class SuccessfulValidatedResource(SuccessfulReadYAMLFile):
     resource: ToolkitResource
 
     @property
@@ -115,9 +117,9 @@ class Module(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
     id: ModuleId
-    resources: list[ReadResource] = Field(default_factory=list)
+    resources: list[ReadYAMLFile] = Field(default_factory=list)
     ignored_files: list[IgnoredFile] = Field(default_factory=list)
 
     @property
     def is_success(self) -> bool:
-        return all(isinstance(resource, SuccessfulReadResource) for resource in self.resources)
+        return all(isinstance(resource, SuccessfulReadYAMLFile) for resource in self.resources)

@@ -1,7 +1,7 @@
 from collections.abc import Callable
 
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import InsightList
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Module, SuccessfulReadResource
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import Module, SuccessfulReadYAMLFile
 from cognite_toolkit._cdf_tk.rules._base import ToolkitResourceRule
 from cognite_toolkit._cdf_tk.utils._auxiliary import get_concrete_subclasses
 
@@ -47,7 +47,7 @@ class RulesOrchestrator:
         rules_registry = get_rules_registry()
         all_insights = InsightList()
         for resource in module.resources:
-            if not isinstance(resource, SuccessfulReadResource):
+            if not isinstance(resource, SuccessfulReadYAMLFile):
                 continue
             for rule in rules_registry.get(resource.resource_type.kind, []):
                 if rule.alpha and not self._enable_alpha_validators:

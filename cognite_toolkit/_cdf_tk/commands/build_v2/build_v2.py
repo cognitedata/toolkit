@@ -40,10 +40,10 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     BuildSource,
     BuildVariable,
-    FailedReadResource,
+    FailedReadYAMLFile,
     IgnoredFile,
-    ReadResource,
-    SuccessfulReadResource,
+    ReadYAMLFile,
+    SuccessfulReadYAMLFile,
     SuccessfulValidatedResource,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._plugins import NeatPlugin
@@ -358,7 +358,7 @@ class BuildV2Command(ToolkitCommand):
         return built_modules
 
     def _import_module(self, source: ModuleSource) -> Module:
-        resources: list[ReadResource] = []
+        resources: list[ReadYAMLFile] = []
         ignored_files: list[IgnoredFile] = []
         for resource_folder, resource_files in source.resource_files_by_folder.items():
             crud_classes = RESOURCE_CRUD_BY_FOLDER_NAME.get(resource_folder)
@@ -379,7 +379,7 @@ class BuildV2Command(ToolkitCommand):
                 kind = resource_file.stem.rsplit(".", maxsplit=1)[-1]
                 if kind not in class_by_kind:
                     resources.append(
-                        FailedReadResource(
+                        FailedReadYAMLFile(
                             source_path=resource_file,
                             code="INVALID-KIND",
                             error=f"Resource file '{resource_file.name!r}' has unknown resource kind '{kind}' for folder '{resource_folder}'",
@@ -394,12 +394,12 @@ class BuildV2Command(ToolkitCommand):
         resource_file: AbsoluteFilePath,
         crud_class: type[ResourceCRUD],
         variables: list[BuildVariable],
-    ) -> list[ReadResource]:
+    ) -> list[ReadYAMLFile]:
         try:
             content = crud_class.safe_read(resource_file)
         except Exception as read_error:
             return [
-                FailedReadResource(
+                FailedReadYAMLFile(
                     source_path=resource_file, error=f"Failed to read resource file: {read_error!s}", code="READ-ERROR"
                 )
             ]
@@ -416,7 +416,7 @@ class BuildV2Command(ToolkitCommand):
             #  Look for variables at an adjacent level in the YAML structure to give more specific suggestions.
             #  Jira: CDF-27203
             return [
-                FailedReadResource(
+                FailedReadYAMLFile(
                     source_path=resource_file,
                     code="YAML-PARSE-ERROR",
                     error=f"Failed to parse YAML content: {yaml_error!s}",
@@ -439,7 +439,7 @@ class BuildV2Command(ToolkitCommand):
                 return [SuccessfulValidatedResource(raw=parsed_yaml, resource=resource, **args)]
             except ValidationError as errors:
                 # Todo include extra files
-                return [SuccessfulReadResource(raw=parsed_yaml, syntax_warning=self._create_syntax_warning(errors))]
+                return [SuccessfulReadYAMLFile(raw=parsed_yaml, syntax_warning=self._create_syntax_warning(errors))]
         # Is instance list
         # MyPy complains but this works.
         adapter = TypeAdapter[list[yaml_cls]](list[yaml_cls])  # type: ignore[valid-type]
@@ -456,14 +456,14 @@ class BuildV2Command(ToolkitCommand):
 
         error_or_resources = self._create_resources_from_unstructured(error_or_unstructured, crud_class.yaml_cls)
 
-        resources: list[ReadResource] = []
+        resources: list[ReadYAMLFile] = []
         for error_or_resource in error_or_resources:
             if isinstance(error_or_resource, ModelSyntaxWarning):
-                resources.append(FailedReadResource(source_path=resource_file, errors=[error_or_resource]))
+                resources.append(FailedReadYAMLFile(source_path=resource_file, errors=[error_or_resource]))
             else:
                 resource, recommendations = error_or_resource
                 resources.append(
-                    SuccessfulReadResource(
+                    SuccessfulReadYAMLFile(
                         source_path=resource_file,
                         resource=resource,
                         source_hash=file_hash,
@@ -527,11 +527,11 @@ class BuildV2Command(ToolkitCommand):
         )
 
     def _export_resources(
-        self, resources: Sequence[ReadResource], resource_counter: Counter, build_dir: Path
+        self, resources: Sequence[ReadYAMLFile], resource_counter: Counter, build_dir: Path
     ) -> list[BuiltResource]:
         built_resources: list[BuiltResource] = []
         for resource in resources:
-            if not isinstance(resource, SuccessfulReadResource):
+            if not isinstance(resource, SuccessfulReadYAMLFile):
                 # Todo: Allow syntax errors.
                 continue
             folder = build_dir / resource.resource_type.resource_folder
