@@ -253,18 +253,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             if item.data.scheduled_calculation_collection or item.data.monitoring_jobs:
                 # These are not yet supported.
                 output.append(None)
-                errors: list[str] = []
-                if item.data.scheduled_calculation_collection:
-                    errors.append("Scheduled calculations is not yet supported")
-                if item.data.monitoring_jobs:
-                    errors.append("Monitoring jobs is not yet supported")
-                issues.append(
-                    ChartMigrationIssue(
-                        chart_external_id=item.external_id,
-                        id=item.external_id,
-                        errors=errors,
-                    )
-                )
+                issues.append(self._create_missing_support_issue(item))
                 self.logger.tracker.finalize_item(identifier, "failure")
                 continue
 
@@ -286,6 +275,14 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         if issues:
             self.logger.log(issues)
         return output
+
+    def _create_missing_support_issue(self, item: ChartResponse) -> ChartMigrationIssue:
+        errors: list[str] = []
+        if item.data.scheduled_calculation_collection:
+            errors.append("Scheduled calculations is not yet supported")
+        if item.data.monitoring_jobs:
+            errors.append("Monitoring jobs is not yet supported")
+        return ChartMigrationIssue(chart_external_id=item.external_id, id=item.external_id, errors=errors)
 
     def _populate_cache(self, source: Sequence[ChartResponse]) -> None:
         """Populate the internal cache with timeseries from the source charts.
