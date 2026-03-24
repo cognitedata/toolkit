@@ -4,9 +4,15 @@ from cognite.client import data_modeling as dm
 from pydantic import JsonValue, field_serializer, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
+from cognite_toolkit._cdf_tk.client.identifiers import NodeUntypedId, ViewUntypedId
 
 
 class ChartObject(BaseModelObject, extra="allow"): ...
+
+
+class ChartElement(ChartObject):
+    id: str | None = None
+    type: str | None = None
 
 
 class UserInfo(ChartObject):
@@ -44,9 +50,7 @@ class ChartPosition(ChartObject):
     y: float | None = None
 
 
-class FlowElement(ChartObject):
-    id: str | None = None
-    type: str | None = None
+class FlowElement(ChartElement):
     position: ChartPosition | None = None
     data: JsonValue | None = None
     source: str | None = None
@@ -59,11 +63,6 @@ class Flow(ChartObject):
     zoom: float | None = None
     elements: list[FlowElement] | None = None
     position: tuple[float | None, float | None] | None = None
-
-
-class ChartElement(ChartObject):
-    id: str | None = None
-    type: str | None = None
 
 
 class ChartSource(ChartElement): ...
@@ -171,6 +170,27 @@ class ChartScheduledCalculation(ChartElement):
     flow: Flow | None = None
 
 
+class MonitoringJob(ChartObject):
+    id: str | None = None
+    source_id: str | None = None
+    source_type: str | None = None
+
+
+class EventFilter(ChartObject):
+    id: str | None = None
+    name: str | None = None
+    visible: bool | None = None
+    color: str | None = None
+    filter: dict[str, JsonValue] | None = None
+
+
+class Activity(ChartObject):
+    is_highlighted: bool | None = None
+    is_pinned: bool | None = None
+    node_reference: NodeUntypedId | None = None
+    view_reference: ViewUntypedId | None = None
+
+
 class ChartData(ChartObject):
     version: int
     name: str
@@ -185,3 +205,6 @@ class ChartData(ChartObject):
     threshold_collection: list[ChartThreshold] | None = None
     scheduled_calculation_collection: list[ChartScheduledCalculation] | None = None
     settings: ChartSettings | None = None
+    monitoring_jobs: list[MonitoringJob] | None = None
+    event_filters: list[EventFilter] | None = None
+    activities_collection: list[Activity] | None = None
