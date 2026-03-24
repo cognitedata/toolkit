@@ -34,7 +34,12 @@ class BuildParameters(BaseModel):
 
 
 class BuildSourceFiles(BaseModel):
-    """Intermediate format used when parsing modules"""
+    """The output of reading the source system.
+
+    All yaml files found in the modules/ directory.
+    If available, the config.<name>.yaml file, which specifies which modules to build, variables available,
+    CDF Project to build for.
+    """
 
     yaml_files: list[RelativeFilePath] = Field(
         description="List of all YAML files that are part of the build, with paths relative to the organization directory."
@@ -48,6 +53,10 @@ class BuildSourceFiles(BaseModel):
     validation_type: ValidationType = "prod"
     cdf_project: str
     organization_dir: AbsoluteDirPath
+
+    @property
+    def module_dir(self) -> Path:
+        return self.organization_dir / MODULES
 
 
 class BuiltResource(BaseModel):

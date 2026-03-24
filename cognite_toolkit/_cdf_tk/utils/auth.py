@@ -14,6 +14,7 @@ from cognite.client.credentials import (
 )
 from questionary import Choice
 from rich import print
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.constants import TOOLKIT_CLIENT_ENTRA_ID
@@ -337,7 +338,7 @@ class EnvironmentVariables:
             max_workers=self.CDF_CLIENT_MAX_WORKERS,
         )
 
-    def get_client(self, is_strict_validation: bool | None = None) -> ToolkitClient:
+    def get_client(self, is_strict_validation: bool | None = None, console: Console | None = None) -> ToolkitClient:
         """Gets the client.
 
         The client is a singleton, so if it has already been created, it will be returned. If not, it will be created
@@ -350,9 +351,11 @@ class EnvironmentVariables:
             ToolkitClient
         """
         if self._client is None:
-            self._client = ToolkitClient(config=self.get_config(is_strict_validation or True))
+            self._client = ToolkitClient(config=self.get_config(is_strict_validation or True), console=console)
         if is_strict_validation is not None:
             self._client.config.is_strict_validation = is_strict_validation
+        if console is not None:
+            self._client.console = console
         return self._client
 
     def dump(self, include_os: bool = True) -> dict[str, str | None]:
