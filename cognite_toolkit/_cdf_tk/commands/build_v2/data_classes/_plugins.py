@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from importlib.util import find_spec
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -95,4 +94,12 @@ class NeatPlugin:
     @classmethod
     def installed(cls) -> bool:
         """Check if neat is installed"""
-        return find_spec("cognite.neat") is not None
+
+        try:
+            from cognite import neat
+
+            _ = neat  # silence unused import
+
+            return True
+        except ImportError:
+            return False
