@@ -249,8 +249,26 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         output: list[ChartRequest | None] = []
         issues: list[ChartMigrationIssue] = []
         for item in source:
-            mapped_item, issue = self._map_single_item(item)
             identifier = item.external_id
+            if item.data.scheduled_calculation_collection or item.data.monitoring_jobs:
+                # These are not yet supported.
+                output.append(None)
+                errors: list[str] = []
+                if item.data.scheduled_calculation_collection:
+                    errors.append("Scheduled calculations is not yet supported")
+                if item.data.monitoring_jobs:
+                    errors.append("Monitoring jobs is not yet supported")
+                issues.append(
+                    ChartMigrationIssue(
+                        chart_external_id=item.external_id,
+                        id=item.external_id,
+                        errors=errors,
+                    )
+                )
+                self.logger.tracker.finalize_item(identifier, "failure")
+                continue
+
+            mapped_item, issue = self._map_single_item(item)
 
             if issue.missing_timeseries_ids:
                 self.logger.tracker.add_issue(identifier, "Missing timeseries IDs")
