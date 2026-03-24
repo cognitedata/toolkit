@@ -511,6 +511,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             node_id = self.client.migration.lookup.events(event_id)
             if node_id is None:
                 issue.errors.append(f"The event with internal ID {event_id} has not been migrated.")
+                continue
             view_id = self.client.migration.lookup.events.consumer_view(event_id)
             activities.append(
                 ChartActivity(
