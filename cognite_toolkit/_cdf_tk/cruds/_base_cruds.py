@@ -4,7 +4,7 @@ from collections.abc import Hashable, Iterable, Sequence, Sized
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -123,9 +123,11 @@ T_Loader = TypeVar("T_Loader", bound=Loader)
 
 
 class ExtraFile(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     source_path: Path
     source_hash: str
-    content: str
+    content: str | None = None
+    byte_content: bytes | None = None
 
 
 class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResource]):
