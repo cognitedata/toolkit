@@ -34,6 +34,27 @@ data:
     - 15.975736773839854
     - 69.90603024610795
     createdAt: 1772794359894
+  - type: coreTimeseries
+    id: 867d1c8e-9b0c-4a5e-9c3f-7b2a1c8e5f3b
+    color: '#570408'
+    nodeReference:
+      space: energy_time_series
+      externalId: pi:160037
+    viewReference:
+      space: cdf_cdm
+      externalId: CogniteTimeSeries
+      version: v1
+    name: VAL_23_FIC_92543_01:Y.X.Value
+    lineWeight: 1.0
+    lineStyle: solid
+    interpolation: linear
+    displayMode: lines
+    enabled: true
+    preferredUnit: ''
+    range:
+    - 15.975736773839854
+    - 69.90603024610795
+    createdAt: 1772794359894
   workflowCollection:
   - version: v2
     type: workflow

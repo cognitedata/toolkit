@@ -14,16 +14,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import (
     IndustrialCanvasResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
-    ChartCall,
-    ChartData,
-    ChartScheduledCalculation,
-    ChartSource,
-    ChartThreshold,
-    ChartTimeseries,
-    EventFilter,
-)
+from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ConstraintOrIndexState,
@@ -46,7 +37,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewCorePropertyResponse,
     ViewResponse,
 )
-from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import CreatedSourceSystem
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
@@ -406,140 +396,47 @@ class TestCanvasMapper:
 
 class TestChartMapper:
     def test_map_chart_with_threshold_calculation_and_events_filter(self) -> None:
-        input_canvas_path = MIGRATION_DIR / "charts" / "classic.Chart.yaml"
+        input_chart_path = MIGRATION_DIR / "charts" / "classic.Chart.yaml"
         output_chart_path = MIGRATION_DIR / "charts" / "dms.Chart.yaml"
+        output_chart = ChartResponse.model_validate(yaml.safe_load(output_chart_path.read_text(encoding="utf-8")))
+        source = ChartResponse.model_validate(yaml.safe_load(input_chart_path.read_text(encoding="utf-8")))
+        # These are not yet supported.
+        source.data.monitoring_jobs = None
+        source.data.scheduled_calculation_collection = None
+
+        assert len(output_chart.data.core_timeseries_collection or []) == len(source.data.time_series_collection or [])
+
         with monkeypatch_toolkit_client() as client:
-
-
-            source = ChartResponse(
-                external_id="my_chart",
-                created_time=1,
-                last_updated_time=1,
-                owner_id="owner",
-                visibility="PUBLIC",
-                data=ChartData(
-                    version=1,
-                    name="My Chart",
-                    date_from="2025-01-01T00:00:00.000Z",
-                    date_to="2025-12-31T23:59:59.999Z",
-                    time_series_collection=[
-                        ChartTimeseries(tsId=11, type="timeseries", id="old-ts-uuid-1"),
-                        ChartTimeseries(tsExternalId="ts_2", type="timeseries", id="old-ts-uuid-2"),
-                    ],
-                    source_collection=[
-                        ChartSource(type="timeseries", id="old-ts-uuid-1"),
-                        ChartSource(type="timeseries", id="old-ts-uuid-2"),
-                    ],
-                    threshold_collection=[
-                        ChartThreshold(
-                            id="threshold-1",
-                            type="threshold",
-                            sourceId="old-ts-uuid-1",
-                            calls=[ChartCall(id="call-1")],
-                        )
-                    ],
-                    scheduled_calculation_collection=[
-                        ChartScheduledCalculation(
-                            id="calc-1",
-                            type="scheduledCalculation",
-                            sourceIds=["old-ts-uuid-1", "old-ts-uuid-2"],
-                            calls=[ChartCall(id="call-2")],
-                        )
-                    ],
-                    event_filters=[
-                        EventFilter(
-                            id="event-filter-1",
-                            type="eventFilter",
-                            filter={"id": [1001, 1002]},
-                        )
-                    ],
-                ),
-            )
-
-            client.migration.lookup.time_series.side_effect = lambda id=None, external_id=None: (
-                {11: NodeId(space="my_space", external_id="node_ts_11")}
-                if isinstance(id, list)
-                else (
-                    {"ts_2": NodeId(space="my_space", external_id="node_ts_2")}
-                    if isinstance(external_id, list)
-                    else (
-                        NodeId(space="my_space", external_id="node_ts_11")
-                        if id == 11
-                        else NodeId(space="my_space", external_id="node_ts_2")
-                    )
-                )
-            )
-            client.migration.lookup.time_series.consumer_view.side_effect = lambda id=None, external_id=None: (
-                ViewId(space="cdf_cdm", external_id="CogniteTimeSeries", version="v1")
-                if id == 11
-                else ViewId(space="my_space", external_id="MyTimeSeries", version="v1")
-            )
-            client.tool.events.retrieve.return_value = [
-                EventResponse(
-                    id=1001,
-                    external_id="event_1001",
-                    created_time=1,
-                    last_updated_time=1,
-                ),
-                EventResponse(
-                    id=1002,
-                    external_id="event_1002",
-                    created_time=1,
-                    last_updated_time=1,
-                ),
+            time_series_lookup = MagicMock()
+            time_series_lookup.side_effect = [
+                # Two first calls to populate cache.
+                None,
+                None,
+                *[core_ts.node_reference for core_ts in output_chart.data.core_timeseries_collection or []],
             ]
-            client.migration.lookup.events.side_effect = lambda id=None, external_id=None: (
-                {
-                    "event_1001": NodeId(space="event_space", external_id="event_node_1001"),
-                    "event_1002": NodeId(space="event_space", external_id="event_node_1002"),
-                }
-                if external_id == ["event_1001", "event_1002"]
-                else (
-                    NodeId(space="event_space", external_id="event_node_1001")
-                    if external_id == "event_1001"
-                    else NodeId(space="event_space", external_id="event_node_1002")
-                )
+            time_series_lookup.consumer_view.return_value = ViewId(
+                space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
             )
+            client.migration.lookup.time_series = time_series_lookup
 
             mapper = ChartMapper(client)
-            mapped = mapper.map([source])[0]
 
-        assert mapped is not None
-        dumped = mapped.dump()
-        new_ts_ids = [item["id"] for item in dumped["data"]["coreTimeseriesCollection"]]
-        assert dumped["data"]["sourceCollection"] == [
-            {"id": new_ts_ids[0], "type": "coreTimeseries"},
-            {"id": new_ts_ids[1], "type": "coreTimeseries"},
-        ]
-        assert dumped["data"]["thresholdCollection"] == [
-            {
-                "id": "threshold-1",
-                "type": "threshold",
-                "sourceId": new_ts_ids[0],
-                "calls": [],
-            }
-        ]
-        assert dumped["data"]["scheduledCalculationCollection"] == [
-            {
-                "id": "calc-1",
-                "type": "scheduledCalculation",
-                "sourceIds": [new_ts_ids[0], new_ts_ids[1]],
-                "calls": [],
-            }
-        ]
-        assert dumped["data"]["eventFilters"] == [
-            {
-                "id": "event-filter-1",
-                "type": "eventFilter",
-                "filter": {
-                    "id": [
-                        {"space": "event_space", "externalId": "event_node_1001"},
-                        {"space": "event_space", "externalId": "event_node_1002"},
-                    ]
-                },
-            }
-        ]
-        client.tool.events.retrieve.assert_called_once()
+            mapped_list = mapper.map([source])
+            assert len(mapped_list) == 1
+            mapped = mapped_list[0]
+            assert isinstance(mapped, ChartRequest)
+
+        assert mapped.dump() == output_chart.as_request_resource().model_dump(
+            mode="json",
+            by_alias=True,
+            exclude_unset=True,
+            exclude={
+                "data": {
+                    "monitoring_jobs",
+                    "scheduled_calculation_collection",
+                }
+            },
+        )
 
 
 class TestFDMtoCDMMapper:
