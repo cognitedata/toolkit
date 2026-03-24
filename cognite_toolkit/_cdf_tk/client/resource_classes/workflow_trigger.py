@@ -37,8 +37,8 @@ class RecordSource(BaseModelObject):
 class RecordStreamTriggerRule(TriggerRuleDefinition):
     trigger_type: Literal["recordStream"] = "recordStream"
     stream_external_id: str
-    filter: JsonValue
-    sources: list[RecordSource]
+    filter: JsonValue | None = None
+    sources: list[RecordSource] | None = None
     batch_size: int
     batch_timeout: int
 
