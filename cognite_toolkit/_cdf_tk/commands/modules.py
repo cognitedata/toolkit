@@ -1001,6 +1001,7 @@ class ModulesCommand(ToolkitCommand):
         CDF-27407: Validation is temporarily disabled. Published toolkit-data can lag
         toolkit releases, producing false mismatch warnings and blocking workflows.
         """
+        self.console(f"Skipping checksum validation for {file_path.name} (expected {checksum}) due to CDF-27407.")
 
     def _unpack(self, file_path: Path) -> None:
         """
