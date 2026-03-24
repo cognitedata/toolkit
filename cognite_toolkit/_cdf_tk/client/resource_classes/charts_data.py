@@ -124,6 +124,7 @@ class ChartThreshold(ChartElement):
     visible: bool | None = None
     name: str | None = None
     source_id: str | None = None
+    lower_limit: float | None = None
     upper_limit: float | None = None
     filter: ThresholdFilter | None = None
     calls: list[ChartCall] | None = None

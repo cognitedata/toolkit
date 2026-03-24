@@ -1,7 +1,7 @@
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, ClassVar
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
@@ -405,28 +405,31 @@ class TestChartMapper:
         source.data.scheduled_calculation_collection = None
 
         assert len(output_chart.data.core_timeseries_collection or []) == len(source.data.time_series_collection or [])
-
+        core_timeseries = output_chart.data.core_timeseries_collection or []
         with monkeypatch_toolkit_client() as client:
             time_series_lookup = MagicMock()
             time_series_lookup.side_effect = [
                 # Two first calls to populate cache.
                 None,
                 None,
-                *[core_ts.node_reference for core_ts in output_chart.data.core_timeseries_collection or []],
+                *[core_ts.node_reference for core_ts in core_timeseries],
             ]
             time_series_lookup.consumer_view.return_value = ViewId(
                 space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
             )
             client.migration.lookup.time_series = time_series_lookup
 
-            mapper = ChartMapper(client)
-
-            mapped_list = mapper.map([source])
+            new_uuids = [core_ts.id for core_ts in core_timeseries]
+            with patch(f"{ChartMapper.__module__}.uuid4", side_effect=new_uuids):
+                mapper = ChartMapper(client)
+                mapped_list = mapper.map([source])
             assert len(mapped_list) == 1
             mapped = mapped_list[0]
             assert isinstance(mapped, ChartRequest)
 
-        assert mapped.dump() == output_chart.as_request_resource().model_dump(
+        assert mapped.model_dump(
+            mode="json", by_alias=True, exclude_unset=True, exclude_none=True
+        ) == output_chart.as_request_resource().model_dump(
             mode="json",
             by_alias=True,
             exclude_unset=True,

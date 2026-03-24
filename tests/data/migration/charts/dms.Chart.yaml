@@ -1,13 +1,13 @@
-externalId: 823792ba-942c-4ea8-a2ae-e5de57ac48a6
+externalId: d8008471-1c85-4ac1-96b5-984aa0531ad8
 visibility: PRIVATE
-ownerId: Crk5dHiFQHZgZVLX7vo4lA
+ownerId: 9RGmRdXVoUuZuvDBhm5WNA
 data:
   version: 1
-  name: WithActivities
-  dateFrom: '2025-10-26T12:46:13.004Z'
-  dateTo: '2025-11-13T19:15:55.052Z'
+  name: Friction factor Copy
+  dateFrom: '2023-05-13T11:00:20.398Z'
+  dateTo: '2030-09-12T09:25:33.042Z'
   userInfo:
-    id: Crk5dHiFQHZgZVLX7vo4lA
+    id: 9RGmRdXVoUuZuvDBhm5WNA
     email: cogniter@cognitedata.com
     displayName: Cognite Cogniter
   liveMode: false
@@ -58,13 +58,13 @@ data:
   workflowCollection:
   - version: v2
     type: workflow
-    id: 52611dae-5132-4ea7-92c8-c2a9dbfb6873
-    name: New Calculation
-    color: '#005d5d'
+    id: 049e6081-863b-470a-b9c5-8479bd8acd52
+    name: Calc - Add 10
+    color: '#1192e8'
     enabled: true
     settings:
       autoAlign: true
-    lineWeight: 1.0
+    lineWeight: 1
     lineStyle: solid
     interpolation: linear
     unit: ''
@@ -72,24 +72,24 @@ data:
     range:
     - null
     - null
-    createdAt: 1773824762737
+    createdAt: 1773832633205
     flow:
-      zoom: 1
+      zoom: 1.0392520935895522
       elements:
-      - id: 75693a31-7aea-428d-a310-5003ec70e327
+      - id: c99bb13f-44dc-4cef-942b-b5a946f4ad71
         type: CalculationOutput
         position:
-          x: 666
-          y: 168
-      - id: 66155acc-ed97-4ece-8dcb-a75a62ea8b0a
+          x: 745
+          y: 183
+      - id: c01bf65b-4334-46bb-bc57-89cea382b83f
         data:
-          type: coreTimeseries
-          selectedSourceId: 85428909-19a4-4f3f-b4bd-c9a5d7e3bb58
-        type: CalculationInput
+          name: Constant
+          value: 10
+        type: Constant
         position:
-          x: 30.5
-          y: 67.91796875
-      - id: 13111598-fee8-4075-b589-3b5dfc92909f
+          x: 110.5
+          y: 213.640625
+      - id: a8e7ba7c-224f-4404-832a-1c80fbf79860
         data:
           parameterValues: {}
           selectedOperation:
@@ -97,74 +97,55 @@ data:
             version: '1.0'
         type: ToolboxFunction
         position:
-          x: 383.5
-          y: 109.91796875
-      - id: reactflow__edge-66155acc-ed97-4ece-8dcb-a75a62ea8b0aresult-13111598-fee8-4075-b589-3b5dfc92909fa
-        source: 66155acc-ed97-4ece-8dcb-a75a62ea8b0a
-        target: 13111598-fee8-4075-b589-3b5dfc92909f
+          x: 464.5
+          y: 170.640625
+      - id: 16b50fba-a849-4be6-b584-0e837cb15dfa
+        data:
+          type: coreTimeseries
+          selectedSourceId: 85428909-19a4-4f3f-b4bd-c9a5d7e3bb58
+        type: CalculationInput
+        position:
+          x: 108.5
+          y: 99.640625
+      - id: reactflow__edge-16b50fba-a849-4be6-b584-0e837cb15dfaresult-a8e7ba7c-224f-4404-832a-1c80fbf79860a
+        source: 16b50fba-a849-4be6-b584-0e837cb15dfa
+        target: a8e7ba7c-224f-4404-832a-1c80fbf79860
         sourceHandle: result
         targetHandle: a
-      - id: reactflow__edge-13111598-fee8-4075-b589-3b5dfc92909fout-result-0-75693a31-7aea-428d-a310-5003ec70e327datapoints
-        source: 13111598-fee8-4075-b589-3b5dfc92909f
-        target: 75693a31-7aea-428d-a310-5003ec70e327
-        sourceHandle: out-result-0
-        targetHandle: datapoints
-      - id: 8e3b5def-aeed-4a5e-bdcd-ce06a4c7733d
-        data:
-          name: Constant
-          value: 1
-        type: Constant
-        position:
-          x: 27.5
-          y: 163.91796875
-      - id: reactflow__edge-8e3b5def-aeed-4a5e-bdcd-ce06a4c7733dnull-13111598-fee8-4075-b589-3b5dfc92909fb
-        source: 8e3b5def-aeed-4a5e-bdcd-ce06a4c7733d
-        target: 13111598-fee8-4075-b589-3b5dfc92909f
+      - id: reactflow__edge-c01bf65b-4334-46bb-bc57-89cea382b83fnull-a8e7ba7c-224f-4404-832a-1c80fbf79860b
+        source: c01bf65b-4334-46bb-bc57-89cea382b83f
+        target: a8e7ba7c-224f-4404-832a-1c80fbf79860
         sourceHandle: null
         targetHandle: b
+      - id: reactflow__edge-a8e7ba7c-224f-4404-832a-1c80fbf79860out-result-0-c99bb13f-44dc-4cef-942b-b5a946f4ad71datapoints
+        source: a8e7ba7c-224f-4404-832a-1c80fbf79860
+        target: c99bb13f-44dc-4cef-942b-b5a946f4ad71
+        sourceHandle: out-result-0
+        targetHandle: datapoints
       position:
-      - 0
-      - 0
-    calls:
-    - id: 7c273903-99c0-47b8-9112-62740a8c92e7
-      hash: 725049952
-      callId: 7c273903-99c0-47b8-9112-62740a8c92e7
-      status: Pending
-      callDate: 1773824830191
+      - -37.95666472706603
+      - -0.8881571869956701
+    calls: []
   sourceCollection:
   - type: scheduledCalculation
-    id: Add1_1773824941523
+    id: Add_10_1773833602688
   - type: workflow
-    id: 52611dae-5132-4ea7-92c8-c2a9dbfb6873
+    id: 049e6081-863b-470a-b9c5-8479bd8acd52
   - type: coreTimeseries
     id: 85428909-19a4-4f3f-b4bd-c9a5d7e3bb58
+  - type: coreTimeseries
+    id: 867d1c8e-9b0c-4a5e-9c3f-7b2a1c8e5f3b
   thresholdCollection:
-  - id: 101f0e56-51bd-4abf-b70e-7cf19b478dfc
-    name: New threshold 2
-    visible: true
-    sourceId: 52611dae-5132-4ea7-92c8-c2a9dbfb6873
-    upperLimit: 4.0
-    type: under
-    filter:
-      minUnit: seconds
-      maxUnit: hours
-    calls:
-    - hash: 1905796429
-      callId: 42a7bf8e-e7be-40bb-90c7-f316f52cf841
-      callDate: 1773826048162
-  - id: 899c1a41-ee78-441a-bd22-c83e49941689
-    name: Test
+  - id: ce5f4e0e-bcf4-49fb-95fa-041295d62390
+    name: Over10
     visible: true
     sourceId: 85428909-19a4-4f3f-b4bd-c9a5d7e3bb58
-    upperLimit: 5.0
-    type: under
+    lowerLimit: 10
+    type: over
     filter:
       minUnit: seconds
       maxUnit: hours
-    calls:
-    - hash: -835565992
-      callId: 9cd455ad-7144-4029-a663-d6b7053f805a
-      callDate: 1773825168347
+    calls: []
   scheduledCalculationCollection:
   - version: v2
     type: scheduledCalculation
