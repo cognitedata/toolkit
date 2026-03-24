@@ -47,9 +47,14 @@ class ChartPosition(ChartObject):
     y: float | None = None
 
 
+class FlowData(ChartObject):
+    type: str | None = None
+    selected_source_id: str | None = None
+
+
 class FlowElement(ChartElement):
     position: ChartPosition | None = None
-    data: JsonValue | None = None
+    data: FlowData | None = None
     source: str | None = None
     target: str | None = None
     source_handle: str | None = None

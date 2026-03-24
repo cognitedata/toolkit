@@ -20,7 +20,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartRequest, 
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
     ChartCoreTimeseries,
     ChartSource,
+    ChartThreshold,
     ChartTimeseries,
+    ChartWorkflow,
+    FlowElement,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -315,11 +318,21 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         updated_source_collection = self._update_source_collection(
             item.data.source_collection or [], time_series_collection, timeseries_core_collection
         )
+        updated_threshold_collection = self._update_threshold_collection(
+            item.data.threshold_collection or [], uuid_generator
+        )
+        updated_workflow_collection = self._update_workflow_collection(
+            item.data.workflow_collection or [], uuid_generator
+        )
 
         mapped_chart = item.as_request_resource()
         mapped_chart.data.core_timeseries_collection = timeseries_core_collection
         mapped_chart.data.time_series_collection = None
         mapped_chart.data.source_collection = updated_source_collection
+        if updated_workflow_collection:
+            mapped_chart.data.threshold_collection = updated_threshold_collection
+        if updated_workflow_collection:
+            mapped_chart.data.workflow_collection = updated_workflow_collection
         return mapped_chart, issue
 
     def _create_timeseries_core_collection(
@@ -393,6 +406,62 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             new_source_item = ChartSource(id=cast(str, core_ts_item.id), type=cast(str, core_ts_item.type))
             updated_source_collection.append(new_source_item)
         return updated_source_collection
+
+    def _update_threshold_collection(
+        self, collection: list[ChartThreshold], uuid_generator: dict[str, str]
+    ) -> list[ChartThreshold]:
+        updated_collection = []
+        for threshold in collection:
+            if threshold.source_id in uuid_generator:
+                updated_collection.append(
+                    threshold.model_copy(
+                        update={
+                            "sourceId": uuid_generator[threshold.source_id],
+                            "calls": [],
+                        }
+                    )
+                )
+            else:
+                updated_collection.append(threshold)
+        return updated_collection
+
+    def _update_workflow_collection(
+        self, collection: list[ChartWorkflow], uuid_generator: dict[str, str]
+    ) -> list[ChartWorkflow]:
+        updated_collection: list[ChartWorkflow] = []
+        for workflow in collection:
+            updated_elements: list[FlowElement] = []
+            if workflow.flow is None:
+                updated_collection.append(workflow)
+                continue
+            has_changes = False
+            for element in workflow.flow.elements or []:
+                if element.data and element.data.selected_source_id in uuid_generator:
+                    updated_elements.append(
+                        element.model_copy(
+                            update={
+                                "data": {
+                                    "selectedSourceId": uuid_generator[element.data.selected_source_id],
+                                    "type": "coreTimeseries",
+                                }
+                            }
+                        )
+                    )
+                    has_changes = True
+                else:
+                    updated_elements.append(element)
+            if has_changes:
+                updated_collection.append(
+                    workflow.model_copy(
+                        update={
+                            "flow": {"elements": updated_elements},
+                            "calls": [],
+                        }
+                    )
+                )
+            else:
+                updated_collection.append(workflow)
+        return updated_collection
 
 
 class CanvasMapper(DataMapper[CanvasSelector, IndustrialCanvasResponse, IndustrialCanvasRequest]):
