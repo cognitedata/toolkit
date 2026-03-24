@@ -303,7 +303,8 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
             ]
         raise ValueError(f"Invalid ids: {ids}")
 
-    def safe_read(self, filepath: Path | str) -> str:
+    @classmethod
+    def safe_read(cls, filepath: Path | str) -> str:
         """Reads the file and returns the content. This is intended to be overwritten in subclasses that require special
         handling of the files content. For example, Data Models need to quote the value on the version key to ensure
         it is parsed as a string."""

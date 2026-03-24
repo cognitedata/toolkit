@@ -184,7 +184,8 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
                 for asset_external_id in filter_.asset_subtree_external_ids or []:
                     yield AssetCRUD, ExternalId(external_id=asset_external_id)
 
-    def safe_read(self, filepath: Path | str) -> str:
+    @classmethod
+    def safe_read(cls, filepath: Path | str) -> str:
         # The customerDataSpaceVersion is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
