@@ -30,7 +30,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.commands import MigrationCommand
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricMapper, ThreeDAssetMapper, ThreeDMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
+    AssetCentricToInstanceMapper,
+    ThreeDAssetMapper,
+    ThreeDMapper,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATION_MODEL, SPACE_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import ASSET_ID
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (
@@ -79,7 +83,7 @@ def migrated_asset(
     cmd.migrate(
         selectors=[MigrationCSVFileSelector(datafile=csv_file, kind="Assets")],
         data=AssetCentricMigrationIO(client),
-        mapper=AssetCentricMapper(client),
+        mapper=AssetCentricToInstanceMapper(client),
         log_dir=tmp_path / "migration_logs",
         dry_run=False,
         verbose=False,

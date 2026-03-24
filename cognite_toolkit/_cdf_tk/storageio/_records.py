@@ -1,10 +1,8 @@
 import json
-import time
 from collections.abc import Iterable
-from datetime import timedelta
 from typing import ClassVar
 
-from pydantic import Field, TypeAdapter
+from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client.cdf_client import PagedResponse
 from cognite_toolkit._cdf_tk.client.http_client import HTTPClient, RequestMessage
@@ -51,40 +49,24 @@ class RecordIO(
     CHUNK_SIZE = 500
     MAX_TOTAL_RECORDS = 1_000_000
     BASE_SELECTOR = RecordContainerSelector
-    _TIMEDELTA_ADAPTER: ClassVar[TypeAdapter[timedelta]] = TypeAdapter(timedelta)
-
-    def _get_max_filtering_interval_ms(self, stream_external_id: str) -> int | None:
-        """Get the stream's maxFilteringInterval in ms, returning None for mutable streams."""
-        streams = self.client.streams.retrieve([ExternalId(external_id=stream_external_id)])
-        stream = streams[0] if streams else None
-        if stream is None or stream.type == "Mutable":
-            return None
-        if stream.settings and stream.settings.limits.max_filtering_interval:
-            td = self._TIMEDELTA_ADAPTER.validate_python(stream.settings.limits.max_filtering_interval)
-            return int(td.total_seconds() * 1000)
-        return None
 
     def count(self, selector: RecordContainerSelector) -> int | None:
         if selector.initialize_cursor is None:
             raise ToolkitValueError("initialize_cursor must be set on the selector for download operations")
         url = self.AGGREGATE_ENDPOINT.format(streamId=selector.stream.external_id)
-        start_ms = timestamp_to_ms(selector.initialize_cursor)
-        now_ms = int(time.time() * 1000)
         sync_filter = self._build_sync_filter(selector)
-        # Immutable streams enforce a maxFilteringInterval for the lastUpdatedTime filter which is
-        # specified in its settings, so we split the time range for downloading records into windows that
-        # fit within that limit. Mutable streams have no such restriction, so we query the full range in one go.
-        max_interval_ms = self._get_max_filtering_interval_ms(selector.stream.external_id) or (now_ms - start_ms)
-
+        start_ms = timestamp_to_ms(selector.initialize_cursor)
         total = 0
-        window_start = start_ms
-        while window_start < now_ms:
-            window_end = min(window_start + max_interval_ms, now_ms)
+        stream_crud = StreamCRUD.create_loader(self.client)
+        for last_updated_time in stream_crud.iter_last_updated_time_windows(
+            selector.stream.external_id, start_ms=start_ms
+        ):
             body: dict[str, object] = {
                 "filter": sync_filter,
-                "lastUpdatedTime": {"gte": window_start, "lt": window_end},
                 "aggregates": {"total": {"count": {}}},
             }
+            if last_updated_time is not None:
+                body["lastUpdatedTime"] = last_updated_time
             request = RequestMessage(
                 endpoint_url=self.client.config.create_api_url(url),
                 method="POST",
@@ -94,7 +76,6 @@ class RecordIO(
             response = result.get_success_or_raise(request)
             data = json.loads(response.body)
             total += int(data["aggregates"]["total"]["count"])
-            window_start = window_end
         return total
 
     def configurations(self, selector: RecordContainerSelector) -> Iterable[StorageIOConfig]:
