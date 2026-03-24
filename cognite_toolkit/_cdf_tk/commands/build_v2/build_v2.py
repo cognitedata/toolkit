@@ -17,6 +17,7 @@ from rich.table import Table
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
+from cognite_toolkit._cdf_tk.client.identifiers import ViewId, ViewNoVersionId
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2._module_source_parser import ModuleSourceParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
@@ -54,7 +55,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
     ResourceCRUD,
 )
-from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD, ViewCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
 from cognite_toolkit._cdf_tk.utils import calculate_hash, safe_write, sanitize_filename
@@ -530,6 +531,24 @@ class BuildV2Command(ToolkitCommand):
                 )
         return built_resources
 
+    @staticmethod
+    def _dependency_present_in_build(
+        built_resource_ids: set[tuple[type[ResourceCRUD], Identifier]],
+        crud_cls: type[ResourceCRUD],
+        dependency_id: Identifier,
+    ) -> bool:
+        if (crud_cls, dependency_id) in built_resource_ids:
+            return True
+        if crud_cls is ViewCRUD and type(dependency_id) is ViewNoVersionId:
+            return any(
+                isinstance(ident, ViewId)
+                and ident.space == dependency_id.space
+                and ident.external_id == dependency_id.external_id
+                for built_crud, ident in built_resource_ids
+                if built_crud is ViewCRUD
+            )
+        return False
+
     def _dependency_validation(self, built_modules: list[BuiltModule], client: ToolkitClient | None) -> InsightList:
         """CDF dependency validations are validations that require checking the existence of resources in CDF."""
         built_resource_ids: set[tuple[type[ResourceCRUD], Identifier]] = {
@@ -541,7 +560,7 @@ class BuildV2Command(ToolkitCommand):
         for module in built_modules:
             for resource in module.resources:
                 for crud_cls, dependency_id in resource.dependencies:
-                    if (crud_cls, dependency_id) not in built_resource_ids:
+                    if not self._dependency_present_in_build(built_resource_ids, crud_cls, dependency_id):
                         missing_locally_by_crud_cls[crud_cls][dependency_id].append(resource)
         insights = InsightList()
         code = "MISSING-DEPENDENCY"
@@ -549,9 +568,13 @@ class BuildV2Command(ToolkitCommand):
             for crud_cls, expected_by_identifier in missing_locally_by_crud_cls.items():
                 crud = crud_cls(client, None, None)
                 display_name = crud.display_name
-                existing_in_cdf = {
-                    crud.get_id(cdf_item) for cdf_item in crud.retrieve(list(expected_by_identifier.keys()))
-                }
+                retrieved = crud.retrieve(list(expected_by_identifier.keys()))
+                existing_in_cdf: set[Identifier] = set()
+                for cdf_item in retrieved:
+                    item_id = crud.get_id(cdf_item)
+                    existing_in_cdf.add(item_id)
+                    if crud_cls is ViewCRUD:
+                        existing_in_cdf.add(ViewNoVersionId(space=item_id.space, external_id=item_id.external_id))
                 if missing := set(expected_by_identifier.keys()) - existing_in_cdf:
                     for identifier in missing:
                         expected_resources = expected_by_identifier[identifier]
