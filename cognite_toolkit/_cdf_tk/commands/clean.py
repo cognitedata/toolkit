@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     CRUDS_BY_FOLDER_NAME,
     DataCRUD,
     DataSetsCRUD,
+    FileCRUD,
     RawDatabaseCRUD,
     ResourceContainerCRUD,
     ResourceCRUD,
@@ -350,7 +351,11 @@ class CleanCommand(ToolkitCommand):
             for loader_cls in loader_classes:
                 if loader_cls.any_supported_files(build_dir / folder_name):
                     folder_has_supported_files = True
-                    selected_loaders[loader_cls] = loader_cls.dependencies
+                    if issubclass(loader_cls, SimulatorModelRevisionCRUD):
+                        # Special case, we need to ensure that the file is uploaded before we try to deploy.
+                        selected_loaders[loader_cls] = loader_cls.dependencies | {FileCRUD}
+                    else:
+                        selected_loaders[loader_cls] = loader_cls.dependencies
                 elif issubclass(loader_cls, DataCRUD):
                     # Data Loaders are always included, as they will have
                     # the files in the module folder and not the build folder.
