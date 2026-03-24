@@ -603,9 +603,9 @@ class TestMigrationCommand:
                     date_to="2025-12-31T23:59:59.999Z",
                     time_series_collection=[
                         ChartTimeseries(
-                            tsExternalId="ts_1", type="timeseries", id="87654321-4321-8765-4321-876543218765"
+                            ts_external_id="ts_1", type="timeseries", id="87654321-4321-8765-4321-876543218765"
                         ),
-                        ChartTimeseries(tsId=1, type="timeseries", id="12345678-1234-5678-1234-567812345678"),
+                        ChartTimeseries(ts_id=1, type="timeseries", id="12345678-1234-5678-1234-567812345678"),
                     ],
                     source_collection=[
                         ChartSource(type="timeseries", id="87654321-4321-8765-4321-876543218765"),

@@ -94,8 +94,8 @@ class RecordStreamTriggerRule(TriggerRuleYAML):
         min_length=1,
         max_length=100,
     )
-    filter: JsonValue
-    sources: list[RecordSource]
+    filter: JsonValue | None = None
+    sources: list[RecordSource] | None = None
     batch_size: int = Field(
         description="The maximum number of records to pass to a workflow execution.",
         ge=1,
