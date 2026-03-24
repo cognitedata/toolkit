@@ -12,6 +12,7 @@ profile = true
 infield = true
 migrate = true
 infield-migrate = true
+infield-dev = true
 streams = true
 create = true
 extend-download = true
@@ -19,6 +20,7 @@ extend-upload = true
 simulators = true
 v08 = false
 data-products = true
+deployment-pack = true
 
 [plugins]
 run = true

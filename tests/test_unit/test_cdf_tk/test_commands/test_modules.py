@@ -15,7 +15,7 @@ from questionary import Choice
 
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.data_classes import Package, Packages
+from cognite_toolkit._cdf_tk.data_classes import ModuleLocation, Package, Packages
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from cognite_toolkit._cdf_tk.tk_warnings.other import HighSeverityWarning
 from tests.data import COMPLETE_ORG, EXTERNAL_PACKAGE
@@ -461,3 +461,117 @@ class TestModulesCommand:
                 "resources": 3,
             }
         ]
+
+    @pytest.fixture
+    def lookup_packages(self, tmp_path: Path) -> Packages:
+        """Minimal Packages fixture for _find_and_select_module tests."""
+        base = tmp_path
+        mod_a = ModuleLocation(dir=base / "mod_a", source_absolute_path=base, source_paths=[])
+        mod_b = ModuleLocation(dir=base / "mod_b", source_absolute_path=base, source_paths=[])
+        mod_locked = ModuleLocation(dir=base / "mod_locked", source_absolute_path=base, source_paths=[])
+        mod_only_fixed = ModuleLocation(dir=base / "mod_only_fixed", source_absolute_path=base, source_paths=[])
+        # A second cherry-pickable package that also contains a module named "mod_b" (collision)
+        mod_b_alt = ModuleLocation(dir=base / "alt" / "mod_b", source_absolute_path=base, source_paths=[])
+        mod_c = ModuleLocation(dir=base / "mod_c", source_absolute_path=base, source_paths=[])
+        return Packages(
+            {
+                "cherry_pkg": Package(
+                    name="cherry_pkg", title="Cherry Package", can_cherry_pick=True, modules=[mod_a, mod_b]
+                ),
+                "fixed_pkg": Package(
+                    name="fixed_pkg",
+                    title="Fixed Package",
+                    can_cherry_pick=False,
+                    modules=[mod_locked, mod_only_fixed],
+                ),
+                "other_cherry_pkg": Package(
+                    name="other_cherry_pkg",
+                    title="Other Cherry Package",
+                    can_cherry_pick=True,
+                    modules=[mod_b_alt, mod_c],
+                ),
+            }
+        )
+
+    @pytest.mark.parametrize(
+        "name, expected_pkg, expected_modules",
+        [
+            ("cherry_pkg", "cherry_pkg", {"mod_a", "mod_b"}),
+            ("CHERRY_PKG", "cherry_pkg", {"mod_a", "mod_b"}),
+            ("fixed_pkg", "fixed_pkg", {"mod_locked", "mod_only_fixed"}),
+            ("other_cherry_pkg", "other_cherry_pkg", {"mod_b", "mod_c"}),
+            ("mod_a", "cherry_pkg", {"mod_a"}),
+            ("MOD_A", "cherry_pkg", {"mod_a"}),
+            ("mod_c", "other_cherry_pkg", {"mod_c"}),
+        ],
+    )
+    def test_find_and_select_module_lookup(
+        self, lookup_packages: Packages, name: str, expected_pkg: str, expected_modules: set[str]
+    ) -> None:
+        cmd = ModulesCommand(print_warning=False, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
+        result = cmd._find_and_select_module(lookup_packages, name, [])
+        assert expected_pkg in result
+        assert {m.name for m in result[expected_pkg].modules} == expected_modules
+
+    def test_find_and_select_module_skips_installed(self, lookup_packages: Packages) -> None:
+        cmd = ModulesCommand(print_warning=False, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
+        result = cmd._find_and_select_module(lookup_packages, "cherry_pkg", ["mod_a"])
+        assert len(result["cherry_pkg"].modules) == 1
+        assert result["cherry_pkg"].modules[0].name == "mod_b"
+
+    @pytest.mark.parametrize(
+        "name, existing, match",
+        [
+            ("cherry_pkg", ["mod_a", "mod_b"], "already installed"),
+            ("mod_a", ["mod_a"], "already installed"),
+            ("mod_locked", [], "not found"),  # non-cherry-pickable module
+            ("mod_b", [], "multiple packages"),  # ambiguous: exists in cherry_pkg and other_cherry_pkg
+            ("cherry_pk", [], "Did you mean"),  # typo
+            ("zzz_completely_unrelated_xyz", [], "not found"),
+        ],
+    )
+    def test_find_and_select_module_errors(
+        self, lookup_packages: Packages, name: str, existing: list[str], match: str
+    ) -> None:
+        cmd = ModulesCommand(print_warning=False, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
+        with pytest.raises(ToolkitError, match=match):
+            cmd._find_and_select_module(lookup_packages, name, existing)
+
+    def test_add_with_deployment_pack(
+        self, lookup_packages: Packages, tmp_path: Path, monkeypatch: MonkeyPatch
+    ) -> None:
+        my_org = tmp_path / "my_org"
+        stub_file = my_org / "modules" / "stub" / "data_models" / "stub.Space.yaml"
+        stub_file.parent.mkdir(parents=True, exist_ok=True)
+        stub_file.write_text("space: stub_space")
+
+        cmd = ModulesCommand(print_warning=False, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
+        monkeypatch.setattr(cmd, "_get_available_packages", lambda: (lookup_packages, COMPLETE_ORG_MODULES))
+        monkeypatch.setattr(cmd, "_get_download_data", lambda _: False)
+
+        captured: dict = {}
+
+        def capture_create(**kwargs: object) -> None:
+            captured.update(kwargs)
+
+        monkeypatch.setattr(cmd, "_create", capture_create)
+        cmd.add(my_org, deployment_pack="mod_a")
+
+        assert "selected_packages" in captured, "_create was not called"
+        assert "cherry_pkg" in captured["selected_packages"]
+        assert len(captured["selected_packages"]["cherry_pkg"].modules) == 1
+        assert captured["selected_packages"]["cherry_pkg"].modules[0].name == "mod_a"
+
+    def test_add_with_deployment_pack_invalid_name_raises(
+        self, lookup_packages: Packages, tmp_path: Path, monkeypatch: MonkeyPatch
+    ) -> None:
+        my_org = tmp_path / "my_org"
+        stub_file = my_org / "modules" / "stub" / "data_models" / "stub.Space.yaml"
+        stub_file.parent.mkdir(parents=True, exist_ok=True)
+        stub_file.write_text("space: stub_space")
+
+        cmd = ModulesCommand(print_warning=False, skip_tracking=True, module_source_dir=COMPLETE_ORG_MODULES)
+        monkeypatch.setattr(cmd, "_get_available_packages", lambda: (lookup_packages, COMPLETE_ORG_MODULES))
+
+        with pytest.raises(ToolkitError, match="not found"):
+            cmd.add(my_org, deployment_pack="nonexistent_module")

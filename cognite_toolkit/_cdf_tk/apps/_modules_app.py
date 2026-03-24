@@ -150,6 +150,15 @@ class ModulesApp(typer.Typer):
                 help="Path to project directory with the modules. This is used to search for available functions.",
             ),
         ] = CDF_TOML.cdf.default_organization_dir,
+        deployment_pack: Annotated[
+            str | None,
+            typer.Option(
+                "--deployment-pack",
+                "-d",
+                help="Name of a specific module to download and install from the library without interactive prompts.",
+                hidden=not Flags.DEPLOYMENT_PACK.is_enabled(),
+            ),
+        ] = None,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -161,12 +170,14 @@ class ModulesApp(typer.Typer):
     ) -> None:
         """Add one or more new module(s) to the project."""
         client: ToolkitClient | None = None
+        if not Flags.DEPLOYMENT_PACK.is_enabled():
+            deployment_pack = None
         with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
             # Try to load client if possible, but ignore errors.
             # This is only used for logging purposes in the command.
             client = EnvironmentVariables.create_from_environment().get_client()
         with ModulesCommand(client=client) as cmd:
-            cmd.run(lambda: cmd.add(organization_dir=organization_dir))
+            cmd.run(lambda: cmd.add(organization_dir=organization_dir, deployment_pack=deployment_pack))
 
     def pull(
         self,

@@ -5,10 +5,10 @@ import pytest
 
 from cognite_toolkit._cdf_tk.client._resource_base import UpdatableRequestResource, _get_annotation_origin
 from cognite_toolkit._cdf_tk.client._types import Metadata
-from cognite_toolkit._cdf_tk.client.identifiers import NodeId, PrincipalId
+from cognite_toolkit._cdf_tk.client.identifiers import NodeId, PrincipalId, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import KNOWN_TOOLS, AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetRequest
-from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import NodeRequest
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.datapoint_subscription import (
     DatapointSubscriptionRequest,
 )
@@ -503,6 +503,41 @@ class TestNodeRequest:
             },
         }
         assert my_node_request.type == my_node_type
+
+    def test_serialize_direct_relation_property(self) -> None:
+        my_node = NodeRequest(
+            space="my_space",
+            external_id="my_node",
+            sources=[
+                InstanceSource(
+                    source=ViewId(space="my_schema", external_id="MyView", version="v1"),
+                    properties={
+                        "myDirectRelation": NodeId(space="my_space", external_id="my_target_node"),
+                        "myListableDirectRelation": [
+                            NodeId(space="my_space", external_id="my_target_node2"),
+                            NodeId(space="my_schema", external_id="my_target_node3"),
+                        ],
+                    },
+                )
+            ],
+        )
+        assert my_node.dump() == {
+            "space": "my_space",
+            "externalId": "my_node",
+            "instanceType": "node",
+            "sources": [
+                {
+                    "source": {"space": "my_schema", "externalId": "MyView", "version": "v1", "type": "view"},
+                    "properties": {
+                        "myDirectRelation": {"space": "my_space", "externalId": "my_target_node"},
+                        "myListableDirectRelation": [
+                            {"space": "my_space", "externalId": "my_target_node2"},
+                            {"space": "my_schema", "externalId": "my_target_node3"},
+                        ],
+                    },
+                }
+            ],
+        }
 
 
 class TestStreams:

@@ -29,11 +29,7 @@ class InstanceDefinition(BaseModelObject, ABC):
 
 class InstanceSource(BaseModelObject):
     source: ViewId | ContainerId
-    properties: dict[str, JsonValue] | None = None
-
-    @field_serializer("source", mode="plain")
-    def serialize_source(self, value: ViewId | ContainerId) -> Any:
-        return {**value.dump(), "type": value.type}
+    properties: dict[str, JsonValue | NodeUntypedId | list[NodeUntypedId]] | None = None
 
 
 class InstanceRequestDefinition(InstanceDefinition, RequestResource, ABC):
@@ -46,7 +42,7 @@ class InstanceResponseDefinition(InstanceDefinition, ResponseResource, Generic[T
     created_time: int
     last_updated_time: int
     deleted_time: int | None = None
-    properties: dict[ViewId | ContainerId, dict[str, JsonValue]] | None = None
+    properties: dict[ViewId | ContainerId, dict[str, JsonValue | NodeUntypedId | list[NodeUntypedId]]] | None = None
 
     @field_validator("properties", mode="before")
     def parse_reference(cls, value: Any) -> Any:

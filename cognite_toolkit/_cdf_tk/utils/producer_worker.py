@@ -8,6 +8,7 @@ from collections.abc import Callable, Iterable, Sized
 from typing import Any, Generic, TypeVar
 
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.progress import (
     BarColumn,
@@ -201,7 +202,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         if self._error_event.is_set():
             if self.verbose and self.error_traceback:
                 self.print_traceback()
-            raise ToolkitRuntimeError(f"An error occurred during execution: {self.error_message}")
+            raise ToolkitRuntimeError(f"An error occurred during execution: {escape(self.error_message)}")
         if self._stop_event.is_set():
             raise ToolkitRuntimeError("Execution was stopped by the user.")
 
