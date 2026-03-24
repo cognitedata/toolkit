@@ -786,7 +786,7 @@ class RunWorkflowCommand(ToolkitCommand):
             start_time = time.time()
             duration = 0.0
             sleep_time = 1
-            while (result is None or result.status.upper() == "RUNNING") and duration < max_time:
+            while (result is None or str(result.status).upper() == "RUNNING") and duration < max_time:
                 time.sleep(sleep_time)
                 sleep_time = min(sleep_time * 2, 15)
                 result = cast(
@@ -794,16 +794,18 @@ class RunWorkflowCommand(ToolkitCommand):
                     client.workflows.executions.retrieve_detailed(execution.id),
                 )
                 duration = time.time() - start_time
+                if result is not None:
+                    completed_count = sum(
+                        1
+                        for task in result.executed_tasks
+                        if str(task.status).upper() not in {"IN_PROGRESS", "SCHEDULED"}
+                    )
+                    progress.update(call_task, completed=min(completed_count, total))
+            if result is not None:
                 completed_count = sum(
-                    1 for task in result.executed_tasks if task.status.upper() not in {"IN_PROGRESS", "SCHEDULED"}
+                    1 for task in result.executed_tasks if str(task.status).upper() not in {"IN_PROGRESS", "SCHEDULED"}
                 )
-                # Todo remove this print statement. It is added to check why the progress goes early to 100%.
-                task_statuses = {task.external_id: task.status for task in result.executed_tasks}
-                print(f"Status: {task_statuses}")
-                print(f"Complete count: {completed_count}, total: {total}")
-                progress.advance(call_task, advance=completed_count)
-            progress.advance(call_task, advance=total)
-            progress.stop()
+                progress.update(call_task, completed=min(completed_count, total))
         if result is None:
             print(f"Could not find execution {execution.id}")
             return False
