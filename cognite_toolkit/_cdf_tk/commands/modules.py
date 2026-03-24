@@ -1,3 +1,4 @@
+import difflib
 import json
 import shutil
 import sys
@@ -542,6 +543,74 @@ class ModulesCommand(ToolkitCommand):
             )
         return selected
 
+    def _find_and_select_module(
+        self,
+        packages: Packages,
+        module_name: str,
+        existing_module_names: list[str],
+    ) -> Packages:
+        """
+        Find a package or module by name and return it as a Packages selection.
+        Raises ToolkitError if nothing is found or every matched module is already installed.
+        """
+        existing = set(existing_module_names)
+        name_lower = module_name.casefold()
+
+        by_package = {name.casefold(): pkg for name, pkg in packages.items()}
+        by_module: dict[str, list[tuple[Package, ModuleLocation]]] = {}
+        for pkg in packages.values():
+            if pkg.can_cherry_pick:
+                for module in pkg.modules:
+                    by_module.setdefault(module.name.casefold(), []).append((pkg, module))
+
+        if name_lower in by_package:
+            package = by_package[name_lower]
+            installable = [m for m in package.modules if m.name not in existing]
+            if not installable:
+                raise ToolkitError(f"All modules in package '{package.name}' are already installed in this project.")
+            already_skipped = [m.name for m in package.modules if m.name in existing]
+            if already_skipped:
+                print(f"[yellow]Skipping already installed modules: {', '.join(already_skipped)}[/]")
+            print(f"[green]Selected package '{package.name}' ({len(installable)} module(s)).[/]")
+            selected = Packages()
+            selected[package.name] = Package(
+                name=package.name,
+                title=package.title,
+                description=package.description,
+                modules=installable,
+            )
+            return selected
+
+        if name_lower in by_module:
+            matches = by_module[name_lower]
+            if len(matches) > 1:
+                pkg_names = ", ".join(f"'{pkg.name}'" for pkg, _ in matches)
+                raise ToolkitError(
+                    f"Module '{module_name}' exists in multiple packages: {pkg_names}. "
+                    f"Use the full package name instead."
+                )
+            found_package, found_module = matches[0]
+            if found_module.name in existing:
+                raise ToolkitError(f"Module '{found_module.name}' is already installed in this project.")
+            print(f"[green]Selected module '{found_module.name}' from package '{found_package.name}'.[/]")
+            selected = Packages()
+            selected[found_package.name] = Package(
+                name=found_package.name,
+                title=found_package.title,
+                description=found_package.description,
+                modules=[found_module],
+            )
+            return selected
+
+        close = difflib.get_close_matches(name_lower, list(by_package) + list(by_module), n=1)
+        if close:
+            match = close[0]
+            suggestion = by_package[match].name if match in by_package else by_module[match][0][1].name
+            raise ToolkitError(f"'{module_name}' not found. Did you mean '{suggestion}'?")
+        raise ToolkitError(
+            f"'{module_name}' not found as a package name or module name in any cherry-pickable package."
+        )
+
     @staticmethod
     def _verify_clean(modules_root_dir: Path, clean: bool) -> Literal["new", "clean"]:
         if clean:
@@ -760,7 +829,7 @@ class ModulesCommand(ToolkitCommand):
 
         print(table)
 
-    def add(self, organization_dir: Path) -> None:
+    def add(self, organization_dir: Path, deployment_pack: str | None = None) -> None:
         verify_module_directory(organization_dir, None)
         environments = [env for env in EnvType.__args__ if (organization_dir / f"config.{env}.yaml").exists()]  # type: ignore[attr-defined]
         if environments:
@@ -777,7 +846,11 @@ class ModulesCommand(ToolkitCommand):
 
         existing_module_names = [module.name for module in ModuleResources(organization_dir, build_env).list()]
         available_packages, modules_source_path = self._get_available_packages()
-        added_packages = self._select_packages(available_packages, existing_module_names)
+
+        if deployment_pack is not None:
+            added_packages = self._find_and_select_module(available_packages, deployment_pack, existing_module_names)
+        else:
+            added_packages = self._select_packages(available_packages, existing_module_names)
 
         download_data = self._get_download_data(added_packages)
         self._create(
