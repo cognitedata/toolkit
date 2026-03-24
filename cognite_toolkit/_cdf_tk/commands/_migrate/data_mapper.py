@@ -329,7 +329,9 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             all_event_ids = list(
                 {event_id for event_ids in event_ids_by_chart_external_id.values() for event_id in event_ids}
             )
-            self.client.migration.lookup.time_series(all_event_ids)
+            # This call will populate the cache for all events, such that we can do efficient lookup later
+            # when we do a lookup on one by one event.
+            self.client.migration.lookup.events(all_event_ids)
         return event_ids_by_chart_external_id
 
     def _map_single_item(
