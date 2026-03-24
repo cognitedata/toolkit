@@ -377,7 +377,8 @@ class BuildV2Command(ToolkitCommand):
                     )
                     continue
                 kind = resource_file.stem.rsplit(".", maxsplit=1)[-1]
-                if kind not in class_by_kind:
+                kind_key = kind.lower()
+                if kind_key not in class_by_kind:
                     resources.append(
                         FailedReadYAMLFile(
                             source_path=resource_file,
@@ -386,7 +387,7 @@ class BuildV2Command(ToolkitCommand):
                         )
                     )
                     continue
-                resources.append(self._read_resource_file(resource_file, class_by_kind[kind], source.variables))
+                resources.append(self._read_resource_file(resource_file, class_by_kind[kind_key], source.variables))
         return Module(id=source.as_id(), files=resources, ignored_files=ignored_files)
 
     def _read_resource_file(

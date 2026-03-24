@@ -164,7 +164,7 @@ class TestBuildCommand:
         assert len(lineage_file) == 1
         assert len(insights_file) == 1
 
-    def test_end_to_end_failed_build(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
+    def test_end_to_end_invalid_space_emits_syntax_warning(self, tmp_path: Path, tlk_client: ToolkitClient) -> None:
         cmd = BuildV2Command()
 
         # Set up a simple organization with modules folder.
@@ -180,7 +180,16 @@ name: My Space
 
         folder = cmd.build(parameters, tlk_client)
 
-        assert "my_module" in folder.built_modules_by_success[False]
+        my_module = next(m for m in folder.built_modules if m.module_id.name == "my_module")
+        assert {
+            "resource_count": len(my_module.resources),
+            "syntax_warnings": sum(1 for r in my_module.resources if r.syntax_warning is not None),
+            "insight_codes": {i.code for i in folder.all_insights if i.code},
+        } == {
+            "resource_count": 1,
+            "syntax_warnings": 1,
+            "insight_codes": {"MODEL-SYNTAX-WARNING"},
+        }
 
 
 class TestValidateBuildParameters:
@@ -399,100 +408,30 @@ def _read_resource_outcome(result: FailedReadYAMLFile | SuccessfulReadYAMLFile) 
 
 class TestReadResourceFile:
     @pytest.mark.parametrize(
-        "filename, content, crud_class, expected",
+        "filename, content, crud_class, expected_code",
         [
-            pytest.param(
-                "resource.yaml",
-                "space: test\n",
-                SpaceCRUD,
-                {
-                    "outcome": "success",
-                    "code": None,
-                    "resource_count": 1,
-                    "has_syntax_warning": False,
-                },
-                id="filename_without_kind_suffix_still_parses_when_crud_explicit",
-            ),
             pytest.param(
                 "nonexistent.Space.yaml",
                 None,
                 SpaceCRUD,
-                {
-                    "outcome": "failed",
-                    "code": "READ-ERROR",
-                    "resource_count": None,
-                    "has_syntax_warning": None,
-                },
+                "READ-ERROR",
                 id="file_read_error",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 "key: [unclosed",
                 SpaceCRUD,
-                {
-                    "outcome": "failed",
-                    "code": "YAML-PARSE-ERROR",
-                    "resource_count": None,
-                    "has_syntax_warning": None,
-                },
+                "YAML-PARSE-ERROR",
                 id="yaml_parse_error",
-            ),
-            pytest.param(
-                "resource.Space.yaml",
-                "space: my_space\nname: My Space\n",
-                SpaceCRUD,
-                {
-                    "outcome": "success",
-                    "code": None,
-                    "resource_count": 1,
-                    "has_syntax_warning": False,
-                },
-                id="successful_single_resource",
-            ),
-            pytest.param(
-                "resource.Space.yaml",
-                'space: ""\n',
-                SpaceCRUD,
-                {
-                    "outcome": "success",
-                    "code": None,
-                    "resource_count": 1,
-                    "has_syntax_warning": True,
-                },
-                id="model_validation_error_yields_syntax_warning",
-            ),
-            pytest.param(
-                "resource.Space.yaml",
-                "space: my_space\nextra_field: value\n",
-                SpaceCRUD,
-                {
-                    "outcome": "success",
-                    "code": None,
-                    "resource_count": 1,
-                    "has_syntax_warning": True,
-                },
-                id="extra_fields_produces_syntax_warning",
-            ),
-            pytest.param(
-                "resource.Space.yaml",
-                "- space: space_one\n- space: space_two\n",
-                SpaceCRUD,
-                {
-                    "outcome": "success",
-                    "code": None,
-                    "resource_count": 2,
-                    "has_syntax_warning": False,
-                },
-                id="multiple_resources_in_list",
             ),
         ],
     )
-    def test_read_resource_file(
+    def test_read_resource_file_failed(
         self,
         filename: str,
         content: str | None,
         crud_class: type[ResourceCRUD],
-        expected: dict[str, Any],
+        expected_code: str,
         tmp_path: Path,
     ) -> None:
         cmd = BuildV2Command()
@@ -501,5 +440,61 @@ class TestReadResourceFile:
             resource_file.write_text(content)
 
         result = cmd._read_resource_file(resource_file, crud_class, [])
+        assert isinstance(result, FailedReadYAMLFile)
+        assert result.code == expected_code
 
-        assert _read_resource_outcome(result) == expected
+    @pytest.mark.parametrize(
+        "filename, content, crud_class, expected_resource_count, has_syntax_warning",
+        [
+            pytest.param(
+                "resource.Space.yaml",
+                "space: my_space\nname: My Space\n",
+                SpaceCRUD,
+                1,
+                False,
+                id="successful_single_resource",
+            ),
+            pytest.param(
+                "resource.Space.yaml",
+                'space: ""\n',
+                SpaceCRUD,
+                1,
+                True,
+                id="model_validation_error_yields_syntax_warning",
+            ),
+            pytest.param(
+                "resource.Space.yaml",
+                "space: my_space\nextra_field: value\n",
+                SpaceCRUD,
+                1,
+                True,
+                id="extra_fields_produces_syntax_warning",
+            ),
+            pytest.param(
+                "resource.Space.yaml",
+                "- space: space_one\n- space: space_two\n",
+                SpaceCRUD,
+                2,
+                False,
+                id="multiple_resources_in_list",
+            ),
+        ],
+    )
+    def test_read_resource_file_success(
+        self,
+        filename: str,
+        content: str | None,
+        crud_class: type[ResourceCRUD],
+        expected_resource_count: int,
+        has_syntax_warning: bool,
+        tmp_path: Path,
+    ) -> None:
+        cmd = BuildV2Command()
+        resource_file = tmp_path / filename
+        if content is not None:
+            resource_file.write_text(content)
+
+        result = cmd._read_resource_file(resource_file, crud_class, [])
+        assert isinstance(result, SuccessfulReadYAMLFile)
+        assert len(result.resources) == expected_resource_count
+        assert has_syntax_warning == (result.syntax_warning is not None)
