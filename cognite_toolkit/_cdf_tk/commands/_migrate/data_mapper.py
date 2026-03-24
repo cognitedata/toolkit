@@ -120,7 +120,7 @@ class DataMapper(Generic[T_Selector, T_DataResponse, T_DataRequest], ABC):
         raise NotImplementedError("Subclasses must implement this method.")
 
 
-class AssetCentricDataMapper(
+class AssetCentricMapper(
     DataMapper[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResourceExtended], T_DataRequest],
     Generic[T_AssetCentricResourceExtended, T_DataRequest],
     ABC,
@@ -170,7 +170,7 @@ class AssetCentricDataMapper(
         return output
 
 
-class AssetCentricToInstanceMapper(AssetCentricDataMapper[T_AssetCentricResourceExtended, InstanceRequest]):
+class AssetCentricToInstanceMapper(AssetCentricMapper[T_AssetCentricResourceExtended, InstanceRequest]):
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client)
         self._ingestion_view_by_id: dict[ViewId, ViewResponse] = {}
