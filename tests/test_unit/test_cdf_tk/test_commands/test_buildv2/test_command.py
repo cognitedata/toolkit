@@ -456,6 +456,6 @@ class TestImportResourceFile:
         if content is not None:
             resource_file.write_text(content)
 
-        result = cmd._import_resource_file(resource_file, class_by_kind, [], "data_modeling")
+        result = cmd._read_resource_file(resource_file, class_by_kind, [], "data_modeling")
 
         assert [type(r) for r in result] == expected_types

@@ -421,7 +421,7 @@ class MigrationCommand(ToolkitCommand):
                 crud = crud_cls.create_loader(client)
                 worker = ResourceWorker(crud, "deploy")
                 local_by_id = {
-                    crud.get_id(item.resource): (item.resource.dump(), item.resource) for item in to_create.resources
+                    crud.get_id(item.resource): (item.validated.dump(), item.validated) for item in to_create.resources
                 }
                 worker.validate_access(local_by_id, is_dry_run=dry_run)
                 cdf_resources = crud.retrieve(list(local_by_id.keys()))

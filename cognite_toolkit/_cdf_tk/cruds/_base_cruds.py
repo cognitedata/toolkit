@@ -407,6 +407,15 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
             f"Bug in CogniteToolkit 'as_str' is not implemented for {cls.__name__.removesuffix('Loader')}."
         )
 
+    @classmethod
+    def get_extra_files(cls, filepath: Path, identifier: T_Identifier) -> list[Any]:
+        # Todo Implement this class for
+        #   - functions
+        #   - streamlit
+        #   - ruleset
+        #   - transformation
+        return []
+
 
 class ResourceContainerCRUD(ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource], ABC):
     """This is the base class for all resource CRUD' containers.

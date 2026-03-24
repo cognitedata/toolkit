@@ -1,8 +1,9 @@
 import os
 import sys
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from datetime import datetime, timezone
+from itertools import zip_longest
 from pathlib import Path
 from typing import Any
 
@@ -42,13 +43,13 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
     BuildVariable,
     FailedReadYAMLFile,
     IgnoredFile,
+    ReadResource,
     ReadYAMLFile,
     SuccessfulReadYAMLFile,
-    SuccessfulValidatedResource,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._plugins import NeatPlugin
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._types import AbsoluteFilePath
-from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, MODULES
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HINT_LEAD_TEXT, MODULES
 from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
     ResourceCRUD,
@@ -56,11 +57,10 @@ from cognite_toolkit._cdf_tk.cruds import (
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
-from cognite_toolkit._cdf_tk.utils import calculate_hash, humanize_collection, safe_write, sanitize_filename
+from cognite_toolkit._cdf_tk.utils import calculate_hash, safe_write, sanitize_filename
 from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
     relative_to_if_possible,
-    safe_read,
     safe_rmtree,
     yaml_safe_dump,
 )
@@ -340,11 +340,11 @@ class BuildV2Command(ToolkitCommand):
                 progress.update(build_task, description=f"Building {module_name}")
 
                 # Inside this loop, do not raise exceptions.
-                module = self._import_module(source)  # Syntax validation
+                module = self._import_module(source)
 
                 # Local validation of module
                 insights = orchestrator.run(module)
-                built_resources = self._export_resources(module.resources, resource_counter, build_dir)
+                built_resources = self._export_resources(module.files, resource_counter, build_dir)
 
                 built_modules.append(
                     BuiltModule(
@@ -386,23 +386,21 @@ class BuildV2Command(ToolkitCommand):
                         )
                     )
                     continue
-                resources.extend(self._import_resource_file(resource_file, class_by_kind[kind], source.variables))
-        return Module(id=source.as_id(), resources=resources, ignored_files=ignored_files)
+                resources.append(self._read_resource_file(resource_file, class_by_kind[kind], source.variables))
+        return Module(id=source.as_id(), files=resources, ignored_files=ignored_files)
 
-    def _import_resource_file(
+    def _read_resource_file(
         self,
         resource_file: AbsoluteFilePath,
         crud_class: type[ResourceCRUD],
         variables: list[BuildVariable],
-    ) -> list[ReadYAMLFile]:
+    ) -> ReadYAMLFile:
         try:
             content = crud_class.safe_read(resource_file)
         except Exception as read_error:
-            return [
-                FailedReadYAMLFile(
-                    source_path=resource_file, error=f"Failed to read resource file: {read_error!s}", code="READ-ERROR"
-                )
-            ]
+            return FailedReadYAMLFile(
+                source_path=resource_file, error=f"Failed to read resource file: {read_error!s}", code="READ-ERROR"
+            )
 
         # Content read successfully.
         substituted_content = content
@@ -415,107 +413,70 @@ class BuildV2Command(ToolkitCommand):
             # Todo Look for variables not replaced in the content and add fix suggestion to the error.
             #  Look for variables at an adjacent level in the YAML structure to give more specific suggestions.
             #  Jira: CDF-27203
-            return [
-                FailedReadYAMLFile(
-                    source_path=resource_file,
-                    code="YAML-PARSE-ERROR",
-                    error=f"Failed to parse YAML content: {yaml_error!s}",
-                )
-            ]
+            return FailedReadYAMLFile(
+                source_path=resource_file,
+                code="YAML-PARSE-ERROR",
+                error=f"Failed to parse YAML content: {yaml_error!s}",
+            )
 
         file_hash = calculate_hash(content, shorten=True)
 
         resource_type = ResourceType(resource_folder=crud_class.folder_name, kind=crud_class.kind)
-        args = dict(
+        args: dict[str, Any] = dict(
             source_path=resource_file,
             source_hash=file_hash,
             resource_type=resource_type,
         )
 
         if isinstance(parsed_yaml, dict):
+            toolkit_resource: ToolkitResource | None = None
+            syntax_warning: ModelSyntaxWarning | None = None
             try:
                 resource = crud_class.yaml_cls.model_validate(parsed_yaml, extra="forbid")
-                # Todo include extra files
-                return [SuccessfulValidatedResource(raw=parsed_yaml, resource=resource, **args)]
+                identifier = resource.as_id()
             except ValidationError as errors:
-                # Todo include extra files
-                return [SuccessfulReadYAMLFile(raw=parsed_yaml, syntax_warning=self._create_syntax_warning(errors))]
-        # Is instance list
-        # MyPy complains but this works.
-        adapter = TypeAdapter[list[yaml_cls]](list[yaml_cls])  # type: ignore[valid-type]
-        try:
-            validated_resources = adapter.validate_python(parsed_yaml)
-            # Todo include extra files
-            return [
-                SuccessfulValidatedResource(raw=parsed_dict, resource=resource, **args)
-                for parsed_dict, resource in zip(parsed_yaml, validated_resources)
-            ]
-        except ValidationError as forbid_errors:
-            # Todo split errors and include extra files
-            return self._create_syntax_warning(forbid_errors)
-
-        error_or_resources = self._create_resources_from_unstructured(error_or_unstructured, crud_class.yaml_cls)
-
-        resources: list[ReadYAMLFile] = []
-        for error_or_resource in error_or_resources:
-            if isinstance(error_or_resource, ModelSyntaxWarning):
-                resources.append(FailedReadYAMLFile(source_path=resource_file, errors=[error_or_resource]))
-            else:
-                resource, recommendations = error_or_resource
-                resources.append(
-                    SuccessfulReadYAMLFile(
-                        source_path=resource_file,
-                        resource=resource,
-                        source_hash=file_hash,
-                        resource_type=resource_type,
-                        insights=InsightList(recommendations),
+                syntax_warning = self._create_syntax_warning(errors)
+                identifier = crud_class.get_id(parsed_yaml)
+            extra_files = crud_class.get_extra_files(resource_file, identifier)
+            return SuccessfulReadYAMLFile(
+                syntax_warning=syntax_warning,
+                resources=[
+                    ReadResource(
+                        raw=parsed_yaml, identifier=identifier, validated=toolkit_resource, extra_files=extra_files
                     )
-                )
-        return resources
-
-    def _create_failed_read_resource_for_invalid_kind(
-        self, resource_file: Path, kind: str, resource_folder: str, available_kinds: Iterable[str]
-    ) -> ModelSyntaxWarning:
-        return ModelSyntaxWarning(
-            code="UNKNOWN-RESOURCE-KIND",
-            message=f"Resource file '{resource_file.as_posix()!r}' has unknown resource kind '{kind}' for folder '{resource_folder}'",
-            fix=f"Make sure the file name ends with a known resource kind for the folder. Expected kinds for folder '{resource_folder}' are: {humanize_collection(list(available_kinds))}",
-        )
-
-    def _read_resource_file(self, resource_file: Path) -> str | ModelSyntaxWarning:
-        try:
-            return safe_read(resource_file)
-        except Exception as e:
-            return ModelSyntaxWarning(
-                code="RESOURCE_FILE_READ_ERROR",
-                message=f"Failed to read resource file '{resource_file.as_posix()!r}': {e!s}",
-                fix="Make sure the file is a valid YAML file and is accessible.",
+                ],
+                **args,
             )
+        # Is instance list
+        adapter = TypeAdapter[list[crud_class.yaml_cls]](list[crud_class.yaml_cls])
+        toolkit_resources: list[ToolkitResource] = []
+        syntax_warning = None
+        try:
+            toolkit_resources = adapter.validate_python(parsed_yaml)
+        except ValidationError as errors:
+            syntax_warning = self._create_syntax_warning(errors)
+        read_resources: list[ReadResource[ToolkitResource]] = []
+        for tk_resource, raw in zip_longest(toolkit_resources, parsed_yaml, fillvalue=None):
+            if tk_resource is None:
+                identifier = crud_class.get_id(raw)
+            else:
+                identifier = tk_resource.as_id()
+            extra_files = crud_class.get_extra_files(resource_file, identifier)
+            read_resources.append(
+                ReadResource(
+                    # We know that the parse_yaml list will always be longer than tk_resource
+                    # thus raw will never be None.
+                    raw=raw,  # type: ignore[arg-type]
+                    identifier=identifier,
+                    validated=tk_resource,
+                    extra_files=extra_files,
+                )
+            )
+        return SuccessfulReadYAMLFile(syntax_warning=syntax_warning, resources=read_resources, **args)
 
     def _substitute_variables_in_content(self, content: str, variables: list[BuildVariable]) -> str:
         # Todo: Support variable substitution in content.
         raise NotImplementedError()
-
-    def _create_resources_from_unstructured(
-        self, unstructured: dict[str, Any] | list[dict[str, Any]], yaml_cls: type[ToolkitResource]
-    ) -> list[ToolkitResource] | ModelSyntaxWarning:
-        if isinstance(unstructured, dict):
-            try:
-                return [yaml_cls.model_validate(unstructured, extra="forbid")]
-            except ValidationError as errors:
-                return self._create_syntax_warning(errors)
-        elif isinstance(unstructured, list):
-            # MyPy complains but this work.
-            adapter = TypeAdapter[list[yaml_cls]](list[yaml_cls])  # type: ignore[valid-type]
-            try:
-                return adapter.validate_python(unstructured)
-            except ValidationError as forbid_errors:
-                # Todo: by locatoin
-                return self._create_syntax_warning(forbid_errors)
-        else:
-            raise NotImplementedError(
-                f"Unknown unstructured YAML content. Expected a dict or list of dicts. Got {type(unstructured)}"
-            )
 
     def _create_syntax_warning(self, error: ValidationError) -> ModelSyntaxWarning:
         errors = humanize_validation_error(error)
@@ -527,40 +488,43 @@ class BuildV2Command(ToolkitCommand):
         )
 
     def _export_resources(
-        self, resources: Sequence[ReadYAMLFile], resource_counter: Counter, build_dir: Path
+        self, files: Sequence[ReadYAMLFile], resource_counter: Counter, build_dir: Path
     ) -> list[BuiltResource]:
         built_resources: list[BuiltResource] = []
-        for resource in resources:
-            if not isinstance(resource, SuccessfulReadYAMLFile):
-                # Todo: Allow syntax errors.
+        for file in files:
+            if not isinstance(file, SuccessfulReadYAMLFile):
                 continue
-            folder = build_dir / resource.resource_type.resource_folder
+            folder = build_dir / file.resource_type.resource_folder
             folder.mkdir(parents=True, exist_ok=True)
-            resource_counter.update([resource.resource_type])
-            index = resource_counter[resource.resource_type]
-            source_stem = resource.source_path.stem.rsplit(".", maxsplit=1)[0]
-            identifier = resource.resource.as_id()
-            identifier_filename = sanitize_filename(str(identifier))
-            filename = f"{index}-{source_stem}-{identifier_filename}.{resource.resource_type.kind}.yaml"
-            destination_path = folder / filename
-            # Todo: Store original yaml and do not require the resource. In other words allow
-            #   model syntax errors.
-            safe_write(
-                destination_path,
-                yaml_safe_dump(resource.resource.model_dump(by_alias=True, exclude_unset=True, mode="json")),
-            )
-            built_resources.append(
-                BuiltResource(
-                    identifier=identifier,
-                    type=resource.resource_type,
-                    source_hash=resource.source_hash,
-                    source_path=resource.source_path,
-                    build_path=destination_path,
-                    crud_cls=resource.crud_cls,
-                    dependencies=resource.dependencies,
-                    insights=resource.insights,
+            for resource in file.resources:
+                resource_counter.update([file.resource_type])
+                index = resource_counter[file.resource_type]
+                source_stem = file.source_path.stem.rsplit(".", maxsplit=1)[0]
+                identifier_filename = sanitize_filename(str(resource.identifier))
+                filename = f"{index}-{source_stem}-{identifier_filename}.{file.resource_type.kind}.yaml"
+                destination_path = folder / filename
+                safe_write(destination_path, yaml_safe_dump(resource.raw), encoding=BUILD_FOLDER_ENCODING)
+
+                crud_cls = file.resource_type.crud_cls
+                if resource.validated:
+                    dependencies = set(crud_cls.get_dependencies(resource.validated))
+                else:
+                    dependencies = set()
+
+                built_resources.append(
+                    BuiltResource(
+                        identifier=resource.identifier,
+                        type=file.resource_type,
+                        source_hash=file.source_hash,
+                        source_path=file.source_path,
+                        build_path=destination_path,
+                        crud_cls=file.resource_type.crud_cls,
+                        dependencies=dependencies,
+                        # Todo Find a better solution for syntax warnings
+                        #     This solution leads to duplicates.
+                        syntax_warning=file.syntax_warning,
+                    )
                 )
-            )
         return built_resources
 
     def _dependency_validation(self, built_modules: list[BuiltModule], client: ToolkitClient | None) -> InsightList:
@@ -644,7 +608,10 @@ class BuildV2Command(ToolkitCommand):
         resource_count = sum(len(module.resources) for module in build_folder.built_modules)
 
         resource_insight_count = sum(
-            len(resource.insights) for module in build_folder.built_modules for resource in module.resources
+            1
+            for module in build_folder.built_modules
+            for resource in module.resources
+            if resource.syntax_warning is not None
         )
         dependency_insight_count = len(build_folder.dependency_insights)
         global_insight_count = len(build_folder.global_insights)

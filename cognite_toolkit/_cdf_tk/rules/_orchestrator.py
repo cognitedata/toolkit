@@ -46,14 +46,16 @@ class RulesOrchestrator:
 
         rules_registry = get_rules_registry()
         all_insights = InsightList()
-        for resource in module.resources:
-            if not isinstance(resource, SuccessfulReadYAMLFile):
+        for file in module.files:
+            if not isinstance(file, SuccessfulReadYAMLFile):
                 continue
-            for rule in rules_registry.get(resource.resource_type.kind, []):
+            for rule in rules_registry.get(file.resource_type.kind, []):
                 if rule.alpha and not self._enable_alpha_validators:
                     continue
 
                 if self._can_run_validator(rule.code, rule.insight_type):
-                    if insights := rule([resource.resource]).validate():
-                        all_insights.extend(insights)
+                    for resource in file.resources:
+                        if resource.validated is not None:
+                            if insights := rule([resource.validated]).validate():
+                                all_insights.extend(insights)
         return all_insights
