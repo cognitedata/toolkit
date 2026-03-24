@@ -98,7 +98,7 @@ class RAWTableResponse(ResponseResource[RAWTableRequest]):
     db_name: str = Field(default="", exclude=True)
     name: str
     # CDF sometimes omits createdTime on raw table payloads (e.g. some list responses); default matches unknown.
-    created_time: int = 0
+    created_time: int | None = None
 
     @classmethod
     def request_cls(cls) -> type[RAWTableRequest]:
