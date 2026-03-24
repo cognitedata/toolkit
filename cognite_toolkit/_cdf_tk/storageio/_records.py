@@ -51,9 +51,11 @@ class RecordIO(
     BASE_SELECTOR = RecordContainerSelector
 
     def count(self, selector: RecordContainerSelector) -> int | None:
+        if selector.initialize_cursor is None:
+            raise ToolkitValueError("initialize_cursor must be set on the selector for download operations")
         url = self.AGGREGATE_ENDPOINT.format(streamId=selector.stream.external_id)
         sync_filter = self._build_sync_filter(selector)
-        start_ms = timestamp_to_ms(selector.initialize_cursor) if selector.initialize_cursor else None
+        start_ms = timestamp_to_ms(selector.initialize_cursor)
         total = 0
         stream_crud = StreamCRUD.create_loader(self.client)
         for last_updated_time in stream_crud.iter_last_updated_time_windows(
