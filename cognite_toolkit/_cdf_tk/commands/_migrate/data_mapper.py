@@ -359,7 +359,8 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         )
         updated_activities_collection = self._create_activities_collection(event_ids, issue)
 
-        mapped_chart = item.as_request_resource()
+        # We cannot use item.as_request_resource() as we need ot set extra="allow" to include all unknown.
+        mapped_chart = ChartRequest.model_validate(item.dump(), extra="allow", by_alias=True)
         mapped_chart.data.core_timeseries_collection = timeseries_core_collection
         mapped_chart.data.time_series_collection = None
         mapped_chart.data.source_collection = updated_source_collection
@@ -489,10 +490,11 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 else:
                     updated_elements.append(element)
             if has_changes:
+                new_flow = workflow.flow.model_copy(update={"elements": updated_elements})
                 updated_collection.append(
                     workflow.model_copy(
                         update={
-                            "flow": {"elements": updated_elements},
+                            "flow": new_flow,
                             # We clear out the calls to avoid referencing past timeseries.
                             "calls": [],
                         }

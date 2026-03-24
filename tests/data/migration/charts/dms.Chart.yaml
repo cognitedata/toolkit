@@ -11,7 +11,6 @@ data:
     email: cogniter@cognitedata.com
     displayName: Cognite Cogniter
   liveMode: false
-  timeSeriesCollection: []
   coreTimeseriesCollection:
   - type: coreTimeseries
     id: 85428909-19a4-4f3f-b4bd-c9a5d7e3bb58
@@ -279,5 +278,5 @@ data:
       space: cdf_cdm
       externalId: CogniteActivity
       version: v1
-createdTime: 1758882925234
-lastUpdatedTime: 1773826111580
+createdTime: 1737468743415
+lastUpdatedTime: 1773837880397

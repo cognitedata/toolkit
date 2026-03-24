@@ -429,10 +429,11 @@ class TestChartMapper:
 
         assert mapped.model_dump(
             mode="json", by_alias=True, exclude_unset=True, exclude_none=True
-        ) == output_chart.as_request_resource().model_dump(
+        ) == ChartRequest.model_validate(output_chart.dump(), extra="allow", by_alias=True).model_dump(
             mode="json",
             by_alias=True,
             exclude_unset=True,
+            exclude_none=True,
             exclude={
                 "data": {
                     "monitoring_jobs",
