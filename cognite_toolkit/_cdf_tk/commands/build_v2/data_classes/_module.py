@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND, ResourceTypes
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ExtraFile, ResourceCRUD
 from cognite_toolkit._cdf_tk.yaml_classes.base import T_Resource, ToolkitResource
 
 from ._insights import InsightList, ModelSyntaxWarning
@@ -87,12 +87,6 @@ class ReadYAMLFile(BaseModel):
 class FailedReadYAMLFile(ReadYAMLFile):
     code: str
     error: str
-
-
-class ExtraFile(BaseModel):
-    source_path: AbsoluteFilePath
-    source_hash: str
-    content: str
 
 
 class ReadResource(BaseModel, Generic[T_Resource]):
