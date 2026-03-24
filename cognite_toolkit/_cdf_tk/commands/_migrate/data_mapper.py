@@ -307,10 +307,10 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                 if item.ts_external_id:
                     timeseries_external_ids.add(item.ts_external_id)
             for event_filter in chart.data.event_filters or []:
-                if not event_filter.filter:
+                if not event_filter.filters:
                     continue
                 # Copy to avoid mutating.
-                api_filter = event_filter.filter.copy()
+                api_filter = event_filter.filters.copy()
 
                 # Assuming that it is always possible to do this conversion.
                 data_to = convert_data_modelling_timestamp(chart.data.date_to)

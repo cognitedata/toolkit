@@ -436,6 +436,7 @@ class TestChartMapper:
             exclude_none=True,
             exclude={
                 "data": {
+                    # Not yet supported.
                     "monitoring_jobs",
                     "scheduled_calculation_collection",
                 }

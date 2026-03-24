@@ -158,7 +158,7 @@ class EventFilter(ChartObject):
     name: str | None = None
     visible: bool | None = None
     color: str | None = None
-    filter: dict[str, JsonValue] | None = None
+    filters: dict[str, JsonValue] | None = None
 
 
 class ChartActivity(ChartObject):
