@@ -1,7 +1,7 @@
 import sys
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BeforeValidator, Field, PlainSerializer
+from pydantic import BeforeValidator, Field, PlainSerializer, field_validator
 
 from cognite_toolkit._cdf_tk.client._resource_base import (
     BaseModelObject,
@@ -85,7 +85,10 @@ class RAWTableRequest(RequestResource):
                 exclude_unset=True,
                 exclude=set(self.__pydantic_extra__) if self.__pydantic_extra__ else None,
             )
-        dumped = self.model_dump(mode="json", by_alias=False if context == "api" else camel_case, exclude_unset=True)
+        else:
+            dumped = self.model_dump(
+                mode="json", by_alias=False if context == "api" else camel_case, exclude_unset=True
+            )
         if context == "api":
             return dumped
         # For toolkit context, we include dbName in the dump for consistency with other resources.
@@ -97,8 +100,13 @@ class RAWTableResponse(ResponseResource[RAWTableRequest]):
     # Default to empty string to allow parsing from API responses (which don't include db_name).
     db_name: str = Field(default="", exclude=True)
     name: str
-    # CDF sometimes omits createdTime on raw table payloads (e.g. some list responses); default matches unknown.
-    created_time: int | None = None
+    # CDF may omit or null out createdTime on list responses; default keeps clean/list working (CDF-27546).
+    created_time: int = Field(default=0)
+
+    @field_validator("created_time", mode="before")
+    @classmethod
+    def _coerce_created_time(cls, value: Any) -> Any:
+        return 0 if value is None else value
 
     @classmethod
     def request_cls(cls) -> type[RAWTableRequest]:
