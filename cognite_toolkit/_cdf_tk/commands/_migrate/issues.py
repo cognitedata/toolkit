@@ -53,12 +53,16 @@ class ChartMigrationIssue(MigrationIssue):
     missing_timeseries_ids: list[int] = Field(default_factory=list)
     missing_timeseries_external_ids: list[str] = Field(default_factory=list)
     missing_timeseries_identifier: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
 
     @property
     def has_issues(self) -> bool:
         """Check if there are any issues recorded in this ChartMigrationIssue."""
         return bool(
-            self.missing_timeseries_ids or self.missing_timeseries_external_ids or self.missing_timeseries_identifier
+            self.missing_timeseries_ids
+            or self.missing_timeseries_external_ids
+            or self.missing_timeseries_identifier
+            or self.errors
         )
 
 
