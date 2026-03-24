@@ -93,4 +93,3 @@ class StreamsAPI(CDFResourceAPI[StreamResponse]):
             List of StreamResponse items.
         """
         return self._list(limit=None)
-
