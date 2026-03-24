@@ -9,6 +9,7 @@ from typing import Annotated, Union
 import typer
 from dotenv import load_dotenv
 from rich import print
+from rich.console import Console
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
@@ -292,10 +293,11 @@ class CoreApp(typer.Typer):
     ) -> None:
         """Build configuration files from the modules to the build directory."""
         client: ToolkitClient | None = None
+        console = Console(markup=True)
         with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
             # Remove the Error message from failing to load the config
             # This is verified in check_auth
-            client = EnvironmentVariables.create_from_environment().get_client()
+            client = EnvironmentVariables.create_from_environment().get_client(console=console)
 
         cmd = BuildV2Command(print_warning=True, client=client)
 

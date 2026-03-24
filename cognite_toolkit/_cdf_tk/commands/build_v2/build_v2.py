@@ -9,6 +9,8 @@ from typing import Any
 from pydantic import JsonValue, TypeAdapter, ValidationError
 from rich.console import Console
 from rich.panel import Panel
+from rich.progress import Progress
+from rich.table import Table
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -36,6 +38,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     Recommendation,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
+    BuildSource,
     BuildVariable,
     FailedReadResource,
     ReadResource,
@@ -65,17 +68,19 @@ from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 class BuildV2Command(ToolkitCommand):
     def build(self, parameters: BuildParameters, client: ToolkitClient | None = None) -> BuildFolder:
-        console = client.console if client else Console()
+        console = client.console if client else Console(markup=True)
 
         # Track build duration
         build_start_time = datetime.now(timezone.utc)
 
         self._validate_build_parameters(parameters, console, sys.argv)
         build_files = self._read_file_system(parameters)
-        module_sources = self._parse_module_sources(build_files)
+
+        build_source = self._find_modules(build_files)
+        self._display_module_sources(build_source, console)
 
         self._prepare_build_directory(parameters.build_dir)
-        built_modules = self._build_modules(module_sources, parameters.build_dir)
+        built_modules = self._build_modules(build_source.modules, parameters.build_dir, console)
 
         dependency_insights = self._dependency_validation(built_modules, client)
 
@@ -91,6 +96,8 @@ class BuildV2Command(ToolkitCommand):
             global_insights=global_insights,
         )
 
+        self._display_build_folder(build_folder, console)
+
         self._write_results(parameters, build_folder, build_start_time, build_duration_seconds)
 
         # Todo: Some mixpanel tracking.
@@ -102,17 +109,9 @@ class BuildV2Command(ToolkitCommand):
 
         # Set up the variables
         organization_dir = parameters.organization_dir
-        organization_dir_display = relative_to_if_possible(organization_dir)
         config_yaml_path: Path | None = None
         if parameters.config_yaml_name:
             config_yaml_path = organization_dir / ConfigYAML.get_filename(parameters.config_yaml_name)
-            content = f"  ┣ {MODULES}/\n  ┗ {config_yaml_path.name}\n"
-        else:
-            content = f"  ┗ {MODULES}\n"
-        expected_panel = Panel(
-            f"Toolkit expects the following structure:\n{organization_dir_display.as_posix()!r}/\n{content}",
-            expand=False,
-        )
         module_directory = parameters.modules_directory
 
         # Execute the checks.
@@ -120,7 +119,18 @@ class BuildV2Command(ToolkitCommand):
             # All good.
             return
 
+        # Display what Toolkit expects.
+        if isinstance(config_yaml_path, Path):
+            content = f"  ┣ {MODULES}/\n  ┗ {config_yaml_path.name}\n"
+        else:
+            content = f"  ┗ {MODULES}\n"
+        organization_dir_display = relative_to_if_possible(organization_dir)
+        expected_panel = Panel(
+            f"Toolkit expects the following structure:\n{organization_dir_display.as_posix()!r}/\n{content}",
+            expand=False,
+        )
         console.print(expected_panel)
+
         if not organization_dir.exists():
             raise ToolkitNotADirectoryError(f"Organization directory '{organization_dir_display.as_posix()}' not found")
         elif module_directory.exists() and config_yaml_path is not None and not config_yaml_path.exists():
@@ -175,15 +185,58 @@ class BuildV2Command(ToolkitCommand):
             suggestion.append(f"-o {display_path}")
         return f"'{' '.join(suggestion)}'"
 
-    def _parse_module_sources(self, build: BuildSourceFiles) -> list[ModuleSource]:
+    def _find_modules(self, build: BuildSourceFiles) -> BuildSource:
         parser = ModuleSourceParser(build.selected_modules, build.organization_dir)
         module_sources = parser.parse(build.yaml_files, build.variables)
-        if parser.errors:
-            # Todo: Nicer way of formatting errors. Jira CDF-27107
-            raise ToolkitValueError(
-                "Errors encountered while parsing modules:\n" + "\n".join(f"- {error!s}" for error in parser.errors)
+        return BuildSource(
+            module_dir=build.module_dir,
+            modules=module_sources,
+            insights=parser.errors,
+        )
+
+    def _display_module_sources(self, build_source: BuildSource, console: Console) -> None:
+        module_count = len(build_source.modules)
+        total_files = build_source.total_files
+        read_variables = len({variable.id for module in build_source.modules for variable in module.variables})
+        resource_type_count = len(
+            {
+                resource_type
+                for module in build_source.modules
+                for resource_type in module.resource_files_by_folder.keys()
+            }
+        )
+
+        summary_lines = [
+            f"[green]✓[/] [bold]{module_count}[/] modules",
+            f"[green]✓[/] [bold]{total_files}[/] total resource files",
+            f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
+        ]
+        if read_variables:
+            summary_lines.append(f"[green]✓[/] [bold]{read_variables}[/] variables used in the build")
+
+        has_issues = False
+        if build_source.insights:
+            summary_lines.append(f"[red]✗[/] [bold]{len(build_source.insights)}[/] issues found while reading modules")
+            has_issues = True
+        module_dir_display = relative_to_if_possible(build_source.module_dir)
+        console.print(
+            Panel(
+                "\n".join(summary_lines),
+                title=f"[bold]Read module dir ({module_dir_display.as_posix()})[/]",
+                border_style="yellow" if has_issues else "green",
+                expand=False,
             )
-        return module_sources
+        )
+        if build_source.insights:
+            table = Table(title="Reading module issues", expand=False, show_edge=False)
+            table.add_column("Type", style="dim")
+            table.add_column("Code", style="dim")
+            table.add_column("Description", style="dim")
+            table.add_column("Fix", style="dim")
+            for issue in build_source.insights:
+                table.add_row(type(issue).__name__, issue.code or "", issue.message, issue.fix or "-")
+            console.print(table)
+        return None
 
     @classmethod
     def _read_file_system(cls, parameters: BuildParameters) -> BuildSourceFiles:
@@ -268,27 +321,38 @@ class BuildV2Command(ToolkitCommand):
         build_dir.mkdir(parents=True)
         return None
 
-    def _build_modules(self, module_sources: Sequence[ModuleSource], build_dir: Path) -> list[BuiltModule]:
+    def _build_modules(
+        self, module_sources: Sequence[ModuleSource], build_dir: Path, console: Console
+    ) -> list[BuiltModule]:
         built_modules: list[BuiltModule] = []
         # If parallelizing the build, this should be a multiprocessing.Manager().Counter() or similar.
         resource_counter: Counter = Counter()
         # and use one orchestrator per process
         orchestrator = RulesOrchestrator()
-        for source in module_sources:
-            # Inside this loop, do not raise exceptions.
-            module = self._import_module(source)  # Syntax validation
-            # Local validation of module
-            insights = orchestrator.run(module)
-            built_resources = self._export_resources(module.resources, resource_counter, build_dir)
 
-            built_modules.append(
-                BuiltModule(
-                    module_id=module.id,
-                    resources=built_resources,
-                    insights=insights,
+        with Progress(console=console) as progress:
+            total_files = sum(source.total_files for source in module_sources)
+            build_task = progress.add_task("Building modules", total=total_files)
+            for source in module_sources:
+                module_name = source.name
+                progress.update(build_task, description=f"Building {module_name}")
+
+                # Inside this loop, do not raise exceptions.
+                module = self._import_module(source)  # Syntax validation
+
+                # Local validation of module
+                insights = orchestrator.run(module)
+                built_resources = self._export_resources(module.resources, resource_counter, build_dir)
+
+                built_modules.append(
+                    BuiltModule(
+                        module_id=module.id,
+                        resources=built_resources,
+                        insights=insights,
+                    )
                 )
-            )
-
+                progress.update(build_task, description=f"Built {module_name}", advance=source.total_files)
+            progress.update(build_task, description=f"Finished building. Built {len(built_modules)} modules")
         return built_modules
 
     def _import_module(self, source: ModuleSource) -> Module:
@@ -563,6 +627,65 @@ class BuildV2Command(ToolkitCommand):
                             if insight not in built_module.insights:
                                 insights.append(insight)
         return insights
+
+    def _display_build_folder(self, build_folder: BuildFolder, console: Console) -> None:
+        module_count = len(build_folder.built_modules)
+        resource_count = sum(len(module.resources) for module in build_folder.built_modules)
+
+        resource_insight_count = sum(
+            len(resource.insights) for module in build_folder.built_modules for resource in module.resources
+        )
+        dependency_insight_count = len(build_folder.dependency_insights)
+        global_insight_count = len(build_folder.global_insights)
+
+        resource_type_count = len(
+            {resource.type for module in build_folder.built_modules for resource in module.resources}
+        )
+
+        summary_lines = [
+            f"[green]✓[/] [bold]{module_count}[/] modules",
+            f"[green]✓[/] [bold]{resource_count}[/] resources",
+            f"[green]✓[/] [bold]{resource_type_count}[/] resource types",
+        ]
+        has_issues = False
+        if resource_insight_count:
+            summary_lines.append(f"[yellow]![/] [bold]{resource_insight_count}[/] resource insights found.")
+            has_issues = True
+        if dependency_insight_count:
+            summary_lines.append(f"[red]✗[/] [bold]{dependency_insight_count}[/] missing dependencies found.")
+            has_issues = True
+        if global_insight_count:
+            summary_lines.append(f"[yellow]![/] [bold]{global_insight_count}[/] global insights found.")
+            has_issues = True
+        build_dir_display = relative_to_if_possible(build_folder.path)
+        console.print(
+            Panel(
+                "\n".join(summary_lines),
+                title=f"[bold]Built to ({build_dir_display.as_posix()})[/]",
+                border_style="yellow" if has_issues else "green",
+                expand=False,
+            )
+        )
+        all_insights = build_folder.all_insights
+        if all_insights:
+            table = Table(title="Insights", expand=False, show_edge=False)
+            table.add_column("Type", style="dim")
+            table.add_column("Code", style="dim")
+            table.add_column("Description", style="dim")
+            table.add_column("Fix", style="dim")
+            max_reached = False
+            for no, issue in enumerate(all_insights):
+                table.add_row(type(issue).__name__, issue.code or "", issue.message, issue.fix or "-")
+                if no > 10:
+                    max_reached = True
+                    break
+            console.print(table)
+            if max_reached:
+                console.print(
+                    f"[dim]... and {len(all_insights) - 10} more insights not shown[/]",
+                    style="dim",
+                )
+        return None
 
     def _write_results(
         self,
