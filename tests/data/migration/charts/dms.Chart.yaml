@@ -15,7 +15,6 @@ data:
   coreTimeseriesCollection:
   - type: coreTimeseries
     id: 85428909-19a4-4f3f-b4bd-c9a5d7e3bb58
-    color: '#570408'
     nodeReference:
       space: energy_time_series
       externalId: pi:160030
@@ -23,7 +22,8 @@ data:
       space: cdf_cdm
       externalId: CogniteTimeSeries
       version: v1
-    name: VAL_23_FIC_92543_01:Z.X.Value
+    name: "Stor\xF8yodden - Sea water speed"
+    color: '#6929c4'
     lineWeight: 1.0
     lineStyle: solid
     interpolation: linear
@@ -31,12 +31,11 @@ data:
     enabled: true
     preferredUnit: ''
     range:
-    - 15.975736773839854
-    - 69.90603024610795
-    createdAt: 1772794359894
+    - -0.008
+    - 0.247
+    createdAt: 1688642098750
   - type: coreTimeseries
     id: 867d1c8e-9b0c-4a5e-9c3f-7b2a1c8e5f3b
-    color: '#570408'
     nodeReference:
       space: energy_time_series
       externalId: pi:160037
@@ -44,17 +43,18 @@ data:
       space: cdf_cdm
       externalId: CogniteTimeSeries
       version: v1
-    name: VAL_23_FIC_92543_01:Y.X.Value
-    lineWeight: 1.0
+    name: "Stor\xF8yodden - Sea water temperature"
+    color: '#009d9a'
+    lineWeight: 3
     lineStyle: solid
     interpolation: linear
     displayMode: lines
     enabled: true
-    preferredUnit: ''
+    preferredUnit: C
     range:
-    - 15.975736773839854
-    - 69.90603024610795
-    createdAt: 1772794359894
+    - -0.5530371237350451
+    - 27.33133474719185
+    createdAt: 1688642418968
   workflowCollection:
   - version: v2
     type: workflow
