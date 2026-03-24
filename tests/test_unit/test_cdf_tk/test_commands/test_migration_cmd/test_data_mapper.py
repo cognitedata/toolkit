@@ -406,7 +406,11 @@ class TestCanvasMapper:
 
 class TestChartMapper:
     def test_map_chart_with_threshold_calculation_and_events_filter(self) -> None:
+        input_canvas_path = MIGRATION_DIR / "charts" / "classic.Chart.yaml"
+        output_chart_path = MIGRATION_DIR / "charts" / "dms.Chart.yaml"
         with monkeypatch_toolkit_client() as client:
+
+
             source = ChartResponse(
                 external_id="my_chart",
                 created_time=1,
