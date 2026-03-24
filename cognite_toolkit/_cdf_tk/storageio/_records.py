@@ -53,9 +53,8 @@ class RecordIO(
         url = self.AGGREGATE_ENDPOINT.format(streamId=selector.stream.external_id)
         sync_filter = self._build_sync_filter(selector)
         total = 0
-        for window_start, window_end in self.client.streams.iter_last_updated_time_windows(
-            selector.stream.external_id
-        ):
+        stream_crud = StreamCRUD.create_loader(self.client)
+        for window_start, window_end in stream_crud.iter_last_updated_time_windows(selector.stream.external_id):
             body: dict[str, object] = {
                 "filter": sync_filter,
                 "lastUpdatedTime": {"gte": window_start, "lt": window_end},
