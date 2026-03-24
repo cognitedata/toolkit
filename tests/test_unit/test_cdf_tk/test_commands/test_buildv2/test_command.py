@@ -381,74 +381,118 @@ class TestReadFileSystem:
         assert actual_selection == selection
 
 
-class TestImportResourceFile:
+def _read_resource_outcome(result: FailedReadYAMLFile | SuccessfulReadYAMLFile) -> dict[str, Any]:
+    if isinstance(result, FailedReadYAMLFile):
+        return {
+            "outcome": "failed",
+            "code": result.code,
+            "resource_count": None,
+            "has_syntax_warning": None,
+        }
+    return {
+        "outcome": "success",
+        "code": None,
+        "resource_count": len(result.resources),
+        "has_syntax_warning": result.syntax_warning is not None,
+    }
+
+
+class TestReadResourceFile:
     @pytest.mark.parametrize(
-        "filename, content, class_by_kind, expected_types",
+        "filename, content, crud_class, expected",
         [
             pytest.param(
                 "resource.yaml",
                 "space: test\n",
-                {"space": SpaceCRUD},
-                [],
-                id="no_dot_in_stem",
-            ),
-            pytest.param(
-                "resource.UnknownKind.yaml",
-                "space: test\n",
-                {"space": SpaceCRUD},
-                [FailedReadYAMLFile],
-                id="unknown_kind",
+                SpaceCRUD,
+                {
+                    "outcome": "success",
+                    "code": None,
+                    "resource_count": 1,
+                    "has_syntax_warning": False,
+                },
+                id="filename_without_kind_suffix_still_parses_when_crud_explicit",
             ),
             pytest.param(
                 "nonexistent.Space.yaml",
                 None,
-                {"space": SpaceCRUD},
-                [FailedReadYAMLFile],
+                SpaceCRUD,
+                {
+                    "outcome": "failed",
+                    "code": "READ-ERROR",
+                    "resource_count": None,
+                    "has_syntax_warning": None,
+                },
                 id="file_read_error",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 "key: [unclosed",
-                {"space": SpaceCRUD},
-                [FailedReadYAMLFile],
+                SpaceCRUD,
+                {
+                    "outcome": "failed",
+                    "code": "YAML-PARSE-ERROR",
+                    "resource_count": None,
+                    "has_syntax_warning": None,
+                },
                 id="yaml_parse_error",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 "space: my_space\nname: My Space\n",
-                {"space": SpaceCRUD},
-                [SuccessfulReadYAMLFile],
+                SpaceCRUD,
+                {
+                    "outcome": "success",
+                    "code": None,
+                    "resource_count": 1,
+                    "has_syntax_warning": False,
+                },
                 id="successful_single_resource",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 'space: ""\n',
-                {"space": SpaceCRUD},
-                [FailedReadYAMLFile],
-                id="model_validation_error",
+                SpaceCRUD,
+                {
+                    "outcome": "success",
+                    "code": None,
+                    "resource_count": 1,
+                    "has_syntax_warning": True,
+                },
+                id="model_validation_error_yields_syntax_warning",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 "space: my_space\nextra_field: value\n",
-                {"space": SpaceCRUD},
-                [SuccessfulReadYAMLFile],
-                id="extra_fields_produces_recommendation",
+                SpaceCRUD,
+                {
+                    "outcome": "success",
+                    "code": None,
+                    "resource_count": 1,
+                    "has_syntax_warning": True,
+                },
+                id="extra_fields_produces_syntax_warning",
             ),
             pytest.param(
                 "resource.Space.yaml",
                 "- space: space_one\n- space: space_two\n",
-                {"space": SpaceCRUD},
-                [SuccessfulReadYAMLFile, SuccessfulReadYAMLFile],
+                SpaceCRUD,
+                {
+                    "outcome": "success",
+                    "code": None,
+                    "resource_count": 2,
+                    "has_syntax_warning": False,
+                },
                 id="multiple_resources_in_list",
             ),
         ],
     )
-    def test_import_resource_file(
+    def test_read_resource_file(
         self,
         filename: str,
         content: str | None,
-        class_by_kind: dict[str, type[ResourceCRUD]],
-        expected_types: list[type],
+        crud_class: type[ResourceCRUD],
+        expected: dict[str, Any],
         tmp_path: Path,
     ) -> None:
         cmd = BuildV2Command()
@@ -456,6 +500,6 @@ class TestImportResourceFile:
         if content is not None:
             resource_file.write_text(content)
 
-        result = cmd._read_resource_file(resource_file, class_by_kind, [], "data_modeling")
+        result = cmd._read_resource_file(resource_file, crud_class, [])
 
-        assert [type(r) for r in result] == expected_types
+        assert _read_resource_outcome(result) == expected
