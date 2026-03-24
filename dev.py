@@ -149,6 +149,11 @@ def _read_last_commit_message() -> tuple[list[marko.element.Element], str]:
     changelog_text = "\n".join(
         line for line in changelog_text.splitlines() if not line.strip().startswith("Co-authored-by")
     ).strip()
+    # GitHub/Jira appends markdown link reference definitions (e.g. `[CDF-123]: https://...`) to PR
+    # bodies; marko parses those as LinkRefDef and breaks changelog validation.
+    changelog_text = "\n".join(
+        line for line in changelog_text.splitlines() if not re.match(r"^\[[^\]]+]:\s*", line.strip())
+    ).strip()
 
     changelog_items = [
         item for item in marko.parse(changelog_text).children if not isinstance(item, marko.block.BlankLine)
