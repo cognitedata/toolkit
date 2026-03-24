@@ -448,7 +448,9 @@ class BuildV2Command(ToolkitCommand):
                 **args,
             )
         # Is instance list
-        adapter = TypeAdapter[list[crud_class.yaml_cls]](list[crud_class.yaml_cls])
+        # MyPy complains as the yaml_cls type is determined at runtime,
+        # and thus not available to te static type checker.
+        adapter = TypeAdapter[list[crud_class.yaml_cls]](list[crud_class.yaml_cls])  # type: ignore[name-defined]
         toolkit_resources: list[ToolkitResource] = []
         syntax_warning = None
         try:
