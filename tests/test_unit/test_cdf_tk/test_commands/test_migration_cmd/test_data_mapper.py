@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ViewCorePropertyResponse,
     ViewResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import CreatedSourceSystem
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
@@ -414,10 +415,28 @@ class TestChartMapper:
                 None,
                 *[core_ts.node_reference for core_ts in core_timeseries],
             ]
+            # Assume all timeseries in the output chart are set to CogniteTimeSeries
             time_series_lookup.consumer_view.return_value = ViewId(
                 space="cdf_cdm", external_id="CogniteTimeSeries", version="v1"
             )
             client.migration.lookup.time_series = time_series_lookup
+
+            event_node_ids = [
+                activity.node_reference
+                for activity in output_chart.data.activities_collection or []
+                if activity.node_reference is not None
+            ]
+            client.tool.events.list.return_value = [
+                EventResponse(id=i, created_time=1, last_updated_time=1) for i in range(len(event_node_ids))
+            ]
+            event_lookup = MagicMock()
+            # Cache call + each event
+            event_lookup.side_effect = [None, *event_node_ids]
+            # Assume all events in the output chart are set to CogniteActivity
+            event_lookup.consumer_view.return_value = ViewId(
+                space="cdf_cdm", external_id="CogniteActivity", version="v1"
+            )
+            client.migration.lookup.events = event_lookup
 
             new_uuids = [core_ts.id for core_ts in core_timeseries]
             with patch(f"{ChartMapper.__module__}.uuid4", side_effect=new_uuids):
