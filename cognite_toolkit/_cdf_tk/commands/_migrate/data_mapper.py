@@ -376,7 +376,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         mapped_chart.data.core_timeseries_collection = timeseries_core_collection
         mapped_chart.data.time_series_collection = None
         mapped_chart.data.source_collection = updated_source_collection
-        if updated_workflow_collection:
+        if updated_threshold_collection:
             mapped_chart.data.threshold_collection = updated_threshold_collection
         if updated_workflow_collection:
             mapped_chart.data.workflow_collection = updated_workflow_collection
@@ -488,16 +488,13 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
             has_changes = False
             for element in workflow.flow.elements or []:
                 if element.data and element.data.selected_source_id in uuid_generator:
-                    updated_elements.append(
-                        element.model_copy(
-                            update={
-                                "data": {
-                                    "selectedSourceId": uuid_generator[element.data.selected_source_id],
-                                    "type": "coreTimeseries",
-                                }
-                            }
-                        )
+                    new_data = element.data.model_copy(
+                        update={
+                            "selectedSourceId": uuid_generator[element.data.selected_source_id],
+                            "type": "coreTimeseries",
+                        }
                     )
+                    updated_elements.append(element.model_copy(update={"data": new_data}))
                     has_changes = True
                 else:
                     updated_elements.append(element)
