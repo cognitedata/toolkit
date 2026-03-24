@@ -860,4 +860,3 @@ class TestInFieldLegacyToCDMScheduleMapper:
         assert len(mapped_schedules) == 2
 
         data_regression.check({"schedules": [s.dump() for s in mapped_schedules]})
-

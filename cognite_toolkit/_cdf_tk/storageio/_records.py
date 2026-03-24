@@ -12,7 +12,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordReques
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import ContainerCRUD, SpaceCRUD
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.streams import StreamCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.utils.file import sanitize_filename
 from cognite_toolkit._cdf_tk.utils.useful_types import JsonVal
 
@@ -49,6 +48,7 @@ class RecordIO(
     CHUNK_SIZE = 500
     MAX_TOTAL_RECORDS = 1_000_000
     BASE_SELECTOR = RecordContainerSelector
+
     def count(self, selector: RecordContainerSelector) -> int | None:
         url = self.AGGREGATE_ENDPOINT.format(streamId=selector.stream.external_id)
         sync_filter = self._build_sync_filter(selector)

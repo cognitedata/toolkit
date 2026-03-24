@@ -242,4 +242,3 @@ class TestTimeWindowsMs:
         assert windows == [(0, hour_ms), (hour_ms, 2 * hour_ms), (2 * hour_ms, now_ms)]
         for i in range(len(windows) - 1):
             assert windows[i][1] == windows[i + 1][0]
-

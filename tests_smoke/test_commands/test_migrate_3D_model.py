@@ -30,7 +30,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.commands import MigrationCommand
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricToInstanceMapper, ThreeDAssetMapper, ThreeDMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
+    AssetCentricToInstanceMapper,
+    ThreeDAssetMapper,
+    ThreeDMapper,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import COGNITE_MIGRATION_MODEL, SPACE_SOURCE_VIEW_ID
 from cognite_toolkit._cdf_tk.commands._migrate.default_mappings import ASSET_ID
 from cognite_toolkit._cdf_tk.commands._migrate.migration_io import (

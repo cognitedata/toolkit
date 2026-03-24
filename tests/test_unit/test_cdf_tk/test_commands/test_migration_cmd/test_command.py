@@ -35,7 +35,11 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import Instan
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource as LegacyInstanceSource
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
-from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import AssetCentricToInstanceMapper, CanvasMapper, ChartMapper
+from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
+    AssetCentricToInstanceMapper,
+    CanvasMapper,
+    ChartMapper,
+)
 from cognite_toolkit._cdf_tk.commands._migrate.data_model import (
     COGNITE_MIGRATION_MODEL,
     COGNITE_MIGRATION_SPACE_ID,

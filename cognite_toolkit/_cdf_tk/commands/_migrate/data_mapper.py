@@ -121,9 +121,7 @@ class DataMapper(Generic[T_Selector, T_DataResponse, T_DataRequest], ABC):
 
 
 class AssetCentricDataMapper(
-    DataMapper[
-        AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResourceExtended], T_DataRequest
-    ],
+    DataMapper[AssetCentricMigrationSelector, AssetCentricMapping[T_AssetCentricResourceExtended], T_DataRequest],
     Generic[T_AssetCentricResourceExtended, T_DataRequest],
     ABC,
 ):
