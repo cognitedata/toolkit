@@ -360,7 +360,19 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         updated_activities_collection = self._create_activities_collection(event_ids, issue)
 
         # We cannot use item.as_request_resource() as we need ot set extra="allow" to include all unknown.
-        mapped_chart = ChartRequest.model_validate(item.dump(), extra="allow", by_alias=True)
+        dumped_response = item.model_dump(
+            mode="json",
+            by_alias=True,
+            exclude_unset=True,
+            exclude={
+                # We manually remove the outer parameters that are response only
+                "created_time",
+                "last_updated_time",
+                "owner_id",
+            },
+        )
+        mapped_chart = ChartRequest.model_validate(dumped_response, extra="allow", by_alias=True)
+
         mapped_chart.data.core_timeseries_collection = timeseries_core_collection
         mapped_chart.data.time_series_collection = None
         mapped_chart.data.source_collection = updated_source_collection

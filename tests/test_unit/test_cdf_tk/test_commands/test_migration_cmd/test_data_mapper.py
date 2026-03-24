@@ -446,9 +446,7 @@ class TestChartMapper:
             mapped = mapped_list[0]
             assert isinstance(mapped, ChartRequest)
 
-        assert mapped.model_dump(
-            mode="json", by_alias=True, exclude_unset=True, exclude_none=True
-        ) == ChartRequest.model_validate(output_chart.dump(), extra="allow", by_alias=True).model_dump(
+        expected = ChartRequest.model_validate(output_chart.dump(), extra="allow", by_alias=True).model_dump(
             mode="json",
             by_alias=True,
             exclude_unset=True,
@@ -458,9 +456,13 @@ class TestChartMapper:
                     # Not yet supported.
                     "monitoring_jobs",
                     "scheduled_calculation_collection",
-                }
+                },
             },
         )
+        # Manually remove the server side only properties
+        for key in ["lastUpdatedTime", "createdTime", "ownerId"]:
+            expected.pop(key, None)
+        assert mapped.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude_none=True) == expected
 
 
 class TestFDMtoCDMMapper:
