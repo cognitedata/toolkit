@@ -151,9 +151,7 @@ def _read_last_commit_message() -> tuple[list[marko.element.Element], str]:
     ).strip()
 
     changelog_items = [
-        item
-        for item in marko.parse(changelog_text).children
-        if not isinstance(item, (marko.block.BlankLine, marko.block.LinkRefDef))
+        item for item in marko.parse(changelog_text).children if not isinstance(item, marko.block.BlankLine)
     ]
     if not changelog_items:
         print("No changelog items found in the last commit message.")
