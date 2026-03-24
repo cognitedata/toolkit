@@ -433,8 +433,8 @@ class BuildV2Command(ToolkitCommand):
             toolkit_resource: ToolkitResource | None = None
             syntax_warning: ModelSyntaxWarning | None = None
             try:
-                resource = crud_class.yaml_cls.model_validate(parsed_yaml, extra="forbid")
-                identifier = resource.as_id()
+                toolkit_resource = crud_class.yaml_cls.model_validate(parsed_yaml, extra="forbid")
+                identifier = toolkit_resource.as_id()
             except ValidationError as errors:
                 syntax_warning = self._create_syntax_warning(errors)
                 identifier = crud_class.get_id(parsed_yaml)

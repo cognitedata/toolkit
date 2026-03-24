@@ -60,6 +60,7 @@ class BuildSourceFiles(BaseModel):
 
 
 class BuiltResource(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     identifier: Identifier
     source_hash: str
     type: ResourceType
