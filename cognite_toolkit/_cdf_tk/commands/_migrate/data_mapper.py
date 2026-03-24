@@ -321,6 +321,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
         updated_threshold_collection = self._update_threshold_collection(
             item.data.threshold_collection or [], uuid_generator
         )
+        # WorkflowCollections = Calculations in the UI.
         updated_workflow_collection = self._update_workflow_collection(
             item.data.workflow_collection or [], uuid_generator
         )
@@ -417,6 +418,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                     threshold.model_copy(
                         update={
                             "sourceId": uuid_generator[threshold.source_id],
+                            # We clear out the calls to avoid referencing past timeseries.
                             "calls": [],
                         }
                     )
@@ -455,6 +457,7 @@ class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
                     workflow.model_copy(
                         update={
                             "flow": {"elements": updated_elements},
+                            # We clear out the calls to avoid referencing past timeseries.
                             "calls": [],
                         }
                     )
