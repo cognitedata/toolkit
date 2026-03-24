@@ -22,6 +22,7 @@ from pytest import MonkeyPatch
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.client.resource_classes.app import AppResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.graphql_data_model import GraphQLDataModelResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streamlit_ import StreamlitResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.transformation import TransformationResponse
@@ -140,7 +141,13 @@ class TestFormatConsistency:
     ) -> None:
         loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
 
-        if loader.resource_cls in [TransformationResponse, FileMetadata, GraphQLDataModelResponse, StreamlitResponse]:
+        if loader.resource_cls in [
+            TransformationResponse,
+            FileMetadata,
+            GraphQLDataModelResponse,
+            StreamlitResponse,
+            AppResponse,
+        ]:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
@@ -177,7 +184,13 @@ class TestFormatConsistency:
     ) -> None:
         loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
 
-        if loader.resource_cls in [TransformationResponse, FileMetadata, GraphQLDataModelResponse, StreamlitResponse]:
+        if loader.resource_cls in [
+            TransformationResponse,
+            FileMetadata,
+            GraphQLDataModelResponse,
+            StreamlitResponse,
+            AppResponse,
+        ]:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
@@ -239,6 +252,8 @@ def test_resource_types_is_up_to_date() -> None:
     if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
         extra.discard("data_products")
         extra.discard("rulesets")
+    if not FeatureFlag.is_enabled(Flags.APPS):
+        extra.discard("apps")
     if not FeatureFlag.is_enabled(Flags.SIGNALS):
         extra.discard("signals")
     assert not missing, f"Missing {missing=}"

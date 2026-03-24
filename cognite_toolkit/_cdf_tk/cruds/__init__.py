@@ -21,6 +21,7 @@ from ._base_cruds import DataCRUD, Loader, ResourceContainerCRUD, ResourceCRUD
 from ._data_cruds import DatapointsCRUD, FileCRUD, RawFileCRUD
 from ._resource_cruds import (
     AgentCRUD,
+    AppCRUD,
     AssetCRUD,
     CogniteFileCRUD,
     ContainerCRUD,
@@ -110,6 +111,8 @@ if not FeatureFlag.is_enabled(Flags.DATA_PRODUCTS):
     _EXCLUDED_CRUDS.add(DataProductVersionCRUD)
     _EXCLUDED_CRUDS.add(RuleSetCRUD)
     _EXCLUDED_CRUDS.add(RuleSetVersionCRUD)
+if not FeatureFlag.is_enabled(Flags.APPS):
+    _EXCLUDED_CRUDS.add(AppCRUD)
 
 CRUDS_BY_FOLDER_NAME_INCLUDE_ALPHA: defaultdict[str, list[type[Loader]]] = defaultdict(list)
 CRUDS_BY_FOLDER_NAME: defaultdict[str, list[type[Loader]]] = defaultdict(list)
@@ -173,6 +176,7 @@ ResourceTypes: TypeAlias = Literal[
     "timeseries",
     "extraction_pipelines",
     "functions",
+    "apps",
     "raw",
     "robotics",
     "rulesets",
@@ -206,6 +210,7 @@ __all__ = [
     "RESOURCE_DATA_CRUD_LIST",
     "_EXCLUDED_CRUDS",
     "AgentCRUD",
+    "AppCRUD",
     "AssetCRUD",
     "CogniteFileCRUD",
     "ContainerCRUD",

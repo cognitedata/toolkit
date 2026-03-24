@@ -1,4 +1,5 @@
 from .agent import AgentCRUD
+from .app import AppCRUD
 from .auth import GroupAllScopedCRUD, GroupCRUD, SecurityCategoryCRUD
 from .classic import AssetCRUD, EventCRUD, SequenceCRUD, SequenceRowCRUD
 from .configuration import SearchConfigCRUD
@@ -54,6 +55,7 @@ from .workflow import WorkflowCRUD, WorkflowTriggerCRUD, WorkflowVersionCRUD
 
 __all__ = [
     "AgentCRUD",
+    "AppCRUD",
     "AssetCRUD",
     "CogniteFileCRUD",
     "ContainerCRUD",

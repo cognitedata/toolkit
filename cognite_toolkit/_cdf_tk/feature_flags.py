@@ -106,6 +106,10 @@ class Flags(Enum):
         visible=True,
         description="Enables support for the deployment pack in modules add command",
     )
+    APPS = FlagMetadata(
+        visible=False,
+        description="Enables support for App resources (file-backed, functions-style deployment)",
+    )
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
