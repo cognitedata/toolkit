@@ -683,7 +683,8 @@ class ViewCRUD(ResourceCRUD[ViewId, ViewRequest, ViewResponse]):
                     elif source.get("type") == "container" and in_dict(("space", "externalId"), source):
                         yield ContainerCRUD, ContainerId(space=source["space"], external_id=source["externalId"])
 
-    def safe_read(self, filepath: Path | str) -> str:
+    @classmethod
+    def safe_read(cls, filepath: Path | str) -> str:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
@@ -1046,7 +1047,8 @@ class DataModelCRUD(ResourceCRUD[DataModelId, DataModelRequest, DataModelRespons
                     ),
                 )
 
-    def safe_read(self, filepath: Path | str) -> str:
+    @classmethod
+    def safe_read(cls, filepath: Path | str) -> str:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
@@ -1360,7 +1362,8 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, Gr
         if "space" in item:
             yield SpaceCRUD, SpaceId(space=item["space"])
 
-    def safe_read(self, filepath: Path | str) -> str:
+    @classmethod
+    def safe_read(cls, filepath: Path | str) -> str:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.

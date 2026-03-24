@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
 
-from ._insights import InsightList
+from ._insights import InsightList, ModelSyntaxWarning
 from ._module import ModuleId, ResourceType
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
 
@@ -68,7 +68,7 @@ class BuiltResource(BaseModel):
     build_path: AbsoluteFilePath
     crud_cls: builtins.type[ResourceCRUD]
     dependencies: set[tuple[builtins.type[ResourceCRUD], Identifier]] = Field(default_factory=set)
-    insights: InsightList = Field(default_factory=InsightList)
+    syntax_warning: ModelSyntaxWarning | None = None
 
 
 class BuiltModule(BaseModel):
@@ -118,7 +118,8 @@ class BuildFolder(BaseModel):
         for module in self.built_modules:
             insights.extend(module.insights)
             for resource in module.resources:
-                insights.extend(resource.insights)
+                if resource.syntax_warning:
+                    insights.append(resource.syntax_warning)
         return insights
 
     @property

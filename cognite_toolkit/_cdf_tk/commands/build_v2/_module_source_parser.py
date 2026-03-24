@@ -7,7 +7,7 @@ from typing import Any, cast
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     AbsoluteDirPath,
     InsightList,
-    ModelSyntaxError,
+    ModelSyntaxWarning,
     ModuleSource,
     RelativeDirPath,
     RelativeFilePath,
@@ -105,7 +105,7 @@ class ModuleSourceParser:
         module_paths: list[RelativeDirPath],
         selection: set[RelativeDirPath | str],
         orphan_files: list[RelativeDirPath],
-    ) -> list[ModelSyntaxError]:
+    ) -> list[ModelSyntaxWarning]:
         # Todo: Check the following
         # 1) If any module is inside another module. -> Error.
         # 2) If any selection by name is ambiguous (matches multiple found modules) -> Error.
@@ -131,7 +131,7 @@ class ModuleSourceParser:
         variables: dict[str, Any],
         available_modules: set[RelativeDirPath],
         selected_modules: set[RelativeDirPath],
-    ) -> tuple[dict[RelativeDirPath, dict[int, list[BuildVariable]]], list[ModelSyntaxError]]:
+    ) -> tuple[dict[RelativeDirPath, dict[int, list[BuildVariable]]], list[ModelSyntaxWarning]]:
         all_available_paths = (
             {Path("")} | available_modules | {parent for module in available_modules for parent in module.parents}
         )
@@ -145,9 +145,9 @@ class ModuleSourceParser:
     @classmethod
     def _parse_variables(
         cls, variables: dict[str, Any], available_paths: set[RelativeDirPath], selected_paths: set[RelativeDirPath]
-    ) -> tuple[dict[RelativeDirPath, list[BuildVariable]], list[ModelSyntaxError]]:
+    ) -> tuple[dict[RelativeDirPath, list[BuildVariable]], list[ModelSyntaxWarning]]:
         variables_by_path: dict[RelativeDirPath, list[BuildVariable]] = defaultdict(list)
-        errors: list[ModelSyntaxError] = []
+        errors: list[ModelSyntaxWarning] = []
         to_check: list[tuple[RelativeDirPath, int | None, dict[str, Any]]] = [(Path(""), None, variables)]
         while to_check:
             path, iteration, subdict = to_check.pop()
@@ -162,7 +162,7 @@ class ModuleSourceParser:
                         to_check.append((subpath, iteration, value))
                     else:
                         errors.append(
-                            ModelSyntaxError(
+                            ModelSyntaxWarning(
                                 code=cls.VARIABLE_ERROR_CODE,
                                 message=f"Invalid variable path: {'.'.join(subpath.parts)}. This does not correspond to the "
                                 f"folder structure inside the {MODULES} directory.",
@@ -181,7 +181,7 @@ class ModuleSourceParser:
                             to_check.append((subpath, idx, item))
                     else:
                         errors.append(
-                            ModelSyntaxError(
+                            ModelSyntaxWarning(
                                 code=cls.VARIABLE_ERROR_CODE,
                                 message=f"Invalid variable type in list for variable {'.'.join(subpath.parts)}.",
                                 fix="Ensure that all items in the list are of the same supported type either (str, int, float, bool) or dict.",

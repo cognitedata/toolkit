@@ -7,7 +7,7 @@ from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ConsistencyError,
     InsightList,
-    ModelSyntaxError,
+    ModelSyntaxWarning,
     Recommendation,
 )
 
@@ -67,7 +67,7 @@ class NeatPlugin:
 
         for issue in issues:
             if isinstance(issue, NeatModelSyntaxError):
-                insights.append(ModelSyntaxError.model_validate(issue.model_dump()))
+                insights.append(ModelSyntaxWarning.model_validate(issue.model_dump()))
             elif isinstance(issue, NeatRecommendation):
                 insights.append(Recommendation.model_validate(issue.model_dump()))
             elif isinstance(issue, NeatConsistencyError):

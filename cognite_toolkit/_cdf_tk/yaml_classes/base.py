@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import TypeVar
 
 from pydantic import BaseModel
 from pydantic.alias_generators import to_camel
@@ -14,3 +15,6 @@ class ToolkitResource(BaseModelResource):
     def as_id(self) -> Identifier:
         """Return an identifier for this resource."""
         raise NotImplementedError()
+
+
+T_Resource = TypeVar("T_Resource", bound=ToolkitResource)
