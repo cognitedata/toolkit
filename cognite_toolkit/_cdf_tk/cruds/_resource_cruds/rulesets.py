@@ -13,10 +13,16 @@ from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import (
     RuleSetVersionResponse,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, ResourceCRUD, SuccessExtra
+from cognite_toolkit._cdf_tk.cruds._base_cruds import FailedReadExtra, ReadExtra, ResourceCRUD, SuccessExtra
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.auth import GroupAllScopedCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.utils import calculate_hash, load_yaml_inject_variables, safe_read, sanitize_filename
+from cognite_toolkit._cdf_tk.utils import (
+    calculate_hash,
+    humanize_collection,
+    load_yaml_inject_variables,
+    safe_read,
+    sanitize_filename,
+)
 from cognite_toolkit._cdf_tk.yaml_classes import RuleSetVersionYAML, RuleSetYAML
 
 # docs are not published yet; link to the API reference root.
@@ -177,7 +183,11 @@ class RuleSetVersionCRUD(ResourceCRUD[RuleSetVersionId, RuleSetVersionRequest, R
         ttl_path = next((p for p in ttl_candidates if p.exists()), None)
 
         if ttl_path is None:
-            # No TTL file found - this will be caught in load_resource_file
+            yield FailedReadExtra(
+                source_path=filepath,
+                code="MISSING",
+                error=f"Missing rules for {rule_set_id!r} in {filepath.as_posix()}. No 'rules' field found and no .ttl file found. Expected one of: {humanize_collection(ttl_candidates)}",
+            )
             return
 
         content = safe_read(ttl_path, encoding=BUILD_FOLDER_ENCODING)
