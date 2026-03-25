@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 from pydantic import JsonValue, TypeAdapter, ValidationError
@@ -438,7 +438,7 @@ class BuildV2Command(ToolkitCommand):
             except ValidationError as errors:
                 syntax_warning = self._create_syntax_warning(errors)
                 identifier = crud_class.get_id(parsed_yaml)
-            extra_files = crud_class.get_extra_files(resource_file, identifier)
+            extra_files = list(crud_class.get_extra_files(resource_file, identifier, parsed_yaml))
             return SuccessfulReadYAMLFile(
                 syntax_warning=syntax_warning,
                 resources=[
@@ -464,12 +464,13 @@ class BuildV2Command(ToolkitCommand):
                 identifier = crud_class.get_id(raw)
             else:
                 identifier = tk_resource.as_id()
-            extra_files = crud_class.get_extra_files(resource_file, identifier)
+            # We know that the parse_yaml list will always be longer than tk_resource
+            # thus raw will never be None.
+            raw_dict = cast(dict[str, Any], raw)
+            extra_files = list(crud_class.get_extra_files(resource_file, identifier, raw_dict))
             read_resources.append(
                 ReadResource(
-                    # We know that the parse_yaml list will always be longer than tk_resource
-                    # thus raw will never be None.
-                    raw=raw,  # type: ignore[arg-type]
+                    raw=raw_dict,
                     identifier=identifier,
                     validated=tk_resource,
                     extra_files=extra_files,

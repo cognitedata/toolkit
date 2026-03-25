@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, DirectoryPath, Field, JsonValue
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND, ResourceTypes
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ExtraFile, ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, ResourceCRUD
 from cognite_toolkit._cdf_tk.yaml_classes.base import T_Resource, ToolkitResource
 
 from ._insights import InsightList, ModelSyntaxWarning
@@ -93,7 +93,7 @@ class ReadResource(BaseModel, Generic[T_Resource]):
     raw: dict[str, JsonValue]
     identifier: Identifier
     validated: ToolkitResource | None = None
-    extra_files: list[ExtraFile] = Field(default_factory=list)
+    extra_files: list[ReadExtra] = Field(default_factory=list)
 
 
 class SuccessfulReadYAMLFile(ReadYAMLFile):

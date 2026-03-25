@@ -31,7 +31,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     FunctionsAcl,
     ScopeDefinition,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import FailedReadExtra, ReadExtra, ResourceCRUD, SuccessExtra
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitRequiredValueError,
@@ -45,12 +45,18 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
-from cognite_toolkit._cdf_tk.utils.file import create_temporary_zip, sanitize_filename
+from cognite_toolkit._cdf_tk.utils.file import (
+    create_temporary_zip,
+    create_zip_in_memory,
+    sanitize_filename,
+    yaml_safe_dump,
+)
 from cognite_toolkit._cdf_tk.utils.text import suffix_description
-from cognite_toolkit._cdf_tk.yaml_classes import FunctionScheduleYAML, FunctionsYAML
+from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML, FunctionScheduleYAML, FunctionsYAML
 
 from .auth import GroupAllScopedCRUD
 from .data_organization import DataSetsCRUD
+from .file import CogniteFileCRUD, FileMetadataCRUD
 from .group_scoped import GroupResourceScopedCRUD
 
 CDF_TOML = CDFToml.load()
@@ -157,6 +163,82 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
                 item["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(item["secrets"])
 
         return raw_list
+
+    @classmethod
+    def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        function_rootdir = filepath.parent / identifier.external_id
+        if not function_rootdir.is_dir():
+            yield FailedReadExtra(
+                code="NOT-EXISTING",
+                error=f"Cannot find function code for function {identifier.external_id!r} in {filepath.as_posix()}. Expected function code directory {function_rootdir.as_posix()} to exist. ",
+                source_path=function_rootdir,
+            )
+            return
+
+        # This mutates the input object, but it is the easiest way to pass
+        # the hash-value.
+        # This hash value is used to determine whether to redeploy the function.
+        function_hash = cls._create_hash_values(function_rootdir)
+        if "metadata" not in item:
+            item["metadata"] = {}
+        item["metadata"][cls._MetadataKey.function_hash] = function_hash
+
+        # This hash value is used to determine whether you can deploy from the build folder.
+        # (avoid the user running cdf build, modify the source code, then cdf deploy)
+        source_hash = calculate_directory_hash(function_rootdir)
+
+        yield SuccessExtra(
+            source_path=function_rootdir,
+            source_hash=source_hash,
+            suffix=".zip",
+            byte_content=create_zip_in_memory(function_rootdir),
+            description="function code",
+        )
+        name = item.get("name")
+        if not isinstance(name, str):
+            yield FailedReadExtra(
+                source_path=function_rootdir,
+                code="MISSING",
+                error=f"Cannot find function name for function {identifier.external_id!r} in {filepath.as_posix()}. This is required and is necessary for creating the function code.",
+            )
+            return
+        filename = sanitize_filename(name)
+        if data_set_external_id := item.get("dataSetExternalId"):
+            yield SuccessExtra(
+                source_path=function_rootdir,
+                source_hash=source_hash,
+                suffix=f".{FileMetadataCRUD.kind}.yaml",
+                content=yaml_safe_dump(
+                    FileMetadataYAML(
+                        name=f"{filename}.zip",
+                        external_id=identifier.external_id,
+                        data_set_external_id=data_set_external_id,
+                        mime_type="application/zip",
+                    ).model_dump(by_alias=True, exclude_unset=True)
+                ),
+                description="metadata for function code",
+            )
+        elif space := item.get("space"):
+            yield SuccessExtra(
+                source_path=function_rootdir,
+                source_hash=source_hash,
+                suffix=f".{CogniteFileCRUD.kind}.yaml",
+                content=yaml_safe_dump(
+                    CogniteFileYAML(
+                        space=space,
+                        external_id=identifier.external_id,
+                        name=name,
+                        mime_type="application/zip",
+                    )
+                ),
+                description="metadata for function code",
+            )
+        else:
+            yield FailedReadExtra(
+                source_path=function_rootdir,
+                code="MISSING",
+                error=f"Failed to create function code metadata for function {identifier.external_id!r} in {filepath.as_posix()}. This is required for creating the function code. The function must have either a dataSetExternalId or a space specified.",
+            )
 
     @classmethod
     def _create_hash_values(cls, function_rootdir: Path) -> str:
