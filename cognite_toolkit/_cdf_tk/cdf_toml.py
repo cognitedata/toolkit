@@ -261,7 +261,7 @@ def _fetch_latest_checksum(url: str = _LIBRARY_CHECKSUM_URL) -> str | None:
         if content.startswith("sha256:"):
             return content
         return f"sha256:{content}"
-    except Exception:
+    except (urllib.error.URLError, OSError, ValueError, UnicodeDecodeError):
         return None
 
 
