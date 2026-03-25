@@ -28,6 +28,11 @@ class AssetCentricId(Identifier):
     def __str__(self) -> str:
         return f"{self.resource_type}(id={self.id_})"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"resourceType-{self.resource_type}.id-{self.id_}"
+        return f"{self.resource_type}.{self.id_}"
+
 
 class InstanceSource(WrappedInstanceResponseOnly):
     """Pydantic model for reading InstanceSource nodes from the cognite_migration data model."""
