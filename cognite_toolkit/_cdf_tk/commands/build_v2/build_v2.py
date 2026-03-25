@@ -39,7 +39,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ModelSyntaxWarning,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
-    SUPPORTED_VARIABLE_REPLACEMENT,
+    SUPPORTS_VARIABLE_REPLACEMENT,
     BuildSource,
     BuildVariable,
     FailedReadYAMLFile,
@@ -495,7 +495,7 @@ class BuildV2Command(ToolkitCommand):
             if (
                 isinstance(extra_file, SuccessExtra)
                 and extra_file.content
-                and extra_file.suffix in SUPPORTED_VARIABLE_REPLACEMENT
+                and extra_file.suffix in SUPPORTS_VARIABLE_REPLACEMENT
             ):
                 # We check that it is a valid suffix above.
                 extra_file.content = BuildVariable.substitute(extra_file.content, variables, extra_file.suffix)  # type: ignore[arg-type]
