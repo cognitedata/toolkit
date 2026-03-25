@@ -34,7 +34,7 @@ class BuildVariable(BaseModel):
             # Preserve data types for YAML
             if isinstance(replace, str) and (replace.isdigit() or replace.endswith(":")):
                 replace = f'"{replace}"'
-                pattern = rf"'{pattern}'|{pattern}|" + rf'"{pattern}"'
+                pattern = rf"'{pattern}'|{pattern}|\"{pattern}\""
             elif replace is None:
                 replace = "null"
         elif file_suffix == ".sql":

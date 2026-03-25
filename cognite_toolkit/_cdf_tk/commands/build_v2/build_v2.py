@@ -492,7 +492,11 @@ class BuildV2Command(ToolkitCommand):
     ) -> list[ReadExtra]:
         output: list[ReadExtra] = []
         for extra_file in extra_files:
-            if isinstance(extra_file, SuccessExtra) and extra_file.suffix in SUPPORTED_VARIABLE_REPLACEMENT:
+            if (
+                isinstance(extra_file, SuccessExtra)
+                and extra_file.content
+                and extra_file.suffix in SUPPORTED_VARIABLE_REPLACEMENT
+            ):
                 # We check that it is a valid suffix above.
                 extra_file.content = BuildVariable.substitute(extra_file.content, variables, extra_file.suffix)  # type: ignore[arg-type]
             output.append(extra_file)
