@@ -306,8 +306,8 @@ class DeployCommand(ToolkitCommand):
                         "the upload command."
                     )
                 )
-
             loader = loader_cls.create_loader(client, build_dir)
+
             resource_result: DeployResult | None
             if isinstance(loader, ResourceCRUD):
                 resource_result = self.deploy_resource_type(

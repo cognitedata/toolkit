@@ -54,10 +54,17 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
     _metadata_hash_key = "cdf-toolkit-app-hash"
     yaml_cls = StreamlitYAML
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
+    def __init__(
+        self,
+        client: ToolkitClient,
+        build_dir: Path | None,
+        console: Console | None = None,
+        use_fileio: bool = Flags.v08.is_enabled(),
+    ):
         super().__init__(client, build_dir, console)
         self._source_file_by_external_id: dict[str, Path] = {}
         self.filemetadata_by_external_id: dict[str, Path] = {}
+        self.use_fileio = use_fileio
 
     @property
     def display_name(self) -> str:
@@ -178,7 +185,7 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
         for item in raw_list:
             external_id = self.get_id(item).external_id
-            if Flags.v08.is_enabled():
+            if self.use_fileio:
                 if (filemeta := filepath.parent / f"{filestem}.{FileMetadataCRUD.kind}.yaml").is_file():
                     self.filemetadata_by_external_id[external_id] = filemeta
             else:
@@ -246,8 +253,8 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
         result.get_success_or_raise(request)
 
     def create(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
-        if Flags.v08.is_enabled():
-            return self._v08_create(items)
+        if self.use_fileio:
+            return self._create_with_fileio(items)
         else:
             return self._create_legacy(items)
 
@@ -264,7 +271,7 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
                 created.append(response)
         return created
 
-    def _v08_create(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
+    def _create_with_fileio(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
         fileio = FileMetadataCRUD(self.client, None, None)
         try:
             filepaths = [self.filemetadata_by_external_id[item.external_id] for item in items]
@@ -280,8 +287,8 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
         return self.client.tool.streamlit.retrieve(list(ids), ignore_unknown_ids=True)
 
     def update(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
-        if Flags.v08.is_enabled():
-            return self._v08_update(items)
+        if self.use_fileio:
+            return self._update_with_fileio(items)
         else:
             return self._update_legacy(items)
 
@@ -298,7 +305,7 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
                 updated.append(response)
         return updated
 
-    def _v08_update(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
+    def _update_with_fileio(self, items: Sequence[StreamlitRequest]) -> list[StreamlitResponse]:
         fileio = FileMetadataCRUD(self.client, None, None)
         try:
             filepaths = [self.filemetadata_by_external_id[item.external_id] for item in items]

@@ -86,6 +86,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         build_path: Path | None,
         console: Console | None,
         file_upload_timeout_seconds: float = CDF_TOML.cdf.file_upload_timeout_seconds,
+        use_fileio: bool = Flags.v08.is_enabled(),
     ):
         super().__init__(client, build_path, console)
         self.data_set_id_by_external_id: dict[str, int] = {}
@@ -94,6 +95,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         self.filemetadata_path_by_external_id: dict[str, Path] = {}
         self.cognitefile_path_by_external_id: dict[str, Path] = {}
         self._file_upload_timeout_seconds = file_upload_timeout_seconds
+        self.use_filio = use_fileio
 
     @cached_property
     def project_data_modeling_status(self) -> Literal["HYBRID", "DATA_MODELING_ONLY"]:
@@ -150,7 +152,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         if filestem.lower().endswith(self.kind.lower()):
             filestem = filestem[: -len(self.kind)]
 
-        if Flags.v08.is_enabled():
+        if self.use_filio:
             for item in raw_list:
                 if "metadata" not in item:
                     item["metadata"] = {}
@@ -424,8 +426,8 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         created: list[FunctionResponse] = []
         if not self._is_activated("create"):
             return created
-        if Flags.v08.is_enabled():
-            return self._v08_create(items)
+        if self.use_filio:
+            return self._create_with_fileio(items)
         else:
             return self._legacy_create(items)
 
@@ -457,7 +459,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
                 created.append(created_item)
         return created
 
-    def _v08_create(self, items: Sequence[FunctionRequest]) -> list[FunctionResponse]:
+    def _create_with_fileio(self, items: Sequence[FunctionRequest]) -> list[FunctionResponse]:
         cognite_files, filemetadata_files = self._as_file_by_external_id(items)
         file_id_by_external_id = self._upload_files(cognite_files, filemetadata_files)
         created: list[FunctionResponse] = []
