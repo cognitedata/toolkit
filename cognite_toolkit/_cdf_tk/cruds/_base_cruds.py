@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read,
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
 
 if sys.version_info >= (3, 11):
@@ -429,6 +430,17 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: T_Identifier, item: dict[str, Any]) -> Iterable[ReadExtra]:
         yield from ()
+
+    @classmethod
+    def substitute_variables_content(cls, content: str, variables: "list[BuildVariable]") -> str:
+        """Variable substitution in the content of a file. This is used in the build command.
+
+        This is overwritten in the TransformationCRUD to handle substitution in the query field.
+        """
+        # To avoid circular import
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
+
+        return BuildVariable.substitute(content, variables, ".yaml")
 
 
 class ResourceContainerCRUD(ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource], ABC):

@@ -1,7 +1,7 @@
 import os
 import sys
 from collections import Counter, defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from itertools import zip_longest
 from pathlib import Path
@@ -39,6 +39,7 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import (
     ModelSyntaxWarning,
 )
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._module import (
+    SUPPORTED_VARIABLE_REPLACEMENT,
     BuildSource,
     BuildVariable,
     FailedReadYAMLFile,
@@ -54,11 +55,11 @@ from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
     ResourceCRUD,
 )
-from cognite_toolkit._cdf_tk.cruds._base_cruds import SuccessExtra
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
-from cognite_toolkit._cdf_tk.utils import calculate_hash, safe_write, sanitize_filename
+from cognite_toolkit._cdf_tk.utils import calculate_hash, safe_write
 from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
     relative_to_if_possible,
@@ -407,7 +408,7 @@ class BuildV2Command(ToolkitCommand):
         # Content read successfully.
         substituted_content = content
         if variables:
-            substituted_content = self._substitute_variables_in_content(content, variables)
+            substituted_content = crud_class.substitute_variables_content(content, variables)
 
         try:
             parsed_yaml = read_yaml_content(substituted_content)
@@ -439,7 +440,11 @@ class BuildV2Command(ToolkitCommand):
             except ValidationError as errors:
                 syntax_warning = self._create_syntax_warning(errors)
                 identifier = crud_class.get_id(parsed_yaml)
-            extra_files = list(crud_class.get_extra_files(resource_file, identifier, parsed_yaml))
+
+            extra_files = self._substitute_variables_extra_content(
+                crud_class.get_extra_files(resource_file, identifier, parsed_yaml), variables
+            )
+
             return SuccessfulReadYAMLFile(
                 syntax_warning=syntax_warning,
                 resources=[
@@ -468,7 +473,9 @@ class BuildV2Command(ToolkitCommand):
             # We know that the parse_yaml list will always be longer than tk_resource
             # thus raw will never be None.
             raw_dict = cast(dict[str, Any], raw)
-            extra_files = list(crud_class.get_extra_files(resource_file, identifier, raw_dict))
+            extra_files = self._substitute_variables_extra_content(
+                crud_class.get_extra_files(resource_file, identifier, raw_dict), variables
+            )
             read_resources.append(
                 ReadResource(
                     raw=raw_dict,
@@ -479,9 +486,21 @@ class BuildV2Command(ToolkitCommand):
             )
         return SuccessfulReadYAMLFile(syntax_warning=syntax_warning, resources=read_resources, **args)
 
-    def _substitute_variables_in_content(self, content: str, variables: list[BuildVariable]) -> str:
-        # Todo: Support variable substitution in content.
-        raise NotImplementedError()
+    @classmethod
+    def _substitute_variables_extra_content(
+        cls, extra_files: Iterable[ReadExtra], variables: list[BuildVariable]
+    ) -> list[ReadExtra]:
+        output: list[ReadExtra] = []
+        for extra_file in extra_files:
+            if (
+                isinstance(extra_file, SuccessExtra)
+                and extra_file.content
+                and extra_file.suffix in SUPPORTED_VARIABLE_REPLACEMENT
+            ):
+                # We check that it is a valid suffix above.
+                extra_file.content = BuildVariable.substitute(extra_file.content, variables, extra_file.suffix)  # type: ignore[arg-type]
+            output.append(extra_file)
+        return output
 
     def _create_syntax_warning(self, error: ValidationError) -> ModelSyntaxWarning:
         errors = humanize_validation_error(error)
@@ -505,8 +524,7 @@ class BuildV2Command(ToolkitCommand):
                 resource_counter.update([file.resource_type])
                 index = resource_counter[file.resource_type]
                 source_stem = file.source_path.stem.rsplit(".", maxsplit=1)[0]
-                # Todo. Identifiers should have a filename method with optional identifier type
-                identifier_filename = sanitize_filename(str(resource.identifier))
+                identifier_filename = resource.identifier.as_filename(include_type=False)
                 filestem = f"{index}-{source_stem}-{identifier_filename}"
                 filename = f"{filestem}.{file.resource_type.kind}.yaml"
                 destination_path = folder / filename
