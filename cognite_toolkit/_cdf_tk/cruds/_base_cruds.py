@@ -4,6 +4,7 @@ from collections.abc import Hashable, Iterable, Sequence, Sized
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 
+from pydantic import BaseModel, ConfigDict
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -119,6 +120,24 @@ class Loader(ABC):
 
 
 T_Loader = TypeVar("T_Loader", bound=Loader)
+
+
+class ReadExtra(BaseModel):
+    source_path: Path
+
+
+class FailedReadExtra(ReadExtra):
+    code: str
+    error: str
+
+
+class SuccessExtra(ReadExtra):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    source_hash: str
+    suffix: str
+    content: str | None = None
+    byte_content: bytes | None = None
+    description: str
 
 
 class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_ResponseResource]):
@@ -408,13 +427,8 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
         )
 
     @classmethod
-    def get_extra_files(cls, filepath: Path, identifier: T_Identifier) -> list[Any]:
-        # Todo Implement this class for
-        #   - functions
-        #   - streamlit
-        #   - ruleset
-        #   - transformation
-        return []
+    def get_extra_files(cls, filepath: Path, identifier: T_Identifier, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        yield from ()
 
 
 class ResourceContainerCRUD(ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource], ABC):

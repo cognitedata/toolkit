@@ -12,6 +12,7 @@ from collections import UserDict, defaultdict
 from collections.abc import Hashable, ItemsView, KeysView, ValuesView
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Literal, TypeVar, overload
 from zipfile import ZipFile
@@ -484,6 +485,32 @@ def create_temporary_zip(directory: Path, zipname: str) -> typing.Generator[Path
                     arcname = file_path.relative_to(directory)
                     zf.write(file_path, arcname)
         yield zip_path
+
+
+def create_zip_in_memory(directory: Path) -> bytes:
+    """
+    Create a zip file in memory from a directory.
+
+    Args:
+        directory: The directory to zip.
+
+    Returns:
+        The bytes of the zip file.
+    """
+    buffer = BytesIO()
+    with ZipFile(buffer, "w", strict_timestamps=False) as zf:
+        for root, _, files in os.walk(directory):
+            root_path = Path(root)
+            arc_root = root_path.relative_to(directory)
+
+            # Add directory entry to preserve directory structure, including empty ones.
+            zf.write(root_path, arcname=str(arc_root))
+
+            for filename in files:
+                file_path = root_path / filename
+                arcname = file_path.relative_to(directory)
+                zf.write(file_path, arcname)
+    return buffer.getvalue()
 
 
 def relative_to_if_possible(path: Path, base: Path = Path.cwd()) -> Path:

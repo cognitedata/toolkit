@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 from pydantic import JsonValue, TypeAdapter, ValidationError
@@ -54,6 +54,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
     ResourceCRUD,
 )
+from cognite_toolkit._cdf_tk.cruds._base_cruds import SuccessExtra
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
@@ -438,7 +439,7 @@ class BuildV2Command(ToolkitCommand):
             except ValidationError as errors:
                 syntax_warning = self._create_syntax_warning(errors)
                 identifier = crud_class.get_id(parsed_yaml)
-            extra_files = crud_class.get_extra_files(resource_file, identifier)
+            extra_files = list(crud_class.get_extra_files(resource_file, identifier, parsed_yaml))
             return SuccessfulReadYAMLFile(
                 syntax_warning=syntax_warning,
                 resources=[
@@ -464,12 +465,13 @@ class BuildV2Command(ToolkitCommand):
                 identifier = crud_class.get_id(raw)
             else:
                 identifier = tk_resource.as_id()
-            extra_files = crud_class.get_extra_files(resource_file, identifier)
+            # We know that the parse_yaml list will always be longer than tk_resource
+            # thus raw will never be None.
+            raw_dict = cast(dict[str, Any], raw)
+            extra_files = list(crud_class.get_extra_files(resource_file, identifier, raw_dict))
             read_resources.append(
                 ReadResource(
-                    # We know that the parse_yaml list will always be longer than tk_resource
-                    # thus raw will never be None.
-                    raw=raw,  # type: ignore[arg-type]
+                    raw=raw_dict,
                     identifier=identifier,
                     validated=tk_resource,
                     extra_files=extra_files,
@@ -503,10 +505,20 @@ class BuildV2Command(ToolkitCommand):
                 resource_counter.update([file.resource_type])
                 index = resource_counter[file.resource_type]
                 source_stem = file.source_path.stem.rsplit(".", maxsplit=1)[0]
+                # Todo. Identifiers should have a filename method with optional identifier type
                 identifier_filename = sanitize_filename(str(resource.identifier))
-                filename = f"{index}-{source_stem}-{identifier_filename}.{file.resource_type.kind}.yaml"
+                filestem = f"{index}-{source_stem}-{identifier_filename}"
+                filename = f"{filestem}.{file.resource_type.kind}.yaml"
                 destination_path = folder / filename
                 safe_write(destination_path, yaml_safe_dump(resource.raw), encoding=BUILD_FOLDER_ENCODING)
+                for extra_file in resource.extra_files:
+                    if not isinstance(extra_file, SuccessExtra):
+                        continue
+                    extra_path = folder / f"{filestem}{extra_file.suffix}"
+                    if extra_file.content:
+                        safe_write(extra_path, extra_file.content, encoding=BUILD_FOLDER_ENCODING)
+                    elif extra_file.byte_content:
+                        extra_path.write_bytes(extra_file.byte_content)
 
                 crud_cls = file.resource_type.crud_cls
                 if resource.validated:
