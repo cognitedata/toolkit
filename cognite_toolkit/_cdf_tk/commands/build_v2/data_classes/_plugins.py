@@ -19,8 +19,8 @@ class NeatPlugin:
         from cognite.neat._toolkit_adapter import NeatClient
 
         self._client = NeatClient(client._config)
-        self._cdf_snapshot: "SchemaSnapshot | None" = None
-        self._cdf_limits: "SchemaLimits | None" = None
+        self._cdf_snapshot: SchemaSnapshot | None = None
+        self._cdf_limits: SchemaLimits | None = None
 
     def validate(self, data_model_dir: Path, data_model_file: Path) -> InsightList:
         """Validates a data model using Neat and returns a list of insights.
