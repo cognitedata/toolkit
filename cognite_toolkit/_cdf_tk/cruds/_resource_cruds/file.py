@@ -82,9 +82,16 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
     class _MetadataKey:
         FILECONTENT_HASH = "cognite-toolkit-hash"
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None) -> None:
+    def __init__(
+        self,
+        client: ToolkitClient,
+        build_dir: Path | None,
+        console: Console | None = None,
+        support_upload: bool = Flags.v08.is_enabled(),
+    ) -> None:
         super().__init__(client, build_dir, console)
         self._filepath_by_external_id: dict[str, Path] = {}
+        self.support_upload = support_upload
 
     @property
     def display_name(self) -> str:
@@ -151,7 +158,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         raw_files = super().load_resource_file(filepath, environment_variables)
         stem = filepath.stem
         if stem.lower().endswith(self.kind.lower()):
-            stem = stem[: -len(self.kind)]
+            stem = stem[: -len(self.kind)].rstrip(".")
         for item in raw_files:
             source_file = item.pop("$FILEPATH", None)
             if source_file is None:
@@ -162,7 +169,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
                 else:
                     # No filepath found
                     continue
-            if Flags.v08.is_enabled():
+            if self.support_upload:
                 file_hash = calculate_hash(source_file, shorten=True)
                 if "metadata" not in item:
                     item["metadata"] = {}
@@ -197,7 +204,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
 
     def create(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
         responses = self.client.tool.filemetadata.create(items, overwrite=True)
-        if Flags.v08.is_enabled():
+        if self.support_upload:
             for response in responses:
                 self._try_upload_file_content(response)
         return responses
@@ -211,7 +218,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
 
     def update(self, items: Sequence[FileMetadataRequest]) -> list[FileMetadataResponse]:
         responses = self.client.tool.filemetadata.update(items, mode="replace")
-        if Flags.v08.is_enabled():
+        if self.support_upload:
             response_by_external_id = {
                 response.external_id: response for response in responses if response.external_id is not None
             }
@@ -281,9 +288,16 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
     class _SourceContextKey:
         FILECONTENT_HASH = "cognite-toolkit-hash"
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None) -> None:
+    def __init__(
+        self,
+        client: ToolkitClient,
+        build_dir: Path | None,
+        console: Console | None = None,
+        support_upload: bool = Flags.v08.is_enabled(),
+    ) -> None:
         super().__init__(client, build_dir, console)
         self._filepath_by_node_id: dict[NodeId, Path] = {}
+        self.support_upload = support_upload
 
     @property
     def display_name(self) -> str:
@@ -318,7 +332,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
         raw_files = super().load_resource_file(filepath, environment_variables)
         stem = filepath.stem
         if stem.lower().endswith(self.kind.lower()):
-            stem = stem[: -len(self.kind)]
+            stem = stem[: -len(self.kind)].rstrip(".")
         for item in raw_files:
             source_file = item.pop("$FILEPATH", None)
             if source_file is None:
@@ -329,7 +343,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
                 else:
                     # No filepath found
                     continue
-            if Flags.v08.is_enabled():
+            if self.support_upload:
                 file_hash = calculate_hash(source_file, shorten=True)
                 extra_str = f"{self._SourceContextKey.FILECONTENT_HASH}: {file_hash}"
                 # Store hash on source_context for efficient diffing
@@ -383,7 +397,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
 
     def create(self, items: Sequence[CogniteFileRequest]) -> list[InstanceSlimDefinition]:
         responses = self.client.tool.cognite_files.create(items)
-        if Flags.v08.is_enabled():
+        if self.support_upload:
             for item in items:
                 self._try_upload_file_content(item)
         return responses
@@ -395,13 +409,11 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
                 self.client.tool.filemetadata.upload_file(item.filepath, upload_urls[0].upload_url, item.mime_type)
 
     def retrieve(self, ids: Sequence[NodeId]) -> list[CogniteFileResponse]:
-        return self.client.tool.cognite_files.retrieve(
-            [NodeId(space=id_.space, external_id=id_.external_id) for id_ in ids]
-        )
+        return self.client.tool.cognite_files.retrieve(ids)
 
     def update(self, items: Sequence[CogniteFileRequest]) -> list[InstanceSlimDefinition]:
         responses = self.client.tool.cognite_files.create(items)
-        if Flags.v08.is_enabled():
+        if self.support_upload:
             items_by_id = {
                 response.as_id(): response
                 # We know that file responses will always be NodeIds.
@@ -420,9 +432,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
         return responses
 
     def delete(self, ids: Sequence[NodeId]) -> int:
-        return len(
-            self.client.tool.cognite_files.delete([NodeId(space=id_.space, external_id=id_.external_id) for id_ in ids])
-        )
+        return len(self.client.tool.cognite_files.delete(ids))
 
     def _iterate(
         self,
