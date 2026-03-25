@@ -69,6 +69,7 @@ class TestFunctionLoader:
         loader.load_resource(dict(resource), is_dry_run=False)
         client.lookup.data_sets.id.assert_called_with("ds_new", False)
 
+    @pytest.mark.skipif(not Flags.v08.is_enabled(), reason="This test is only relevant for v0.8 and later")
     def test_update_secrets(
         self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
     ) -> None:
