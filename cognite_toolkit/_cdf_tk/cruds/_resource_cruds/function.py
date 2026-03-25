@@ -211,9 +211,9 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
                 content=yaml_safe_dump(
                     FileMetadataYAML(
                         name=f"{filename}.zip",
-                        external_id=identifier.external_id,
-                        data_set_external_id=data_set_external_id,
-                        mime_type="application/zip",
+                        externalId=identifier.external_id,
+                        dataSetExternalId=data_set_external_id,
+                        mimeType="application/zip",
                     ).model_dump(by_alias=True, exclude_unset=True)
                 ),
                 description="metadata for function code",
@@ -226,10 +226,10 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
                 content=yaml_safe_dump(
                     CogniteFileYAML(
                         space=space,
-                        external_id=identifier.external_id,
+                        externalId=identifier.external_id,
                         name=name,
-                        mime_type="application/zip",
-                    )
+                        mimeType="application/zip",
+                    ).model_dump(by_alias=True, exclude_unset=True)
                 ),
                 description="metadata for function code",
             )

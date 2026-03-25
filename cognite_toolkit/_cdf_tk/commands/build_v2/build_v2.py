@@ -505,6 +505,7 @@ class BuildV2Command(ToolkitCommand):
                 resource_counter.update([file.resource_type])
                 index = resource_counter[file.resource_type]
                 source_stem = file.source_path.stem.rsplit(".", maxsplit=1)[0]
+                # Todo. Identifiers should have a filename method with optional identifier type
                 identifier_filename = sanitize_filename(str(resource.identifier))
                 filestem = f"{index}-{source_stem}-{identifier_filename}"
                 filename = f"{filestem}.{file.resource_type.kind}.yaml"

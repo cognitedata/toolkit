@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 from typing import Generic
 
@@ -90,7 +91,7 @@ class FailedReadYAMLFile(ReadYAMLFile):
 
 
 class ReadResource(BaseModel, Generic[T_Resource]):
-    raw: dict[str, JsonValue]
+    raw: dict[str, JsonValue | datetime]
     identifier: Identifier
     validated: ToolkitResource | None = None
     extra_files: list[ReadExtra] = Field(default_factory=list)
