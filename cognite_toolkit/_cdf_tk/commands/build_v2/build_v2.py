@@ -408,7 +408,7 @@ class BuildV2Command(ToolkitCommand):
         # Content read successfully.
         substituted_content = content
         if variables:
-            substituted_content = self._substitute_variables_in_content(content, variables)
+            substituted_content = self._substitute_variables_in_yaml_content(content, variables)
 
         try:
             parsed_yaml = read_yaml_content(substituted_content)
@@ -481,7 +481,7 @@ class BuildV2Command(ToolkitCommand):
         return SuccessfulReadYAMLFile(syntax_warning=syntax_warning, resources=read_resources, **args)
 
     @classmethod
-    def _substitute_variables_in_content(cls, content: str, variables: list[BuildVariable]) -> str:
+    def _substitute_variables_in_yaml_content(cls, content: str, variables: list[BuildVariable]) -> str:
         for variable in variables:
             replace = variable.value
             pattern = rf"{{{{\s*{variable.name}\s*}}}}"
