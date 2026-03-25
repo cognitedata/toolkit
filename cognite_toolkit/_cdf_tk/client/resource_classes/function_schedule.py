@@ -18,6 +18,11 @@ class FunctionScheduleId(Identifier):
     def __str__(self) -> str:
         return f"functionExternalId='{self.function_external_id}', name='{self.name}'"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"functionExternalId-{self.function_external_id}.name-{self.name}"
+        return f"{self.function_external_id}.{self.name}"
+
 
 class FunctionScheduleCredentials(BaseModelObject):
     """Credentials for function schedule authentication."""

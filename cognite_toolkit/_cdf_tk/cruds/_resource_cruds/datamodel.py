@@ -93,8 +93,11 @@ from cognite_toolkit._cdf_tk.constants import (
     VIEW_UPSERT_BATCH_LIMIT,
 )
 from cognite_toolkit._cdf_tk.cruds._base_cruds import (
+    FailedReadExtra,
+    ReadExtra,
     ResourceContainerCRUD,
     ResourceCRUD,
+    SuccessExtra,
 )
 from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
@@ -1361,6 +1364,31 @@ class GraphQLCRUD(ResourceContainerCRUD[DataModelId, GraphQLDataModelRequest, Gr
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "space" in item:
             yield SpaceCRUD, SpaceId(space=item["space"])
+
+    @classmethod
+    def get_extra_files(cls, filepath: Path, identifier: DataModelId, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        """Get extra files for a GraphQL DataModel resource.
+
+        This includes a required .graphql file with the schema.
+        """
+        graphql_file = filepath.with_suffix(".graphql")
+        if not graphql_file.is_file():
+            yield FailedReadExtra(
+                code="NOT-EXISTING",
+                error=f"Cannot find GraphQL file for data model {identifier}. Expected {graphql_file.name} adjacent to {filepath.as_posix()}.",
+                source_path=graphql_file,
+            )
+            return
+
+        content = safe_read(graphql_file, encoding=BUILD_FOLDER_ENCODING)
+        source_hash = calculate_hash(content, shorten=True)
+        yield SuccessExtra(
+            source_path=graphql_file,
+            source_hash=source_hash,
+            suffix=".graphql",
+            content=content,
+            description="GraphQL schema",
+        )
 
     @classmethod
     def safe_read(cls, filepath: Path | str) -> str:

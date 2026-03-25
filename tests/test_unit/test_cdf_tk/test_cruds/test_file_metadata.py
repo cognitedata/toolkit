@@ -17,6 +17,7 @@ def file_metadata_config_cases() -> Iterable[tuple]:
 name: A file.txt
 dataSetExternalId: ds_files
 source: sharepointABC
+$FILEPATH: some_file.txt
 """,
         ["1.A file.txt"],
         [
@@ -34,10 +35,12 @@ source: sharepointABC
   name: A file.txt
   dataSetExternalId: ds_files
   source: sharepointABC
+  $FILEPATH: some_file.txt
 - externalId: sharepointABC2
   name: Another file.txt
   dataSetExternalId: ds_files
   source: sharepointABC
+  $FILEPATH: some_other_file.txt
 """,
         ["1.A file.txt", "1.Another file.txt"],
         [

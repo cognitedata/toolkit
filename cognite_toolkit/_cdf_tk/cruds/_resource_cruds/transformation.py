@@ -27,13 +27,14 @@
 
 
 import random
+import re
 import time
 import warnings
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Literal, cast, final
+from typing import TYPE_CHECKING, Any, Literal, cast, final
 
 from cognite.client.data_classes import (
     ClientCredentials,
@@ -82,7 +83,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule imp
     TransformationScheduleResponse,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
-from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, ResourceCRUD, SuccessExtra
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitFileNotFoundError,
@@ -93,6 +94,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
+    calculate_hash,
     calculate_secure_hash,
     humanize_collection,
     in_dict,
@@ -121,6 +123,9 @@ from .data_organization import DataSetsCRUD
 from .datamodel import DataModelCRUD, SpaceCRUD, ViewCRUD
 from .group_scoped import GroupResourceScopedCRUD
 from .raw import RawDatabaseCRUD, RawTableCRUD
+
+if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
 
 
 @final
@@ -249,6 +254,94 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
                         version=destination.data_model.version,
                     ),
                 )
+
+    @classmethod
+    def get_extra_files(cls, filepath: Path, identifier: ExternalId, item: dict[str, Any]) -> Iterable[ReadExtra]:
+        """Get extra files for a Transformation resource.
+
+        This includes an optional .sql file with the query.
+        """
+        # Check if queryFile is specified in the YAML
+        query_file: Path | None = None
+        if "queryFile" in item:
+            query_file = filepath.parent / Path(item["queryFile"])
+        else:
+            # Check for conventional file names: {stem}.sql or {external_id}.sql
+            sql_candidates = [
+                filepath.parent / f"{filepath.stem}.sql",
+                filepath.parent / f"{identifier.external_id}.sql",
+            ]
+            query_file = next((p for p in sql_candidates if p.exists()), None)
+
+        if query_file is None or not query_file.exists():
+            # No external SQL file - query might be inline, which is valid
+            return
+
+        content = safe_read(query_file, encoding=BUILD_FOLDER_ENCODING)
+        source_hash = calculate_hash(content, shorten=True)
+        yield SuccessExtra(
+            source_path=query_file,
+            source_hash=source_hash,
+            suffix=".sql",
+            content=content,
+            description="transformation query",
+        )
+
+    @classmethod
+    def substitute_variables_content(cls, content: str, variables: "list[BuildVariable]") -> str:
+        """Overwritten to handle the query field that needs .sql style substitution."""
+        # avoid circular import
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import FileSuffix
+
+        for variable in variables:
+            file_suffix: FileSuffix = ".sql" if cls._is_in_query_field(content, variable.name) else ".yaml"
+            pattern, replace = variable.get_pattern_replace_pair(file_suffix)
+            content = re.sub(pattern, replace, content)
+        return content
+
+    @staticmethod
+    def _is_in_query_field(content: str, variable_key: str) -> bool:
+        """Check if a variable is within a query field in YAML.
+
+        Assumes query is a top-level property. This detects various YAML formats:
+        - query: >-
+        - query: |
+        - query: "..."
+        - query: ...
+        """
+        lines = content.split("\n")
+        variable_pattern = rf"{{{{\s*{re.escape(variable_key)}\s*}}}}"
+        in_query_field = False
+
+        for line in lines:
+            # Check if this line starts a top-level query field
+            query_match = re.match(r"^query\s*:\s*(.*)$", line)
+            if query_match:
+                in_query_field = True
+                query_content_start = query_match.group(1).strip()
+
+                # Check if variable is on the same line as query: declaration
+                if re.search(variable_pattern, line):
+                    return True
+
+                # If query content starts on same line (not a block scalar), check it
+                if query_content_start and not query_content_start.startswith(("|", ">", "|-", ">-", "|+", ">+")):
+                    if re.search(variable_pattern, query_content_start):
+                        return True
+                continue
+
+            # Check if we're still in the query field
+            if in_query_field:
+                # If we hit another top-level property, we've exited the query field
+                if re.match(r"^\w+\s*:", line):
+                    in_query_field = False
+                    continue
+
+                # We're still in the query field, check for variable
+                if re.search(variable_pattern, line):
+                    return True
+
+        return False
 
     @classmethod
     def safe_read(cls, filepath: Path | str) -> str:
