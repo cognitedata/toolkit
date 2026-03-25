@@ -497,9 +497,9 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         for item in items:
             if item.external_id is None:
                 continue
-            if filemetadata_path := self.filemetadata_path_by_external_id[item.external_id]:
+            if filemetadata_path := self.filemetadata_path_by_external_id.get(item.external_id):
                 filemetadata_files[filemetadata_path] = item.external_id
-            elif cognitefile_path := self.cognitefile_path_by_external_id[item.external_id]:
+            elif cognitefile_path := self.cognitefile_path_by_external_id.get(item.external_id):
                 cognite_files[cognitefile_path] = item.external_id
             else:
                 missing.append(item.external_id)

@@ -17,6 +17,7 @@ from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function import FunctionRequest, FunctionResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
     FunctionScheduleRequest,
@@ -84,7 +85,6 @@ secrets:
             created_time=0,
             status="Ready",
             metadata={
-                FunctionCRUD._MetadataKey.function_hash: FunctionCRUD._create_hash_values(tmp_path / "my_function"),
                 FunctionCRUD._MetadataKey.secret_hash: calculate_secure_hash(
                     {
                         "secret1": "value1",
@@ -220,20 +220,31 @@ secrets:
     def test_create_succeeds_when_file_uploaded_within_timeout(self, tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
             client.tool.filemetadata.await_file_uploaded.return_value = set(), 3.0
-            loader = FunctionCRUD(client, tmp_path, None, file_upload_timeout_seconds=30.0)
-            loader.function_dir_by_external_id["my_func"] = tmp_path / "my_func"
             (tmp_path / "my_func").mkdir()
+            loader = FunctionCRUD(client, tmp_path, None, file_upload_timeout_seconds=30.0)
+
+            # V0.7
             (tmp_path / "my_func" / "handler.py").write_text("def handle(data): pass")
+            loader.function_dir_by_external_id["my_func"] = tmp_path / "my_func"
+            # v0.8
+            filemetadata = tmp_path / "my_func.FileMetadata.yaml"
+            filemetadata.write_text("externalId: my_func\nname: my_func\n")
+            loader.filemetadata_path_by_external_id["my_func"] = filemetadata
 
             created_response = FunctionResponse(
                 id=1, name="my_func", external_id="my_func", file_id=42, created_time=0, status="Ready"
             )
             client.tool.functions.create.return_value = [created_response]
+            # V0.8
+            client.tool.filemetadata.create.return_value = [
+                FileMetadataResponse(id=42, created_time=0, last_updated_time=1, uploaded=True, name="my_func")
+            ]
 
             item = FunctionRequest(name="my_func", external_id="my_func", file_id=-1)
 
             with (
                 patch.object(loader, "_is_activated", return_value=True),
+                # V0.8u
                 patch.object(loader, "_upload_function_code", return_value=InternalId(id=42)),
             ):
                 result = loader.create([item])
@@ -244,10 +255,19 @@ secrets:
         with monkeypatch_toolkit_client() as client:
             file_id = InternalId(id=42)
             client.tool.filemetadata.await_file_uploaded.return_value = {file_id}, 0.0
-            loader = FunctionCRUD(client, tmp_path, None, file_upload_timeout_seconds=0)
-            loader.function_dir_by_external_id["my_func"] = tmp_path / "my_func"
             (tmp_path / "my_func").mkdir()
+            loader = FunctionCRUD(client, tmp_path, None, file_upload_timeout_seconds=30.0)
+
+            # V0.7
             (tmp_path / "my_func" / "handler.py").write_text("def handle(data): pass")
+            loader.function_dir_by_external_id["my_func"] = tmp_path / "my_func"
+            # v0.8
+            filemetadata = tmp_path / "my_func.FileMetadata.yaml"
+            filemetadata.write_text("externalId: my_func\nname: my_func\n")
+            loader.filemetadata_path_by_external_id["my_func"] = filemetadata
+            client.tool.filemetadata.create.return_value = [
+                FileMetadataResponse(id=42, created_time=0, last_updated_time=1, uploaded=True, name="my_func")
+            ]
 
             item = FunctionRequest(name="my_func", external_id="my_func", file_id=-1)
 

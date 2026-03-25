@@ -398,11 +398,11 @@ class BuildV2Command(ToolkitCommand):
         crud_class: type[ResourceCRUD],
         variables: list[BuildVariable],
     ) -> ReadYAMLFile:
-        # The file hash has to be calculated here as the .safe_read
-        # modifies the content for certain kinds of resources such at for example data modeling resources that have
-        # version.
-        file_hash = calculate_hash(resource_file, shorten=True)
         try:
+            # The file hash has to be calculated here as the .safe_read
+            # modifies the content for certain kinds of resources such at for example data modeling resources that have
+            # version.
+            file_hash = calculate_hash(resource_file, shorten=True)
             content = crud_class.safe_read(resource_file)
         except Exception as read_error:
             return FailedReadYAMLFile(

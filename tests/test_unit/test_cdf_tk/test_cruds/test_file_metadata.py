@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
@@ -26,6 +26,7 @@ $FILEPATH: some_file.txt
                 source="sharepointABC",
                 name="A file.txt",
                 data_set_id=LookUpAPIMock.create_id("ds_files"),
+                metadata={FileMetadataCRUD._MetadataKey.FILECONTENT_HASH: "hash"},
             )
         ],
         id="Single file as mapping",
@@ -49,12 +50,14 @@ $FILEPATH: some_file.txt
                 source="sharepointABC",
                 name="A file.txt",
                 data_set_id=LookUpAPIMock.create_id("ds_files"),
+                metadata={FileMetadataCRUD._MetadataKey.FILECONTENT_HASH: "hash"},
             ),
             FileMetadataRequest(
                 external_id="sharepointABC2",
                 source="sharepointABC",
                 name="Another file.txt",
                 data_set_id=LookUpAPIMock.create_id("ds_files"),
+                metadata={FileMetadataCRUD._MetadataKey.FILECONTENT_HASH: "hash"},
             ),
         ],
         id="Multiple files as array",
@@ -71,12 +74,13 @@ class TestLoadResources:
         toolkit_client_approval: ApprovalToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = FileMetadataCRUD(toolkit_client_approval.mock_client, None)
+        fileio = FileMetadataCRUD(toolkit_client_approval.mock_client, None)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = yaml_content
         filepath.parent.glob.return_value = [Path(f) for f in files]
-        raw_list = loader.load_resource_file(filepath, {})
-        resources = [loader.load_resource(item, is_dry_run=False) for item in raw_list]
+
+        with patch(f"{FileMetadataCRUD.__module__}.calculate_hash", return_value="hash"):
+            resources = fileio.load_resource_files([filepath], is_dry_run=False)
 
         assert [resource.dump() for resource in resources] == [item.dump() for item in expected]
 
