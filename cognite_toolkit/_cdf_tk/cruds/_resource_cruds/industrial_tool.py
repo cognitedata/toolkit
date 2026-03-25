@@ -30,7 +30,6 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.acl_helper import dataset_scoped_resource
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash, calculate_hash
-from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 from cognite_toolkit._cdf_tk.yaml_classes import StreamlitYAML
 
 from .auth import GroupAllScopedCRUD
@@ -140,6 +139,9 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
         try:
             file_metadata = yaml_safe_dump(StreamlitRequest.model_validate(item).dump(context="api"))
         except ValidationError as e:
+            # avoid circular import
+            from cognite_toolkit._cdf_tk.validation import humanize_validation_error
+
             error_str = "\n - ".join(humanize_validation_error(e))
             yield FailedReadExtra(
                 code="INVALID",
@@ -186,8 +188,8 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
             dumped.pop("theme")
         return dumped
 
-    @lru_cache
     @classmethod
+    @lru_cache
     def _as_json_string(cls, app_path: Path, entrypoint: str) -> str:
         if not app_path.exists():
             raise ToolkitNotADirectoryError(f"Streamlit app folder does not exists. Expected: {app_path}")
