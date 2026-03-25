@@ -14,6 +14,5 @@ data = false
 functions = false
 
 
-[library.cognite]
+[library.toolkit-data]
 url = "https://github.com/cognitedata/library/releases/download/latest/packages.zip"
-checksum = "sha256:a49826a6e0432eb57d2628377e217d60f0065b223ba9f49407119fabc546067a"

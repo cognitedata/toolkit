@@ -11,7 +11,7 @@ from pydantic.alias_generators import to_camel
 from pydantic_core import PydanticUndefined
 
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, yaml_safe_dump
+from cognite_toolkit._cdf_tk.utils.file import read_yaml_content, sanitize_filename, yaml_safe_dump
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -118,6 +118,13 @@ class Identifier(RequestItem):
         if not isinstance(other, Identifier):
             return NotImplemented
         return str(self) < str(other)
+
+    def as_filename(self, include_type: bool = False) -> str:
+        return sanitize_filename(self._as_filename(include_type))
+
+    @abstractmethod
+    def _as_filename(self, include_type: bool = False) -> str:
+        raise NotImplementedError()
 
 
 T_Identifier = TypeVar("T_Identifier", bound=Identifier)

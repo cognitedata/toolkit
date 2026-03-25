@@ -51,7 +51,6 @@ class TestAboutCommand:
                 version = "0.0.0"
                 [library.custom]
                 url = "https://example.com/packages.zip"
-                checksum = "abc123"
                 """,
                 [],
             ),
@@ -68,7 +67,6 @@ class TestAboutCommand:
                 graphql = true
                 [library.my-lib]
                 url = "https://example.com/lib.zip"
-                checksum = "xyz789"
                 """,
                 [],
             ),
@@ -89,10 +87,8 @@ class TestAboutCommand:
                 version = "0.0.0"
                 [library.lib1]
                 url = "https://example.com/lib1.zip"
-                checksum = "aaa"
                 [library.lib2]
                 url = "https://example.com/lib2.zip"
-                checksum = "bbb"
                 """,
                 [],
             ),
