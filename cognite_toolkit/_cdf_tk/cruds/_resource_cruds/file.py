@@ -281,7 +281,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
     class _SourceContextKey:
         FILECONTENT_HASH = "cognite-toolkit-hash"
 
-    def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None = None) -> None:
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None) -> None:
         super().__init__(client, build_dir, console)
         self._filepath_by_node_id: dict[NodeId, Path] = {}
 
