@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.function_schedule import (
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.cruds import FunctionCRUD, FunctionScheduleCRUD, ResourceWorker
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError, ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_secure_hash
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
@@ -217,16 +218,13 @@ secrets:
         assert len(capabilities) == 2
         assert isinstance(capabilities[1].scope, FilesAcl.Scope.All)
 
+    @pytest.mark.skipif(not Flags.v08.is_enabled(), reason="This test is only relevant for v0.8 and later")
     def test_create_succeeds_when_file_uploaded_within_timeout(self, tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
             client.tool.filemetadata.await_file_uploaded.return_value = set(), 3.0
             (tmp_path / "my_func").mkdir()
-            loader = FunctionCRUD(client, tmp_path, None, file_upload_timeout_seconds=30.0)
+            loader = FunctionCRUD(client, None, None, file_upload_timeout_seconds=30.0)
 
-            # V0.7
-            (tmp_path / "my_func" / "handler.py").write_text("def handle(data): pass")
-            loader.function_dir_by_external_id["my_func"] = tmp_path / "my_func"
-            # v0.8
             filemetadata = tmp_path / "my_func.FileMetadata.yaml"
             filemetadata.write_text("externalId: my_func\nname: my_func\n")
             loader.filemetadata_path_by_external_id["my_func"] = filemetadata
@@ -251,17 +249,14 @@ secrets:
 
         assert result == [created_response]
 
+    @pytest.mark.skipif(not Flags.v08.is_enabled(), reason="This test is only relevant for v0.8 and later")
     def test_create_raises_timeout_when_file_not_uploaded(self, tmp_path: Path) -> None:
         with monkeypatch_toolkit_client() as client:
             file_id = InternalId(id=42)
             client.tool.filemetadata.await_file_uploaded.return_value = {file_id}, 0.0
             (tmp_path / "my_func").mkdir()
-            loader = FunctionCRUD(client, tmp_path, None, file_upload_timeout_seconds=30.0)
+            loader = FunctionCRUD(client, None, None, file_upload_timeout_seconds=30.0)
 
-            # V0.7
-            (tmp_path / "my_func" / "handler.py").write_text("def handle(data): pass")
-            loader.function_dir_by_external_id["my_func"] = tmp_path / "my_func"
-            # v0.8
             filemetadata = tmp_path / "my_func.FileMetadata.yaml"
             filemetadata.write_text("externalId: my_func\nname: my_func\n")
             loader.filemetadata_path_by_external_id["my_func"] = filemetadata
