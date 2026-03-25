@@ -18,7 +18,7 @@ data:
     color: '#6929c4'
     tsId: 6489308933506138
     tsExternalId: "EVE-SI-STOR\xD8YODDEN-01-2"
-    lineWeight: 1
+    lineWeight: 1.0
     lineStyle: solid
     interpolation: linear
     displayMode: lines
@@ -29,8 +29,8 @@ data:
     customUnitLabel: ''
     description: Speed of sea water (current)
     range:
-    - -0.00874345985078026
-    - 0.2470764655705674
+    - -0.008
+    - 0.247
     createdAt: 1688642098750
     statisticsCalls:
     - hash: -1710829213
