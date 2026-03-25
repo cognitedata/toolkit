@@ -207,8 +207,6 @@ default_organization_dir = "{organization_dir.name}"''',
             if latest_checksum and latest_checksum != default_checksum:
                 cdf_toml_content = cdf_toml_content.replace(default_checksum, latest_checksum)
                 print(f"Updated library checksum to {latest_checksum}")
-            elif latest_checksum is None:
-                print("Could not fetch latest library checksum, using default.")
 
         destination.write_text(cdf_toml_content, encoding="utf-8")
 
@@ -261,7 +259,8 @@ def _fetch_latest_checksum(url: str = _LIBRARY_CHECKSUM_URL) -> str | None:
         if content.startswith("sha256:"):
             return content
         return f"sha256:{content}"
-    except (urllib.error.URLError, OSError, ValueError, UnicodeDecodeError):
+    except (urllib.error.URLError, OSError, ValueError, UnicodeDecodeError) as e:
+        print(f"Could not fetch latest library checksum, using default. Reason: {e!s}")
         return None
 
 
