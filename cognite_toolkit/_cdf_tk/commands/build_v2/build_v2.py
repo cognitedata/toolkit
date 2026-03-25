@@ -58,7 +58,7 @@ from cognite_toolkit._cdf_tk.cruds._base_cruds import SuccessExtra
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
-from cognite_toolkit._cdf_tk.utils import calculate_hash, safe_write, sanitize_filename
+from cognite_toolkit._cdf_tk.utils import calculate_hash, safe_write
 from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
     relative_to_if_possible,
@@ -505,8 +505,7 @@ class BuildV2Command(ToolkitCommand):
                 resource_counter.update([file.resource_type])
                 index = resource_counter[file.resource_type]
                 source_stem = file.source_path.stem.rsplit(".", maxsplit=1)[0]
-                # Todo. Identifiers should have a filename method with optional identifier type
-                identifier_filename = sanitize_filename(str(resource.identifier))
+                identifier_filename = resource.identifier.as_filename(include_type=False)
                 filestem = f"{index}-{source_stem}-{identifier_filename}"
                 filename = f"{filestem}.{file.resource_type.kind}.yaml"
                 destination_path = folder / filename
