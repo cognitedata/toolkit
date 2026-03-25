@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from importlib.util import find_spec
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -50,7 +52,7 @@ class NeatPlugin:
         return self.issues_to_insights(orchestrator.issues)
 
     @classmethod
-    def issues_to_insights(cls, issues: "NeatIssueList") -> InsightList:
+    def issues_to_insights(cls, issues: NeatIssueList) -> InsightList:
         """Converts a list of Neat issues to a Toolkit insight list.
 
         Args:
@@ -74,7 +76,7 @@ class NeatPlugin:
         return insights
 
     @property
-    def cdf_limits(self) -> "SchemaLimits":
+    def cdf_limits(self) -> SchemaLimits:
         from cognite.neat._toolkit_adapter import SchemaLimits
 
         if not self._cdf_limits:
@@ -82,7 +84,7 @@ class NeatPlugin:
         return self._cdf_limits
 
     @property
-    def cdf_snapshot(self) -> "SchemaSnapshot":
+    def cdf_snapshot(self) -> SchemaSnapshot:
         from cognite.neat._data_model._snapshot import SchemaSnapshot
 
         if not self._cdf_snapshot:
