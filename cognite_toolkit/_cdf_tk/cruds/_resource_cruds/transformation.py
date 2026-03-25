@@ -34,7 +34,7 @@ from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Literal, cast, final
+from typing import TYPE_CHECKING, Any, Literal, cast, final
 
 from cognite.client.data_classes import (
     ClientCredentials,
@@ -82,7 +82,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.transformation_schedule imp
     TransformationScheduleRequest,
     TransformationScheduleResponse,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable, FileSuffix
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.cruds._base_cruds import ReadExtra, ResourceCRUD, SuccessExtra
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -124,6 +123,9 @@ from .data_organization import DataSetsCRUD
 from .datamodel import DataModelCRUD, SpaceCRUD, ViewCRUD
 from .group_scoped import GroupResourceScopedCRUD
 from .raw import RawDatabaseCRUD, RawTableCRUD
+
+if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
 
 
 @final
@@ -286,8 +288,11 @@ class TransformationCRUD(ResourceCRUD[ExternalId, TransformationRequest, Transfo
         )
 
     @classmethod
-    def substitute_variables_content(cls, content: str, variables: list[BuildVariable]) -> str:
+    def substitute_variables_content(cls, content: str, variables: "list[BuildVariable]") -> str:
         """Overwritten to handle the query field that needs .sql style substitution."""
+        # avoid circular import
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import FileSuffix
+
         for variable in variables:
             file_suffix: FileSuffix = ".sql" if cls._is_in_query_field(content, variable.name) else ".yaml"
             pattern, replace = variable.get_pattern_replace_pair(file_suffix)
