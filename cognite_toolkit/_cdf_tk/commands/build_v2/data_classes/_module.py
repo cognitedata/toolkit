@@ -28,6 +28,14 @@ class ModuleId(Identifier):
     id: RelativeDirPath
     path: DirectoryPath
 
+    def __str__(self) -> str:
+        return str(self.id)
+
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"id-{self.id}"
+        return str(self.id)
+
     @property
     def name(self) -> str:
         return self.id.name
