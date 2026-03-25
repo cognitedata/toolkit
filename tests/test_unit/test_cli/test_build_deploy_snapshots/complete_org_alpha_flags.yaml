@@ -40,6 +40,7 @@ CogniteFileResponse:
   - properties:
       mimeType: text/plain
       name: anotherfile.txt
+      sourceContext: 'cognite-toolkit-hash: 736fbca0'
       sourceCreatedTime: '2023-01-01T00:00:00Z'
       sourceCreatedUser: I
       sourceUpdatedTime: '2024-01-01T00:00:00Z'
@@ -102,6 +103,7 @@ FileMetadataResponse:
   directory: /files
   externalId: my_simulator_model_revision_file
   metadata:
+    cognite-toolkit-hash: '85241537'
     origin: cognite-toolkit
   mimeType: application/plain
   name: simulator_model_revision.txt
@@ -110,6 +112,7 @@ FileMetadataResponse:
   directory: /files
   externalId: shopConfigFile
   metadata:
+    cognite-toolkit-hash: a5aca325
     origin: cognite-toolkit
   mimeType: application/yaml
   name: config_shop.yaml
@@ -126,6 +129,7 @@ FunctionResponse:
   runtime: py311
 GraphQLDataModelResponse:
 - description: The Enterprise Data Model. CDFToolkitHash:9e20f6cf
+  dml: AssetHierarchy.graphql
   externalId: AssetHierarchy
   graphQlDml: "### Asset Hierarchy Data Model\ntype ProcessType {\n  name: String\n\
     \  description: String\n  code: String\n}\n\ntype GeoRegion {\n  name: String!\n\
