@@ -1,6 +1,9 @@
 import builtins
 from datetime import datetime
+from pathlib import Path
 from typing import ClassVar, Literal
+
+from pydantic import Field
 
 from cognite_toolkit._cdf_tk.client._resource_base import BaseModelObject
 from cognite_toolkit._cdf_tk.client.identifiers import InstanceId, NodeId, NodeUntypedId, ViewId
@@ -31,6 +34,8 @@ class CogniteFile(BaseModelObject):
     directory: str | None = None
     category: NodeUntypedId | None = None
     type: NodeUntypedId | None = None
+    # This is not part of the API, but it is very useful when creating a file with content.
+    filepath: Path | None = Field(default=None, exclude=True, alias="$FILEPATH")
 
 
 class CogniteFileRequest(WrappedInstanceRequest, CogniteFile):

@@ -54,6 +54,7 @@ from cognite_toolkit._cdf_tk.utils.acl_helper import (
     space_scoped_resource,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.utils.text import suffix_description
 from cognite_toolkit._cdf_tk.utils.time import convert_data_modelling_timestamp
 from cognite_toolkit._cdf_tk.yaml_classes import CogniteFileYAML, FileMetadataYAML
 
@@ -264,6 +265,11 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
     dependencies = frozenset({GroupAllScopedCRUD, SpaceCRUD, ViewCRUD})
 
     _doc_url = "Files/operation/initFileUpload"
+    # 128,000 bytes (UTF-8) is the maximum, worse case utf-8 will use 4 bytes per character
+    TEXT_FIELD_MAX_LENGTH = 32_000
+
+    class _SourceContextKey:
+        filecontent_hash = "cognite-toolkit-hash"
 
     @property
     def display_name(self) -> str:
@@ -291,6 +297,38 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
         yield FilesAcl(actions=sorted(actions), scope=AllScope())
         if isinstance(scope, AllScope | SpaceIDScope):
             yield DataModelInstancesAcl(actions=as_instance_acl_actions(actions), scope=scope)
+
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        raw_files = super().load_resource_file(filepath, environment_variables)
+        stem = filepath.stem
+        if stem.lower().endswith(self.kind.lower()):
+            stem = stem[: -len(self.kind)]
+        for item in raw_files:
+            source_file = item.get("$FILEPATH")
+            if source_file is None:
+                if candidate := next((filepath.parent.rglob(f"{stem}*")), None):
+                    source_file = candidate
+                elif isinstance(name := item.get("name"), str) and (filepath.parent / name).exists():
+                    source_file = filepath.parent / name
+                else:
+                    # No filepath found
+                    continue
+            if Flags.v08.is_enabled():
+                file_hash = calculate_hash(source_file, shorten=True)
+                extra_str = f"{self._SourceContextKey.filecontent_hash}: {file_hash}"
+                # Store hash on source_context for efficient diffing
+                item["sourceContext"] = suffix_description(
+                    extra_str,
+                    item.get("sourceContext"),
+                    self.TEXT_FIELD_MAX_LENGTH,
+                    self.get_id(item),
+                    self.display_name,
+                    self.client.console,
+                )
+            item["$FILEPATH"] = source_file
+        return raw_files
 
     def dump_resource(self, resource: CogniteFileResponse, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_request_resource().dump(context="toolkit")
@@ -325,7 +363,17 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[CogniteFileRequest]) -> list[InstanceSlimDefinition]:
-        return self.client.tool.cognite_files.create(items)
+        responses = self.client.tool.cognite_files.create(items)
+        if Flags.v08.is_enabled():
+            for item in items:
+                self._try_upload_file_content(item)
+        return responses
+
+    def _try_upload_file_content(self, item: CogniteFileRequest) -> None:
+        if item.filepath:
+            upload_urls = self.client.tool.filemetadata.get_upload_url([item.as_instance_id()])
+            if upload_urls and upload_urls[0].upload_url:
+                self.client.tool.filemetadata.upload_file(item.filepath, upload_urls[0].upload_url, item.mime_type)
 
     def retrieve(self, ids: Sequence[NodeId]) -> list[CogniteFileResponse]:
         return self.client.tool.cognite_files.retrieve(
@@ -333,7 +381,24 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, CogniteFileRequest, CogniteF
         )
 
     def update(self, items: Sequence[CogniteFileRequest]) -> list[InstanceSlimDefinition]:
-        return self.client.tool.cognite_files.create(items)
+        responses = self.client.tool.cognite_files.create(items)
+        if Flags.v08.is_enabled():
+            items_by_id = {
+                response.as_id(): response
+                # We know that file responses will always be NodeIds.
+                for response in self.client.tool.cognite_files.retrieve([item.as_id() for item in responses])  # type:ignore[misc]
+            }
+            for item in items:
+                if not item.filepath:
+                    continue
+                existing_file = items_by_id.get(item.as_id())
+                # Check if content hash has changed
+                if existing_file and existing_file.source_context == item.source_context:
+                    # Content hasn't changed, skip upload
+                    continue
+                # Need to upload the file content
+                self._try_upload_file_content(item)
+        return responses
 
     def delete(self, ids: Sequence[NodeId]) -> int:
         return len(
