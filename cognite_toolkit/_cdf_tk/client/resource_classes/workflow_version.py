@@ -22,6 +22,11 @@ class TaskId(Identifier):
     def __str__(self) -> str:
         return f"externalId='{self.external_id}'"
 
+    def _as_filename(self, include_type: bool = False) -> str:
+        if include_type:
+            return f"externalId-{self.external_id}"
+        return self.external_id
+
 
 class TaskParameterDefinition(BaseModelObject):
     type: str

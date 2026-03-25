@@ -286,7 +286,6 @@ class ModulesCommand(ToolkitCommand):
         user_environments: list[str] | None = None,
         user_download_data: bool | None = None,
         library_url: str | None = None,
-        library_checksum: str | None = None,
     ) -> None:
         if not organization_dir:
             organization_dir = ModulesCommand._prompt_organization_dir()
@@ -296,11 +295,7 @@ class ModulesCommand(ToolkitCommand):
         # Determine which library to use (if any)
         library: Library | None = None
         if library_url:
-            if not library_checksum:
-                raise ToolkitRequiredValueError(
-                    "The '--library-checksum' is required when '--library-url' is provided."
-                )
-            library = Library(url=library_url, checksum=library_checksum)
+            library = Library(url=library_url)
         elif not (organization_dir / CDFToml.file_name).exists():
             # Load default library from resources when cdf.toml doesn't exist
             default_cdf_toml = CDFToml.load(cwd=RESOURCES_PATH, use_singleton=False)
@@ -885,7 +880,6 @@ class ModulesCommand(ToolkitCommand):
                     )
                     file_path = self._temp_download_dir / filename
                     self._download(library.url, file_path)
-                    self._validate_checksum(library.checksum, file_path)
                     self._unpack(file_path)
                     packages = Packages().load(file_path.parent)
                     if packages.warnings:
@@ -993,15 +987,6 @@ class ModulesCommand(ToolkitCommand):
 
         except requests.exceptions.RequestException as e:
             raise ToolkitError(f"Error downloading file from {url}: {e}") from e
-
-    def _validate_checksum(self, checksum: str, file_path: Path) -> None:
-        """
-        Compares the checksum of the downloaded file with the expected checksum.
-
-        CDF-27407: Validation is temporarily disabled. Published toolkit-data can lag
-        toolkit releases, producing false mismatch warnings and blocking workflows.
-        """
-        self.console(f"Skipping checksum validation for {file_path.name} (expected {checksum}) due to CDF-27407.")
 
     def _unpack(self, file_path: Path) -> None:
         """

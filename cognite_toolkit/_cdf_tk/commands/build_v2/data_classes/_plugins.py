@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-import importlib.util
+from importlib.util import find_spec
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -18,12 +16,11 @@ if TYPE_CHECKING:
 
 class NeatPlugin:
     def __init__(self, client: ToolkitClient) -> None:
-
         from cognite.neat._toolkit_adapter import NeatClient
 
         self._client = NeatClient(client._config)
-        self._cdf_snapshot: SchemaSnapshot | None = None
-        self._cdf_limits: SchemaLimits | None = None
+        self._cdf_snapshot: "SchemaSnapshot | None" = None
+        self._cdf_limits: "SchemaLimits | None" = None
 
     def validate(self, data_model_dir: Path, data_model_file: Path) -> InsightList:
         """Validates a data model using Neat and returns a list of insights.
@@ -53,7 +50,7 @@ class NeatPlugin:
         return self.issues_to_insights(orchestrator.issues)
 
     @classmethod
-    def issues_to_insights(cls, issues: NeatIssueList) -> InsightList:
+    def issues_to_insights(cls, issues: "NeatIssueList") -> InsightList:
         """Converts a list of Neat issues to a Toolkit insight list.
 
         Args:
@@ -77,7 +74,7 @@ class NeatPlugin:
         return insights
 
     @property
-    def cdf_limits(self) -> SchemaLimits:
+    def cdf_limits(self) -> "SchemaLimits":
         from cognite.neat._toolkit_adapter import SchemaLimits
 
         if not self._cdf_limits:
@@ -85,7 +82,7 @@ class NeatPlugin:
         return self._cdf_limits
 
     @property
-    def cdf_snapshot(self) -> SchemaSnapshot:
+    def cdf_snapshot(self) -> "SchemaSnapshot":
         from cognite.neat._data_model._snapshot import SchemaSnapshot
 
         if not self._cdf_snapshot:
@@ -95,5 +92,4 @@ class NeatPlugin:
     @classmethod
     def installed(cls) -> bool:
         """Check if neat is installed"""
-
-        return importlib.util.find_spec("cognite.neat") is not None
+        return find_spec("cognite.neat") is not None

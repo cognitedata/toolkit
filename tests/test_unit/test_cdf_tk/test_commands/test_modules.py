@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import zipfile
 from pathlib import Path
@@ -305,28 +304,6 @@ class TestModulesCommand:
         assert isinstance(excinfo.value.__cause__, OSError)
         assert "No space left on device" in str(excinfo.value.__cause__)
 
-    def test_checksum_format_cdf_27407_skipped(self, tmp_path: Path) -> None:
-        invalid_checksum = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-        ModulesCommand(module_source_dir=COMPLETE_ORG_MODULES)._validate_checksum(
-            invalid_checksum, Path(tmp_path / "test_file.zip")
-        )
-
-    def test_checksum_success(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        file_path = tmp_path / "test_file.zip"
-        dummy_file_content = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-        file_path.write_bytes(dummy_file_content)
-
-        expected_checksum = f"sha256:{hashlib.sha256(dummy_file_content).hexdigest()}"
-
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG / MODULES)
-        try:
-            cmd._validate_checksum(
-                checksum=expected_checksum,
-                file_path=file_path,  # Pass the correct Path object
-            )
-        except ToolkitError as e:
-            pytest.fail(f"'_validate_checksum' raised an unexpected ToolkitError: {e}")
-
     def test_download_deletes_existing_file(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Test that _download method deletes existing zip files before downloading."""
         # Create a stale zip file that should be deleted
@@ -398,17 +375,6 @@ class TestModulesCommand:
         import shutil
 
         shutil.rmtree(mock_module_dir)
-
-    def test_checksum_mismatch_cdf_27407_no_warning(self, tmp_path: Path) -> None:
-        file_path = tmp_path / "mismatch.zip"
-        file_bytes = b"dummy-bytes-for-checksum-test"
-        file_path.write_bytes(file_bytes)
-        wrong_checksum = "sha256:" + hashlib.sha256(b"some-other-content").hexdigest()
-
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True, module_source_dir=COMPLETE_ORG / MODULES)
-        cmd._validate_checksum(wrong_checksum, file_path)
-
-        assert len(cmd.warning_list) == 0
 
     def test_list_json_output_is_parseable(self, tmp_path: Path, monkeypatch: MonkeyPatch, capsys) -> None:
         location = MagicMock()
