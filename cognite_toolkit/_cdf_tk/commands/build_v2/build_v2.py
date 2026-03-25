@@ -398,6 +398,10 @@ class BuildV2Command(ToolkitCommand):
         crud_class: type[ResourceCRUD],
         variables: list[BuildVariable],
     ) -> ReadYAMLFile:
+        # The file hash has to be calculated here as the .safe_read
+        # modifies the content for certain kinds of resources such at for example data modeling resources that have
+        # version.
+        file_hash = calculate_hash(resource_file, shorten=True)
         try:
             content = crud_class.safe_read(resource_file)
         except Exception as read_error:
@@ -421,8 +425,6 @@ class BuildV2Command(ToolkitCommand):
                 code="YAML-PARSE-ERROR",
                 error=f"Failed to parse YAML content: {yaml_error!s}",
             )
-
-        file_hash = calculate_hash(content, shorten=True)
 
         resource_type = ResourceType(resource_folder=crud_class.folder_name, kind=crud_class.kind)
         args: dict[str, Any] = dict(
