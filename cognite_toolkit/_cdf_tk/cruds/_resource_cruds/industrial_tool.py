@@ -181,7 +181,7 @@ class StreamlitCRUD(ResourceCRUD[ExternalId, StreamlitRequest, StreamlitResponse
         )
         filestem = filepath.stem
         if filestem.lower().endswith(self.kind.lower()):
-            filestem = filestem[: -len(self.kind.lower())]
+            filestem = filestem[: -len(self.kind.lower())].rstrip(".")
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
         for item in raw_list:
             external_id = self.get_id(item).external_id

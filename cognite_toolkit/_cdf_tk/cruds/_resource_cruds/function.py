@@ -150,7 +150,7 @@ class FunctionCRUD(ResourceCRUD[ExternalId, FunctionRequest, FunctionResponse]):
         raw_list = super().load_resource_file(filepath, environment_variables)
         filestem = filepath.stem
         if filestem.lower().endswith(self.kind.lower()):
-            filestem = filestem[: -len(self.kind)]
+            filestem = filestem[: -len(self.kind)].rstrip(".")
 
         if self.use_filio:
             for item in raw_list:
