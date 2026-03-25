@@ -54,6 +54,7 @@ from cognite_toolkit._cdf_tk.cruds import (
     RESOURCE_CRUD_BY_FOLDER_NAME,
     ResourceCRUD,
 )
+from cognite_toolkit._cdf_tk.cruds._base_cruds import SuccessExtra
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.rules import RulesOrchestrator
@@ -505,9 +506,18 @@ class BuildV2Command(ToolkitCommand):
                 index = resource_counter[file.resource_type]
                 source_stem = file.source_path.stem.rsplit(".", maxsplit=1)[0]
                 identifier_filename = sanitize_filename(str(resource.identifier))
-                filename = f"{index}-{source_stem}-{identifier_filename}.{file.resource_type.kind}.yaml"
+                filestem = f"{index}-{source_stem}-{identifier_filename}"
+                filename = f"{filestem}.{file.resource_type.kind}.yaml"
                 destination_path = folder / filename
                 safe_write(destination_path, yaml_safe_dump(resource.raw), encoding=BUILD_FOLDER_ENCODING)
+                for extra_file in resource.extra_files:
+                    if not isinstance(extra_file, SuccessExtra):
+                        continue
+                    extra_path = folder / f"{filestem}{extra_file.suffix}"
+                    if extra_file.content:
+                        safe_write(extra_path, extra_file.content, encoding=BUILD_FOLDER_ENCODING)
+                    elif extra_file.byte_content:
+                        extra_path.write_bytes(extra_file.byte_content)
 
                 crud_cls = file.resource_type.crud_cls
                 if resource.validated:
