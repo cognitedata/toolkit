@@ -19,8 +19,6 @@ from pathlib import Path
 from typing import Any, Literal, final
 
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
-from cognite_toolkit._cdf_tk.client.cdf_client import ResponseItems
-from cognite_toolkit._cdf_tk.client.http_client import RequestMessage
 from cognite_toolkit._cdf_tk.client.identifiers import (
     ExternalId,
     InternalOrExternalId,
@@ -195,14 +193,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
 
     def _try_upload_file_content(self, response: FileMetadataResponse) -> None:
         if response.filepath and response.upload_url:
-            fileupoad = RequestMessage(
-                endpoint_url=response.upload_url,
-                method="PUT",
-                content_type=response.mime_type or "application/octet-stream",
-                data_content=response.filepath.read_bytes(),
-            )
-            upload_response = self.client.http_client.request_single_retries(fileupoad)
-            upload_response.get_success_or_raise(fileupoad)
+            self.client.tool.filemetadata.upload_file(response.filepath, response.upload_url, response.mime_type)
 
     def retrieve(self, ids: Sequence[ExternalId]) -> list[FileMetadataResponse]:
         return self.client.tool.filemetadata.retrieve(list(ids), ignore_unknown_ids=True)
@@ -223,21 +214,12 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
                     != (item.metadata or {})[self._MetadataKey.filecontent_hash]
                 ):
                     # Need to reupload the file content
-                    url_request = RequestMessage(
-                        endpoint_url=self.client.config.create_api_url("/files/uploadlink"),
-                        method="POST",
-                        body_content={
-                            "items": {"externalId": item.external_id},
-                        },
-                    )
-                    url_response = self.client.http_client.request_single_retries(url_request)
-                    responses_with_url = ResponseItems[FileMetadataResponse].model_validate(url_response).items
+                    responses_with_url = self.client.tool.filemetadata.get_upload_url([item.as_id()])
                     if len(responses_with_url) != 0:
                         raise RuntimeError(
                             f"Expected to get one upload url for file with external id {item.external_id}, but got {len(responses_with_url)}"
                         )
-                    response_with_url = responses_with_url[0]
-                    self._try_upload_file_content(response_with_url)
+                    self._try_upload_file_content(responses_with_url[0])
         return responses
 
     def delete(self, ids: Sequence[InternalOrExternalId]) -> int:

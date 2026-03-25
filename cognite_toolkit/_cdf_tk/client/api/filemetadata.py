@@ -1,6 +1,7 @@
 import builtins
 import time
 from collections.abc import Iterable, Sequence
+from pathlib import Path
 from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.client.cdf_client import CDFResourceAPI, PagedResponse, ResponseItems
@@ -272,3 +273,28 @@ class FileMetadataAPI(CDFResourceAPI[FileMetadataResponse]):
             time.sleep(max(0, to_sleep))
             sleep_time *= 2
         return to_check, elapsed_time
+
+    def upload_file(self, filepath: Path, upload_url: str, mime_type: str | None = None) -> None:
+        fileupoad = RequestMessage(
+            endpoint_url=upload_url,
+            method="PUT",
+            content_type=mime_type or "application/octet-stream",
+            data_content=filepath.read_bytes(),
+        )
+        upload_response = self._http_client.request_single_retries(fileupoad)
+        upload_response.get_success_or_raise(fileupoad)
+
+    def get_upload_url(self, items: Sequence[ExternalId | InstanceId]) -> builtins.list[FileMetadataResponse]:
+        """Get a URL to upload a file to CDF for one or more file metadata entries."""
+        results: list[FileMetadataResponse] = []
+        for item in items:
+            # The API only supports one
+            url_request = RequestMessage(
+                endpoint_url=self._http_client.config.create_api_url("/files/uploadlink"),
+                method="POST",
+                body_content={"items": [item.dump()]},
+            )
+            url_response = self._http_client.request_single_retries(url_request)
+            responses_with_url = ResponseItems[FileMetadataResponse].model_validate(url_response).items
+            results.extend(responses_with_url)
+        return results
