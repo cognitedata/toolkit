@@ -32,7 +32,6 @@ CogniteFileResponse:
   - properties:
       mimeType: text/plain
       name: filecontent.txt
-      sourceContext: 'cognite-toolkit-hash: c534b08e'
       sourceCreatedTime: '2020-01-01T00:00:00Z'
       sourceCreatedUser: MySelf
       sourceUpdatedTime: '2021-01-01T00:00:00Z'
@@ -52,7 +51,6 @@ CogniteFileResponse:
   - properties:
       mimeType: text/plain
       name: my.CogniteFile.yaml
-      sourceContext: 'cognite-toolkit-hash: 730c391d'
       tags:
       - tag1
       - tag2
@@ -321,7 +319,6 @@ FileMetadataResponse:
   directory: /files
   externalId: classicFileMetadata
   metadata:
-    cognite-toolkit-hash: 79de33a8
     origin: cognite-toolkit
   mimeType: text/plain
   name: classicfile.txt
