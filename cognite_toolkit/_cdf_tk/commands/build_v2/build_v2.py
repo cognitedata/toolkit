@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 from collections import Counter, defaultdict
 from collections.abc import Sequence
@@ -479,9 +480,19 @@ class BuildV2Command(ToolkitCommand):
             )
         return SuccessfulReadYAMLFile(syntax_warning=syntax_warning, resources=read_resources, **args)
 
-    def _substitute_variables_in_content(self, content: str, variables: list[BuildVariable]) -> str:
-        # Todo: Support variable substitution in content.
-        raise NotImplementedError()
+    @classmethod
+    def _substitute_variables_in_content(cls, content: str, variables: list[BuildVariable]) -> str:
+        for variable in variables:
+            replace = variable.value
+            pattern = rf"{{{{\s*{variable.name}\s*}}}}"
+            # Preserve data types for YAML
+            if isinstance(replace, str) and (replace.isdigit() or replace.endswith(":")):
+                replace = f'"{replace}"'
+                pattern = rf"'{pattern}'|{pattern}|" + rf'"{pattern}"'
+            elif replace is None:
+                replace = "null"
+            content = re.sub(pattern, str(replace), content)
+        return content
 
     def _create_syntax_warning(self, error: ValidationError) -> ModelSyntaxWarning:
         errors = humanize_validation_error(error)
