@@ -68,6 +68,14 @@ class ModulesApp(typer.Typer):
                 help="URL of the library to add to the project.",
             ),
         ] = None,
+        library_checksum: Annotated[
+            str | None,
+            typer.Option(
+                "--library-checksum",
+                "-c",
+                help="Library zip checksum (optional; accepted for compatibility, not verified).",
+            ),
+        ] = None,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -91,6 +99,7 @@ class ModulesApp(typer.Typer):
                     select_all=all,
                     clean=clean,
                     library_url=library_url,
+                    library_checksum=library_checksum,
                 )
             )
 
