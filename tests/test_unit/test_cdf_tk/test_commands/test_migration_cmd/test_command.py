@@ -33,6 +33,13 @@ from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import ChartData, ChartSource, ChartTimeseries
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import InstanceSource, NodeRequest, ViewId
 from cognite_toolkit._cdf_tk.client.resource_classes.migration import InstanceSource as LegacyInstanceSource
+from cognite_toolkit._cdf_tk.client.resource_classes.streams import (
+    LifecycleObject,
+    LimitsObject,
+    ResourceUsage,
+    StreamResponse,
+    StreamSettings,
+)
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands._migrate.command import MigrationCommand
 from cognite_toolkit._cdf_tk.commands._migrate.data_mapper import (
@@ -1044,3 +1051,42 @@ class TestMigrationCommand:
         actual = MigrationCommand._create_logfile_stem(tmp_path, stem, "not_important")
 
         assert actual == expected
+
+    def _make_stream(
+        self, provisioned_records: int, consumed_records: int, provisioned_gb: float = 100.0, consumed_gb: float = 0.0
+    ) -> StreamResponse:
+        return StreamResponse(
+            external_id="my_stream",
+            created_time=0,
+            created_from_template="t",
+            type="Mutable",
+            settings=StreamSettings(
+                lifecycle=LifecycleObject(retained_after_soft_delete="P30D"),
+                limits=LimitsObject(
+                    max_records_total=ResourceUsage(provisioned=provisioned_records, consumed=consumed_records),
+                    max_giga_bytes_total=ResourceUsage(provisioned=provisioned_gb, consumed=consumed_gb),
+                ),
+            ),
+        )
+
+    def test_validate_stream_capacity_sufficient(self) -> None:
+        stream = self._make_stream(provisioned_records=1_000_000, consumed_records=100_000)
+        cmd = MigrationCommand(silent=True)
+        with monkeypatch_toolkit_client() as client:
+            cmd.validate_stream_capacity(client, stream, 500_000)  # should not raise
+
+    def test_validate_stream_capacity_insufficient_records(self) -> None:
+        stream = self._make_stream(provisioned_records=1_000, consumed_records=900)
+        cmd = MigrationCommand(silent=True)
+        with monkeypatch_toolkit_client() as client:
+            with pytest.raises(ToolkitValueError, match="enough record capacity"):
+                cmd.validate_stream_capacity(client, stream, 200)
+
+    def test_validate_stream_capacity_insufficient_storage(self) -> None:
+        stream = self._make_stream(
+            provisioned_records=1_000_000, consumed_records=0, provisioned_gb=10.0, consumed_gb=10.0
+        )
+        cmd = MigrationCommand(silent=True)
+        with monkeypatch_toolkit_client() as client:
+            with pytest.raises(ToolkitValueError, match="enough storage capacity"):
+                cmd.validate_stream_capacity(client, stream, 1)

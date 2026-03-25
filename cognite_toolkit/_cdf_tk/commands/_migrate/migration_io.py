@@ -1,5 +1,9 @@
+import json
+from collections import defaultdict
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import ClassVar, Literal
+from typing import ClassVar, Literal, cast
+
+from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.http_client import (
@@ -18,6 +22,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import EdgeId, InstanceRequest, NodeId
 from cognite_toolkit._cdf_tk.client.resource_classes.pending_instance_id import PendingInstanceId
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     AssetMappingClassicResponse,
     AssetMappingDMRequestId,
@@ -25,6 +30,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import ThreeDMigrationRequest
 from cognite_toolkit._cdf_tk.constants import MISSING_EXTERNAL_ID, MISSING_INSTANCE_SPACE
+from cognite_toolkit._cdf_tk.cruds._resource_cruds.streams import StreamCRUD
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotImplementedError, ToolkitValueError
 from cognite_toolkit._cdf_tk.storageio import (
     AnnotationIO,
@@ -278,6 +284,115 @@ class AssetCentricMigrationIO(
         return PendingInstanceId(
             pending_instance_id=NodeId(space=item.space, external_id=item.external_id),
             id=id_,
+        )
+
+
+class RecordsMigrationIO(AssetCentricMigrationIO):
+    """IO class for migrating asset-centric resources to records.
+
+    Inherits all read-side logic (streaming, counting) from AssetCentricMigrationIO
+    and overrides only the upload path to target a records stream.
+    """
+
+    KIND = "RecordsMigration"
+    CHUNK_SIZE = 500
+    UPLOAD_ENDPOINT = "/streams/{streamId}/records"
+    FILTER_ENDPOINT = "/streams/{streamId}/records/filter"
+    # Records filter API: multivalued `in` filters allow at most 100 values (see API error range [1, 100]).
+    FILTER_IN_MAX_VALUES = 100
+
+    def __init__(self, client: ToolkitClient, stream_external_id: str, skip_existing: bool = False) -> None:
+        super().__init__(client)
+        self.stream_external_id = stream_external_id
+        self.skip_existing = skip_existing
+        self._last_updated_time_windows: list[dict[str, int] | None] | None = None
+        if skip_existing:
+            stream_crud = StreamCRUD.create_loader(self.client)
+            self._last_updated_time_windows = stream_crud.last_updated_time_windows(self.stream_external_id)
+
+    def _remove_existing(
+        self,
+        data_chunk: Sequence[DataItem[RecordRequest]],
+        http_client: HTTPClient,
+    ) -> list[DataItem[RecordRequest]]:
+        """Return upload items whose (space, externalId) are not already in the stream.
+
+        Marks skipped items on the logger tracker. Groups by space and queries the filter API per group.
+        """
+        if not data_chunk:
+            return []
+
+        last_updated_time_windows = self._last_updated_time_windows
+        assert last_updated_time_windows is not None
+
+        by_space: dict[str, list[DataItem[RecordRequest]]] = defaultdict(list)
+        for upload_item in data_chunk:
+            by_space[upload_item.item.space].append(upload_item)
+
+        existing_pairs: set[tuple[str, str]] = set()
+        filter_url = self.client.config.create_api_url(self.FILTER_ENDPOINT.format(streamId=self.stream_external_id))
+
+        for space, items in by_space.items():
+            external_ids = [upload_item.item.external_id for upload_item in items]
+            for id_batch in chunker_sequence(external_ids, self.FILTER_IN_MAX_VALUES):
+                batch_list = list(id_batch)
+                for last_updated_time in last_updated_time_windows:
+                    body = cast(
+                        dict[str, JsonValue],
+                        {
+                            "filter": {
+                                "and": [
+                                    {"equals": {"property": ["space"], "value": space}},
+                                    {"in": {"property": ["externalId"], "values": batch_list}},
+                                ]
+                            },
+                            "limit": min(len(batch_list), 1000),
+                        },
+                    )
+                    if last_updated_time is not None:
+                        body["lastUpdatedTime"] = cast(JsonValue, last_updated_time)
+                    request = RequestMessage(
+                        endpoint_url=filter_url,
+                        method="POST",
+                        body_content=body,
+                    )
+                    result = http_client.request_single_retries(request)
+                    response = result.get_success_or_raise(request)
+                    payload = json.loads(response.body)
+                    for record in payload.get("items") or []:
+                        record_space = record.get("space")
+                        external_id = record.get("externalId")
+                        if isinstance(record_space, str) and isinstance(external_id, str):
+                            existing_pairs.add((record_space, external_id))
+
+        to_upload: list[DataItem[RecordRequest]] = []
+        for upload_item in data_chunk:
+            pair = (upload_item.item.space, upload_item.item.external_id)
+            if pair in existing_pairs:
+                self.logger.tracker.finalize_item(upload_item.tracking_id, "skipped")
+            else:
+                to_upload.append(upload_item)
+
+        return to_upload
+
+    def upload_items(
+        self,
+        data_chunk: Sequence[DataItem[RecordRequest]],  # type: ignore[override]
+        http_client: HTTPClient,
+        selector: AssetCentricMigrationSelector | None = None,
+    ) -> ItemsResultList:
+        if self.skip_existing:
+            data_chunk = self._remove_existing(data_chunk, http_client)
+            if not data_chunk:
+                return ItemsResultList()
+
+        endpoint = self.UPLOAD_ENDPOINT.format(streamId=self.stream_external_id)
+        return http_client.request_items_retries(
+            message=ItemsRequest(
+                endpoint_url=self.client.config.create_api_url(endpoint),
+                method="POST",
+                items=data_chunk,
+            )
         )
 
 

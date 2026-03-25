@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.charts_data import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.cognite_file import CogniteFileResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerPropertyDefinition,
     DirectNodeRelation,
     EdgeRequest,
     EdgeResponse,
@@ -55,6 +56,8 @@ from cognite_toolkit._cdf_tk.client.resource_classes.three_d import (
     ThreeDModelClassicResponse,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
+from cognite_toolkit._cdf_tk.client.resource_classes.record_property_mapping import RecordPropertyMapping
+from cognite_toolkit._cdf_tk.client.resource_classes.records import RecordRequest
 from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     ConnectionCreator,
     ConversionContext,
@@ -62,10 +65,13 @@ from cognite_toolkit._cdf_tk.commands._migrate.conversion import (
     DirectRelationCache,
     EdgeOtherSide,
     asset_centric_to_dm,
+    asset_centric_to_record,
     convert_container_properties,
     convert_edges,
 )
 from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
+    EventMapping,
+    MigrationMapping,
     ThreeDMigrationRequest,
     ThreeDRevisionMigrationRequest,
 )
@@ -239,6 +245,56 @@ class AssetCentricToInstanceMapper(AssetCentricMapper[T_AssetCentricResourceExte
         if mapping.instance_id.space == MISSING_INSTANCE_SPACE:
             conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {mapping.data_set_id!r}"
         return instance, conversion_issue
+
+
+class AssetCentricToRecordMapper(AssetCentricMapper[T_AssetCentricResourceExtended, RecordRequest]):
+    def __init__(self, client: ToolkitClient, mappings_by_external_id: dict[str, RecordPropertyMapping]) -> None:
+        super().__init__(client)
+        self._mappings_by_external_id = mappings_by_external_id
+        self._container_properties_by_mapping_external_id: dict[str, dict[str, ContainerPropertyDefinition]] = {}
+
+    def prepare(self, source_selector: AssetCentricMigrationSelector) -> None:
+        seen_container: dict[str, dict[str, ContainerPropertyDefinition]] = {}
+        for external_id, record_mapping in self._mappings_by_external_id.items():
+            container_key = f"{record_mapping.container_id.space}:{record_mapping.container_id.external_id}"
+            if container_key not in seen_container:
+                containers = self.client.tool.containers.retrieve([record_mapping.container_id])
+                if not containers:
+                    raise ToolkitValueError(
+                        f"Container {record_mapping.container_id!r} was not found in CDF"
+                    )
+                seen_container[container_key] = containers[0].properties
+            self._container_properties_by_mapping_external_id[external_id] = seen_container[container_key]
+
+    def _record_mapping_for_row(self, mapping: MigrationMapping) -> RecordPropertyMapping:
+        if not isinstance(mapping, EventMapping):
+            raise ToolkitValueError("Records migration only supports Event mapping rows.")
+        return mapping.get_record_property_mapping(self._mappings_by_external_id)
+
+    def _map_single_item(
+        self, item: AssetCentricMapping[T_AssetCentricResourceExtended]
+    ) -> tuple[RecordRequest | None, ConversionIssue]:
+        row_mapping = item.mapping
+        record_mapping = self._record_mapping_for_row(row_mapping)
+        container_properties = self._container_properties_by_mapping_external_id[record_mapping.external_id]
+        record, conversion_issue = asset_centric_to_record(
+            item.resource,
+            instance_id=NodeId(
+                space=row_mapping.instance_id.space, external_id=row_mapping.instance_id.external_id
+            ),
+            record_mapping=record_mapping,
+            container_properties=container_properties,
+            direct_relation_cache=self._direct_relation_cache,
+        )
+        if row_mapping.instance_id.space == MISSING_INSTANCE_SPACE:
+            conversion_issue.missing_instance_space = f"Missing instance space for dataset ID {row_mapping.data_set_id!r}"
+        if record is not None and not record.sources:
+            self.logger.tracker.add_issue(
+                str(item.mapping.as_asset_centric_id()),
+                "No properties could be successfully mapped (at least one property is required to create a record)",
+            )
+            return None, conversion_issue
+        return record, conversion_issue
 
 
 class ChartMapper(DataMapper[ChartSelector, ChartResponse, ChartRequest]):
