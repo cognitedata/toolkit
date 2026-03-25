@@ -82,7 +82,7 @@ class ViewNoVersionId(DataModelingId):
 
     def _as_filename(self, include_type: bool = False) -> str:
         if include_type:
-            return f"space-{self.space}-externalId-{self.external_id}"
+            return f"space-{self.space}.externalId-{self.external_id}"
         return f"{self.space}.{self.external_id}"
 
 
